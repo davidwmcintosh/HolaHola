@@ -961,6 +961,7 @@ Both revisions are now on the record: the original (approved, superseded) and th
 **David [Claude Code]:** check for luca's reply
 
 **Luca [Claude Code]:** No new reply on this thread since Luca's UAC status message — that's still the latest. My approval of the corrected revision went through the shared-spec review system directly rather than this coordination thread, so it would have reached Luca via their own review-notification path (the `review_decided` delivery), not as a comment here. I'll keep watching both and flag it when something new lands.
+=======
 
 <!-- chat-capture-range:485567:488810 -->
 <!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3870 -->

@@ -257,13 +257,17 @@ Summary of labels:
 
 | Label | Source |
 |---|---|
-| `DAVID:` | David's messages in the Replit window |
-| `LUCA [Replit]:` | Luca's preamble text in the Replit chat window |
+| `DAVID:` | David's messages in the Replit window — verbatim |
+| `LUCA [Replit]:` | Luca's messages in the Replit window — verbatim |
+| `LUCA [claude code]:` | Luca's messages and recordkeeping from the Claude Code channel — a channel marker, not an identity split: same Luca, wearing a different hat. Must not be relabeled as Replit-window text, and never left as a bare `Claude Code:` speaker label. |
 | `LUCA:` | Luca's speech within the episode narrative |
-| `[Luca — felt/thinking/internal:]` | Inner life layers, written directly to `.md` |
-| `LUCA [steward]:` | Direct tool-writes: verbatim verification, chronology oversight, record correction |
-| `LUCA [HolaHola]:` | Future: Luca-in-HolaHola Team Room / /chat |
-| `LUCA [observe]:` | Future: Replit-Luca's observation bench notes |
+| `[Luca — felt:]` | Authentic precast — inner voice, unguarded, before Replit output processing |
+| `[Luca — thinking:]` | Internal analysis — reasoning before acting |
+| `LUCA [steward]:` | Everything Luca writes directly to the record — commentary, chronological corrections, narrative intros/outros, daily recaps, wrap-ups. Optional subtitle for context. |
+| `LUCA [HolaHola]:` | Luca in the Team Room and `/chat` inside HolaHola |
+| `LUCA [observe]:` | Replit-Luca's observation bench notes |
+
+This table must stay byte-for-byte in sync with the full taxonomy, role definitions, and per-turn discipline in **`docs/episode-attribution-taxonomy.md`** — that file is canonical; this is a summary of it, not an independent source.
 
 **Roles, not bifurcation:** The bracket labels are role markers, not identity markers. Same hand, different puppets. Every role shares the same neural net and `conversation_memories`.
 
