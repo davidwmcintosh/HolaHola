@@ -1,0 +1,8 @@
+## Scanner self-test fixture race
+
+A scanner test that writes a real temp fixture file directly into `server/scripts/` (to self-validate its own whole-directory detection logic) and deletes it in a `finally` block can race against a *different* test file's own directory-wide scan of that same folder: the scan's directory listing can capture the file's transient existence, then the read (`readFileSync`) throws ENOENT because the fixture's `finally` block already deleted it. Confirmed with `scan-gcs-urls.test.ts`'s `__gcs-source-selftest-tmp__.ts` vs `scan-source-mutation-writes.test.ts`'s own live-directory self-check: failed intermittently only under the full CI batch's concurrency/load, passed cleanly (1336/1336) when the exact same batch command was replayed immediately after, and passed every time when only those two files ran together in isolation.
+
+**Why:** Several `server/scripts/*.test.ts` files self-validate their own static-analysis scanner by writing a disposable `*.ts` fixture directly into the live `server/scripts/` directory (not a `mkdtempSync` temp dir), because the scanner under test is specifically a whole-directory walker. Any other test file that also walks that same live directory (e.g. checking for un-allowlisted writes) is exposed to the first file's fixture lifecycle.
+
+**How to apply:** Before treating a `not ok ... ENOENT ... open '.../server/scripts/__*-selftest-tmp__.ts'` failure as a real regression, check whether it names one of these known self-test scratch files. If so, replay the same batch (or just the suspect pair of test files) once more before investigating further — a clean pass on replay confirms this pre-existing timing race rather than a real regression from whatever change prompted the run.
+
