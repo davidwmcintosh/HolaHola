@@ -150,3 +150,6 @@
 - [Coordinator V2 vs legacy Gate3 task-ownership](coordinator-v2-vs-gate3-ownership.md) — Command Center Ownership tab is a separate legacy system; V2 launch needs policy+grant, not task-ownership receipts.
 - [Coordinator V2 real-run readiness](coordinator-v2-real-run-readiness.md) — host enrollment + source-promotion done; windowsPublicMaterialDigest circular-hash bug fixed Sep 18 2026 (see digest-fix section); policy authoring is the remaining real step.
 - [Compacted-summary reverification](compacted-summary-reverification.md) — milestone labels/status claims carried in a post-compaction summary are unverified leads, not facts; re-check before repeating them.
+- [Chat-capture attribution write paths](chat-capture-duplicate-attribution-paths.md) — 3 independent DB-writers duplicate title/participants derivation; fixing one doesn't fix the others.
+- [Drizzle sql tag array binding](drizzle-sql-array-literal-binding.md) — db.execute(sql\`...\`) can't bind a raw JS array for ::text[]; build a Postgres array-literal string instead.
+- [process.exit() bypasses finally](process-exit-bypasses-finally.md) — a test's process.exit(1) inside try skips its own fixture cleanup, silently poisoning the next run's fixture state.

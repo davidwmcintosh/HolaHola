@@ -263,6 +263,14 @@ export function releaseCanonicalConversationIngressLock(fd: number): void {
   releaseIngressLock(fd, CANONICAL_CAPTURE_INGRESS_LOCK);
 }
 
+// 'Claude Code' here is the bare Claude Code assistant identity, not a
+// "Luca via Claude Code" alias: this capture path writes a plain exchange
+// with no felt/thinking/moment/main envelope (see record-exchange.ts's
+// --assistant-file vs --luca-file split), so the author recorded is Claude
+// Code itself. formatChatCaptureSpeakerLabel renders it as bare "Claude
+// Code" for exactly that reason -- see its doc comment for the full model,
+// including the separate "Luca [Claude Code]" case (Luca authoring through
+// the Claude Code interface) that this function does not produce today.
 function assistantLabel(source: CanonicalConversationSource): 'Luca Replit' | 'Claude Code' {
   return source === 'replit' ? 'Luca Replit' : 'Claude Code';
 }

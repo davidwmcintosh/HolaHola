@@ -41,7 +41,47 @@ import {
   parseChatCaptureFromOffset,
   acquireCursorLock,
   releaseCursorLock,
+  type DialogueTurn,
 } from '../services/transcript-parser';
+
+// Row-level participants/title for a .chat_capture batch, mirroring
+// capture-watchdog.ts's writeToDb model: derive both from actual per-turn
+// `speaker` (not a source/format-only check), so a batch containing a
+// genuine Claude Code turn is never mislabeled "Luca" in its title/
+// participants while its body (buildDialogueChunk, via
+// formatChatCaptureSpeakerLabel) correctly renders it as bare "Claude Code".
+// `speaker` answers WHO authored a turn; `source` only ever picks the
+// interface suffix for a Luca turn. This does NOT apply to the JSONL-
+// transcript path below (extractTurns) — that legacy format predates
+// Claude Code capture and its parser only ever emits DAVID/LUCA speakers.
+// See formatChatCaptureSpeakerLabel in transcript-parser.ts for the full
+// three-way model this mirrors.
+type ChatCaptureAssistantKind = 'claude-code' | 'luca-claude-code' | 'luca';
+function chatCaptureTurnKind(t: Pick<DialogueTurn, 'speaker' | 'source'>): ChatCaptureAssistantKind | 'david' {
+  if (t.speaker === 'DAVID') return 'david';
+  if (t.speaker === 'CLAUDE_CODE') return 'claude-code';
+  return t.source === 'claude-code' ? 'luca-claude-code' : 'luca';
+}
+const CHAT_CAPTURE_ASSISTANT_TITLE: Record<ChatCaptureAssistantKind, string> = {
+  'claude-code': 'Claude Code',
+  'luca-claude-code': 'Luca [Claude Code]',
+  luca: 'Luca',
+};
+function chatCaptureAssistantKinds(batchTurns: Array<Pick<DialogueTurn, 'speaker' | 'source'>>): ChatCaptureAssistantKind[] {
+  return [...new Set(batchTurns.map(chatCaptureTurnKind).filter((k): k is ChatCaptureAssistantKind => k !== 'david'))];
+}
+function chatCaptureBatchTitle(batchTurns: Array<Pick<DialogueTurn, 'speaker' | 'source'>>, today: string, suffix: string): string {
+  const assistantKinds = chatCaptureAssistantKinds(batchTurns);
+  const who = assistantKinds.length > 0
+    ? `David ↔ ${assistantKinds.map(k => CHAT_CAPTURE_ASSISTANT_TITLE[k]).join(' + ')}`
+    : 'David';
+  return `${who} — ${today}: ${suffix}`;
+}
+/** Postgres array-literal string for a text[] parameter bound through drizzle's sql tag (matches agent-session-autosave.ts's participantsArray). */
+function chatCaptureBatchParticipants(batchTurns: Array<Pick<DialogueTurn, 'speaker' | 'source'>>): string {
+  const values = ['david', ...chatCaptureAssistantKinds(batchTurns)];
+  return `{${values.map(v => `"${v.replace(/"/g, '\\"')}"`).join(',')}}`;
+}
 
 const FLUSH_PATH        = join(WORKSPACE, '.local/.flush_transcript');
 const HEALTH_URL        = 'http://localhost:5000/api/health';
@@ -176,9 +216,10 @@ async function saveNow(context: string): Promise<void> {
           throw new Error(`[SaveTranscriptNow] (saveNow) endOffset undefined for includedCount=${includedCount}`);
         }
 
-        const davidCount = remaining.slice(0, includedCount).filter(t => t.speaker === 'DAVID').length;
-        const title   = `David ↔ Luca — ${today}: ${contextLabel}`;
-        const summary = `Verbatim David↔Luca dialogue (per-turn append, session-end flush). ${davidCount} David turn(s), ${includedCount - davidCount} Luca turn(s). Cursor ${startCursor}→${endOffset}.`;
+        const batchTurns = remaining.slice(0, includedCount);
+        const davidCount = batchTurns.filter(t => t.speaker === 'DAVID').length;
+        const title   = chatCaptureBatchTitle(batchTurns, today, contextLabel);
+        const summary = `Verbatim David↔Luca dialogue (per-turn append, session-end flush). ${davidCount} David turn(s), ${includedCount - davidCount} assistant turn(s). Cursor ${startCursor}→${endOffset}.`;
 
         const db = getSharedDb();
         const result = await db.execute(sql`
@@ -189,7 +230,7 @@ async function saveNow(context: string): Promise<void> {
             ${title},
             ${summary},
             ${dialogue},
-            ARRAY['david', 'luca']::text[],
+            ${chatCaptureBatchParticipants(batchTurns)}::text[],
             ARRAY['david-luca-chat', 'verbatim', 'per-turn', 'chat-capture', 'session-end-flush']::text[],
             8,
             NOW(),
@@ -292,9 +333,10 @@ async function saveChatCaptureWithLock(lockFd: number, _context: string): Promis
         throw new Error(`[SaveTranscriptNow] endOffset undefined for includedCount=${includedCount}, offsets.length=${remainingOffsets.length}`);
       }
 
-      const davidCount = remaining.slice(0, includedCount).filter((t: any) => t.speaker === 'DAVID').length;
-      const title      = `David ↔ Luca — ${today}: per-turn capture`;
-      const summary    = `Verbatim David↔Luca per-turn capture. ${davidCount}D + ${includedCount - davidCount}L turns. Cursor ${startCursor}→${endOffset}.`;
+      const batchTurns = remaining.slice(0, includedCount);
+      const davidCount = batchTurns.filter(t => t.speaker === 'DAVID').length;
+      const title      = chatCaptureBatchTitle(batchTurns, today, 'per-turn capture');
+      const summary    = `Verbatim David↔Luca per-turn capture. ${davidCount}D + ${includedCount - davidCount} assistant turns. Cursor ${startCursor}→${endOffset}.`;
 
       const db = getSharedDb();
       const result = await db.execute(sql`
@@ -305,7 +347,7 @@ async function saveChatCaptureWithLock(lockFd: number, _context: string): Promis
           ${title},
           ${summary},
           ${dialogue},
-          ARRAY['david', 'luca']::text[],
+          ${chatCaptureBatchParticipants(batchTurns)}::text[],
           ARRAY['david-luca-chat', 'verbatim', 'per-turn', 'chat-capture']::text[],
           8,
           NOW(),
