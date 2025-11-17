@@ -100,6 +100,46 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### November 17, 2025 - Voice Chat Feature Implementation
+**Status**: ✅ Complete with documented limitations
+
+**Voice Chat Features**:
+- Real-time voice conversations using OpenAI Realtime API
+- WebSocket proxy on backend for secure API key management
+- Audio recording and playback with proper PCM16 encoding
+- Voice activity detection (VAD) for natural turn-taking
+- Live transcription of user and AI speech
+- Visual feedback for recording and AI speaking states
+- Toggle between text and voice conversation modes
+- Automatic capability detection with graceful degradation
+
+**Technical Implementation**:
+- Frontend: VoiceChat component with WebSocket connection to backend proxy
+- Backend: WebSocket server that forwards connections to OpenAI Realtime API
+- Audio utilities: PCM16 encoding/decoding for Realtime API compatibility
+- Capability check: Detects API availability before enabling voice mode
+- Error handling: Clear messaging when voice chat unavailable
+- Browser compatibility: Uses Web Audio API for recording/playback
+
+**Critical Fixes Applied**:
+- Fixed PCM16 audio encoding using proper Int16Array conversion
+- Implemented WebSocket connection timeout and error handling
+- Added capability check endpoint that detects Replit AI Integrations
+- Improved error messaging and UI states
+- Disabled voice button when API unavailable
+
+**Known Limitations**:
+- **Critical**: Requires OpenAI Realtime API access - NOT available through Replit AI Integrations
+  - Replit AI Integrations only support Chat Completions API
+  - Users must provide their own OpenAI API key with Realtime access
+  - Text-based chat remains fully functional as alternative
+- Browser microphone permissions required
+- WebSocket connection stability depends on network conditions  
+- Modern browser required (Chrome, Firefox, Safari, Edge)
+- Best performance on desktop; mobile may have limitations
+
+**Setup Guide**: See `docs/voice-chat-setup.md` for detailed configuration and troubleshooting
+
 ### November 17, 2025 - Full Application Implementation
 **Status**: ✅ Complete and tested
 
