@@ -100,6 +100,51 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### November 17, 2025 - Adaptive Multi-Phase Conversation System
+**Status**: ✅ Complete and tested
+
+**Feature Overview**:
+The AI tutor now uses an intelligent three-phase approach to assess and adapt to each student's actual proficiency level, creating a more natural and personalized learning experience.
+
+**Phase 1: English Assessment (Messages 1-5)**
+- Tutor starts every conversation in English
+- Asks probing questions to understand student's background:
+  - "Have you studied [language] before?"
+  - "Can you introduce yourself in [language]?"
+  - "What topics can you discuss comfortably?"
+- Observes both English responses and any target language attempts
+- Builds rapport through friendly conversation, not formal testing
+
+**Phase 2: Gradual Transition (Messages 6-11)**
+- Begins mixing target language with English (30-50% target language)
+- Provides English translations for new vocabulary
+- Adapts language ratio based on student responses
+- If student struggles: Uses more English, simpler phrases
+- If student succeeds: Increases target language usage and complexity
+
+**Phase 3: Immersive Practice (Message 12+)**
+- Switches to primarily target language (80-90%)
+- Uses selected difficulty level (beginner/intermediate/advanced) as baseline
+- Continues adapting based on real-time performance
+- Provides English support only for complex concepts or corrections
+
+**Technical Implementation**:
+- System prompt dynamically changes based on message count
+- Message count determines conversation phase automatically
+- AI receives phase-specific instructions for language ratio and teaching strategy
+- Adaptive difficulty adjusts within each phase based on student responses
+
+**Benefits**:
+- More natural conversation flow vs. selecting difficulty upfront
+- Personalized assessment of actual proficiency level
+- Gradual immersion reduces intimidation for beginners
+- Continuous adaptation ensures appropriate challenge level
+
+**Test Results**:
+- End-to-end testing confirmed all three phases work correctly
+- AI successfully transitions from English → mixed → immersive
+- Adaptive difficulty adjusts appropriately to student responses
+
 ### November 17, 2025 - Voice Chat Session Configuration Fix
 **Status**: ✅ Fixed and working with basic Realtime API access
 
