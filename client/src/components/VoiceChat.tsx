@@ -192,7 +192,60 @@ export function VoiceChat() {
             
           case "error":
             console.error('Realtime API error:', data);
-            setError(data.error?.message || 'An error occurred');
+            
+            // Parse error details
+            const errorType = data.error?.type || 'unknown';
+            const errorMessage = data.error?.message || 'An error occurred';
+            const errorCode = data.error?.code;
+            
+            // Create user-friendly error message based on error type
+            let friendlyMessage = '';
+            let suggestions: string[] = [];
+            
+            if (errorType === 'server_error') {
+              friendlyMessage = 'OpenAI servers are experiencing issues';
+              suggestions = [
+                'This is a temporary OpenAI server problem',
+                'Wait a few moments and try again',
+                'Use text chat mode in the meantime'
+              ];
+            } else if (errorType === 'invalid_request_error') {
+              friendlyMessage = 'Invalid API request';
+              suggestions = [
+                'Your API key may not have Realtime API access',
+                'Check your OpenAI account settings at platform.openai.com',
+                'Ensure you have Realtime API enabled on your account'
+              ];
+            } else if (errorType === 'authentication_error') {
+              friendlyMessage = 'Authentication failed';
+              suggestions = [
+                'Your API key may be invalid or expired',
+                'Update your OPENAI_API_KEY environment variable',
+                'Check your OpenAI account status'
+              ];
+            } else if (errorCode === 'rate_limit_exceeded') {
+              friendlyMessage = 'Rate limit exceeded';
+              suggestions = [
+                'You have reached your API usage limit',
+                'Check your quota at platform.openai.com',
+                'Wait before trying again or upgrade your plan'
+              ];
+            } else {
+              friendlyMessage = errorMessage;
+              suggestions = [
+                'Try again in a moment',
+                'Use text chat mode as an alternative'
+              ];
+            }
+            
+            setError(JSON.stringify({
+              type: 'openai_error',
+              friendlyMessage,
+              suggestions,
+              technicalDetails: errorMessage,
+              errorType,
+              errorCode
+            }));
             break;
         }
       };
@@ -388,22 +441,99 @@ export function VoiceChat() {
       </ScrollArea>
 
       <div className="p-6 border-t">
-        {error && (
-          <div className="mb-4 p-4 bg-destructive/10 text-destructive rounded-lg">
-            <p className="font-medium mb-2">Voice Chat Unavailable</p>
-            <p className="text-sm mb-3">{error}</p>
-            <div className="text-sm text-muted-foreground space-y-2">
-              <p className="font-medium">Why is this happening?</p>
-              <p>The OpenAI Realtime API requires direct access and is not available through Replit AI Integrations.</p>
-              <p className="font-medium mt-3">What can I do?</p>
-              <ul className="list-disc list-inside space-y-1 ml-2">
-                <li>Use text-based chat mode (fully functional)</li>
-                <li>Provide your own OpenAI API key with Realtime API access</li>
-                <li>See docs/voice-chat-setup.md for setup instructions</li>
-              </ul>
+        {error && (() => {
+          try {
+            // Try to parse structured error
+            const errorData = JSON.parse(error);
+            if (errorData.type === 'openai_error') {
+              return (
+                <div className="mb-4 p-4 bg-destructive/10 text-destructive rounded-lg" data-testid="error-message">
+                  <p className="font-semibold mb-2 text-base">{errorData.friendlyMessage}</p>
+                  
+                  {errorData.suggestions && errorData.suggestions.length > 0 && (
+                    <div className="text-sm space-y-2 mt-3">
+                      <p className="font-medium">What you can do:</p>
+                      <ul className="list-disc list-inside space-y-1 ml-2">
+                        {errorData.suggestions.map((suggestion: string, idx: number) => (
+                          <li key={idx}>{suggestion}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {errorData.technicalDetails && (
+                    <details className="mt-3 text-xs">
+                      <summary className="cursor-pointer font-medium">Technical details</summary>
+                      <div className="mt-2 p-2 bg-background/50 rounded border">
+                        <p><strong>Error type:</strong> {errorData.errorType}</p>
+                        {errorData.errorCode && <p><strong>Error code:</strong> {errorData.errorCode}</p>}
+                        <p><strong>Message:</strong> {errorData.technicalDetails}</p>
+                      </div>
+                    </details>
+                  )}
+                  
+                  <div className="mt-4 flex gap-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => {
+                        setError(null);
+                        if (wsRef.current) {
+                          wsRef.current.close();
+                          wsRef.current = null;
+                        }
+                        connectToRealtimeAPI().catch((err) => {
+                          console.error('Retry failed:', err);
+                        });
+                      }}
+                      data-testid="button-retry-voice"
+                    >
+                      Try Again
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => setError(null)}
+                      data-testid="button-dismiss-error"
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                </div>
+              );
+            }
+          } catch {
+            // Fall through to simple error display
+          }
+          
+          // Simple error string fallback
+          return (
+            <div className="mb-4 p-4 bg-destructive/10 text-destructive rounded-lg" data-testid="error-message">
+              <p className="font-medium mb-2">Voice Chat Unavailable</p>
+              <p className="text-sm mb-3">{error}</p>
+              <div className="text-sm text-muted-foreground space-y-2">
+                <p className="font-medium">Why is this happening?</p>
+                <p>The OpenAI Realtime API requires direct access and is not available through Replit AI Integrations.</p>
+                <p className="font-medium mt-3">What can I do?</p>
+                <ul className="list-disc list-inside space-y-1 ml-2">
+                  <li>Use text-based chat mode (fully functional)</li>
+                  <li>Provide your own OpenAI API key with Realtime API access</li>
+                  <li>See docs/voice-chat-setup.md for setup instructions</li>
+                </ul>
+              </div>
+              <div className="mt-4">
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => setError(null)}
+                  data-testid="button-dismiss-error"
+                >
+                  Dismiss
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
         
         <div className="flex justify-center">
           <Button
