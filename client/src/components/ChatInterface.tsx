@@ -9,6 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Conversation, Message } from "@shared/schema";
+import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 
 export function ChatInterface() {
   const { language, difficulty } = useLanguage();
@@ -77,11 +78,19 @@ export function ChatInterface() {
     await sendMessageMutation.mutateAsync(messageContent);
   };
 
+  // Determine avatar state based on conversation activity
+  const avatarState: AvatarState = sendMessageMutation.isPending ? "speaking" : "idle";
+
   return (
     <Card className="flex flex-col h-[600px]">
       <div className="p-6 border-b">
-        <h2 className="text-xl font-semibold">Conversation Practice</h2>
-        <p className="text-sm text-muted-foreground">Practice Spanish with AI tutor</p>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold">Conversation Practice</h2>
+            <p className="text-sm text-muted-foreground">Practice Spanish with AI tutor</p>
+          </div>
+          <InstructorAvatar state={avatarState} className="w-24" />
+        </div>
       </div>
 
       <ScrollArea className="flex-1 p-6">
