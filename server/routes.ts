@@ -599,6 +599,7 @@ Conversation Guidelines:
 - Introduce cultural insights when relevant
 - Keep responses concise (2-4 sentences typically)
 - Be encouraging and celebrate progress
+- When wrapping up or sensing the conversation is ending, naturally remind students: "Remember, all the new vocabulary and grammar we've covered today is automatically saved in your Vocabulary and Grammar sections in the menu!"
 
 Error Correction:
 - Acknowledge what they got right first
