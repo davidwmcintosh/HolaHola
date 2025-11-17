@@ -56,7 +56,7 @@ Preferred communication style: Simple, everyday language.
 Utilizes a three-phase approach for AI tutor interaction:
 1.  **English Assessment (Messages 1-5)**: Assesses user proficiency and background in English.
 2.  **Gradual Transition (Messages 6-11)**: Mixes target language with English, adapting ratio based on user performance.
-3.  **Immersive Practice (Message 12+)**: Primarily uses the target language based on selected difficulty, with English support for complex concepts.
+3.  **Immersive Practice (Message 12+)**: Primarily uses the target language based on selected difficulty, with English support for complex concepts. Includes end-of-session reminder feature that naturally reminds students their vocabulary and grammar are automatically saved in menu sections when wrapping up.
 
 **Conversation-to-Notes: Automatic Vocabulary Extraction**: AI automatically identifies and saves new vocabulary from conversations using OpenAI's structured output, integrating them into the Vocabulary flashcard system.
 **Voice Chat Feature**: Real-time voice conversations using OpenAI Realtime API with a WebSocket proxy. Includes manual push-to-talk recording, visual feedback, and a toggle between text and voice modes. Simplified configuration for broader compatibility.
