@@ -57,21 +57,15 @@ export function setupRealtimeProxy(server: Server) {
       openaiWs.on('open', () => {
         console.log('Connected to OpenAI Realtime API');
         
-        // Send initial session configuration using GA API format
+        // Send initial session configuration using correct Realtime API format
         openaiWs.send(JSON.stringify({
           type: "session.update",
           session: {
-            type: "realtime",
-            model: "gpt-4o-realtime-preview-2024-12-17",
             modalities: ["text", "audio"],
             instructions: `You are a patient, friendly ${language} language tutor helping a ${difficulty} level student. Speak clearly in ${language}. Provide corrections gently and encourage the student.`,
-            audio: {
-              input: { format: "pcm16" },
-              output: { 
-                voice: "alloy",
-                format: "pcm16"
-              }
-            },
+            voice: "alloy",
+            input_audio_format: "pcm16",
+            output_audio_format: "pcm16",
             input_audio_transcription: {
               model: "whisper-1"
             },
