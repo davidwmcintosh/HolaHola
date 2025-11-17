@@ -131,6 +131,13 @@ export function VoiceChat() {
         };
 
       ws.onmessage = async (event) => {
+        // OpenAI Realtime API sends both text (JSON) and binary (audio) messages
+        // Only parse text messages as JSON, skip binary messages
+        if (event.data instanceof Blob) {
+          // Binary audio data - ignore it (we receive audio via delta events)
+          return;
+        }
+        
         const data: RealtimeEvent = JSON.parse(event.data);
         
         switch (data.type) {
