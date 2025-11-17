@@ -58,17 +58,13 @@ export function setupRealtimeProxy(server: Server) {
       openaiWs.on('open', () => {
         console.log('Connected to OpenAI Realtime API');
         
-        // Send minimal session configuration for basic Realtime API access
-        // Removed input_audio_transcription and turn_detection as they require special permissions
+        // Ultra-minimal session configuration - only essential fields
+        // Testing if API key has Realtime API access at all
         openaiWs.send(JSON.stringify({
           type: "session.update",
           session: {
-            modalities: ["text", "audio"],
-            instructions: `You are a patient, friendly ${language} language tutor helping a ${difficulty} level student. Speak clearly in ${language}. Provide corrections gently and encourage the student.`,
+            modalities: ["audio"],
             voice: "alloy",
-            input_audio_format: "pcm16",
-            output_audio_format: "pcm16",
-            turn_detection: null,
           },
         }));
       });
