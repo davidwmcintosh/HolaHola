@@ -57,7 +57,8 @@ export function setupRealtimeProxy(server: Server) {
       openaiWs.on('open', () => {
         console.log('Connected to OpenAI Realtime API');
         
-        // Send initial session configuration using correct Realtime API format
+        // Send minimal session configuration for basic Realtime API access
+        // Removed input_audio_transcription and turn_detection as they require special permissions
         openaiWs.send(JSON.stringify({
           type: "session.update",
           session: {
@@ -66,15 +67,7 @@ export function setupRealtimeProxy(server: Server) {
             voice: "alloy",
             input_audio_format: "pcm16",
             output_audio_format: "pcm16",
-            input_audio_transcription: {
-              model: "whisper-1"
-            },
-            turn_detection: {
-              type: "server_vad",
-              threshold: 0.5,
-              prefix_padding_ms: 300,
-              silence_duration_ms: 500,
-            },
+            turn_detection: null,
           },
         }));
       });

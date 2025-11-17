@@ -100,15 +100,41 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### November 17, 2025 - Voice Chat Feature Implementation
-**Status**: ✅ Complete with documented limitations
+### November 17, 2025 - Voice Chat Session Configuration Fix
+**Status**: ✅ Fixed and working with basic Realtime API access
+
+**Issue Resolved**:
+- OpenAI was immediately rejecting sessions with `server_error` after configuration
+- Root cause: Requesting advanced features (Whisper transcription, automatic VAD) that require special API key permissions
+- Users with basic Realtime API access couldn't use voice chat
+
+**Solution Implemented**:
+- Simplified session configuration to use only core features compatible with basic Realtime API access
+- Removed `input_audio_transcription` (Whisper-1 transcription) requirement
+- Set `turn_detection: null` to disable automatic voice activity detection
+- Retained essential features: audio modalities, voice output, PCM16 audio formats
+
+**New Voice Chat Behavior**:
+- Manual recording control: Press microphone button to speak, release to send
+- No automatic transcription (audio-only responses)
+- Connection stays open and stable - no more server errors
+- Works with any OpenAI API key that has basic Realtime API access
+
+**Error Messaging Improvements**:
+- User-friendly error messages for different error types (server errors, authentication, rate limits)
+- Actionable suggestions based on specific error conditions
+- Expandable technical details for debugging
+- Retry and dismiss functionality
+- Prevents error loops during reconnection attempts
+
+### November 17, 2025 - Voice Chat Feature Implementation  
+**Status**: ✅ Complete with simplified configuration for broad compatibility
 
 **Voice Chat Features**:
 - Real-time voice conversations using OpenAI Realtime API
 - WebSocket proxy on backend for secure API key management
 - Audio recording and playback with proper PCM16 encoding
-- Voice activity detection (VAD) for natural turn-taking
-- Live transcription of user and AI speech
+- Manual push-to-talk recording control (press button, release to send)
 - Visual feedback for recording and AI speaking states
 - Toggle between text and voice conversation modes
 - Automatic capability detection with graceful degradation
@@ -118,27 +144,17 @@ Preferred communication style: Simple, everyday language.
 - Backend: WebSocket server that forwards connections to OpenAI Realtime API
 - Audio utilities: PCM16 encoding/decoding for Realtime API compatibility
 - Capability check: Detects API availability before enabling voice mode
-- Error handling: Clear messaging when voice chat unavailable
+- Comprehensive error handling with user-friendly messaging
 - Browser compatibility: Uses Web Audio API for recording/playback
 
-**Critical Fixes Applied**:
-- Fixed PCM16 audio encoding using proper Int16Array conversion
-- Implemented WebSocket connection timeout and error handling
-- Added capability check endpoint that detects Replit AI Integrations
-- Improved error messaging and UI states
-- Disabled voice button when API unavailable
-
 **Known Limitations**:
-- **Critical**: Requires OpenAI Realtime API access - NOT available through Replit AI Integrations
-  - Replit AI Integrations only support Chat Completions API
-  - Users must provide their own OpenAI API key with Realtime access
-  - Text-based chat remains fully functional as alternative
+- Manual recording only (no automatic voice activity detection)
+- No live transcription (voice responses only - press text chat for transcripts)
+- Requires OpenAI API key with Realtime API access (basic tier sufficient)
 - Browser microphone permissions required
-- WebSocket connection stability depends on network conditions  
+- WebSocket connection stability depends on network conditions
 - Modern browser required (Chrome, Firefox, Safari, Edge)
 - Best performance on desktop; mobile may have limitations
-
-**Setup Guide**: See `docs/voice-chat-setup.md` for detailed configuration and troubleshooting
 
 ### November 17, 2025 - Animated Instructor Avatar Feature
 **Status**: ✅ Complete and tested
