@@ -132,7 +132,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         recentMessages.length
       );
 
-      // Generate AI response
+      // Generate AI response with structured output to extract vocabulary and grammar
       // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
       const completion = await openai.chat.completions.create({
         model: "gpt-5",
@@ -144,9 +144,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })),
         ],
         max_completion_tokens: 8192,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "tutor_response",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                message: {
+                  type: "string",
+                  description: "The conversational response to the student"
+                },
+                vocabulary: {
+                  type: "array",
+                  description: "New vocabulary words introduced in this response",
+                  items: {
+                    type: "object",
+                    properties: {
+                      word: { type: "string" },
+                      translation: { type: "string" },
+                      example: { type: "string" },
+                      pronunciation: { type: "string" }
+                    },
+                    required: ["word", "translation", "example", "pronunciation"],
+                    additionalProperties: false
+                  }
+                }
+              },
+              required: ["message", "vocabulary"],
+              additionalProperties: false
+            }
+          }
+        }
       });
 
-      const aiResponse = completion.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
+      // Parse AI response with error handling
+      const responseContent = completion.choices[0]?.message?.content || "";
+      let aiResponse = "I'm sorry, I couldn't generate a response.";
+      let parsedResponse: { message?: string; vocabulary?: any[]; grammar?: any[] } = {};
+
+      try {
+        parsedResponse = JSON.parse(responseContent);
+        aiResponse = parsedResponse.message || aiResponse;
+      } catch (parseError) {
+        // Fallback to plain text if JSON parsing fails
+        console.error("Failed to parse AI response as JSON, using plain text:", parseError);
+        aiResponse = responseContent || aiResponse;
+      }
 
       // Save AI message
       const aiMessage = await storage.createMessage({
@@ -154,6 +199,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: "assistant",
         content: aiResponse,
       });
+
+      // Save vocabulary items from conversation (only if we have valid data)
+      const vocabulary = Array.isArray(parsedResponse.vocabulary) ? parsedResponse.vocabulary : [];
+      for (const vocab of vocabulary) {
+        if (vocab?.word && vocab?.translation && vocab?.example) {
+          await storage.createVocabularyWord({
+            language: conversation.language,
+            difficulty: conversation.difficulty,
+            word: vocab.word,
+            translation: vocab.translation,
+            example: vocab.example,
+            pronunciation: vocab.pronunciation || "",
+          });
+        }
+      }
+
+      // Grammar extraction from conversations is currently disabled
+      // The current schema stores grammar as multiple-choice exercises (question + options + correctAnswer)
+      // but conversational grammar would only have single examples, creating unusable single-option quizzes
+      // 
+      // Future improvement options:
+      // 1. Store conversation grammar as a separate "grammar notes" table for reference
+      // 2. Enhance the AI prompt to generate full multiple-choice questions with 3-4 options
+      // 3. Accumulate grammar examples over multiple conversations to build proper exercises
+      //
+      // For now, vocabulary extraction from conversations works well and provides value
 
       res.json({ userMessage, aiMessage });
     } catch (error: any) {
@@ -264,6 +335,13 @@ Guidelines:
 - Keep responses brief (2-3 sentences)
 - After 3-4 exchanges, you'll have enough information to begin transitioning
 
+IMPORTANT - Response Format:
+You must respond with a JSON object containing:
+- message: Your conversational response
+- vocabulary: Array of any new ${languageName} words you introduce (with word, translation, example, pronunciation)
+
+During this phase, the vocabulary array will typically be empty since you're speaking in English. Only include items if the student attempts ${languageName} and you teach them words.
+
 Remember: You're building rapport and understanding their true level, not the "${difficulty}" level they selected.`;
   }
 
@@ -293,7 +371,14 @@ Guidelines:
 - Keep responses conversational and encouraging
 - Correct mistakes gently: "Close! We actually say..."
 - Build on topics the student shows interest in
-- Maintain a supportive, patient tone`;
+- Maintain a supportive, patient tone
+
+IMPORTANT - Response Format:
+You must respond with a JSON object containing:
+- message: Your conversational response (mix of English and ${languageName})
+- vocabulary: Array of new ${languageName} words you introduce (with word, translation, example, pronunciation)
+
+Since you're introducing ${languageName}, actively populate the vocabulary array with any new words you use. Include 2-4 words per response when appropriate.`;
   }
 
   // Phase 3: Immersion (message 12+) - Primarily target language with adaptive difficulty
@@ -331,6 +416,13 @@ Error Correction:
 - Show the correct form naturally
 - Briefly explain the pattern if needed
 - Move on quickly - don't dwell on mistakes
+
+IMPORTANT - Response Format:
+You must respond with a JSON object containing:
+- message: Your conversational response (primarily in ${languageName})
+- vocabulary: Array of new or challenging words you use (with word, translation, example, pronunciation)
+
+Actively identify vocabulary in your responses. Include 2-4 vocabulary items per response when appropriate, focusing on words that match the ${difficulty} difficulty level.
 
 Remember: You're creating a safe, supportive environment where making mistakes is part of learning.`;
 }
