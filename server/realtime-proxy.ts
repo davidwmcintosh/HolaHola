@@ -58,12 +58,11 @@ export function setupRealtimeProxy(server: Server) {
       openaiWs.on('open', () => {
         console.log('Connected to OpenAI Realtime API');
         
-        // Ultra-minimal session configuration - only essential fields
-        // Testing if API key has Realtime API access at all
+        // Minimal session configuration - text+audio is required by the API
         openaiWs.send(JSON.stringify({
           type: "session.update",
           session: {
-            modalities: ["audio"],
+            modalities: ["text", "audio"],
             voice: "alloy",
           },
         }));
