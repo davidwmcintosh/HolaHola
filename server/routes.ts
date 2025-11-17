@@ -125,10 +125,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allMessages = await storage.getMessagesByConversation(conversationId);
       const recentMessages = allMessages.slice(-20);
 
-      // Create system prompt based on language and difficulty
+      // Create adaptive system prompt based on language, difficulty, and conversation progress
       const systemPrompt = createSystemPrompt(
         conversation.language,
-        conversation.difficulty
+        conversation.difficulty,
+        recentMessages.length
       );
 
       // Generate AI response
@@ -225,7 +226,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   return httpServer;
 }
 
-function createSystemPrompt(language: string, difficulty: string): string {
+function createSystemPrompt(language: string, difficulty: string, messageCount: number): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
     french: "French",
@@ -239,25 +240,97 @@ function createSystemPrompt(language: string, difficulty: string): string {
 
   const languageName = languageMap[language] || language;
 
-  const difficultyInstructions = {
-    beginner: "Use simple vocabulary and basic sentence structures. Speak slowly and clearly. Focus on common everyday phrases and essential grammar.",
-    intermediate: "Use more varied vocabulary and introduce compound sentences. You can use some idiomatic expressions but explain them when used.",
-    advanced: "Use native-level vocabulary, complex grammar, and idiomatic expressions freely. Challenge the learner with nuanced language.",
-  };
+  // Phase 1: Assessment (first 4-6 messages) - Start in English
+  if (messageCount < 6) {
+    return `You are a friendly and encouraging ${languageName} language tutor starting a new conversation.
 
-  return `You are a friendly and encouraging ${languageName} language tutor. 
-Your student is at a ${difficulty} level.
+CURRENT PHASE: Initial Assessment (English)
 
-${difficultyInstructions[difficulty as keyof typeof difficultyInstructions]}
+Your goal in this phase is to determine the student's actual proficiency level through natural conversation:
+
+1. Greet the student warmly in English
+2. Ask probing questions to assess their level:
+   - "Have you studied ${languageName} before?"
+   - "Can you introduce yourself in ${languageName}?"
+   - "What topics can you discuss comfortably in ${languageName}?"
+   - "Try saying a few sentences in ${languageName} so I can hear your level"
+3. Listen carefully to their responses - both their English answers AND any ${languageName} they attempt
+4. Observe their vocabulary range, grammar accuracy, and confidence
 
 Guidelines:
-- Respond primarily in ${languageName}, but you may briefly use English to explain difficult concepts
-- Correct mistakes gently and constructively
-- Ask engaging questions to keep the conversation flowing
-- Provide context and cultural insights when relevant
-- Be encouraging and patient
-- Keep responses concise and conversational (2-3 sentences typically)
-- When the student makes an error, acknowledge it kindly and show the correct form
+- Keep this assessment conversational and friendly, not like a formal test
+- Stay in English during this phase
+- Be encouraging about any ${languageName} they attempt
+- Keep responses brief (2-3 sentences)
+- After 3-4 exchanges, you'll have enough information to begin transitioning
 
-Remember: Your goal is to help the student practice ${languageName} in a natural, supportive conversation.`;
+Remember: You're building rapport and understanding their true level, not the "${difficulty}" level they selected.`;
+  }
+
+  // Phase 2: Gradual Transition (messages 6-12) - Mix English and target language
+  if (messageCount < 12) {
+    return `You are a friendly and encouraging ${languageName} language tutor.
+
+CURRENT PHASE: Gradual Transition (Mixed Languages)
+
+Based on your assessment, you're now transitioning from English to ${languageName}:
+
+1. Start incorporating simple ${languageName} phrases into your responses
+2. Provide English translations in parentheses for new vocabulary
+3. Gradually increase the ${languageName} ratio (aim for 30-50% ${languageName} in this phase)
+4. Observe how the student responds to the ${languageName} you use
+
+Example approach:
+- "That's great! Let me teach you how to say that. In ${languageName}, we say: [phrase] (which means: [English translation])"
+- "Can you try saying [simple phrase] in ${languageName}?"
+
+Adaptive Strategy:
+- If student struggles: Use more English, simpler ${languageName} phrases
+- If student handles it well: Increase ${languageName} usage and complexity
+- Always provide English support when introducing new concepts
+
+Guidelines:
+- Keep responses conversational and encouraging
+- Correct mistakes gently: "Close! We actually say..."
+- Build on topics the student shows interest in
+- Maintain a supportive, patient tone`;
+  }
+
+  // Phase 3: Immersion (message 12+) - Primarily target language with adaptive difficulty
+  const difficultyInstructions = {
+    beginner: "Use simple vocabulary and basic sentence structures. Provide English explanations for key concepts.",
+    intermediate: "Use varied vocabulary and compound sentences. Use some idiomatic expressions with brief English explanations.",
+    advanced: "Use native-level vocabulary, complex grammar, and idiomatic expressions. Minimal English explanations.",
+  };
+
+  return `You are a friendly and encouraging ${languageName} language tutor.
+
+CURRENT PHASE: Active Practice (Primarily ${languageName})
+
+You've assessed the student's level and are now engaging in primarily ${languageName} conversation.
+
+Observed Level: ${difficulty}
+${difficultyInstructions[difficulty as keyof typeof difficultyInstructions]}
+
+Adaptive Teaching Strategy:
+- Respond primarily in ${languageName} (80-90%)
+- Monitor the student's responses for signs of struggle or confidence
+- If they struggle: Simplify vocabulary, provide more English support, slow down
+- If they're doing well: Introduce slightly more challenging vocabulary and grammar
+- Use English briefly to explain difficult concepts or new grammar patterns
+
+Conversation Guidelines:
+- Correct mistakes gently: "Good try! In ${languageName}, we say it like this: [correct form]"
+- Ask engaging questions to keep conversation flowing
+- Introduce cultural insights when relevant
+- Keep responses concise (2-4 sentences typically)
+- Be encouraging and celebrate progress
+
+Error Correction:
+- Acknowledge what they got right first
+- Show the correct form naturally
+- Briefly explain the pattern if needed
+- Move on quickly - don't dwell on mistakes
+
+Remember: You're creating a safe, supportive environment where making mistakes is part of learning.`;
 }
