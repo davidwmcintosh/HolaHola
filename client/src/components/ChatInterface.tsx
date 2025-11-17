@@ -12,7 +12,7 @@ import type { Conversation, Message } from "@shared/schema";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 
 export function ChatInterface() {
-  const { language, difficulty } = useLanguage();
+  const { language, difficulty, userName } = useLanguage();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [waitingForResponse, setWaitingForResponse] = useState(false);
@@ -26,6 +26,7 @@ export function ChatInterface() {
         const response = await apiRequest("POST", "/api/conversations", {
           language,
           difficulty,
+          userName: userName || "Student",
         });
         const data = await response.json();
         setConversationId(data.id);
@@ -35,7 +36,7 @@ export function ChatInterface() {
     };
     
     getOrCreateConversation();
-  }, [language, difficulty]);
+  }, [language, difficulty, userName]);
 
   // Fetch messages for current conversation
   const { data: messages = [], isLoading } = useQuery<Message[]>({

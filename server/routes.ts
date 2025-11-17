@@ -56,18 +56,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/conversations", async (req, res) => {
     try {
       const data = insertConversationSchema.parse(req.body);
+      const userName = (req.body.userName || "Student").trim();
       
-      // Check if a conversation already exists for this language and difficulty
-      const existing = await storage.getConversationByLanguageAndDifficulty(
-        data.language,
-        data.difficulty
+      // Validate userName is not empty after trimming
+      const finalUserName = userName || "Student";
+      
+      // Always create a new conversation to ensure fresh greeting each session
+      const conversation = await storage.createConversation(data);
+      
+      // Generate initial greeting message from the AI tutor
+      const allConversations = await storage.getAllConversations();
+      const previousConversations = allConversations.filter(
+        c => c.id !== conversation.id
       );
       
-      if (existing) {
-        return res.json(existing);
-      }
+      const isReturningUser = previousConversations.length > 0;
       
-      const conversation = await storage.createConversation(data);
+      const greetingMessage = isReturningUser
+        ? `Welcome back, ${finalUserName}! It's great to see you again. Would you like to start where we ended last time, or explore something new today?`
+        : `Welcome, ${finalUserName}! I'm excited to help you learn ${data.language}. Where would you like to begin today?`;
+      
+      // Save the greeting as the first message
+      await storage.createMessage({
+        conversationId: conversation.id,
+        role: "assistant",
+        content: greetingMessage,
+      });
+      
       res.json(conversation);
     } catch (error: any) {
       res.status(400).json({ error: error.message });

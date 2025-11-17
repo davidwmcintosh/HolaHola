@@ -18,7 +18,7 @@ interface RealtimeEvent {
 }
 
 export function VoiceChat() {
-  const { language, difficulty } = useLanguage();
+  const { language, difficulty, userName } = useLanguage();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
@@ -63,6 +63,7 @@ export function VoiceChat() {
         const response = await apiRequest("POST", "/api/conversations", {
           language,
           difficulty,
+          userName: userName || "Student",
         });
         const data = await response.json();
         setConversationId(data.id);
@@ -73,7 +74,7 @@ export function VoiceChat() {
     };
     
     getOrCreateConversation();
-  }, [language, difficulty]);
+  }, [language, difficulty, userName]);
 
   // Fetch existing messages
   const { data: messages = [] } = useQuery<Message[]>({

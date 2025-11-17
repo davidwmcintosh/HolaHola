@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
 type DifficultyLevel = "beginner" | "intermediate" | "advanced";
 
@@ -7,6 +7,8 @@ interface LanguageContextType {
   setLanguage: (lang: string) => void;
   difficulty: DifficultyLevel;
   setDifficulty: (diff: DifficultyLevel) => void;
+  userName: string;
+  setUserName: (name: string) => void;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -14,9 +16,22 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState("spanish");
   const [difficulty, setDifficulty] = useState<DifficultyLevel>("beginner");
+  const [userName, setUserNameState] = useState(() => {
+    return localStorage.getItem("userName") || "";
+  });
+
+  useEffect(() => {
+    if (userName) {
+      localStorage.setItem("userName", userName);
+    }
+  }, [userName]);
+
+  const setUserName = (name: string) => {
+    setUserNameState(name);
+  };
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, difficulty, setDifficulty }}>
+    <LanguageContext.Provider value={{ language, setLanguage, difficulty, setDifficulty, userName, setUserName }}>
       {children}
     </LanguageContext.Provider>
   );
