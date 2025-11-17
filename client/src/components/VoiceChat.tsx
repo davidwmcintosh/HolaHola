@@ -31,6 +31,7 @@ export function VoiceChat() {
   const audioRecorderRef = useRef<AudioRecorder | null>(null);
   const audioPlayerRef = useRef<AudioPlayer | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isReconnectingRef = useRef<boolean>(false);
 
   // Check Realtime API capability
   useEffect(() => {
@@ -126,6 +127,13 @@ export function VoiceChat() {
           console.log('Connected to Realtime API proxy');
           connectionOpened = true;
           if (connectionTimer) clearTimeout(connectionTimer);
+          
+          // Clear error and reset reconnecting flag on successful connection
+          if (isReconnectingRef.current) {
+            setError(null);
+            isReconnectingRef.current = false;
+          }
+          
           // Session configuration is handled by the backend proxy
           resolve();
         };
@@ -223,7 +231,7 @@ export function VoiceChat() {
                 'Update your OPENAI_API_KEY environment variable',
                 'Check your OpenAI account status'
               ];
-            } else if (errorCode === 'rate_limit_exceeded') {
+            } else if (errorType === 'rate_limit_exceeded' || errorCode === 'rate_limit_exceeded') {
               friendlyMessage = 'Rate limit exceeded';
               suggestions = [
                 'You have reached your API usage limit',
@@ -265,8 +273,8 @@ export function VoiceChat() {
           // Connection closed before it ever opened
           if (connectionTimer) clearTimeout(connectionTimer);
           reject(new Error(`Connection failed: ${event.reason || 'Unknown error'}`));
-        } else {
-          // Connection was open but closed unexpectedly
+        } else if (!isReconnectingRef.current) {
+          // Connection was open but closed unexpectedly (not during intentional reconnect)
           setError('Connection lost. Please try again.');
         }
         
@@ -477,13 +485,30 @@ export function VoiceChat() {
                       size="sm" 
                       variant="outline" 
                       onClick={() => {
-                        setError(null);
+                        // Set reconnecting flag before closing to prevent error message
+                        isReconnectingRef.current = true;
+                        
                         if (wsRef.current) {
                           wsRef.current.close();
                           wsRef.current = null;
                         }
+                        
                         connectToRealtimeAPI().catch((err) => {
                           console.error('Retry failed:', err);
+                          isReconnectingRef.current = false;
+                          // Show error if retry fails
+                          setError(JSON.stringify({
+                            type: 'openai_error',
+                            friendlyMessage: 'Reconnection failed',
+                            suggestions: [
+                              'Check your internet connection',
+                              'Wait a moment and try again',
+                              'Use text chat mode as an alternative'
+                            ],
+                            technicalDetails: String(err),
+                            errorType: 'connection_error',
+                            errorCode: null
+                          }));
                         });
                       }}
                       data-testid="button-retry-voice"
