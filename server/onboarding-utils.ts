@@ -1,0 +1,191 @@
+import OpenAI from "openai";
+
+export interface NameExtractionResult {
+  name: string | null;
+  confidence: "high" | "medium" | "low";
+  shouldAskAgain: boolean;
+}
+
+export interface LanguageExtractionResult {
+  language: string | null;
+  confidence: "high" | "medium" | "low";
+  shouldAskAgain: boolean;
+}
+
+export interface LanguageDetectionResult {
+  detectedLanguage: string;
+  confidence: number;
+  shouldSwitch: boolean;
+}
+
+/**
+ * Extract user's name from their message using OpenAI structured output
+ */
+export async function extractNameFromMessage(
+  openai: OpenAI,
+  userMessage: string
+): Promise<NameExtractionResult> {
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5",
+    messages: [
+      {
+        role: "system",
+        content: "You are a helpful assistant that extracts a person's name from their message. The user has been asked 'What's your name?'. Accept ANY plausible name, whether it's a single word like 'Alex' or a full sentence like 'My name is Alex'. Be permissive - if it looks like a name at all, extract it with high confidence."
+      },
+      {
+        role: "user",
+        content: `Extract the person's name from this message: "${userMessage}"`
+      }
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "name_extraction",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            name: {
+              type: ["string", "null"],
+              description: "The extracted name, or null if no clear name was provided"
+            },
+            confidence: {
+              type: "string",
+              enum: ["high", "medium", "low"],
+              description: "Confidence level in the extracted name"
+            },
+            shouldAskAgain: {
+              type: "boolean",
+              description: "Whether to ask the user for their name again"
+            }
+          },
+          required: ["name", "confidence", "shouldAskAgain"],
+          additionalProperties: false
+        }
+      }
+    }
+  });
+
+  const result = JSON.parse(completion.choices[0]?.message?.content || "{}");
+  return result as NameExtractionResult;
+}
+
+/**
+ * Extract user's language preference from their message using OpenAI structured output
+ */
+export async function extractLanguageFromMessage(
+  openai: OpenAI,
+  userMessage: string
+): Promise<LanguageExtractionResult> {
+  const supportedLanguages = [
+    "spanish", "french", "german", "italian", 
+    "portuguese", "japanese", "mandarin", "korean"
+  ];
+
+  console.log('[LANG-EXTRACT] Input message:', userMessage);
+  console.log('[LANG-EXTRACT] Supported languages:', supportedLanguages);
+  
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5",
+    messages: [
+      {
+        role: "system",
+        content: `You are a helpful assistant that identifies which language a person wants to study from their message. Supported languages are: ${supportedLanguages.join(", ")}. The user has been asked which language they want to study. Accept ANY mention of a supported language, whether it's a single word like 'French' or a full sentence like 'I want to learn French'. Be permissive - if the message mentions a supported language, extract it with high confidence. Always return the language name in lowercase.`
+      },
+      {
+        role: "user",
+        content: `Which language does this person want to study: "${userMessage}"`
+      }
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "language_extraction",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            language: {
+              type: ["string", "null"],
+              description: `The language they want to study (must be one of: ${supportedLanguages.join(", ")}), in lowercase, or null if unclear`
+            },
+            confidence: {
+              type: "string",
+              enum: ["high", "medium", "low"],
+              description: "Confidence level in the extracted language preference"
+            },
+            shouldAskAgain: {
+              type: "boolean",
+              description: "Whether to ask the user for their language preference again"
+            }
+          },
+          required: ["language", "confidence", "shouldAskAgain"],
+          additionalProperties: false
+        }
+      }
+    }
+  });
+  
+  console.log('[LANG-EXTRACT] Raw AI response:', completion.choices[0]?.message?.content);
+
+  const result = JSON.parse(completion.choices[0]?.message?.content || "{}");
+  console.log('[LANG-EXTRACT] Parsed result:', JSON.stringify(result));
+  return result as LanguageExtractionResult;
+}
+
+/**
+ * Detect the language being used in a message
+ */
+export async function detectLanguage(
+  openai: OpenAI,
+  userMessage: string,
+  currentLanguage: string
+): Promise<LanguageDetectionResult> {
+  const supportedLanguages = [
+    "spanish", "french", "german", "italian",
+    "portuguese", "japanese", "mandarin", "korean", "english"
+  ];
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5",
+    messages: [
+      {
+        role: "system",
+        content: `You are a language detection assistant. Identify the primary language used in the user's message. Supported languages: ${supportedLanguages.join(", ")}. The user is currently set to practice "${currentLanguage}". If they're using a different language consistently, we should switch to that language.`
+      },
+      {
+        role: "user",
+        content: `Detect the language in this message: "${userMessage}"`
+      }
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "language_detection",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            detectedLanguage: {
+              type: "string",
+              description: `The detected language (one of: ${supportedLanguages.join(", ")})`
+            },
+            confidence: {
+              type: "number",
+              description: "Confidence score from 0 to 1"
+            },
+            shouldSwitch: {
+              type: "boolean",
+              description: "Whether to switch to the detected language (true if user is using a different language than current setting and it's not just a single word)"
+            }
+          },
+          required: ["detectedLanguage", "confidence", "shouldSwitch"],
+          additionalProperties: false
+        }
+      }
+    }
+  });
+
+  const result = JSON.parse(completion.choices[0]?.message?.content || "{}");
+  return result as LanguageDetectionResult;
+}

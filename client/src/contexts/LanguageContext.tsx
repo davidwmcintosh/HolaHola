@@ -14,17 +14,27 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState("spanish");
+  const [language, setLanguageState] = useState(() => {
+    return localStorage.getItem("language") || "spanish";
+  });
   const [difficulty, setDifficulty] = useState<DifficultyLevel>("beginner");
   const [userName, setUserNameState] = useState(() => {
     return localStorage.getItem("userName") || "";
   });
 
   useEffect(() => {
+    localStorage.setItem("language", language);
+  }, [language]);
+
+  useEffect(() => {
     if (userName) {
       localStorage.setItem("userName", userName);
     }
   }, [userName]);
+
+  const setLanguage = (lang: string) => {
+    setLanguageState(lang);
+  };
 
   const setUserName = (name: string) => {
     setUserNameState(name);

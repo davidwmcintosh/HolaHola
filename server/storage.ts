@@ -97,6 +97,9 @@ export class MemStorage implements IStorage {
       topic: data.topic ?? null,
       messageCount: data.messageCount ?? 0,
       duration: data.duration ?? 0,
+      isOnboarding: data.isOnboarding ?? false,
+      onboardingStep: data.onboardingStep ?? null,
+      userName: data.userName ?? null,
       createdAt: new Date(),
     };
     this.conversations.set(id, conversation);
@@ -121,9 +124,45 @@ export class MemStorage implements IStorage {
 
   async updateConversation(id: string, data: Partial<Conversation>): Promise<Conversation | undefined> {
     const conversation = this.conversations.get(id);
-    if (!conversation) return undefined;
-    const updated = { ...conversation, ...data };
+    if (!conversation) {
+      console.log('[STORAGE] updateConversation: conversation not found:', id);
+      return undefined;
+    }
+    
+    console.log('[STORAGE] updateConversation BEFORE:', {
+      id,
+      onboardingStep: conversation.onboardingStep,
+      userName: conversation.userName,
+      isOnboarding: conversation.isOnboarding
+    });
+    console.log('[STORAGE] updateConversation data to merge:', data);
+    
+    // Filter out undefined values to avoid overwriting existing data
+    const filteredData = Object.fromEntries(
+      Object.entries(data).filter(([_, value]) => value !== undefined)
+    );
+    
+    console.log('[STORAGE] updateConversation filteredData:', filteredData);
+    
+    const updated = { ...conversation, ...filteredData };
     this.conversations.set(id, updated);
+    
+    console.log('[STORAGE] updateConversation AFTER:', {
+      id: updated.id,
+      onboardingStep: updated.onboardingStep,
+      userName: updated.userName,
+      isOnboarding: updated.isOnboarding
+    });
+    
+    // Verify it was actually saved
+    const verified = this.conversations.get(id);
+    console.log('[STORAGE] updateConversation VERIFIED from Map:', {
+      id: verified?.id,
+      onboardingStep: verified?.onboardingStep,
+      userName: verified?.userName,
+      isOnboarding: verified?.isOnboarding
+    });
+    
     return updated;
   }
 

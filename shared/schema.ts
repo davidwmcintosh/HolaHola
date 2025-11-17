@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -10,6 +10,9 @@ export const conversations = pgTable("conversations", {
   topic: text("topic"),
   messageCount: integer("message_count").notNull().default(0),
   duration: integer("duration").notNull().default(0),
+  isOnboarding: boolean("is_onboarding").notNull().default(false),
+  onboardingStep: text("onboarding_step"),
+  userName: text("user_name"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

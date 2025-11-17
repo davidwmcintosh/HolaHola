@@ -13,7 +13,7 @@ import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvata
 import { AccentButtons } from "@/components/AccentButtons";
 
 export function ChatInterface() {
-  const { language, difficulty, userName } = useLanguage();
+  const { language, setLanguage, difficulty, userName, setUserName } = useLanguage();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [waitingForResponse, setWaitingForResponse] = useState(false);
@@ -22,6 +22,8 @@ export function ChatInterface() {
   const previousAssistantCountRef = useRef(0);
 
   // Create or reuse conversation when language/difficulty changes
+  // NOTE: userName is NOT in dependencies - changing the name during onboarding
+  // should NOT create a new conversation
   useEffect(() => {
     const getOrCreateConversation = async () => {
       try {
@@ -38,7 +40,7 @@ export function ChatInterface() {
     };
     
     getOrCreateConversation();
-  }, [language, difficulty, userName]);
+  }, [language, difficulty]);
 
   // Fetch messages for current conversation
   const { data: messages = [], isLoading } = useQuery<Message[]>({
@@ -59,9 +61,28 @@ export function ChatInterface() {
       }
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       // Mark that we're waiting for assistant response
       setWaitingForResponse(true);
+      
+      // Check if conversation was updated (onboarding completed or language auto-switched)
+      if (data.conversationUpdated) {
+        const updated = data.conversationUpdated;
+        console.log('[FRONTEND] Conversation updated:', updated);
+        
+        // Update language context if language changed
+        if (updated.language && updated.language !== language) {
+          console.log('[FRONTEND] Updating language context:', language, '->', updated.language);
+          setLanguage(updated.language);
+        }
+        
+        // Update userName in context if name was extracted
+        if (updated.userName && updated.userName !== userName) {
+          console.log('[FRONTEND] Updating userName context:', userName, '->', updated.userName);
+          setUserName(updated.userName);
+        }
+      }
+      
       queryClient.invalidateQueries({ queryKey: ["/api/conversations", conversationId, "messages"] });
     },
     onError: (error: Error) => {

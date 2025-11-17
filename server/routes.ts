@@ -7,6 +7,11 @@ import {
 } from "@shared/schema";
 import OpenAI from "openai";
 import { setupRealtimeProxy } from "./realtime-proxy";
+import {
+  extractNameFromMessage,
+  extractLanguageFromMessage,
+  detectLanguage,
+} from "./onboarding-utils";
 
 // Use Replit AI Integrations for text chat (works reliably)
 // User's personal key (USER_OPENAI_API_KEY) is only used for voice chat in realtime-proxy.ts
@@ -56,25 +61,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/conversations", async (req, res) => {
     try {
       const data = insertConversationSchema.parse(req.body);
-      const userName = (req.body.userName || "Student").trim();
+      const userName = (req.body.userName || "").trim();
       
-      // Validate userName is not empty after trimming
-      const finalUserName = userName || "Student";
+      console.log('[CONVERSATION CREATE] Received userName:', userName);
+      
+      // Check if THIS user has completed onboarding before
+      // Only count conversations where userName matches AND onboarding was completed
+      const allConversations = await storage.getAllConversations();
+      const userHasCompletedOnboarding = userName && userName !== "Student" 
+        ? allConversations.some(c => 
+            c.userName === userName && 
+            c.isOnboarding === false
+          )
+        : false;
+      
+      // Detect if this is a new user:
+      // - No name provided OR name is "Student" OR user hasn't completed onboarding yet
+      const isNewUser = (!userName || userName === "Student" || !userHasCompletedOnboarding);
+      
+      console.log('[CONVERSATION CREATE] userHasCompletedOnboarding:', userHasCompletedOnboarding);
+      console.log('[CONVERSATION CREATE] isNewUser:', isNewUser);
       
       // Always create a new conversation to ensure fresh greeting each session
-      const conversation = await storage.createConversation(data);
+      const conversation = await storage.createConversation({
+        ...data,
+        isOnboarding: isNewUser,
+        onboardingStep: isNewUser ? "name" : null,
+        userName: isNewUser ? null : userName,
+      });
       
-      // Generate initial greeting message from the AI tutor
-      const allConversations = await storage.getAllConversations();
-      const previousConversations = allConversations.filter(
-        c => c.id !== conversation.id
-      );
+      console.log('[CONVERSATION CREATE] Created conversation:', {
+        id: conversation.id,
+        isOnboarding: conversation.isOnboarding,
+        onboardingStep: conversation.onboardingStep,
+        userName: conversation.userName
+      });
       
-      const isReturningUser = previousConversations.length > 0;
+      let greetingMessage: string;
       
-      const greetingMessage = isReturningUser
-        ? `Welcome back, ${finalUserName}! It's great to see you again. Would you like to start where we ended last time, or explore something new today?`
-        : `Welcome, ${finalUserName}! I'm excited to help you learn ${data.language}. Where would you like to begin today?`;
+      if (isNewUser) {
+        // Start onboarding flow with name question
+        greetingMessage = "Hello! I'm your AI language tutor, and I'm excited to help you on your language learning journey. To get started, what's your name?";
+      } else {
+        // Generate personalized greeting for returning user
+        const allConversations = await storage.getAllConversations();
+        const previousConversations = allConversations.filter(
+          c => c.id !== conversation.id
+        );
+        
+        const isReturningUser = previousConversations.length > 0;
+        
+        greetingMessage = isReturningUser
+          ? `Welcome back, ${userName}! It's great to see you again. Would you like to start where we ended last time, or explore something new today?`
+          : `Welcome, ${userName}! I'm excited to help you learn ${data.language}. Where would you like to begin today?`;
+      }
       
       // Save the greeting as the first message
       await storage.createMessage({
@@ -128,6 +168,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Conversation not found" });
       }
 
+      console.log('[MESSAGE] Received message for conversation:', {
+        conversationId: conversation.id,
+        isOnboarding: conversation.isOnboarding,
+        onboardingStep: conversation.onboardingStep,
+        userName: conversation.userName,
+        messageContent: req.body.content
+      });
+
       const messageData = insertMessageSchema.parse({
         ...req.body,
         conversationId,
@@ -136,14 +184,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Save user message
       const userMessage = await storage.createMessage(messageData);
 
+      // Handle onboarding flow
+      if (conversation.isOnboarding) {
+        console.log('[MESSAGE] Entering onboarding flow with step:', conversation.onboardingStep);
+        let aiResponse = "";
+        let updatedConversation = conversation;
+
+        if (conversation.onboardingStep === "name") {
+          // Extract name from user's message
+          const nameResult = await extractNameFromMessage(openai, messageData.content);
+          console.log('[ONBOARDING-NAME] Extraction result:', JSON.stringify(nameResult));
+          
+          if (nameResult.name && nameResult.confidence !== "low") {
+            // Name extracted successfully, move to language question
+            updatedConversation = await storage.updateConversation(conversationId, {
+              userName: nameResult.name,
+              onboardingStep: "language",
+              // Keep isOnboarding true until language is also extracted
+            }) || conversation;
+            
+            console.log('[ONBOARDING-NAME] Updated conversation after name:', {
+              userName: updatedConversation.userName,
+              isOnboarding: updatedConversation.isOnboarding,
+              onboardingStep: updatedConversation.onboardingStep
+            });
+            
+            aiResponse = `Nice to meet you, ${nameResult.name}! Now, which language would you like to study? I can help you with Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, or Korean.`;
+          } else {
+            // Name unclear, ask again
+            aiResponse = "I didn't quite catch your name. Could you tell me your name again?";
+          }
+        } else if (conversation.onboardingStep === "language") {
+          // Extract language preference from user's message
+          const langResult = await extractLanguageFromMessage(openai, messageData.content);
+          console.log('[ONBOARDING-LANG] Extraction result:', JSON.stringify(langResult));
+          
+          if (langResult.language && langResult.confidence !== "low") {
+            // Language extracted successfully, complete onboarding
+            console.log('[ONBOARDING-LANG] Current conversation before update:', {
+              userName: conversation.userName,
+              language: conversation.language
+            });
+            
+            updatedConversation = await storage.updateConversation(conversationId, {
+              language: langResult.language,
+              isOnboarding: false,
+              onboardingStep: null,
+            }) || conversation;
+            
+            console.log('[ONBOARDING-LANG] Updated conversation after language:', {
+              id: updatedConversation.id,
+              language: updatedConversation.language,
+              isOnboarding: updatedConversation.isOnboarding,
+              userName: updatedConversation.userName
+            });
+            
+            // Verify userName is preserved
+            if (!updatedConversation.userName) {
+              console.error('[ONBOARDING-LANG] ERROR: userName was lost during update!');
+            }
+            
+            const userName = updatedConversation.userName || "there";
+            aiResponse = `Excellent choice, ${userName}! I'm excited to help you learn ${langResult.language}. Let's start your journey! What topic would you like to explore first, or should I suggest something based on your level?`;
+          } else {
+            // Language unclear, ask again
+            console.log('[ONBOARDING-LANG] Extraction failed or low confidence, asking again');
+            aiResponse = "I'm not sure which language you'd like to study. Please choose one from: Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, or Korean.";
+          }
+        }
+
+        // Save AI response for onboarding
+        const aiMessage = await storage.createMessage({
+          conversationId,
+          role: "assistant",
+          content: aiResponse,
+        });
+
+        // Return onboarding response with updated conversation
+        return res.json({ 
+          userMessage, 
+          aiMessage,
+          conversationUpdated: updatedConversation !== conversation ? updatedConversation : undefined
+        });
+      }
+
       // Get conversation history (limit to last 20 messages to avoid token limits)
       const allMessages = await storage.getMessagesByConversation(conversationId);
       const recentMessages = allMessages.slice(-20);
 
+      // Detect language in user's message for auto-switching (only after a few messages)
+      let updatedConversation = conversation;
+      let languageSwitchNote = "";
+      
+      // Only attempt auto-detection after at least 3 user messages
+      const userMessageCount = recentMessages.filter(m => m.role === "user").length;
+      
+      // Count actual alphabetic words (not punctuation or numbers)
+      const wordCount = messageData.content.match(/[a-zA-ZÀ-ÿ]+/g)?.length || 0;
+      
+      if (userMessageCount >= 3 && wordCount >= 5) {
+        const languageDetection = await detectLanguage(openai, messageData.content, conversation.language);
+        
+        // Apply strict criteria before auto-switching:
+        // 1. High confidence (>0.8)
+        // 2. Model recommends switching
+        // 3. Different from current language and not just English
+        // 4. Message has substantial content (not just a greeting)
+        if (languageDetection.shouldSwitch && 
+            languageDetection.detectedLanguage !== conversation.language &&
+            languageDetection.detectedLanguage !== "english" &&
+            languageDetection.confidence > 0.8) {
+          
+          console.log('[AUTO-DETECT] Switching language from', conversation.language, 'to', languageDetection.detectedLanguage, 'confidence:', languageDetection.confidence);
+          
+          updatedConversation = await storage.updateConversation(conversationId, {
+            language: languageDetection.detectedLanguage,
+          }) || conversation;
+          
+          languageSwitchNote = `I notice you're practicing ${languageDetection.detectedLanguage}. I've switched our conversation to focus on that language. `;
+        }
+      }
+
       // Create adaptive system prompt based on language, difficulty, and conversation progress
       const systemPrompt = createSystemPrompt(
-        conversation.language,
-        conversation.difficulty,
+        updatedConversation.language,
+        updatedConversation.difficulty,
         recentMessages.length
       );
 
@@ -208,6 +373,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         aiResponse = responseContent || aiResponse;
       }
 
+      // Prepend language switch note if language was auto-detected and switched
+      if (languageSwitchNote) {
+        aiResponse = languageSwitchNote + aiResponse;
+      }
+
       // Save AI message
       const aiMessage = await storage.createMessage({
         conversationId,
@@ -220,8 +390,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const vocab of vocabulary) {
         if (vocab?.word && vocab?.translation && vocab?.example) {
           await storage.createVocabularyWord({
-            language: conversation.language,
-            difficulty: conversation.difficulty,
+            language: updatedConversation.language,
+            difficulty: updatedConversation.difficulty,
             word: vocab.word,
             translation: vocab.translation,
             example: vocab.example,
@@ -241,7 +411,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       //
       // For now, vocabulary extraction from conversations works well and provides value
 
-      res.json({ userMessage, aiMessage });
+      res.json({ 
+        userMessage, 
+        aiMessage,
+        conversationUpdated: updatedConversation !== conversation ? updatedConversation : undefined
+      });
     } catch (error: any) {
       console.error("Error in chat:", error);
       res.status(500).json({ error: error.message || "Failed to generate response" });
