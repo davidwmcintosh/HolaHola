@@ -41,6 +41,7 @@ Utilizes a three-phase approach for AI tutor interaction:
 3.  **Immersive Practice (Message 12+)**: Primarily uses the target language based on selected difficulty, with English support for complex concepts.
 **Conversation-to-Notes: Automatic Vocabulary Extraction**: AI automatically identifies and saves new vocabulary from conversations using OpenAI's structured output, integrating them into the Vocabulary flashcard system.
 **Voice Chat Feature**: Real-time voice conversations using OpenAI Realtime API with a WebSocket proxy. Includes manual push-to-talk recording, visual feedback, and a toggle between text and voice modes. Simplified configuration for broader compatibility.
+**Personalized Greetings**: AI tutor welcomes students by name at the start of each conversation. Detects first-time vs returning users and adjusts greeting accordingly ("Where would you like to begin today?" for new users, "Would you like to start where we ended last time?" for returning users).
 **Animated Instructor Avatar**: Provides real-time visual feedback with idle, listening (voice chat), and speaking states, enhancing engagement.
 **Full Application Implementation**: Includes AI chat, vocabulary flashcards, grammar exercises, conversation history with statistics, and progress tracking dashboard.
 
