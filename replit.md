@@ -140,6 +140,43 @@ Preferred communication style: Simple, everyday language.
 
 **Setup Guide**: See `docs/voice-chat-setup.md` for detailed configuration and troubleshooting
 
+### November 17, 2025 - Animated Instructor Avatar Feature
+**Status**: ✅ Complete and tested
+
+**Feature Overview**:
+- Animated instructor avatar provides real-time visual feedback during conversations
+- Three distinct states: idle, listening (voice chat only), and speaking
+- Smooth transitions and animations enhance the learning experience
+- Positioned in chat interface header for consistent visibility
+
+**Visual States**:
+1. **Idle State** - Default welcoming pose with "Ready to help" label
+2. **Listening State** - Attentive pose with pulse animation when user is speaking (voice chat)
+3. **Speaking State** - Animated teaching pose with glow effect when AI is responding
+
+**Technical Implementation**:
+- Component: `InstructorAvatar.tsx` with three generated instructor images
+- State management: Tracks assistant message count to accurately detect AI response window
+- Animations: Custom CSS keyframes for subtle bounce and pulse effects
+- Integration: Added to both ChatInterface and VoiceChat components
+- Visual feedback: Glow effects, border colors, and state labels
+
+**State Transitions**:
+- **Text Chat**: Idle → Speaking (when AI generates response) → Idle
+- **Voice Chat**: Idle → Listening (when recording) → Speaking (when AI responds) → Idle
+- Smooth fade and scale transitions between states
+
+**Assets Generated**:
+- `Friendly_teacher_idle_state_fd4580c6.png` - Idle state instructor
+- `Teacher_listening_attentively_f9f6c37e.png` - Listening state instructor  
+- `Teacher_speaking_animatedly_62a6f01b.png` - Speaking state instructor
+
+**Testing Results**:
+- End-to-end testing completed successfully
+- Avatar state transitions verified in text chat scenarios
+- Proper detection of assistant responses confirmed
+- Visual animations and effects working as expected
+
 ### November 17, 2025 - Full Application Implementation
 **Status**: ✅ Complete and tested
 
