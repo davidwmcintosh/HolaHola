@@ -12,7 +12,7 @@ export function VocabularyFlashcard() {
   const [isFlipped, setIsFlipped] = useState(false);
 
   const { data: vocabularyWords = [], isLoading } = useQuery<VocabularyWord[]>({
-    queryKey: ["/api/vocabulary", { language, difficulty }],
+    queryKey: [`/api/vocabulary?language=${language}&difficulty=${difficulty}`],
   });
 
   if (isLoading) {

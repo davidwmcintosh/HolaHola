@@ -16,7 +16,7 @@ export function GrammarExercise() {
   const [showResult, setShowResult] = useState(false);
 
   const { data: exercises = [], isLoading } = useQuery<GrammarExerciseType[]>({
-    queryKey: ["/api/grammar", { language, difficulty }],
+    queryKey: [`/api/grammar?language=${language}&difficulty=${difficulty}`],
   });
 
   if (isLoading) {
