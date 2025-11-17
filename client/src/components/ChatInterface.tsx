@@ -15,7 +15,9 @@ export function ChatInterface() {
   const { language, difficulty } = useLanguage();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
+  const [waitingForResponse, setWaitingForResponse] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const previousAssistantCountRef = useRef(0);
 
   // Create or reuse conversation when language/difficulty changes
   useEffect(() => {
@@ -55,12 +57,27 @@ export function ChatInterface() {
       return data;
     },
     onSuccess: () => {
+      // Mark that we're waiting for assistant response
+      setWaitingForResponse(true);
       queryClient.invalidateQueries({ queryKey: ["/api/conversations", conversationId, "messages"] });
     },
     onError: (error: Error) => {
       console.error("Failed to send message:", error);
+      setWaitingForResponse(false);
     },
   });
+
+  // Detect when assistant response arrives
+  useEffect(() => {
+    const assistantMessageCount = messages.filter(m => m.role === "assistant").length;
+    
+    if (assistantMessageCount > previousAssistantCountRef.current && waitingForResponse) {
+      // New assistant message arrived, stop waiting
+      setWaitingForResponse(false);
+    }
+    
+    previousAssistantCountRef.current = assistantMessageCount;
+  }, [messages, waitingForResponse]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -79,7 +96,8 @@ export function ChatInterface() {
   };
 
   // Determine avatar state based on conversation activity
-  const avatarState: AvatarState = sendMessageMutation.isPending ? "speaking" : "idle";
+  // "speaking" when AI is generating response, "idle" otherwise
+  const avatarState: AvatarState = waitingForResponse ? "speaking" : "idle";
 
   return (
     <Card className="flex flex-col h-[600px]">
