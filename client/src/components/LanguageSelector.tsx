@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   Select,
   SelectContent,
@@ -7,6 +6,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const languages = [
   { value: "spanish", label: "Spanish", flag: "🇪🇸" },
@@ -20,21 +20,17 @@ const languages = [
 ];
 
 interface LanguageSelectorProps {
-  value?: string;
-  onChange?: (language: string) => void;
   compact?: boolean;
 }
 
-export function LanguageSelector({ value, onChange, compact = false }: LanguageSelectorProps) {
-  const [selected, setSelected] = useState(value || "spanish");
+export function LanguageSelector({ compact = false }: LanguageSelectorProps) {
+  const { language, setLanguage } = useLanguage();
 
   const handleChange = (newValue: string) => {
-    setSelected(newValue);
-    onChange?.(newValue);
-    console.log(`Language changed to: ${newValue}`);
+    setLanguage(newValue);
   };
 
-  const selectedLanguage = languages.find((lang) => lang.value === selected);
+  const selectedLanguage = languages.find((lang) => lang.value === language);
 
   if (compact && selectedLanguage) {
     return (
@@ -46,7 +42,7 @@ export function LanguageSelector({ value, onChange, compact = false }: LanguageS
   }
 
   return (
-    <Select value={selected} onValueChange={handleChange}>
+    <Select value={language} onValueChange={handleChange}>
       <SelectTrigger className="w-[200px]" data-testid="select-language">
         <SelectValue />
       </SelectTrigger>

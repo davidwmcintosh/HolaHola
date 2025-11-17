@@ -1,43 +1,9 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, Eye } from "lucide-react";
-
-interface Conversation {
-  id: string;
-  date: Date;
-  duration: number;
-  difficulty: "beginner" | "intermediate" | "advanced";
-  topic: string;
-  messageCount: number;
-}
-
-const sampleConversations: Conversation[] = [
-  {
-    id: "1",
-    date: new Date(Date.now() - 1000 * 60 * 60 * 2),
-    duration: 15,
-    difficulty: "intermediate",
-    topic: "Discussing favorite foods and restaurants",
-    messageCount: 12,
-  },
-  {
-    id: "2",
-    date: new Date(Date.now() - 1000 * 60 * 60 * 24),
-    duration: 20,
-    difficulty: "beginner",
-    topic: "Basic introductions and greetings",
-    messageCount: 18,
-  },
-  {
-    id: "3",
-    date: new Date(Date.now() - 1000 * 60 * 60 * 48),
-    duration: 25,
-    difficulty: "intermediate",
-    topic: "Planning a trip to Spain",
-    messageCount: 24,
-  },
-];
+import { Calendar, Clock, Eye, Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import type { Conversation } from "@shared/schema";
 
 const difficultyColors = {
   beginner: "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400",
@@ -46,28 +12,48 @@ const difficultyColors = {
 };
 
 export function ConversationHistory() {
+  const { data: conversations = [], isLoading } = useQuery<Conversation[]>({
+    queryKey: ["/api/conversations"],
+  });
+
   const handleViewConversation = (id: string) => {
     console.log(`Viewing conversation: ${id}`);
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (conversations.length === 0) {
+    return (
+      <Card className="p-8 text-center">
+        <p className="text-muted-foreground">No conversation history yet. Start practicing to see your sessions here!</p>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-3">
-      {sampleConversations.map((conversation) => (
+      {conversations.map((conversation) => (
         <Card key={conversation.id} className="p-6 hover-elevate" data-testid={`card-conversation-${conversation.id}`}>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex-1 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold" data-testid={`text-conversation-topic-${conversation.id}`}>
-                  {conversation.topic}
+                  {conversation.topic || "Conversation"}
                 </h3>
-                <Badge className={difficultyColors[conversation.difficulty]} data-testid={`badge-difficulty-${conversation.id}`}>
+                <Badge className={difficultyColors[conversation.difficulty as keyof typeof difficultyColors]} data-testid={`badge-difficulty-${conversation.id}`}>
                   {conversation.difficulty}
                 </Badge>
               </div>
               <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                 <span className="flex items-center gap-1">
                   <Calendar className="h-4 w-4" />
-                  {conversation.date.toLocaleDateString()}
+                  {new Date(conversation.createdAt).toLocaleDateString()}
                 </span>
                 <span className="flex items-center gap-1">
                   <Clock className="h-4 w-4" />

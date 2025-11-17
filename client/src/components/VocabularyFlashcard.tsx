@@ -1,54 +1,46 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, RotateCw } from "lucide-react";
-
-interface FlashcardData {
-  id: string;
-  word: string;
-  translation: string;
-  example: string;
-  pronunciation: string;
-}
-
-const sampleCards: FlashcardData[] = [
-  {
-    id: "1",
-    word: "Hola",
-    translation: "Hello",
-    example: "Hola, ¿cómo estás?",
-    pronunciation: "OH-lah",
-  },
-  {
-    id: "2",
-    word: "Gracias",
-    translation: "Thank you",
-    example: "Gracias por tu ayuda.",
-    pronunciation: "GRAH-see-ahs",
-  },
-  {
-    id: "3",
-    word: "Amigo",
-    translation: "Friend",
-    example: "Mi amigo es muy amable.",
-    pronunciation: "ah-MEE-goh",
-  },
-];
+import { ChevronLeft, ChevronRight, RotateCw, Loader2 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useQuery } from "@tanstack/react-query";
+import type { VocabularyWord } from "@shared/schema";
 
 export function VocabularyFlashcard() {
+  const { language, difficulty } = useLanguage();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
 
-  const currentCard = sampleCards[currentIndex];
+  const { data: vocabularyWords = [], isLoading } = useQuery<VocabularyWord[]>({
+    queryKey: ["/api/vocabulary", { language, difficulty }],
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (vocabularyWords.length === 0) {
+    return (
+      <Card className="p-8 text-center">
+        <p className="text-muted-foreground">No vocabulary words available for this language and difficulty level.</p>
+      </Card>
+    );
+  }
+
+  const currentCard = vocabularyWords[currentIndex];
 
   const handleNext = () => {
     setIsFlipped(false);
-    setCurrentIndex((prev) => (prev + 1) % sampleCards.length);
+    setCurrentIndex((prev) => (prev + 1) % vocabularyWords.length);
   };
 
   const handlePrevious = () => {
     setIsFlipped(false);
-    setCurrentIndex((prev) => (prev - 1 + sampleCards.length) % sampleCards.length);
+    setCurrentIndex((prev) => (prev - 1 + vocabularyWords.length) % vocabularyWords.length);
   };
 
   const handleFlip = () => {
@@ -111,7 +103,7 @@ export function VocabularyFlashcard() {
             Flip Card
           </Button>
           <div className="flex gap-2">
-            {sampleCards.map((_, index) => (
+            {vocabularyWords.map((_, index) => (
               <div
                 key={index}
                 className={`h-2 w-2 rounded-full ${
@@ -126,7 +118,7 @@ export function VocabularyFlashcard() {
           variant="outline"
           size="icon"
           onClick={handleNext}
-          disabled={currentIndex === sampleCards.length - 1}
+          disabled={currentIndex === vocabularyWords.length - 1}
           data-testid="button-flashcard-next"
         >
           <ChevronRight className="h-4 w-4" />
@@ -134,7 +126,7 @@ export function VocabularyFlashcard() {
       </div>
 
       <p className="text-center text-sm text-muted-foreground">
-        Card {currentIndex + 1} of {sampleCards.length}
+        Card {currentIndex + 1} of {vocabularyWords.length}
       </p>
     </div>
   );

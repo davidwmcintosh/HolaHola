@@ -4,40 +4,39 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, XCircle } from "lucide-react";
-
-interface Question {
-  id: string;
-  question: string;
-  options: string[];
-  correctAnswer: number;
-  explanation: string;
-}
-
-const sampleQuestions: Question[] = [
-  {
-    id: "1",
-    question: "Complete: Yo ___ estudiante.",
-    options: ["es", "soy", "eres", "está"],
-    correctAnswer: 1,
-    explanation: "Use 'soy' for the first person singular of the verb 'ser' (to be).",
-  },
-  {
-    id: "2",
-    question: "Choose the correct verb: Ella ___ una manzana.",
-    options: ["come", "como", "comes", "comen"],
-    correctAnswer: 0,
-    explanation: "'Come' is the third person singular form of 'comer' (to eat).",
-  },
-];
+import { CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useQuery } from "@tanstack/react-query";
+import type { GrammarExercise as GrammarExerciseType } from "@shared/schema";
 
 export function GrammarExercise() {
+  const { language, difficulty } = useLanguage();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
 
-  const currentQuestion = sampleQuestions[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / sampleQuestions.length) * 100;
+  const { data: exercises = [], isLoading } = useQuery<GrammarExerciseType[]>({
+    queryKey: ["/api/grammar", { language, difficulty }],
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (exercises.length === 0) {
+    return (
+      <Card className="p-8 text-center">
+        <p className="text-muted-foreground">No grammar exercises available for this language and difficulty level.</p>
+      </Card>
+    );
+  }
+
+  const currentQuestion = exercises[currentQuestionIndex];
+  const progress = ((currentQuestionIndex + 1) / exercises.length) * 100;
 
   const handleSubmit = () => {
     if (selectedAnswer !== null) {
@@ -47,7 +46,7 @@ export function GrammarExercise() {
   };
 
   const handleNext = () => {
-    if (currentQuestionIndex < sampleQuestions.length - 1) {
+    if (currentQuestionIndex < exercises.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
       setSelectedAnswer(null);
       setShowResult(false);
@@ -62,7 +61,7 @@ export function GrammarExercise() {
         <div className="flex justify-between items-center mb-2">
           <p className="text-sm text-muted-foreground">Progress</p>
           <p className="text-sm font-medium" data-testid="text-exercise-progress">
-            {currentQuestionIndex + 1} / {sampleQuestions.length}
+            {currentQuestionIndex + 1} / {exercises.length}
           </p>
         </div>
         <Progress value={progress} />
@@ -126,7 +125,7 @@ export function GrammarExercise() {
           ) : (
             <Button
               onClick={handleNext}
-              disabled={currentQuestionIndex === sampleQuestions.length - 1}
+              disabled={currentQuestionIndex === exercises.length - 1}
               data-testid="button-next-question"
             >
               Next Question

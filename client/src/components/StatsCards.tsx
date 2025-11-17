@@ -1,5 +1,8 @@
 import { Card } from "@/components/ui/card";
-import { BookOpen, Clock, Flame } from "lucide-react";
+import { BookOpen, Clock, Flame, Loader2 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useQuery } from "@tanstack/react-query";
+import type { UserProgress } from "@shared/schema";
 
 interface StatCardProps {
   title: string;
@@ -23,23 +26,37 @@ function StatCard({ title, value, icon, testId }: StatCardProps) {
 }
 
 export function StatsCards() {
+  const { language } = useLanguage();
+  
+  const { data: progress, isLoading } = useQuery<UserProgress>({
+    queryKey: ["/api/progress", language],
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-32">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <StatCard 
         title="Words Learned" 
-        value={247} 
+        value={progress?.wordsLearned || 0} 
         icon={<BookOpen className="h-8 w-8" />}
         testId="stat-words-learned"
       />
       <StatCard 
         title="Practice Minutes" 
-        value={1420} 
+        value={progress?.practiceMinutes || 0} 
         icon={<Clock className="h-8 w-8" />}
         testId="stat-practice-minutes"
       />
       <StatCard 
         title="Day Streak" 
-        value={12} 
+        value={progress?.currentStreak || 0} 
         icon={<Flame className="h-8 w-8" />}
         testId="stat-day-streak"
       />

@@ -1,20 +1,13 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type DifficultyLevel = "beginner" | "intermediate" | "advanced";
 
-interface DifficultySelectorProps {
-  value?: DifficultyLevel;
-  onChange?: (level: DifficultyLevel) => void;
-}
-
-export function DifficultySelector({ value, onChange }: DifficultySelectorProps) {
-  const [selected, setSelected] = useState<DifficultyLevel>(value || "beginner");
+export function DifficultySelector() {
+  const { difficulty, setDifficulty } = useLanguage();
 
   const handleSelect = (level: DifficultyLevel) => {
-    setSelected(level);
-    onChange?.(level);
-    console.log(`Difficulty changed to: ${level}`);
+    setDifficulty(level);
   };
 
   const levels: { value: DifficultyLevel; label: string }[] = [
@@ -28,7 +21,7 @@ export function DifficultySelector({ value, onChange }: DifficultySelectorProps)
       {levels.map((level) => (
         <Button
           key={level.value}
-          variant={selected === level.value ? "default" : "outline"}
+          variant={difficulty === level.value ? "default" : "outline"}
           onClick={() => handleSelect(level.value)}
           data-testid={`button-difficulty-${level.value}`}
         >
