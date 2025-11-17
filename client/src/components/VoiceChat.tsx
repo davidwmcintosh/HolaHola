@@ -10,6 +10,7 @@ import { apiRequest } from "@/lib/queryClient";
 import type { Message } from "@shared/schema";
 import { AudioRecorder, AudioPlayer, pcm16ToBase64 } from "@/lib/audioUtils";
 import { Badge } from "@/components/ui/badge";
+import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 
 interface RealtimeEvent {
   type: string;
@@ -318,28 +319,18 @@ export function VoiceChat() {
     ...transcript.map(t => ({ ...t, saved: false })),
   ];
 
+  // Determine avatar state for voice chat
+  const avatarState: AvatarState = isRecording ? "listening" : isAiSpeaking ? "speaking" : "idle";
+
   return (
     <Card className="flex flex-col h-[600px]">
       <div className="p-6 border-b">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1">
             <h2 className="text-xl font-semibold">Voice Conversation</h2>
             <p className="text-sm text-muted-foreground">Speak with your AI language tutor</p>
           </div>
-          <div className="flex items-center gap-2">
-            {isRecording && (
-              <Badge variant="destructive" className="animate-pulse">
-                <Mic className="h-3 w-3 mr-1" />
-                Recording
-              </Badge>
-            )}
-            {isAiSpeaking && (
-              <Badge variant="default">
-                <Volume2 className="h-3 w-3 mr-1 animate-pulse" />
-                AI Speaking
-              </Badge>
-            )}
-          </div>
+          <InstructorAvatar state={avatarState} className="w-24" />
         </div>
       </div>
 
