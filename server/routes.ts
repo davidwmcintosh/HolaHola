@@ -8,10 +8,11 @@ import {
 import OpenAI from "openai";
 import { setupRealtimeProxy } from "./realtime-proxy";
 
-// Using OpenAI's official API with user-provided API key
+// Use Replit AI Integrations for text chat (works reliably)
+// User's personal key (USER_OPENAI_API_KEY) is only used for voice chat in realtime-proxy.ts
 const openai = new OpenAI({
-  baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
-  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || 'https://api.openai.com/v1',
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
