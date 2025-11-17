@@ -10,6 +10,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Conversation, Message } from "@shared/schema";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
+import { AccentButtons } from "@/components/AccentButtons";
 
 export function ChatInterface() {
   const { language, difficulty, userName } = useLanguage();
@@ -17,6 +18,7 @@ export function ChatInterface() {
   const [input, setInput] = useState("");
   const [waitingForResponse, setWaitingForResponse] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previousAssistantCountRef = useRef(0);
 
   // Create or reuse conversation when language/difficulty changes
@@ -96,9 +98,32 @@ export function ChatInterface() {
     await sendMessageMutation.mutateAsync(messageContent);
   };
 
+  const handleInsertAccent = (character: string) => {
+    if (!textareaRef.current) return;
+
+    const textarea = textareaRef.current;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    
+    // Use functional update to avoid race conditions with stale input state
+    setInput((currentInput) => {
+      const newValue = currentInput.substring(0, start) + character + currentInput.substring(end);
+      return newValue;
+    });
+    
+    // Restore cursor position after character insertion
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + character.length, start + character.length);
+    }, 0);
+  };
+
   // Determine avatar state based on conversation activity
   // "speaking" when AI is generating response, "idle" otherwise
   const avatarState: AvatarState = waitingForResponse ? "speaking" : "idle";
+
+  // Get display name for current language
+  const languageDisplayName = language.charAt(0).toUpperCase() + language.slice(1);
 
   return (
     <Card className="flex flex-col h-[600px]">
@@ -106,7 +131,7 @@ export function ChatInterface() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold">Conversation Practice</h2>
-            <p className="text-sm text-muted-foreground">Practice Spanish with AI tutor</p>
+            <p className="text-sm text-muted-foreground">Practice {languageDisplayName} with AI tutor</p>
           </div>
           <InstructorAvatar state={avatarState} className="w-24" />
         </div>
@@ -167,6 +192,7 @@ export function ChatInterface() {
       <div className="p-4 border-t">
         <div className="flex gap-2">
           <Textarea
+            ref={textareaRef}
             placeholder="Type your message..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -193,6 +219,7 @@ export function ChatInterface() {
             )}
           </Button>
         </div>
+        <AccentButtons language={language} onInsert={handleInsertAccent} />
       </div>
     </Card>
   );
