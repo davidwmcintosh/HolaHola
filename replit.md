@@ -53,10 +53,12 @@ Preferred communication style: Simple, everyday language.
 - **Field Preservation**: Ensures userName and language aren't lost when updating onboarding step
 
 **Adaptive Multi-Phase Conversation System**:
-Utilizes a three-phase approach for AI tutor interaction:
-1.  **English Assessment (Messages 1-5)**: Assesses user proficiency and background in English.
-2.  **Gradual Transition (Messages 6-11)**: Mixes target language with English, adapting ratio based on user performance.
-3.  **Immersive Practice (Message 12+)**: Primarily uses the target language based on selected difficulty, with English support for complex concepts. Includes end-of-session reminder feature that naturally reminds students their vocabulary and grammar are automatically saved in menu sections when wrapping up.
+Utilizes a three-phase approach for AI tutor interaction, designed for gradual, beginner-friendly progression:
+1.  **English Assessment (Messages 0-9)**: Extended rapport-building phase that stays completely in English. Focuses on understanding student interests, goals, and background through friendly conversation. No target language teaching occurs in this phase - builds comfort and trust first.
+2.  **Gradual Transition (Messages 10-14)**: Gently introduces target language starting with absolute basics (greetings). Begins at 80% English / 20% target language and gradually shifts to 50/50. Always provides immediate English translations. Maximum 2-3 new words per message.
+3.  **Immersive Practice (Message 15+)**: Primarily uses the target language (80-90%) based on selected difficulty, with English support for complex concepts. Includes end-of-session reminder feature that naturally reminds students their vocabulary and grammar are automatically saved in menu sections when wrapping up.
+
+**Phase Calculation**: Uses user message count (conversation turns) rather than total messages to ensure phases align with actual learning progression. Critical fix ensures beginners get full 10 English-only turns before Spanish introduction begins.
 
 **Conversation-to-Notes: Automatic Vocabulary Extraction**: AI automatically identifies and saves new vocabulary from conversations using OpenAI's structured output, integrating them into the Vocabulary flashcard system.
 **Voice Chat Feature**: Real-time voice conversations using OpenAI Realtime API with a WebSocket proxy. Includes manual push-to-talk recording, visual feedback, and a toggle between text and voice modes. Simplified configuration for broader compatibility.
