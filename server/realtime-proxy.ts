@@ -36,6 +36,18 @@ export function setupRealtimeProxy(server: Server) {
 
       // Forward messages from OpenAI to client
       openaiWs.on('message', (data) => {
+        // Log messages to help debug issues
+        try {
+          const parsed = JSON.parse(data.toString());
+          if (parsed.type === 'error') {
+            console.error('OpenAI Realtime API error:', parsed);
+          } else {
+            console.log('OpenAI message type:', parsed.type);
+          }
+        } catch (e) {
+          // Binary data, ignore
+        }
+        
         if (clientWs.readyState === WS.OPEN) {
           clientWs.send(data);
         }
@@ -84,8 +96,8 @@ export function setupRealtimeProxy(server: Server) {
         }
       });
 
-      openaiWs.on('close', () => {
-        console.log('OpenAI connection closed');
+      openaiWs.on('close', (code, reason) => {
+        console.log('OpenAI connection closed', { code, reason: reason.toString() });
         clientWs.close();
       });
 
