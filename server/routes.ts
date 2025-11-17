@@ -8,54 +8,39 @@ import {
 import OpenAI from "openai";
 import { setupRealtimeProxy } from "./realtime-proxy";
 
-// This is using Replit's AI Integrations service for OpenAI-compatible API access
+// Using OpenAI's official API with user-provided API key
 const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Realtime API capability check
   app.get("/api/realtime/capability", async (req, res) => {
     try {
-      const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || 'https://api.openai.com/v1';
-      const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+      const baseUrl = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+      const apiKey = process.env.OPENAI_API_KEY;
       
       // Check if we have the required credentials
       if (!apiKey) {
         return res.json({
           available: false,
-          reason: 'No API key configured',
+          reason: 'No OpenAI API key configured. Please add your OPENAI_API_KEY in Replit Secrets.',
         });
       }
       
-      // Check if the base URL looks like it could support Realtime API
-      // Replit AI Integrations use a different base URL that doesn't support Realtime
-      const isReplitIntegrations = 
-        baseUrl.includes('ai.api.replit.com') || 
-        baseUrl.includes('replit') ||
-        baseUrl.includes('modelfarm') ||
-        baseUrl.includes('localhost:1106');
-      
-      if (isReplitIntegrations) {
-        return res.json({
-          available: false,
-          reason: 'Replit AI Integrations do not support the OpenAI Realtime API. Please provide your own OpenAI API key with Realtime access.',
-        });
-      }
-      
-      // Only consider it available if using the official OpenAI API
+      // Check if base URL is OpenAI's official API
       const isOpenAIAPI = baseUrl.includes('api.openai.com');
       
       if (isOpenAIAPI) {
         res.json({
           available: true,
-          reason: 'OpenAI Realtime API may be available',
+          reason: 'OpenAI Realtime API is available',
         });
       } else {
         res.json({
           available: false,
-          reason: 'Voice chat requires the official OpenAI API with Realtime support. Current API endpoint does not support this feature.',
+          reason: 'Voice chat requires the official OpenAI API endpoint (api.openai.com). Current base URL is not supported.',
         });
       }
     } catch (error: any) {

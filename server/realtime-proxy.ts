@@ -17,12 +17,12 @@ export function setupRealtimeProxy(server: Server) {
       const difficulty = url.searchParams.get('difficulty') || 'beginner';
 
       // Connect to OpenAI Realtime API
-      const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || 'https://api.openai.com/v1';
-      const wsUrl = baseUrl.replace('https://', 'wss://').replace('http://', 'ws://') + '/realtime?model=gpt-4o-realtime-preview';
+      const baseUrl = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+      const wsUrl = baseUrl.replace('https://', 'wss://').replace('http://', 'ws://') + '/realtime?model=gpt-4o-realtime-preview-2024-12-17';
       
       const openaiWs = new WS(wsUrl, {
         headers: {
-          'Authorization': `Bearer ${process.env.AI_INTEGRATIONS_OPENAI_API_KEY}`,
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
           'OpenAI-Beta': 'realtime=v1',
         },
       });
