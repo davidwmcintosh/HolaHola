@@ -68,7 +68,15 @@ Preferred communication style: Simple, everyday language.
     - **Conversation Activity** (AreaChart): Daily conversation frequency
     - Historical data stored via `progressHistory` table with automatic snapshot creation during streak recording
     - Charts display latest cumulative totals and calculate daily deltas for visualization
--   **Full Application**: Includes AI chat, vocabulary flashcards, grammar exercises, conversation history, progress tracking dashboard with charts and streak metrics.
+-   **Auto-Difficulty Adjustment**: Intelligent difficulty recommendation system with:
+    - **Performance Tracking**: Each user message scored 0-100 based on length, engagement, and target language usage (60+ = successful)
+    - **Smart Recommendations**: After 20 assessed messages, system analyzes success rate and suggests difficulty changes
+    - **Thresholds**: 80%+ success → upgrade (beginner → intermediate → advanced), 40%- success → downgrade, 40-80% → maintain
+    - **Safeguards**: 24-hour cooldown between adjustments prevents over-adjustment
+    - **Non-Intrusive UI**: Dismissible recommendation cards with TrendingUp/TrendingDown icons, progress indicators, and success rate display
+    - **Atomic Updates**: Re-fetch conversation before incrementing counters to prevent race conditions
+    - **Persistent State**: All performance data (scores, counters, adjustment dates) stored and survive page reloads
+-   **Full Application**: Includes AI chat, vocabulary flashcards, grammar exercises, conversation history, progress tracking dashboard with charts and streak metrics, auto-difficulty adjustment.
 
 ## External Dependencies
 
