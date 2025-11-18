@@ -15,6 +15,8 @@ import {
   type InsertPronunciationScore,
   type Topic,
   type InsertTopic,
+  type CulturalTip,
+  type InsertCulturalTip,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -59,6 +61,11 @@ export interface IStorage {
   getTopics(): Promise<Topic[]>;
   getTopic(id: string): Promise<Topic | undefined>;
   createTopic(data: InsertTopic): Promise<Topic>;
+
+  // Cultural Tips
+  getCulturalTips(language: string): Promise<CulturalTip[]>;
+  getCulturalTip(id: string): Promise<CulturalTip | undefined>;
+  createCulturalTip(data: InsertCulturalTip): Promise<CulturalTip>;
 }
 
 export class MemStorage implements IStorage {
@@ -70,6 +77,7 @@ export class MemStorage implements IStorage {
   private progressHistory: Map<string, ProgressHistory>;
   private pronunciationScores: Map<string, PronunciationScore>;
   private topics: Map<string, Topic>;
+  private culturalTips: Map<string, CulturalTip>;
 
   constructor() {
     this.conversations = new Map();
@@ -80,6 +88,7 @@ export class MemStorage implements IStorage {
     this.progressHistory = new Map();
     this.pronunciationScores = new Map();
     this.topics = new Map();
+    this.culturalTips = new Map();
     this.seedData();
   }
 
@@ -218,6 +227,191 @@ export class MemStorage implements IStorage {
     ];
 
     initialTopics.forEach(topic => this.createTopic(topic));
+
+    // Seed cultural tips
+    const culturalTips: InsertCulturalTip[] = [
+      // Spanish cultural tips
+      {
+        language: "spanish",
+        category: "Greetings",
+        title: "Double-Cheek Kiss Greeting",
+        content: "In Spain and many Latin American countries, it's customary to greet friends and family with two kisses on the cheek (one on each side). Start with the right cheek first.",
+        context: "Common in social settings with friends and family",
+        relatedTopics: ["Social Interactions"],
+        icon: "Users",
+      },
+      {
+        language: "spanish",
+        category: "Dining",
+        title: "Late Dinner Times",
+        content: "In Spain, dinner (la cena) is typically eaten much later than in other countries—often between 9 PM and 11 PM. Restaurants may not even open for dinner until 8:30 PM.",
+        context: "When dining out in Spain",
+        relatedTopics: ["Food & Restaurants"],
+        icon: "UtensilsCrossed",
+      },
+      {
+        language: "spanish",
+        category: "Social Norms",
+        title: "Siesta Tradition",
+        content: "The siesta is a traditional afternoon rest period in Spain, typically from 2-5 PM. Many small shops and businesses close during this time, though this practice is becoming less common in larger cities.",
+        context: "Shopping and business hours in Spain",
+        relatedTopics: ["Shopping & Retail", "Daily Routines"],
+        icon: "Clock",
+      },
+      // French cultural tips
+      {
+        language: "french",
+        category: "Greetings",
+        title: "La Bise Greeting",
+        content: "In France, 'la bise' (cheek kisses) is a common greeting. The number varies by region—Paris typically does 2, while some southern regions do 3 or 4. Air kissing (not actual lip contact) while touching cheeks is the norm.",
+        context: "Greeting friends and acquaintances",
+        relatedTopics: ["Social Interactions"],
+        icon: "Users",
+      },
+      {
+        language: "french",
+        category: "Dining",
+        title: "Bread Etiquette",
+        content: "In French dining, bread is placed directly on the tablecloth, not on your plate. Break it with your hands rather than cutting it with a knife. It's used to push food onto your fork.",
+        context: "Dining at restaurants or formal meals",
+        relatedTopics: ["Food & Restaurants"],
+        icon: "UtensilsCrossed",
+      },
+      {
+        language: "french",
+        category: "Social Norms",
+        title: "Formal vs. Informal 'You'",
+        content: "French has two forms of 'you': 'tu' (informal) and 'vous' (formal). Always use 'vous' with strangers, elderly people, or in professional settings. Wait for others to invite you to use 'tu'.",
+        context: "All social and professional interactions",
+        relatedTopics: null,
+        icon: "MessageSquare",
+      },
+      // German cultural tips
+      {
+        language: "german",
+        category: "Social Norms",
+        title: "Punctuality is Sacred",
+        content: "Being on time is extremely important in German culture. Arriving even 5 minutes late is considered rude. If you're running late, always call ahead to inform the other party.",
+        context: "All appointments and social gatherings",
+        relatedTopics: null,
+        icon: "Clock",
+      },
+      {
+        language: "german",
+        category: "Dining",
+        title: "Table Manners: Keep Hands Visible",
+        content: "In German dining etiquette, keep both hands on or above the table at all times (but not elbows). Resting your hands in your lap is considered poor manners.",
+        context: "Formal and casual dining",
+        relatedTopics: ["Food & Restaurants"],
+        icon: "UtensilsCrossed",
+      },
+      // Italian cultural tips
+      {
+        language: "italian",
+        category: "Dining",
+        title: "Coffee Culture Rules",
+        content: "Italians drink cappuccino only in the morning, never after 11 AM. Espresso is the afternoon/evening coffee. Ordering a cappuccino after lunch marks you as a tourist.",
+        context: "Ordering coffee at cafés",
+        relatedTopics: ["Food & Restaurants"],
+        icon: "Coffee",
+      },
+      {
+        language: "italian",
+        category: "Social Norms",
+        title: "Passionate Hand Gestures",
+        content: "Hand gestures are an integral part of Italian communication. Italians use their hands expressively while speaking, and certain gestures have specific meanings that vary by region.",
+        context: "Everyday conversation",
+        relatedTopics: ["Social Interactions"],
+        icon: "Hand",
+      },
+      // Portuguese cultural tips
+      {
+        language: "portuguese",
+        category: "Greetings",
+        title: "Warm Physical Greetings",
+        content: "In Brazil, greetings often include hugs and kisses on both cheeks, even in business settings. In Portugal, handshakes are more common in professional contexts, while cheek kisses are for friends.",
+        context: "Meeting people socially or professionally",
+        relatedTopics: ["Social Interactions"],
+        icon: "Users",
+      },
+      {
+        language: "portuguese",
+        category: "Social Norms",
+        title: "Beach and Casual Culture (Brazil)",
+        content: "In Brazil, especially in coastal cities, casual beachwear (havaianas, shorts) is acceptable in many settings. Brazilians value comfort and relaxed dress codes in everyday situations.",
+        context: "Everyday dress and social situations",
+        relatedTopics: null,
+        icon: "Sun",
+      },
+      // Japanese cultural tips
+      {
+        language: "japanese",
+        category: "Greetings",
+        title: "Bowing Etiquette",
+        content: "Bowing is the traditional Japanese greeting. A slight bow (15°) is casual, while deeper bows (30°-45°) show more respect. The depth and duration depend on the social context and the person's status.",
+        context: "All social and professional interactions",
+        relatedTopics: ["Social Interactions"],
+        icon: "Users",
+      },
+      {
+        language: "japanese",
+        category: "Dining",
+        title: "Chopstick Taboos",
+        content: "Never stick chopsticks vertically into rice (resembles funeral rituals) or pass food chopstick-to-chopstick (also funeral-related). Rest chopsticks on the holder when not using them.",
+        context: "Dining with chopsticks",
+        relatedTopics: ["Food & Restaurants"],
+        icon: "UtensilsCrossed",
+      },
+      {
+        language: "japanese",
+        category: "Social Norms",
+        title: "Taking Shoes Off",
+        content: "Remove shoes before entering homes, temples, and some traditional restaurants. Slippers are usually provided. Never wear outdoor shoes on tatami mats.",
+        context: "Entering homes and certain establishments",
+        relatedTopics: null,
+        icon: "Home",
+      },
+      // Chinese cultural tips
+      {
+        language: "chinese",
+        category: "Dining",
+        title: "Refusing Food Politely",
+        content: "In Chinese culture, hosts often insist multiple times when offering food. It's polite to refuse once or twice before accepting. Accepting immediately might seem greedy.",
+        context: "Dining in someone's home or at banquets",
+        relatedTopics: ["Food & Restaurants"],
+        icon: "UtensilsCrossed",
+      },
+      {
+        language: "chinese",
+        category: "Gift Giving",
+        title: "Red Envelopes for Luck",
+        content: "Red envelopes (红包, hóngbāo) containing money are given during holidays, weddings, and special occasions. The color red symbolizes luck and prosperity. Never give amounts with the number 4.",
+        context: "Holidays, weddings, Chinese New Year",
+        relatedTopics: null,
+        icon: "Gift",
+      },
+      // Korean cultural tips
+      {
+        language: "korean",
+        category: "Social Norms",
+        title: "Respect for Elders",
+        content: "Age hierarchy is very important in Korean culture. Always show respect to elders by using formal language, letting them eat first, and bowing when greeting. Pour drinks for elders with both hands.",
+        context: "All social interactions",
+        relatedTopics: ["Social Interactions"],
+        icon: "Users",
+      },
+      {
+        language: "korean",
+        category: "Dining",
+        title: "Soju Drinking Etiquette",
+        content: "When drinking soju or alcohol, turn your head away from elders when taking a sip as a sign of respect. Receive drinks with both hands, and never pour your own drink—pour for others and they'll pour for you.",
+        context: "Social drinking situations",
+        relatedTopics: ["Food & Restaurants", "Social Interactions"],
+        icon: "Wine",
+      },
+    ];
+
+    culturalTips.forEach(tip => this.createCulturalTip(tip));
   }
 
   async createConversation(data: InsertConversation): Promise<Conversation> {
@@ -518,6 +712,26 @@ export class MemStorage implements IStorage {
     };
     this.topics.set(id, topic);
     return topic;
+  }
+
+  async getCulturalTips(language: string): Promise<CulturalTip[]> {
+    return Array.from(this.culturalTips.values())
+      .filter((tip) => tip.language === language);
+  }
+
+  async getCulturalTip(id: string): Promise<CulturalTip | undefined> {
+    return this.culturalTips.get(id);
+  }
+
+  async createCulturalTip(data: InsertCulturalTip): Promise<CulturalTip> {
+    const id = randomUUID();
+    const culturalTip: CulturalTip = {
+      ...data,
+      id,
+      relatedTopics: data.relatedTopics ?? null,
+    };
+    this.culturalTips.set(id, culturalTip);
+    return culturalTip;
   }
 }
 

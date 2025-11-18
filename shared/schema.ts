@@ -101,6 +101,17 @@ export const topics = pgTable("topics", {
   difficulty: text("difficulty"), // Optional difficulty recommendation
 });
 
+export const culturalTips = pgTable("cultural_tips", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  language: text("language").notNull(),
+  category: text("category").notNull(), // e.g., "Greetings", "Dining", "Social Norms", "Customs", "Holidays"
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  context: text("context").notNull(), // When/where this applies
+  relatedTopics: text("related_topics").array(), // Optional topic associations
+  icon: text("icon").notNull(), // Lucide icon name
+});
+
 export const insertConversationSchema = createInsertSchema(conversations).omit({
   id: true,
   createdAt: true,
@@ -136,6 +147,10 @@ export const insertTopicSchema = createInsertSchema(topics).omit({
   id: true,
 });
 
+export const insertCulturalTipSchema = createInsertSchema(culturalTips).omit({
+  id: true,
+});
+
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type Conversation = typeof conversations.$inferSelect;
 
@@ -159,3 +174,6 @@ export type PronunciationScore = typeof pronunciationScores.$inferSelect;
 
 export type InsertTopic = z.infer<typeof insertTopicSchema>;
 export type Topic = typeof topics.$inferSelect;
+
+export type InsertCulturalTip = z.infer<typeof insertCulturalTipSchema>;
+export type CulturalTip = typeof culturalTips.$inferSelect;
