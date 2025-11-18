@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import {
   insertConversationSchema,
   insertMessageSchema,
+  insertProgressHistorySchema,
 } from "@shared/schema";
 import OpenAI from "openai";
 import { setupRealtimeProxy } from "./realtime-proxy";
@@ -204,8 +205,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (containsInappropriateContent(messageData.content)) {
           // Reset onboarding to the beginning - clear all onboarding state
           await storage.updateConversation(conversationId, {
-            userName: null,
-            language: null,
+            userName: undefined,
+            language: conversation.language, // Keep existing language
             onboardingStep: "name",
             isOnboarding: true,
           });
@@ -508,6 +509,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(updated);
     } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Progress History
+  app.get("/api/progress-history/:language", async (req, res) => {
+    try {
+      const days = req.query.days ? parseInt(req.query.days as string) : 30;
+      const history = await storage.getProgressHistory(req.params.language, days);
+      res.json(history);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/progress-history", async (req, res) => {
+    try {
+      const validated = insertProgressHistorySchema.parse(req.body);
+      const history = await storage.createProgressHistory(validated);
+      res.status(201).json(history);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid progress history data", details: error.errors });
+      }
       res.status(500).json({ error: error.message });
     }
   });

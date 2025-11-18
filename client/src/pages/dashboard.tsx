@@ -1,6 +1,7 @@
 import { WelcomeHero } from "@/components/WelcomeHero";
 import { StatsCards } from "@/components/StatsCards";
 import { StreakIndicator } from "@/components/StreakIndicator";
+import { ProgressCharts } from "@/components/ProgressCharts";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { DifficultySelector } from "@/components/DifficultySelector";
 import { Card } from "@/components/ui/card";
@@ -26,6 +27,11 @@ export default function Dashboard() {
             <StreakIndicator />
           </div>
         </div>
+      </div>
+
+      <div className="space-y-4">
+        <h2 className="text-2xl font-semibold">Progress Charts</h2>
+        <ProgressCharts />
       </div>
 
       <Card className="p-6 space-y-6">

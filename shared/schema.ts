@@ -55,20 +55,13 @@ export const userProgress = pgTable("user_progress", {
   lastPracticeDate: timestamp("last_practice_date"),
 });
 
-export const achievements = pgTable("achievements", {
+export const progressHistory = pgTable("progress_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  description: text("description").notNull(),
-  type: text("type").notNull(),
-  requirement: integer("requirement").notNull(),
-  icon: text("icon").notNull(),
-});
-
-export const userAchievements = pgTable("user_achievements", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  achievementId: varchar("achievement_id").notNull().references(() => achievements.id),
   language: text("language").notNull(),
-  earnedAt: timestamp("earned_at").notNull().defaultNow(),
+  date: timestamp("date").notNull(),
+  wordsLearned: integer("words_learned").notNull().default(0),
+  practiceMinutes: integer("practice_minutes").notNull().default(0),
+  conversationsCount: integer("conversations_count").notNull().default(0),
 });
 
 export const insertConversationSchema = createInsertSchema(conversations).omit({
@@ -93,6 +86,10 @@ export const insertUserProgressSchema = createInsertSchema(userProgress).omit({
   id: true,
 });
 
+export const insertProgressHistorySchema = createInsertSchema(progressHistory).omit({
+  id: true,
+});
+
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type Conversation = typeof conversations.$inferSelect;
 
@@ -107,3 +104,6 @@ export type GrammarExercise = typeof grammarExercises.$inferSelect;
 
 export type InsertUserProgress = z.infer<typeof insertUserProgressSchema>;
 export type UserProgress = typeof userProgress.$inferSelect;
+
+export type InsertProgressHistory = z.infer<typeof insertProgressHistorySchema>;
+export type ProgressHistory = typeof progressHistory.$inferSelect;

@@ -87,6 +87,21 @@ export function useStreak() {
         lastPracticeDate: now.toISOString(),
       });
 
+      // Record progress history snapshot for charts
+      // Fetch all conversations to get cumulative count
+      const conversationsResponse = await fetch(`/api/conversations`);
+      const allConversations = conversationsResponse.ok ? await conversationsResponse.json() : [];
+      const cumulativeConversations = allConversations.filter((c: any) => c.language === currentProgress.language).length;
+      
+      // Store cumulative totals as of today (charts will calculate deltas for visualization)
+      await apiRequest("POST", "/api/progress-history", {
+        language: currentProgress.language,
+        date: now.toISOString(),
+        wordsLearned: currentProgress.wordsLearned, // Cumulative total as of today
+        practiceMinutes: currentProgress.practiceMinutes, // Cumulative total as of today
+        conversationsCount: cumulativeConversations, // Cumulative conversations in this language
+      });
+
       return {
         practiced: true,
         streakIncreased: newStreak > currentProgress.currentStreak,
@@ -94,8 +109,9 @@ export function useStreak() {
       };
     },
     onSuccess: () => {
-      // Invalidate progress query to refetch
+      // Invalidate progress and history queries to refetch
       queryClient.invalidateQueries({ queryKey: ["/api/progress", language] });
+      queryClient.invalidateQueries({ queryKey: ["/api/progress-history", language] });
     },
   });
 

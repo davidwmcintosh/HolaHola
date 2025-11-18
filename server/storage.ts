@@ -9,6 +9,8 @@ import {
   type InsertGrammarExercise,
   type UserProgress,
   type InsertUserProgress,
+  type ProgressHistory,
+  type InsertProgressHistory,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -35,6 +37,10 @@ export interface IStorage {
   // User Progress
   getOrCreateUserProgress(language: string): Promise<UserProgress>;
   updateUserProgress(id: string, data: Partial<UserProgress>): Promise<UserProgress | undefined>;
+
+  // Progress History
+  createProgressHistory(data: InsertProgressHistory): Promise<ProgressHistory>;
+  getProgressHistory(language: string, days?: number): Promise<ProgressHistory[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -43,6 +49,7 @@ export class MemStorage implements IStorage {
   private vocabularyWords: Map<string, VocabularyWord>;
   private grammarExercises: Map<string, GrammarExercise>;
   private userProgress: Map<string, UserProgress>;
+  private progressHistory: Map<string, ProgressHistory>;
 
   constructor() {
     this.conversations = new Map();
@@ -50,6 +57,7 @@ export class MemStorage implements IStorage {
     this.vocabularyWords = new Map();
     this.grammarExercises = new Map();
     this.userProgress = new Map();
+    this.progressHistory = new Map();
     this.seedData();
   }
 
@@ -254,6 +262,29 @@ export class MemStorage implements IStorage {
     const updated = { ...progress, ...data };
     this.userProgress.set(id, updated);
     return updated;
+  }
+
+  async createProgressHistory(data: InsertProgressHistory): Promise<ProgressHistory> {
+    const id = randomUUID();
+    const history: ProgressHistory = {
+      id,
+      language: data.language,
+      date: data.date,
+      wordsLearned: data.wordsLearned,
+      practiceMinutes: data.practiceMinutes,
+      conversationsCount: data.conversationsCount,
+    };
+    this.progressHistory.set(id, history);
+    return history;
+  }
+
+  async getProgressHistory(language: string, days: number = 30): Promise<ProgressHistory[]> {
+    const now = new Date();
+    const cutoffDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    
+    return Array.from(this.progressHistory.values())
+      .filter((h) => h.language === language && new Date(h.date) >= cutoffDate)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }
 }
 
