@@ -1,117 +1,68 @@
 # LinguaFlow - Interactive Language Tutor
 
 ## Overview
-
-LinguaFlow is an AI-powered language learning application designed to offer interactive conversation practice, vocabulary building, and grammar exercises. It enables users to practice multiple languages at various difficulty levels through AI-powered chat, flashcards, and interactive grammar modules. The platform tracks user progress, including words learned, practice time, and streaks, to foster consistent learning. The project aims to provide a personalized and adaptive language learning experience.
+LinguaFlow is an AI-powered language learning application designed for interactive conversation practice, vocabulary building, and grammar exercises across multiple languages and difficulty levels. It offers AI-powered chat, flashcards, and grammar modules, tracking user progress to foster consistent learning. The project aims to deliver a personalized and adaptive language learning experience with significant market potential in the educational technology sector.
 
 ## User Preferences
-
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Frontend Architecture
+### Frontend
+-   **Framework**: React with TypeScript (Vite).
+-   **Routing**: Wouter for client-side navigation.
+-   **State Management**: React Context API (global), TanStack Query (server state), local component state (UI).
+-   **UI**: Shadcn/ui (Radix UI base), styled with Tailwind CSS, following Material Design principles. Supports light/dark mode.
+-   **Layout**: Two-column desktop (sidebar + main), single-column mobile.
+-   **Typography**: Inter (UI text), JetBrains Mono (code/phonetic content).
 
-**Framework**: React with TypeScript, using Vite.
-**Routing**: Wouter for client-side routing (Dashboard, Chat, Vocabulary, Grammar, History).
-**State Management**: React Context API for global preferences, TanStack Query for server state, local component state for UI.
-**UI Component Library**: Shadcn/ui built on Radix UI, styled with Tailwind CSS. Follows Material Design principles for clarity.
-**Styling**: Tailwind CSS with custom design tokens, supporting light/dark mode persistence.
-**Key Design Decisions**: Two-column desktop layout (sidebar + main), single-column mobile. Material Design, Inter for UI text, JetBrains Mono for code/phonetic content, consistent spacing.
-
-### Backend Architecture
-
-**Server Framework**: Express.js on Node.js with TypeScript.
-**API Design**: RESTful API for conversations, messages, vocabulary, grammar, and progress tracking.
-**Storage Layer**: Abstract `IStorage` interface with in-memory implementation (`MemStorage`). Drizzle ORM configured for PostgreSQL for future migration.
-**AI Integration**: OpenAI-compatible API via Replit's AI Integrations for conversational responses.
-**Session Management**: `connect-pg-simple` for PostgreSQL-backed session storage (pending full implementation).
+### Backend
+-   **Server**: Express.js on Node.js with TypeScript.
+-   **API**: RESTful for conversations, messages, vocabulary, grammar, and progress.
+-   **Storage**: Abstract `IStorage` interface, in-memory implementation (`MemStorage`). Drizzle ORM configured for PostgreSQL.
+-   **AI Integration**: OpenAI-compatible API via Replit's AI Integrations.
+-   **Session Management**: `connect-pg-simple` (PostgreSQL-backed, pending).
 
 ### Data Models
+-   Core entities: Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress (defined in `shared/schema.ts`).
+-   Data flow managed by React Query for fetching, caching, and optimistic updates.
 
-**Core Entities**: Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress. These are defined in `shared/schema.ts`.
-**Data Flow**: Client uses React Query for data fetching, caching, and optimistic updates. Context changes trigger content refetches.
-
-### Core Features and Implementations
-
-**Conversational Onboarding System**:
-- **Natural Flow**: AI asks "What's your name?" followed by "Which language would you like to study?"
-- **Flexible Input**: Accepts both simple responses ("Alex", "French") and full sentences ("My name is Alex", "I want to learn French")
-- **OpenAI Structured Output**: Uses GPT-5 with strict JSON schemas to extract name and language preference
-- **User-Scoped**: Onboarding tracked per userName - only triggers for genuinely new users
-- **State Persistence**: Name and language saved to localStorage and conversation record
-- **Smart Detection**: Checks if user has completed onboarding before (by userName) to avoid re-asking returning users
-
-**Auto-Language Detection**:
-- **Intelligent Switching**: Detects when user consistently speaks a different language than selected
-- **Conservative Thresholds**: Requires 3+ messages, 5+ alphabetic words (using regex `/[a-zA-ZÀ-ÿ]+/g`), 0.8+ confidence to prevent false positives
-- **AI Acknowledgment**: Notifies user when language is auto-switched ("I notice you're practicing French...")
-- **Robust Word Counting**: Uses regex-based tokenization to count only alphabetic words, ignoring punctuation and numbers
-
-**Storage Layer Improvements**:
-- **Partial Update Safety**: `updateConversation` filters undefined values to preserve existing fields during partial updates
-- **Field Preservation**: Ensures userName and language aren't lost when updating onboarding step
-
-**Adaptive Multi-Phase Conversation System**:
-Utilizes a three-phase approach for AI tutor interaction, designed for gradual, beginner-friendly progression:
-1.  **English Assessment with Encouragement (Messages 1-5)**: Brief rapport-building phase primarily in English (95%+) with 1-2 encouraging target language words per response (e.g., "bueno (good)", "perfecto (perfect)", "¿listo? (ready?)"). Focuses on quickly understanding student interests and goals through 1-2 essential questions. All target language words have immediate inline English translations. Creates authentic, warm atmosphere without formal teaching. No vocabulary teaching occurs - only natural encouraging words.
-2.  **Gradual Transition (Messages 6-10)**: Gently introduces target language starting with absolute basics (greetings). Begins at 80% English / 20% target language and gradually shifts to 50/50. **Progressive Translation Strategy**: Always translates new vocabulary being introduced, but skips translations for encouraging words from Phase 1 (bueno, perfecto, listo, claro) to build recognition skills. Maximum 2-3 new words per message.
-3.  **Immersive Practice (Message 11+)**: Primarily uses the target language (80-90%) based on selected difficulty, with English support for complex concepts. **Selective Translation Approach**: Always translates new vocabulary, complex words, and idioms, but skips translation for basic encouraging words, common greetings, and high-frequency words from earlier phases. Translation frequency adaptive by difficulty level: Beginner (70%), Intermediate (40%), Advanced (20%). Includes end-of-session reminder feature that naturally reminds students their vocabulary and grammar are automatically saved in menu sections when wrapping up.
-
-**Phase Calculation**: Uses user message count (conversation turns) rather than total messages to ensure phases align with actual learning progression. Shortened Phase 1 to 5 messages to get students into language learning faster while still capturing essential context for personalized teaching.
-
-**Progressive Translation Philosophy**: Translations decrease gradually across phases to build vocabulary recognition. Phase 1 translates all target language words; Phase 2 translates only new words while reusing familiar ones; Phase 3 selectively translates based on complexity and student difficulty level. This approach balances support with challenge, fostering independence.
-
-**One-Question-Per-Response Guideline**: To avoid overwhelming students, the AI tutor asks only ONE direct question for the student to answer per response across all phases. This guideline specifically applies to questions directed at the student (e.g., "What made you interested?", "Would you like to practice?") and does not restrict teaching Spanish question vocabulary (e.g., "¿Cómo estás?" (how are you?), "¿Qué tal?" (what's up?)). This creates a natural, comfortable conversation pace while allowing proper language instruction.
-
-**Ask-and-Pause Conversational Pattern**: To create natural conversational flow and allow students to immediately respond, the AI tutor ends responses immediately after asking a question directed at the student - no additional encouragement, commentary, or follow-up text after the question mark. This pattern applies across all three phases and creates authentic pauses that feel like natural human conversation, giving students clear space to formulate and share their responses without feeling rushed or overwhelmed by additional information.
-
-**Creative Scenario-Based Learning**: Starting in Phase 2, the AI tutor creates engaging, immersive learning experiences through simple scenario creation. This balanced approach enhances learning without overwhelming students:
-- **Concise Scene-Setting**: Vivid but brief descriptions (1-2 sentences max) that paint practical, relatable situations
-- **Practical Contexts**: Real-world scenarios like ordering at cafés, meeting friends, shopping at markets, or asking for directions
-- **Student-Driven**: Builds creative scenarios around student interests discovered in Phase 1
-- **Natural Integration**: Scenarios enhance learning moments naturally without forcing storytelling into every response
-- **Balanced Creativity**: Mixes scenario-driven learning with traditional teaching methods, keeping focus on actual language practice
-- **Examples**: "You're at a tapas bar in Madrid. A waiter approaches and asks '¿Qué deseas?' (What would you like?)" or "Imagine you're at a bustling market in Barcelona. A vendor offers you fresh fruit..."
-- **Implementation**: Guidance integrated into Phases 2-3 system prompts in `server/system-prompt.ts`
-
-**Slow Pronunciation with Phonetic Breakdowns**: To help students master pronunciation, the AI tutor provides phonetic spellings with stress markers for new vocabulary across all teaching phases:
-- **Format**: Simple phonetic spelling with CAPITALIZED stressed syllables (e.g., "gracias = GRAH-syahs", "por favor = por fah-VOHR")
-- **Stress Markers**: Capitalized syllables indicate where to place vocal stress, with helpful tips like "Tip: Stress the capitalized syllables"
-- **Adaptive Frequency**: Beginners receive detailed breakdowns frequently, intermediate students get breakdowns for challenging words, advanced students only for complex/unusual vocabulary
-- **Example Format**: "Let's pronounce this slowly: - No, gracias = noh, GRAH-syahs - Sí, por favor = see, por fah-VOHR"
-- **Voice Mode Integration**: Enhanced 5-step listen-and-repeat pattern includes phonetic breakdown step: (1) Introduce, (2) Show phonetic breakdown, (3) Say slowly, (4) Prompt repetition, (5) Encourage
-- **Multi-Language Support**: Works across all 8 supported languages with appropriate phonetic representations
-- **Implementation**: Integrated into Phases 2-3 system prompts and voice mode instructions in `server/system-prompt.ts`
-
-**Conversation-to-Notes: Automatic Vocabulary Extraction**: AI automatically identifies and saves new vocabulary from conversations using OpenAI's structured output, integrating them into the Vocabulary flashcard system.
-**Voice Chat Feature**: Real-time voice conversations using OpenAI Realtime API with a WebSocket proxy. Includes manual push-to-talk recording, visual feedback, and a toggle between text and voice modes. Simplified configuration for broader compatibility.
-  - **Listen-and-Repeat for Beginners (Progressive Approach)**:
-    - **Phase 1 (Gentle Pronunciation Practice)**: In voice mode with beginners, uses light, encouraging prompts to practice familiar encouraging words ("Can you say 'bueno' with me? Bueno... Great!"). Maintains casual, warm approach without formal drills to build initial speaking confidence.
-    - **Phases 2-3 (Structured Teaching)**: Implements formal 5-step listen-and-repeat pattern for new vocabulary: (1) Introduce clearly, (2) Show phonetic breakdown, (3) Say slowly with pause, (4) Prompt repetition, (5) Provide encouragement. This structured approach helps beginners practice pronunciation systematically as formal teaching begins.
-    - **Intermediate/Advanced**: Natural conversational practice without structured repetition exercises, focusing on fluency and natural expression.
-    - **Implementation**: System prompts dynamically include appropriate instructions based on phase, difficulty level, and mode (voice vs text) via `server/system-prompt.ts`.
-**Personalized Greetings**: AI tutor welcomes students by name at the start of each conversation. Detects first-time vs returning users and adjusts greeting accordingly ("Where would you like to begin today?" for new users, "Would you like to start where we ended last time?" for returning users).
-**Animated Instructor Avatar**: Provides real-time visual feedback with idle, listening (voice chat), and speaking states, enhancing engagement.
-**Full Application Implementation**: Includes AI chat, vocabulary flashcards, grammar exercises, conversation history with statistics, and progress tracking dashboard.
+### Core Features
+-   **Conversational Onboarding**: AI-guided setup for new users (name, language preference) using GPT-5 with strict JSON schemas, persistent via localStorage and conversation records.
+-   **Auto-Language Detection**: Intelligent switching based on user input (3+ messages, 5+ alphabetic words, >0.8 confidence) with AI notification.
+-   **Adaptive Multi-Phase Conversation System**:
+    1.  **Phase 1 (Messages 1-5)**: English assessment with encouraging target language words (95% English).
+    2.  **Phase 2 (Messages 6-10)**: Gradual transition (80% English -> 50% English) introducing basics, progressive translation (new vocabulary translated, familiar words not).
+    3.  **Phase 3 (Message 11+)**: Immersive practice (80-90% target language) with selective translation based on difficulty.
+-   **One-Question-Per-Response**: AI asks only one direct question at the end of its response to facilitate natural conversation flow.
+-   **Ask-and-Pause Pattern**: AI ends responses immediately after asking a question, without additional text, for natural conversational pauses.
+-   **Student Question Handling**: AI answers student questions directly and fully, then may ask one follow-up question. Supports factual, learning, and app-related questions.
+-   **Content Guardrails**: AI politely declines off-topic, inappropriate, or non-educational requests, redirecting to language learning.
+-   **Creative Scenario-Based Learning**: Starting Phase 2, AI creates brief, practical, and student-driven scenarios (e.g., ordering food) to enhance learning.
+-   **Slow Pronunciation with Phonetic Breakdowns**: Provides phonetic spellings with stress markers (e.g., "GRAH-syahs") for new vocabulary, with adaptive frequency based on difficulty. Integrated into voice mode.
+-   **Automatic Vocabulary Extraction**: AI automatically identifies and saves new vocabulary from conversations into the flashcard system.
+-   **Voice Chat Feature**: Real-time voice conversations via OpenAI Realtime API (WebSocket proxy). Includes push-to-talk, visual feedback, and text/voice toggle. Features a progressive "Listen-and-Repeat" pattern for beginners.
+-   **Personalized Greetings**: AI greets users by name, adjusting messages for first-time vs. returning users.
+-   **Animated Instructor Avatar**: Visual feedback (idle, listening, speaking states) for enhanced engagement.
+-   **Full Application**: Includes AI chat, vocabulary flashcards, grammar exercises, conversation history, and progress tracking dashboard.
 
 ## External Dependencies
 
-**Third-Party Libraries**:
--   **OpenAI API** (via Replit AI Integrations)
--   **Neon Database Serverless** (`@neondatabase/serverless`)
--   **Drizzle ORM**
--   **Radix UI**
--   **TanStack Query**
--   **Wouter**
--   **date-fns**
--   **Embla Carousel**
+### Third-Party Libraries
+-   OpenAI API (via Replit AI Integrations)
+-   Neon Database Serverless (`@neondatabase/serverless`)
+-   Drizzle ORM
+-   Radix UI
+-   TanStack Query
+-   Wouter
+-   date-fns
+-   Embla Carousel
 
-**Database Configuration**:
--   PostgreSQL database (configured via `DATABASE_URL`).
+### Database
+-   PostgreSQL (configured via `DATABASE_URL`).
 -   Drizzle Kit for migrations.
 -   Connection pooling via `@neondatabase/serverless`.
 
-**Asset Management**:
+### Asset Management
 -   Google Fonts (Inter, Architects Daughter, DM Sans, Fira Code, Geist Mono).
 -   Static images in `attached_assets/generated_images/`.
