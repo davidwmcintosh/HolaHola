@@ -24,7 +24,7 @@ const languageOptions = [
   { value: "italian", label: "Italian" },
   { value: "portuguese", label: "Portuguese" },
   { value: "japanese", label: "Japanese" },
-  { value: "chinese", label: "Chinese" },
+  { value: "mandarin", label: "Mandarin Chinese" },
   { value: "korean", label: "Korean" },
 ];
 

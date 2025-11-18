@@ -371,9 +371,9 @@ export class MemStorage implements IStorage {
         relatedTopics: null,
         icon: "Home",
       },
-      // Chinese cultural tips
+      // Mandarin Chinese cultural tips
       {
-        language: "chinese",
+        language: "mandarin",
         category: "Dining",
         title: "Refusing Food Politely",
         content: "In Chinese culture, hosts often insist multiple times when offering food. It's polite to refuse once or twice before accepting. Accepting immediately might seem greedy.",
@@ -382,7 +382,7 @@ export class MemStorage implements IStorage {
         icon: "UtensilsCrossed",
       },
       {
-        language: "chinese",
+        language: "mandarin",
         category: "Gift Giving",
         title: "Red Envelopes for Luck",
         content: "Red envelopes (红包, hóngbāo) containing money are given during holidays, weddings, and special occasions. The color red symbolizes luck and prosperity. Never give amounts with the number 4.",
