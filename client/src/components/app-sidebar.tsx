@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { StreakIndicator } from "@/components/StreakIndicator";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const menuItems = [
   { title: "Dashboard", url: "/", icon: Home },
@@ -26,6 +27,16 @@ const menuItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
+  const { userName } = useLanguage();
+  
+  // Hide Chat Ideas until onboarding is complete
+  const isOnboardingComplete = userName && userName.trim() !== "";
+  const visibleMenuItems = menuItems.filter(item => {
+    if (item.title === "Chat Ideas" && !isOnboardingComplete) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <Sidebar>
@@ -45,7 +56,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => {
+              {visibleMenuItems.map((item) => {
                 const isActive = location === item.url;
                 return (
                   <SidebarMenuItem key={item.title}>
