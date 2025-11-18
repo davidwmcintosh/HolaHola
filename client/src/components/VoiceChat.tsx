@@ -11,6 +11,8 @@ import type { Message } from "@shared/schema";
 import { AudioRecorder, AudioPlayer, pcm16ToBase64 } from "@/lib/audioUtils";
 import { Badge } from "@/components/ui/badge";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
+import { CompactDifficultyControl } from "@/components/CompactDifficultyControl";
+import { LanguageSelector } from "@/components/LanguageSelector";
 
 interface RealtimeEvent {
   type: string;
@@ -391,19 +393,30 @@ export function VoiceChat() {
   // Determine avatar state for voice chat
   const avatarState: AvatarState = isRecording ? "listening" : isAiSpeaking ? "speaking" : "idle";
 
+  // Get display name for current language
+  const languageDisplayName = language.charAt(0).toUpperCase() + language.slice(1);
+
   return (
-    <Card className="flex flex-col h-[600px]">
-      <div className="p-6 border-b">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1">
-            <h2 className="text-xl font-semibold">Voice Conversation</h2>
-            <p className="text-sm text-muted-foreground">Speak with your AI language tutor</p>
+    <div className="flex flex-col h-full">
+      {/* Compact toolbar */}
+      <div className="flex items-center justify-between gap-4 p-4 border-b">
+        <div className="flex items-center gap-4">
+          <InstructorAvatar state={avatarState} className="w-12" />
+          <div>
+            <h2 className="text-lg font-semibold">Practice {languageDisplayName}</h2>
+            <p className="text-xs text-muted-foreground">Speak with your AI tutor</p>
           </div>
-          <InstructorAvatar state={avatarState} className="w-24" />
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <LanguageSelector compact />
+          <CompactDifficultyControl conversationId={conversationId} />
         </div>
       </div>
 
-      <ScrollArea className="flex-1 p-6">
+      {/* Voice chat area */}
+      <Card className="flex flex-col flex-1 m-4 mt-0">
+        <ScrollArea className="flex-1 p-6">
         <div className="space-y-4">
           {allMessages.length === 0 ? (
             <div className="flex flex-col justify-center items-center h-full text-center text-muted-foreground p-8">
@@ -591,5 +604,6 @@ export function VoiceChat() {
         </p>
       </div>
     </Card>
+    </div>
   );
 }

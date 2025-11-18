@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Send, Bot, User, Loader2 } from "lucide-react";
+import { Send, Bot, User, Loader2, Mic, MessageSquare } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -11,7 +11,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Conversation, Message } from "@shared/schema";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 import { AccentButtons } from "@/components/AccentButtons";
-import { DifficultyIndicator } from "@/components/DifficultyIndicator";
+import { CompactDifficultyControl } from "@/components/CompactDifficultyControl";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { useStreak } from "@/hooks/use-streak";
 import { useToast } from "@/hooks/use-toast";
 
@@ -185,27 +186,26 @@ export function ChatInterface() {
   const languageDisplayName = language.charAt(0).toUpperCase() + language.slice(1);
 
   return (
-    <Card className="flex flex-col h-[600px]">
-      <div className="p-6 border-b space-y-4">
-        <div className="flex items-center justify-between gap-4">
+    <div className="flex flex-col h-full">
+      {/* Compact toolbar */}
+      <div className="flex items-center justify-between gap-4 p-4 border-b">
+        <div className="flex items-center gap-4">
+          <InstructorAvatar state={avatarState} className="w-12" />
           <div>
-            <h2 className="text-xl font-semibold">Conversation Practice</h2>
-            <p className="text-sm text-muted-foreground">Practice {languageDisplayName} with AI tutor</p>
+            <h2 className="text-lg font-semibold">Practice {languageDisplayName}</h2>
+            <p className="text-xs text-muted-foreground">Chat with your AI tutor</p>
           </div>
-          <InstructorAvatar state={avatarState} className="w-24" />
         </div>
         
-        {/* Difficulty Performance Indicator */}
-        {conversationId && (
-          <DifficultyIndicator 
-            conversationId={conversationId} 
-            currentDifficulty={difficulty}
-            language={language}
-          />
-        )}
+        <div className="flex items-center gap-2">
+          <LanguageSelector compact />
+          <CompactDifficultyControl conversationId={conversationId} />
+        </div>
       </div>
 
-      <ScrollArea className="flex-1 p-6">
+      {/* Chat area */}
+      <Card className="flex flex-col flex-1 m-4 mt-0">
+        <ScrollArea className="flex-1 p-6">
         <div className="space-y-4">
           {isLoading ? (
             <div className="flex justify-center items-center h-full">
@@ -290,5 +290,6 @@ export function ChatInterface() {
         <AccentButtons language={language} onInsert={handleInsertAccent} />
       </div>
     </Card>
+    </div>
   );
 }
