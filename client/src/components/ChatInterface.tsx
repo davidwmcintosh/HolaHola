@@ -15,7 +15,6 @@ import { CompactDifficultyControl } from "@/components/CompactDifficultyControl"
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { useStreak } from "@/hooks/use-streak";
 import { useToast } from "@/hooks/use-toast";
-import { ThreadSelector } from "@/components/ThreadSelector";
 
 export function ChatInterface() {
   const { language, setLanguage, difficulty, userName, setUserName } = useLanguage();
@@ -29,34 +28,40 @@ export function ChatInterface() {
   const { recordPractice } = useStreak();
   const { toast } = useToast();
 
-  // Fetch conversations for current language to auto-select first one
-  const { data: conversations = [], isFetching: conversationsLoading } = useQuery<Conversation[]>({
-    queryKey: ["/api/conversations/by-language", language],
-  });
-
-  // Reset conversationId when language changes, then auto-select first thread
+  // Reset conversationId when language changes to trigger new conversation creation
   useEffect(() => {
     setConversationId(null);
   }, [language]);
 
-  // Auto-select first available conversation when language changes
+  // Auto-create conversation when page loads (after onboarding)
+  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+  
   useEffect(() => {
-    // Wait for conversations query to finish loading before auto-selecting
-    if (conversationsLoading) return;
-    
-    const activeThreads = conversations.filter(c => !c.isOnboarding);
-    
-    // If conversationId is set but no longer exists in the list, clear it
-    if (conversationId && !activeThreads.find(t => t.id === conversationId)) {
-      setConversationId(null);
-      return;
+    // Only auto-create if onboarding is complete and no conversation exists yet
+    const isOnboardingComplete = userName && userName.trim() !== "";
+    if (isOnboardingComplete && !conversationId && !isCreatingConversation) {
+      setIsCreatingConversation(true);
+      
+      // Create a new conversation with special flag to include previous conversations in greeting
+      apiRequest("POST", "/api/conversations", {
+        language,
+        difficulty,
+        userName,
+        title: null,
+        isOnboarding: false,
+        includeConversationHistory: true, // Signal to include previous conversations in greeting
+      })
+        .then(res => res.json())
+        .then(data => {
+          setConversationId(data.id);
+          setIsCreatingConversation(false);
+        })
+        .catch(err => {
+          console.error("Failed to create conversation:", err);
+          setIsCreatingConversation(false);
+        });
     }
-    
-    // If no conversation is selected, pick the first available one
-    if (activeThreads.length > 0 && !conversationId) {
-      setConversationId(activeThreads[0].id);
-    }
-  }, [conversations, conversationId, conversationsLoading]);
+  }, [language, difficulty, userName, conversationId, isCreatingConversation]);
 
   // Fetch messages for current conversation
   const { data: messages = [], isLoading } = useQuery<Message[]>({
@@ -80,6 +85,24 @@ export function ChatInterface() {
     onSuccess: async (data: any) => {
       // Mark that we're waiting for assistant response
       setWaitingForResponse(true);
+      
+      // Check if conversation was switched by the AI
+      if (data.switchedConversation) {
+        const switched = data.switchedConversation;
+        console.log('[CONVERSATION SWITCH] Switching from', switched.switchedFrom, 'to', switched.id);
+        
+        // Update conversationId to load the previous conversation
+        setConversationId(switched.id);
+        
+        // Show toast notification
+        toast({
+          title: "Conversation Switched",
+          description: `Continuing: ${switched.title || 'Previous conversation'}`,
+        });
+        
+        // Messages will auto-reload via the queryKey change
+        return; // Skip the rest of processing since we're switching conversations
+      }
       
       // Check if conversation was updated (onboarding completed or language auto-switched)
       let skipStreakRecording = false;
@@ -211,15 +234,6 @@ export function ChatInterface() {
           <CompactDifficultyControl conversationId={conversationId} />
         </div>
       </div>
-
-      {/* Thread Selector */}
-      <ThreadSelector
-        language={language}
-        difficulty={difficulty}
-        userName={userName}
-        selectedThreadId={conversationId}
-        onThreadSelect={setConversationId}
-      />
 
       {/* Chat area */}
       <Card className="flex flex-col flex-1 m-4 mt-0">

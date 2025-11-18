@@ -116,17 +116,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Start onboarding flow with name question
         greetingMessage = "Hello! I'm your AI language tutor, and I'm excited to help you on your language learning journey. To get started, what's your name?";
       } else {
-        // Generate personalized greeting for returning user
-        const allConversations = await storage.getAllConversations();
-        const previousConversations = allConversations.filter(
-          c => c.id !== conversation.id
-        );
+        // Check if we should include previous conversation history
+        const includeHistory = req.body.includeConversationHistory === true;
         
-        const isReturningUser = previousConversations.length > 0;
-        
-        greetingMessage = isReturningUser
-          ? `Welcome back, ${userName}! It's great to see you again. Would you like to start where we ended last time, or explore something new today?`
-          : `Welcome, ${userName}! I'm excited to help you learn ${data.language}. Where would you like to begin today?`;
+        if (includeHistory) {
+          // Fetch previous conversations for this user and language
+          const previousConversations = await storage.getConversationsByLanguage(data.language);
+          const userPreviousConvos = previousConversations.filter(
+            c => c.id !== conversation.id && 
+                 !c.isOnboarding && 
+                 c.userName === userName &&
+                 c.messageCount && c.messageCount > 1 // Only include conversations with actual back-and-forth
+          );
+          
+          if (userPreviousConvos.length > 0) {
+            // Format previous conversation info for the AI
+            const conversationContext = userPreviousConvos
+              .slice(0, 5) // Limit to 5 most recent
+              .map((c, idx) => `${idx + 1}. "${c.title || `Conversation from ${new Date(c.createdAt).toLocaleDateString()}`}" (${c.messageCount} messages)`)
+              .join('\n');
+            
+            // Create a greeting that includes context about previous conversations
+            greetingMessage = `Welcome back, ${userName}! I see you have some previous conversations:\n\n${conversationContext}\n\nWould you like to continue one of these conversations, or shall we start something new today?`;
+          } else {
+            // First conversation for this language
+            greetingMessage = `Welcome, ${userName}! I'm excited to help you learn ${data.language}. Where would you like to begin today?`;
+          }
+        } else {
+          // Standard greeting without history
+          greetingMessage = `Welcome, ${userName}! I'm excited to help you learn ${data.language}. Where would you like to begin today?`;
+        }
       }
       
       // Save the greeting as the first message
@@ -389,6 +408,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Fetch previous conversations for this user and language (for conversation switching)
+      const allUserConversations = await storage.getConversationsByLanguage(updatedConversation.language);
+      const previousConversations = allUserConversations
+        .filter(c => 
+          c.id !== conversationId && 
+          !c.isOnboarding && 
+          c.userName === updatedConversation.userName &&
+          c.messageCount && c.messageCount > 1
+        )
+        .slice(0, 5) // Limit to 5 most recent
+        .map(c => ({
+          id: c.id,
+          title: c.title,
+          messageCount: c.messageCount,
+          createdAt: c.createdAt.toISOString()
+        }));
+
       // Create adaptive system prompt based on language, difficulty, and conversation progress
       // Use userMessageCount (already calculated above) instead of total message count
       // This ensures phases align with actual conversation turns
@@ -397,7 +433,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedConversation.difficulty,
         userMessageCount,
         false, // not voice mode
-        updatedConversation.topic
+        updatedConversation.topic,
+        previousConversations.length > 0 ? previousConversations : undefined
       );
 
       // Generate AI response with structured output to extract vocabulary and grammar
@@ -466,6 +503,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         aiResponse = languageSwitchNote + aiResponse;
       }
 
+      // Check for conversation switching directive
+      const switchDirectivePattern = /\[\[SWITCH_CONVERSATION:([a-f0-9-]+)\]\]/i;
+      const switchMatch = aiResponse.match(switchDirectivePattern);
+      let switchedConversation: any = null;
+      
+      if (switchMatch) {
+        const targetConversationId = switchMatch[1];
+        console.log('[CONVERSATION SWITCH] Detected switch directive to:', targetConversationId);
+        
+        // Validate the target conversation exists and belongs to the user
+        const targetConversation = await storage.getConversation(targetConversationId);
+        
+        if (targetConversation && 
+            targetConversation.userName === updatedConversation.userName &&
+            targetConversation.language === updatedConversation.language &&
+            !targetConversation.isOnboarding) {
+          
+          console.log('[CONVERSATION SWITCH] Valid switch target found:', {
+            id: targetConversation.id,
+            title: targetConversation.title,
+            messageCount: targetConversation.messageCount
+          });
+          
+          // Strip the directive from the response
+          aiResponse = aiResponse.replace(switchDirectivePattern, '').trim();
+          
+          // Set the switched conversation for the response
+          switchedConversation = {
+            id: targetConversation.id,
+            switchedFrom: conversationId,
+            title: targetConversation.title,
+            messageCount: targetConversation.messageCount
+          };
+        } else {
+          console.warn('[CONVERSATION SWITCH] Invalid switch target - conversation not found or not accessible');
+          // Strip the directive even if invalid, so it doesn't show to the user
+          aiResponse = aiResponse.replace(switchDirectivePattern, '').trim();
+        }
+      }
+
       // Save AI message
       const aiMessage = await storage.createMessage({
         conversationId,
@@ -502,7 +579,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         userMessage, 
         aiMessage,
-        conversationUpdated: updatedConversation !== conversation ? updatedConversation : undefined
+        conversationUpdated: updatedConversation !== conversation ? updatedConversation : undefined,
+        switchedConversation: switchedConversation || undefined
       });
     } catch (error: any) {
       console.error("Error in chat:", error);

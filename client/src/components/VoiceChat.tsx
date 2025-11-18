@@ -7,13 +7,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import type { Message, Conversation } from "@shared/schema";
+import { type Message, Conversation } from "@shared/schema";
 import { AudioRecorder, AudioPlayer, pcm16ToBase64 } from "@/lib/audioUtils";
 import { Badge } from "@/components/ui/badge";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 import { CompactDifficultyControl } from "@/components/CompactDifficultyControl";
 import { LanguageSelector } from "@/components/LanguageSelector";
-import { ThreadSelector } from "@/components/ThreadSelector";
 
 interface RealtimeEvent {
   type: string;
@@ -68,34 +67,40 @@ export function VoiceChat() {
     checkCapability();
   }, []);
 
-  // Fetch conversations for current language to auto-select first one
-  const { data: conversations = [], isFetching: conversationsLoading } = useQuery<Conversation[]>({
-    queryKey: ["/api/conversations/by-language", language],
-  });
-
-  // Reset conversationId when language changes, then auto-select first thread
+  // Reset conversationId when language changes to trigger new conversation creation
   useEffect(() => {
     setConversationId(null);
   }, [language]);
 
-  // Auto-select first available conversation when language changes
+  // Auto-create conversation when page loads (after onboarding)
+  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+  
   useEffect(() => {
-    // Wait for conversations query to finish loading before auto-selecting
-    if (conversationsLoading) return;
-    
-    const activeThreads = conversations.filter(c => !c.isOnboarding);
-    
-    // If conversationId is set but no longer exists in the list, clear it
-    if (conversationId && !activeThreads.find(t => t.id === conversationId)) {
-      setConversationId(null);
-      return;
+    // Only auto-create if onboarding is complete and no conversation exists yet
+    const isOnboardingComplete = userName && userName.trim() !== "";
+    if (isOnboardingComplete && !conversationId && !isCreatingConversation) {
+      setIsCreatingConversation(true);
+      
+      // Create a new conversation with special flag to include previous conversations in greeting
+      apiRequest("POST", "/api/conversations", {
+        language,
+        difficulty,
+        userName,
+        title: null,
+        isOnboarding: false,
+        includeConversationHistory: true, // Signal to include previous conversations in greeting
+      })
+        .then(res => res.json())
+        .then(data => {
+          setConversationId(data.id);
+          setIsCreatingConversation(false);
+        })
+        .catch(err => {
+          console.error("Failed to create conversation:", err);
+          setIsCreatingConversation(false);
+        });
     }
-    
-    // If no conversation is selected, pick the first available one
-    if (activeThreads.length > 0 && !conversationId) {
-      setConversationId(activeThreads[0].id);
-    }
-  }, [conversations, conversationId, conversationsLoading]);
+  }, [language, difficulty, userName, conversationId, isCreatingConversation]);
 
   // Fetch existing messages
   const { data: messages = [] } = useQuery<Message[]>({
@@ -461,15 +466,6 @@ export function VoiceChat() {
           <CompactDifficultyControl conversationId={conversationId} />
         </div>
       </div>
-
-      {/* Thread Selector */}
-      <ThreadSelector
-        language={language}
-        difficulty={difficulty}
-        userName={userName}
-        selectedThreadId={conversationId}
-        onThreadSelect={setConversationId}
-      />
 
       {/* Voice chat area */}
       <Card className="flex flex-col flex-1 m-4 mt-0">

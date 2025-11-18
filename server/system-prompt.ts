@@ -1,9 +1,17 @@
+interface PreviousConversation {
+  id: string;
+  title: string | null;
+  messageCount: number;
+  createdAt: string;
+}
+
 export function createSystemPrompt(
   language: string,
   difficulty: string,
   messageCount: number,
   isVoiceMode: boolean = false,
-  topic?: string | null
+  topic?: string | null,
+  previousConversations?: PreviousConversation[]
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -57,6 +65,41 @@ CULTURAL CATEGORIES TO DRAW FROM:
 Keep cultural insights authentic, respectful, and directly tied to language learning. Cultural context should enhance understanding, not distract from the lesson.
 `;
 
+  // Conversation switching protocol
+  const conversationSwitchingProtocol = previousConversations && previousConversations.length > 0 ? `
+
+CONVERSATION SWITCHING PROTOCOL:
+The student has previous conversations in ${languageName}. When they express interest in continuing a previous conversation, you can help them switch to it.
+
+AVAILABLE PREVIOUS CONVERSATIONS:
+${previousConversations.map((conv, idx) => 
+  `${idx + 1}. ID: ${conv.id} | Title: "${conv.title || `Conversation from ${new Date(conv.createdAt).toLocaleDateString()}`}" | ${conv.messageCount} messages`
+).join('\n')}
+
+SWITCHING INSTRUCTIONS:
+1. When the student indicates they want to continue a specific previous conversation (e.g., "let's continue restaurant vocabulary" or "I want to resume conversation 2"), identify which conversation they're referring to based on the title or number.
+
+2. If you can confidently match their request to one of the conversations above, emit a special directive to switch:
+   - Use this exact format: [[SWITCH_CONVERSATION:{conversationId}]]
+   - Example: [[SWITCH_CONVERSATION:abc-123-def]]
+   - This directive will be automatically stripped from your visible response
+   - After the directive, include a warm handoff message like "Great! Let's continue our restaurant vocabulary session."
+
+3. If the student's request is ambiguous or you're not sure which conversation they want:
+   - Ask for clarification: "I see you have conversations about restaurant vocabulary and travel phrases. Which one would you like to continue?"
+   - Do NOT emit the switch directive until you're confident
+
+4. If they want to start something new or stay in the current conversation, simply continue without emitting any directive.
+
+IMPORTANT:
+- Only emit ONE switch directive per response
+- The directive must appear on its own line
+- You can include conversational text before and after the directive
+- Example response format:
+  "Absolutely! I'd be happy to continue our previous discussion.
+  [[SWITCH_CONVERSATION:abc-123-def]]
+  Let's pick up where we left off with restaurant vocabulary!"
+` : "";
 
   // Structured listen-and-repeat for Phases 2-3 only (beginner difficulty)
   const structuredListenRepeat = isVoiceMode && difficulty === "beginner" ? `
@@ -329,6 +372,7 @@ VOICE MODE NOTE: Use natural, conversational spoken language appropriate for ${d
 CURRENT PHASE: Active Practice (Primarily ${languageName})
 ${topicContext}
 ${culturalGuidelines}
+${conversationSwitchingProtocol}
 You've assessed the student's level and are now engaging in primarily ${languageName} conversation.
 
 Observed Level: ${difficulty}
