@@ -55,6 +55,22 @@ export const userProgress = pgTable("user_progress", {
   lastPracticeDate: timestamp("last_practice_date"),
 });
 
+export const achievements = pgTable("achievements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  type: text("type").notNull(),
+  requirement: integer("requirement").notNull(),
+  icon: text("icon").notNull(),
+});
+
+export const userAchievements = pgTable("user_achievements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  achievementId: varchar("achievement_id").notNull().references(() => achievements.id),
+  language: text("language").notNull(),
+  earnedAt: timestamp("earned_at").notNull().defaultNow(),
+});
+
 export const insertConversationSchema = createInsertSchema(conversations).omit({
   id: true,
   createdAt: true,
