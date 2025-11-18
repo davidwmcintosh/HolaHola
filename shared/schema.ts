@@ -91,6 +91,16 @@ export const pronunciationScores = pgTable("pronunciation_scores", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const topics = pgTable("topics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  category: text("category").notNull(), // e.g., "Daily Life", "Travel", "Business"
+  icon: text("icon").notNull(), // Lucide icon name
+  samplePhrases: text("sample_phrases").array().notNull(),
+  difficulty: text("difficulty"), // Optional difficulty recommendation
+});
+
 export const insertConversationSchema = createInsertSchema(conversations).omit({
   id: true,
   createdAt: true,
@@ -122,6 +132,10 @@ export const insertPronunciationScoreSchema = createInsertSchema(pronunciationSc
   createdAt: true,
 });
 
+export const insertTopicSchema = createInsertSchema(topics).omit({
+  id: true,
+});
+
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type Conversation = typeof conversations.$inferSelect;
 
@@ -142,3 +156,6 @@ export type ProgressHistory = typeof progressHistory.$inferSelect;
 
 export type InsertPronunciationScore = z.infer<typeof insertPronunciationScoreSchema>;
 export type PronunciationScore = typeof pronunciationScores.$inferSelect;
+
+export type InsertTopic = z.infer<typeof insertTopicSchema>;
+export type Topic = typeof topics.$inferSelect;

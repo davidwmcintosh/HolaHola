@@ -13,6 +13,8 @@ import {
   type InsertProgressHistory,
   type PronunciationScore,
   type InsertPronunciationScore,
+  type Topic,
+  type InsertTopic,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -52,6 +54,11 @@ export interface IStorage {
   getPronunciationScoresByConversation(conversationId: string): Promise<PronunciationScore[]>;
   getPronunciationScoreByMessage(messageId: string): Promise<PronunciationScore | undefined>;
   getPronunciationScoreStats(conversationId: string): Promise<{ averageScore: number; totalScores: number }>;
+
+  // Topics
+  getTopics(): Promise<Topic[]>;
+  getTopic(id: string): Promise<Topic | undefined>;
+  createTopic(data: InsertTopic): Promise<Topic>;
 }
 
 export class MemStorage implements IStorage {
@@ -62,6 +69,7 @@ export class MemStorage implements IStorage {
   private userProgress: Map<string, UserProgress>;
   private progressHistory: Map<string, ProgressHistory>;
   private pronunciationScores: Map<string, PronunciationScore>;
+  private topics: Map<string, Topic>;
 
   constructor() {
     this.conversations = new Map();
@@ -71,6 +79,7 @@ export class MemStorage implements IStorage {
     this.userProgress = new Map();
     this.progressHistory = new Map();
     this.pronunciationScores = new Map();
+    this.topics = new Map();
     this.seedData();
   }
 
@@ -107,6 +116,108 @@ export class MemStorage implements IStorage {
     ];
 
     spanishGrammar.forEach(exercise => this.createGrammarExercise(exercise));
+
+    // Seed topics
+    const initialTopics: InsertTopic[] = [
+      {
+        name: "Shopping & Retail",
+        description: "Practice buying items, asking for prices, and navigating stores",
+        category: "Daily Life",
+        icon: "ShoppingCart",
+        samplePhrases: ["How much does this cost?", "I'd like to buy...", "Do you have this in another size?"],
+        difficulty: null,
+      },
+      {
+        name: "Food & Restaurants",
+        description: "Order meals, ask about ingredients, and discuss food preferences",
+        category: "Daily Life",
+        icon: "UtensilsCrossed",
+        samplePhrases: ["I'd like to order...", "What do you recommend?", "The bill, please"],
+        difficulty: null,
+      },
+      {
+        name: "Travel & Transportation",
+        description: "Navigate airports, hotels, and public transportation",
+        category: "Travel",
+        icon: "Plane",
+        samplePhrases: ["Where is the train station?", "I need a ticket to...", "How long does it take?"],
+        difficulty: null,
+      },
+      {
+        name: "Directions & Navigation",
+        description: "Ask for and give directions in the city",
+        category: "Travel",
+        icon: "MapPin",
+        samplePhrases: ["How do I get to...?", "Is it far from here?", "Turn left at..."],
+        difficulty: null,
+      },
+      {
+        name: "Weather & Small Talk",
+        description: "Discuss weather, seasons, and make casual conversation",
+        category: "Daily Life",
+        icon: "CloudSun",
+        samplePhrases: ["How's the weather today?", "It's really hot/cold", "I love this season"],
+        difficulty: null,
+      },
+      {
+        name: "Work & Business",
+        description: "Professional conversations, meetings, and workplace communication",
+        category: "Business",
+        icon: "Briefcase",
+        samplePhrases: ["I work as a...", "Let's schedule a meeting", "What's your job?"],
+        difficulty: "intermediate",
+      },
+      {
+        name: "Hobbies & Interests",
+        description: "Talk about sports, music, movies, books, and personal interests",
+        category: "Social",
+        icon: "Music",
+        samplePhrases: ["I like to...", "What do you do for fun?", "My favorite is..."],
+        difficulty: null,
+      },
+      {
+        name: "Family & Relationships",
+        description: "Discuss family members, friends, and personal relationships",
+        category: "Social",
+        icon: "Users",
+        samplePhrases: ["I have two brothers", "This is my friend...", "My family lives in..."],
+        difficulty: null,
+      },
+      {
+        name: "Health & Medical",
+        description: "Visit doctors, pharmacies, and discuss health concerns",
+        category: "Daily Life",
+        icon: "Heart",
+        samplePhrases: ["I don't feel well", "I need medicine for...", "Where is the hospital?"],
+        difficulty: "intermediate",
+      },
+      {
+        name: "Technology & Gadgets",
+        description: "Talk about phones, computers, apps, and digital life",
+        category: "Modern Life",
+        icon: "Smartphone",
+        samplePhrases: ["My phone isn't working", "Can I have the WiFi password?", "I use this app..."],
+        difficulty: null,
+      },
+      {
+        name: "Home & Accommodation",
+        description: "Describe your home, rent apartments, and discuss living spaces",
+        category: "Daily Life",
+        icon: "Home",
+        samplePhrases: ["I live in a...", "How many rooms?", "I'm looking for an apartment"],
+        difficulty: null,
+      },
+      {
+        name: "Education & Learning",
+        description: "Discuss school, university, studies, and educational experiences",
+        category: "Social",
+        icon: "GraduationCap",
+        samplePhrases: ["I'm studying...", "What's your major?", "I go to... school"],
+        difficulty: null,
+      },
+    ];
+
+    initialTopics.forEach(topic => this.createTopic(topic));
   }
 
   async createConversation(data: InsertConversation): Promise<Conversation> {
@@ -388,6 +499,25 @@ export class MemStorage implements IStorage {
       averageScore: Math.round(totalScore / scores.length),
       totalScores: scores.length,
     };
+  }
+
+  async getTopics(): Promise<Topic[]> {
+    return Array.from(this.topics.values());
+  }
+
+  async getTopic(id: string): Promise<Topic | undefined> {
+    return this.topics.get(id);
+  }
+
+  async createTopic(data: InsertTopic): Promise<Topic> {
+    const id = randomUUID();
+    const topic: Topic = {
+      ...data,
+      id,
+      difficulty: data.difficulty ?? null,
+    };
+    this.topics.set(id, topic);
+    return topic;
   }
 }
 
