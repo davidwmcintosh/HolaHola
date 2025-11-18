@@ -210,7 +210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               onboardingStep: updatedConversation.onboardingStep
             });
             
-            aiResponse = `Nice to meet you, ${nameResult.name}! Now, which language would you like to study? I can help you with Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, or Korean.`;
+            aiResponse = `Nice to meet you, ${nameResult.name}! Which language would you like to study?`;
           } else {
             // Name unclear, ask again
             aiResponse = "I didn't quite catch your name. Could you tell me your name again?";
@@ -246,7 +246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             
             const userName = updatedConversation.userName || "there";
-            aiResponse = `Excellent choice, ${userName}! I'm excited to help you learn ${langResult.language}. Let's start your journey! What topic would you like to explore first, or should I suggest something based on your level?`;
+            aiResponse = `Excellent choice, ${userName}! What made you interested in learning ${langResult.language}?`;
           } else {
             // Language unclear, ask again
             console.log('[ONBOARDING-LANG] Extraction failed or low confidence, asking again');
