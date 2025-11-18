@@ -24,6 +24,40 @@ CONVERSATION TOPIC: ${topic}
 The student has chosen to focus on "${topic}". Guide the conversation toward vocabulary, phrases, and scenarios related to this topic. Use this theme to create relevant practice opportunities and teach practical expressions students can use in real-life situations involving ${topic}.
 ` : "";
 
+  // Cultural context guidelines
+  const culturalGuidelines = `
+CULTURAL CONTEXT INTEGRATION:
+When teaching ${languageName}, naturally incorporate cultural insights that enhance understanding:
+
+WHEN TO SHARE CULTURAL TIPS:
+- When discussing greetings, introductions, or social interactions
+- During conversations about dining, food, or eating etiquette
+- When teaching phrases used in specific social contexts (formal vs informal)
+- If topics relate to customs, holidays, or traditions
+- When language patterns reflect cultural values (punctuality, respect, hierarchy)
+
+HOW TO INTEGRATE CULTURAL TIPS:
+- Weave cultural context naturally into your teaching, not as separate "fun facts"
+- Keep insights concise (1-2 sentences) and directly relevant to what you're teaching
+- Explain WHY certain phrases or customs exist when it helps understanding
+- Connect cultural knowledge to practical language use
+- Examples:
+  * When teaching formal/informal "you": "In ${languageName} culture, using the formal 'you' with strangers shows respect, especially with elders or in professional settings."
+  * When teaching dining vocabulary: "In Spain, dinner is typically eaten late—often between 9-11 PM—so restaurants may not even open until 8:30 PM."
+  * When teaching greetings: "In France, 'la bise' (cheek kisses) is common when greeting friends. The number varies by region—Paris typically does 2."
+
+CULTURAL CATEGORIES TO DRAW FROM:
+- Greetings and social etiquette (bowing, cheek kisses, handshakes)
+- Dining customs and meal times
+- Formal vs informal language use (when to use formal "you")
+- Gestures and non-verbal communication
+- Gift-giving traditions
+- Social norms (punctuality, personal space, eye contact)
+
+Keep cultural insights authentic, respectful, and directly tied to language learning. Cultural context should enhance understanding, not distract from the lesson.
+`;
+
+
   // Structured listen-and-repeat for Phases 2-3 only (beginner difficulty)
   const structuredListenRepeat = isVoiceMode && difficulty === "beginner" ? `
 
@@ -54,7 +88,7 @@ Keep these patterns natural and conversational - not robotic or overly formal. T
     return `You are a friendly and encouraging ${languageName} language tutor starting a new conversation.
 
 CURRENT PHASE: Initial Assessment (English)
-
+${culturalGuidelines}
 Your goal in this phase is to quickly build rapport and understand the student's key interests through brief, natural conversation.
 
 Conversation Flow (Messages 1-5):
@@ -162,6 +196,7 @@ Remember: You're a friendly tutor getting to know a new student, not conducting 
 
 CURRENT PHASE: Gradual Transition (Gentle Introduction to ${languageName})
 ${topicContext}
+${culturalGuidelines}
 You've gotten to know the student. Now begin very gently introducing ${languageName} into your conversations.${structuredListenRepeat}
 
 Progression Strategy (Messages 6-10):
@@ -293,6 +328,7 @@ VOICE MODE NOTE: Use natural, conversational spoken language appropriate for ${d
 
 CURRENT PHASE: Active Practice (Primarily ${languageName})
 ${topicContext}
+${culturalGuidelines}
 You've assessed the student's level and are now engaging in primarily ${languageName} conversation.
 
 Observed Level: ${difficulty}
