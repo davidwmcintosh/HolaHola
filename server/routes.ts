@@ -727,6 +727,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Topics
+  app.get("/api/topics", async (req, res) => {
+    try {
+      const topics = await storage.getTopics();
+      res.json(topics);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/topics/:id", async (req, res) => {
+    try {
+      const topic = await storage.getTopic(req.params.id);
+      if (!topic) {
+        return res.status(404).json({ error: "Topic not found" });
+      }
+      res.json(topic);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket proxy for Realtime API
