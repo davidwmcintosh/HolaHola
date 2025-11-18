@@ -14,6 +14,7 @@ import CulturalTips from "@/pages/cultural-tips";
 import Vocabulary from "@/pages/vocabulary";
 import Grammar from "@/pages/grammar";
 import History from "@/pages/history";
+import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -26,6 +27,7 @@ function Router() {
       <Route path="/vocabulary" component={Vocabulary} />
       <Route path="/grammar" component={Grammar} />
       <Route path="/history" component={History} />
+      <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
   );
