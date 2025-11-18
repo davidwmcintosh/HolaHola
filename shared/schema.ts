@@ -13,6 +13,9 @@ export const conversations = pgTable("conversations", {
   isOnboarding: boolean("is_onboarding").notNull().default(false),
   onboardingStep: text("onboarding_step"),
   userName: text("user_name"),
+  // Performance tracking for auto-difficulty adjustment
+  successfulMessages: integer("successful_messages").notNull().default(0), // Messages with score >= 60
+  totalAssessedMessages: integer("total_assessed_messages").notNull().default(0), // Total user messages assessed
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -21,6 +24,8 @@ export const messages = pgTable("messages", {
   conversationId: varchar("conversation_id").notNull().references(() => conversations.id),
   role: text("role").notNull(),
   content: text("content").notNull(),
+  // Performance tracking (for user messages only)
+  performanceScore: integer("performance_score"), // 0-100: AI assessment of response quality
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -60,6 +65,9 @@ export const userProgress = pgTable("user_progress", {
   longestStreak: integer("longest_streak").notNull().default(0),
   totalPracticeDays: integer("total_practice_days").notNull().default(0),
   lastPracticeDate: timestamp("last_practice_date"),
+  // Auto-difficulty tracking
+  suggestedDifficulty: text("suggested_difficulty"), // AI-recommended difficulty level
+  lastDifficultyAdjustment: timestamp("last_difficulty_adjustment"), // When difficulty was last changed
 });
 
 export const progressHistory = pgTable("progress_history", {

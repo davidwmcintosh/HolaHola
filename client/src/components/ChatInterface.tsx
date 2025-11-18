@@ -11,6 +11,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Conversation, Message } from "@shared/schema";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 import { AccentButtons } from "@/components/AccentButtons";
+import { DifficultyIndicator } from "@/components/DifficultyIndicator";
 import { useStreak } from "@/hooks/use-streak";
 import { useToast } from "@/hooks/use-toast";
 
@@ -185,7 +186,7 @@ export function ChatInterface() {
 
   return (
     <Card className="flex flex-col h-[600px]">
-      <div className="p-6 border-b">
+      <div className="p-6 border-b space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold">Conversation Practice</h2>
@@ -193,6 +194,15 @@ export function ChatInterface() {
           </div>
           <InstructorAvatar state={avatarState} className="w-24" />
         </div>
+        
+        {/* Difficulty Performance Indicator */}
+        {conversationId && (
+          <DifficultyIndicator 
+            conversationId={conversationId} 
+            currentDifficulty={difficulty}
+            language={language}
+          />
+        )}
       </div>
 
       <ScrollArea className="flex-1 p-6">

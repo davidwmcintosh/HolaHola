@@ -14,6 +14,7 @@ import {
   detectLanguage,
 } from "./onboarding-utils";
 import { createSystemPrompt } from "./system-prompt";
+import { assessMessage, analyzePerformance } from "./difficulty-adjustment";
 
 // Use Replit AI Integrations for text chat (works reliably)
 // User's personal key (USER_OPENAI_API_KEY) is only used for voice chat in realtime-proxy.ts
@@ -183,8 +184,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         conversationId,
       });
 
-      // Save user message
+      // Save user message (initially without performance score)
       const userMessage = await storage.createMessage(messageData);
+      
+      // Track performance for non-onboarding messages
+      if (!conversation.isOnboarding) {
+        const assessment = assessMessage(messageData.content, conversation.difficulty);
+        
+        // Update message with performance score (persist to storage)
+        await storage.updateMessage(userMessage.id, {
+          performanceScore: assessment.score,
+        });
+        
+        // Update conversation performance stats - re-fetch to get latest values
+        const latestConversation = await storage.getConversation(conversationId);
+        if (latestConversation) {
+          const isSuccessful = assessment.isSuccessful;
+          await storage.updateConversation(conversationId, {
+            successfulMessages: latestConversation.successfulMessages + (isSuccessful ? 1 : 0),
+            totalAssessedMessages: latestConversation.totalAssessedMessages + 1,
+          });
+        }
+      }
 
       // Simple inappropriate content check for onboarding
       const containsInappropriateContent = (message: string): boolean => {
@@ -522,18 +543,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/progress/:id", async (req, res) => {
-    try {
-      const updated = await storage.updateUserProgress(req.params.id, req.body);
-      if (!updated) {
-        return res.status(404).json({ error: "Progress not found" });
-      }
-      res.json(updated);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
   // Progress History
   app.get("/api/progress-history/:language", async (req, res) => {
     try {
@@ -554,6 +563,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: "Invalid progress history data", details: error.errors });
       }
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Difficulty adjustment recommendation
+  app.get("/api/difficulty-recommendation/:conversationId", async (req, res) => {
+    try {
+      const conversation = await storage.getConversation(req.params.conversationId);
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+
+      // Get recent message scores for average calculation
+      const messages = await storage.getMessagesByConversation(req.params.conversationId);
+      const assessedMessages = messages
+        .filter(m => m.role === "user" && m.performanceScore !== null);
+      
+      // Get last 20 assessed messages (take from end of array)
+      const recentScores = assessedMessages
+        .slice(Math.max(0, assessedMessages.length - 20))
+        .map(m => m.performanceScore!);
+
+      // Get user progress for last adjustment date
+      const progress = await storage.getOrCreateUserProgress(conversation.language);
+
+      // Analyze performance - convert date if it's a string
+      const lastAdjustment = progress.lastDifficultyAdjustment 
+        ? new Date(progress.lastDifficultyAdjustment)
+        : null;
+      
+      const analysis = analyzePerformance(
+        conversation.successfulMessages,
+        conversation.totalAssessedMessages,
+        conversation.difficulty,
+        lastAdjustment,
+        recentScores
+      );
+
+      res.json(analysis);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // PATCH conversation
+  app.patch("/api/conversations/:id", async (req, res) => {
+    try {
+      const updated = await storage.updateConversation(req.params.id, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // PATCH progress by language (convenience endpoint for difficulty adjustments)
+  app.patch("/api/progress/:languageOrId", async (req, res) => {
+    try {
+      // First try to find by language, then by ID
+      const progress = await storage.getOrCreateUserProgress(req.params.languageOrId);
+      const updated = await storage.updateUserProgress(progress.id, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: "Progress not found" });
+      }
+      res.json(updated);
+    } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });

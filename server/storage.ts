@@ -26,6 +26,7 @@ export interface IStorage {
   // Messages
   createMessage(data: InsertMessage): Promise<Message>;
   getMessagesByConversation(conversationId: string): Promise<Message[]>;
+  updateMessage(id: string, data: Partial<Message>): Promise<Message | undefined>;
 
   // Vocabulary
   createVocabularyWord(data: InsertVocabularyWord): Promise<VocabularyWord>;
@@ -110,6 +111,8 @@ export class MemStorage implements IStorage {
       isOnboarding: data.isOnboarding ?? false,
       onboardingStep: data.onboardingStep ?? null,
       userName: data.userName ?? null,
+      successfulMessages: 0,
+      totalAssessedMessages: 0,
       createdAt: new Date(),
     };
     this.conversations.set(id, conversation);
@@ -181,6 +184,7 @@ export class MemStorage implements IStorage {
     const message: Message = {
       ...data,
       id,
+      performanceScore: data.performanceScore ?? null,
       createdAt: new Date(),
     };
     this.messages.set(id, message);
@@ -209,6 +213,14 @@ export class MemStorage implements IStorage {
     return Array.from(this.messages.values())
       .filter((msg) => msg.conversationId === conversationId)
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
+
+  async updateMessage(id: string, data: Partial<Message>): Promise<Message | undefined> {
+    const message = this.messages.get(id);
+    if (!message) return undefined;
+    const updated = { ...message, ...data };
+    this.messages.set(id, updated);
+    return updated;
   }
 
   async createVocabularyWord(data: InsertVocabularyWord): Promise<VocabularyWord> {
@@ -294,6 +306,8 @@ export class MemStorage implements IStorage {
       longestStreak: 0,
       totalPracticeDays: 0,
       lastPracticeDate: null,
+      suggestedDifficulty: null,
+      lastDifficultyAdjustment: null,
     };
     this.userProgress.set(id, progress);
     return progress;
