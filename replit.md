@@ -73,11 +73,20 @@ Utilizes a three-phase approach for AI tutor interaction, designed for gradual, 
 - **Examples**: "You're at a tapas bar in Madrid. A waiter approaches and asks '¿Qué deseas?' (What would you like?)" or "Imagine you're at a bustling market in Barcelona. A vendor offers you fresh fruit..."
 - **Implementation**: Guidance integrated into Phases 2-3 system prompts in `server/system-prompt.ts`
 
+**Slow Pronunciation with Phonetic Breakdowns**: To help students master pronunciation, the AI tutor provides phonetic spellings with stress markers for new vocabulary across all teaching phases:
+- **Format**: Simple phonetic spelling with CAPITALIZED stressed syllables (e.g., "gracias = GRAH-syahs", "por favor = por fah-VOHR")
+- **Stress Markers**: Capitalized syllables indicate where to place vocal stress, with helpful tips like "Tip: Stress the capitalized syllables"
+- **Adaptive Frequency**: Beginners receive detailed breakdowns frequently, intermediate students get breakdowns for challenging words, advanced students only for complex/unusual vocabulary
+- **Example Format**: "Let's pronounce this slowly: - No, gracias = noh, GRAH-syahs - Sí, por favor = see, por fah-VOHR"
+- **Voice Mode Integration**: Enhanced 5-step listen-and-repeat pattern includes phonetic breakdown step: (1) Introduce, (2) Show phonetic breakdown, (3) Say slowly, (4) Prompt repetition, (5) Encourage
+- **Multi-Language Support**: Works across all 8 supported languages with appropriate phonetic representations
+- **Implementation**: Integrated into Phases 2-3 system prompts and voice mode instructions in `server/system-prompt.ts`
+
 **Conversation-to-Notes: Automatic Vocabulary Extraction**: AI automatically identifies and saves new vocabulary from conversations using OpenAI's structured output, integrating them into the Vocabulary flashcard system.
 **Voice Chat Feature**: Real-time voice conversations using OpenAI Realtime API with a WebSocket proxy. Includes manual push-to-talk recording, visual feedback, and a toggle between text and voice modes. Simplified configuration for broader compatibility.
   - **Listen-and-Repeat for Beginners (Progressive Approach)**:
     - **Phase 1 (Gentle Pronunciation Practice)**: In voice mode with beginners, uses light, encouraging prompts to practice familiar encouraging words ("Can you say 'bueno' with me? Bueno... Great!"). Maintains casual, warm approach without formal drills to build initial speaking confidence.
-    - **Phases 2-3 (Structured Teaching)**: Implements formal 4-step listen-and-repeat pattern for new vocabulary: (1) Introduce clearly, (2) Say slowly with pause, (3) Prompt repetition, (4) Provide encouragement. This structured approach helps beginners practice pronunciation systematically as formal teaching begins.
+    - **Phases 2-3 (Structured Teaching)**: Implements formal 5-step listen-and-repeat pattern for new vocabulary: (1) Introduce clearly, (2) Show phonetic breakdown, (3) Say slowly with pause, (4) Prompt repetition, (5) Provide encouragement. This structured approach helps beginners practice pronunciation systematically as formal teaching begins.
     - **Intermediate/Advanced**: Natural conversational practice without structured repetition exercises, focusing on fluency and natural expression.
     - **Implementation**: System prompts dynamically include appropriate instructions based on phase, difficulty level, and mode (voice vs text) via `server/system-prompt.ts`.
 **Personalized Greetings**: AI tutor welcomes students by name at the start of each conversation. Detects first-time vs returning users and adjusts greeting accordingly ("Where would you like to begin today?" for new users, "Would you like to start where we ended last time?" for returning users).
