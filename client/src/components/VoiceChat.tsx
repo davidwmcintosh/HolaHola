@@ -27,11 +27,7 @@ interface PronunciationScoreData {
   strengths: string[];
 }
 
-interface VoiceChatProps {
-  selectedTopic?: string | null;
-}
-
-export function VoiceChat({ selectedTopic = null }: VoiceChatProps) {
+export function VoiceChat() {
   const { language, difficulty, userName } = useLanguage();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -71,7 +67,7 @@ export function VoiceChat({ selectedTopic = null }: VoiceChatProps) {
     checkCapability();
   }, []);
 
-  // Create or reuse conversation when language/difficulty/topic changes
+  // Create or reuse conversation when language/difficulty changes
   // NOTE: userName is NOT in dependencies - changing the name during onboarding
   // should NOT create a new conversation
   useEffect(() => {
@@ -81,7 +77,6 @@ export function VoiceChat({ selectedTopic = null }: VoiceChatProps) {
           language,
           difficulty,
           userName: userName || "Student",
-          topic: selectedTopic,
         });
         const data = await response.json();
         setConversationId(data.id);
@@ -92,7 +87,7 @@ export function VoiceChat({ selectedTopic = null }: VoiceChatProps) {
     };
     
     getOrCreateConversation();
-  }, [language, difficulty, selectedTopic]);
+  }, [language, difficulty]);
 
   // Fetch existing messages
   const { data: messages = [] } = useQuery<Message[]>({

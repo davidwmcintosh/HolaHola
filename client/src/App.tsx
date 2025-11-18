@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import Dashboard from "@/pages/dashboard";
 import Chat from "@/pages/chat";
+import ChatIdeas from "@/pages/chat-ideas";
 import Vocabulary from "@/pages/vocabulary";
 import Grammar from "@/pages/grammar";
 import History from "@/pages/history";
@@ -19,6 +20,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/chat" component={Chat} />
+      <Route path="/chat-ideas" component={ChatIdeas} />
       <Route path="/vocabulary" component={Vocabulary} />
       <Route path="/grammar" component={Grammar} />
       <Route path="/history" component={History} />

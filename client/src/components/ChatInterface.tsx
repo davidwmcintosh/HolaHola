@@ -16,11 +16,7 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { useStreak } from "@/hooks/use-streak";
 import { useToast } from "@/hooks/use-toast";
 
-interface ChatInterfaceProps {
-  selectedTopic?: string | null;
-}
-
-export function ChatInterface({ selectedTopic = null }: ChatInterfaceProps) {
+export function ChatInterface() {
   const { language, setLanguage, difficulty, userName, setUserName } = useLanguage();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -42,7 +38,6 @@ export function ChatInterface({ selectedTopic = null }: ChatInterfaceProps) {
           language,
           difficulty,
           userName: userName || "Student",
-          topic: selectedTopic,
         });
         const data = await response.json();
         setConversationId(data.id);
@@ -52,7 +47,7 @@ export function ChatInterface({ selectedTopic = null }: ChatInterfaceProps) {
     };
     
     getOrCreateConversation();
-  }, [language, difficulty, selectedTopic]);
+  }, [language, difficulty]);
 
   // Fetch messages for current conversation
   const { data: messages = [], isLoading } = useQuery<Message[]>({
