@@ -241,9 +241,9 @@ export function ChatInterface() {
         <div className="space-y-4">
           {!conversationId ? (
             <div className="flex flex-col justify-center items-center h-full text-center text-muted-foreground p-8">
-              <MessageSquare className="h-16 w-16 mb-4 opacity-50" />
-              <p className="text-lg font-medium mb-2">No conversation selected</p>
-              <p className="text-sm">Click the "+ " button above to create a new conversation</p>
+              <MessageSquare className="h-16 w-16 mb-4 opacity-50 animate-pulse" />
+              <p className="text-lg font-medium mb-2">Preparing conversation...</p>
+              <p className="text-sm">Your AI tutor will be with you momentarily</p>
             </div>
           ) : isLoading ? (
             <div className="flex justify-center items-center h-full">
