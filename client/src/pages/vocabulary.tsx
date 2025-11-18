@@ -18,12 +18,14 @@ export default function Vocabulary() {
       </div>
 
       <Card className="p-6 max-w-2xl mx-auto">
-        <h3 className="font-semibold mb-3">How it works</h3>
+        <h3 className="font-semibold mb-3">Spaced Repetition System</h3>
         <ul className="space-y-2 text-sm text-muted-foreground">
           <li>• Click on the card to flip and see the translation</li>
-          <li>• Use arrow buttons or keyboard arrows to navigate</li>
-          <li>• Practice regularly for better retention</li>
-          <li>• Words are selected based on your difficulty level</li>
+          <li>• Mark each card as "Correct" or "Incorrect" after reviewing</li>
+          <li>• Cards you get right will appear less frequently</li>
+          <li>• Cards you struggle with will be reviewed more often</li>
+          <li>• Use "Show Due Only" to focus on cards that need review</li>
+          <li>• The system optimizes your learning schedule automatically</li>
         </ul>
       </Card>
     </div>

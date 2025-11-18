@@ -474,6 +474,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/vocabulary/:id/review", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { isCorrect } = req.body;
+      
+      if (typeof isCorrect !== "boolean") {
+        return res.status(400).json({ error: "isCorrect must be a boolean" });
+      }
+      
+      const updatedWord = await storage.updateVocabularyReview(id, isCorrect);
+      
+      if (!updatedWord) {
+        return res.status(404).json({ error: "Vocabulary word not found" });
+      }
+      
+      res.json(updatedWord);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Grammar
   app.get("/api/grammar", async (req, res) => {
     try {

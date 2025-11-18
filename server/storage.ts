@@ -13,6 +13,7 @@ import {
   type InsertProgressHistory,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { markCorrect, markIncorrect } from "./spaced-repetition";
 
 export interface IStorage {
   // Conversations
@@ -29,6 +30,7 @@ export interface IStorage {
   // Vocabulary
   createVocabularyWord(data: InsertVocabularyWord): Promise<VocabularyWord>;
   getVocabularyWords(language: string, difficulty?: string): Promise<VocabularyWord[]>;
+  updateVocabularyReview(id: string, isCorrect: boolean): Promise<VocabularyWord | undefined>;
 
   // Grammar
   createGrammarExercise(data: InsertGrammarExercise): Promise<GrammarExercise>;
@@ -211,7 +213,18 @@ export class MemStorage implements IStorage {
 
   async createVocabularyWord(data: InsertVocabularyWord): Promise<VocabularyWord> {
     const id = randomUUID();
-    const word: VocabularyWord = { ...data, id };
+    const now = new Date();
+    const word: VocabularyWord = { 
+      ...data, 
+      id,
+      // Initialize spaced repetition fields
+      nextReviewDate: now,
+      correctCount: 0,
+      incorrectCount: 0,
+      repetition: 0,
+      easeFactor: 2.5,
+      interval: 1,
+    };
     this.vocabularyWords.set(id, word);
     return word;
   }
@@ -220,6 +233,36 @@ export class MemStorage implements IStorage {
     return Array.from(this.vocabularyWords.values()).filter(
       (word) => word.language === language && (!difficulty || word.difficulty === difficulty)
     );
+  }
+
+  async updateVocabularyReview(id: string, isCorrect: boolean): Promise<VocabularyWord | undefined> {
+    const word = this.vocabularyWords.get(id);
+    if (!word) return undefined;
+
+    // Calculate next review using SM-2 algorithm
+    const currentState = {
+      easeFactor: word.easeFactor,
+      interval: word.interval,
+      correctCount: word.correctCount,
+      incorrectCount: word.incorrectCount,
+      repetition: word.repetition,
+    };
+
+    const result = isCorrect ? markCorrect(currentState) : markIncorrect(currentState);
+
+    // Update word with new review data
+    const updated: VocabularyWord = {
+      ...word,
+      nextReviewDate: result.nextReviewDate,
+      easeFactor: result.easeFactor,
+      interval: result.interval,
+      correctCount: result.correctCount,
+      incorrectCount: result.incorrectCount,
+      repetition: result.repetition,
+    };
+
+    this.vocabularyWords.set(id, updated);
+    return updated;
   }
 
   async createGrammarExercise(data: InsertGrammarExercise): Promise<GrammarExercise> {
@@ -270,9 +313,9 @@ export class MemStorage implements IStorage {
       id,
       language: data.language,
       date: data.date,
-      wordsLearned: data.wordsLearned,
-      practiceMinutes: data.practiceMinutes,
-      conversationsCount: data.conversationsCount,
+      wordsLearned: data.wordsLearned ?? 0,
+      practiceMinutes: data.practiceMinutes ?? 0,
+      conversationsCount: data.conversationsCount ?? 0,
     };
     this.progressHistory.set(id, history);
     return history;

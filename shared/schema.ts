@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -32,6 +32,13 @@ export const vocabularyWords = pgTable("vocabulary_words", {
   example: text("example").notNull(),
   pronunciation: text("pronunciation").notNull(),
   difficulty: text("difficulty").notNull(),
+  // Spaced repetition fields
+  nextReviewDate: timestamp("next_review_date").notNull().defaultNow(),
+  correctCount: integer("correct_count").notNull().default(0), // Lifetime correct reviews
+  incorrectCount: integer("incorrect_count").notNull().default(0), // Lifetime incorrect reviews
+  repetition: integer("repetition").notNull().default(0), // Consecutive correct reviews (resets on failure)
+  easeFactor: real("ease_factor").notNull().default(2.5), // SM-2 algorithm default
+  interval: integer("interval").notNull().default(1), // Days until next review
 });
 
 export const grammarExercises = pgTable("grammar_exercises", {
