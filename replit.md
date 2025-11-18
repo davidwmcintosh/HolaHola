@@ -24,7 +24,7 @@ Preferred communication style: Simple, everyday language.
 -   **Session Management**: `connect-pg-simple` (PostgreSQL-backed, pending).
 
 ### Data Models
--   Core entities: Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress (defined in `shared/schema.ts`).
+-   Core entities: Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress, CulturalTips, Topics (defined in `shared/schema.ts`).
 -   Data flow managed by React Query for fetching, caching, and optimistic updates.
 
 ### Core Features
@@ -89,7 +89,15 @@ Preferred communication style: Simple, everyday language.
     - Topics displayed with icons, descriptions, and sample phrases
     - Non-blocking design - users can browse for inspiration without interrupting chat flow
     - Topics serve as conversation starters and vocabulary focus areas
--   **Full Application**: Includes AI chat, vocabulary flashcards, grammar exercises, conversation history, progress tracking dashboard with charts and streak metrics, auto-difficulty adjustment, pronunciation scoring, topic library.
+-   **Cultural Tips System**: Authentic cultural context to enhance language learning:
+    - 20 pre-seeded cultural tips across all 8 supported languages (Spanish, French, German, Italian, Portuguese, Japanese, Mandarin Chinese, Korean)
+    - Categories: Greetings, Dining, Social Norms, Customs, Gift Giving
+    - **AI Integration**: System prompt guides AI to naturally weave cultural insights into conversations when relevant (formal/informal usage, greeting customs, dining etiquette, social hierarchy)
+    - **Browsing Page**: Standalone page at `/cultural-tips` with language selector (not in sidebar navigation)
+    - Tips displayed as cards with icon, title, context (when to use), content (explanation), and related topics
+    - Cultural context kept concise (1-2 sentences) and directly tied to language learning
+    - Examples: Spanish late dinner times, French "la bise" greeting, Japanese bowing etiquette, Korean respect for elders
+-   **Full Application**: Includes AI chat with cultural context integration, vocabulary flashcards, grammar exercises, conversation history, progress tracking dashboard with charts and streak metrics, auto-difficulty adjustment, pronunciation scoring, topic library, and cultural tips.
 
 ## External Dependencies
 
