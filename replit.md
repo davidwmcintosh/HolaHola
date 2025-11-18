@@ -53,6 +53,14 @@ Preferred communication style: Simple, everyday language.
 -   **Voice Chat Feature**: Real-time voice conversations via OpenAI Realtime API (WebSocket proxy). Includes push-to-talk, visual feedback, and text/voice toggle. Features a progressive "Listen-and-Repeat" pattern for beginners.
 -   **Personalized Greetings**: AI greets users by name, adjusting messages for first-time vs. returning users.
 -   **Animated Instructor Avatar**: Visual feedback (idle, listening, speaking states) for enhanced engagement.
+-   **Spaced Repetition System**: SM-2 algorithm-based vocabulary review scheduling with:
+    - Consecutive correct tracking (repetition counter resets on failure)
+    - Adaptive intervals: 1 day → 6 days → exponential growth based on ease factor
+    - Struggled cards reviewed more frequently (must rebuild 1→6 day progression)
+    - "Show Due Only" filter for focused practice
+    - Visual status badges (overdue, due today, upcoming) with next review dates
+    - Correct/incorrect feedback buttons with automatic progression
+    - Real-time statistics showing due card counts
 -   **Streak Tracking System**: Daily practice streaks with current/longest/total metrics, milestone badges, localStorage persistence, and automatic recording on practice.
 -   **Progress Charts Dashboard**: Interactive visualizations using recharts displaying:
     - **Vocabulary Growth** (LineChart): Cumulative words learned over time with daily delta calculations
