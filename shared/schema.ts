@@ -8,6 +8,7 @@ export const conversations = pgTable("conversations", {
   language: text("language").notNull(),
   difficulty: text("difficulty").notNull(),
   topic: text("topic"),
+  title: text("title"), // Thread name for multiple conversations
   messageCount: integer("message_count").notNull().default(0),
   duration: integer("duration").notNull().default(0),
   isOnboarding: boolean("is_onboarding").notNull().default(false),
