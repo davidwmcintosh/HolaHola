@@ -367,8 +367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedConversation.difficulty,
         userMessageCount,
         false, // not voice mode
-        updatedConversation.topic,
-        false // text mode
+        updatedConversation.topic
       );
 
       // Generate AI response with structured output to extract vocabulary and grammar
@@ -746,6 +745,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Topic not found" });
       }
       res.json(topic);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Cultural Tips
+  app.get("/api/cultural-tips/:language", async (req, res) => {
+    try {
+      const tips = await storage.getCulturalTips(req.params.language);
+      res.json(tips);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/cultural-tips/id/:id", async (req, res) => {
+    try {
+      const tip = await storage.getCulturalTip(req.params.id);
+      if (!tip) {
+        return res.status(404).json({ error: "Cultural tip not found" });
+      }
+      res.json(tip);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
