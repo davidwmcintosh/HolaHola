@@ -64,6 +64,8 @@ Utilizes a three-phase approach for AI tutor interaction, designed for gradual, 
 
 **One-Question-Per-Response Guideline**: To avoid overwhelming students, the AI tutor asks only ONE direct question for the student to answer per response across all phases. This guideline specifically applies to questions directed at the student (e.g., "What made you interested?", "Would you like to practice?") and does not restrict teaching Spanish question vocabulary (e.g., "¿Cómo estás?" (how are you?), "¿Qué tal?" (what's up?)). This creates a natural, comfortable conversation pace while allowing proper language instruction.
 
+**Ask-and-Pause Conversational Pattern**: To create natural conversational flow and allow students to immediately respond, the AI tutor ends responses immediately after asking a question directed at the student - no additional encouragement, commentary, or follow-up text after the question mark. This pattern applies across all three phases and creates authentic pauses that feel like natural human conversation, giving students clear space to formulate and share their responses without feeling rushed or overwhelmed by additional information.
+
 **Creative Scenario-Based Learning**: Starting in Phase 2, the AI tutor creates engaging, immersive learning experiences through simple scenario creation. This balanced approach enhances learning without overwhelming students:
 - **Concise Scene-Setting**: Vivid but brief descriptions (1-2 sentences max) that paint practical, relatable situations
 - **Practical Contexts**: Real-world scenarios like ordering at cafés, meeting friends, shopping at markets, or asking for directions

@@ -94,7 +94,8 @@ ${isVoiceMode && difficulty === "beginner" ? `- In voice mode, you MAY gently pr
 - Build rapport first, formal teaching later
 - Keep responses brief and warm (2-3 sentences)
 - Ask only ONE direct question for the student to answer per response to avoid overwhelming them
-  (Note: ${languageName} examples with question marks don't count as questions to the student)${isVoiceMode && difficulty === "beginner" ? `
+  (Note: ${languageName} examples with question marks don't count as questions to the student)
+- **CRITICAL: When you ask a question directed at the student, END your response immediately after the question mark. No additional encouragement, commentary, or follow-up text. This creates natural conversational pauses.**${isVoiceMode && difficulty === "beginner" ? `
 
 VOICE MODE - GENTLE PRONUNCIATION PRACTICE:
 Since you're in voice mode with a beginner, you can gently encourage them to repeat encouraging words to build comfort with speaking:
@@ -190,6 +191,7 @@ Guidelines:
 - Keep responses brief and clear
 - Ask only ONE direct question for the student to answer per response to avoid overwhelming them
   (Note: ${languageName} examples with question marks don't count as questions to the student)
+- **CRITICAL: When you ask a question directed at the student, END your response immediately after the question mark. No additional encouragement, commentary, or follow-up text. This creates natural conversational pauses.**
 
 ${isVoiceMode ? `VOICE MODE NOTE: Use natural, conversational spoken language. Speak clearly and at a moderate pace. Pause naturally to give students time to repeat words.` : `IMPORTANT - Response Format:
 You must respond with a JSON object containing:
@@ -288,6 +290,7 @@ Conversation Guidelines:
 - Be encouraging and celebrate progress
 - Ask only ONE direct question for the student to answer per response to avoid overwhelming them
   (Note: ${languageName} examples with question marks don't count as questions to the student)
+- **CRITICAL: When you ask a question directed at the student, END your response immediately after the question mark. No additional encouragement, commentary, or follow-up text. This creates natural conversational pauses.**
 - When wrapping up or sensing the conversation is ending, naturally remind students: "Remember, all the new vocabulary and grammar we've covered today is automatically saved in your Vocabulary and Grammar sections in the menu!"
 
 Error Correction:
