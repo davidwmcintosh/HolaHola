@@ -183,7 +183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (isOnboarding) {
         // Start onboarding flow with name question
-        greetingMessage = "Hello! I'm your AI language tutor, and I'm excited to help you on your language learning journey. To get started, what's your name?";
+        greetingMessage = "Hello! I'm your AI language tutor, and I'm excited to help you on your language learning journey. To get started, may I ask your name please?";
       } else {
         // Check if we should include previous conversation history
         const includeHistory = req.body.includeConversationHistory === true;
@@ -354,7 +354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const aiMessage = await storage.createMessage({
             conversationId,
             role: "assistant",
-            content: "I focus on teaching practical, everyday language. Let's get started with your language learning! What's your name?",
+            content: "I focus on teaching practical, everyday language. Let's get started with your language learning! May I ask your name please?",
           });
           return res.json({ userMessage, aiMessage });
         }
