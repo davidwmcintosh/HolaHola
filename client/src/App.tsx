@@ -10,6 +10,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import Dashboard from "@/pages/dashboard";
 import Chat from "@/pages/chat";
 import ChatIdeas from "@/pages/chat-ideas";
+import CulturalTips from "@/pages/cultural-tips";
 import Vocabulary from "@/pages/vocabulary";
 import Grammar from "@/pages/grammar";
 import History from "@/pages/history";
@@ -21,6 +22,7 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/chat" component={Chat} />
       <Route path="/chat-ideas" component={ChatIdeas} />
+      <Route path="/cultural-tips" component={CulturalTips} />
       <Route path="/vocabulary" component={Vocabulary} />
       <Route path="/grammar" component={Grammar} />
       <Route path="/history" component={History} />
