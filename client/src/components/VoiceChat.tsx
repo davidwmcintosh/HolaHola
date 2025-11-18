@@ -19,15 +19,24 @@ interface RealtimeEvent {
   [key: string]: any;
 }
 
+interface PronunciationScoreData {
+  messageId: string;
+  score: number;
+  feedback: string;
+  phoneticIssues: string[];
+  strengths: string[];
+}
+
 export function VoiceChat() {
   const { language, difficulty, userName } = useLanguage();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
-  const [transcript, setTranscript] = useState<Array<{ role: string; content: string }>>([]);
+  const [transcript, setTranscript] = useState<Array<{ role: string; content: string; messageId?: string }>>([]);
   const [error, setError] = useState<string | null>(null);
   const [capabilityChecked, setCapabilityChecked] = useState(false);
   const [capabilityAvailable, setCapabilityAvailable] = useState(false);
+  const [pronunciationScores, setPronunciationScores] = useState<Map<string, PronunciationScoreData>>(new Map());
   
   const wsRef = useRef<WebSocket | null>(null);
   const audioRecorderRef = useRef<AudioRecorder | null>(null);
@@ -166,13 +175,42 @@ export function VoiceChat() {
             
           case "conversation.item.input_audio_transcription.completed":
             const userTranscript = data.transcript;
-            setTranscript(prev => [...prev, { role: "user", content: userTranscript }]);
             
             // Save to backend
-            await apiRequest("POST", `/api/conversations/${conversationId}/messages`, {
+            const messageResponse = await apiRequest("POST", `/api/conversations/${conversationId}/messages`, {
               role: "user",
               content: userTranscript,
             });
+            const savedMessage = await messageResponse.json();
+            
+            // Add to transcript with messageId for pronunciation scoring
+            setTranscript(prev => [...prev, { 
+              role: "user", 
+              content: userTranscript,
+              messageId: savedMessage.id 
+            }]);
+
+            // Analyze pronunciation after saving the message
+            try {
+              const analysisResponse = await apiRequest("POST", "/api/pronunciation-scores/analyze", {
+                messageId: savedMessage.id,
+                conversationId,
+                transcribedText: userTranscript,
+              });
+              const analysisResult = await analysisResponse.json();
+
+              // Update pronunciation scores state
+              setPronunciationScores(prev => new Map(prev).set(savedMessage.id, {
+                messageId: savedMessage.id,
+                score: analysisResult.score,
+                feedback: analysisResult.feedback,
+                phoneticIssues: analysisResult.phoneticIssues || [],
+                strengths: analysisResult.strengths || [],
+              }));
+            } catch (error) {
+              console.error("Failed to analyze pronunciation:", error);
+              // Don't block the conversation if pronunciation analysis fails
+            }
             break;
             
           case "response.output_audio.delta":
@@ -386,7 +424,7 @@ export function VoiceChat() {
 
   // Combine backend messages with live transcript
   const allMessages = [
-    ...messages.map(m => ({ role: m.role, content: m.content, saved: true })),
+    ...messages.map(m => ({ role: m.role, content: m.content, saved: true, messageId: m.id })),
     ...transcript.map(t => ({ ...t, saved: false })),
   ];
 
@@ -426,7 +464,15 @@ export function VoiceChat() {
             </div>
           ) : (
             <>
-              {allMessages.map((message, index) => (
+              {allMessages.map((message, index) => {
+                const pronunciationScore = message.messageId ? pronunciationScores.get(message.messageId) : undefined;
+                const getScoreColor = (score: number) => {
+                  if (score >= 80) return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+                  if (score >= 60) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+                  return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
+                };
+                
+                return (
                 <div
                   key={index}
                   className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
@@ -438,14 +484,39 @@ export function VoiceChat() {
                       </AvatarFallback>
                     </Avatar>
                   )}
-                  <div
-                    className={`max-w-2xl rounded-2xl p-4 ${
-                      message.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted"
-                    }`}
-                  >
-                    <p className="text-base leading-relaxed">{message.content}</p>
+                  <div className="flex flex-col gap-2 max-w-2xl">
+                    <div
+                      className={`rounded-2xl p-4 ${
+                        message.role === "user"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted"
+                      }`}
+                    >
+                      <p className="text-base leading-relaxed">{message.content}</p>
+                    </div>
+                    
+                    {/* Pronunciation score for user messages */}
+                    {message.role === "user" && pronunciationScore && (
+                      <div className="flex flex-col gap-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Badge className={getScoreColor(pronunciationScore.score)} data-testid={`badge-pronunciation-score-${index}`}>
+                            <Volume2 className="h-3 w-3 mr-1" />
+                            Pronunciation: {pronunciationScore.score}/100
+                          </Badge>
+                        </div>
+                        {pronunciationScore.feedback && (
+                          <p className="text-xs text-muted-foreground italic">
+                            {pronunciationScore.feedback}
+                          </p>
+                        )}
+                        {pronunciationScore.phoneticIssues.length > 0 && (
+                          <div className="text-xs text-muted-foreground">
+                            <span className="font-medium">Watch out for:</span>{' '}
+                            {pronunciationScore.phoneticIssues.join(', ')}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {message.role === "user" && (
                     <Avatar className="h-10 w-10">
@@ -455,7 +526,7 @@ export function VoiceChat() {
                     </Avatar>
                   )}
                 </div>
-              ))}
+              )})}
               <div ref={scrollRef} />
             </>
           )}

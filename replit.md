@@ -76,7 +76,14 @@ Preferred communication style: Simple, everyday language.
     - **Non-Intrusive UI**: Dismissible recommendation cards with TrendingUp/TrendingDown icons, progress indicators, and success rate display
     - **Atomic Updates**: Re-fetch conversation before incrementing counters to prevent race conditions
     - **Persistent State**: All performance data (scores, counters, adjustment dates) stored and survive page reloads
--   **Full Application**: Includes AI chat, vocabulary flashcards, grammar exercises, conversation history, progress tracking dashboard with charts and streak metrics, auto-difficulty adjustment.
+-   **Pronunciation Scoring System**: Real-time pronunciation feedback during voice conversations:
+    - Automatic analysis after each voice message using OpenAI GPT-4o-mini
+    - Scores from 0-100 with color-coded badges (green 80+, yellow 60-79, red <60)
+    - Specific phonetic feedback and improvement suggestions
+    - Identifies strengths and areas for improvement
+    - Scores persisted to database and displayed in voice chat UI
+    - Client-driven analysis flow ensures reliable persistence (no race conditions)
+-   **Full Application**: Includes AI chat, vocabulary flashcards, grammar exercises, conversation history, progress tracking dashboard with charts and streak metrics, auto-difficulty adjustment, pronunciation scoring.
 
 ## External Dependencies
 

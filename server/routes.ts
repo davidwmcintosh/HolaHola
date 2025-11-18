@@ -5,6 +5,7 @@ import {
   insertConversationSchema,
   insertMessageSchema,
   insertProgressHistorySchema,
+  insertPronunciationScoreSchema,
 } from "@shared/schema";
 import OpenAI from "openai";
 import { setupRealtimeProxy } from "./realtime-proxy";
@@ -630,6 +631,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Progress not found" });
       }
       res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Pronunciation Scores - Analyze and save
+  app.post("/api/pronunciation-scores/analyze", async (req, res) => {
+    try {
+      const { messageId, conversationId, transcribedText } = req.body;
+      
+      if (!messageId || !conversationId || !transcribedText) {
+        return res.status(400).json({ error: "messageId, conversationId, and transcribedText are required" });
+      }
+
+      // Get conversation to determine language and difficulty
+      const conversation = await storage.getConversation(conversationId);
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+
+      // Import pronunciation analysis
+      const { analyzePronunciation } = await import("./pronunciation-analysis");
+      
+      // Analyze pronunciation
+      const analysis = await analyzePronunciation(
+        transcribedText,
+        conversation.language,
+        conversation.difficulty
+      );
+
+      // Save the score
+      const score = await storage.createPronunciationScore({
+        messageId,
+        conversationId,
+        transcribedText,
+        targetPhrase: null,
+        score: analysis.score,
+        feedback: analysis.feedback,
+        phoneticIssues: analysis.phoneticIssues.length > 0 ? analysis.phoneticIssues : null,
+      });
+
+      // Return full analysis to client
+      res.status(201).json({
+        ...score,
+        strengths: analysis.strengths,
+      });
+    } catch (error: any) {
+      console.error("Error analyzing pronunciation:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Pronunciation Scores - Create manually (for future use)
+  app.post("/api/pronunciation-scores", async (req, res) => {
+    try {
+      const validated = insertPronunciationScoreSchema.parse(req.body);
+      const score = await storage.createPronunciationScore(validated);
+      res.status(201).json(score);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid pronunciation score data", details: error.errors });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/pronunciation-scores/conversation/:conversationId", async (req, res) => {
+    try {
+      const scores = await storage.getPronunciationScoresByConversation(req.params.conversationId);
+      res.json(scores);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/pronunciation-scores/message/:messageId", async (req, res) => {
+    try {
+      const score = await storage.getPronunciationScoreByMessage(req.params.messageId);
+      if (!score) {
+        return res.status(404).json({ error: "Pronunciation score not found" });
+      }
+      res.json(score);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/pronunciation-scores/stats/:conversationId", async (req, res) => {
+    try {
+      const stats = await storage.getPronunciationScoreStats(req.params.conversationId);
+      res.json(stats);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

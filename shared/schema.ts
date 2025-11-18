@@ -79,6 +79,18 @@ export const progressHistory = pgTable("progress_history", {
   conversationsCount: integer("conversations_count").notNull().default(0),
 });
 
+export const pronunciationScores = pgTable("pronunciation_scores", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  messageId: varchar("message_id").notNull().references(() => messages.id),
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id),
+  transcribedText: text("transcribed_text").notNull(),
+  targetPhrase: text("target_phrase"),
+  score: integer("score").notNull(), // 0-100
+  feedback: text("feedback").notNull(),
+  phoneticIssues: text("phonetic_issues").array(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertConversationSchema = createInsertSchema(conversations).omit({
   id: true,
   createdAt: true,
@@ -105,6 +117,11 @@ export const insertProgressHistorySchema = createInsertSchema(progressHistory).o
   id: true,
 });
 
+export const insertPronunciationScoreSchema = createInsertSchema(pronunciationScores).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type Conversation = typeof conversations.$inferSelect;
 
@@ -122,3 +139,6 @@ export type UserProgress = typeof userProgress.$inferSelect;
 
 export type InsertProgressHistory = z.infer<typeof insertProgressHistorySchema>;
 export type ProgressHistory = typeof progressHistory.$inferSelect;
+
+export type InsertPronunciationScore = z.infer<typeof insertPronunciationScoreSchema>;
+export type PronunciationScore = typeof pronunciationScores.$inferSelect;

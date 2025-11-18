@@ -11,6 +11,8 @@ import {
   type InsertUserProgress,
   type ProgressHistory,
   type InsertProgressHistory,
+  type PronunciationScore,
+  type InsertPronunciationScore,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -44,6 +46,12 @@ export interface IStorage {
   // Progress History
   createProgressHistory(data: InsertProgressHistory): Promise<ProgressHistory>;
   getProgressHistory(language: string, days?: number): Promise<ProgressHistory[]>;
+
+  // Pronunciation Scores
+  createPronunciationScore(data: InsertPronunciationScore): Promise<PronunciationScore>;
+  getPronunciationScoresByConversation(conversationId: string): Promise<PronunciationScore[]>;
+  getPronunciationScoreByMessage(messageId: string): Promise<PronunciationScore | undefined>;
+  getPronunciationScoreStats(conversationId: string): Promise<{ averageScore: number; totalScores: number }>;
 }
 
 export class MemStorage implements IStorage {
@@ -53,6 +61,7 @@ export class MemStorage implements IStorage {
   private grammarExercises: Map<string, GrammarExercise>;
   private userProgress: Map<string, UserProgress>;
   private progressHistory: Map<string, ProgressHistory>;
+  private pronunciationScores: Map<string, PronunciationScore>;
 
   constructor() {
     this.conversations = new Map();
@@ -61,6 +70,7 @@ export class MemStorage implements IStorage {
     this.grammarExercises = new Map();
     this.userProgress = new Map();
     this.progressHistory = new Map();
+    this.pronunciationScores = new Map();
     this.seedData();
   }
 
@@ -342,6 +352,42 @@ export class MemStorage implements IStorage {
     return Array.from(this.progressHistory.values())
       .filter((h) => h.language === language && new Date(h.date) >= cutoffDate)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }
+
+  async createPronunciationScore(data: InsertPronunciationScore): Promise<PronunciationScore> {
+    const id = randomUUID();
+    const score: PronunciationScore = {
+      ...data,
+      id,
+      phoneticIssues: data.phoneticIssues ?? null,
+      targetPhrase: data.targetPhrase ?? null,
+      createdAt: new Date(),
+    };
+    this.pronunciationScores.set(id, score);
+    return score;
+  }
+
+  async getPronunciationScoresByConversation(conversationId: string): Promise<PronunciationScore[]> {
+    return Array.from(this.pronunciationScores.values())
+      .filter((score) => score.conversationId === conversationId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
+
+  async getPronunciationScoreByMessage(messageId: string): Promise<PronunciationScore | undefined> {
+    return Array.from(this.pronunciationScores.values())
+      .find((score) => score.messageId === messageId);
+  }
+
+  async getPronunciationScoreStats(conversationId: string): Promise<{ averageScore: number; totalScores: number }> {
+    const scores = await this.getPronunciationScoresByConversation(conversationId);
+    if (scores.length === 0) {
+      return { averageScore: 0, totalScores: 0 };
+    }
+    const totalScore = scores.reduce((sum, score) => sum + score.score, 0);
+    return {
+      averageScore: Math.round(totalScore / scores.length),
+      totalScores: scores.length,
+    };
   }
 }
 
