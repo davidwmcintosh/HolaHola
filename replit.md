@@ -51,6 +51,10 @@ Preferred communication style: Simple, everyday language.
 -   **Slow Pronunciation with Phonetic Breakdowns**: Provides phonetic spellings with stress markers (e.g., "GRAH-syahs") for new vocabulary, with adaptive frequency based on difficulty. Integrated into voice mode.
 -   **Automatic Vocabulary Extraction**: AI automatically identifies and saves new vocabulary from conversations into the flashcard system.
 -   **Voice Chat Feature**: Real-time voice conversations via OpenAI Realtime API (WebSocket proxy). Includes push-to-talk, visual feedback, and text/voice toggle. Features a progressive "Listen-and-Repeat" pattern for beginners.
+    - **Smart Capability Detection**: Actively tests Realtime API access with real API probe, caches results for 5 minutes
+    - **Clear Error Messaging**: Structured error codes (access_denied, missing_api_key, rate_limit, server_error) with actionable guidance
+    - **Recheck Access**: User-initiated fresh capability check bypasses cache, enables error recovery without page reload
+    - **Contextual Help**: Links to platform.openai.com, suggests text mode fallback, shows API key setup instructions
 -   **Conversational Thread Management**: Auto-creates fresh conversation on each visit/language change, AI greets with context about previous conversations, natural conversation switching via AI-directed `[[SWITCH_CONVERSATION:id]]` protocol when user requests to revisit previous topics.
 -   **Personalized Greetings**: AI greets users by name, adjusting messages for first-time vs. returning users.
 -   **Animated Instructor Avatar**: Visual feedback (idle, listening, speaking states) for enhanced engagement.
