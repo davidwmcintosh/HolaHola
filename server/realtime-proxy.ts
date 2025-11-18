@@ -62,6 +62,25 @@ export function setupRealtimeProxy(server: Server) {
           const parsed = JSON.parse(data.toString());
           if (parsed.type === 'error') {
             console.error('OpenAI Realtime API error:', parsed);
+            
+            // Send user-friendly error message to client
+            if (clientWs.readyState === WS.OPEN) {
+              const errorMessage = parsed.error?.message || 'Unknown error';
+              
+              // Check if it's an auth/access issue
+              if (errorMessage.includes('server had an error') || errorMessage.includes('server_error')) {
+                clientWs.send(JSON.stringify({
+                  type: 'error',
+                  error: {
+                    message: 'Voice chat is unavailable. Your OpenAI API key may not have access to the Realtime API, or there may be a billing issue. Please check your OpenAI account at platform.openai.com.',
+                    code: 'realtime_api_access_denied'
+                  }
+                }));
+              } else {
+                clientWs.send(JSON.stringify(parsed));
+              }
+            }
+            return;
           } else {
             console.log('OpenAI message type:', parsed.type);
           }

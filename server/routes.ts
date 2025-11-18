@@ -25,39 +25,105 @@ const openai = new OpenAI({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Realtime API capability check
+  // Realtime API capability check - actually tests API access
+  // Cache the result for 5 minutes to avoid repeated checks
+  let capabilityCache: { available: boolean; reason: string; code?: string; timestamp: number } | null = null;
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
   app.get("/api/realtime/capability", async (req, res) => {
     try {
-      const baseUrl = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
-      const apiKey = process.env.OPENAI_API_KEY;
+      // Return cached result if still valid
+      if (capabilityCache && (Date.now() - capabilityCache.timestamp < CACHE_DURATION)) {
+        return res.json({
+          available: capabilityCache.available,
+          reason: capabilityCache.reason,
+          code: capabilityCache.code,
+          cached: true,
+        });
+      }
+
+      const apiKey = process.env.USER_OPENAI_API_KEY;
       
       // Check if we have the required credentials
       if (!apiKey) {
-        return res.json({
+        const result = {
           available: false,
-          reason: 'No OpenAI API key configured. Please add your OPENAI_API_KEY in Replit Secrets.',
-        });
+          reason: 'Voice chat requires an OpenAI API key with Realtime API access. Please set USER_OPENAI_API_KEY in your Replit Secrets with a key from platform.openai.com.',
+          code: 'missing_api_key',
+          timestamp: Date.now(),
+        };
+        capabilityCache = result;
+        return res.json(result);
       }
-      
-      // Check if base URL is OpenAI's official API
-      const isOpenAIAPI = baseUrl.includes('api.openai.com');
-      
-      if (isOpenAIAPI) {
-        res.json({
-          available: true,
-          reason: 'OpenAI Realtime API is available',
-        });
-      } else {
-        res.json({
-          available: false,
-          reason: 'Voice chat requires the official OpenAI API endpoint (api.openai.com). Current base URL is not supported.',
-        });
-      }
-    } catch (error: any) {
-      res.json({
-        available: false,
-        reason: error.message || 'Unknown error',
+
+      // Actually test Realtime API access with a minimal session request
+      const testUrl = 'https://api.openai.com/v1/realtime/sessions';
+      const testResponse = await fetch(testUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'OpenAI-Beta': 'realtime=v1',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-realtime-preview-2024-12-17',
+          voice: 'alloy',
+        }),
       });
+
+      if (testResponse.ok) {
+        // Success! API key has Realtime access
+        const result = {
+          available: true,
+          reason: 'Voice chat is ready! Your API key has Realtime API access.',
+          code: 'ready',
+          timestamp: Date.now(),
+        };
+        capabilityCache = result;
+        return res.json(result);
+      }
+
+      // Parse error response
+      const errorData = await testResponse.json().catch(() => ({}));
+      const errorMessage = errorData.error?.message || 'Unknown error';
+      const errorType = errorData.error?.type || 'unknown';
+
+      // Map specific error types to helpful messages
+      let reason = '';
+      let code = '';
+      
+      if (testResponse.status === 401 || testResponse.status === 403) {
+        reason = 'Your API key doesn\'t have access to the Realtime API. This requires a paid OpenAI account with Realtime API enabled. Please check your account at platform.openai.com.';
+        code = 'access_denied';
+      } else if (testResponse.status === 429) {
+        reason = 'Rate limit exceeded or quota reached. Please check your OpenAI account billing and usage at platform.openai.com.';
+        code = 'rate_limit';
+      } else if (testResponse.status >= 500) {
+        reason = 'OpenAI\'s servers are experiencing issues. Please try again in a few minutes.';
+        code = 'server_error';
+      } else {
+        reason = `Voice chat unavailable: ${errorMessage}`;
+        code = 'unknown_error';
+      }
+
+      const result = {
+        available: false,
+        reason,
+        code,
+        timestamp: Date.now(),
+      };
+      capabilityCache = result;
+      res.json(result);
+
+    } catch (error: any) {
+      const result = {
+        available: false,
+        reason: `Failed to check voice chat availability: ${error.message}. Please check your internet connection.`,
+        code: 'network_error',
+        timestamp: Date.now(),
+      };
+      capabilityCache = result;
+      res.json(result);
     }
   });
 

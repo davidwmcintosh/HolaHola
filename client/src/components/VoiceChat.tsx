@@ -36,6 +36,8 @@ export function VoiceChat() {
   const [error, setError] = useState<string | null>(null);
   const [capabilityChecked, setCapabilityChecked] = useState(false);
   const [capabilityAvailable, setCapabilityAvailable] = useState(false);
+  const [capabilityCode, setCapabilityCode] = useState<string | null>(null);
+  const [isCheckingCapability, setIsCheckingCapability] = useState(false);
   const [pronunciationScores, setPronunciationScores] = useState<Map<string, PronunciationScoreData>>(new Map());
   
   const wsRef = useRef<WebSocket | null>(null);
@@ -45,27 +47,34 @@ export function VoiceChat() {
   const isReconnectingRef = useRef<boolean>(false);
 
   // Check Realtime API capability
-  useEffect(() => {
-    const checkCapability = async () => {
-      try {
-        const response = await fetch('/api/realtime/capability');
-        const data = await response.json();
-        setCapabilityAvailable(data.available);
-        setCapabilityChecked(true);
-        
-        if (!data.available) {
-          setError(data.reason || 'Voice chat unavailable');
-        }
-      } catch (error) {
-        console.error('Failed to check capability:', error);
-        setCapabilityChecked(true);
-        setCapabilityAvailable(false);
-        setError('Failed to check voice chat availability');
+  const checkCapability = useCallback(async () => {
+    setIsCheckingCapability(true);
+    try {
+      const response = await fetch('/api/realtime/capability');
+      const data = await response.json();
+      setCapabilityAvailable(data.available);
+      setCapabilityCode(data.code || null);
+      setCapabilityChecked(true);
+      
+      if (!data.available) {
+        setError(data.reason || 'Voice chat unavailable');
+      } else {
+        setError(null);
       }
-    };
-    
-    checkCapability();
+    } catch (error) {
+      console.error('Failed to check capability:', error);
+      setCapabilityChecked(true);
+      setCapabilityAvailable(false);
+      setCapabilityCode('network_error');
+      setError('Failed to check voice chat availability. Please check your internet connection.');
+    } finally {
+      setIsCheckingCapability(false);
+    }
   }, []);
+
+  useEffect(() => {
+    checkCapability();
+  }, [checkCapability]);
 
   // Reset conversationId when language changes to trigger new conversation creation
   useEffect(() => {
@@ -647,16 +656,40 @@ export function VoiceChat() {
               <p className="font-medium mb-2">Voice Chat Unavailable</p>
               <p className="text-sm mb-3">{error}</p>
               <div className="text-sm text-muted-foreground space-y-2">
-                <p className="font-medium">Why is this happening?</p>
-                <p>The OpenAI Realtime API requires direct access and is not available through Replit AI Integrations.</p>
-                <p className="font-medium mt-3">What can I do?</p>
+                <p className="font-medium">What can I do?</p>
                 <ul className="list-disc list-inside space-y-1 ml-2">
                   <li>Use text-based chat mode (fully functional)</li>
-                  <li>Provide your own OpenAI API key with Realtime API access</li>
-                  <li>See docs/voice-chat-setup.md for setup instructions</li>
+                  {capabilityCode === 'access_denied' && (
+                    <li>Get an OpenAI API key with Realtime API access at <a href="https://platform.openai.com" target="_blank" rel="noopener noreferrer" className="underline">platform.openai.com</a></li>
+                  )}
+                  {capabilityCode === 'missing_api_key' && (
+                    <li>Set USER_OPENAI_API_KEY in Replit Secrets with your OpenAI API key</li>
+                  )}
+                  {capabilityCode === 'rate_limit' && (
+                    <li>Check your OpenAI account billing and usage limits</li>
+                  )}
+                  {capabilityCode === 'server_error' && (
+                    <li>Wait a few minutes and try rechecking access</li>
+                  )}
                 </ul>
               </div>
-              <div className="mt-4">
+              <div className="mt-4 flex gap-2">
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={checkCapability}
+                  disabled={isCheckingCapability}
+                  data-testid="button-recheck-access"
+                >
+                  {isCheckingCapability ? (
+                    <>
+                      <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                      Checking...
+                    </>
+                  ) : (
+                    'Recheck Access'
+                  )}
+                </Button>
                 <Button 
                   size="sm" 
                   variant="outline"
