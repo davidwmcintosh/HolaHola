@@ -64,6 +64,15 @@ Utilizes a three-phase approach for AI tutor interaction, designed for gradual, 
 
 **One-Question-Per-Response Guideline**: To avoid overwhelming students, the AI tutor asks only ONE direct question for the student to answer per response across all phases. This guideline specifically applies to questions directed at the student (e.g., "What made you interested?", "Would you like to practice?") and does not restrict teaching Spanish question vocabulary (e.g., "¿Cómo estás?" (how are you?), "¿Qué tal?" (what's up?)). This creates a natural, comfortable conversation pace while allowing proper language instruction.
 
+**Creative Scenario-Based Learning**: Starting in Phase 2, the AI tutor creates engaging, immersive learning experiences through simple scenario creation. This balanced approach enhances learning without overwhelming students:
+- **Concise Scene-Setting**: Vivid but brief descriptions (1-2 sentences max) that paint practical, relatable situations
+- **Practical Contexts**: Real-world scenarios like ordering at cafés, meeting friends, shopping at markets, or asking for directions
+- **Student-Driven**: Builds creative scenarios around student interests discovered in Phase 1
+- **Natural Integration**: Scenarios enhance learning moments naturally without forcing storytelling into every response
+- **Balanced Creativity**: Mixes scenario-driven learning with traditional teaching methods, keeping focus on actual language practice
+- **Examples**: "You're at a tapas bar in Madrid. A waiter approaches and asks '¿Qué deseas?' (What would you like?)" or "Imagine you're at a bustling market in Barcelona. A vendor offers you fresh fruit..."
+- **Implementation**: Guidance integrated into Phases 2-3 system prompts in `server/system-prompt.ts`
+
 **Conversation-to-Notes: Automatic Vocabulary Extraction**: AI automatically identifies and saves new vocabulary from conversations using OpenAI's structured output, integrating them into the Vocabulary flashcard system.
 **Voice Chat Feature**: Real-time voice conversations using OpenAI Realtime API with a WebSocket proxy. Includes manual push-to-talk recording, visual feedback, and a toggle between text and voice modes. Simplified configuration for broader compatibility.
   - **Listen-and-Repeat for Beginners (Progressive Approach)**:
