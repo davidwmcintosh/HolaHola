@@ -1,5 +1,7 @@
 import { WebSocketServer, WebSocket as WS } from 'ws';
 import { Server } from 'http';
+import { storage } from './storage';
+import { createSystemPrompt } from './system-prompt';
 
 export function setupRealtimeProxy(server: Server) {
   const wss = new WebSocketServer({ 
@@ -15,6 +17,19 @@ export function setupRealtimeProxy(server: Server) {
       const url = new URL(req.url!, `http://${req.headers.host}`);
       const language = url.searchParams.get('language') || 'spanish';
       const difficulty = url.searchParams.get('difficulty') || 'beginner';
+      const conversationId = url.searchParams.get('conversationId');
+
+      // Fetch conversation to get message count for phase-appropriate prompts
+      let messageCount = 0;
+      if (conversationId) {
+        try {
+          const messages = await storage.getMessagesByConversation(conversationId);
+          // Count only user messages to determine conversation phase
+          messageCount = messages.filter((m: any) => m.role === 'user').length;
+        } catch (error) {
+          console.error('Failed to fetch messages for conversation:', error);
+        }
+      }
 
       // Connect to OpenAI Realtime API using user's API key
       // USER_OPENAI_API_KEY is the user's personal OpenAI key with Realtime API access
@@ -58,12 +73,24 @@ export function setupRealtimeProxy(server: Server) {
       openaiWs.on('open', () => {
         console.log('Connected to OpenAI Realtime API');
         
-        // Minimal session configuration - text+audio is required by the API
+        // Create system prompt for voice mode with listen-and-repeat support
+        const systemInstructions = createSystemPrompt(
+          language,
+          difficulty,
+          messageCount,
+          true // voice mode
+        );
+        
+        // Session configuration with instructions for the AI tutor
         openaiWs.send(JSON.stringify({
           type: "session.update",
           session: {
             modalities: ["text", "audio"],
             voice: "alloy",
+            instructions: systemInstructions,
+            input_audio_transcription: {
+              model: "whisper-1"
+            }
           },
         }));
       });
