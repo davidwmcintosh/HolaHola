@@ -5,7 +5,8 @@ import { z } from "zod";
 
 export const conversations = pgTable("conversations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  language: text("language").notNull(),
+  language: text("language").notNull(), // Target language being learned
+  nativeLanguage: text("native_language").notNull().default("english"), // Student's native language (for explanations)
   difficulty: text("difficulty").notNull(),
   topic: text("topic"),
   title: text("title"), // Thread name for multiple conversations

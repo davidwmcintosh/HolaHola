@@ -421,6 +421,7 @@ export class MemStorage implements IStorage {
     const conversation: Conversation = {
       id,
       language: data.language,
+      nativeLanguage: data.nativeLanguage ?? "english",
       difficulty: data.difficulty,
       topic: data.topic ?? null,
       title: data.title ?? null,
