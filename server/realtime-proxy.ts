@@ -97,14 +97,33 @@ export function setupRealtimeProxy(server: Server) {
       openaiWs.on('open', () => {
         console.log('Connected to OpenAI Realtime API');
         
-        // Create system prompt for voice mode with listen-and-repeat support
-        const systemInstructions = createSystemPrompt(
-          language,
-          difficulty,
-          messageCount,
-          true, // voice mode
-          topic
-        );
+        // Create simplified system prompt for voice mode
+        // Realtime API has stricter length limits than Chat API
+        const languageNames: Record<string, string> = {
+          spanish: "Spanish", french: "French", german: "German", 
+          italian: "Italian", portuguese: "Portuguese", japanese: "Japanese",
+          mandarin: "Mandarin Chinese", korean: "Korean"
+        };
+        const languageName = languageNames[language] || language;
+        
+        // Simplified instructions for Realtime API
+        const systemInstructions = `You are a friendly ${languageName} language tutor conducting a voice conversation.
+
+Difficulty: ${difficulty}
+${topic ? `Topic focus: ${topic}` : ''}
+
+Guidelines:
+- Speak naturally and conversationally
+- Adjust language complexity to ${difficulty} level
+- ${difficulty === 'beginner' ? 'Use mostly English (80%) with simple ' + languageName + ' words. Speak slowly and clearly.' : difficulty === 'intermediate' ? 'Use 50/50 mix of English and ' + languageName + '. Build on basics.' : 'Use mostly ' + languageName + ' (80-90%). Challenge the student.'}
+- Ask one question at a time
+- Encourage and praise efforts
+- Keep responses brief and focused
+${difficulty === 'beginner' ? '- For new words, provide phonetic pronunciation (e.g., "Hola = oh-LAH")' : ''}
+
+Be warm, patient, and encouraging. Help them learn naturally through conversation.`;
+        
+        console.log('System instructions length:', systemInstructions.length, 'characters');
         
         // Session configuration with instructions for the AI tutor
         openaiWs.send(JSON.stringify({
