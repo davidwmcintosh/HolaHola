@@ -12,6 +12,7 @@ import { setupRealtimeProxy } from "./realtime-proxy";
 import {
   extractNameFromMessage,
   extractLanguageFromMessage,
+  extractNativeLanguageFromMessage,
   detectLanguage,
 } from "./onboarding-utils";
 import { createSystemPrompt } from "./system-prompt";
@@ -368,11 +369,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log('[ONBOARDING-NAME] Extraction result:', JSON.stringify(nameResult));
           
           if (nameResult.name && nameResult.confidence !== "low") {
-            // Name extracted successfully, move to language question
+            // Name extracted successfully, move to target language question
             updatedConversation = await storage.updateConversation(conversationId, {
               userName: nameResult.name,
-              onboardingStep: "language",
-              // Keep isOnboarding true until language is also extracted
+              onboardingStep: "targetLanguage",
+              // Keep isOnboarding true until all steps are complete
             }) || conversation;
             
             console.log('[ONBOARDING-NAME] Updated conversation after name:', {
@@ -386,42 +387,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Name unclear, ask again
             aiResponse = "I didn't quite catch your name. Could you tell me your name again?";
           }
-        } else if (conversation.onboardingStep === "language") {
-          // Extract language preference from user's message
+        } else if (conversation.onboardingStep === "targetLanguage" || conversation.onboardingStep === "language") {
+          // Extract target language preference from user's message
+          // Note: "language" is for backward compatibility with existing conversations
           const langResult = await extractLanguageFromMessage(openai, messageData.content);
-          console.log('[ONBOARDING-LANG] Extraction result:', JSON.stringify(langResult));
+          console.log('[ONBOARDING-TARGET-LANG] Extraction result:', JSON.stringify(langResult));
           
           if (langResult.language && langResult.confidence !== "low") {
-            // Language extracted successfully, complete onboarding
-            console.log('[ONBOARDING-LANG] Current conversation before update:', {
+            // Target language extracted successfully, move to native language question
+            console.log('[ONBOARDING-TARGET-LANG] Current conversation before update:', {
               userName: conversation.userName,
               language: conversation.language
             });
             
             updatedConversation = await storage.updateConversation(conversationId, {
               language: langResult.language,
+              onboardingStep: "nativeLanguage",
+              // Keep isOnboarding true until native language is also extracted
+            }) || conversation;
+            
+            console.log('[ONBOARDING-TARGET-LANG] Updated conversation after target language:', {
+              id: updatedConversation.id,
+              language: updatedConversation.language,
+              isOnboarding: updatedConversation.isOnboarding,
+              userName: updatedConversation.userName,
+              onboardingStep: updatedConversation.onboardingStep
+            });
+            
+            // Verify userName is preserved
+            if (!updatedConversation.userName) {
+              console.error('[ONBOARDING-TARGET-LANG] ERROR: userName was lost during update!');
+            }
+            
+            const userName = updatedConversation.userName || "there";
+            aiResponse = `Great! And what is your native language, ${userName}? (The language you already speak)`;
+          } else {
+            // Language unclear, ask again
+            console.log('[ONBOARDING-TARGET-LANG] Extraction failed or low confidence, asking again');
+            aiResponse = "I'm not sure which language you'd like to study. Please choose one from: Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, or Korean.";
+          }
+        } else if (conversation.onboardingStep === "nativeLanguage") {
+          // Extract native language from user's message
+          const nativeLangResult = await extractNativeLanguageFromMessage(openai, messageData.content);
+          console.log('[ONBOARDING-NATIVE-LANG] Extraction result:', JSON.stringify(nativeLangResult));
+          
+          if (nativeLangResult.language && nativeLangResult.confidence !== "low") {
+            // Native language extracted successfully, complete onboarding
+            console.log('[ONBOARDING-NATIVE-LANG] Current conversation before update:', {
+              userName: conversation.userName,
+              language: conversation.language,
+              nativeLanguage: conversation.nativeLanguage
+            });
+            
+            updatedConversation = await storage.updateConversation(conversationId, {
+              nativeLanguage: nativeLangResult.language,
               isOnboarding: false,
               onboardingStep: null,
             }) || conversation;
             
-            console.log('[ONBOARDING-LANG] Updated conversation after language:', {
+            console.log('[ONBOARDING-NATIVE-LANG] Updated conversation after native language:', {
               id: updatedConversation.id,
               language: updatedConversation.language,
+              nativeLanguage: updatedConversation.nativeLanguage,
               isOnboarding: updatedConversation.isOnboarding,
               userName: updatedConversation.userName
             });
             
             // Verify userName is preserved
             if (!updatedConversation.userName) {
-              console.error('[ONBOARDING-LANG] ERROR: userName was lost during update!');
+              console.error('[ONBOARDING-NATIVE-LANG] ERROR: userName was lost during update!');
             }
             
             const userName = updatedConversation.userName || "there";
-            aiResponse = `Excellent choice, ${userName}! What made you interested in learning ${langResult.language}?`;
+            const targetLanguage = updatedConversation.language;
+            aiResponse = `Perfect, ${userName}! What made you interested in learning ${targetLanguage}?`;
           } else {
-            // Language unclear, ask again
-            console.log('[ONBOARDING-LANG] Extraction failed or low confidence, asking again');
-            aiResponse = "I'm not sure which language you'd like to study. Please choose one from: Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, or Korean.";
+            // Native language unclear, ask again
+            console.log('[ONBOARDING-NATIVE-LANG] Extraction failed or low confidence, asking again');
+            aiResponse = "I didn't quite catch that. What language do you speak? (For example: English, Spanish, French, German, etc.)";
           }
         }
 

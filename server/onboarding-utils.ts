@@ -134,6 +134,69 @@ export async function extractLanguageFromMessage(
 }
 
 /**
+ * Extract user's native language from their message using OpenAI structured output
+ */
+export async function extractNativeLanguageFromMessage(
+  openai: OpenAI,
+  userMessage: string
+): Promise<LanguageExtractionResult> {
+  const supportedNativeLanguages = [
+    "english", "spanish", "french", "german", "italian", 
+    "portuguese", "japanese", "mandarin", "korean", "arabic", "russian", "hindi"
+  ];
+
+  console.log('[NATIVE-LANG-EXTRACT] Input message:', userMessage);
+  console.log('[NATIVE-LANG-EXTRACT] Supported native languages:', supportedNativeLanguages);
+  
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5",
+    messages: [
+      {
+        role: "system",
+        content: `You are a helpful assistant that identifies a person's native language from their message. Supported languages are: ${supportedNativeLanguages.join(", ")}. The user has been asked 'What is your native language?' or 'What language do you speak?'. Accept ANY mention of a supported language, whether it's a single word like 'Spanish' or a full sentence like 'I speak Spanish'. Be permissive - if the message mentions a supported language, extract it with high confidence. Always return the language name in lowercase.`
+      },
+      {
+        role: "user",
+        content: `What is this person's native language: "${userMessage}"`
+      }
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "native_language_extraction",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            language: {
+              type: ["string", "null"],
+              description: `Their native language (must be one of: ${supportedNativeLanguages.join(", ")}), in lowercase, or null if unclear`
+            },
+            confidence: {
+              type: "string",
+              enum: ["high", "medium", "low"],
+              description: "Confidence level in the extracted native language"
+            },
+            shouldAskAgain: {
+              type: "boolean",
+              description: "Whether to ask the user for their native language again"
+            }
+          },
+          required: ["language", "confidence", "shouldAskAgain"],
+          additionalProperties: false
+        }
+      }
+    }
+  });
+  
+  console.log('[NATIVE-LANG-EXTRACT] Raw AI response:', completion.choices[0]?.message?.content);
+
+  const result = JSON.parse(completion.choices[0]?.message?.content || "{}");
+  console.log('[NATIVE-LANG-EXTRACT] Parsed result:', JSON.stringify(result));
+  return result as LanguageExtractionResult;
+}
+
+/**
  * Detect the language being used in a message
  */
 export async function detectLanguage(
