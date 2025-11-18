@@ -47,10 +47,12 @@ export function VoiceChat() {
   const isReconnectingRef = useRef<boolean>(false);
 
   // Check Realtime API capability
-  const checkCapability = useCallback(async () => {
+  const checkCapability = useCallback(async (forceRecheck = false) => {
     setIsCheckingCapability(true);
     try {
-      const response = await fetch('/api/realtime/capability');
+      // Add force parameter to bypass cache when user clicks "Recheck Access"
+      const url = forceRecheck ? '/api/realtime/capability?force=true' : '/api/realtime/capability';
+      const response = await fetch(url);
       const data = await response.json();
       setCapabilityAvailable(data.available);
       setCapabilityCode(data.code || null);
@@ -677,7 +679,7 @@ export function VoiceChat() {
                 <Button 
                   size="sm" 
                   variant="outline"
-                  onClick={checkCapability}
+                  onClick={() => checkCapability(true)}
                   disabled={isCheckingCapability}
                   data-testid="button-recheck-access"
                 >

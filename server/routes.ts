@@ -32,8 +32,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/realtime/capability", async (req, res) => {
     try {
-      // Return cached result if still valid
-      if (capabilityCache && (Date.now() - capabilityCache.timestamp < CACHE_DURATION)) {
+      // Check if client is forcing a fresh check (e.g., via "Recheck Access" button)
+      const forceRecheck = req.query.force === 'true';
+      
+      // Return cached result if still valid and not forcing recheck
+      if (!forceRecheck && capabilityCache && (Date.now() - capabilityCache.timestamp < CACHE_DURATION)) {
         return res.json({
           available: capabilityCache.available,
           reason: capabilityCache.reason,
