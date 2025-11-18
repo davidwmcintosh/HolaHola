@@ -55,6 +55,7 @@ Preferred communication style: Simple, everyday language.
     - **Clear Error Messaging**: Structured error codes (access_denied, missing_api_key, rate_limit, server_error) with actionable guidance
     - **Recheck Access**: User-initiated fresh capability check bypasses cache, enables error recovery without page reload
     - **Contextual Help**: Links to platform.openai.com, suggests text mode fallback, shows API key setup instructions
+    - **Known Limitation**: WebSocket Realtime API requires separate permissions from standard OpenAI API. Diagnostic testing shows HTTP capability check (POST /v1/realtime/sessions) may succeed while WebSocket connection (wss://api.openai.com/v1/realtime) fails with server_error. This indicates the API key lacks WebSocket Realtime API access, which is tier/billing-dependent.
 -   **Conversational Thread Management**: Auto-creates fresh conversation on each visit/language change, AI greets with context about previous conversations, natural conversation switching via AI-directed `[[SWITCH_CONVERSATION:id]]` protocol when user requests to revisit previous topics.
 -   **Personalized Greetings**: AI greets users by name, adjusting messages for first-time vs. returning users.
 -   **Animated Instructor Avatar**: Visual feedback (idle, listening, speaking states) for enhanced engagement.

@@ -72,7 +72,7 @@ export function setupRealtimeProxy(server: Server) {
                 clientWs.send(JSON.stringify({
                   type: 'error',
                   error: {
-                    message: 'Voice chat is unavailable. Your OpenAI API key may not have access to the Realtime API, or there may be a billing issue. Please check your OpenAI account at platform.openai.com.',
+                    message: 'Voice chat is unavailable. Your API key does not have WebSocket Realtime API access (this is separate from regular API access). Please verify your OpenAI account tier and billing at platform.openai.com. The Realtime API requires specific permissions and may have usage limits.',
                     code: 'realtime_api_access_denied'
                   }
                 }));
@@ -96,12 +96,52 @@ export function setupRealtimeProxy(server: Server) {
       // Handle OpenAI connection open
       openaiWs.on('open', () => {
         console.log('Connected to OpenAI Realtime API');
-        console.log('DIAGNOSTIC TEST: NOT sending session.update - just keeping connection alive to test API access');
-        console.log('If this stays connected for 10 seconds, the issue is with session.update payload');
-        console.log('If this disconnects immediately, the issue is with API key access to Realtime API');
         
-        // DIAGNOSTIC: Just keep the connection open without configuring anything
-        // This will help determine if the API key has basic WebSocket access
+        // Create simplified system prompt for voice mode
+        // Realtime API has stricter length limits than Chat API
+        const languageNames: Record<string, string> = {
+          spanish: "Spanish", french: "French", german: "German", 
+          italian: "Italian", portuguese: "Portuguese", japanese: "Japanese",
+          mandarin: "Mandarin Chinese", korean: "Korean"
+        };
+        const languageName = languageNames[language] || language;
+        
+        // Simplified instructions for Realtime API
+        const systemInstructions = `You are a friendly ${languageName} language tutor conducting a voice conversation.
+
+Difficulty: ${difficulty}
+${topic ? `Topic focus: ${topic}` : ''}
+
+Guidelines:
+- Speak naturally and conversationally
+- Adjust language complexity to ${difficulty} level
+- ${difficulty === 'beginner' ? 'Use mostly English (80%) with simple ' + languageName + ' words. Speak slowly and clearly.' : difficulty === 'intermediate' ? 'Use 50/50 mix of English and ' + languageName + '. Build on basics.' : 'Use mostly ' + languageName + ' (80-90%). Challenge the student.'}
+- Ask one question at a time
+- Encourage and praise efforts
+- Keep responses brief and focused
+${difficulty === 'beginner' ? '- For new words, provide phonetic pronunciation (e.g., "Hola = oh-LAH")' : ''}
+
+Be warm, patient, and encouraging. Help them learn naturally through conversation.`;
+        
+        console.log('System instructions length:', systemInstructions.length, 'characters');
+        
+        // Session configuration with instructions for the AI tutor
+        // Note: Only send supported fields (voice, instructions, turn_detection)
+        // Modalities and transcription cannot be set via session.update
+        const sessionUpdate = {
+          type: "session.update",
+          session: {
+            voice: "alloy",
+            instructions: systemInstructions,
+            turn_detection: {
+              type: "server_vad",
+              threshold: 0.5,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 500
+            }
+          },
+        };
+        openaiWs.send(JSON.stringify(sessionUpdate));
       });
 
       // Handle errors
