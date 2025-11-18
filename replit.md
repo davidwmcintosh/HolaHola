@@ -83,7 +83,14 @@ Preferred communication style: Simple, everyday language.
     - Identifies strengths and areas for improvement
     - Scores persisted to database and displayed in voice chat UI
     - Client-driven analysis flow ensures reliable persistence (no race conditions)
--   **Full Application**: Includes AI chat, vocabulary flashcards, grammar exercises, conversation history, progress tracking dashboard with charts and streak metrics, auto-difficulty adjustment, pronunciation scoring.
+-   **Topic Library System**: Optional topic selection to focus conversations on specific scenarios:
+    - 12 pre-seeded topics across categories (Shopping, Travel, Daily Life, Professional, Leisure, Culture)
+    - Topic selector displayed before starting new conversations with skip option
+    - Topics include icons, descriptions, and sample phrases
+    - Topic context integrated into system prompts to guide AI toward relevant vocabulary and scenarios
+    - Both text and voice chat modes support topic-based conversations
+    - Topics persist throughout the conversation lifecycle (survives onboarding name capture)
+-   **Full Application**: Includes AI chat, vocabulary flashcards, grammar exercises, conversation history, progress tracking dashboard with charts and streak metrics, auto-difficulty adjustment, pronunciation scoring, topic library.
 
 ## External Dependencies
 
