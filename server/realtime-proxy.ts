@@ -19,10 +19,15 @@ export function setupRealtimeProxy(server: Server) {
       const difficulty = url.searchParams.get('difficulty') || 'beginner';
       const conversationId = url.searchParams.get('conversationId');
 
-      // Fetch conversation to get message count for phase-appropriate prompts
+      // Fetch conversation to get message count and topic for phase-appropriate prompts
       let messageCount = 0;
+      let topic: string | null = null;
       if (conversationId) {
         try {
+          const conversation = await storage.getConversation(conversationId);
+          if (conversation) {
+            topic = conversation.topic ?? null;
+          }
           const messages = await storage.getMessagesByConversation(conversationId);
           // Count only user messages to determine conversation phase
           messageCount = messages.filter((m: any) => m.role === 'user').length;
@@ -78,7 +83,8 @@ export function setupRealtimeProxy(server: Server) {
           language,
           difficulty,
           messageCount,
-          true // voice mode
+          true, // voice mode
+          topic
         );
         
         // Session configuration with instructions for the AI tutor

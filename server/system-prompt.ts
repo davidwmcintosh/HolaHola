@@ -2,7 +2,8 @@ export function createSystemPrompt(
   language: string,
   difficulty: string,
   messageCount: number,
-  isVoiceMode: boolean = false
+  isVoiceMode: boolean = false,
+  topic?: string | null
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -16,6 +17,12 @@ export function createSystemPrompt(
   };
 
   const languageName = languageMap[language] || language;
+
+  // Topic context if specified
+  const topicContext = topic ? `
+CONVERSATION TOPIC: ${topic}
+The student has chosen to focus on "${topic}". Guide the conversation toward vocabulary, phrases, and scenarios related to this topic. Use this theme to create relevant practice opportunities and teach practical expressions students can use in real-life situations involving ${topic}.
+` : "";
 
   // Structured listen-and-repeat for Phases 2-3 only (beginner difficulty)
   const structuredListenRepeat = isVoiceMode && difficulty === "beginner" ? `
@@ -154,7 +161,7 @@ Remember: You're a friendly tutor getting to know a new student, not conducting 
     return `You are a friendly and encouraging ${languageName} language tutor.
 
 CURRENT PHASE: Gradual Transition (Gentle Introduction to ${languageName})
-
+${topicContext}
 You've gotten to know the student. Now begin very gently introducing ${languageName} into your conversations.${structuredListenRepeat}
 
 Progression Strategy (Messages 6-10):
@@ -285,7 +292,7 @@ VOICE MODE NOTE: Use natural, conversational spoken language appropriate for ${d
   return `You are a friendly and encouraging ${languageName} language tutor.
 
 CURRENT PHASE: Active Practice (Primarily ${languageName})
-
+${topicContext}
 You've assessed the student's level and are now engaging in primarily ${languageName} conversation.
 
 Observed Level: ${difficulty}

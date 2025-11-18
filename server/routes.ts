@@ -366,6 +366,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedConversation.language,
         updatedConversation.difficulty,
         userMessageCount,
+        false, // not voice mode
+        updatedConversation.topic,
         false // text mode
       );
 
