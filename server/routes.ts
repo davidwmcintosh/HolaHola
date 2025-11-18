@@ -66,32 +66,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = insertConversationSchema.parse(req.body);
       const userName = (req.body.userName || "").trim();
+      const isOnboardingExplicit = req.body.isOnboarding;
       
       console.log('[CONVERSATION CREATE] Received userName:', userName);
+      console.log('[CONVERSATION CREATE] isOnboarding explicit:', isOnboardingExplicit);
       
-      // Check if THIS user has completed onboarding before
-      // Only count conversations where userName matches AND onboarding was completed
-      const allConversations = await storage.getAllConversations();
-      const userHasCompletedOnboarding = userName && userName !== "Student" 
-        ? allConversations.some(c => 
-            c.userName === userName && 
-            c.isOnboarding === false
-          )
-        : false;
+      // If isOnboarding is explicitly set (e.g., from ThreadSelector), use it
+      // Otherwise, auto-detect based on user's onboarding status
+      let isOnboarding: boolean;
       
-      // Detect if this is a new user:
-      // - No name provided OR name is "Student" OR user hasn't completed onboarding yet
-      const isNewUser = (!userName || userName === "Student" || !userHasCompletedOnboarding);
-      
-      console.log('[CONVERSATION CREATE] userHasCompletedOnboarding:', userHasCompletedOnboarding);
-      console.log('[CONVERSATION CREATE] isNewUser:', isNewUser);
+      if (typeof isOnboardingExplicit === 'boolean') {
+        // Explicitly set - use it (for manually created threads)
+        isOnboarding = isOnboardingExplicit;
+      } else {
+        // Auto-detect for first-time visits
+        const allConversations = await storage.getAllConversations();
+        const userHasCompletedOnboarding = userName && userName !== "Student" 
+          ? allConversations.some(c => 
+              c.userName === userName && 
+              c.isOnboarding === false
+            )
+          : false;
+        
+        const isNewUser = (!userName || userName === "Student" || !userHasCompletedOnboarding);
+        isOnboarding = isNewUser;
+        
+        console.log('[CONVERSATION CREATE] userHasCompletedOnboarding:', userHasCompletedOnboarding);
+        console.log('[CONVERSATION CREATE] isNewUser (auto-detected):', isNewUser);
+      }
       
       // Always create a new conversation to ensure fresh greeting each session
       const conversation = await storage.createConversation({
         ...data,
-        isOnboarding: isNewUser,
-        onboardingStep: isNewUser ? "name" : null,
-        userName: isNewUser ? null : userName,
+        isOnboarding,
+        onboardingStep: isOnboarding ? "name" : null,
+        userName: isOnboarding ? null : userName,
       });
       
       console.log('[CONVERSATION CREATE] Created conversation:', {
@@ -103,7 +112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let greetingMessage: string;
       
-      if (isNewUser) {
+      if (isOnboarding) {
         // Start onboarding flow with name question
         greetingMessage = "Hello! I'm your AI language tutor, and I'm excited to help you on your language learning journey. To get started, what's your name?";
       } else {

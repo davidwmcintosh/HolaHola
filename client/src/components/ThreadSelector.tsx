@@ -74,6 +74,7 @@ export function ThreadSelector({
         difficulty,
         userName: userName || "Student",
         title: title || null,
+        isOnboarding: false, // Manually created threads are never onboarding conversations
       });
       return await response.json();
     },
