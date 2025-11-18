@@ -185,9 +185,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Save user message
       const userMessage = await storage.createMessage(messageData);
 
+      // Simple inappropriate content check for onboarding
+      const containsInappropriateContent = (message: string): boolean => {
+        const lowerMessage = message.toLowerCase();
+        const inappropriateTerms = [
+          'offensive', 'curse', 'swear', 'bad words', 'profan', 'explicit', 'sexual',
+          'violent', 'insult', 'slur', 'derogatory', 'fuck', 'shit', 'damn', 'hell',
+          'crap', 'ass', 'bitch',
+        ];
+        return inappropriateTerms.some(term => lowerMessage.includes(term));
+      };
+
       // Handle onboarding flow
       if (conversation.isOnboarding) {
         console.log('[MESSAGE] Entering onboarding flow with step:', conversation.onboardingStep);
+        
+        // Check for inappropriate content during onboarding
+        if (containsInappropriateContent(messageData.content)) {
+          const aiMessage = await storage.createMessage({
+            conversationId,
+            role: "assistant",
+            content: "I focus on teaching practical, everyday language. Let's get started with your language learning! What's your name?",
+          });
+          return res.json({ userMessage, aiMessage });
+        }
+
         let aiResponse = "";
         let updatedConversation = conversation;
 
