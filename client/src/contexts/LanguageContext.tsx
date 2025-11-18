@@ -15,11 +15,15 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState(() => {
-    return localStorage.getItem("language") || "spanish";
+    const savedLanguage = localStorage.getItem("language") || "spanish";
+    console.log('[LanguageContext] Initializing with language:', savedLanguage, '(from localStorage)');
+    return savedLanguage;
   });
   const [difficulty, setDifficulty] = useState<DifficultyLevel>("beginner");
   const [userName, setUserNameState] = useState(() => {
-    return localStorage.getItem("userName") || "";
+    const savedName = localStorage.getItem("userName") || "";
+    console.log('[LanguageContext] Initializing with userName:', savedName || '(empty)', '(from localStorage)');
+    return savedName;
   });
 
   useEffect(() => {
@@ -33,10 +37,17 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [userName]);
 
   const setLanguage = (lang: string) => {
+    console.log('[LanguageContext] Setting language:', lang);
+    // Save to localStorage immediately (synchronously) to ensure persistence
+    localStorage.setItem("language", lang);
     setLanguageState(lang);
   };
 
   const setUserName = (name: string) => {
+    console.log('[LanguageContext] Setting userName:', name);
+    if (name) {
+      localStorage.setItem("userName", name);
+    }
     setUserNameState(name);
   };
 

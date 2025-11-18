@@ -71,12 +71,17 @@ export function ChatInterface() {
       setWaitingForResponse(true);
       
       // Check if conversation was updated (onboarding completed or language auto-switched)
+      let skipStreakRecording = false;
       if (data.conversationUpdated) {
         const updated = data.conversationUpdated;
         console.log('[FRONTEND] Conversation updated:', updated);
         
+        // Skip streak recording if still in onboarding OR if language just changed (onboarding completion)
+        const languageJustChanged = updated.language && updated.language !== language;
+        skipStreakRecording = updated.isOnboarding || languageJustChanged;
+        
         // Update language context if language changed
-        if (updated.language && updated.language !== language) {
+        if (languageJustChanged) {
           console.log('[FRONTEND] Updating language context:', language, '->', updated.language);
           setLanguage(updated.language);
         }
@@ -88,22 +93,31 @@ export function ChatInterface() {
         }
       }
       
-      // Record practice for streak tracking (once per day)
-      try {
-        const today = new Date().toDateString();
-        if (lastStreakRecordDateRef.current !== today) {
-          const result = await recordPractice();
-          lastStreakRecordDateRef.current = today;
-          
-          if (result.streakIncreased) {
-            toast({
-              title: `🔥 ${result.newStreak} Day Streak!`,
-              description: "Keep practicing daily to maintain your streak!",
-            });
+      // Record practice for streak tracking (once per day, only after onboarding is fully complete)
+      if (!skipStreakRecording) {
+        try {
+          const today = new Date().toDateString();
+          console.log('[STREAK] Checking streak record - lastRecorded:', lastStreakRecordDateRef.current, 'today:', today);
+          if (lastStreakRecordDateRef.current !== today) {
+            console.log('[STREAK] Recording practice for language:', language);
+            const result = await recordPractice();
+            lastStreakRecordDateRef.current = today;
+            console.log('[STREAK] Practice recorded, result:', result);
+            
+            if (result.streakIncreased) {
+              toast({
+                title: `🔥 ${result.newStreak} Day Streak!`,
+                description: "Keep practicing daily to maintain your streak!",
+              });
+            }
+          } else {
+            console.log('[STREAK] Already recorded practice today, skipping');
           }
+        } catch (error) {
+          console.error('Failed to update streak:', error);
         }
-      } catch (error) {
-        console.error('Failed to update streak:', error);
+      } else {
+        console.log('[STREAK] Skipping streak recording (onboarding or language change)');
       }
       
       queryClient.invalidateQueries({ queryKey: ["/api/conversations", conversationId, "messages"] });
