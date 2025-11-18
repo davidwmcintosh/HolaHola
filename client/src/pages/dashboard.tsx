@@ -1,5 +1,6 @@
 import { WelcomeHero } from "@/components/WelcomeHero";
 import { StatsCards } from "@/components/StatsCards";
+import { StreakIndicator } from "@/components/StreakIndicator";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { DifficultySelector } from "@/components/DifficultySelector";
 import { Card } from "@/components/ui/card";
@@ -17,7 +18,14 @@ export default function Dashboard() {
       
       <div className="space-y-4">
         <h2 className="text-3xl font-semibold">Your Progress</h2>
-        <StatsCards />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <StatsCards />
+          </div>
+          <div>
+            <StreakIndicator />
+          </div>
+        </div>
       </div>
 
       <Card className="p-6 space-y-6">

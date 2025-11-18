@@ -11,6 +11,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Conversation, Message } from "@shared/schema";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 import { AccentButtons } from "@/components/AccentButtons";
+import { useStreak } from "@/hooks/use-streak";
+import { useToast } from "@/hooks/use-toast";
 
 export function ChatInterface() {
   const { language, setLanguage, difficulty, userName, setUserName } = useLanguage();
@@ -20,6 +22,9 @@ export function ChatInterface() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previousAssistantCountRef = useRef(0);
+  const lastStreakRecordDateRef = useRef<string | null>(null);
+  const { recordPractice } = useStreak();
+  const { toast } = useToast();
 
   // Create or reuse conversation when language/difficulty changes
   // NOTE: userName is NOT in dependencies - changing the name during onboarding
@@ -61,7 +66,7 @@ export function ChatInterface() {
       }
       return data;
     },
-    onSuccess: (data: any) => {
+    onSuccess: async (data: any) => {
       // Mark that we're waiting for assistant response
       setWaitingForResponse(true);
       
@@ -81,6 +86,24 @@ export function ChatInterface() {
           console.log('[FRONTEND] Updating userName context:', userName, '->', updated.userName);
           setUserName(updated.userName);
         }
+      }
+      
+      // Record practice for streak tracking (once per day)
+      try {
+        const today = new Date().toDateString();
+        if (lastStreakRecordDateRef.current !== today) {
+          const result = await recordPractice();
+          lastStreakRecordDateRef.current = today;
+          
+          if (result.streakIncreased) {
+            toast({
+              title: `🔥 ${result.newStreak} Day Streak!`,
+              description: "Keep practicing daily to maintain your streak!",
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to update streak:', error);
       }
       
       queryClient.invalidateQueries({ queryKey: ["/api/conversations", conversationId, "messages"] });

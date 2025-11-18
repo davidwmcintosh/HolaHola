@@ -50,6 +50,8 @@ export const userProgress = pgTable("user_progress", {
   wordsLearned: integer("words_learned").notNull().default(0),
   practiceMinutes: integer("practice_minutes").notNull().default(0),
   currentStreak: integer("current_streak").notNull().default(0),
+  longestStreak: integer("longest_streak").notNull().default(0),
+  totalPracticeDays: integer("total_practice_days").notNull().default(0),
   lastPracticeDate: timestamp("last_practice_date"),
 });
 

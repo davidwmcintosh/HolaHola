@@ -240,6 +240,8 @@ export class MemStorage implements IStorage {
       wordsLearned: 0,
       practiceMinutes: 0,
       currentStreak: 0,
+      longestStreak: 0,
+      totalPracticeDays: 0,
       lastPracticeDate: null,
     };
     this.userProgress.set(id, progress);

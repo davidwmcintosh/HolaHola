@@ -13,6 +13,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
+import { StreakIndicator } from "@/components/StreakIndicator";
 
 const menuItems = [
   { title: "Dashboard", url: "/", icon: Home },
@@ -60,7 +61,10 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-6">
+      <SidebarFooter className="p-6 space-y-4">
+        <div className="px-2">
+          <StreakIndicator compact />
+        </div>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild data-testid="link-settings">
