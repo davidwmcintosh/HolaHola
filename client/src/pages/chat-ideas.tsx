@@ -55,7 +55,7 @@ export default function ChatIdeas() {
                 const IconComponent = (LucideIcons as any)[topic.icon] || Lightbulb;
                 
                 return (
-                  <Card key={topic.id} data-testid={`topic-card-${topic.id}`} className="hover-elevate">
+                  <Card key={topic.id} data-testid={`topic-card-${topic.id}`}>
                     <CardHeader>
                       <div className="flex items-start gap-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
