@@ -154,10 +154,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/conversations/by-language/:language", async (req, res) => {
+    try {
+      const conversations = await storage.getConversationsByLanguage(req.params.language);
+      res.json(conversations);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/conversations/:id/messages", async (req, res) => {
     try {
       const messages = await storage.getMessagesByConversation(req.params.id);
       res.json(messages);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/conversations/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteConversation(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

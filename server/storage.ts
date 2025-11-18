@@ -26,8 +26,10 @@ export interface IStorage {
   createConversation(data: InsertConversation): Promise<Conversation>;
   getConversation(id: string): Promise<Conversation | undefined>;
   getAllConversations(): Promise<Conversation[]>;
+  getConversationsByLanguage(language: string): Promise<Conversation[]>;
   getConversationByLanguageAndDifficulty(language: string, difficulty: string): Promise<Conversation | undefined>;
   updateConversation(id: string, data: Partial<Conversation>): Promise<Conversation | undefined>;
+  deleteConversation(id: string): Promise<boolean>;
 
   // Messages
   createMessage(data: InsertMessage): Promise<Message>;
@@ -421,6 +423,7 @@ export class MemStorage implements IStorage {
       language: data.language,
       difficulty: data.difficulty,
       topic: data.topic ?? null,
+      title: data.title ?? null,
       messageCount: data.messageCount ?? 0,
       duration: data.duration ?? 0,
       isOnboarding: data.isOnboarding ?? false,
@@ -442,6 +445,12 @@ export class MemStorage implements IStorage {
     return Array.from(this.conversations.values()).sort(
       (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
     );
+  }
+
+  async getConversationsByLanguage(language: string): Promise<Conversation[]> {
+    return Array.from(this.conversations.values())
+      .filter(conv => conv.language === language)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
   async getConversationByLanguageAndDifficulty(language: string, difficulty: string): Promise<Conversation | undefined> {
@@ -492,6 +501,25 @@ export class MemStorage implements IStorage {
     });
     
     return updated;
+  }
+
+  async deleteConversation(id: string): Promise<boolean> {
+    const conversation = this.conversations.get(id);
+    if (!conversation) {
+      return false;
+    }
+    
+    // Delete all messages for this conversation
+    const messages = await this.getMessagesByConversation(id);
+    messages.forEach(msg => this.messages.delete(msg.id));
+    
+    // Delete all pronunciation scores for this conversation
+    const scores = await this.getPronunciationScoresByConversation(id);
+    scores.forEach(score => this.pronunciationScores.delete(score.id));
+    
+    // Delete the conversation itself
+    this.conversations.delete(id);
+    return true;
   }
 
   async createMessage(data: InsertMessage): Promise<Message> {
