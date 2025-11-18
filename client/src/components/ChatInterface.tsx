@@ -33,28 +33,36 @@ export function ChatInterface() {
     setConversationId(null);
   }, [language]);
 
-  // Auto-create conversation when page loads (after onboarding)
+  // Auto-create conversation when page loads
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   
   useEffect(() => {
-    // Only auto-create if onboarding is complete and no conversation exists yet
+    // Check if we should create a conversation
     const isOnboardingComplete = userName && userName.trim() !== "";
-    if (isOnboardingComplete && !conversationId && !isCreatingConversation) {
+    const needsConversation = !conversationId && !isCreatingConversation;
+    
+    console.log('[AUTO-CREATE] Effect triggered - userName:', userName, 'conversationId:', conversationId, 'isCreating:', isCreatingConversation, 'isComplete:', isOnboardingComplete);
+    
+    if (needsConversation) {
+      console.log('[AUTO-CREATE] Starting conversation creation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)');
       setIsCreatingConversation(true);
       
-      // Create a new conversation with special flag to include previous conversations in greeting
+      // Create conversation - either onboarding or regular with history
       apiRequest("POST", "/api/conversations", {
         language,
         difficulty,
-        userName,
+        userName: isOnboardingComplete ? userName : null,
         title: null,
-        isOnboarding: false,
-        includeConversationHistory: true, // Signal to include previous conversations in greeting
+        isOnboarding: !isOnboardingComplete,
+        includeConversationHistory: isOnboardingComplete, // Only include history for post-onboarding conversations
       })
         .then(res => res.json())
         .then(data => {
+          console.log('[AUTO-CREATE] Conversation created:', data.id);
           setConversationId(data.id);
           setIsCreatingConversation(false);
+          // Invalidate and refetch messages for the new conversation
+          queryClient.invalidateQueries({ queryKey: ["/api/conversations", data.id, "messages"] });
         })
         .catch(err => {
           console.error("Failed to create conversation:", err);

@@ -51,6 +51,7 @@ Preferred communication style: Simple, everyday language.
 -   **Slow Pronunciation with Phonetic Breakdowns**: Provides phonetic spellings with stress markers (e.g., "GRAH-syahs") for new vocabulary, with adaptive frequency based on difficulty. Integrated into voice mode.
 -   **Automatic Vocabulary Extraction**: AI automatically identifies and saves new vocabulary from conversations into the flashcard system.
 -   **Voice Chat Feature**: Real-time voice conversations via OpenAI Realtime API (WebSocket proxy). Includes push-to-talk, visual feedback, and text/voice toggle. Features a progressive "Listen-and-Repeat" pattern for beginners.
+-   **Conversational Thread Management**: Auto-creates fresh conversation on each visit/language change, AI greets with context about previous conversations, natural conversation switching via AI-directed `[[SWITCH_CONVERSATION:id]]` protocol when user requests to revisit previous topics.
 -   **Personalized Greetings**: AI greets users by name, adjusting messages for first-time vs. returning users.
 -   **Animated Instructor Avatar**: Visual feedback (idle, listening, speaking states) for enhanced engagement.
 -   **Spaced Repetition System**: SM-2 algorithm-based vocabulary review scheduling with:

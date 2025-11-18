@@ -6,7 +6,7 @@ import { Mic, MicOff, Bot, User, Loader2, Volume2, MessageSquare } from "lucide-
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { type Message, Conversation } from "@shared/schema";
 import { AudioRecorder, AudioPlayer, pcm16ToBase64 } from "@/lib/audioUtils";
 import { Badge } from "@/components/ui/badge";
@@ -72,28 +72,32 @@ export function VoiceChat() {
     setConversationId(null);
   }, [language]);
 
-  // Auto-create conversation when page loads (after onboarding)
+  // Auto-create conversation when page loads
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   
   useEffect(() => {
-    // Only auto-create if onboarding is complete and no conversation exists yet
+    // Check if we should create a conversation
     const isOnboardingComplete = userName && userName.trim() !== "";
-    if (isOnboardingComplete && !conversationId && !isCreatingConversation) {
+    const needsConversation = !conversationId && !isCreatingConversation;
+    
+    if (needsConversation) {
       setIsCreatingConversation(true);
       
-      // Create a new conversation with special flag to include previous conversations in greeting
+      // Create conversation - either onboarding or regular with history
       apiRequest("POST", "/api/conversations", {
         language,
         difficulty,
-        userName,
+        userName: isOnboardingComplete ? userName : null,
         title: null,
-        isOnboarding: false,
-        includeConversationHistory: true, // Signal to include previous conversations in greeting
+        isOnboarding: !isOnboardingComplete,
+        includeConversationHistory: isOnboardingComplete, // Only include history for post-onboarding conversations
       })
         .then(res => res.json())
         .then(data => {
           setConversationId(data.id);
           setIsCreatingConversation(false);
+          // Invalidate and refetch messages for the new conversation
+          queryClient.invalidateQueries({ queryKey: ["/api/conversations", data.id, "messages"] });
         })
         .catch(err => {
           console.error("Failed to create conversation:", err);
