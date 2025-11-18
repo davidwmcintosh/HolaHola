@@ -1,4 +1,4 @@
-import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb, Globe } from "lucide-react";
+import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -19,7 +19,6 @@ const menuItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Practice Chat", url: "/chat", icon: MessageSquare },
   { title: "Chat Ideas", url: "/chat-ideas", icon: Lightbulb },
-  { title: "Cultural Tips", url: "/cultural-tips", icon: Globe },
   { title: "Vocabulary", url: "/vocabulary", icon: BookOpen },
   { title: "Grammar", url: "/grammar", icon: Languages },
   { title: "History", url: "/history", icon: History },
