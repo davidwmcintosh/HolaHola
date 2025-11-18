@@ -7,12 +7,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import type { Message } from "@shared/schema";
+import type { Message, Conversation } from "@shared/schema";
 import { AudioRecorder, AudioPlayer, pcm16ToBase64 } from "@/lib/audioUtils";
 import { Badge } from "@/components/ui/badge";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 import { CompactDifficultyControl } from "@/components/CompactDifficultyControl";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { ThreadSelector } from "@/components/ThreadSelector";
 
 interface RealtimeEvent {
   type: string;
@@ -67,27 +68,18 @@ export function VoiceChat() {
     checkCapability();
   }, []);
 
-  // Create or reuse conversation when language/difficulty changes
-  // NOTE: userName is NOT in dependencies - changing the name during onboarding
-  // should NOT create a new conversation
+  // Fetch conversations for current language to auto-select first one
+  const { data: conversations = [] } = useQuery<Conversation[]>({
+    queryKey: ["/api/conversations/by-language", language],
+  });
+
+  // Auto-select first available conversation when language changes
   useEffect(() => {
-    const getOrCreateConversation = async () => {
-      try {
-        const response = await apiRequest("POST", "/api/conversations", {
-          language,
-          difficulty,
-          userName: userName || "Student",
-        });
-        const data = await response.json();
-        setConversationId(data.id);
-      } catch (error) {
-        console.error("Failed to create conversation:", error);
-        setError("Failed to create conversation");
-      }
-    };
-    
-    getOrCreateConversation();
-  }, [language, difficulty]);
+    const activeThreads = conversations.filter(c => !c.isOnboarding);
+    if (activeThreads.length > 0 && !conversationId) {
+      setConversationId(activeThreads[0].id);
+    }
+  }, [conversations, conversationId]);
 
   // Fetch existing messages
   const { data: messages = [] } = useQuery<Message[]>({
@@ -453,6 +445,15 @@ export function VoiceChat() {
           <CompactDifficultyControl conversationId={conversationId} />
         </div>
       </div>
+
+      {/* Thread Selector */}
+      <ThreadSelector
+        language={language}
+        difficulty={difficulty}
+        userName={userName}
+        selectedThreadId={conversationId}
+        onThreadSelect={setConversationId}
+      />
 
       {/* Voice chat area */}
       <Card className="flex flex-col flex-1 m-4 mt-0">

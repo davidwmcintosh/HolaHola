@@ -15,6 +15,7 @@ import { CompactDifficultyControl } from "@/components/CompactDifficultyControl"
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { useStreak } from "@/hooks/use-streak";
 import { useToast } from "@/hooks/use-toast";
+import { ThreadSelector } from "@/components/ThreadSelector";
 
 export function ChatInterface() {
   const { language, setLanguage, difficulty, userName, setUserName } = useLanguage();
@@ -28,26 +29,18 @@ export function ChatInterface() {
   const { recordPractice } = useStreak();
   const { toast } = useToast();
 
-  // Create or reuse conversation when language/difficulty changes
-  // NOTE: userName is NOT in dependencies - changing the name during onboarding
-  // should NOT create a new conversation
+  // Fetch conversations for current language to auto-select first one
+  const { data: conversations = [] } = useQuery<Conversation[]>({
+    queryKey: ["/api/conversations/by-language", language],
+  });
+
+  // Auto-select first available conversation when language changes
   useEffect(() => {
-    const getOrCreateConversation = async () => {
-      try {
-        const response = await apiRequest("POST", "/api/conversations", {
-          language,
-          difficulty,
-          userName: userName || "Student",
-        });
-        const data = await response.json();
-        setConversationId(data.id);
-      } catch (error) {
-        console.error("Failed to create conversation:", error);
-      }
-    };
-    
-    getOrCreateConversation();
-  }, [language, difficulty]);
+    const activeThreads = conversations.filter(c => !c.isOnboarding);
+    if (activeThreads.length > 0 && !conversationId) {
+      setConversationId(activeThreads[0].id);
+    }
+  }, [conversations, conversationId]);
 
   // Fetch messages for current conversation
   const { data: messages = [], isLoading } = useQuery<Message[]>({
@@ -202,6 +195,15 @@ export function ChatInterface() {
           <CompactDifficultyControl conversationId={conversationId} />
         </div>
       </div>
+
+      {/* Thread Selector */}
+      <ThreadSelector
+        language={language}
+        difficulty={difficulty}
+        userName={userName}
+        selectedThreadId={conversationId}
+        onThreadSelect={setConversationId}
+      />
 
       {/* Chat area */}
       <Card className="flex flex-col flex-1 m-4 mt-0">
