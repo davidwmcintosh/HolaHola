@@ -126,14 +126,18 @@ Be warm, patient, and encouraging. Help them learn naturally through conversatio
         console.log('System instructions length:', systemInstructions.length, 'characters');
         
         // Session configuration with instructions for the AI tutor
+        // Note: modalities and transcription are read-only/must be set at session creation
+        // Only send supported fields in session.update
         openaiWs.send(JSON.stringify({
           type: "session.update",
           session: {
-            modalities: ["text", "audio"],
             voice: "alloy",
             instructions: systemInstructions,
-            input_audio_transcription: {
-              model: "whisper-1"
+            turn_detection: {
+              type: "server_vad",
+              threshold: 0.5,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 500
             }
           },
         }));
