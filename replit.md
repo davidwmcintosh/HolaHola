@@ -36,8 +36,17 @@ Preferred communication style: Simple, everyday language.
     3.  **Phase 3 (Message 11+)**: Immersive practice (80-90% target language) with selective translation based on difficulty.
 -   **One-Question-Per-Response**: AI asks only one direct question at the end of its response to facilitate natural conversation flow.
 -   **Ask-and-Pause Pattern**: AI ends responses immediately after asking a question, without additional text, for natural conversational pauses.
--   **Student Question Handling**: AI answers student questions directly and fully, then may ask one follow-up question. Supports factual, learning, and app-related questions.
--   **Content Guardrails**: AI politely declines off-topic, inappropriate, or non-educational requests, redirecting to language learning.
+-   **Student Question Handling**: AI answers student-initiated questions directly and completely before optionally asking follow-up questions. Supports:
+    - Factual questions about the app ("Which languages do you teach?", "How does this work?")
+    - Learning questions ("How do you say X?", "What does X mean?")
+    - App-related questions about features and functionality
+    - Follows ask-and-pause pattern after answering student questions
+-   **Content Guardrails**: Comprehensive moderation system with balanced approach to appropriate content:
+    - **Appropriate Learning Topics** (always taught): Weather, food, shopping, travel, directions, time, greetings, hobbies (sports, music, movies, books, art, cooking), daily life (family, work, school, routines, home, transportation), emotions and feelings, and any practical real-world vocabulary
+    - **Declined Content**: Off-topic personal questions about the student, inappropriate content (sexual, explicit, violent, offensive, profane words), harmful language (insults, slurs, hateful speech), and role-playing requests
+    - **Critical Distinction**: "What's the weather like?" (personal question about student) → DECLINED; "How do I talk about weather?" (learning request) → ANSWERED
+    - **Message Independence**: Each message evaluated independently - no "decline mode" carryover after refusing inappropriate content
+    - **Onboarding Protection**: Keyword-based inappropriate content detection during onboarding with complete state reset (userName, language, onboardingStep) and professional redirection
 -   **Creative Scenario-Based Learning**: Starting Phase 2, AI creates brief, practical, and student-driven scenarios (e.g., ordering food) to enhance learning.
 -   **Slow Pronunciation with Phonetic Breakdowns**: Provides phonetic spellings with stress markers (e.g., "GRAH-syahs") for new vocabulary, with adaptive frequency based on difficulty. Integrated into voice mode.
 -   **Automatic Vocabulary Extraction**: AI automatically identifies and saves new vocabulary from conversations into the flashcard system.

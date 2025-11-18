@@ -202,6 +202,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Check for inappropriate content during onboarding
         if (containsInappropriateContent(messageData.content)) {
+          // Reset onboarding to the beginning - clear all onboarding state
+          await storage.updateConversation(conversationId, {
+            userName: null,
+            language: null,
+            onboardingStep: "name",
+            isOnboarding: true,
+          });
+          
           const aiMessage = await storage.createMessage({
             conversationId,
             role: "assistant",
