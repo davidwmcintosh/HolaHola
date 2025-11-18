@@ -27,7 +27,11 @@ interface PronunciationScoreData {
   strengths: string[];
 }
 
-export function VoiceChat() {
+interface VoiceChatProps {
+  selectedTopic?: string | null;
+}
+
+export function VoiceChat({ selectedTopic = null }: VoiceChatProps) {
   const { language, difficulty, userName } = useLanguage();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -75,6 +79,7 @@ export function VoiceChat() {
           language,
           difficulty,
           userName: userName || "Student",
+          topic: selectedTopic,
         });
         const data = await response.json();
         setConversationId(data.id);
@@ -85,7 +90,7 @@ export function VoiceChat() {
     };
     
     getOrCreateConversation();
-  }, [language, difficulty, userName]);
+  }, [language, difficulty, userName, selectedTopic]);
 
   // Fetch existing messages
   const { data: messages = [] } = useQuery<Message[]>({
