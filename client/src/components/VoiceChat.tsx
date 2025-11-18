@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Mic, MicOff, Bot, User, Loader2, Volume2 } from "lucide-react";
+import { Mic, MicOff, Bot, User, Loader2, Volume2, MessageSquare } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery } from "@tanstack/react-query";
@@ -69,17 +69,33 @@ export function VoiceChat() {
   }, []);
 
   // Fetch conversations for current language to auto-select first one
-  const { data: conversations = [] } = useQuery<Conversation[]>({
+  const { data: conversations = [], isFetching: conversationsLoading } = useQuery<Conversation[]>({
     queryKey: ["/api/conversations/by-language", language],
   });
 
+  // Reset conversationId when language changes, then auto-select first thread
+  useEffect(() => {
+    setConversationId(null);
+  }, [language]);
+
   // Auto-select first available conversation when language changes
   useEffect(() => {
+    // Wait for conversations query to finish loading before auto-selecting
+    if (conversationsLoading) return;
+    
     const activeThreads = conversations.filter(c => !c.isOnboarding);
+    
+    // If conversationId is set but no longer exists in the list, clear it
+    if (conversationId && !activeThreads.find(t => t.id === conversationId)) {
+      setConversationId(null);
+      return;
+    }
+    
+    // If no conversation is selected, pick the first available one
     if (activeThreads.length > 0 && !conversationId) {
       setConversationId(activeThreads[0].id);
     }
-  }, [conversations, conversationId]);
+  }, [conversations, conversationId, conversationsLoading]);
 
   // Fetch existing messages
   const { data: messages = [] } = useQuery<Message[]>({
@@ -459,7 +475,13 @@ export function VoiceChat() {
       <Card className="flex flex-col flex-1 m-4 mt-0">
         <ScrollArea className="flex-1 p-6">
         <div className="space-y-4">
-          {allMessages.length === 0 ? (
+          {!conversationId ? (
+            <div className="flex flex-col justify-center items-center h-full text-center text-muted-foreground p-8">
+              <MessageSquare className="h-16 w-16 mb-4 opacity-50" />
+              <p className="text-lg font-medium mb-2">No conversation selected</p>
+              <p className="text-sm">Click the "+ " button above to create a new conversation</p>
+            </div>
+          ) : allMessages.length === 0 ? (
             <div className="flex flex-col justify-center items-center h-full text-center text-muted-foreground p-8">
               <Mic className="h-16 w-16 mb-4 opacity-50" />
               <p className="text-lg font-medium mb-2">Start a voice conversation</p>
@@ -653,7 +675,7 @@ export function VoiceChat() {
             size="lg"
             variant={isRecording ? "destructive" : "default"}
             onClick={toggleRecording}
-            disabled={!capabilityAvailable}
+            disabled={!conversationId || !capabilityAvailable}
             className="rounded-full h-16 w-16"
             data-testid="button-toggle-recording"
           >
@@ -668,7 +690,9 @@ export function VoiceChat() {
         </div>
         
         <p className="text-center text-sm text-muted-foreground mt-4">
-          {!capabilityChecked 
+          {!conversationId
+            ? "Create a conversation to start voice chat"
+            : !capabilityChecked 
             ? "Checking voice chat availability..." 
             : !capabilityAvailable
             ? "Voice chat unavailable - see error message above"

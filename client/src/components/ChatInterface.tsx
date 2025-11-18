@@ -30,17 +30,33 @@ export function ChatInterface() {
   const { toast } = useToast();
 
   // Fetch conversations for current language to auto-select first one
-  const { data: conversations = [] } = useQuery<Conversation[]>({
+  const { data: conversations = [], isFetching: conversationsLoading } = useQuery<Conversation[]>({
     queryKey: ["/api/conversations/by-language", language],
   });
 
+  // Reset conversationId when language changes, then auto-select first thread
+  useEffect(() => {
+    setConversationId(null);
+  }, [language]);
+
   // Auto-select first available conversation when language changes
   useEffect(() => {
+    // Wait for conversations query to finish loading before auto-selecting
+    if (conversationsLoading) return;
+    
     const activeThreads = conversations.filter(c => !c.isOnboarding);
+    
+    // If conversationId is set but no longer exists in the list, clear it
+    if (conversationId && !activeThreads.find(t => t.id === conversationId)) {
+      setConversationId(null);
+      return;
+    }
+    
+    // If no conversation is selected, pick the first available one
     if (activeThreads.length > 0 && !conversationId) {
       setConversationId(activeThreads[0].id);
     }
-  }, [conversations, conversationId]);
+  }, [conversations, conversationId, conversationsLoading]);
 
   // Fetch messages for current conversation
   const { data: messages = [], isLoading } = useQuery<Message[]>({
@@ -209,7 +225,13 @@ export function ChatInterface() {
       <Card className="flex flex-col flex-1 m-4 mt-0">
         <ScrollArea className="flex-1 p-6">
         <div className="space-y-4">
-          {isLoading ? (
+          {!conversationId ? (
+            <div className="flex flex-col justify-center items-center h-full text-center text-muted-foreground p-8">
+              <MessageSquare className="h-16 w-16 mb-4 opacity-50" />
+              <p className="text-lg font-medium mb-2">No conversation selected</p>
+              <p className="text-sm">Click the "+ " button above to create a new conversation</p>
+            </div>
+          ) : isLoading ? (
             <div className="flex justify-center items-center h-full">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
@@ -263,7 +285,7 @@ export function ChatInterface() {
         <div className="flex gap-2">
           <Textarea
             ref={textareaRef}
-            placeholder="Type your message..."
+            placeholder={conversationId ? "Type your message..." : "Create a conversation to start chatting"}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -274,12 +296,13 @@ export function ChatInterface() {
             }}
             className="resize-none min-h-12"
             rows={1}
+            disabled={!conversationId}
             data-testid="input-chat-message"
           />
           <Button 
             size="icon" 
             onClick={handleSend}
-            disabled={!input.trim() || sendMessageMutation.isPending}
+            disabled={!conversationId || !input.trim() || sendMessageMutation.isPending}
             data-testid="button-send-message"
           >
             {sendMessageMutation.isPending ? (

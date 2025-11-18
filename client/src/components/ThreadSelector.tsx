@@ -40,7 +40,7 @@ interface ThreadSelectorProps {
   difficulty: string;
   userName: string;
   selectedThreadId: string | null;
-  onThreadSelect: (conversationId: string) => void;
+  onThreadSelect: (conversationId: string | null) => void;
 }
 
 export function ThreadSelector({
@@ -92,16 +92,15 @@ export function ThreadSelector({
       return await response.json();
     },
     onSuccess: () => {
+      // If we deleted the current thread, clear selection first
+      if (threadToDelete === selectedThreadId) {
+        onThreadSelect(null);
+      }
+      
       queryClient.invalidateQueries({ queryKey: ["/api/conversations/by-language", language] });
       setThreadToDelete(null);
       
-      // If we deleted the current thread, select the first available thread
-      if (threadToDelete === selectedThreadId && activeThreads.length > 1) {
-        const nextThread = activeThreads.find(t => t.id !== threadToDelete);
-        if (nextThread) {
-          onThreadSelect(nextThread.id);
-        }
-      }
+      // After cache refresh, auto-select effect will pick first available thread
     },
   });
 
