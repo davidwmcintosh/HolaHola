@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Lightbulb, Loader2 } from "lucide-react";
+import { Lightbulb, Loader2, AlertCircle } from "lucide-react";
 import * as LucideIcons from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { Redirect } from "wouter";
 
 interface Topic {
   id: string;
@@ -14,6 +16,14 @@ interface Topic {
 }
 
 export default function ChatIdeas() {
+  const { userName } = useLanguage();
+  
+  // Redirect to chat if onboarding is not complete
+  const isOnboardingComplete = userName && userName.trim() !== "";
+  if (!isOnboardingComplete) {
+    return <Redirect to="/chat" />;
+  }
+
   const { data: topics = [], isLoading } = useQuery<Topic[]>({
     queryKey: ["/api/topics"],
   });
