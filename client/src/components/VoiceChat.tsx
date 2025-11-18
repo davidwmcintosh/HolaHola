@@ -71,7 +71,9 @@ export function VoiceChat({ selectedTopic = null }: VoiceChatProps) {
     checkCapability();
   }, []);
 
-  // Create or reuse conversation
+  // Create or reuse conversation when language/difficulty/topic changes
+  // NOTE: userName is NOT in dependencies - changing the name during onboarding
+  // should NOT create a new conversation
   useEffect(() => {
     const getOrCreateConversation = async () => {
       try {
@@ -90,7 +92,7 @@ export function VoiceChat({ selectedTopic = null }: VoiceChatProps) {
     };
     
     getOrCreateConversation();
-  }, [language, difficulty, userName, selectedTopic]);
+  }, [language, difficulty, selectedTopic]);
 
   // Fetch existing messages
   const { data: messages = [] } = useQuery<Message[]>({
