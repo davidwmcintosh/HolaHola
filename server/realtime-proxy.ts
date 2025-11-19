@@ -102,7 +102,7 @@ export function setupRealtimeProxy(server: Server) {
         // Create simplified system prompt for voice mode
         // Realtime API has stricter length limits than Chat API
         const languageNames: Record<string, string> = {
-          spanish: "Spanish", french: "French", german: "German", 
+          english: "English", spanish: "Spanish", french: "French", german: "German", 
           italian: "Italian", portuguese: "Portuguese", japanese: "Japanese",
           mandarin: "Mandarin Chinese", korean: "Korean"
         };

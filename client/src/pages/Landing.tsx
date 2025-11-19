@@ -103,9 +103,9 @@ export default function Landing() {
                 <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
                   <Globe className="h-6 w-6 text-primary" />
                 </div>
-                <h3 className="font-semibold">8 Languages</h3>
+                <h3 className="font-semibold">9 Languages</h3>
                 <p className="text-sm text-muted-foreground">
-                  Learn Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, or Korean
+                  Learn English, Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, or Korean
                 </p>
               </div>
             </CardContent>

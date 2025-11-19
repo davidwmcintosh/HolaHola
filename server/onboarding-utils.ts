@@ -78,7 +78,7 @@ export async function extractLanguageFromMessage(
   userMessage: string
 ): Promise<LanguageExtractionResult> {
   const supportedLanguages = [
-    "spanish", "french", "german", "italian", 
+    "english", "spanish", "french", "german", "italian", 
     "portuguese", "japanese", "mandarin", "korean"
   ];
 

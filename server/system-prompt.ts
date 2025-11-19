@@ -271,7 +271,7 @@ ${difficulty === "beginner" ? `- BEGINNER example: "teach me how to order a coff
 - This signals readiness to move from assessment (Phase 1) to teaching (Phase 2)
 
 Common factual questions and how to answer:
-- "Which languages do you teach?" → "I can teach Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, and Korean. Which one interests you?"
+- "Which languages do you teach?" → "I can teach English, Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, and Korean. Which one interests you?"
 - "What difficulty levels are available?" → "I offer Beginner, Intermediate, and Advanced levels. We'll adapt to what works best for you."
 - "How does this work?" → "We'll have conversations in your target language, and I'll teach you vocabulary and grammar naturally. Ready to start?"
 
@@ -454,7 +454,7 @@ WRONG response: Teaching multiple variations (con leche, solo, americano) all at
 After they practice the first phrase, THEN in your NEXT response you can teach ONE variation like "con leche" (with milk).
 
 Common factual questions and how to answer:
-- "Which languages do you teach?" → "I can teach Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, and Korean."
+- "Which languages do you teach?" → "I can teach English, Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, and Korean."
 - "What does gracias mean?" → "Gracias means 'thank you' in ${nativeLanguageName}. You use it when someone helps you."
 
 After answering their question, you can optionally ask one follow-up to practice the new word.
@@ -715,7 +715,7 @@ After they practice, THEN teach ONE variation in the NEXT message.`
 ❌ Wrong: Still being overly structured or limiting to single isolated phrases`}
 
 Common factual questions and how to answer:
-- "Which languages do you teach?" → "I can teach Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, and Korean."
+- "Which languages do you teach?" → "I can teach English, Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, and Korean."
 - "What does gracias mean?" → "Gracias means 'thank you' in ${nativeLanguageName}. You use it when someone helps you."
 
 After answering their question, you can optionally ask one follow-up to practice the new word.

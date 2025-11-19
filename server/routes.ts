@@ -736,7 +736,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } else {
             // Language unclear, ask again
             console.log('[ONBOARDING-TARGET-LANG] Extraction failed or low confidence, asking again');
-            aiResponse = "I'm not sure which language you'd like to study. Please choose one from: Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, or Korean.";
+            aiResponse = "I'm not sure which language you'd like to study. Please choose one from: English, Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, or Korean.";
           }
         } else if (conversation.onboardingStep === "nativeLanguage") {
           // Extract native language from user's message

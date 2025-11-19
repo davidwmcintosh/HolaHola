@@ -24,7 +24,7 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   // Learning preferences
-  targetLanguage: varchar("target_language"), // spanish, french, german, italian, portuguese, japanese, mandarin, korean
+  targetLanguage: varchar("target_language"), // english, spanish, french, german, italian, portuguese, japanese, mandarin, korean
   nativeLanguage: varchar("native_language").default("english"), // Language for explanations
   difficultyLevel: varchar("difficulty_level"), // beginner, intermediate, advanced
   onboardingCompleted: boolean("onboarding_completed").default(false),
