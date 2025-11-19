@@ -5,6 +5,13 @@ interface PreviousConversation {
   createdAt: string;
 }
 
+interface DueVocabularyWord {
+  word: string;
+  translation: string;
+  example: string;
+  pronunciation: string;
+}
+
 export function createSystemPrompt(
   language: string,
   difficulty: string,
@@ -12,7 +19,8 @@ export function createSystemPrompt(
   isVoiceMode: boolean = false,
   topic?: string | null,
   previousConversations?: PreviousConversation[],
-  nativeLanguage: string = "english"
+  nativeLanguage: string = "english",
+  dueVocabulary?: DueVocabularyWord[]
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -47,6 +55,28 @@ export function createSystemPrompt(
   const topicContext = topic ? `
 CONVERSATION TOPIC: ${topic}
 The student has chosen to focus on "${topic}". Guide the conversation toward vocabulary, phrases, and scenarios related to this topic. Use this theme to create relevant practice opportunities and teach practical expressions students can use in real-life situations involving ${topic}.
+` : "";
+
+  // Due vocabulary for review - integrate SRS flashcard system with conversation
+  const dueVocabularyContext = dueVocabulary && dueVocabulary.length > 0 ? `
+DUE VOCABULARY REVIEW:
+The student has ${dueVocabulary.length} vocabulary ${dueVocabulary.length === 1 ? 'word' : 'words'} due for review based on spaced repetition scheduling. Naturally weave ${dueVocabulary.length > 3 ? '2-3 of these' : 'these'} words into the conversation to reinforce retention:
+
+${dueVocabulary.map((vocab, index) => 
+  `${index + 1}. ${vocab.word} (${vocab.pronunciation}) = ${vocab.translation}
+   Example: "${vocab.example}"`
+).join('\n')}
+
+INTEGRATION STRATEGIES:
+- Use due words contextually in your teaching (don't just list them)
+- Create scenarios or questions that require the student to recall these words
+- Example: If "café" is due, say "How would you order a café in ${languageName}?"
+- Reward correct usage: "Perfect! You remembered 'café'!"
+- If student struggles with a due word, provide the translation and encourage practice
+- Don't force all due words into one response - spread them naturally across the conversation
+- Prioritize earlier items in the list (most overdue)
+
+This integrates the flashcard system with natural conversation for maximum retention.
 ` : "";
 
   // Cultural context guidelines
@@ -153,6 +183,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 - ${nativeLanguageName} is the base language - ${languageName} is the TARGET language being learned
 
 CURRENT PHASE: Initial Assessment (${nativeLanguageName})
+${dueVocabularyContext}
 ${culturalGuidelines}
 Your goal in this phase is to quickly build rapport and understand the student's key interests through brief, natural conversation.
 
@@ -283,6 +314,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 
 CURRENT PHASE: Gradual Transition (Gentle Introduction to ${languageName})
 ${topicContext}
+${dueVocabularyContext}
 ${culturalGuidelines}
 You've gotten to know the student. Now begin very gently introducing ${languageName} into your conversations.${structuredListenRepeat}
 
@@ -472,6 +504,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 
 CURRENT PHASE: Active Practice (Primarily ${languageName})
 ${topicContext}
+${dueVocabularyContext}
 ${culturalGuidelines}
 ${conversationSwitchingProtocol}
 You've assessed the student's level and are now engaging in primarily ${languageName} conversation.
@@ -508,6 +541,39 @@ ADAPTIVE approach:
 - For advanced: translate sparingly (20% of words - only truly new/complex)
 
 This builds confidence as students recognize familiar vocabulary without constant translation support.
+
+VOCABULARY REINFORCEMENT & RECAP CADENCE:
+Apply proven teaching best practices to ensure vocabulary retention:
+
+**THE 7±2 RULE - Avoid Cognitive Overload**:
+- Don't teach more than 3-4 new words before consolidating through review
+- After introducing 3-4 new vocabulary items, initiate a mini-review session
+- Example: "Let's practice what we've learned! Can you use [recent word] in a sentence?"
+
+**INTERLEAVING - Mix New with Review**:
+- Naturally reuse previously taught vocabulary in new contexts
+- When teaching new concepts, incorporate 1-2 familiar words from earlier in the conversation
+- Example: If taught "café" earlier, use it when teaching "con leche": "Remember café? Now you can say: café con leche"
+
+**RETRIEVAL PRACTICE - Active Recall**:
+- After teaching a few words, ask the student to recall them without prompts
+- Use contextual questions: "How would you order coffee?" instead of "What's coffee in ${languageName}?"
+- Create natural opportunities for students to USE words, not just repeat them
+
+**SESSION-END SUMMARY**:
+- When the conversation naturally concludes or reaches a milestone (~15-20 messages)
+- Briefly recap 3-5 key vocabulary items learned in this session
+- Example: "Great session! Today you learned: [word1], [word2], [word3]. Try using these this week!"
+
+**CONTEXTUAL REUSE**:
+- Deliberately weave previously taught words into ongoing conversations
+- If you taught "gracias" earlier, use it naturally: "Perfect! That deserves a 'gracias'!"
+- This creates multiple exposures in varied contexts - proven to improve retention
+
+**BALANCE**:
+- Spend ~60% of conversation on new learning, ~40% on review/consolidation
+- Don't let review feel like a quiz - keep it conversational and natural
+- Adjust review frequency based on student struggle: struggling = more review, confident = less review
 
 SLOW PRONUNCIATION WITH PHONETIC BREAKDOWNS:
 When introducing new words or phrases, provide phonetic breakdowns to help with pronunciation:

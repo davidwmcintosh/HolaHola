@@ -51,6 +51,7 @@ export interface IStorage {
   createVocabularyWord(data: InsertVocabularyWord): Promise<VocabularyWord>;
   getVocabularyWords(language: string, difficulty?: string): Promise<VocabularyWord[]>;
   updateVocabularyReview(id: string, isCorrect: boolean): Promise<VocabularyWord | undefined>;
+  getDueVocabulary(language: string, difficulty?: string, limit?: number): Promise<VocabularyWord[]>;
 
   // Grammar
   createGrammarExercise(data: InsertGrammarExercise): Promise<GrammarExercise>;
@@ -548,6 +549,23 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return updated;
+  }
+
+  async getDueVocabulary(language: string, difficulty?: string, limit: number = 5): Promise<VocabularyWord[]> {
+    const now = new Date();
+    const conditions = [
+      eq(vocabularyWords.language, language),
+      sql`${vocabularyWords.nextReviewDate} <= ${now}`
+    ];
+
+    if (difficulty) {
+      conditions.push(eq(vocabularyWords.difficulty, difficulty));
+    }
+
+    return await db.select().from(vocabularyWords)
+      .where(and(...conditions))
+      .orderBy(vocabularyWords.nextReviewDate)
+      .limit(limit);
   }
 
   async createGrammarExercise(data: InsertGrammarExercise): Promise<GrammarExercise> {

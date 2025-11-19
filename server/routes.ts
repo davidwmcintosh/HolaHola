@@ -700,6 +700,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           createdAt: c.createdAt.toISOString()
         }));
 
+      // Fetch due vocabulary for review (integrate SRS with conversation)
+      const dueVocabulary = await storage.getDueVocabulary(
+        updatedConversation.language,
+        updatedConversation.difficulty,
+        5 // Limit to 5 most overdue words
+      );
+
       // Create adaptive system prompt based on language, difficulty, and conversation progress
       // Use userMessageCount (already calculated above) instead of total message count
       // This ensures phases align with actual conversation turns
@@ -710,7 +717,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         false, // not voice mode
         updatedConversation.topic,
         previousConversations.length > 0 ? previousConversations : undefined,
-        updatedConversation.nativeLanguage
+        updatedConversation.nativeLanguage,
+        dueVocabulary.length > 0 ? dueVocabulary.map(v => ({
+          word: v.word,
+          translation: v.translation,
+          example: v.example,
+          pronunciation: v.pronunciation
+        })) : undefined
       );
 
       // Generate AI response with structured output to extract vocabulary and grammar
