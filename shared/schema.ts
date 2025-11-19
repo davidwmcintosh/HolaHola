@@ -23,6 +23,9 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  // User role for dual-path system
+  role: varchar("role").default("student"), // student, teacher, admin
+  learningPathMode: varchar("learning_path_mode").default("open"), // open, structured
   // Learning preferences
   targetLanguage: varchar("target_language"), // english, spanish, french, german, italian, portuguese, japanese, mandarin, korean
   nativeLanguage: varchar("native_language").default("english"), // Language for explanations
@@ -69,6 +72,8 @@ export const conversations = pgTable("conversations", {
   // Performance tracking for auto-difficulty adjustment
   successfulMessages: integer("successful_messages").notNull().default(0), // Messages with score >= 60
   totalAssessedMessages: integer("total_assessed_messages").notNull().default(0), // Total user messages assessed
+  // ACTFL standards tracking
+  actflLevel: text("actfl_level"), // novice_low, novice_mid, novice_high, intermediate_low, intermediate_mid, intermediate_high, advanced_low, advanced_mid, advanced_high, superior, distinguished
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -91,6 +96,8 @@ export const vocabularyWords = pgTable("vocabulary_words", {
   example: text("example").notNull(),
   pronunciation: text("pronunciation").notNull(),
   difficulty: text("difficulty").notNull(),
+  // ACTFL standards tracking
+  actflLevel: text("actfl_level"), // novice_low, novice_mid, etc.
   // Spaced repetition fields
   nextReviewDate: timestamp("next_review_date").notNull().defaultNow(),
   correctCount: integer("correct_count").notNull().default(0), // Lifetime correct reviews
@@ -169,6 +176,199 @@ export const culturalTips = pgTable("cultural_tips", {
   icon: text("icon").notNull(), // Lucide icon name
 });
 
+// ===== Dual-Path Learning System: Institutional Features =====
+
+// ACTFL Can-Do Statements for progress tracking
+export const canDoStatements = pgTable("can_do_statements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  language: text("language").notNull(), // spanish, french, etc.
+  actflLevel: text("actfl_level").notNull(), // novice_low, novice_mid, etc.
+  category: text("category").notNull(), // interpersonal, interpretive, presentational
+  mode: text("mode"), // speaking, listening, reading, writing
+  statement: text("statement").notNull(), // "I can greet someone and introduce myself"
+  description: text("description"), // Additional context/examples
+});
+
+// Student progress on Can-Do statements
+export const studentCanDoProgress = pgTable("student_can_do_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  canDoStatementId: varchar("can_do_statement_id").notNull().references(() => canDoStatements.id),
+  selfAssessed: boolean("self_assessed").default(false), // Student marked as achieved
+  teacherVerified: boolean("teacher_verified").default(false), // Teacher confirmed
+  aiDetected: boolean("ai_detected").default(false), // AI detected evidence in conversations
+  dateAchieved: timestamp("date_achieved"),
+  evidenceConversationId: varchar("evidence_conversation_id").references(() => conversations.id), // Conversation that demonstrated this skill
+  notes: text("notes"), // Teacher notes
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Structured curriculum paths (e.g., "Spanish 1 - High School")
+export const curriculumPaths = pgTable("curriculum_paths", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(), // "Spanish 1 - High School"
+  description: text("description").notNull(),
+  language: text("language").notNull(),
+  targetAudience: text("target_audience"), // "High School", "Middle School", "Adult Learners"
+  startLevel: text("start_level").notNull(), // novice_low
+  endLevel: text("end_level").notNull(), // intermediate_low
+  estimatedHours: integer("estimated_hours"), // 150 hours
+  isPublished: boolean("is_published").default(false),
+  createdBy: varchar("created_by").references(() => users.id), // Teacher who created it
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Units within a curriculum path
+export const curriculumUnits = pgTable("curriculum_units", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  curriculumPathId: varchar("curriculum_path_id").notNull().references(() => curriculumPaths.id),
+  name: text("name").notNull(), // "Unit 1: Greetings & Introductions"
+  description: text("description").notNull(),
+  orderIndex: integer("order_index").notNull(), // Order within the path
+  actflLevel: text("actfl_level"), // Target proficiency level for this unit
+  culturalTheme: text("cultural_theme"), // Cultural focus of the unit
+  estimatedHours: integer("estimated_hours"),
+});
+
+// Individual lessons within a unit
+export const curriculumLessons = pgTable("curriculum_lessons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  curriculumUnitId: varchar("curriculum_unit_id").notNull().references(() => curriculumUnits.id),
+  name: text("name").notNull(), // "Lesson 1: Basic Greetings"
+  description: text("description").notNull(),
+  orderIndex: integer("order_index").notNull(), // Order within the unit
+  lessonType: text("lesson_type").notNull(), // conversation, vocabulary, grammar, cultural_exploration
+  actflLevel: text("actfl_level"),
+  // Lesson content
+  conversationTopic: text("conversation_topic"), // Topic for AI conversation
+  conversationPrompt: text("conversation_prompt"), // System prompt for this lesson
+  // Learning objectives
+  objectives: text("objectives").array(), // What students should be able to do
+  estimatedMinutes: integer("estimated_minutes"), // Expected completion time
+});
+
+// Teacher classes (for structured path)
+export const teacherClasses = pgTable("teacher_classes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teacherId: varchar("teacher_id").notNull().references(() => users.id),
+  name: text("name").notNull(), // "Spanish 1 - Period 3"
+  description: text("description"),
+  language: text("language").notNull(),
+  curriculumPathId: varchar("curriculum_path_id").references(() => curriculumPaths.id), // Optional: link to structured curriculum
+  joinCode: varchar("join_code").unique().notNull(), // 6-digit code for students to join
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Class enrollment (students in classes)
+export const classEnrollments = pgTable("class_enrollments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  classId: varchar("class_id").notNull().references(() => teacherClasses.id),
+  studentId: varchar("student_id").notNull().references(() => users.id),
+  enrolledAt: timestamp("enrolled_at").notNull().defaultNow(),
+  isActive: boolean("is_active").default(true),
+});
+
+// Teacher assignments
+export const assignments = pgTable("assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  classId: varchar("class_id").notNull().references(() => teacherClasses.id),
+  teacherId: varchar("teacher_id").notNull().references(() => users.id),
+  title: text("title").notNull(), // "Week 1: Greetings Practice"
+  description: text("description"),
+  assignmentType: text("assignment_type").notNull(), // conversation, vocabulary_review, grammar_exercise, curriculum_lesson
+  // Assignment content
+  curriculumLessonId: varchar("curriculum_lesson_id").references(() => curriculumLessons.id), // Link to curriculum lesson
+  conversationTopic: text("conversation_topic"), // For conversation assignments
+  targetMinutes: integer("target_minutes"), // Expected practice time
+  targetMessageCount: integer("target_message_count"), // For conversation practice
+  // Deadlines
+  dueDate: timestamp("due_date"),
+  isPublished: boolean("is_published").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Student assignment submissions
+export const assignmentSubmissions = pgTable("assignment_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  assignmentId: varchar("assignment_id").notNull().references(() => assignments.id),
+  studentId: varchar("student_id").notNull().references(() => users.id),
+  conversationId: varchar("conversation_id").references(() => conversations.id), // Conversation for this assignment
+  status: text("status").default("not_started"), // not_started, in_progress, submitted, graded
+  // Completion tracking
+  minutesCompleted: integer("minutes_completed").default(0),
+  messagesCompleted: integer("messages_completed").default(0),
+  vocabularyMastered: integer("vocabulary_mastered").default(0),
+  // Grading
+  teacherScore: integer("teacher_score"), // 0-100
+  teacherFeedback: text("teacher_feedback"),
+  aiScore: integer("ai_score"), // Auto-calculated based on performance
+  submittedAt: timestamp("submitted_at"),
+  gradedAt: timestamp("graded_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// ===== Join Tables for Many-to-Many Relationships =====
+
+// Links lessons to Can-Do statements
+export const lessonCanDoStatements = pgTable("lesson_can_do_statements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  lessonId: varchar("lesson_id").notNull().references(() => curriculumLessons.id),
+  canDoStatementId: varchar("can_do_statement_id").notNull().references(() => canDoStatements.id),
+});
+
+// Links lessons to cultural tips
+export const lessonCulturalTips = pgTable("lesson_cultural_tips", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  lessonId: varchar("lesson_id").notNull().references(() => curriculumLessons.id),
+  culturalTipId: varchar("cultural_tip_id").notNull().references(() => culturalTips.id),
+});
+
+// Links assignments to vocabulary words
+export const assignmentVocabulary = pgTable("assignment_vocabulary", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  assignmentId: varchar("assignment_id").notNull().references(() => assignments.id),
+  vocabularyWordId: varchar("vocabulary_word_id").notNull().references(() => vocabularyWords.id),
+});
+
+// ===== Progress Tracking for Both Learning Paths =====
+
+// Structured Path: Student progress through curriculum lessons
+export const studentLessonProgress = pgTable("student_lesson_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id").notNull().references(() => users.id),
+  lessonId: varchar("lesson_id").notNull().references(() => curriculumLessons.id),
+  status: text("status").default("not_started"), // not_started, in_progress, completed
+  minutesSpent: integer("minutes_spent").default(0),
+  messagesCompleted: integer("messages_completed").default(0),
+  conversationId: varchar("conversation_id").references(() => conversations.id), // Latest conversation for this lesson
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Open Path: Student-set learning goals
+export const studentGoals = pgTable("student_goals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id").notNull().references(() => users.id),
+  language: text("language").notNull(),
+  goalType: text("goal_type").notNull(), // conversation_hours, vocabulary_count, can_do_statements, custom
+  title: text("title").notNull(), // "Practice 10 hours of conversation"
+  description: text("description"),
+  targetValue: integer("target_value"), // Numeric goal (e.g., 10 hours)
+  currentValue: integer("current_value").default(0),
+  isCompleted: boolean("is_completed").default(false),
+  targetDate: timestamp("target_date"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const insertConversationSchema = createInsertSchema(conversations).omit({
   id: true,
   createdAt: true,
@@ -234,3 +434,120 @@ export type Topic = typeof topics.$inferSelect;
 
 export type InsertCulturalTip = z.infer<typeof insertCulturalTipSchema>;
 export type CulturalTip = typeof culturalTips.$inferSelect;
+
+// ===== Dual-Path Learning System Types =====
+
+export const insertCanDoStatementSchema = createInsertSchema(canDoStatements).omit({
+  id: true,
+});
+
+export const insertStudentCanDoProgressSchema = createInsertSchema(studentCanDoProgress).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCurriculumPathSchema = createInsertSchema(curriculumPaths).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCurriculumUnitSchema = createInsertSchema(curriculumUnits).omit({
+  id: true,
+});
+
+export const insertCurriculumLessonSchema = createInsertSchema(curriculumLessons).omit({
+  id: true,
+});
+
+export const insertTeacherClassSchema = createInsertSchema(teacherClasses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertClassEnrollmentSchema = createInsertSchema(classEnrollments).omit({
+  id: true,
+  enrolledAt: true,
+});
+
+export const insertAssignmentSchema = createInsertSchema(assignments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAssignmentSubmissionSchema = createInsertSchema(assignmentSubmissions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertCanDoStatement = z.infer<typeof insertCanDoStatementSchema>;
+export type CanDoStatement = typeof canDoStatements.$inferSelect;
+
+export type InsertStudentCanDoProgress = z.infer<typeof insertStudentCanDoProgressSchema>;
+export type StudentCanDoProgress = typeof studentCanDoProgress.$inferSelect;
+
+export type InsertCurriculumPath = z.infer<typeof insertCurriculumPathSchema>;
+export type CurriculumPath = typeof curriculumPaths.$inferSelect;
+
+export type InsertCurriculumUnit = z.infer<typeof insertCurriculumUnitSchema>;
+export type CurriculumUnit = typeof curriculumUnits.$inferSelect;
+
+export type InsertCurriculumLesson = z.infer<typeof insertCurriculumLessonSchema>;
+export type CurriculumLesson = typeof curriculumLessons.$inferSelect;
+
+export type InsertTeacherClass = z.infer<typeof insertTeacherClassSchema>;
+export type TeacherClass = typeof teacherClasses.$inferSelect;
+
+export type InsertClassEnrollment = z.infer<typeof insertClassEnrollmentSchema>;
+export type ClassEnrollment = typeof classEnrollments.$inferSelect;
+
+export type InsertAssignment = z.infer<typeof insertAssignmentSchema>;
+export type Assignment = typeof assignments.$inferSelect;
+
+export type InsertAssignmentSubmission = z.infer<typeof insertAssignmentSubmissionSchema>;
+export type AssignmentSubmission = typeof assignmentSubmissions.$inferSelect;
+
+// ===== Join Table Types =====
+
+export const insertLessonCanDoStatementSchema = createInsertSchema(lessonCanDoStatements).omit({
+  id: true,
+});
+
+export const insertLessonCulturalTipSchema = createInsertSchema(lessonCulturalTips).omit({
+  id: true,
+});
+
+export const insertAssignmentVocabularySchema = createInsertSchema(assignmentVocabulary).omit({
+  id: true,
+});
+
+export const insertStudentLessonProgressSchema = createInsertSchema(studentLessonProgress).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertStudentGoalSchema = createInsertSchema(studentGoals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertLessonCanDoStatement = z.infer<typeof insertLessonCanDoStatementSchema>;
+export type LessonCanDoStatement = typeof lessonCanDoStatements.$inferSelect;
+
+export type InsertLessonCulturalTip = z.infer<typeof insertLessonCulturalTipSchema>;
+export type LessonCulturalTip = typeof lessonCulturalTips.$inferSelect;
+
+export type InsertAssignmentVocabulary = z.infer<typeof insertAssignmentVocabularySchema>;
+export type AssignmentVocabulary = typeof assignmentVocabulary.$inferSelect;
+
+export type InsertStudentLessonProgress = z.infer<typeof insertStudentLessonProgressSchema>;
+export type StudentLessonProgress = typeof studentLessonProgress.$inferSelect;
+
+export type InsertStudentGoal = z.infer<typeof insertStudentGoalSchema>;
+export type StudentGoal = typeof studentGoals.$inferSelect;
