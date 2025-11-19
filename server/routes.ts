@@ -317,6 +317,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const errorMessage = errorData.error?.message || 'Unknown error';
       const errorType = errorData.error?.type || 'unknown';
 
+      // Debug: Log full error details
+      console.log('[REALTIME CAPABILITY] Test failed with status:', testResponse.status);
+      console.log('[REALTIME CAPABILITY] Error data:', JSON.stringify(errorData, null, 2));
+      console.log('[REALTIME CAPABILITY] Error message:', errorMessage);
+      console.log('[REALTIME CAPABILITY] Error type:', errorType);
+
       // Map specific error types to helpful messages
       let reason = '';
       let code = '';
