@@ -1524,6 +1524,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Multimedia - Fetch stock image from Unsplash
+  app.post("/api/media/stock-image", isAuthenticated, async (req: any, res) => {
+    try {
+      const { query } = req.body;
+      
+      if (!query) {
+        return res.status(400).json({ error: "Missing required field: query" });
+      }
+
+      const unsplashAccessKey = process.env.UNSPLASH_ACCESS_KEY;
+      if (!unsplashAccessKey) {
+        return res.status(500).json({ error: "Unsplash API key not configured" });
+      }
+
+      // Fetch random image from Unsplash
+      const response = await fetch(
+        `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=landscape&content_filter=high`,
+        {
+          headers: {
+            'Authorization': `Client-ID ${unsplashAccessKey}`,
+            'Accept-Version': 'v1'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        console.error('Unsplash API error:', await response.text());
+        return res.status(500).json({ error: "Failed to fetch stock image" });
+      }
+
+      const data = await response.json();
+      
+      res.json({
+        url: data.urls.regular,
+        thumbnailUrl: data.urls.small,
+        altText: data.alt_description || query,
+        attribution: {
+          photographer: data.user.name,
+          photographerUrl: data.user.links.html,
+          unsplashUrl: data.links.html
+        }
+      });
+    } catch (error: any) {
+      console.error('Stock image fetch error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Multimedia - Generate AI image with DALL-E
+  app.post("/api/media/generate-image", isAuthenticated, async (req: any, res) => {
+    try {
+      const { prompt, context } = req.body;
+      
+      if (!prompt) {
+        return res.status(400).json({ error: "Missing required field: prompt" });
+      }
+
+      // Enhance prompt with educational context if provided
+      const enhancedPrompt = context 
+        ? `${prompt}. Educational illustration style, clear and engaging, suitable for language learning.`
+        : prompt;
+
+      // Generate image with DALL-E via OpenAI integration
+      const response = await openai.images.generate({
+        model: "gpt-image-1",
+        prompt: enhancedPrompt,
+        n: 1,
+        size: "1024x1024",
+        quality: "standard"
+      });
+
+      const imageUrl = response?.data?.[0]?.url;
+      if (!imageUrl) {
+        return res.status(500).json({ error: "Failed to generate image" });
+      }
+
+      res.json({
+        url: imageUrl,
+        prompt: enhancedPrompt
+      });
+    } catch (error: any) {
+      console.error('AI image generation error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Media Files - Image Upload
   app.post("/api/media/upload", isAuthenticated, async (req: any, res) => {
     try {
