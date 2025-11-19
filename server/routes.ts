@@ -362,6 +362,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create ephemeral Realtime API token for client-side connection
+  // This bypasses server-side WebSocket blocking in Replit infrastructure
+  app.post("/api/realtime/token", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const apiKey = process.env.USER_OPENAI_API_KEY;
+      
+      if (!apiKey) {
+        return res.status(503).json({ 
+          message: 'Voice chat requires an OpenAI API key with Realtime API access.' 
+        });
+      }
+
+      // Determine subscription tier and model
+      const subscriptionTier = user.subscriptionTier || 'free';
+      const model = subscriptionTier === 'pro' 
+        ? 'gpt-realtime' 
+        : 'gpt-4o-realtime-preview-2024-12-17';
+
+      console.log(`[REALTIME TOKEN] Creating ephemeral session for user ${userId}, tier: ${subscriptionTier}, model: ${model}`);
+
+      // Create ephemeral session via OpenAI REST API
+      const sessionResponse = await fetch('https://api.openai.com/v1/realtime/sessions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model,
+          voice: 'alloy'
+        })
+      });
+
+      if (!sessionResponse.ok) {
+        const errorText = await sessionResponse.text();
+        console.error('[REALTIME TOKEN] Failed to create session:', sessionResponse.status, errorText);
+        return res.status(sessionResponse.status).json({ 
+          message: `Failed to create voice session: ${errorText}` 
+        });
+      }
+
+      const sessionData = await sessionResponse.json();
+      const ephemeralToken = sessionData.client_secret.value;
+      
+      console.log('[REALTIME TOKEN] ✓ Ephemeral session created successfully');
+
+      // Return token to client for direct WebSocket connection
+      res.json({
+        token: ephemeralToken,
+        model,
+        expires_at: sessionData.expires_at
+      });
+
+    } catch (error: any) {
+      console.error('[REALTIME TOKEN] Error:', error);
+      res.status(500).json({ message: `Failed to create voice session: ${error.message}` });
+    }
+  });
+
   // Chat / Conversations
   app.post("/api/conversations", isAuthenticated, async (req: any, res) => {
     try {

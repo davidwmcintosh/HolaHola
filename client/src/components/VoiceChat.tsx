@@ -109,26 +109,36 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
     }
   }, [transcript, messages]);
 
-  const connectToRealtimeAPI = useCallback((): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      if (!conversationId) {
-        reject(new Error('No conversation ID'));
-        return;
-      }
+  const connectToRealtimeAPI = useCallback(async (): Promise<void> => {
+    if (!conversationId) {
+      throw new Error('No conversation ID');
+    }
 
-      const CONNECTION_TIMEOUT = 10000; // 10 seconds
-      let connectionTimer: NodeJS.Timeout | null = null;
+    const CONNECTION_TIMEOUT = 10000; // 10 seconds
+    let connectionTimer: NodeJS.Timeout | null = null;
 
-      try {
-        // Connect to our backend WebSocket proxy
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.host;
-        const userId = user?.id || '';
-        const wsUrl = `${protocol}//${host}/api/realtime/ws?language=${encodeURIComponent(language)}&difficulty=${encodeURIComponent(difficulty)}&conversationId=${encodeURIComponent(conversationId)}&userId=${encodeURIComponent(userId)}`;
-        
-        const ws = new WebSocket(wsUrl);
-        let connectionOpened = false;
+    try {
+      // CRITICAL FIX: Get ephemeral token from server, then connect DIRECTLY to OpenAI
+      // This bypasses Replit's server-side WebSocket blocking!
+      console.log('[VOICE CHAT] Fetching ephemeral token for direct OpenAI connection...');
+      
+      const tokenResponse = await apiRequest("POST", "/api/realtime/token", {});
+      const { token, model } = await tokenResponse.json();
+      
+      console.log(`[VOICE CHAT] ✓ Token received, connecting directly to OpenAI with model: ${model}`);
+      
+      // Connect DIRECTLY to OpenAI WebSocket (just like the playground!)
+      // Ephemeral token must be passed in subprotocols, not headers!
+      const wsUrl = `wss://api.openai.com/v1/realtime?model=${model}`;
+      const ws = new WebSocket(wsUrl, [
+        "realtime",
+        `openai-insecure-api-key.${token}`,
+        "openai-beta.realtime-v1"
+      ]);
+      
+      let connectionOpened = false;
 
+      return new Promise((resolve, reject) => {
         // Set connection timeout
         connectionTimer = setTimeout(() => {
           if (!connectionOpened) {
@@ -138,7 +148,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
         }, CONNECTION_TIMEOUT);
 
         ws.onopen = () => {
-          console.log('Connected to Realtime API proxy');
+          console.log('[VOICE CHAT] ✓ Connected directly to OpenAI Realtime API!');
           connectionOpened = true;
           if (connectionTimer) clearTimeout(connectionTimer);
           
@@ -156,7 +166,27 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
             retryTimeoutRef.current = null;
           }
           
-          // Session configuration is handled by the backend proxy
+          // Configure session after connection opens
+          ws.send(JSON.stringify({
+            type: 'session.update',
+            session: {
+              modalities: ['text', 'audio'],
+              instructions: `You are a ${language} language tutor. Keep responses concise and conversational.`,
+              voice: 'alloy',
+              input_audio_format: 'pcm16',
+              output_audio_format: 'pcm16',
+              input_audio_transcription: {
+                model: 'whisper-1'
+              },
+              turn_detection: {
+                type: 'server_vad',
+                threshold: 0.5,
+                prefix_padding_ms: 300,
+                silence_duration_ms: 500
+              }
+            }
+          }));
+          
           resolve();
         };
 
@@ -366,15 +396,13 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
         setIsAiSpeaking(false);
       };
 
-      wsRef.current = ws;
-    } catch (error) {
+        wsRef.current = ws;
+      });
+    } catch (error: any) {
       console.error('Failed to connect to Realtime API:', error);
-      if (connectionTimer) clearTimeout(connectionTimer);
-      setError('Failed to connect. The OpenAI Realtime API may not be available.');
-      reject(error);
+      throw new Error(`Failed to connect: ${error.message}`);
     }
-    });
-  }, [conversationId, language, difficulty]);
+  }, [conversationId, language, difficulty, user]);
 
   const startRecording = async () => {
     try {
