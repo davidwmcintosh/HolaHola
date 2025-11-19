@@ -447,14 +447,9 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
       audioRecorderRef.current = null;
     }
     
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: "input_audio_buffer.commit",
-      }));
-      wsRef.current.send(JSON.stringify({
-        type: "response.create",
-      }));
-    }
+    // With server VAD enabled, OpenAI automatically detects when speech stops
+    // and commits the buffer. We don't need to manually commit.
+    // Just stop the microphone recording.
     
     setIsRecording(false);
   };
