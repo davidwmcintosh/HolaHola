@@ -53,6 +53,11 @@ export interface IStorage {
     subscriptionStatus?: string;
   }): Promise<User | undefined>;
 
+  // Usage tracking for voice messages
+  checkAndIncrementVoiceUsage(userId: string): Promise<{allowed: boolean, remaining: number, limit: number}>;
+  getUserUsageStats(userId: string): Promise<{monthlyMessageCount: number, monthlyMessageLimit: number, remaining: number}>;
+  resetMonthlyUsageIfNeeded(userId: string): Promise<void>;
+
   // Stripe data queries (from stripe-replit-sync PostgreSQL tables)
   getProduct(productId: string): Promise<any | null>;
   listProducts(active?: boolean, limit?: number, offset?: number): Promise<any[]>;
@@ -504,6 +509,102 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return updated;
+  }
+
+  // Usage tracking for voice messages
+  async resetMonthlyUsageIfNeeded(userId: string): Promise<void> {
+    const user = await this.getUser(userId);
+    if (!user) return;
+
+    const now = new Date();
+    const lastReset = user.lastMessageResetDate ? new Date(user.lastMessageResetDate) : new Date(0);
+    
+    // Check if we're in a new month
+    const isNewMonth = now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear();
+    
+    if (isNewMonth) {
+      await db.update(users)
+        .set({
+          monthlyMessageCount: 0,
+          lastMessageResetDate: now,
+          updatedAt: now,
+        })
+        .where(eq(users.id, userId));
+    }
+  }
+
+  async checkAndIncrementVoiceUsage(userId: string): Promise<{allowed: boolean, remaining: number, limit: number}> {
+    // Reset monthly counter if needed
+    await this.resetMonthlyUsageIfNeeded(userId);
+    
+    const user = await this.getUser(userId);
+    if (!user) {
+      return { allowed: false, remaining: 0, limit: 0 };
+    }
+
+    const currentCount = user.monthlyMessageCount || 0;
+    const limit = user.monthlyMessageLimit || 20;
+    
+    // Paid tiers have "unlimited" (high limit like 999999)
+    // Explicitly check for paid tier values to avoid undefined/null bugs
+    const paidTiers = ['basic', 'pro', 'institutional'];
+    const isPaidTier = user.subscriptionTier && paidTiers.includes(user.subscriptionTier);
+    const effectiveLimit = isPaidTier ? 999999 : limit;
+
+    // Atomic increment with limit check to prevent race conditions
+    // This UPDATE will only succeed if the current count is below the limit
+    const [updated] = await db
+      .update(users)
+      .set({
+        monthlyMessageCount: sql`${users.monthlyMessageCount} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(users.id, userId),
+          sql`${users.monthlyMessageCount} < ${effectiveLimit}`
+        )
+      )
+      .returning();
+
+    // If no row was updated, user has exceeded limit
+    if (!updated) {
+      return {
+        allowed: false,
+        remaining: 0,
+        limit: effectiveLimit,
+      };
+    }
+
+    const newCount = updated.monthlyMessageCount || 0;
+    return {
+      allowed: true,
+      remaining: Math.max(0, effectiveLimit - newCount),
+      limit: effectiveLimit,
+    };
+  }
+
+  async getUserUsageStats(userId: string): Promise<{monthlyMessageCount: number, monthlyMessageLimit: number, remaining: number}> {
+    await this.resetMonthlyUsageIfNeeded(userId);
+    
+    const user = await this.getUser(userId);
+    if (!user) {
+      return { monthlyMessageCount: 0, monthlyMessageLimit: 0, remaining: 0 };
+    }
+
+    const count = user.monthlyMessageCount || 0;
+    const limit = user.monthlyMessageLimit || 20;
+    
+    // Explicitly check for paid tier values to avoid undefined/null bugs
+    const paidTiers = ['basic', 'pro', 'institutional'];
+    const isPaidTier = user.subscriptionTier && paidTiers.includes(user.subscriptionTier);
+    const effectiveLimit = isPaidTier ? 999999 : limit;
+
+    return {
+      monthlyMessageCount: count,
+      monthlyMessageLimit: effectiveLimit,
+      remaining: Math.max(0, effectiveLimit - count),
+    };
   }
 
   // Stripe data queries (from stripe-replit-sync PostgreSQL tables)

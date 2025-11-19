@@ -79,6 +79,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get user usage statistics (voice messages)
+  app.get('/api/user/usage', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const stats = await storage.getUserUsageStats(userId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching usage stats:", error);
+      res.status(500).json({ message: "Failed to fetch usage stats" });
+    }
+  });
+
+  // Check if user can send voice message (and increment counter)
+  app.post('/api/user/check-voice-usage', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const result = await storage.checkAndIncrementVoiceUsage(userId);
+      
+      if (!result.allowed) {
+        return res.status(403).json({
+          allowed: false,
+          message: "Monthly voice message limit reached. Upgrade to continue using voice chat.",
+          remaining: result.remaining,
+          limit: result.limit,
+        });
+      }
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error checking voice usage:", error);
+      res.status(500).json({ message: "Failed to check voice usage" });
+    }
+  });
+
   // ===== Stripe Billing Routes =====
   
   // Middleware to check Stripe readiness for billing operations
