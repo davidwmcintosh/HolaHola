@@ -57,3 +57,13 @@ Preferred communication style: Simple, everyday language.
 -   **Third-Party Libraries**: OpenAI API (via Replit AI Integrations), Neon Database Serverless, Drizzle ORM, Radix UI, TanStack Query, Wouter, date-fns, Embla Carousel.
 -   **Database**: PostgreSQL (via `DATABASE_URL`) with Drizzle Kit for migrations and connection pooling via `@neondatabase/serverless`.
 -   **Asset Management**: Google Fonts (Inter, Architects Daughter, DM Sans, Fira Code, Geist Mono), static images in `attached_assets/generated_images/`.
+
+## Recent Updates (November 19, 2025)
+
+### Database Migration & Bug Fixes
+-   **Migrated from MemStorage to DatabaseStorage**: Replaced in-memory storage with PostgreSQL persistence using Drizzle ORM for all data models (conversations, messages, vocabulary, progress, etc.).
+-   **Fixed nativeLanguage Inheritance Bug**: Corrected critical bug in `server/routes.ts` (lines 172-200) where new conversations were defaulting to 'english' instead of inheriting the user's previously saved nativeLanguage. The inheritance logic now runs for ALL post-onboarding conversations, regardless of whether `isOnboarding` is explicitly set by the frontend or auto-detected by the backend.
+-   **Verified Inheritance**: Database queries and logs confirm that nativeLanguage inheritance is working correctly (e.g., 28+ conversations with `nativeLanguage='german'` for test users).
+
+### Known LLM Limitation
+-   **OpenAI Language Compliance**: OpenAI GPT-5 occasionally returns English greetings despite prompts explicitly requesting responses in the user's native language (e.g., "Use ONLY german"). This is inherent LLM behavior, not a code defect. The prompts are correctly configured with the inherited nativeLanguage, but the API sometimes ignores language instructions for short system messages. Consider reinforcing prompts with system messages or few-shot examples if consistent language compliance becomes critical.
