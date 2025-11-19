@@ -603,16 +603,23 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
       audioRecorderRef.current = null;
     }
     
+    // CRITICAL: Commit the audio buffer so OpenAI processes what we recorded
+    // In push-to-talk mode, we stop recording before server VAD detects end of speech,
+    // so we must explicitly commit and request a response
+    if (wsRef.current?.readyState === WebSocket.OPEN && speechDetectedRef.current) {
+      console.log('[VOICE CHAT] Committing audio buffer and requesting response');
+      wsRef.current.send(JSON.stringify({
+        type: "input_audio_buffer.commit"
+      }));
+      wsRef.current.send(JSON.stringify({
+        type: "response.create"
+      }));
+    }
+    
     // CRITICAL: Always set isRecording to false, even if no recorder exists
     // This prevents UI stuck in "recording" state when stop races with start
     setIsRecording(false);
     speechDetectedRef.current = false;
-    
-    // With server VAD enabled, OpenAI automatically:
-    // 1. Detects when you stop speaking
-    // 2. Commits the audio buffer
-    // 3. Creates a response
-    // We just need to stop the microphone - VAD handles the rest!
   };
 
   const toggleRecording = () => {
@@ -622,6 +629,44 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
       startRecording();
     }
   };
+
+  // Global keyboard listener for push-to-talk (spacebar works anywhere)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle spacebar if not in an input field and not already recording
+      if (e.code === 'Space' && 
+          !e.repeat && 
+          conversationId && 
+          capabilityAvailable && 
+          !isRecording &&
+          !(e.target instanceof HTMLInputElement) &&
+          !(e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        console.log('[GLOBAL KEYBOARD] Spacebar pressed, starting recording');
+        startRecording();
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      // Release spacebar to stop (only if currently recording)
+      if (e.code === 'Space' && 
+          isRecording &&
+          !(e.target instanceof HTMLInputElement) &&
+          !(e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        console.log('[GLOBAL KEYBOARD] Spacebar released, stopping recording');
+        stopRecording();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [conversationId, capabilityAvailable, isRecording]);
 
   // Connect to Realtime API when conversation is ready AND capability is confirmed
   useEffect(() => {
