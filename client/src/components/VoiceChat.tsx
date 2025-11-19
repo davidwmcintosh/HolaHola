@@ -672,6 +672,14 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
   useEffect(() => {
     let mounted = true;
     
+    // CRITICAL FIX: Close any existing WebSocket before creating a new one
+    // This prevents multiple simultaneous connections (e.g., from React StrictMode)
+    if (wsRef.current) {
+      console.log('[VOICE CHAT] Closing existing WebSocket before reconnecting...');
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    
     if (conversationId && mounted && capabilityAvailable) {
       connectToRealtimeAPI().catch((err) => {
         if (mounted) {
