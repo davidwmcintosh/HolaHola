@@ -8,6 +8,12 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
+import { useLogout } from "@/hooks/useLogout";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { UserCircle, Settings as SettingsIcon, LogOut } from "lucide-react";
+import { Link } from "wouter";
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/dashboard";
 import Chat from "@/pages/chat";
@@ -78,7 +84,10 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
           <div className="flex flex-col flex-1">
             <header className="flex items-center justify-between p-4 border-b sticky top-0 z-50 bg-background">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
-              <ThemeToggle />
+              <div className="flex items-center gap-3">
+                <ThemeToggle />
+                <UserMenu />
+              </div>
             </header>
             <main className="flex-1 overflow-auto">
               <div className="container mx-auto p-8 max-w-7xl">
@@ -89,6 +98,60 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
         </div>
       </SidebarProvider>
     </LanguageProvider>
+  );
+}
+
+function UserMenu() {
+  const { user } = useAuth();
+  const logoutMutation = useLogout();
+
+  if (!user) return null;
+
+  const initials = user.firstName && user.lastName
+    ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+    : user.email?.[0]?.toUpperCase() || "U";
+
+  const displayName = user.firstName && user.lastName
+    ? `${user.firstName} ${user.lastName}`
+    : user.email || "User";
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="relative h-9 w-9 rounded-full" data-testid="button-user-menu">
+          <Avatar className="h-9 w-9">
+            {user.profileImageUrl && <AvatarImage src={user.profileImageUrl} alt={displayName} />}
+            <AvatarFallback>{initials}</AvatarFallback>
+          </Avatar>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium" data-testid="text-user-name">{displayName}</p>
+            {user.email && (
+              <p className="text-xs text-muted-foreground" data-testid="text-user-email">{user.email}</p>
+            )}
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild data-testid="menu-item-settings">
+          <Link href="/settings">
+            <SettingsIcon className="mr-2 h-4 w-4" />
+            Settings
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem 
+          onClick={() => logoutMutation.mutate()} 
+          disabled={logoutMutation.isPending}
+          data-testid="menu-item-logout"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          {logoutMutation.isPending ? "Signing out..." : "Sign Out"}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
