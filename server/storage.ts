@@ -17,9 +17,20 @@ import {
   type InsertTopic,
   type CulturalTip,
   type InsertCulturalTip,
+  conversations,
+  messages,
+  vocabularyWords,
+  grammarExercises,
+  userProgress as userProgressTable,
+  progressHistory as progressHistoryTable,
+  pronunciationScores,
+  topics as topicsTable,
+  culturalTips as culturalTipsTable,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
+import { db } from "./db";
+import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Conversations
@@ -70,31 +81,18 @@ export interface IStorage {
   createCulturalTip(data: InsertCulturalTip): Promise<CulturalTip>;
 }
 
-export class MemStorage implements IStorage {
-  private conversations: Map<string, Conversation>;
-  private messages: Map<string, Message>;
-  private vocabularyWords: Map<string, VocabularyWord>;
-  private grammarExercises: Map<string, GrammarExercise>;
-  private userProgress: Map<string, UserProgress>;
-  private progressHistory: Map<string, ProgressHistory>;
-  private pronunciationScores: Map<string, PronunciationScore>;
-  private topics: Map<string, Topic>;
-  private culturalTips: Map<string, CulturalTip>;
-
+export class DatabaseStorage implements IStorage {
   constructor() {
-    this.conversations = new Map();
-    this.messages = new Map();
-    this.vocabularyWords = new Map();
-    this.grammarExercises = new Map();
-    this.userProgress = new Map();
-    this.progressHistory = new Map();
-    this.pronunciationScores = new Map();
-    this.topics = new Map();
-    this.culturalTips = new Map();
     this.seedData();
   }
 
-  private seedData() {
+  private async seedData() {
+    // Check if data already exists to avoid duplicates
+    const existingVocab = await db.select().from(vocabularyWords).limit(1);
+    if (existingVocab.length > 0) {
+      return;
+    }
+
     // Seed vocabulary words
     const spanishWords: InsertVocabularyWord[] = [
       { language: "spanish", word: "Hola", translation: "Hello", example: "Hola, ¿cómo estás?", pronunciation: "OH-lah", difficulty: "beginner" },
@@ -104,7 +102,9 @@ export class MemStorage implements IStorage {
       { language: "spanish", word: "Comida", translation: "Food", example: "La comida está deliciosa.", pronunciation: "koh-MEE-dah", difficulty: "intermediate" },
     ];
 
-    spanishWords.forEach(word => this.createVocabularyWord(word));
+    for (const word of spanishWords) {
+      await this.createVocabularyWord(word);
+    }
 
     // Seed grammar exercises
     const spanishGrammar: InsertGrammarExercise[] = [
@@ -126,7 +126,9 @@ export class MemStorage implements IStorage {
       },
     ];
 
-    spanishGrammar.forEach(exercise => this.createGrammarExercise(exercise));
+    for (const exercise of spanishGrammar) {
+      await this.createGrammarExercise(exercise);
+    }
 
     // Seed topics
     const initialTopics: InsertTopic[] = [
@@ -228,7 +230,9 @@ export class MemStorage implements IStorage {
       },
     ];
 
-    initialTopics.forEach(topic => this.createTopic(topic));
+    for (const topic of initialTopics) {
+      await this.createTopic(topic);
+    }
 
     // Seed cultural tips
     const culturalTips: InsertCulturalTip[] = [
@@ -413,189 +417,114 @@ export class MemStorage implements IStorage {
       },
     ];
 
-    culturalTips.forEach(tip => this.createCulturalTip(tip));
+    for (const tip of culturalTips) {
+      await this.createCulturalTip(tip);
+    }
   }
 
   async createConversation(data: InsertConversation): Promise<Conversation> {
-    const id = randomUUID();
-    const conversation: Conversation = {
-      id,
-      language: data.language,
-      nativeLanguage: data.nativeLanguage ?? "english",
-      difficulty: data.difficulty,
-      topic: data.topic ?? null,
-      title: data.title ?? null,
-      messageCount: data.messageCount ?? 0,
-      duration: data.duration ?? 0,
-      isOnboarding: data.isOnboarding ?? false,
-      onboardingStep: data.onboardingStep ?? null,
-      userName: data.userName ?? null,
-      successfulMessages: 0,
-      totalAssessedMessages: 0,
-      createdAt: new Date(),
-    };
-    this.conversations.set(id, conversation);
+    const [conversation] = await db.insert(conversations).values(data).returning();
     return conversation;
   }
 
   async getConversation(id: string): Promise<Conversation | undefined> {
-    return this.conversations.get(id);
+    const result = await db.select().from(conversations).where(eq(conversations.id, id));
+    return result[0];
   }
 
   async getAllConversations(): Promise<Conversation[]> {
-    return Array.from(this.conversations.values()).sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-    );
+    return await db.select().from(conversations).orderBy(desc(conversations.createdAt));
   }
 
   async getConversationsByLanguage(language: string): Promise<Conversation[]> {
-    return Array.from(this.conversations.values())
-      .filter(conv => conv.language === language)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return await db.select().from(conversations)
+      .where(eq(conversations.language, language))
+      .orderBy(desc(conversations.createdAt));
   }
 
   async getConversationByLanguageAndDifficulty(language: string, difficulty: string): Promise<Conversation | undefined> {
-    return Array.from(this.conversations.values()).find(
-      (conv) => conv.language === language && conv.difficulty === difficulty
-    );
+    const result = await db.select().from(conversations)
+      .where(and(eq(conversations.language, language), eq(conversations.difficulty, difficulty)));
+    return result[0];
   }
 
   async updateConversation(id: string, data: Partial<Conversation>): Promise<Conversation | undefined> {
-    const conversation = this.conversations.get(id);
-    if (!conversation) {
-      console.log('[STORAGE] updateConversation: conversation not found:', id);
-      return undefined;
-    }
-    
-    console.log('[STORAGE] updateConversation BEFORE:', {
-      id,
-      onboardingStep: conversation.onboardingStep,
-      userName: conversation.userName,
-      isOnboarding: conversation.isOnboarding
-    });
-    console.log('[STORAGE] updateConversation data to merge:', data);
-    
-    // Filter out undefined values to avoid overwriting existing data
     const filteredData = Object.fromEntries(
       Object.entries(data).filter(([_, value]) => value !== undefined)
     );
     
-    console.log('[STORAGE] updateConversation filteredData:', filteredData);
-    
-    const updated = { ...conversation, ...filteredData };
-    this.conversations.set(id, updated);
-    
-    console.log('[STORAGE] updateConversation AFTER:', {
-      id: updated.id,
-      onboardingStep: updated.onboardingStep,
-      userName: updated.userName,
-      isOnboarding: updated.isOnboarding
-    });
-    
-    // Verify it was actually saved
-    const verified = this.conversations.get(id);
-    console.log('[STORAGE] updateConversation VERIFIED from Map:', {
-      id: verified?.id,
-      onboardingStep: verified?.onboardingStep,
-      userName: verified?.userName,
-      isOnboarding: verified?.isOnboarding
-    });
+    const [updated] = await db.update(conversations)
+      .set(filteredData)
+      .where(eq(conversations.id, id))
+      .returning();
     
     return updated;
   }
 
   async deleteConversation(id: string): Promise<boolean> {
-    const conversation = this.conversations.get(id);
-    if (!conversation) {
-      return false;
-    }
-    
-    // Delete all messages for this conversation
-    const messages = await this.getMessagesByConversation(id);
-    messages.forEach(msg => this.messages.delete(msg.id));
-    
-    // Delete all pronunciation scores for this conversation
-    const scores = await this.getPronunciationScoresByConversation(id);
-    scores.forEach(score => this.pronunciationScores.delete(score.id));
-    
-    // Delete the conversation itself
-    this.conversations.delete(id);
-    return true;
+    await db.delete(messages).where(eq(messages.conversationId, id));
+    await db.delete(pronunciationScores).where(eq(pronunciationScores.conversationId, id));
+    const result = await db.delete(conversations).where(eq(conversations.id, id)).returning();
+    return result.length > 0;
   }
 
   async createMessage(data: InsertMessage): Promise<Message> {
-    const id = randomUUID();
-    const message: Message = {
-      ...data,
-      id,
-      performanceScore: data.performanceScore ?? null,
-      createdAt: new Date(),
-    };
-    this.messages.set(id, message);
+    const [message] = await db.insert(messages).values(data).returning();
 
-    // Update conversation stats
-    const conversation = this.conversations.get(data.conversationId);
+    const conversation = await this.getConversation(data.conversationId);
     if (conversation) {
-      conversation.messageCount += 1;
+      const allMessages = await this.getMessagesByConversation(data.conversationId);
       
-      // Calculate duration from first message to most recent message
-      const messages = await this.getMessagesByConversation(data.conversationId);
-      if (messages.length > 0) {
-        const firstMessage = messages[0];
-        const lastMessage = messages[messages.length - 1];
+      let duration = 0;
+      if (allMessages.length > 0) {
+        const firstMessage = allMessages[0];
+        const lastMessage = allMessages[allMessages.length - 1];
         const durationMs = new Date(lastMessage.createdAt).getTime() - new Date(firstMessage.createdAt).getTime();
-        conversation.duration = Math.floor(durationMs / 60000); // Convert to minutes
+        duration = Math.floor(durationMs / 60000);
       }
       
-      this.conversations.set(data.conversationId, conversation);
+      await this.updateConversation(data.conversationId, {
+        messageCount: conversation.messageCount + 1,
+        duration,
+      });
     }
 
     return message;
   }
 
   async getMessagesByConversation(conversationId: string): Promise<Message[]> {
-    return Array.from(this.messages.values())
-      .filter((msg) => msg.conversationId === conversationId)
-      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    return await db.select().from(messages)
+      .where(eq(messages.conversationId, conversationId))
+      .orderBy(messages.createdAt);
   }
 
   async updateMessage(id: string, data: Partial<Message>): Promise<Message | undefined> {
-    const message = this.messages.get(id);
-    if (!message) return undefined;
-    const updated = { ...message, ...data };
-    this.messages.set(id, updated);
+    const [updated] = await db.update(messages)
+      .set(data)
+      .where(eq(messages.id, id))
+      .returning();
     return updated;
   }
 
   async createVocabularyWord(data: InsertVocabularyWord): Promise<VocabularyWord> {
-    const id = randomUUID();
-    const now = new Date();
-    const word: VocabularyWord = { 
-      ...data, 
-      id,
-      // Initialize spaced repetition fields
-      nextReviewDate: now,
-      correctCount: 0,
-      incorrectCount: 0,
-      repetition: 0,
-      easeFactor: 2.5,
-      interval: 1,
-    };
-    this.vocabularyWords.set(id, word);
+    const [word] = await db.insert(vocabularyWords).values(data).returning();
     return word;
   }
 
   async getVocabularyWords(language: string, difficulty?: string): Promise<VocabularyWord[]> {
-    return Array.from(this.vocabularyWords.values()).filter(
-      (word) => word.language === language && (!difficulty || word.difficulty === difficulty)
-    );
+    if (difficulty) {
+      return await db.select().from(vocabularyWords)
+        .where(and(eq(vocabularyWords.language, language), eq(vocabularyWords.difficulty, difficulty)));
+    }
+    return await db.select().from(vocabularyWords)
+      .where(eq(vocabularyWords.language, language));
   }
 
   async updateVocabularyReview(id: string, isCorrect: boolean): Promise<VocabularyWord | undefined> {
-    const word = this.vocabularyWords.get(id);
+    const result = await db.select().from(vocabularyWords).where(eq(vocabularyWords.id, id));
+    const word = result[0];
     if (!word) return undefined;
 
-    // Calculate next review using SM-2 algorithm
     const currentState = {
       easeFactor: word.easeFactor,
       interval: word.interval,
@@ -604,78 +533,61 @@ export class MemStorage implements IStorage {
       repetition: word.repetition,
     };
 
-    const result = isCorrect ? markCorrect(currentState) : markIncorrect(currentState);
+    const reviewResult = isCorrect ? markCorrect(currentState) : markIncorrect(currentState);
 
-    // Update word with new review data
-    const updated: VocabularyWord = {
-      ...word,
-      nextReviewDate: result.nextReviewDate,
-      easeFactor: result.easeFactor,
-      interval: result.interval,
-      correctCount: result.correctCount,
-      incorrectCount: result.incorrectCount,
-      repetition: result.repetition,
-    };
+    const [updated] = await db.update(vocabularyWords)
+      .set({
+        nextReviewDate: reviewResult.nextReviewDate,
+        easeFactor: reviewResult.easeFactor,
+        interval: reviewResult.interval,
+        correctCount: reviewResult.correctCount,
+        incorrectCount: reviewResult.incorrectCount,
+        repetition: reviewResult.repetition,
+      })
+      .where(eq(vocabularyWords.id, id))
+      .returning();
 
-    this.vocabularyWords.set(id, updated);
     return updated;
   }
 
   async createGrammarExercise(data: InsertGrammarExercise): Promise<GrammarExercise> {
-    const id = randomUUID();
-    const exercise: GrammarExercise = { ...data, id };
-    this.grammarExercises.set(id, exercise);
+    const [exercise] = await db.insert(grammarExercises).values(data).returning();
     return exercise;
   }
 
   async getGrammarExercises(language: string, difficulty?: string): Promise<GrammarExercise[]> {
-    return Array.from(this.grammarExercises.values()).filter(
-      (ex) => ex.language === language && (!difficulty || ex.difficulty === difficulty)
-    );
+    if (difficulty) {
+      return await db.select().from(grammarExercises)
+        .where(and(eq(grammarExercises.language, language), eq(grammarExercises.difficulty, difficulty)));
+    }
+    return await db.select().from(grammarExercises)
+      .where(eq(grammarExercises.language, language));
   }
 
   async getOrCreateUserProgress(language: string): Promise<UserProgress> {
-    const existing = Array.from(this.userProgress.values()).find(
-      (p) => p.language === language
-    );
-    if (existing) return existing;
+    const result = await db.select().from(userProgressTable)
+      .where(eq(userProgressTable.language, language));
+    
+    if (result.length > 0) {
+      return result[0];
+    }
 
-    const id = randomUUID();
-    const progress: UserProgress = {
-      id,
-      language,
-      wordsLearned: 0,
-      practiceMinutes: 0,
-      currentStreak: 0,
-      longestStreak: 0,
-      totalPracticeDays: 0,
-      lastPracticeDate: null,
-      suggestedDifficulty: null,
-      lastDifficultyAdjustment: null,
-    };
-    this.userProgress.set(id, progress);
+    const [progress] = await db.insert(userProgressTable)
+      .values({ language })
+      .returning();
     return progress;
   }
 
   async updateUserProgress(id: string, data: Partial<UserProgress>): Promise<UserProgress | undefined> {
-    const progress = this.userProgress.get(id);
-    if (!progress) return undefined;
-    const updated = { ...progress, ...data };
-    this.userProgress.set(id, updated);
+    const [updated] = await db.update(userProgressTable)
+      .set(data)
+      .where(eq(userProgressTable.id, id))
+      .returning();
     return updated;
   }
 
   async createProgressHistory(data: InsertProgressHistory): Promise<ProgressHistory> {
-    const id = randomUUID();
-    const history: ProgressHistory = {
-      id,
-      language: data.language,
-      date: data.date,
-      wordsLearned: data.wordsLearned ?? 0,
-      practiceMinutes: data.practiceMinutes ?? 0,
-      conversationsCount: data.conversationsCount ?? 0,
-    };
-    this.progressHistory.set(id, history);
+    const [history] = await db.insert(progressHistoryTable).values(data).returning();
     return history;
   }
 
@@ -683,33 +595,29 @@ export class MemStorage implements IStorage {
     const now = new Date();
     const cutoffDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
     
-    return Array.from(this.progressHistory.values())
-      .filter((h) => h.language === language && new Date(h.date) >= cutoffDate)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    return await db.select().from(progressHistoryTable)
+      .where(and(
+        eq(progressHistoryTable.language, language),
+        gte(progressHistoryTable.date, cutoffDate)
+      ))
+      .orderBy(progressHistoryTable.date);
   }
 
   async createPronunciationScore(data: InsertPronunciationScore): Promise<PronunciationScore> {
-    const id = randomUUID();
-    const score: PronunciationScore = {
-      ...data,
-      id,
-      phoneticIssues: data.phoneticIssues ?? null,
-      targetPhrase: data.targetPhrase ?? null,
-      createdAt: new Date(),
-    };
-    this.pronunciationScores.set(id, score);
+    const [score] = await db.insert(pronunciationScores).values(data).returning();
     return score;
   }
 
   async getPronunciationScoresByConversation(conversationId: string): Promise<PronunciationScore[]> {
-    return Array.from(this.pronunciationScores.values())
-      .filter((score) => score.conversationId === conversationId)
-      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    return await db.select().from(pronunciationScores)
+      .where(eq(pronunciationScores.conversationId, conversationId))
+      .orderBy(pronunciationScores.createdAt);
   }
 
   async getPronunciationScoreByMessage(messageId: string): Promise<PronunciationScore | undefined> {
-    return Array.from(this.pronunciationScores.values())
-      .find((score) => score.messageId === messageId);
+    const result = await db.select().from(pronunciationScores)
+      .where(eq(pronunciationScores.messageId, messageId));
+    return result[0];
   }
 
   async getPronunciationScoreStats(conversationId: string): Promise<{ averageScore: number; totalScores: number }> {
@@ -725,43 +633,33 @@ export class MemStorage implements IStorage {
   }
 
   async getTopics(): Promise<Topic[]> {
-    return Array.from(this.topics.values());
+    return await db.select().from(topicsTable);
   }
 
   async getTopic(id: string): Promise<Topic | undefined> {
-    return this.topics.get(id);
+    const result = await db.select().from(topicsTable).where(eq(topicsTable.id, id));
+    return result[0];
   }
 
   async createTopic(data: InsertTopic): Promise<Topic> {
-    const id = randomUUID();
-    const topic: Topic = {
-      ...data,
-      id,
-      difficulty: data.difficulty ?? null,
-    };
-    this.topics.set(id, topic);
+    const [topic] = await db.insert(topicsTable).values(data).returning();
     return topic;
   }
 
   async getCulturalTips(language: string): Promise<CulturalTip[]> {
-    return Array.from(this.culturalTips.values())
-      .filter((tip) => tip.language === language);
+    return await db.select().from(culturalTipsTable)
+      .where(eq(culturalTipsTable.language, language));
   }
 
   async getCulturalTip(id: string): Promise<CulturalTip | undefined> {
-    return this.culturalTips.get(id);
+    const result = await db.select().from(culturalTipsTable).where(eq(culturalTipsTable.id, id));
+    return result[0];
   }
 
   async createCulturalTip(data: InsertCulturalTip): Promise<CulturalTip> {
-    const id = randomUUID();
-    const culturalTip: CulturalTip = {
-      ...data,
-      id,
-      relatedTopics: data.relatedTopics ?? null,
-    };
-    this.culturalTips.set(id, culturalTip);
+    const [culturalTip] = await db.insert(culturalTipsTable).values(data).returning();
     return culturalTip;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
