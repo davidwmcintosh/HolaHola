@@ -46,12 +46,15 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
   const [capabilityCode, setCapabilityCode] = useState<string | null>(null);
   const [isCheckingCapability, setIsCheckingCapability] = useState(false);
   const [pronunciationScores, setPronunciationScores] = useState<Map<string, PronunciationScoreData>>(new Map());
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
   
   const wsRef = useRef<WebSocket | null>(null);
   const audioRecorderRef = useRef<AudioRecorder | null>(null);
   const audioPlayerRef = useRef<AudioPlayer | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isReconnectingRef = useRef<boolean>(false);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check Realtime API capability
   const checkCapability = useCallback(async (forceRecheck = false) => {
@@ -143,6 +146,14 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
           if (isReconnectingRef.current) {
             setError(null);
             isReconnectingRef.current = false;
+          }
+          
+          // Reset retry count on successful connection
+          setRetryCount(0);
+          setIsRetrying(false);
+          if (retryTimeoutRef.current) {
+            clearTimeout(retryTimeoutRef.current);
+            retryTimeoutRef.current = null;
           }
           
           // Session configuration is handled by the backend proxy
@@ -254,9 +265,42 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
               friendlyMessage = 'OpenAI servers are experiencing issues';
               suggestions = [
                 'This is a temporary OpenAI server problem',
-                'Wait a few moments and try again',
-                'Use text chat mode in the meantime'
+                'Automatically retrying...',
+                'Use text chat mode as an alternative'
               ];
+              
+              // Automatically retry on server errors (OpenAI service issues)
+              const maxRetries = 3;
+              if (retryCount < maxRetries) {
+                const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff, max 10s
+                setIsRetrying(true);
+                setRetryCount(prev => prev + 1);
+                
+                console.log(`Retrying connection in ${retryDelay}ms (attempt ${retryCount + 1}/${maxRetries})`);
+                
+                // Clear any existing retry timeout
+                if (retryTimeoutRef.current) {
+                  clearTimeout(retryTimeoutRef.current);
+                }
+                
+                retryTimeoutRef.current = setTimeout(async () => {
+                  try {
+                    ws.close(); // Close the failed connection
+                    await connectToRealtimeAPI(); // Reconnect
+                    setIsRetrying(false);
+                    setError(null);
+                  } catch (err) {
+                    console.error('Retry failed:', err);
+                    setIsRetrying(false);
+                  }
+                }, retryDelay);
+              } else {
+                suggestions = [
+                  'Multiple retry attempts failed',
+                  'OpenAI servers may be down',
+                  'Please use text chat mode or try again later'
+                ];
+              }
             } else if (errorType === 'invalid_request_error') {
               friendlyMessage = 'Invalid API request';
               suggestions = [
@@ -417,6 +461,10 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
       if (audioRecorderRef.current) {
         audioRecorderRef.current.stopRecording();
         audioRecorderRef.current = null;
+      }
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
       }
     };
   }, [conversationId, capabilityAvailable, connectToRealtimeAPI]);
@@ -592,8 +640,19 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
                   <div className="mt-4 flex gap-2">
                     <Button 
                       size="sm" 
-                      variant="outline" 
+                      variant="outline"
+                      disabled={isRetrying}
                       onClick={() => {
+                        // Cancel ongoing retry
+                        if (retryTimeoutRef.current) {
+                          clearTimeout(retryTimeoutRef.current);
+                          retryTimeoutRef.current = null;
+                        }
+                        
+                        // Reset retry state
+                        setRetryCount(0);
+                        setIsRetrying(true);
+                        
                         // Set reconnecting flag before closing to prevent error message
                         isReconnectingRef.current = true;
                         
@@ -605,6 +664,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
                         connectToRealtimeAPI().catch((err) => {
                           console.error('Retry failed:', err);
                           isReconnectingRef.current = false;
+                          setIsRetrying(false);
                           // Show error if retry fails
                           setError(JSON.stringify({
                             type: 'openai_error',
@@ -622,12 +682,27 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
                       }}
                       data-testid="button-retry-voice"
                     >
-                      Try Again
+                      {isRetrying ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Retrying...
+                        </>
+                      ) : (
+                        'Try Again'
+                      )}
                     </Button>
                     <Button 
                       size="sm" 
                       variant="outline"
-                      onClick={() => setError(null)}
+                      onClick={() => {
+                        setError(null);
+                        setRetryCount(0);
+                        setIsRetrying(false);
+                        if (retryTimeoutRef.current) {
+                          clearTimeout(retryTimeoutRef.current);
+                          retryTimeoutRef.current = null;
+                        }
+                      }}
                       data-testid="button-dismiss-error"
                     >
                       Dismiss
