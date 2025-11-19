@@ -53,21 +53,48 @@ export function setupRealtimeProxy(server: Server) {
       }
 
       // Use latest stable preview model (Dec 2024 release)
-      // Note: ALL Realtime API models experiencing server errors as of Nov 19, 2024
-      // This affects: gpt-realtime, gpt-4o-realtime-preview-2024-12-17, -2024-10-01, -2025-09-25 mini
-      // Connection succeeds, session creates, then immediate server_error from OpenAI
-      const model = 'gpt-4o-realtime-preview-2024-12-17';  // Latest stable preview (Dec 2024)
+      const model = 'gpt-4o-realtime-preview-2024-12-17';
 
       console.log(`Using model: ${model} for tier: ${subscriptionTier}`);
 
-      // Connect to OpenAI Realtime API using user's API key
-      // USER_OPENAI_API_KEY is the user's personal OpenAI key with Realtime API access
+      // CRITICAL FIX: Create ephemeral session FIRST using REST API
+      // The playground uses this approach - not direct WebSocket!
+      console.log('Creating ephemeral Realtime session via REST...');
       const apiKey = process.env.USER_OPENAI_API_KEY;
+      
+      const sessionResponse = await fetch('https://api.openai.com/v1/realtime/sessions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model,
+          voice: 'alloy'
+        })
+      });
+
+      if (!sessionResponse.ok) {
+        const errorText = await sessionResponse.text();
+        console.error('Failed to create Realtime session:', sessionResponse.status, errorText);
+        clientWs.send(JSON.stringify({
+          type: 'error',
+          error: { message: `Failed to create session: ${errorText}` }
+        }));
+        clientWs.close();
+        return;
+      }
+
+      const sessionData = await sessionResponse.json();
+      const ephemeralToken = sessionData.client_secret.value;
+      console.log('✓ Ephemeral session created successfully');
+
+      // Now connect to WebSocket using ephemeral token
       const wsUrl = `wss://api.openai.com/v1/realtime?model=${model}`;
       
       const openaiWs = new WS(wsUrl, {
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${ephemeralToken}`,
           'OpenAI-Beta': 'realtime=v1',
         },
       });
