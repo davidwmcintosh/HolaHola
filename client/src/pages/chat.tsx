@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { ChatInterface } from "@/components/ChatInterface";
 import { VoiceChat } from "@/components/VoiceChat";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Mic } from "lucide-react";
+import { MessageSquare, Mic, Plus } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -75,26 +75,42 @@ export default function Chat() {
     }
   }, [language, difficulty, userName, conversationId, isCreatingConversation, currentConversationOnboarding]);
 
+  const handleNewChat = () => {
+    console.log('[SHARED CHAT] User requested new chat - resetting conversation');
+    setConversationId(null);
+  };
+
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-center gap-2 p-4 border-b">
+      <div className="flex items-center justify-between gap-2 p-4 border-b">
+        <div className="flex items-center gap-2">
+          <Button
+            variant={mode === "text" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setMode("text")}
+            data-testid="button-text-mode"
+          >
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Text
+          </Button>
+          <Button
+            variant={mode === "voice" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setMode("voice")}
+            data-testid="button-voice-mode"
+          >
+            <Mic className="h-4 w-4 mr-2" />
+            Voice
+          </Button>
+        </div>
         <Button
-          variant={mode === "text" ? "default" : "outline"}
+          variant="outline"
           size="sm"
-          onClick={() => setMode("text")}
-          data-testid="button-text-mode"
+          onClick={handleNewChat}
+          data-testid="button-new-chat"
         >
-          <MessageSquare className="h-4 w-4 mr-2" />
-          Text
-        </Button>
-        <Button
-          variant={mode === "voice" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setMode("voice")}
-          data-testid="button-voice-mode"
-        >
-          <Mic className="h-4 w-4 mr-2" />
-          Voice
+          <Plus className="h-4 w-4 mr-2" />
+          New Chat
         </Button>
       </div>
       <div className="flex-1 overflow-hidden">
