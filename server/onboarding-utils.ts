@@ -252,3 +252,81 @@ export async function detectLanguage(
   const result = JSON.parse(completion.choices[0]?.message?.content || "{}");
   return result as LanguageDetectionResult;
 }
+
+export interface NativeLanguageChangeRequest {
+  wantsToChange: boolean;
+  newNativeLanguage: string | null;
+  confidence: "high" | "medium" | "low";
+}
+
+/**
+ * Detect if user is requesting to change their native language
+ */
+export async function detectNativeLanguageChangeRequest(
+  openai: OpenAI,
+  userMessage: string,
+  currentNativeLanguage: string
+): Promise<NativeLanguageChangeRequest> {
+  const supportedNativeLanguages = [
+    "english", "spanish", "french", "german", "italian", 
+    "portuguese", "japanese", "mandarin", "korean", "arabic", "russian", "hindi"
+  ];
+
+  console.log('[NATIVE-LANG-CHANGE] Checking message:', userMessage);
+  console.log('[NATIVE-LANG-CHANGE] Current native language:', currentNativeLanguage);
+  
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5",
+    messages: [
+      {
+        role: "system",
+        content: `You detect if a user wants to CHANGE their native language preference. Their current native language is "${currentNativeLanguage}". 
+
+Look for requests like:
+- "Change my native language to English"
+- "Can you explain in Spanish instead?"
+- "Switch to French explanations"
+- "I want instructions in German"
+
+Supported languages: ${supportedNativeLanguages.join(", ")}
+
+IMPORTANT: Only set wantsToChange=true if they're explicitly requesting a CHANGE to a different language. Don't trigger for general conversation about languages.`
+      },
+      {
+        role: "user",
+        content: `Does this message request a native language change: "${userMessage}"`
+      }
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "native_language_change_detection",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            wantsToChange: {
+              type: "boolean",
+              description: "Whether the user is requesting to change their native language"
+            },
+            newNativeLanguage: {
+              type: ["string", "null"],
+              description: `The new native language they want (one of: ${supportedNativeLanguages.join(", ")}), in lowercase, or null if not requesting change`
+            },
+            confidence: {
+              type: "string",
+              enum: ["high", "medium", "low"],
+              description: "Confidence in the detected change request"
+            }
+          },
+          required: ["wantsToChange", "newNativeLanguage", "confidence"],
+          additionalProperties: false
+        }
+      }
+    }
+  });
+  
+  const result = JSON.parse(completion.choices[0]?.message?.content || "{}");
+  console.log('[NATIVE-LANG-CHANGE] Detection result:', JSON.stringify(result));
+  return result as NativeLanguageChangeRequest;
+}

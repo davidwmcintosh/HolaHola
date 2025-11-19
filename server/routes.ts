@@ -14,6 +14,7 @@ import {
   extractLanguageFromMessage,
   extractNativeLanguageFromMessage,
   detectLanguage,
+  detectNativeLanguageChangeRequest,
 } from "./onboarding-utils";
 import { createSystemPrompt } from "./system-prompt";
 import { assessMessage, analyzePerformance } from "./difficulty-adjustment";
@@ -658,6 +659,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           languageSwitchNote = `I notice you're practicing ${languageDetection.detectedLanguage}. I've switched our conversation to focus on that language. `;
         }
+      }
+
+      // Detect if user is requesting to change their native language
+      const nativeLanguageChangeRequest = await detectNativeLanguageChangeRequest(
+        openai,
+        messageData.content,
+        updatedConversation.nativeLanguage || "english"
+      );
+
+      if (nativeLanguageChangeRequest.wantsToChange && 
+          nativeLanguageChangeRequest.newNativeLanguage &&
+          nativeLanguageChangeRequest.confidence !== "low") {
+        
+        console.log('[NATIVE-LANG-CHANGE] Changing native language from', updatedConversation.nativeLanguage, 'to', nativeLanguageChangeRequest.newNativeLanguage);
+        
+        updatedConversation = await storage.updateConversation(conversationId, {
+          nativeLanguage: nativeLanguageChangeRequest.newNativeLanguage,
+        }) || updatedConversation;
+        
+        languageSwitchNote += `I've switched the explanations to ${nativeLanguageChangeRequest.newNativeLanguage}. Let's continue! `;
       }
 
       // Fetch previous conversations for this user and language (for conversation switching)
