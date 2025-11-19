@@ -1024,9 +1024,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     required: ["word", "translation", "example", "pronunciation"],
                     additionalProperties: false
                   }
+                },
+                media: {
+                  type: "array",
+                  description: "Images to display with this message (0-2 images max). Use stock for common vocabulary, ai_generated for scenarios/culture.",
+                  items: {
+                    type: "object",
+                    properties: {
+                      type: {
+                        type: "string",
+                        enum: ["stock", "ai_generated"],
+                        description: "stock for common objects/vocabulary, ai_generated for specific scenarios/cultural contexts"
+                      },
+                      query: {
+                        type: "string",
+                        description: "Search query for stock images (e.g., 'red apple', 'french cafe', 'happy person')"
+                      },
+                      prompt: {
+                        type: "string",
+                        description: "DALL-E prompt for AI-generated images (e.g., 'A cozy Parisian cafe with outdoor seating')"
+                      },
+                      alt: {
+                        type: "string",
+                        description: "Alt text describing the image for accessibility"
+                      }
+                    },
+                    required: ["type", "alt"],
+                    additionalProperties: false
+                  }
                 }
               },
-              required: ["message", "vocabulary"],
+              required: ["message", "vocabulary", "media"],
               additionalProperties: false
             }
           }

@@ -132,6 +132,49 @@ CULTURAL CATEGORIES TO DRAW FROM:
 Keep cultural insights authentic, respectful, and directly tied to language learning. Cultural context should enhance understanding, not distract from the lesson.
 `;
 
+  // Multimedia guidance for engaging visual learning
+  const multimediaGuidance = `
+MULTIMEDIA VISUAL LEARNING:
+You can include images to make learning more engaging and memorable. Use images strategically to enhance understanding:
+
+WHEN TO INCLUDE IMAGES (0-2 images max per response):
+- Teaching concrete vocabulary (objects, food, animals, colors, emotions)
+- Describing scenarios or situations (ordering at a restaurant, at the airport)
+- Cultural contexts (traditional festivals, architecture, customs)
+- Actions and verbs (running, eating, dancing)
+- NOT needed for: abstract concepts, grammar rules, simple greetings
+
+IMAGE TYPES:
+1. **Stock Images** (use for common vocabulary):
+   - Everyday objects: "apple", "book", "car", "house"
+   - Foods and drinks: "pizza", "coffee", "bread"
+   - Animals: "dog", "cat", "bird"
+   - Emotions: "happy person", "sad person"
+   - Colors and basic concepts
+   - Use simple, clear search queries: "red apple", "smiling woman", "french cafe"
+
+2. **AI-Generated Images** (use for specific scenarios):
+   - Cultural scenes: "Traditional Japanese tea ceremony", "Spanish plaza with outdoor dining"
+   - Specific situations: "Job interview in a modern office", "Family dinner at home in Italy"
+   - Teaching scenarios: "Person ordering food at a German bakery", "Friends greeting with cheek kisses in France"
+   - Complex compositions that need specific details
+   - Use detailed, descriptive prompts for best results
+
+BEST PRACTICES:
+- Include images when they ADD VALUE, not just for decoration
+- Choose the right type: stock for simple vocabulary, AI-generated for scenarios
+- Always provide descriptive alt text for accessibility
+- Keep it relevant to what you're actively teaching
+- Don't overuse - 1 well-chosen image is better than 2 mediocre ones
+
+EXAMPLES:
+✓ GOOD: Teaching "manzana" → stock image query: "red apple"
+✓ GOOD: Teaching restaurant scenario → AI prompt: "Cozy Spanish restaurant interior with waiter taking order from customers"
+✓ GOOD: Teaching emotions → stock image query: "happy person smiling"
+✗ AVOID: Adding images to every message (overwhelming)
+✗ AVOID: Generic images that don't match the lesson content
+`;
+
   // Conversation switching protocol
   const conversationSwitchingProtocol = previousConversations && previousConversations.length > 0 ? `
 
@@ -205,6 +248,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 CURRENT PHASE: Initial Assessment (${nativeLanguageName})
 ${vocabularyReviewContext}
 ${culturalGuidelines}
+${multimediaGuidance}
 Your goal in this phase is to quickly build rapport and understand the student's key interests through brief, natural conversation.
 
 Conversation Flow (Messages 1-5):
@@ -316,8 +360,9 @@ ${isVoiceMode ? `VOICE MODE NOTE: Use natural, conversational spoken language. A
 You must respond with a JSON object containing:
 - message: Your conversational response (primarily in English with 1-2 encouraging ${languageName} words with inline translations)
 - vocabulary: Array of any new ${languageName} words you introduce (with word, translation, example, pronunciation)
+- media: Array of 0-2 images (stock for common vocabulary, ai_generated for scenarios/culture). Usually empty in Phase 1 since you're not teaching vocabulary yet.
 
-During this phase, vocabulary array will typically be empty since you're only using encouraging words, not teaching formal vocabulary. Only include items if the student spontaneously attempts ${languageName} and you want to teach them something.`}
+During this phase, vocabulary and media arrays will typically be empty since you're only using encouraging words, not teaching formal vocabulary. Only include items if the student spontaneously attempts ${languageName} and you want to teach them something.`}
 
 Remember: You're a friendly tutor getting to know a new student, not conducting an exam.`;
   }
@@ -336,6 +381,7 @@ CURRENT PHASE: Gradual Transition (Gentle Introduction to ${languageName})
 ${topicContext}
 ${vocabularyReviewContext}
 ${culturalGuidelines}
+${multimediaGuidance}
 You've gotten to know the student. Now begin very gently introducing ${languageName} into your conversations.${structuredListenRepeat}
 
 Progression Strategy (Messages 6-10):
@@ -497,8 +543,9 @@ ${isVoiceMode ? `VOICE MODE NOTE: Use natural, conversational spoken language. S
 You must respond with a JSON object containing:
 - message: Your conversational response (gentle mix of English and ${languageName})
 - vocabulary: Array of new ${languageName} words you introduce (with word, translation, example, pronunciation)
+- media: Array of 0-2 images to enhance learning (stock for common vocabulary, ai_generated for scenarios/culture)
 
-Include ONLY 1 vocabulary item per response - teach one concept, let them practice, then move to the next in a future message.`}`;
+Include ONLY 1 vocabulary item per response - teach one concept, let them practice, then move to the next in a future message. When teaching concrete vocabulary (food, objects, animals), consider including a stock image to make it memorable.`}`;
   }
 
   // Phase 3: Immersion (message 11+ / messageCount 10+) - Primarily target language with adaptive difficulty
@@ -526,6 +573,7 @@ CURRENT PHASE: Active Practice (Primarily ${languageName})
 ${topicContext}
 ${vocabularyReviewContext}
 ${culturalGuidelines}
+${multimediaGuidance}
 ${conversationSwitchingProtocol}
 You've assessed the student's level and are now engaging in primarily ${languageName} conversation.
 
@@ -766,8 +814,9 @@ ${isVoiceMode ? `VOICE MODE NOTE: Keep responses natural and conversational for 
 You must respond with a JSON object containing:
 - message: Your conversational response (primarily in ${languageName})
 - vocabulary: Array of new or challenging words you use (with word, translation, example, pronunciation)
+- media: Array of 0-2 images to enhance learning (stock for common vocabulary, ai_generated for scenarios/culture)
 
-Actively identify vocabulary in your responses. Include 2-4 vocabulary items per response when appropriate, focusing on words that match the ${difficulty} difficulty level.`}
+Actively identify vocabulary in your responses. Include 2-4 vocabulary items per response when appropriate, focusing on words that match the ${difficulty} difficulty level. When teaching concrete vocabulary or cultural scenarios, consider adding relevant images to boost engagement and retention.`}
 
 Remember: You're creating a safe, supportive environment where making mistakes is part of learning.`;
 }
