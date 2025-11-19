@@ -55,6 +55,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
   const scrollRef = useRef<HTMLDivElement>(null);
   const isReconnectingRef = useRef<boolean>(false);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const speechDetectedRef = useRef<boolean>(false);
 
   // Check Realtime API capability
   const checkCapability = useCallback(async (forceRecheck = false) => {
@@ -207,10 +208,12 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
             
           case "input_audio_buffer.speech_started":
             console.log('Speech started');
+            speechDetectedRef.current = true;
             break;
             
           case "input_audio_buffer.speech_stopped":
             console.log('Speech stopped');
+            // VAD automatically commits when speech stops, no manual action needed
             break;
             
           case "conversation.item.input_audio_transcription.completed":
@@ -447,9 +450,17 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
       audioRecorderRef.current = null;
     }
     
-    // With server VAD enabled, OpenAI automatically detects when speech stops
-    // and commits the buffer. We don't need to manually commit.
-    // Just stop the microphone recording.
+    // If speech was detected, manually commit and request response
+    // (VAD auto-commits on silence, but we're manually stopping)
+    if (wsRef.current?.readyState === WebSocket.OPEN && speechDetectedRef.current) {
+      wsRef.current.send(JSON.stringify({
+        type: "input_audio_buffer.commit",
+      }));
+      wsRef.current.send(JSON.stringify({
+        type: "response.create",
+      }));
+      speechDetectedRef.current = false; // Reset for next recording
+    }
     
     setIsRecording(false);
   };
