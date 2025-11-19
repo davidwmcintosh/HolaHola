@@ -54,9 +54,10 @@ export function setupRealtimeProxy(server: Server) {
 
       // Select model based on subscription tier
       // Pro tier gets premium GPT-4o, Free/Basic/Institutional get cost-effective GPT-4o-mini
+      // Using specific snapshot versions for stability
       const model = subscriptionTier === 'pro' 
-        ? 'gpt-4o-realtime-preview'  // GPT-4o Realtime (premium)
-        : 'gpt-4o-mini-realtime-preview';  // GPT-4o-mini Realtime (cost-effective)
+        ? 'gpt-4o-realtime-preview-2024-12-17'  // GPT-4o Realtime snapshot
+        : 'gpt-4o-mini-realtime-preview-2024-12-17';  // GPT-4o-mini Realtime snapshot
 
       console.log(`Using model: ${model} for tier: ${subscriptionTier}`);
 
