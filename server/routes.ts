@@ -1104,62 +1104,151 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const item of mediaItems.slice(0, 2)) { // Max 2 images per message
           try {
             if (item.type === "stock" && item.query) {
-              // Fetch stock image from Unsplash
-              const unsplashAccessKey = process.env.UNSPLASH_ACCESS_KEY;
-              if (!unsplashAccessKey) {
-                console.warn('[MULTIMEDIA] Unsplash API key not configured, skipping stock image');
-                continue;
-              }
+              // Check cache first for stock images
+              const cachedImage = await storage.getCachedStockImage(item.query);
               
-              const response = await fetch(
-                `https://api.unsplash.com/photos/random?query=${encodeURIComponent(item.query)}&orientation=landscape&content_filter=high`,
-                {
-                  headers: {
-                    'Authorization': `Client-ID ${unsplashAccessKey}`,
-                    'Accept-Version': 'v1'
-                  }
-                }
-              );
-              
-              if (response.ok) {
-                const data = await response.json();
+              if (cachedImage) {
+                // Cache hit! Use cached image and increment usage
+                console.log('[CACHE HIT] Found cached stock image for query:', item.query, '(usage:', cachedImage.usageCount, ')');
+                await storage.incrementImageUsage(cachedImage.id);
+                
+                // Parse attribution from JSON
+                const attribution = cachedImage.attributionJson 
+                  ? JSON.parse(cachedImage.attributionJson)
+                  : undefined;
+                
                 processedMedia.push({
                   type: "stock",
                   query: item.query,
-                  url: data.urls.regular,
-                  thumbnailUrl: data.urls.small,
-                  altText: item.alt || data.alt_description || item.query,
-                  attribution: {
+                  url: cachedImage.url,
+                  thumbnailUrl: cachedImage.thumbnailUrl || undefined,
+                  altText: item.alt || cachedImage.description || item.query,
+                  attribution
+                });
+              } else {
+                // Cache miss - fetch from Unsplash
+                console.log('[CACHE MISS] Fetching new stock image for query:', item.query);
+                const unsplashAccessKey = process.env.UNSPLASH_ACCESS_KEY;
+                if (!unsplashAccessKey) {
+                  console.warn('[MULTIMEDIA] Unsplash API key not configured, skipping stock image');
+                  continue;
+                }
+                
+                const response = await fetch(
+                  `https://api.unsplash.com/photos/random?query=${encodeURIComponent(item.query)}&orientation=landscape&content_filter=high`,
+                  {
+                    headers: {
+                      'Authorization': `Client-ID ${unsplashAccessKey}`,
+                      'Accept-Version': 'v1'
+                    }
+                  }
+                );
+                
+                if (response.ok) {
+                  const data = await response.json();
+                  const attribution = {
                     photographer: data.user.name,
                     photographerUrl: data.user.links.html,
                     unsplashUrl: data.links.html
+                  };
+                  
+                  processedMedia.push({
+                    type: "stock",
+                    query: item.query,
+                    url: data.urls.regular,
+                    thumbnailUrl: data.urls.small,
+                    altText: item.alt || data.alt_description || item.query,
+                    attribution
+                  });
+                  
+                  // Cache the image for future use
+                  try {
+                    await storage.cacheImage({
+                      uploadedBy: null, // System-cached image
+                      mediaType: "image",
+                      url: data.urls.regular,
+                      thumbnailUrl: data.urls.small,
+                      filename: `stock-${item.query.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.jpg`,
+                      mimeType: "image/jpeg",
+                      description: data.alt_description || item.query,
+                      imageSource: "stock",
+                      searchQuery: item.query,
+                      attributionJson: JSON.stringify(attribution),
+                      usageCount: 1
+                    });
+                    console.log('[CACHE STORE] Cached stock image for query:', item.query);
+                  } catch (cacheError) {
+                    console.error('[CACHE STORE] Failed to cache stock image:', cacheError);
+                    // Don't fail the request if caching fails
                   }
-                });
-              } else {
-                console.warn('[MULTIMEDIA] Failed to fetch stock image for query:', item.query);
+                } else {
+                  console.warn('[MULTIMEDIA] Failed to fetch stock image for query:', item.query);
+                }
               }
             } else if (item.type === "ai_generated" && item.prompt) {
-              // Generate AI image with DALL-E
-              const enhancedPrompt = `${item.prompt}. Educational illustration style, clear and engaging, suitable for language learning.`;
+              // Create hash of the prompt for cache lookups
+              const crypto = await import('crypto');
+              const promptHash = crypto.createHash('sha256').update(item.prompt).digest('hex');
               
-              const imageResponse = await openai.images.generate({
-                model: "gpt-image-1",
-                prompt: enhancedPrompt,
-                n: 1,
-                size: "1024x1024",
-                quality: "standard"
-              });
+              // Check cache first for AI-generated images
+              const cachedImage = await storage.getCachedAIImage(promptHash);
               
-              const imageUrl = imageResponse?.data?.[0]?.url;
-              if (imageUrl) {
+              if (cachedImage) {
+                // Cache hit! Use cached image and increment usage
+                console.log('[CACHE HIT] Found cached AI image for prompt:', item.prompt.substring(0, 50) + '...', '(usage:', cachedImage.usageCount, ')');
+                await storage.incrementImageUsage(cachedImage.id);
+                
                 processedMedia.push({
                   type: "ai_generated",
                   prompt: item.prompt,
-                  url: imageUrl,
-                  altText: item.alt || item.prompt
+                  url: cachedImage.url,
+                  altText: item.alt || cachedImage.description || item.prompt
                 });
               } else {
-                console.warn('[MULTIMEDIA] Failed to generate AI image for prompt:', item.prompt);
+                // Cache miss - generate with DALL-E
+                console.log('[CACHE MISS] Generating new AI image for prompt:', item.prompt.substring(0, 50) + '...');
+                const enhancedPrompt = `${item.prompt}. Educational illustration style, clear and engaging, suitable for language learning.`;
+                
+                const imageResponse = await openai.images.generate({
+                  model: "gpt-image-1",
+                  prompt: enhancedPrompt,
+                  n: 1,
+                  size: "1024x1024",
+                  quality: "standard"
+                });
+                
+                const imageUrl = imageResponse?.data?.[0]?.url;
+                if (imageUrl) {
+                  processedMedia.push({
+                    type: "ai_generated",
+                    prompt: item.prompt,
+                    url: imageUrl,
+                    altText: item.alt || item.prompt
+                  });
+                  
+                  // Cache the generated image for future use
+                  try {
+                    await storage.cacheImage({
+                      uploadedBy: null, // System-cached image
+                      mediaType: "image",
+                      url: imageUrl,
+                      thumbnailUrl: null,
+                      filename: `ai-generated-${promptHash.substring(0, 16)}.png`,
+                      mimeType: "image/png",
+                      description: item.prompt,
+                      imageSource: "ai_generated",
+                      promptHash: promptHash,
+                      attributionJson: null,
+                      usageCount: 1
+                    });
+                    console.log('[CACHE STORE] Cached AI-generated image with hash:', promptHash.substring(0, 16));
+                  } catch (cacheError) {
+                    console.error('[CACHE STORE] Failed to cache AI image:', cacheError);
+                    // Don't fail the request if caching fails
+                  }
+                } else {
+                  console.warn('[MULTIMEDIA] Failed to generate AI image for prompt:', item.prompt);
+                }
               }
             }
           } catch (error) {
