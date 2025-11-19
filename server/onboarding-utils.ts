@@ -327,6 +327,12 @@ IMPORTANT: Only set wantsToChange=true if they're explicitly requesting a CHANGE
   });
   
   const result = JSON.parse(completion.choices[0]?.message?.content || "{}");
+  
+  // Normalize language to lowercase for consistent comparison
+  if (result.newNativeLanguage) {
+    result.newNativeLanguage = result.newNativeLanguage.toLowerCase();
+  }
+  
   console.log('[NATIVE-LANG-CHANGE] Detection result:', JSON.stringify(result));
   return result as NativeLanguageChangeRequest;
 }

@@ -668,9 +668,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedConversation.nativeLanguage || "english"
       );
 
+      // Only update if actually requesting a change to a different language
       if (nativeLanguageChangeRequest.wantsToChange && 
           nativeLanguageChangeRequest.newNativeLanguage &&
-          nativeLanguageChangeRequest.confidence !== "low") {
+          nativeLanguageChangeRequest.confidence !== "low" &&
+          nativeLanguageChangeRequest.newNativeLanguage !== updatedConversation.nativeLanguage) {
         
         console.log('[NATIVE-LANG-CHANGE] Changing native language from', updatedConversation.nativeLanguage, 'to', nativeLanguageChangeRequest.newNativeLanguage);
         
@@ -1009,7 +1011,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // First try to find by language, then by ID
       const progress = await storage.getOrCreateUserProgress(req.params.languageOrId);
-      const updated = await storage.updateUserProgress(progress.id, req.body);
+      
+      // Convert date strings to Date objects if present
+      const updateData: any = { ...req.body };
+      if (updateData.lastPracticeDate && typeof updateData.lastPracticeDate === 'string') {
+        updateData.lastPracticeDate = new Date(updateData.lastPracticeDate);
+      }
+      if (updateData.lastDifficultyAdjustment && typeof updateData.lastDifficultyAdjustment === 'string') {
+        updateData.lastDifficultyAdjustment = new Date(updateData.lastDifficultyAdjustment);
+      }
+      
+      const updated = await storage.updateUserProgress(progress.id, updateData);
       if (!updated) {
         return res.status(404).json({ error: "Progress not found" });
       }
