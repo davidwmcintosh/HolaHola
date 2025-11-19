@@ -605,7 +605,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
         </div>
       )}
 
-      <div className="p-6 border-t">
+      <div className="p-6 border-t max-h-80 overflow-y-auto">
         {error && (() => {
           try {
             // Try to parse structured error
