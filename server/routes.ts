@@ -1104,8 +1104,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const item of mediaItems.slice(0, 2)) { // Max 2 images per message
           try {
             if (item.type === "stock" && item.query) {
-              // Check cache first for stock images
-              const cachedImage = await storage.getCachedStockImage(item.query);
+              // Normalize the search query to improve cache hit rate
+              // Extract core concept by removing modifiers like colors, adjectives
+              const normalizeQuery = (query: string): string => {
+                // Common vocabulary words that should be cached consistently
+                const coreWords = ['coffee', 'tea', 'sandwich', 'bread', 'apple', 'banana', 'orange',
+                  'dog', 'cat', 'bird', 'car', 'house', 'book', 'water', 'milk', 'cheese',
+                  'pizza', 'pasta', 'rice', 'chicken', 'beef', 'fish', 'vegetable', 'fruit',
+                  'croissant', 'baguette', 'wine', 'beer', 'restaurant', 'cafe', 'hotel'];
+                
+                const lowerQuery = query.toLowerCase();
+                
+                // Find the first core word in the query
+                for (const word of coreWords) {
+                  if (lowerQuery.includes(word)) {
+                    return word;
+                  }
+                }
+                
+                // If no core word found, use the original query but clean it up
+                // Remove common modifiers: colors, textures, etc.
+                return query
+                  .toLowerCase()
+                  .replace(/\b(white|black|red|green|blue|yellow|brown|golden|fresh|delicious|hot|cold|iced|warm|large|small|big|tiny)\b/g, '')
+                  .replace(/\s+/g, ' ')
+                  .trim();
+              };
+              
+              const normalizedQuery = normalizeQuery(item.query);
+              console.log('[CACHE] Normalized query:', item.query, '→', normalizedQuery);
+              
+              // Check cache first for stock images using normalized query
+              const cachedImage = await storage.getCachedStockImage(normalizedQuery);
               
               if (cachedImage) {
                 // Cache hit! Use cached image and increment usage
@@ -1161,22 +1191,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     attribution
                   });
                   
-                  // Cache the image for future use
+                  // Cache the image for future use (using normalized query as cache key)
                   try {
                     await storage.cacheImage({
                       uploadedBy: null, // System-cached image
                       mediaType: "image",
                       url: data.urls.regular,
                       thumbnailUrl: data.urls.small,
-                      filename: `stock-${item.query.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.jpg`,
+                      filename: `stock-${normalizedQuery.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.jpg`,
                       mimeType: "image/jpeg",
                       description: data.alt_description || item.query,
                       imageSource: "stock",
-                      searchQuery: item.query,
+                      searchQuery: normalizedQuery, // Use normalized query as cache key
                       attributionJson: JSON.stringify(attribution),
                       usageCount: 1
                     });
-                    console.log('[CACHE STORE] Cached stock image for query:', item.query);
+                    console.log('[CACHE STORE] Cached stock image for normalized query:', normalizedQuery, '(original:', item.query, ')');
                   } catch (cacheError) {
                     console.error('[CACHE STORE] Failed to cache stock image:', cacheError);
                     // Don't fail the request if caching fails
