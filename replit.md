@@ -55,6 +55,26 @@ Fixed critical bug where AI repeated onboarding questions after user completed o
 **Key Design Decision:**
 Changed onboarding detection from userName-based matching to dedicated `onboardingCompleted` boolean flag, eliminating edge cases with placeholder values, name changes, or incomplete profiles.
 
+### Voice/Text Mode Synchronization - Unified Conversation Experience
+Implemented seamless conversation synchronization between voice and text chat modes, allowing users to toggle freely without losing context.
+
+**Implementation Details:**
+- **Lifted State Management:** Conversation state (`conversationId`) managed at parent `chat.tsx` level instead of individual mode components
+- **Shared Props:** Both `ChatInterface` (text) and `VoiceChat` (voice) accept `conversationId`, `setConversationId`, and `setCurrentConversationOnboarding` as props
+- **Mode Toggle Persistence:** Switching between text/voice modes maintains the same conversation thread with full message history
+- **New Chat Control:** Added "New Chat" button (data-testid="button-new-chat") in chat header that resets conversationId and triggers auto-creation of fresh conversations
+- **Auto-Create Logic:** Conversation auto-creates when conversationId is null, but respects ongoing onboarding to prevent race conditions
+
+**User Experience:**
+- Users can seamlessly switch between voice practice and text typing within the same conversation
+- Clicking "New Chat" starts a fresh conversation while preserving previous conversations in database
+- No context loss when toggling modes - all messages remain visible
+
+**Testing Coverage:**
+- E2E tests verify mode toggling preserves conversation history
+- Database queries confirm proper conversation creation and onboarding flag management
+- Defensive sync ensures onboardingCompleted flag stays synchronized with user preferences
+
 ## System Architecture
 
 ### Frontend
