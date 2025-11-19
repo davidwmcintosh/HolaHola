@@ -386,13 +386,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         nativeLanguage: req.body.nativeLanguage || userRecord?.nativeLanguage || "english"
       });
       
-      // Get userName - use from request or fallback to user profile
+      // Get userName - use from request or fallback to user profile (first name only)
       // Treat "Student" as a placeholder and replace with profile name
       const requestUserName = (req.body.userName || "").trim();
       const isPlaceholder = !requestUserName || requestUserName.toLowerCase() === "student";
-      const profileUserName = userRecord?.firstName && userRecord?.lastName
-        ? `${userRecord.firstName} ${userRecord.lastName}`.trim()
-        : userRecord?.firstName || "";
+      const profileUserName = userRecord?.firstName || "";
       const userName = isPlaceholder ? profileUserName : requestUserName;
       const isOnboardingExplicit = req.body.isOnboarding;
       

@@ -60,14 +60,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         localStorage.setItem("difficulty", user.difficultyLevel);
       }
 
-      // Sync user name
-      const fullName = user.firstName && user.lastName 
-        ? `${user.firstName} ${user.lastName}`.trim()
-        : user.firstName || "";
-      if (fullName && fullName !== userName) {
-        console.log('[LanguageContext] Updating userName from user preferences:', fullName);
-        setUserNameState(fullName);
-        localStorage.setItem("userName", fullName);
+      // Sync user name (first name only)
+      const firstName = user.firstName || "";
+      if (firstName && firstName !== userName) {
+        console.log('[LanguageContext] Updating userName from user preferences:', firstName);
+        setUserNameState(firstName);
+        localStorage.setItem("userName", firstName);
       }
     }
   }, [user?.targetLanguage, user?.difficultyLevel, user?.firstName, user?.lastName]);
