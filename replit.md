@@ -15,12 +15,14 @@ Preferred communication style: Simple, everyday language.
 - **Onboarding**: Added navigation logic to redirect new users to onboarding before accessing main app
 - **Onboarding**: Onboarding flow collects: target language (9 languages including English), native language, and difficulty level (beginner/intermediate/advanced)
 - **Onboarding**: Added POST /api/logout endpoint for JSON-based logout flow
-- **Usage Tracking**: Implemented voice message usage tracking with automatic monthly reset
+- **Usage Tracking**: Implemented atomic voice message usage tracking with automatic monthly reset
 - **Usage Tracking**: Added GET /api/user/usage endpoint to fetch current usage statistics
-- **Usage Tracking**: Added POST /api/user/check-voice-usage endpoint to check limits and increment counter
+- **Usage Tracking**: Added POST /api/user/check-voice-usage endpoint with atomic increment to prevent race conditions
 - **Usage Tracking**: Free tier: 20 messages/month, paid tiers: unlimited (999,999 effective limit)
+- **Usage Tracking**: Fixed tier detection to explicitly check ['basic', 'pro', 'institutional'] to avoid undefined/null bugs
 - **Usage Tracking**: Auto-resets monthly counter based on lastMessageResetDate field
 - **Languages**: Added English as 9th learnable language (English, Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, Korean)
+- **B2B Strategy**: Completed comprehensive state standards integration research for institutional market (docs/institutional-standards-integration.md)
 
 ## System Architecture
 
@@ -88,9 +90,21 @@ Preferred communication style: Simple, everyday language.
 
 ### Revenue & Cost Tracking
 -   User table tracks monthly message limits and usage for cost analysis.
--   Free tier: Ad-supported to offset GPT-4o-mini API costs (20 messages/month limit).
+-   Free tier: Ad-supported to offset GPT-4o-mini API costs (20 messages/month limit with atomic usage tracking).
+-   Paid tiers: Unlimited voice chat (999,999 effective limit) with explicit tier whitelisting.
 -   Stripe integration provides subscription management, payment processing, and customer portal.
+-   Institutional tier economics: $84/student/year revenue vs. ~$81 API cost at 45 hours/year = profitable with modest usage.
 -   Future: detailed API cost tracking per conversation for accurate per-student cost analysis and ad revenue optimization.
+
+### Institutional Market Strategy
+-   **Standards Alignment**: Full ACTFL World-Readiness Standards integration (5 C's framework)
+-   **Proficiency Tracking**: Map content to ACTFL proficiency levels (Novice Low → Distinguished)
+-   **Can-Do Statements**: Track student progress against NCSSFL-ACTFL Can-Do benchmarks
+-   **Teacher Features**: Admin dashboard, class management, progress reporting, assignment system
+-   **LMS Integration**: Google Classroom, Canvas, Clever (SSO, rostering, grade passback)
+-   **Target Markets**: California (6.2M students), Texas (5.5M), New York (2.7M)
+-   **Competitive Positioning**: Premium AI voice features at $7/seat vs. Rosetta Stone ($149-$199)
+-   See: docs/institutional-standards-integration.md for complete implementation plan
 
 ## External Dependencies
 
