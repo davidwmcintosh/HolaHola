@@ -295,7 +295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'OpenAI-Beta': 'realtime=v1',
         },
         body: JSON.stringify({
-          model: 'gpt-realtime-mini-2025-10-06',  // Latest GPT-4o-mini Realtime
+          model: 'gpt-4o-mini-realtime-preview',  // GPT-4o-mini Realtime
           voice: 'alloy',
         }),
       });

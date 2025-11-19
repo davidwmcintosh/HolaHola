@@ -140,4 +140,4 @@ Implemented seamless conversation synchronization between voice and text chat mo
 -   **Libraries**: Neon Database Serverless, Drizzle ORM, stripe-replit-sync, Radix UI, TanStack Query, Wouter, date-fns, Embla Carousel.
 -   **Database**: PostgreSQL (via `DATABASE_URL`) with Drizzle Kit for migrations, connection pooling via `@neondatabase/serverless`, and automated Stripe data sync to `stripe` schema.
 -   **Asset Management**: Google Fonts (Inter, Architects Daughter, DM Sans, Fira Code, Geist Mono), static images in `attached_assets/generated_images/`.
--   **AI Models**: `gpt-realtime-mini-2025-10-06` (for Free/Basic tiers) and `gpt-realtime-2025-08-28` (for Pro tier) for voice chat.
+-   **AI Models**: `gpt-4o-mini-realtime-preview` (for Free/Basic/Institutional tiers) and `gpt-4o-realtime-preview` (for Pro tier) for voice chat.
