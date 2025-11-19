@@ -20,7 +20,8 @@ export function createSystemPrompt(
   topic?: string | null,
   previousConversations?: PreviousConversation[],
   nativeLanguage: string = "english",
-  dueVocabulary?: DueVocabularyWord[]
+  dueVocabulary?: DueVocabularyWord[],
+  sessionVocabulary?: DueVocabularyWord[]
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -57,26 +58,45 @@ CONVERSATION TOPIC: ${topic}
 The student has chosen to focus on "${topic}". Guide the conversation toward vocabulary, phrases, and scenarios related to this topic. Use this theme to create relevant practice opportunities and teach practical expressions students can use in real-life situations involving ${topic}.
 ` : "";
 
-  // Due vocabulary for review - integrate SRS flashcard system with conversation
-  const dueVocabularyContext = dueVocabulary && dueVocabulary.length > 0 ? `
-DUE VOCABULARY REVIEW:
-The student has ${dueVocabulary.length} vocabulary ${dueVocabulary.length === 1 ? 'word' : 'words'} due for review based on spaced repetition scheduling. Naturally weave ${dueVocabulary.length > 3 ? '2-3 of these' : 'these'} words into the conversation to reinforce retention:
+  // Session and due vocabulary for review - integrate SRS with conversation
+  const hasSessionVocab = sessionVocabulary && sessionVocabulary.length > 0;
+  const hasDueVocab = dueVocabulary && dueVocabulary.length > 0;
+  
+  const vocabularyReviewContext = (hasSessionVocab || hasDueVocab) ? `
+VOCABULARY REVIEW & REINFORCEMENT:
 
-${dueVocabulary.map((vocab, index) => 
+${hasSessionVocab ? `RECENTLY TAUGHT WORDS (This Session):
+You've taught ${sessionVocabulary!.length} ${sessionVocabulary!.length === 1 ? 'word' : 'words'} in recent messages. Apply the 7±2 rule:
+${sessionVocabulary!.map((vocab, index) => 
+  `${index + 1}. ${vocab.word} (${vocab.pronunciation}) = ${vocab.translation}`
+).join('\n')}
+
+RECAP CADENCE:
+- If you've taught 3-4 new words since last review, initiate a mini-review NOW
+- Ask student to USE these words in context: "Can you tell me about café using what you learned?"
+- Don't just quiz definitions - create natural scenarios for retrieval practice
+- Reward correct usage and gently correct mistakes
+` : ''}
+${hasDueVocab ? `
+DUE VOCABULARY FROM FLASHCARDS (Overdue for Review):
+The student has ${dueVocabulary!.length} vocabulary ${dueVocabulary!.length === 1 ? 'word' : 'words'} due for review based on spaced repetition:
+${dueVocabulary!.map((vocab, index) => 
   `${index + 1}. ${vocab.word} (${vocab.pronunciation}) = ${vocab.translation}
    Example: "${vocab.example}"`
 ).join('\n')}
 
 INTEGRATION STRATEGIES:
-- Use due words contextually in your teaching (don't just list them)
-- Create scenarios or questions that require the student to recall these words
-- Example: If "café" is due, say "How would you order a café in ${languageName}?"
-- Reward correct usage: "Perfect! You remembered 'café'!"
-- If student struggles with a due word, provide the translation and encourage practice
-- Don't force all due words into one response - spread them naturally across the conversation
-- Prioritize earlier items in the list (most overdue)
+- Naturally weave ${dueVocabulary!.length > 3 ? '2-3 of these' : 'these'} due words into conversation
+- Create contextual questions: "How would you order a café in ${languageName}?"
+- Reward recall: "Perfect! You remembered 'café'!"
+- Prioritize earlier items (most overdue)
+` : ''}
+BALANCE:
+- Spend ~60% of conversation on new learning, ~40% on review/consolidation
+- Mix new words with review of familiar ones (interleaving)
+- Don't let review feel like a quiz - keep it conversational and natural
 
-This integrates the flashcard system with natural conversation for maximum retention.
+This integrates both session-taught words AND the flashcard system with natural conversation for maximum retention.
 ` : "";
 
   // Cultural context guidelines
@@ -183,7 +203,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 - ${nativeLanguageName} is the base language - ${languageName} is the TARGET language being learned
 
 CURRENT PHASE: Initial Assessment (${nativeLanguageName})
-${dueVocabularyContext}
+${vocabularyReviewContext}
 ${culturalGuidelines}
 Your goal in this phase is to quickly build rapport and understand the student's key interests through brief, natural conversation.
 
@@ -314,7 +334,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 
 CURRENT PHASE: Gradual Transition (Gentle Introduction to ${languageName})
 ${topicContext}
-${dueVocabularyContext}
+${vocabularyReviewContext}
 ${culturalGuidelines}
 You've gotten to know the student. Now begin very gently introducing ${languageName} into your conversations.${structuredListenRepeat}
 
@@ -504,7 +524,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 
 CURRENT PHASE: Active Practice (Primarily ${languageName})
 ${topicContext}
-${dueVocabularyContext}
+${vocabularyReviewContext}
 ${culturalGuidelines}
 ${conversationSwitchingProtocol}
 You've assessed the student's level and are now engaging in primarily ${languageName} conversation.

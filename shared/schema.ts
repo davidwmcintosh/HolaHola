@@ -46,6 +46,7 @@ export const vocabularyWords = pgTable("vocabulary_words", {
   repetition: integer("repetition").notNull().default(0), // Consecutive correct reviews (resets on failure)
   easeFactor: real("ease_factor").notNull().default(2.5), // SM-2 algorithm default
   interval: integer("interval").notNull().default(1), // Days until next review
+  createdAt: timestamp("created_at").notNull().defaultNow(), // Track when word was learned
 });
 
 export const grammarExercises = pgTable("grammar_exercises", {

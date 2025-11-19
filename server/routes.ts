@@ -700,6 +700,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           createdAt: c.createdAt.toISOString()
         }));
 
+      // Extract vocabulary taught in recent session (recently learned words for recap)
+      // Query vocabulary database for words matching this conversation's language/difficulty
+      // that were created recently (approximates "session-taught vocabulary")
+      const allSessionVocab = await storage.getVocabularyWords(
+        updatedConversation.language,
+        updatedConversation.difficulty
+      );
+      
+      // Get words created in the last hour (approximate session boundary)
+      // Sort by createdAt ascending (oldest first) to preserve teaching order
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      const sessionVocabulary = allSessionVocab
+        .filter(v => new Date(v.createdAt) > oneHourAgo)
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) // Oldest first
+        .slice(-10) // Take last 10 (most recent 10 words, in teaching order)
+        .map(v => ({
+          word: v.word,
+          translation: v.translation,
+          example: v.example,
+          pronunciation: v.pronunciation
+        }));
+
       // Fetch due vocabulary for review (integrate SRS with conversation)
       const dueVocabulary = await storage.getDueVocabulary(
         updatedConversation.language,
@@ -723,7 +745,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           translation: v.translation,
           example: v.example,
           pronunciation: v.pronunciation
-        })) : undefined
+        })) : undefined,
+        sessionVocabulary.length > 0 ? sessionVocabulary : undefined
       );
 
       // Generate AI response with structured output to extract vocabulary and grammar
