@@ -59,21 +59,22 @@ Preferred communication style: Simple, everyday language.
 -   **Enhanced One-Concept-Per-Message Teaching**: System enforces one-concept-per-message teaching, adapting phrase complexity based on student's difficulty level.
 -   **Vocabulary Reinforcement System**: AI naturally reviews learned words during conversations using evidence-based learning techniques, tracking session vocabulary and integrating due vocabulary from SRS.
 -   **Subscription Tiers**: 
-    - Free: $0/month - 10 AI conversations/month, basic vocabulary
-    - Basic: $9.99/month - Unlimited AI chat, full vocabulary & grammar, progress tracking
-    - Pro: $19.99/month - Everything in Basic + voice chat, pronunciation scoring, priority support
+    - Free: $0/month - 20 voice messages/month with GPT-4o-mini, basic vocabulary, ad-supported
+    - Basic: $9.99/month - Unlimited voice chat with GPT-4o-mini, full vocabulary & grammar, progress tracking, no ads
+    - Pro: $19.99/month - Everything in Basic + premium GPT-4o voice chat, pronunciation scoring, priority support
     - Institutional: $7/seat/month (annual) - All Pro features + admin dashboard, curriculum management, class progress reports, standards alignment
 
 ## Business Model
 
 ### Dual B2C/B2B Model
--   **B2C (Individual Learners)**: Monthly subscriptions (Free, Basic $9.99, Pro $19.99) with self-directed learning or optional structured curricula.
+-   **B2C (Individual Learners)**: Monthly subscriptions (Free with ads, Basic $9.99, Pro $19.99) with self-directed learning or optional structured curricula.
 -   **B2B (Schools/Organizations)**: Institutional licensing at $7/seat/month (billed annually) with admin features, curriculum management, and standards-based progress tracking.
 
 ### Revenue & Cost Tracking
--   User table tracks monthly conversation limits and usage for cost analysis.
+-   User table tracks monthly message limits and usage for cost analysis.
+-   Free tier: Ad-supported to offset GPT-4o-mini API costs (20 messages/month limit).
 -   Stripe integration provides subscription management, payment processing, and customer portal.
--   Future: detailed API cost tracking per conversation for accurate per-student cost analysis.
+-   Future: detailed API cost tracking per conversation for accurate per-student cost analysis and ad revenue optimization.
 
 ## External Dependencies
 
@@ -102,6 +103,7 @@ Preferred communication style: Simple, everyday language.
 -   `gpt-4o-mini-realtime-preview` - Base mini preview model
 
 **Recommended Strategy**: 
-- Use `gpt-realtime-2025-08-28` for Pro tier users (premium voice experience)
-- Use `gpt-realtime-mini-2025-10-06` for Basic tier users (cost-effective voice chat)
-- This allows tiered features aligned with subscription levels while managing API costs
+- Free tier: `gpt-realtime-mini-2025-10-06` with 20 message/month limit, ad-supported to offset costs
+- Basic tier: `gpt-realtime-mini-2025-10-06` with unlimited messages, no ads
+- Pro tier: `gpt-realtime-2025-08-28` with unlimited messages, premium quality, no ads
+- This tiered approach maximizes user acquisition while managing API costs effectively
