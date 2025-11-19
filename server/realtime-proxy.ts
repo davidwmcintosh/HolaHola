@@ -56,7 +56,7 @@ export function setupRealtimeProxy(server: Server) {
       // Pro tier gets premium GA model (Aug 2025), Free/Basic/Institutional get cost-effective mini
       const model = subscriptionTier === 'pro' 
         ? 'gpt-realtime'  // GA model (Aug 2025) - 30% better, 20% cheaper than preview
-        : 'gpt-4o-mini-realtime-preview-2025-09-25';  // GPT-4o-mini Realtime (Sept 2025)
+        : 'gpt-4o-realtime-preview-2024-10-01';  // GPT-4o Realtime (Oct 2024) - more stable than mini preview
 
       console.log(`Using model: ${model} for tier: ${subscriptionTier}`);
 
