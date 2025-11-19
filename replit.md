@@ -75,6 +75,33 @@ Implemented seamless conversation synchronization between voice and text chat mo
 - Database queries confirm proper conversation creation and onboarding flag management
 - Defensive sync ensures onboardingCompleted flag stays synchronized with user preferences
 
+### Realtime API Model Upgrade - GA Production Model
+Upgraded Pro tier voice chat from preview model to production-ready GA (Generally Available) model for superior performance and cost efficiency.
+
+**Model Assignments:**
+- **Pro Tier:** `gpt-realtime` (GA model, August 2025)
+  - Production-ready, fully supported model
+  - 30% better accuracy on audio benchmarks vs preview models
+  - 20% cost reduction compared to preview versions
+  - More natural and expressive speech output
+  - Better instruction following and tool calling
+  - Enhanced mid-sentence language switching
+- **Free/Basic/Institutional Tiers:** `gpt-4o-mini-realtime-preview-2025-09-25`
+  - Cost-effective model for high-volume usage
+  - Optimized for low-latency real-time interactions
+
+**Implementation:**
+- `server/realtime-proxy.ts`: Tier-based model selection logic assigns `gpt-realtime` to Pro subscribers
+- `/api/realtime/capability`: Updated to test with GA model for capability verification
+- Backward compatible - existing Free/Basic/Institutional users continue with mini model
+- No breaking changes - seamless upgrade for Pro tier users
+
+**Benefits:**
+- Pro subscribers get best-in-class voice chat quality
+- Reduced operational costs due to 20% pricing improvement
+- Future-proof with production GA model vs deprecated previews
+- Improved user experience with more accurate speech recognition
+
 ## System Architecture
 
 ### Frontend
