@@ -53,7 +53,7 @@ export function setupRealtimeProxy(server: Server) {
       }
 
       // Use production GA model for all tiers - most stable and reliable
-      const model = 'gpt-4o-realtime';  // Production GA model (General Availability - most stable)
+      const model = 'gpt-realtime';  // Production GA model (released Aug 2025 - most stable)
 
       console.log(`Using model: ${model} for tier: ${subscriptionTier}`);
 
