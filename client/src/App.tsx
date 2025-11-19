@@ -7,6 +7,8 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { useAuth } from "@/hooks/useAuth";
+import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/dashboard";
 import Chat from "@/pages/chat";
 import ChatIdeas from "@/pages/chat-ideas";
@@ -17,17 +19,26 @@ import History from "@/pages/history";
 import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 
+// Replit Auth Integration - Router with authentication check
 function Router() {
+  const { isAuthenticated, isLoading } = useAuth();
+
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/chat" component={Chat} />
-      <Route path="/chat-ideas" component={ChatIdeas} />
-      <Route path="/cultural-tips" component={CulturalTips} />
-      <Route path="/vocabulary" component={Vocabulary} />
-      <Route path="/grammar" component={Grammar} />
-      <Route path="/history" component={History} />
-      <Route path="/settings" component={Settings} />
+      {isLoading || !isAuthenticated ? (
+        <Route path="/" component={Landing} />
+      ) : (
+        <>
+          <Route path="/" component={Dashboard} />
+          <Route path="/chat" component={Chat} />
+          <Route path="/chat-ideas" component={ChatIdeas} />
+          <Route path="/cultural-tips" component={CulturalTips} />
+          <Route path="/vocabulary" component={Vocabulary} />
+          <Route path="/grammar" component={Grammar} />
+          <Route path="/history" component={History} />
+          <Route path="/settings" component={Settings} />
+        </>
+      )}
       <Route component={NotFound} />
     </Switch>
   );
@@ -42,27 +53,42 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <LanguageProvider>
-          <SidebarProvider defaultOpen={false} style={style as React.CSSProperties}>
-            <div className="flex h-screen w-full">
-              <AppSidebar />
-              <div className="flex flex-col flex-1">
-                <header className="flex items-center justify-between p-4 border-b sticky top-0 z-50 bg-background">
-                  <SidebarTrigger data-testid="button-sidebar-toggle" />
-                  <ThemeToggle />
-                </header>
-                <main className="flex-1 overflow-auto">
-                  <div className="container mx-auto p-8 max-w-7xl">
-                    <Router />
-                  </div>
-                </main>
-              </div>
-            </div>
-          </SidebarProvider>
-          <Toaster />
-        </LanguageProvider>
+        <AuthenticatedApp style={style} />
+        <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
+  );
+}
+
+// Separate authenticated app component to use auth hooks
+function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  // Show landing page for unauthenticated users
+  if (isLoading || !isAuthenticated) {
+    return <Router />;
+  }
+
+  // Show full app with sidebar for authenticated users
+  return (
+    <LanguageProvider>
+      <SidebarProvider defaultOpen={false} style={style as React.CSSProperties}>
+        <div className="flex h-screen w-full">
+          <AppSidebar />
+          <div className="flex flex-col flex-1">
+            <header className="flex items-center justify-between p-4 border-b sticky top-0 z-50 bg-background">
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
+              <ThemeToggle />
+            </header>
+            <main className="flex-1 overflow-auto">
+              <div className="container mx-auto p-8 max-w-7xl">
+                <Router />
+              </div>
+            </main>
+          </div>
+        </div>
+      </SidebarProvider>
+    </LanguageProvider>
   );
 }
 

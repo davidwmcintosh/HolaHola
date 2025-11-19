@@ -18,6 +18,7 @@ import {
 } from "./onboarding-utils";
 import { createSystemPrompt } from "./system-prompt";
 import { assessMessage, analyzePerformance } from "./difficulty-adjustment";
+import { setupAuth, isAuthenticated } from "./replitAuth";
 
 // Use Replit AI Integrations for text chat (works reliably)
 // User's personal key (USER_OPENAI_API_KEY) is only used for voice chat in realtime-proxy.ts
@@ -27,6 +28,21 @@ const openai = new OpenAI({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Set up Replit Auth
+  await setupAuth(app);
+
+  // Auth user route
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
   // Realtime API capability check - actually tests API access
   // Cache the result for 5 minutes to avoid repeated checks
   let capabilityCache: { available: boolean; reason: string; code?: string; timestamp: number } | null = null;
@@ -133,8 +149,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Chat / Conversations
-  app.post("/api/conversations", async (req, res) => {
+  app.post("/api/conversations", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const data = insertConversationSchema.parse(req.body);
       const userName = (req.body.userName || "").trim();
       const isOnboardingExplicit = req.body.isOnboarding;
@@ -152,7 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isOnboarding = isOnboardingExplicit;
       } else {
         // Auto-detect for first-time visits
-        const allConversations = await storage.getAllConversations();
+        const allConversations = await storage.getUserConversations(userId);
         const userHasCompletedOnboarding = userName && userName !== "Student" 
           ? allConversations.some(c => 
               c.userName === userName && 
@@ -170,7 +187,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // ALWAYS attempt to inherit nativeLanguage from previous conversations if user has a name
       // This runs for both explicitly set and auto-detected onboarding status
       if (!isOnboarding && userName && userName !== "Student") {
-        const allConversations = await storage.getAllConversations();
+        const allConversations = await storage.getUserConversations(userId);
         
         console.log('[CONVERSATION CREATE] Looking for previous conversations for user:', userName);
         console.log('[CONVERSATION CREATE] Total conversations in storage:', allConversations.length);
@@ -200,6 +217,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Always create a new conversation to ensure fresh greeting each session
       const conversation = await storage.createConversation({
         ...data,
+        userId,
         isOnboarding,
         onboardingStep: isOnboarding ? "name" : null,
         userName: isOnboarding ? null : userName,
@@ -225,7 +243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         if (includeHistory) {
           // Fetch previous conversations for this user and language
-          const previousConversations = await storage.getConversationsByLanguage(data.language);
+          const previousConversations = await storage.getConversationsByLanguage(data.language, userId);
           const userPreviousConvos = previousConversations.filter(
             c => c.id !== conversation.id && 
                  !c.isOnboarding && 
@@ -343,20 +361,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/conversations", async (req, res) => {
+  app.get("/api/conversations", isAuthenticated, async (req: any, res) => {
     try {
-      const conversations = await storage.getAllConversations();
+      const userId = req.user.claims.sub;
+      const conversations = await storage.getUserConversations(userId);
       res.json(conversations);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.get("/api/conversations/:id", async (req, res) => {
+  app.get("/api/conversations/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const conversation = await storage.getConversation(req.params.id);
+      const userId = req.user.claims.sub;
+      const conversation = await storage.getConversation(req.params.id, userId);
       if (!conversation) {
-        return res.status(404).json({ error: "Conversation not found" });
+        return res.status(404).json({ message: "Conversation not found" });
       }
       res.json(conversation);
     } catch (error: any) {
@@ -364,17 +384,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/conversations/by-language/:language", async (req, res) => {
+  app.get("/api/conversations/by-language/:language", isAuthenticated, async (req: any, res) => {
     try {
-      const conversations = await storage.getConversationsByLanguage(req.params.language);
+      const userId = req.user.claims.sub;
+      const conversations = await storage.getConversationsByLanguage(req.params.language, userId);
       res.json(conversations);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.get("/api/conversations/:id/messages", async (req, res) => {
+  app.get("/api/conversations/:id/messages", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const conversation = await storage.getConversation(req.params.id, userId);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
       const messages = await storage.getMessagesByConversation(req.params.id);
       res.json(messages);
     } catch (error: any) {
@@ -382,11 +408,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/conversations/:id", async (req, res) => {
+  app.delete("/api/conversations/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const success = await storage.deleteConversation(req.params.id);
+      const userId = req.user.claims.sub;
+      const success = await storage.deleteConversation(req.params.id, userId);
       if (!success) {
-        return res.status(404).json({ error: "Conversation not found" });
+        return res.status(404).json({ message: "Conversation not found" });
       }
       res.json({ success: true });
     } catch (error: any) {
@@ -394,13 +421,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/conversations/:id/messages", async (req, res) => {
+  app.post("/api/conversations/:id/messages", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const conversationId = req.params.id;
-      const conversation = await storage.getConversation(conversationId);
+      const conversation = await storage.getConversation(conversationId, userId);
       
       if (!conversation) {
-        return res.status(404).json({ error: "Conversation not found" });
+        return res.status(404).json({ message: "Conversation not found" });
       }
 
       console.log('[MESSAGE] Received message for conversation:', {
@@ -429,10 +457,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         // Update conversation performance stats - re-fetch to get latest values
-        const latestConversation = await storage.getConversation(conversationId);
+        const latestConversation = await storage.getConversation(conversationId, userId);
         if (latestConversation) {
           const isSuccessful = assessment.isSuccessful;
-          await storage.updateConversation(conversationId, {
+          await storage.updateConversation(conversationId, userId, {
             successfulMessages: latestConversation.successfulMessages + (isSuccessful ? 1 : 0),
             totalAssessedMessages: latestConversation.totalAssessedMessages + 1,
           });
@@ -457,7 +485,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Check for inappropriate content during onboarding
         if (containsInappropriateContent(messageData.content)) {
           // Reset onboarding to the beginning - clear all onboarding state
-          await storage.updateConversation(conversationId, {
+          await storage.updateConversation(conversationId, userId, {
             userName: undefined,
             language: conversation.language, // Keep existing language
             onboardingStep: "name",
@@ -482,7 +510,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           if (nameResult.name && nameResult.confidence !== "low") {
             // Name extracted successfully, move to target language question
-            updatedConversation = await storage.updateConversation(conversationId, {
+            updatedConversation = await storage.updateConversation(conversationId, userId, {
               userName: nameResult.name,
               onboardingStep: "targetLanguage",
               // Keep isOnboarding true until all steps are complete
@@ -512,7 +540,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               language: conversation.language
             });
             
-            updatedConversation = await storage.updateConversation(conversationId, {
+            updatedConversation = await storage.updateConversation(conversationId, userId, {
               language: langResult.language,
               onboardingStep: "nativeLanguage",
               // Keep isOnboarding true until native language is also extracted
@@ -551,7 +579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               nativeLanguage: conversation.nativeLanguage
             });
             
-            updatedConversation = await storage.updateConversation(conversationId, {
+            updatedConversation = await storage.updateConversation(conversationId, userId, {
               nativeLanguage: nativeLangResult.language,
               isOnboarding: false,
               onboardingStep: null,
@@ -653,7 +681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           console.log('[AUTO-DETECT] Switching language from', conversation.language, 'to', languageDetection.detectedLanguage, 'confidence:', languageDetection.confidence);
           
-          updatedConversation = await storage.updateConversation(conversationId, {
+          updatedConversation = await storage.updateConversation(conversationId, userId, {
             language: languageDetection.detectedLanguage,
           }) || conversation;
           
@@ -676,7 +704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log('[NATIVE-LANG-CHANGE] Changing native language from', updatedConversation.nativeLanguage, 'to', nativeLanguageChangeRequest.newNativeLanguage);
         
-        updatedConversation = await storage.updateConversation(conversationId, {
+        updatedConversation = await storage.updateConversation(conversationId, userId, {
           nativeLanguage: nativeLanguageChangeRequest.newNativeLanguage,
         }) || updatedConversation;
         
@@ -684,7 +712,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Fetch previous conversations for this user and language (for conversation switching)
-      const allUserConversations = await storage.getConversationsByLanguage(updatedConversation.language);
+      const allUserConversations = await storage.getConversationsByLanguage(updatedConversation.language, userId);
       const previousConversations = allUserConversations
         .filter(c => 
           c.id !== conversationId && 
@@ -705,6 +733,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // that were created recently (approximates "session-taught vocabulary")
       const allSessionVocab = await storage.getVocabularyWords(
         updatedConversation.language,
+        userId,
         updatedConversation.difficulty
       );
       
@@ -725,6 +754,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch due vocabulary for review (integrate SRS with conversation)
       const dueVocabulary = await storage.getDueVocabulary(
         updatedConversation.language,
+        userId,
         updatedConversation.difficulty,
         5 // Limit to 5 most overdue words
       );
@@ -825,7 +855,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('[CONVERSATION SWITCH] Detected switch directive to:', targetConversationId);
         
         // Validate the target conversation exists and belongs to the user
-        const targetConversation = await storage.getConversation(targetConversationId);
+        const targetConversation = await storage.getConversation(targetConversationId, userId);
         
         if (targetConversation && 
             targetConversation.userName === updatedConversation.userName &&
@@ -867,6 +897,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const vocab of vocabulary) {
         if (vocab?.word && vocab?.translation && vocab?.example) {
           await storage.createVocabularyWord({
+            userId,
             language: updatedConversation.language,
             difficulty: updatedConversation.difficulty,
             word: vocab.word,
@@ -901,14 +932,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Vocabulary
-  app.get("/api/vocabulary", async (req, res) => {
+  app.get("/api/vocabulary", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const { language, difficulty } = req.query;
       if (!language) {
         return res.status(400).json({ error: "Language parameter is required" });
       }
       const words = await storage.getVocabularyWords(
         language as string,
+        userId,
         difficulty as string | undefined
       );
       res.json(words);
@@ -918,18 +951,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Vocabulary with path parameters (RESTful alternative)
-  app.get("/api/vocabulary/:language/:difficulty", async (req, res) => {
+  app.get("/api/vocabulary/:language/:difficulty", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const { language, difficulty } = req.params;
-      const words = await storage.getVocabularyWords(language, difficulty);
+      const words = await storage.getVocabularyWords(language, userId, difficulty);
       res.json(words);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.patch("/api/vocabulary/:id/review", async (req, res) => {
+  app.patch("/api/vocabulary/:id/review", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const { id } = req.params;
       const { isCorrect } = req.body;
       
@@ -937,10 +972,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "isCorrect must be a boolean" });
       }
       
+      // First verify the vocabulary word belongs to the user
+      const word = await storage.getVocabularyWord(id);
+      if (!word || word.userId !== userId) {
+        return res.status(404).json({ message: "Vocabulary word not found" });
+      }
+      
       const updatedWord = await storage.updateVocabularyReview(id, isCorrect);
       
       if (!updatedWord) {
-        return res.status(404).json({ error: "Vocabulary word not found" });
+        return res.status(404).json({ message: "Vocabulary word not found" });
       }
       
       res.json(updatedWord);
@@ -967,9 +1008,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User Progress
-  app.get("/api/progress/:language", async (req, res) => {
+  app.get("/api/progress/:language", isAuthenticated, async (req: any, res) => {
     try {
-      const progress = await storage.getOrCreateUserProgress(req.params.language);
+      const userId = req.user.claims.sub;
+      const progress = await storage.getOrCreateUserProgress(req.params.language, userId);
       res.json(progress);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -977,21 +1019,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Progress History
-  app.get("/api/progress-history/:language", async (req, res) => {
+  app.get("/api/progress-history/:language", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const days = req.query.days ? parseInt(req.query.days as string) : 30;
-      const history = await storage.getProgressHistory(req.params.language, days);
+      const history = await storage.getProgressHistory(req.params.language, userId, days);
       res.json(history);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.post("/api/progress-history", async (req, res) => {
+  app.post("/api/progress-history", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       // Convert date string to Date object if necessary
       const data = {
         ...req.body,
+        userId, // Use authenticated userId instead of trusting request body
         date: req.body.date ? new Date(req.body.date) : undefined,
       };
       const validated = insertProgressHistorySchema.parse(data);
@@ -1006,11 +1051,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Difficulty adjustment recommendation
-  app.get("/api/difficulty-recommendation/:conversationId", async (req, res) => {
+  app.get("/api/difficulty-recommendation/:conversationId", isAuthenticated, async (req: any, res) => {
     try {
-      const conversation = await storage.getConversation(req.params.conversationId);
+      const userId = req.user.claims.sub;
+      const conversation = await storage.getConversation(req.params.conversationId, userId);
       if (!conversation) {
-        return res.status(404).json({ error: "Conversation not found" });
+        return res.status(404).json({ message: "Conversation not found" });
       }
 
       // Get recent message scores for average calculation
@@ -1024,7 +1070,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .map(m => m.performanceScore!);
 
       // Get user progress for last adjustment date
-      const progress = await storage.getOrCreateUserProgress(conversation.language);
+      const progress = await storage.getOrCreateUserProgress(conversation.language, userId);
 
       // Analyze performance - convert date if it's a string
       const lastAdjustment = progress.lastDifficultyAdjustment 
@@ -1046,11 +1092,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PATCH conversation
-  app.patch("/api/conversations/:id", async (req, res) => {
+  app.patch("/api/conversations/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const updated = await storage.updateConversation(req.params.id, req.body);
+      const userId = req.user.claims.sub;
+      const updated = await storage.updateConversation(req.params.id, userId, req.body);
       if (!updated) {
-        return res.status(404).json({ error: "Conversation not found" });
+        return res.status(404).json({ message: "Conversation not found" });
       }
       res.json(updated);
     } catch (error: any) {
@@ -1059,10 +1106,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PATCH progress by language (convenience endpoint for difficulty adjustments)
-  app.patch("/api/progress/:languageOrId", async (req, res) => {
+  app.patch("/api/progress/:languageOrId", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       // First try to find by language, then by ID
-      const progress = await storage.getOrCreateUserProgress(req.params.languageOrId);
+      const progress = await storage.getOrCreateUserProgress(req.params.languageOrId, userId);
       
       // Convert date strings to Date objects if present
       const updateData: any = { ...req.body };
@@ -1084,18 +1132,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Pronunciation Scores - Analyze and save
-  app.post("/api/pronunciation-scores/analyze", async (req, res) => {
+  app.post("/api/pronunciation-scores/analyze", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const { messageId, conversationId, transcribedText } = req.body;
       
       if (!messageId || !conversationId || !transcribedText) {
         return res.status(400).json({ error: "messageId, conversationId, and transcribedText are required" });
       }
 
-      // Get conversation to determine language and difficulty
-      const conversation = await storage.getConversation(conversationId);
+      // Get conversation to determine language and difficulty - verify ownership
+      const conversation = await storage.getConversation(conversationId, userId);
       if (!conversation) {
-        return res.status(404).json({ error: "Conversation not found" });
+        return res.status(404).json({ message: "Conversation not found" });
       }
 
       // Import pronunciation analysis
@@ -1131,9 +1180,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Pronunciation Scores - Create manually (for future use)
-  app.post("/api/pronunciation-scores", async (req, res) => {
+  app.post("/api/pronunciation-scores", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const validated = insertPronunciationScoreSchema.parse(req.body);
+      // Verify the conversation belongs to the user
+      const conversation = await storage.getConversation(validated.conversationId, userId);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
       const score = await storage.createPronunciationScore(validated);
       res.status(201).json(score);
     } catch (error: any) {
@@ -1144,8 +1199,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/pronunciation-scores/conversation/:conversationId", async (req, res) => {
+  app.get("/api/pronunciation-scores/conversation/:conversationId", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const conversation = await storage.getConversation(req.params.conversationId, userId);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
       const scores = await storage.getPronunciationScoresByConversation(req.params.conversationId);
       res.json(scores);
     } catch (error: any) {
@@ -1153,11 +1213,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/pronunciation-scores/message/:messageId", async (req, res) => {
+  app.get("/api/pronunciation-scores/message/:messageId", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const score = await storage.getPronunciationScoreByMessage(req.params.messageId);
       if (!score) {
-        return res.status(404).json({ error: "Pronunciation score not found" });
+        return res.status(404).json({ message: "Pronunciation score not found" });
+      }
+      // Verify the conversation belongs to the user
+      const conversation = await storage.getConversation(score.conversationId, userId);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
       }
       res.json(score);
     } catch (error: any) {
@@ -1165,8 +1231,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/pronunciation-scores/stats/:conversationId", async (req, res) => {
+  app.get("/api/pronunciation-scores/stats/:conversationId", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const conversation = await storage.getConversation(req.params.conversationId, userId);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
       const stats = await storage.getPronunciationScoreStats(req.params.conversationId);
       res.json(stats);
     } catch (error: any) {

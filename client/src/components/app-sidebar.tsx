@@ -1,4 +1,4 @@
-import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb } from "lucide-react";
+import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb, LogOut } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -84,6 +84,15 @@ export function AppSidebar() {
                 <Settings className="h-4 w-4" />
                 <span>Settings</span>
               </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => window.location.href = '/api/logout'}
+              data-testid="button-logout"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Log Out</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

@@ -1,10 +1,38 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, real } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, real, index, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Replit Auth Integration - Session storage table
+// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
+// Replit Auth Integration - User storage table
+// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type UpsertUser = typeof users.$inferInsert;
+export type User = typeof users.$inferSelect;
+
 export const conversations = pgTable("conversations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
   language: text("language").notNull(), // Target language being learned
   nativeLanguage: text("native_language").notNull().default("english"), // Student's native language (for explanations)
   difficulty: text("difficulty").notNull(),
@@ -14,7 +42,7 @@ export const conversations = pgTable("conversations", {
   duration: integer("duration").notNull().default(0),
   isOnboarding: boolean("is_onboarding").notNull().default(false),
   onboardingStep: text("onboarding_step"),
-  userName: text("user_name"),
+  userName: text("user_name"), // Kept for backward compatibility
   // Performance tracking for auto-difficulty adjustment
   successfulMessages: integer("successful_messages").notNull().default(0), // Messages with score >= 60
   totalAssessedMessages: integer("total_assessed_messages").notNull().default(0), // Total user messages assessed
@@ -33,6 +61,7 @@ export const messages = pgTable("messages", {
 
 export const vocabularyWords = pgTable("vocabulary_words", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
   language: text("language").notNull(),
   word: text("word").notNull(),
   translation: text("translation").notNull(),
@@ -61,6 +90,7 @@ export const grammarExercises = pgTable("grammar_exercises", {
 
 export const userProgress = pgTable("user_progress", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
   language: text("language").notNull(),
   wordsLearned: integer("words_learned").notNull().default(0),
   practiceMinutes: integer("practice_minutes").notNull().default(0),
@@ -75,6 +105,7 @@ export const userProgress = pgTable("user_progress", {
 
 export const progressHistory = pgTable("progress_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
   language: text("language").notNull(),
   date: timestamp("date").notNull(),
   wordsLearned: integer("words_learned").notNull().default(0),
