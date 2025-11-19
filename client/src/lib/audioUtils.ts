@@ -71,6 +71,12 @@ export class AudioPlayer {
 
   async playAudio(base64Audio: string): Promise<void> {
     try {
+      // CRITICAL: Resume AudioContext if suspended (browser autoplay policy)
+      if (this.audioContext.state === 'suspended') {
+        console.log('[AUDIO] Resuming AudioContext...');
+        await this.audioContext.resume();
+      }
+      
       const audioData = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0));
       const pcm16 = new Int16Array(audioData.buffer);
       

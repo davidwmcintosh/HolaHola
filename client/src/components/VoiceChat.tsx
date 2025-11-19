@@ -433,6 +433,17 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
     try {
       setError(null);
       
+      // CRITICAL: Resume audio playback context on user interaction (browser autoplay policy)
+      if (audioPlayerRef.current) {
+        console.log('[VOICE CHAT] Resuming audio playback on user interaction...');
+        // Access the internal AudioContext and resume it
+        const audioContext = (audioPlayerRef.current as any).audioContext;
+        if (audioContext && audioContext.state === 'suspended') {
+          await audioContext.resume();
+          console.log('[VOICE CHAT] ✓ Audio playback ready!');
+        }
+      }
+      
       // Ensure WebSocket is connected
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         setError('Connecting to voice chat...');
