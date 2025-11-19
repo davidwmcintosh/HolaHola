@@ -6,6 +6,31 @@ LinguaFlow is an AI-powered language learning application designed for interacti
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Technical Improvements (November 2025)
+
+### Onboarding Loop Bug Fix - Three-Layer Defensive Architecture
+Fixed critical bug where AI repeated onboarding questions after user completed onboarding. Implemented comprehensive three-layer defense:
+
+**Layer 1 - Frontend State Hydration:**
+- `LanguageContext` now subscribes to `/api/auth/user` via React Query
+- Automatically syncs `targetLanguage`, `difficultyLevel`, and `userName` from database to localStorage on app load
+- Updates whenever server-side user preferences change, ensuring frontend always has fresh data
+
+**Layer 2 - Immediate Context Updates:**
+- Onboarding page calls `setLanguage()` and `setDifficulty()` immediately after user selections
+- Ensures LanguageContext reflects latest values before redirect to chat
+- Prevents stale values from persisting in localStorage during critical transitions
+
+**Layer 3 - Server-Side Defensive Fallback:**
+- `POST /api/conversations` fetches user record via `storage.getUser(userId)`
+- Defaults all preferences from database: `language`, `difficulty`, `nativeLanguage`, `userName`
+- Treats "Student" placeholder as invalid and replaces with user profile name
+- **Uses `onboardingCompleted` flag** instead of userName matching to detect onboarding status
+- Prevents stale/missing frontend values from causing incorrect AI system prompts
+
+**Key Design Decision:**
+Changed onboarding detection from userName-based matching to dedicated `onboardingCompleted` boolean flag, eliminating edge cases with placeholder values, name changes, or incomplete profiles.
+
 ## System Architecture
 
 ### Frontend
