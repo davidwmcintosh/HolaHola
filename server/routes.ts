@@ -162,35 +162,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const isNewUser = (!userName || userName === "Student" || !userHasCompletedOnboarding);
         isOnboarding = isNewUser;
         
-        // If user has completed onboarding, retrieve their nativeLanguage from previous conversations
-        if (!isNewUser && userName) {
-          console.log('[CONVERSATION CREATE] Looking for previous conversations for user:', userName);
-          console.log('[CONVERSATION CREATE] Total conversations in storage:', allConversations.length);
-          console.log('[CONVERSATION CREATE] All conversations:', allConversations.map(c => ({ 
-            id: c.id, 
-            userName: c.userName, 
-            nativeLanguage: c.nativeLanguage, 
-            isOnboarding: c.isOnboarding,
-            language: c.language
-          })));
-          
-          const userPreviousConversations = allConversations
-            .filter(c => c.userName === userName && c.nativeLanguage)
-            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-          
-          console.log('[CONVERSATION CREATE] Found', userPreviousConversations.length, 'previous conversations for user:', userName);
-          console.log('[CONVERSATION CREATE] Previous conversations:', userPreviousConversations.map(c => ({ id: c.id, nativeLanguage: c.nativeLanguage, isOnboarding: c.isOnboarding })));
-          
-          if (userPreviousConversations.length > 0) {
-            userNativeLanguage = userPreviousConversations[0].nativeLanguage || undefined;
-            console.log('[CONVERSATION CREATE] Inherited nativeLanguage from previous conversation:', userNativeLanguage);
-          } else {
-            console.log('[CONVERSATION CREATE] No previous conversations with nativeLanguage found, will use default');
-          }
-        }
-        
         console.log('[CONVERSATION CREATE] userHasCompletedOnboarding:', userHasCompletedOnboarding);
         console.log('[CONVERSATION CREATE] isNewUser (auto-detected):', isNewUser);
+      }
+      
+      // ALWAYS attempt to inherit nativeLanguage from previous conversations if user has a name
+      // This runs for both explicitly set and auto-detected onboarding status
+      if (!isOnboarding && userName && userName !== "Student") {
+        const allConversations = await storage.getAllConversations();
+        
+        console.log('[CONVERSATION CREATE] Looking for previous conversations for user:', userName);
+        console.log('[CONVERSATION CREATE] Total conversations in storage:', allConversations.length);
+        console.log('[CONVERSATION CREATE] All conversations:', allConversations.map(c => ({ 
+          id: c.id, 
+          userName: c.userName, 
+          nativeLanguage: c.nativeLanguage, 
+          isOnboarding: c.isOnboarding,
+          language: c.language
+        })));
+        
+        const userPreviousConversations = allConversations
+          .filter(c => c.userName === userName && c.nativeLanguage)
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        
+        console.log('[CONVERSATION CREATE] Found', userPreviousConversations.length, 'previous conversations for user:', userName);
+        console.log('[CONVERSATION CREATE] Previous conversations:', userPreviousConversations.map(c => ({ id: c.id, nativeLanguage: c.nativeLanguage, isOnboarding: c.isOnboarding })));
+        
+        if (userPreviousConversations.length > 0) {
+          userNativeLanguage = userPreviousConversations[0].nativeLanguage || undefined;
+          console.log('[CONVERSATION CREATE] Inherited nativeLanguage from previous conversation:', userNativeLanguage);
+        } else {
+          console.log('[CONVERSATION CREATE] No previous conversations with nativeLanguage found, will use default');
+        }
       }
       
       // Always create a new conversation to ensure fresh greeting each session
