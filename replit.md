@@ -8,6 +8,18 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### November 19, 2025 - Multimedia Integration & Voice Text Display
+- **Database Schema**: Added comprehensive multimedia content system with 6 new tables:
+  - `mediaFiles` - Core media storage (images, videos, audio)
+  - `messageMedia` - Join table for conversation images
+  - `videoLessons` - Pre-recorded instructional videos with ACTFL alignment
+  - `pronunciationAudio` - Supplementary audio examples with dialect/speed variants
+  - `lessonVisualAids` - Diagrams and illustrations for lessons
+  - `culturalTipMedia` - Photos/videos for cultural context
+- **Voice Text Display**: Implemented real-time foreign language text display during voice conversations for visual/reading reinforcement
+- **Messages Table**: Added `targetLanguageText` field to store foreign language portions for text display
+- **Bug Fix**: Fixed realtime proxy to pass userId parameter to `getConversation()` method
+
 ### November 19, 2025 - Latest Model Updates & Tier-Based Selection
 - **Realtime API Models**: Upgraded to latest OpenAI Realtime models:
   - Free/Basic/Institutional tiers: `gpt-realtime-mini-2025-10-06` (latest GPT-4o-mini)

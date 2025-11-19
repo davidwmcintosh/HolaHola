@@ -572,6 +572,25 @@ export function VoiceChat() {
         </div>
       </ScrollArea>
 
+      {/* Foreign language text display for visual reinforcement */}
+      {isAiSpeaking && transcript.length > 0 && transcript[transcript.length - 1].role === 'assistant' && (
+        <div className="px-6 py-4 border-t bg-primary/5 dark:bg-primary/10">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <Volume2 className="h-5 w-5 text-primary animate-pulse" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-medium text-muted-foreground mb-1">
+                Now speaking in {languageDisplayName}:
+              </p>
+              <p className="text-lg font-medium leading-relaxed text-foreground" data-testid="text-current-speech">
+                {transcript[transcript.length - 1].content}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="p-6 border-t">
         {error && (() => {
           try {

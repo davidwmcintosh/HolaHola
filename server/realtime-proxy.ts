@@ -37,9 +37,9 @@ export function setupRealtimeProxy(server: Server) {
       let messageCount = 0;
       let topic: string | null = null;
       let nativeLanguage = 'english';
-      if (conversationId) {
+      if (conversationId && userId) {
         try {
-          const conversation = await storage.getConversation(conversationId);
+          const conversation = await storage.getConversation(conversationId, userId);
           if (conversation) {
             topic = conversation.topic ?? null;
             nativeLanguage = conversation.nativeLanguage || 'english';
