@@ -85,12 +85,23 @@ Preferred communication style: Simple, everyday language.
 ## Available AI Models
 
 ### Realtime API Models (Voice Chat)
-The following OpenAI Realtime API models are available for voice chat features:
--   `gpt-realtime-2025-08-28` - Latest stable model (recommended)
+
+#### GPT-4o Realtime (Full Models)
+-   `gpt-realtime-2025-08-28` - Latest stable model (recommended for production)
 -   `gpt-4o-realtime-preview-latest` - Auto-updates to latest preview
 -   `gpt-4o-realtime-preview-2025-06-03` - June 2025 preview
 -   `gpt-4o-realtime-preview-2024-12-17` - December 2024 preview
 -   `gpt-4o-realtime-preview-2024-10-01` - October 2024 preview
 -   `gpt-4o-realtime-preview` - Base preview model
 
-**Recommended**: Use `gpt-realtime-2025-08-28` for production voice chat or `gpt-4o-realtime-preview-latest` for automatic updates to newest features.
+#### GPT-4o-mini Realtime (Cost-Effective)
+-   `gpt-realtime-mini-2025-10-06` - Latest stable mini model (recommended for cost optimization)
+-   `gpt-4o-mini-realtime-preview-latest` - Auto-updates to latest mini preview
+-   `gpt-4o-mini-realtime-preview-2025-09-25` - September 2025 mini preview
+-   `gpt-4o-mini-realtime-preview-2024-12-17` - December 2024 mini preview
+-   `gpt-4o-mini-realtime-preview` - Base mini preview model
+
+**Recommended Strategy**: 
+- Use `gpt-realtime-2025-08-28` for Pro tier users (premium voice experience)
+- Use `gpt-realtime-mini-2025-10-06` for Basic tier users (cost-effective voice chat)
+- This allows tiered features aligned with subscription levels while managing API costs
