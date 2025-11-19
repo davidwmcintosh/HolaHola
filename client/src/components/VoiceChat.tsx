@@ -59,6 +59,15 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
   const processedResponseIds = useRef<Set<string>>(new Set());
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const speechDetectedRef = useRef<boolean>(false);
+  
+  // Track start/stop tokens to handle race conditions
+  // - startTokenRef: Global counter, incremented for each new start attempt
+  // - currentRecordingTokenRef: Which token is currently recording (set when isRecording becomes true)
+  // - stoppedTokenRef: Which token was stopped (set when stopRecording is called)
+  // A start only proceeds if its token > stoppedTokenRef
+  const startTokenRef = useRef<number>(0);
+  const currentRecordingTokenRef = useRef<number>(-1);
+  const stoppedTokenRef = useRef<number>(-1);
 
   // Check Realtime API capability
   const checkCapability = useCallback(async (forceRecheck = false) => {
@@ -203,7 +212,7 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
               },
               turn_detection: {
                 type: 'server_vad',
-                threshold: 0.5,
+                threshold: 0.7,  // Increased from 0.5 to reduce false positives from background noise/echo
                 prefix_padding_ms: 300,
                 silence_duration_ms: 700,  // 700ms of silence before committing (balanced for natural speech pauses)
                 create_response: true  // Auto-generate AI response when user speech ends
@@ -467,6 +476,11 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
   }, [conversationId, language, difficulty, user]);
 
   const startRecording = async () => {
+    // Generate new token for this start attempt
+    startTokenRef.current += 1;
+    const myToken = startTokenRef.current;
+    console.log('[VOICE CHAT] Starting recording with token:', myToken);
+    
     try {
       setError(null);
       
@@ -481,6 +495,13 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
         }
       }
       
+      // Check if this start was already stopped
+      if (myToken <= stoppedTokenRef.current) {
+        console.log('[VOICE CHAT] Token', myToken, 'already stopped (stoppedToken:', stoppedTokenRef.current, '), aborting');
+        stoppedTokenRef.current = Math.max(stoppedTokenRef.current, myToken); // Mark as stopped
+        return;
+      }
+      
       // Ensure WebSocket is connected
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         setError('Connecting to voice chat...');
@@ -489,8 +510,16 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
           setError(null);
         } catch (err) {
           setError('Voice chat unavailable. The OpenAI Realtime API may not be accessible. Please use text mode or provide your own OpenAI API key.');
+          stoppedTokenRef.current = Math.max(stoppedTokenRef.current, myToken); // Mark failed token as stopped
           return;
         }
+      }
+
+      // Check again if this start was stopped during connection
+      if (myToken <= stoppedTokenRef.current) {
+        console.log('[VOICE CHAT] Token', myToken, 'stopped during connection (stoppedToken:', stoppedTokenRef.current, '), aborting');
+        stoppedTokenRef.current = Math.max(stoppedTokenRef.current, myToken); // Mark as stopped
+        return;
       }
 
       audioRecorderRef.current = new AudioRecorder();
@@ -507,27 +536,67 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
         }
       });
 
+      // FINAL TOKEN CHECK: Only set isRecording if this start wasn't stopped
+      if (myToken <= stoppedTokenRef.current) {
+        console.log('[VOICE CHAT] Token', myToken, 'stopped during recorder startup (stoppedToken:', stoppedTokenRef.current, '), cleaning up');
+        if (audioRecorderRef.current) {
+          audioRecorderRef.current.stopRecording();
+          audioRecorderRef.current = null;
+        }
+        stoppedTokenRef.current = Math.max(stoppedTokenRef.current, myToken); // Mark as stopped
+        return;
+      }
+
+      // Safe to set state - this start token hasn't been stopped
+      currentRecordingTokenRef.current = myToken; // Save which token is recording
       setIsRecording(true);
+      console.log('[VOICE CHAT] Recording started successfully with token:', myToken);
     } catch (error) {
       console.error('Failed to start recording:', error);
       setError('Failed to access microphone. Please check permissions.');
+      stoppedTokenRef.current = Math.max(stoppedTokenRef.current, myToken); // Mark failed token as stopped
     }
   };
 
   const stopRecording = () => {
+    // CRITICAL FIX: Snapshot tokens immediately to prevent race with concurrent starts
+    const recordingTokenSnapshot = currentRecordingTokenRef.current;
+    const latestTokenSnapshot = startTokenRef.current;
+    
+    console.log('[VOICE CHAT] Stop requested, recordingToken:', recordingTokenSnapshot, 'latestToken:', latestTokenSnapshot, 'isRecording:', isRecording, 'hasRecorder:', !!audioRecorderRef.current);
+    
+    // Determine which token to stop based on snapshot (not live refs!)
+    if (isRecording && recordingTokenSnapshot >= 0) {
+      // Stop the specific token that was recording when we started
+      stoppedTokenRef.current = Math.max(stoppedTokenRef.current, recordingTokenSnapshot);
+      console.log('[VOICE CHAT] Stopped recording token:', recordingTokenSnapshot, 'stoppedToken now:', stoppedTokenRef.current);
+      // Only clear if it's still the same token (not overwritten by new start)
+      if (currentRecordingTokenRef.current === recordingTokenSnapshot) {
+        currentRecordingTokenRef.current = -1;
+      }
+    } else {
+      // No active recording - stop the most recent start attempt (as of snapshot)
+      stoppedTokenRef.current = Math.max(stoppedTokenRef.current, latestTokenSnapshot);
+      console.log('[VOICE CHAT] No active recording, stopped latest token:', latestTokenSnapshot);
+    }
+    
+    // If recorder exists, stop it
     if (audioRecorderRef.current) {
+      console.log('[VOICE CHAT] Stopping active recorder');
       audioRecorderRef.current.stopRecording();
       audioRecorderRef.current = null;
     }
+    
+    // CRITICAL: Always set isRecording to false, even if no recorder exists
+    // This prevents UI stuck in "recording" state when stop races with start
+    setIsRecording(false);
+    speechDetectedRef.current = false;
     
     // With server VAD enabled, OpenAI automatically:
     // 1. Detects when you stop speaking
     // 2. Commits the audio buffer
     // 3. Creates a response
     // We just need to stop the microphone - VAD handles the rest!
-    
-    setIsRecording(false);
-    speechDetectedRef.current = false; // Reset for next recording
   };
 
   const toggleRecording = () => {
@@ -877,7 +946,43 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
           <Button
             size="lg"
             variant={isRecording ? "destructive" : "default"}
-            onClick={toggleRecording}
+            onPointerDown={(e) => {
+              // Only start on primary button (left mouse or touch)
+              if (e.button === 0 && conversationId && capabilityAvailable && !isRecording) {
+                startRecording();
+              }
+            }}
+            onPointerUp={() => {
+              if (isRecording) {
+                stopRecording();
+              }
+            }}
+            onPointerLeave={() => {
+              // Stop if pointer leaves button while recording
+              if (isRecording) {
+                stopRecording();
+              }
+            }}
+            onPointerCancel={() => {
+              // Stop if pointer is cancelled (e.g., touch interruption)
+              if (isRecording) {
+                stopRecording();
+              }
+            }}
+            onKeyDown={(e) => {
+              // Support keyboard: Space or Enter to start recording
+              if ((e.key === ' ' || e.key === 'Enter') && !e.repeat && conversationId && capabilityAvailable && !isRecording) {
+                e.preventDefault();
+                startRecording();
+              }
+            }}
+            onKeyUp={(e) => {
+              // Support keyboard: Release Space or Enter to stop recording
+              if ((e.key === ' ' || e.key === 'Enter') && isRecording) {
+                e.preventDefault();
+                stopRecording();
+              }
+            }}
             disabled={!conversationId || !capabilityAvailable}
             className="rounded-full h-16 w-16"
             data-testid="button-toggle-recording"
@@ -900,8 +1005,8 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
             : !capabilityAvailable
             ? "Voice chat unavailable - see error message above"
             : isRecording 
-            ? "Click to stop recording" 
-            : "Click to start speaking"}
+            ? "Release to stop recording" 
+            : "Hold to speak"}
         </p>
       </div>
     </Card>
