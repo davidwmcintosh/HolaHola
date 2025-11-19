@@ -167,12 +167,31 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
             retryTimeoutRef.current = null;
           }
           
-          // Configure session after connection opens
+          // Configure session with adaptive instructions based on difficulty
+          const adaptiveInstructions = difficulty === 'beginner'
+            ? `You are a ${language} language tutor for ${userName || 'the student'}. Their native language is english and they are a BEGINNER.
+
+CRITICAL INSTRUCTION FOR BEGINNERS:
+- Use mostly English (70-80%) with simple ${language} phrases mixed in
+- Introduce ${language} gradually - start with greetings, common words, and simple phrases
+- Always translate ${language} words to English immediately after using them
+- Keep sentences short and simple
+- Example: "¡Hola! (Hello!) How are you today? That's 'Cómo estás' in ${language}."
+
+Be warm, encouraging, and patient. Keep responses concise (2-3 sentences max).`
+            : difficulty === 'intermediate'
+            ? `You are a ${language} language tutor for ${userName || 'the student'}. Their native language is english and they are INTERMEDIATE level.
+
+Use a 50/50 mix of ${language} and English. Speak ${language} for main ideas, use English for explanations and corrections. Keep responses conversational and concise.`
+            : `You are a ${language} language tutor for ${userName || 'the student'}. Their native language is english and they are ADVANCED.
+
+Use mostly ${language} (80-90%) with occasional English explanations for complex grammar. Challenge them with natural, conversational ${language}. Keep responses concise.`;
+
           ws.send(JSON.stringify({
             type: 'session.update',
             session: {
               modalities: ['text', 'audio'],
-              instructions: `You are a ${language} language tutor. Keep responses concise and conversational.`,
+              instructions: adaptiveInstructions,
               voice: 'alloy',
               input_audio_format: 'pcm16',
               output_audio_format: 'pcm16',
@@ -501,10 +520,14 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
     };
   }, [conversationId, capabilityAvailable, connectToRealtimeAPI]);
 
-  // Combine backend messages with live transcript
+  // Combine backend messages with live transcript (avoiding duplicates)
+  // Only include transcript messages that haven't been saved to backend yet
+  const savedContents = new Set(messages.map(m => m.content));
+  const unsavedTranscript = transcript.filter(t => !savedContents.has(t.content));
+  
   const allMessages = [
     ...messages.map(m => ({ role: m.role, content: m.content, saved: true, messageId: m.id })),
-    ...transcript.map(t => ({ ...t, saved: false })),
+    ...unsavedTranscript.map(t => ({ ...t, saved: false })),
   ];
 
   // Determine avatar state for voice chat
