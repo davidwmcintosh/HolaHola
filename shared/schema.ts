@@ -376,6 +376,7 @@ export const studentGoals = pgTable("student_goals", {
 // ===== Multimedia Content System =====
 
 // Core media files table - stores all images, videos, and audio
+// Includes image caching for stock and AI-generated images to reduce costs and improve speed
 export const mediaFiles = pgTable("media_files", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   uploadedBy: varchar("uploaded_by").references(() => users.id), // User who uploaded (null for system media)
@@ -392,8 +393,18 @@ export const mediaFiles = pgTable("media_files", {
   description: text("description"), // Optional description
   tags: text("tags").array(), // Searchable tags
   language: text("language"), // Relevant language (optional)
+  // Image caching fields - for reducing API costs and improving speed
+  imageSource: text("image_source"), // "stock" (Unsplash), "ai_generated" (DALL-E), "user_upload", null for non-cached
+  searchQuery: text("search_query"), // For stock images - the Unsplash search query (e.g., "coffee", "sandwich")
+  promptHash: text("prompt_hash"), // For AI images - hash of the prompt for cache lookups
+  usageCount: integer("usage_count").default(0), // Track how often this cached image is reused
+  attributionJson: text("attribution_json"), // JSON with attribution data (photographer, URLs for Unsplash)
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => [
+  // Indexes for fast cache lookups
+  index("idx_media_search_query").on(table.searchQuery),
+  index("idx_media_prompt_hash").on(table.promptHash),
+]);
 
 // Images shared in conversations (e.g., "What is this in Spanish?")
 export const messageMedia = pgTable("message_media", {

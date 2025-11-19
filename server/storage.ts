@@ -129,6 +129,12 @@ export interface IStorage {
   // Message Media (images in conversations)
   createMessageMedia(data: InsertMessageMedia): Promise<MessageMedia>;
   getMessageMedia(messageId: string): Promise<Array<MessageMedia & { mediaFile: MediaFile }>>;
+  
+  // Image Caching (for reducing API costs and improving speed)
+  getCachedStockImage(searchQuery: string): Promise<MediaFile | undefined>;
+  getCachedAIImage(promptHash: string): Promise<MediaFile | undefined>;
+  cacheImage(data: InsertMediaFile): Promise<MediaFile>;
+  incrementImageUsage(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1018,6 +1024,47 @@ export class DatabaseStorage implements IStorage {
       ...r.message_media,
       mediaFile: r.media_files!,
     }));
+  }
+
+  // Image Caching - for reducing API costs and improving speed
+  async getCachedStockImage(searchQuery: string): Promise<MediaFile | undefined> {
+    const result = await db
+      .select()
+      .from(mediaFiles)
+      .where(
+        and(
+          eq(mediaFiles.imageSource, "stock"),
+          eq(mediaFiles.searchQuery, searchQuery)
+        )
+      )
+      .limit(1);
+    return result[0];
+  }
+
+  async getCachedAIImage(promptHash: string): Promise<MediaFile | undefined> {
+    const result = await db
+      .select()
+      .from(mediaFiles)
+      .where(
+        and(
+          eq(mediaFiles.imageSource, "ai_generated"),
+          eq(mediaFiles.promptHash, promptHash)
+        )
+      )
+      .limit(1);
+    return result[0];
+  }
+
+  async cacheImage(data: InsertMediaFile): Promise<MediaFile> {
+    const [mediaFile] = await db.insert(mediaFiles).values(data).returning();
+    return mediaFile;
+  }
+
+  async incrementImageUsage(id: string): Promise<void> {
+    await db
+      .update(mediaFiles)
+      .set({ usageCount: sql`${mediaFiles.usageCount} + 1` })
+      .where(eq(mediaFiles.id, id));
   }
 }
 
