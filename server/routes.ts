@@ -284,6 +284,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Actually test Realtime API access with a minimal session request
+      // Use the latest mini model for testing since it's cost-effective
       const testUrl = 'https://api.openai.com/v1/realtime/sessions';
       const testResponse = await fetch(testUrl, {
         method: 'POST',
@@ -293,7 +294,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'OpenAI-Beta': 'realtime=v1',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-realtime-preview-2024-12-17',
+          model: 'gpt-realtime-mini-2025-10-06',  // Latest GPT-4o-mini Realtime
           voice: 'alloy',
         }),
       });

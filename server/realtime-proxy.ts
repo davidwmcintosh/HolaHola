@@ -18,6 +18,20 @@ export function setupRealtimeProxy(server: Server) {
       const language = url.searchParams.get('language') || 'spanish';
       const difficulty = url.searchParams.get('difficulty') || 'beginner';
       const conversationId = url.searchParams.get('conversationId');
+      const userId = url.searchParams.get('userId');
+
+      // Fetch user to determine subscription tier for model selection
+      let subscriptionTier = 'free';
+      if (userId) {
+        try {
+          const user = await storage.getUser(userId);
+          if (user) {
+            subscriptionTier = user.subscriptionTier || 'free';
+          }
+        } catch (error) {
+          console.error('Failed to fetch user for tier selection:', error);
+        }
+      }
 
       // Fetch conversation to get message count, topic, and nativeLanguage for phase-appropriate prompts
       let messageCount = 0;
@@ -38,10 +52,18 @@ export function setupRealtimeProxy(server: Server) {
         }
       }
 
+      // Select model based on subscription tier
+      // Pro tier gets premium GPT-4o, Free/Basic/Institutional get cost-effective GPT-4o-mini
+      const model = subscriptionTier === 'pro' 
+        ? 'gpt-realtime-2025-08-28'  // Latest GPT-4o Realtime (premium)
+        : 'gpt-realtime-mini-2025-10-06';  // Latest GPT-4o-mini Realtime (cost-effective)
+
+      console.log(`Using model: ${model} for tier: ${subscriptionTier}`);
+
       // Connect to OpenAI Realtime API using user's API key
       // USER_OPENAI_API_KEY is the user's personal OpenAI key with Realtime API access
       const apiKey = process.env.USER_OPENAI_API_KEY;
-      const wsUrl = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17';
+      const wsUrl = `wss://api.openai.com/v1/realtime?model=${model}`;
       
       const openaiWs = new WS(wsUrl, {
         headers: {

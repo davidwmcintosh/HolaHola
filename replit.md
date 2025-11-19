@@ -8,6 +8,14 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### November 19, 2025 - Latest Model Updates & Tier-Based Selection
+- **Realtime API Models**: Upgraded to latest OpenAI Realtime models:
+  - Free/Basic/Institutional tiers: `gpt-realtime-mini-2025-10-06` (latest GPT-4o-mini)
+  - Pro tier: `gpt-realtime-2025-08-28` (latest premium GPT-4o)
+- **Tier-Based Model Selection**: Realtime proxy now automatically fetches user subscription tier and selects appropriate model
+- **Frontend Integration**: VoiceChat component now passes userId to websocket connection for tier detection
+- **Capability Testing**: Updated realtime capability check to use latest mini model for cost-effective verification
+
 ### November 19, 2025 - Conversational Onboarding & Usage Tracking
 - **Onboarding**: Added user learning preferences fields to database schema: `targetLanguage`, `nativeLanguage`, `difficultyLevel`, `onboardingCompleted`
 - **Onboarding**: Created PUT /api/user/preferences endpoint with Zod validation for updating user preferences

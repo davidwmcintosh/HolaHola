@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Mic, MicOff, Bot, User, Loader2, Volume2, MessageSquare } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { type Message, Conversation } from "@shared/schema";
@@ -29,6 +30,7 @@ interface PronunciationScoreData {
 
 export function VoiceChat() {
   const { language, difficulty, userName } = useLanguage();
+  const { user } = useAuth();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
@@ -152,7 +154,8 @@ export function VoiceChat() {
         // Connect to our backend WebSocket proxy
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.host;
-        const wsUrl = `${protocol}//${host}/api/realtime/ws?language=${encodeURIComponent(language)}&difficulty=${encodeURIComponent(difficulty)}&conversationId=${encodeURIComponent(conversationId)}`;
+        const userId = user?.id || '';
+        const wsUrl = `${protocol}//${host}/api/realtime/ws?language=${encodeURIComponent(language)}&difficulty=${encodeURIComponent(difficulty)}&conversationId=${encodeURIComponent(conversationId)}&userId=${encodeURIComponent(userId)}`;
         
         const ws = new WebSocket(wsUrl);
         let connectionOpened = false;
