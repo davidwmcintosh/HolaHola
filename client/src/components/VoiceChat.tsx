@@ -54,6 +54,9 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
   const audioPlayerRef = useRef<AudioPlayer | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isReconnectingRef = useRef<boolean>(false);
+  
+  // Track processed response IDs to prevent duplicate message saves
+  const processedResponseIds = useRef<Set<string>>(new Set());
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const speechDetectedRef = useRef<boolean>(false);
 
@@ -202,7 +205,8 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
                 type: 'server_vad',
                 threshold: 0.5,
                 prefix_padding_ms: 300,
-                silence_duration_ms: 1500  // 1.5 seconds of silence before committing (was 500ms - too short!)
+                silence_duration_ms: 700,  // 700ms of silence before committing (balanced for natural speech pauses)
+                create_response: true  // Auto-generate AI response when user speech ends
               }
             }
           }));
@@ -240,12 +244,23 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
             
           case "conversation.item.input_audio_transcription.completed":
             const userTranscript = data.transcript;
+            const itemId = data.item_id;
             
             // CRITICAL FIX: Don't save empty transcripts (prevents duplicates)
             if (!userTranscript || userTranscript.trim() === "") {
               console.log('[VOICE CHAT] Skipping empty user transcript');
               break;
             }
+            
+            // DEDUPLICATION: Check if we've already processed this item_id
+            if (processedResponseIds.current.has(itemId)) {
+              console.log('[VOICE CHAT] Skipping duplicate item_id:', itemId);
+              break;
+            }
+            
+            // Mark this item_id as processed
+            processedResponseIds.current.add(itemId);
+            console.log('[VOICE CHAT] Saving user message for item_id:', itemId);
             
             // Save to backend
             const messageResponse = await apiRequest("POST", `/api/conversations/${conversationId}/messages`, {
@@ -294,12 +309,23 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
             
           case "response.audio_transcript.done":
             const assistantTranscript = data.transcript;
+            const responseId = data.response_id;
             
             // CRITICAL FIX: Don't save empty transcripts (prevents duplicates)
             if (!assistantTranscript || assistantTranscript.trim() === "") {
               console.log('[VOICE CHAT] Skipping empty assistant transcript');
               break;
             }
+            
+            // DEDUPLICATION: Check if we've already processed this response_id
+            if (processedResponseIds.current.has(responseId)) {
+              console.log('[VOICE CHAT] Skipping duplicate response_id:', responseId);
+              break;
+            }
+            
+            // Mark this response_id as processed
+            processedResponseIds.current.add(responseId);
+            console.log('[VOICE CHAT] Saving assistant message for response_id:', responseId);
             
             // Save to backend
             await apiRequest("POST", `/api/conversations/${conversationId}/messages`, {
@@ -539,6 +565,8 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
         clearTimeout(retryTimeoutRef.current);
         retryTimeoutRef.current = null;
       }
+      // Reset processed response IDs when conversation/session changes
+      processedResponseIds.current.clear();
     };
   }, [conversationId, capabilityAvailable, connectToRealtimeAPI]);
 

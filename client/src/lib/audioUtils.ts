@@ -108,21 +108,32 @@ export class AudioPlayer {
 
   private playNext(): void {
     if (this.queue.length === 0) {
+      console.log('[AUDIO PLAYER] Queue empty, stopping playback');
       this.isPlaying = false;
       return;
     }
 
     this.isPlaying = true;
     const buffer = this.queue.shift()!;
+    console.log('[AUDIO PLAYER] Playing chunk, queue remaining:', this.queue.length);
+    
     const source = this.audioContext.createBufferSource();
     source.buffer = buffer;
     source.connect(this.gainNode);
     
     source.onended = () => {
+      console.log('[AUDIO PLAYER] Chunk finished, playing next...');
       this.playNext();
     };
 
-    source.start();
+    try {
+      source.start();
+      console.log('[AUDIO PLAYER] source.start() called successfully');
+    } catch (error) {
+      console.error('[AUDIO PLAYER] Error calling source.start():', error);
+      // Try to recover by moving to next chunk
+      this.playNext();
+    }
   }
 
   stop(): void {
