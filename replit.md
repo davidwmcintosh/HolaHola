@@ -3,6 +3,8 @@
 ## Overview
 LinguaFlow is an AI-powered language learning application designed for interactive conversation practice, vocabulary building, and grammar exercises across multiple languages and difficulty levels. It offers AI-powered chat, flashcards, and grammar modules, tracking user progress to foster consistent learning. The project aims to deliver a personalized and adaptive language learning experience with significant market potential in the educational technology sector.
 
+**Multi-Language Support**: The app now supports teaching any of the 8 target languages (Spanish, French, German, Italian, Portuguese, Japanese, Mandarin Chinese, Korean) with explanations in any native language. During onboarding, users select both their target language and native language, allowing non-English speakers to learn in their own language.
+
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
@@ -31,8 +33,8 @@ Preferred communication style: Simple, everyday language.
 -   **Conversational Onboarding**: AI-guided setup for new users (name, language preference) using GPT-5 with strict JSON schemas, persistent via localStorage and conversation records.
 -   **Auto-Language Detection**: Intelligent switching based on user input (3+ messages, 5+ alphabetic words, >0.8 confidence) with AI notification.
 -   **Adaptive Multi-Phase Conversation System**:
-    1.  **Phase 1 (Messages 1-5)**: English assessment with encouraging target language words (95% English). Suggests conversation paths based on user motivation (travel, work, friends) but ASKS FOR CONFIRMATION and gives users the choice to suggest their own topics.
-    2.  **Phase 2 (Messages 6-10)**: Gradual transition (80% English -> 50% English) introducing basics, progressive translation (new vocabulary translated, familiar words not). Offers topic choices and confirms before creating scenarios.
+    1.  **Phase 1 (Messages 1-5)**: Native language assessment with encouraging target language words (95% native language). Suggests conversation paths based on user motivation (travel, work, friends) but ASKS FOR CONFIRMATION and gives users the choice to suggest their own topics.
+    2.  **Phase 2 (Messages 6-10)**: Gradual transition (80% native language -> 50% native language) introducing basics, progressive translation (new vocabulary translated, familiar words not). Offers topic choices and confirms before creating scenarios.
     3.  **Phase 3 (Message 11+)**: Immersive practice (80-90% target language) with selective translation based on difficulty. Continues user-driven topic selection with confirmation prompts.
 -   **User Agency & Conversation Control**: AI suggests conversation paths and topics but ALWAYS confirms with user before proceeding. Users can choose their own topics at any time. Ambiguous responses ("you decide", "surprise me") are handled gracefully with confident topic selection.
 -   **One-Concept-Per-Message Teaching**: AI teaches ONE new word or phrase at a time, allowing for mastery before introducing new material. No longer teaches multiple words together (e.g., teaches "hola", practices it, then teaches "adiós" in next message).
