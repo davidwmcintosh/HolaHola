@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -26,35 +26,54 @@ import History from "@/pages/history";
 import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 
+// Wrapper component that adds container padding for non-chat pages
+function PageWrapper({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
+  const fullHeightPages = ["/", "/chat"];
+  const isFullHeightPage = fullHeightPages.includes(location);
+
+  if (isFullHeightPage) {
+    return <div className="h-full">{children}</div>;
+  }
+
+  return (
+    <div className="container mx-auto p-8 max-w-7xl">
+      {children}
+    </div>
+  );
+}
+
 // Replit Auth Integration - Router with authentication check
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
   return (
-    <Switch>
-      {isLoading || !isAuthenticated ? (
-        <Route path="/" component={Landing} />
-      ) : user && !user.onboardingCompleted ? (
-        <>
-          <Route path="/" component={Onboarding} />
-          <Route path="/onboarding" component={Onboarding} />
-        </>
-      ) : (
-        <>
-          <Route path="/" component={Chat} />
-          <Route path="/dashboard" component={Dashboard} />
-          <Route path="/onboarding" component={Onboarding} />
-          <Route path="/chat" component={Chat} />
-          <Route path="/chat-ideas" component={ChatIdeas} />
-          <Route path="/cultural-tips" component={CulturalTips} />
-          <Route path="/vocabulary" component={Vocabulary} />
-          <Route path="/grammar" component={Grammar} />
-          <Route path="/history" component={History} />
-          <Route path="/settings" component={Settings} />
-        </>
-      )}
-      <Route component={NotFound} />
-    </Switch>
+    <PageWrapper>
+      <Switch>
+        {isLoading || !isAuthenticated ? (
+          <Route path="/" component={Landing} />
+        ) : user && !user.onboardingCompleted ? (
+          <>
+            <Route path="/" component={Onboarding} />
+            <Route path="/onboarding" component={Onboarding} />
+          </>
+        ) : (
+          <>
+            <Route path="/" component={Chat} />
+            <Route path="/dashboard" component={Dashboard} />
+            <Route path="/onboarding" component={Onboarding} />
+            <Route path="/chat" component={Chat} />
+            <Route path="/chat-ideas" component={ChatIdeas} />
+            <Route path="/cultural-tips" component={CulturalTips} />
+            <Route path="/vocabulary" component={Vocabulary} />
+            <Route path="/grammar" component={Grammar} />
+            <Route path="/history" component={History} />
+            <Route path="/settings" component={Settings} />
+          </>
+        )}
+        <Route component={NotFound} />
+      </Switch>
+    </PageWrapper>
   );
 }
 
@@ -97,10 +116,8 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
                 <UserMenu />
               </div>
             </header>
-            <main className="flex-1 overflow-auto">
-              <div className="container mx-auto p-8 max-w-7xl">
-                <Router />
-              </div>
+            <main className="flex-1 overflow-hidden">
+              <Router />
             </main>
           </div>
         </div>
