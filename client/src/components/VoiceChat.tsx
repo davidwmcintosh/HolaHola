@@ -485,16 +485,17 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
   }, [conversationId, language, difficulty, user]);
 
   const startRecording = async () => {
-    // CRITICAL: Don't start recording while AI is speaking - prevents "turn detected" cancellations
+    // Generate new token for this start attempt
+    startTokenRef.current += 1;
+    const myToken = startTokenRef.current;
+    console.log('[VOICE CHAT] Starting recording with token:', myToken, 'isAiSpeaking:', isAiSpeaking);
+    
+    // CRITICAL: Don't start recording while AI is actively speaking - prevents "turn detected" cancellations
+    // But allow if AI has finished (response.done received)
     if (isAiSpeaking) {
       console.log('[VOICE CHAT] Cannot start recording - AI is currently speaking');
       return;
     }
-    
-    // Generate new token for this start attempt
-    startTokenRef.current += 1;
-    const myToken = startTokenRef.current;
-    console.log('[VOICE CHAT] Starting recording with token:', myToken);
     
     try {
       setError(null);
@@ -963,8 +964,12 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
             variant={isRecording ? "destructive" : "default"}
             onPointerDown={(e) => {
               // Only start on primary button (left mouse or touch)
+              console.log('[VOICE BUTTON] PointerDown - button:', e.button, 'conversationId:', conversationId, 'capabilityAvailable:', capabilityAvailable, 'isRecording:', isRecording);
               if (e.button === 0 && conversationId && capabilityAvailable && !isRecording) {
+                console.log('[VOICE BUTTON] Conditions met, calling startRecording()');
                 startRecording();
+              } else {
+                console.log('[VOICE BUTTON] Conditions NOT met, blocking startRecording()');
               }
             }}
             onPointerUp={() => {
@@ -986,9 +991,15 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
             }}
             onKeyDown={(e) => {
               // Support keyboard: Space or Enter to start recording
-              if ((e.key === ' ' || e.key === 'Enter') && !e.repeat && conversationId && capabilityAvailable && !isRecording) {
-                e.preventDefault();
-                startRecording();
+              if (e.key === ' ' || e.key === 'Enter') {
+                console.log('[VOICE BUTTON] KeyDown:', e.key, 'repeat:', e.repeat, 'conversationId:', conversationId, 'capabilityAvailable:', capabilityAvailable, 'isRecording:', isRecording);
+                if (!e.repeat && conversationId && capabilityAvailable && !isRecording) {
+                  e.preventDefault();
+                  console.log('[VOICE BUTTON] Keyboard conditions met, calling startRecording()');
+                  startRecording();
+                } else {
+                  console.log('[VOICE BUTTON] Keyboard conditions NOT met, blocking startRecording()');
+                }
               }
             }}
             onKeyUp={(e) => {
