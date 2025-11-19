@@ -52,8 +52,11 @@ export function setupRealtimeProxy(server: Server) {
         }
       }
 
-      // Use production GA model for all tiers - most stable and reliable
-      const model = 'gpt-realtime';  // Production GA model (released Aug 2025 - most stable)
+      // Use latest stable preview model (Dec 2024 release)
+      // Note: ALL Realtime API models experiencing server errors as of Nov 19, 2024
+      // This affects: gpt-realtime, gpt-4o-realtime-preview-2024-12-17, -2024-10-01, -2025-09-25 mini
+      // Connection succeeds, session creates, then immediate server_error from OpenAI
+      const model = 'gpt-4o-realtime-preview-2024-12-17';  // Latest stable preview (Dec 2024)
 
       console.log(`Using model: ${model} for tier: ${subscriptionTier}`);
 
