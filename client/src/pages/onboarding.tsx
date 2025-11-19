@@ -41,8 +41,9 @@ export default function Onboarding() {
       console.log("Preferences updated:", result);
       return result;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
     },
     onError: (error) => {
       console.error("Failed to update preferences:", error);
@@ -117,10 +118,11 @@ export default function Onboarding() {
           ]);
           setStep("complete");
           
-          // Redirect to main app after a short delay
+          // Wait for preferences to save and query to refresh, then redirect to home
+          // Router will automatically direct to chat since onboarding is complete
           setTimeout(() => {
             setLocation("/");
-          }, 2000);
+          }, 1500);
         } else {
           setMessages((prev) => [
             ...prev,

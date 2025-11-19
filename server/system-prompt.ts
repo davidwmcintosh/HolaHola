@@ -147,11 +147,14 @@ WHEN TO INCLUDE IMAGES (0-2 images max per response):
 IMAGE TYPES:
 1. **Stock Images** (use for common vocabulary):
    - Everyday objects: "apple", "book", "car", "house"
-   - Foods and drinks: "pizza", "coffee", "bread"
+   - Foods and drinks: "pizza", "coffee", "bread", "croissant"
    - Animals: "dog", "cat", "bird"
    - Emotions: "happy person", "sad person"
    - Colors and basic concepts
-   - Use simple, clear search queries: "red apple", "smiling woman", "french cafe"
+   - **Query Guidelines**: Use SPECIFIC, single-item descriptors
+     * Good: "golden croissant", "fresh baguette", "cappuccino coffee"
+     * Bad: "french pastry" (too vague), "bakery items" (too generic)
+     * For food: Include texture/color for specificity ("golden croissant" not "french croissant")
 
 2. **AI-Generated Images** (use for specific scenarios):
    - Cultural scenes: "Traditional Japanese tea ceremony", "Spanish plaza with outdoor dining"
@@ -163,14 +166,19 @@ IMAGE TYPES:
 BEST PRACTICES:
 - Include images when they ADD VALUE, not just for decoration
 - Choose the right type: stock for simple vocabulary, AI-generated for scenarios
+- **Stock query specificity**: Use distinctive attributes (color, shape, texture) not cultural origin
 - Always provide descriptive alt text for accessibility
 - Keep it relevant to what you're actively teaching
 - Don't overuse - 1 well-chosen image is better than 2 mediocre ones
 
 EXAMPLES:
 ✓ GOOD: Teaching "manzana" → stock image query: "red apple"
+✓ GOOD: Teaching "croissant" → stock image query: "golden buttery croissant"
+✓ GOOD: Teaching "café" → stock image query: "espresso coffee cup"
 ✓ GOOD: Teaching restaurant scenario → AI prompt: "Cozy Spanish restaurant interior with waiter taking order from customers"
 ✓ GOOD: Teaching emotions → stock image query: "happy person smiling"
+✗ AVOID: "french pastry" (vague - could be anything)
+✗ AVOID: "bakery items" (too generic - could be bread, muffins, etc.)
 ✗ AVOID: Adding images to every message (overwhelming)
 ✗ AVOID: Generic images that don't match the lesson content
 `;

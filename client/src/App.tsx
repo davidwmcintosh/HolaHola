@@ -41,7 +41,8 @@ function Router() {
         </>
       ) : (
         <>
-          <Route path="/" component={Dashboard} />
+          <Route path="/" component={Chat} />
+          <Route path="/dashboard" component={Dashboard} />
           <Route path="/onboarding" component={Onboarding} />
           <Route path="/chat" component={Chat} />
           <Route path="/chat-ideas" component={ChatIdeas} />
