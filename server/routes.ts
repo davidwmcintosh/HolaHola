@@ -1513,13 +1513,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // If messageId is provided, verify the message belongs to the user's conversation
       if (messageId) {
-        const message = await storage.getMessage(messageId);
+        const message = await storage.getMessage(messageId, userId);
         if (!message) {
-          return res.status(404).json({ error: "Message not found" });
-        }
-
-        const conversation = await storage.getConversation(message.conversationId);
-        if (!conversation || conversation.userId !== userId) {
           return res.status(403).json({ error: "Unauthorized: message does not belong to your conversation" });
         }
       }
@@ -1561,13 +1556,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const messageId = req.params.messageId;
 
       // Verify the message belongs to the user's conversation
-      const message = await storage.getMessage(messageId);
+      const message = await storage.getMessage(messageId, userId);
       if (!message) {
-        return res.status(404).json({ error: "Message not found" });
-      }
-
-      const conversation = await storage.getConversation(message.conversationId);
-      if (!conversation || conversation.userId !== userId) {
         return res.status(403).json({ error: "Unauthorized: message does not belong to your conversation" });
       }
 

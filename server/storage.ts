@@ -82,6 +82,7 @@ export interface IStorage {
 
   // Messages
   createMessage(data: InsertMessage): Promise<Message>;
+  getMessage(messageId: string, userId: string): Promise<Message | undefined>;
   getMessagesByConversation(conversationId: string): Promise<Message[]>;
   updateMessage(id: string, data: Partial<Message>): Promise<Message | undefined>;
 
@@ -758,6 +759,26 @@ export class DatabaseStorage implements IStorage {
     }
 
     return message;
+  }
+
+  async getMessage(messageId: string, userId: string): Promise<Message | undefined> {
+    const result = await db.select({
+      id: messages.id,
+      conversationId: messages.conversationId,
+      role: messages.role,
+      content: messages.content,
+      targetLanguageText: messages.targetLanguageText,
+      createdAt: messages.createdAt,
+    })
+      .from(messages)
+      .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+      .where(and(
+        eq(messages.id, messageId),
+        eq(conversations.userId, userId)
+      ))
+      .limit(1);
+    
+    return result[0];
   }
 
   async getMessagesByConversation(conversationId: string): Promise<Message[]> {
