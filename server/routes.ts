@@ -360,15 +360,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/conversations", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const data = insertConversationSchema.parse(req.body);
-      const userName = (req.body.userName || "").trim();
+      
+      // Fetch user record to get saved preferences (defensive fallback)
+      const userRecord = await storage.getUser(userId);
+      
+      // Parse request body, but use user preferences as defaults if not provided
+      const data = insertConversationSchema.parse({
+        ...req.body,
+        language: req.body.language || userRecord?.targetLanguage || "spanish",
+        difficulty: req.body.difficulty || userRecord?.difficultyLevel || "beginner",
+        nativeLanguage: req.body.nativeLanguage || userRecord?.nativeLanguage || "english"
+      });
+      
+      // Get userName - use from request or fallback to user profile
+      // Treat "Student" as a placeholder and replace with profile name
+      const requestUserName = (req.body.userName || "").trim();
+      const isPlaceholder = !requestUserName || requestUserName.toLowerCase() === "student";
+      const profileUserName = userRecord?.firstName && userRecord?.lastName
+        ? `${userRecord.firstName} ${userRecord.lastName}`.trim()
+        : userRecord?.firstName || "";
+      const userName = isPlaceholder ? profileUserName : requestUserName;
       const isOnboardingExplicit = req.body.isOnboarding;
       
       console.log('[CONVERSATION CREATE] Received userName:', userName);
       console.log('[CONVERSATION CREATE] isOnboarding explicit:', isOnboardingExplicit);
+      console.log('[CONVERSATION CREATE] Using preferences:', {
+        language: data.language,
+        difficulty: data.difficulty,
+        nativeLanguage: data.nativeLanguage,
+        userName,
+        onboardingCompleted: userRecord?.onboardingCompleted,
+        source: req.body.language ? 'request' : 'user_record'
+      });
       
-      // If isOnboarding is explicitly set (e.g., from ThreadSelector), use it
-      // Otherwise, auto-detect based on user's onboarding status
+      // Determine if this should be an onboarding conversation
+      // Use the dedicated onboardingCompleted flag instead of userName matching
       let isOnboarding: boolean;
       let userNativeLanguage: string | undefined;
       
@@ -376,20 +402,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Explicitly set - use it (for manually created threads)
         isOnboarding = isOnboardingExplicit;
       } else {
-        // Auto-detect for first-time visits
-        const allConversations = await storage.getUserConversations(userId);
-        const userHasCompletedOnboarding = userName && userName !== "Student" 
-          ? allConversations.some(c => 
-              c.userName === userName && 
-              c.isOnboarding === false
-            )
-          : false;
+        // Auto-detect based on onboardingCompleted flag in user record
+        // If user has completed onboarding, never trigger onboarding again
+        isOnboarding = !userRecord?.onboardingCompleted;
         
-        const isNewUser = (!userName || userName === "Student" || !userHasCompletedOnboarding);
-        isOnboarding = isNewUser;
-        
-        console.log('[CONVERSATION CREATE] userHasCompletedOnboarding:', userHasCompletedOnboarding);
-        console.log('[CONVERSATION CREATE] isNewUser (auto-detected):', isNewUser);
+        console.log('[CONVERSATION CREATE] onboardingCompleted from user record:', userRecord?.onboardingCompleted);
+        console.log('[CONVERSATION CREATE] isOnboarding (auto-detected):', isOnboarding);
       }
       
       // ALWAYS attempt to inherit nativeLanguage from previous conversations if user has a name

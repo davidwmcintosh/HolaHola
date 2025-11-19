@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Send, Sparkles } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/contexts/LanguageContext";
 import type { User } from "@shared/schema";
 
 type Message = {
@@ -19,6 +20,7 @@ const INITIAL_MESSAGE = "Hi! I'm your language learning assistant. I'm excited t
 export default function Onboarding() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { setLanguage, setDifficulty } = useLanguage();
   const [messages, setMessages] = useState<Message[]>([
     { role: "assistant", content: INITIAL_MESSAGE }
   ]);
@@ -73,6 +75,9 @@ export default function Onboarding() {
           const normalizedLang = targetLang === "mandarin chinese" ? "mandarin" : targetLang;
           await updatePreferencesMutation.mutateAsync({ targetLanguage: normalizedLang });
           
+          // Immediately update LanguageContext with the target language
+          setLanguage(normalizedLang);
+          
           setMessages((prev) => [
             ...prev,
             {
@@ -108,6 +113,9 @@ export default function Onboarding() {
             difficultyLevel: difficulty,
             onboardingCompleted: true 
           });
+          
+          // Immediately update LanguageContext with the difficulty level
+          setDifficulty(difficulty as any);
           
           setMessages((prev) => [
             ...prev,
