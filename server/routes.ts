@@ -362,7 +362,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       
       // Fetch user record to get saved preferences (defensive fallback)
-      const userRecord = await storage.getUser(userId);
+      let userRecord = await storage.getUser(userId);
+      
+      // Defensive sync: If user has valid preferences but onboardingCompleted is false, update it
+      if (userRecord && !userRecord.onboardingCompleted) {
+        const hasValidPreferences = userRecord.targetLanguage && userRecord.difficultyLevel && (userRecord.firstName || userRecord.lastName);
+        if (hasValidPreferences) {
+          console.log('[DEFENSIVE SYNC] User has valid preferences but onboardingCompleted is false, updating...');
+          await storage.updateUserPreferences(userId, {
+            onboardingCompleted: true
+          });
+          // Refetch user record with updated flag
+          userRecord = await storage.getUser(userId);
+          console.log('[DEFENSIVE SYNC] Updated onboardingCompleted to true');
+        }
+      }
       
       // Parse request body, but use user preferences as defaults if not provided
       const data = insertConversationSchema.parse({
