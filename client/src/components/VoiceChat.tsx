@@ -304,6 +304,13 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
             }
             break;
             
+          case "response.created":
+            // Mark AI as speaking as soon as response is created
+            // This prevents user from interrupting before audio starts
+            console.log('[VOICE CHAT] AI response created - blocking new recordings');
+            setIsAiSpeaking(true);
+            break;
+            
           case "response.audio.delta":
             if (data.delta && audioPlayerRef.current) {
               console.log('[AUDIO] Playing audio chunk, size:', data.delta.length);
@@ -347,6 +354,8 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
             break;
             
           case "response.done":
+            // Reset AI speaking state when response completes or is cancelled
+            console.log('[VOICE CHAT] AI response done, status:', data.response?.status);
             setIsAiSpeaking(false);
             break;
             
@@ -476,6 +485,12 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
   }, [conversationId, language, difficulty, user]);
 
   const startRecording = async () => {
+    // CRITICAL: Don't start recording while AI is speaking - prevents "turn detected" cancellations
+    if (isAiSpeaking) {
+      console.log('[VOICE CHAT] Cannot start recording - AI is currently speaking');
+      return;
+    }
+    
     // Generate new token for this start attempt
     startTokenRef.current += 1;
     const myToken = startTokenRef.current;
