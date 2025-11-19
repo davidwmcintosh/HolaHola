@@ -1496,6 +1496,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Media Files - Image Upload
+  app.post("/api/media/upload", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { base64Data, filename, mimeType, caption, messageId } = req.body;
+      
+      if (!base64Data || !filename || !mimeType) {
+        return res.status(400).json({ error: "Missing required fields: base64Data, filename, mimeType" });
+      }
+
+      // Validate image MIME type
+      if (!mimeType.startsWith('image/')) {
+        return res.status(400).json({ error: "Only images are supported" });
+      }
+
+      // Calculate file size from base64
+      const base64Length = base64Data.length - (base64Data.indexOf(',') + 1);
+      const fileSize = Math.floor((base64Length * 3) / 4);
+
+      // Create media file record
+      const mediaFile = await storage.createMediaFile({
+        uploadedBy: userId,
+        mediaType: 'image',
+        url: base64Data, // Store base64 directly for MVP
+        filename,
+        mimeType,
+        fileSize,
+      });
+
+      // If messageId is provided, link the image to the message
+      if (messageId) {
+        await storage.createMessageMedia({
+          messageId,
+          mediaFileId: mediaFile.id,
+          caption: caption || null,
+        });
+      }
+
+      res.json(mediaFile);
+    } catch (error: any) {
+      console.error('Image upload error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get images for a message
+  app.get("/api/messages/:messageId/media", async (req, res) => {
+    try {
+      const media = await storage.getMessageMedia(req.params.messageId);
+      res.json(media);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get user's media files
+  app.get("/api/media/my-uploads", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const mediaFiles = await storage.getUserMediaFiles(userId);
+      res.json(mediaFiles);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket proxy for Realtime API

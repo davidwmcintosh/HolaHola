@@ -19,6 +19,10 @@ import {
   type InsertCulturalTip,
   type User,
   type UpsertUser,
+  type MediaFile,
+  type InsertMediaFile,
+  type MessageMedia,
+  type InsertMessageMedia,
   users,
   conversations,
   messages,
@@ -29,6 +33,8 @@ import {
   pronunciationScores,
   topics as topicsTable,
   culturalTips as culturalTipsTable,
+  mediaFiles,
+  messageMedia,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -113,6 +119,15 @@ export interface IStorage {
   getCulturalTips(language: string): Promise<CulturalTip[]>;
   getCulturalTip(id: string): Promise<CulturalTip | undefined>;
   createCulturalTip(data: InsertCulturalTip): Promise<CulturalTip>;
+
+  // Media Files
+  createMediaFile(data: InsertMediaFile): Promise<MediaFile>;
+  getMediaFile(id: string): Promise<MediaFile | undefined>;
+  getUserMediaFiles(userId: string): Promise<MediaFile[]>;
+  
+  // Message Media (images in conversations)
+  createMessageMedia(data: InsertMessageMedia): Promise<MessageMedia>;
+  getMessageMedia(messageId: string): Promise<Array<MessageMedia & { mediaFile: MediaFile }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -944,6 +959,42 @@ export class DatabaseStorage implements IStorage {
   async createCulturalTip(data: InsertCulturalTip): Promise<CulturalTip> {
     const [culturalTip] = await db.insert(culturalTipsTable).values(data).returning();
     return culturalTip;
+  }
+
+  // Media Files
+  async createMediaFile(data: InsertMediaFile): Promise<MediaFile> {
+    const [mediaFile] = await db.insert(mediaFiles).values(data).returning();
+    return mediaFile;
+  }
+
+  async getMediaFile(id: string): Promise<MediaFile | undefined> {
+    const result = await db.select().from(mediaFiles).where(eq(mediaFiles.id, id));
+    return result[0];
+  }
+
+  async getUserMediaFiles(userId: string): Promise<MediaFile[]> {
+    return await db.select().from(mediaFiles)
+      .where(eq(mediaFiles.uploadedBy, userId))
+      .orderBy(desc(mediaFiles.createdAt));
+  }
+
+  // Message Media (images in conversations)
+  async createMessageMedia(data: InsertMessageMedia): Promise<MessageMedia> {
+    const [media] = await db.insert(messageMedia).values(data).returning();
+    return media;
+  }
+
+  async getMessageMedia(messageId: string): Promise<Array<MessageMedia & { mediaFile: MediaFile }>> {
+    const results = await db
+      .select()
+      .from(messageMedia)
+      .leftJoin(mediaFiles, eq(messageMedia.mediaFileId, mediaFiles.id))
+      .where(eq(messageMedia.messageId, messageId));
+
+    return results.map(r => ({
+      ...r.message_media,
+      mediaFile: r.media_files!,
+    }));
   }
 }
 
