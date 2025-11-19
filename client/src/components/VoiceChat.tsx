@@ -612,7 +612,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
             const errorData = JSON.parse(error);
             if (errorData.type === 'openai_error') {
               return (
-                <div className="mb-4 p-4 bg-destructive/10 text-destructive rounded-lg" data-testid="error-message">
+                <div className="mb-4 p-4 pb-6 bg-destructive/10 text-destructive rounded-lg" data-testid="error-message">
                   <p className="font-semibold mb-2 text-base">{errorData.friendlyMessage}</p>
                   
                   {errorData.suggestions && errorData.suggestions.length > 0 && (
@@ -717,7 +717,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
           
           // Simple error string fallback
           return (
-            <div className="mb-4 p-4 bg-destructive/10 text-destructive rounded-lg" data-testid="error-message">
+            <div className="mb-4 p-4 pb-6 bg-destructive/10 text-destructive rounded-lg" data-testid="error-message">
               <p className="font-medium mb-2">Voice Chat Unavailable</p>
               <p className="text-sm mb-3">{error}</p>
               <div className="text-sm text-muted-foreground space-y-2">
