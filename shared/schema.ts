@@ -82,6 +82,8 @@ export const messages = pgTable("messages", {
   conversationId: varchar("conversation_id").notNull().references(() => conversations.id),
   role: text("role").notNull(),
   content: text("content").notNull(),
+  // Voice conversation text display - shows foreign language text on screen for reading reinforcement
+  targetLanguageText: text("target_language_text"), // Foreign language portion to display during voice chat
   // Performance tracking (for user messages only)
   performanceScore: integer("performance_score"), // 0-100: AI assessment of response quality
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -369,6 +371,109 @@ export const studentGoals = pgTable("student_goals", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// ===== Multimedia Content System =====
+
+// Core media files table - stores all images, videos, and audio
+export const mediaFiles = pgTable("media_files", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  uploadedBy: varchar("uploaded_by").references(() => users.id), // User who uploaded (null for system media)
+  mediaType: text("media_type").notNull(), // image, video, audio
+  url: text("url").notNull(), // URL or path to the media file
+  thumbnailUrl: text("thumbnail_url"), // Thumbnail for videos/images
+  filename: text("filename").notNull(),
+  mimeType: text("mime_type").notNull(), // image/jpeg, video/mp4, audio/mpeg, etc.
+  fileSize: integer("file_size"), // Bytes
+  width: integer("width"), // For images/videos
+  height: integer("height"), // For images/videos
+  duration: integer("duration"), // Seconds (for video/audio)
+  title: text("title"), // Optional descriptive title
+  description: text("description"), // Optional description
+  tags: text("tags").array(), // Searchable tags
+  language: text("language"), // Relevant language (optional)
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Images shared in conversations (e.g., "What is this in Spanish?")
+export const messageMedia = pgTable("message_media", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  messageId: varchar("message_id").notNull().references(() => messages.id),
+  mediaFileId: varchar("media_file_id").notNull().references(() => mediaFiles.id),
+  caption: text("caption"), // User's caption for the image
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Pre-recorded instructional video lessons
+export const videoLessons = pgTable("video_lessons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  language: text("language").notNull(), // Target language
+  difficultyLevel: text("difficulty_level").notNull(), // beginner, intermediate, advanced
+  category: text("category").notNull(), // grammar, pronunciation, vocabulary, culture, conversation
+  videoFileId: varchar("video_file_id").notNull().references(() => mediaFiles.id),
+  duration: integer("duration").notNull(), // Seconds
+  thumbnailUrl: text("thumbnail_url"),
+  // ACTFL alignment
+  actflLevel: text("actfl_level"), // Target proficiency level
+  // Content organization
+  tags: text("tags").array(), // Searchable tags
+  topics: text("topics").array(), // Related conversation topics
+  // Learning objectives
+  objectives: text("objectives").array(), // What students will learn
+  // Metadata
+  viewCount: integer("view_count").default(0),
+  isPublished: boolean("is_published").default(true),
+  createdBy: varchar("created_by").references(() => users.id), // Creator (teacher/admin)
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Supplementary pronunciation audio examples
+export const pronunciationAudio = pgTable("pronunciation_audio", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  language: text("language").notNull(),
+  text: text("text").notNull(), // The word/phrase being pronounced
+  phoneticSpelling: text("phonetic_spelling"), // IPA or simplified phonetic
+  audioFileId: varchar("audio_file_id").notNull().references(() => mediaFiles.id),
+  // Optional links to vocabulary
+  vocabularyWordId: varchar("vocabulary_word_id").references(() => vocabularyWords.id),
+  // Metadata
+  nativeSpeaker: boolean("native_speaker").default(true), // Is this a native speaker recording?
+  speed: text("speed").default("normal"), // slow, normal, fast
+  gender: text("gender"), // male, female, neutral (optional)
+  dialectRegion: text("dialect_region"), // e.g., "Castilian Spanish", "Mexican Spanish"
+  tags: text("tags").array(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Visual aids for lessons (diagrams, illustrations, infographics)
+export const lessonVisualAids = pgTable("lesson_visual_aids", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  lessonId: varchar("lesson_id").notNull().references(() => curriculumLessons.id),
+  mediaFileId: varchar("media_file_id").notNull().references(() => mediaFiles.id),
+  title: text("title").notNull(), // e.g., "Verb Conjugation Chart"
+  description: text("description"),
+  displayOrder: integer("display_order").notNull().default(0), // Order within the lesson
+  isRequired: boolean("is_required").default(false), // Is this required viewing?
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Cultural media gallery (photos/videos for cultural context)
+export const culturalTipMedia = pgTable("cultural_tip_media", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  culturalTipId: varchar("cultural_tip_id").references(() => culturalTips.id), // Optional link to specific tip
+  language: text("language").notNull(),
+  mediaFileId: varchar("media_file_id").notNull().references(() => mediaFiles.id),
+  title: text("title").notNull(),
+  caption: text("caption").notNull(), // Description of cultural significance
+  category: text("category").notNull(), // greetings, dining, holidays, customs, landmarks, traditions
+  region: text("region"), // Specific region/country (e.g., "Mexico", "Spain")
+  tags: text("tags").array(),
+  displayOrder: integer("display_order").default(0),
+  isFeatured: boolean("is_featured").default(false), // Highlight in gallery
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertConversationSchema = createInsertSchema(conversations).omit({
   id: true,
   createdAt: true,
@@ -551,3 +656,54 @@ export type StudentLessonProgress = typeof studentLessonProgress.$inferSelect;
 
 export type InsertStudentGoal = z.infer<typeof insertStudentGoalSchema>;
 export type StudentGoal = typeof studentGoals.$inferSelect;
+
+// ===== Multimedia Content Types =====
+
+export const insertMediaFileSchema = createInsertSchema(mediaFiles).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertMessageMediaSchema = createInsertSchema(messageMedia).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertVideoLessonSchema = createInsertSchema(videoLessons).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPronunciationAudioSchema = createInsertSchema(pronunciationAudio).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertLessonVisualAidSchema = createInsertSchema(lessonVisualAids).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCulturalTipMediaSchema = createInsertSchema(culturalTipMedia).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertMediaFile = z.infer<typeof insertMediaFileSchema>;
+export type MediaFile = typeof mediaFiles.$inferSelect;
+
+export type InsertMessageMedia = z.infer<typeof insertMessageMediaSchema>;
+export type MessageMedia = typeof messageMedia.$inferSelect;
+
+export type InsertVideoLesson = z.infer<typeof insertVideoLessonSchema>;
+export type VideoLesson = typeof videoLessons.$inferSelect;
+
+export type InsertPronunciationAudio = z.infer<typeof insertPronunciationAudioSchema>;
+export type PronunciationAudio = typeof pronunciationAudio.$inferSelect;
+
+export type InsertLessonVisualAid = z.infer<typeof insertLessonVisualAidSchema>;
+export type LessonVisualAid = typeof lessonVisualAids.$inferSelect;
+
+export type InsertCulturalTipMedia = z.infer<typeof insertCulturalTipMediaSchema>;
+export type CulturalTipMedia = typeof culturalTipMedia.$inferSelect;
