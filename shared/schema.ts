@@ -15,7 +15,7 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// Replit Auth Integration - User storage table
+// Replit Auth Integration - User storage table with Stripe billing
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -23,6 +23,15 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  // Stripe billing integration
+  stripeCustomerId: varchar("stripe_customer_id"),
+  stripeSubscriptionId: varchar("stripe_subscription_id"),
+  subscriptionTier: varchar("subscription_tier").default("free"), // free, basic, pro, institutional
+  subscriptionStatus: varchar("subscription_status").default("active"), // active, canceled, past_due, trialing
+  // Usage tracking for cost analysis
+  monthlyConversations: integer("monthly_conversations").default(0),
+  totalConversations: integer("total_conversations").default(0),
+  lastResetDate: timestamp("last_reset_date").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

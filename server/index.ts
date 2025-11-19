@@ -1,9 +1,93 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { runMigrations, StripeSync } from 'stripe-replit-sync';
+import { getStripeSecretKey, getStripeWebhookSecret } from "./stripeClient";
+import { WebhookHandlers } from "./webhookHandlers";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
+// Initialize Stripe before starting server
+let stripeReady = false;
+const stripeInitPromise = (async function initStripe() {
+  const databaseUrl = process.env.DATABASE_URL;
+  
+  if (!databaseUrl) {
+    console.error('DATABASE_URL environment variable is required for Stripe integration');
+    return;
+  }
+
+  try {
+    console.log('Initializing Stripe schema...');
+    await runMigrations({ 
+      databaseUrl,
+      schema: 'stripe'
+    });
+    console.log('Stripe schema ready');
+
+    console.log('Syncing Stripe data...');
+    const secretKey = await getStripeSecretKey();
+    const webhookSecret = await getStripeWebhookSecret();
+    
+    const stripeSync = new StripeSync({
+      poolConfig: {
+        connectionString: databaseUrl,
+        max: 10,
+      },
+      stripeSecretKey: secretKey,
+      stripeWebhookSecret: webhookSecret,
+    });
+    await stripeSync.syncBackfill();
+    console.log('Stripe data synced');
+    stripeReady = true;
+  } catch (error) {
+    console.error('Failed to initialize Stripe:', error);
+    console.error('Stripe billing features will be unavailable');
+  }
+})();
+
+// CRITICAL: Register Stripe webhook route BEFORE express.json()
+// Webhook needs raw Buffer, not parsed JSON
+app.post(
+  '/api/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  async (req, res) => {
+    const signature = req.headers['stripe-signature'];
+    
+    if (!signature) {
+      return res.status(400).json({ error: 'Missing stripe-signature' });
+    }
+    
+    try {
+      const sig = Array.isArray(signature) ? signature[0] : signature;
+      
+      if (!Buffer.isBuffer(req.body)) {
+        const errorMsg = 'STRIPE WEBHOOK ERROR: req.body is not a Buffer. ' +
+          'This means express.json() ran before this webhook route. ' +
+          'FIX: Move this webhook route registration BEFORE app.use(express.json()) in your code.';
+        console.error(errorMsg);
+        return res.status(500).json({ error: 'Webhook processing error' });
+      }
+      
+      await WebhookHandlers.processWebhook(req.body as Buffer, sig);
+      
+      res.status(200).json({ received: true });
+    } catch (error: any) {
+      console.error('Webhook error:', error.message);
+      
+      if (error.message && error.message.includes('payload must be provided as a string or a Buffer')) {
+        const helpfulMsg = 'STRIPE WEBHOOK ERROR: Payload is not a Buffer. ' +
+          'This usually means express.json() parsed the body before the webhook handler. ' +
+          'FIX: Ensure the webhook route is registered BEFORE app.use(express.json()).';
+        console.error(helpfulMsg);
+      }
+      
+      res.status(400).json({ error: 'Webhook processing error' });
+    }
+  }
+);
+
+// NOW apply JSON middleware for all other routes
 declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown

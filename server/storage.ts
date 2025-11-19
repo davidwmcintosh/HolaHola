@@ -40,6 +40,19 @@ export interface IStorage {
   // (IMPORTANT) these user operations are mandatory for Replit Auth.
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  updateUserStripeInfo(userId: string, stripeInfo: {
+    stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
+    subscriptionTier?: string;
+    subscriptionStatus?: string;
+  }): Promise<User | undefined>;
+
+  // Stripe data queries (from stripe-replit-sync PostgreSQL tables)
+  getProduct(productId: string): Promise<any | null>;
+  listProducts(active?: boolean, limit?: number, offset?: number): Promise<any[]>;
+  getPrice(priceId: string): Promise<any | null>;
+  listPrices(active?: boolean, limit?: number, offset?: number): Promise<any[]>;
+  getSubscription(subscriptionId: string): Promise<any | null>;
 
   // Conversations
   createConversation(data: InsertConversation): Promise<Conversation>;
@@ -455,6 +468,55 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return upserted;
+  }
+
+  async updateUserStripeInfo(userId: string, stripeInfo: {
+    stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
+    subscriptionTier?: string;
+    subscriptionStatus?: string;
+  }): Promise<User | undefined> {
+    const [updated] = await db.update(users)
+      .set({ ...stripeInfo, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  // Stripe data queries (from stripe-replit-sync PostgreSQL tables)
+  async getProduct(productId: string): Promise<any | null> {
+    const result = await db.execute(
+      sql`SELECT * FROM stripe.products WHERE id = ${productId}`
+    );
+    return result.rows[0] || null;
+  }
+
+  async listProducts(active = true, limit = 20, offset = 0): Promise<any[]> {
+    const result = await db.execute(
+      sql`SELECT * FROM stripe.products WHERE active = ${active} LIMIT ${limit} OFFSET ${offset}`
+    );
+    return result.rows;
+  }
+
+  async getPrice(priceId: string): Promise<any | null> {
+    const result = await db.execute(
+      sql`SELECT * FROM stripe.prices WHERE id = ${priceId}`
+    );
+    return result.rows[0] || null;
+  }
+
+  async listPrices(active = true, limit = 20, offset = 0): Promise<any[]> {
+    const result = await db.execute(
+      sql`SELECT * FROM stripe.prices WHERE active = ${active} LIMIT ${limit} OFFSET ${offset}`
+    );
+    return result.rows;
+  }
+
+  async getSubscription(subscriptionId: string): Promise<any | null> {
+    const result = await db.execute(
+      sql`SELECT * FROM stripe.subscriptions WHERE id = ${subscriptionId}`
+    );
+    return result.rows[0] || null;
   }
 
   async createConversation(data: InsertConversation): Promise<Conversation> {

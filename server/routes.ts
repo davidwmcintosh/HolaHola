@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { stripeService } from "./stripeService";
 import {
   insertConversationSchema,
   insertMessageSchema,
@@ -40,6 +41,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // ===== Stripe Billing Routes =====
+  
+  // Middleware to check Stripe readiness for billing operations
+  const checkStripeReady = (_req: any, res: any, next: any) => {
+    // Import stripeReady from index.ts would create circular dependency
+    // Instead, check if we can access Stripe data
+    next();
+  };
+
+  // List available subscription products and prices
+  app.get('/api/billing/products', async (_req, res) => {
+    try {
+      const products = await storage.listProducts(true);
+      const prices = await storage.listPrices(true);
+      
+      // Group prices by product
+      const productsWithPrices = products.map(product => ({
+        ...product,
+        prices: prices.filter(price => price.product === product.id)
+      }));
+      
+      res.json({ products: productsWithPrices });
+    } catch (error: any) {
+      console.error("Error fetching products:", error);
+      res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
+  // Get user's subscription status
+  app.get('/api/billing/subscription', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.stripeSubscriptionId) {
+        return res.json({ subscription: null, tier: user?.subscriptionTier || 'free' });
+      }
+
+      const subscription = await storage.getSubscription(user.stripeSubscriptionId);
+      res.json({ 
+        subscription, 
+        tier: user.subscriptionTier,
+        status: user.subscriptionStatus
+      });
+    } catch (error: any) {
+      console.error("Error fetching subscription:", error);
+      res.status(500).json({ message: "Failed to fetch subscription" });
+    }
+  });
+
+  // Create checkout session
+  app.post('/api/billing/checkout', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      let user = await storage.getUser(userId);
+      const { priceId } = req.body;
+
+      if (!priceId) {
+        return res.status(400).json({ message: "Price ID is required" });
+      }
+
+      // Ensure user exists and has email
+      if (!user) {
+        // Create user from auth claims
+        user = await storage.upsertUser({
+          id: userId,
+          email: req.user.claims.email,
+          firstName: req.user.claims.first_name,
+          lastName: req.user.claims.last_name,
+          profileImageUrl: req.user.claims.profile_image_url,
+        });
+      }
+
+      if (!user.email) {
+        return res.status(400).json({ message: "User email is required for billing" });
+      }
+
+      // Create or get Stripe customer
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripeService.createCustomer(user.email, userId);
+        await storage.updateUserStripeInfo(userId, { stripeCustomerId: customer.id });
+        customerId = customer.id;
+      }
+
+      // Create checkout session
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const session = await stripeService.createCheckoutSession(
+        customerId,
+        priceId,
+        `${baseUrl}/settings?checkout=success`,
+        `${baseUrl}/settings?checkout=cancel`
+      );
+
+      res.json({ url: session.url });
+    } catch (error: any) {
+      console.error("Error creating checkout session:", error);
+      // Check if error is due to missing Stripe configuration
+      if (error.message && (error.message.includes('connection not found') || error.message.includes('X_REPLIT_TOKEN'))) {
+        return res.status(503).json({ 
+          message: "Billing service is not configured. Please set up Stripe integration in Replit Secrets." 
+        });
+      }
+      res.status(500).json({ message: "Failed to create checkout session" });
+    }
+  });
+
+  // Create customer portal session (manage subscription)
+  app.post('/api/billing/portal', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+
+      if (!user?.stripeCustomerId) {
+        return res.status(400).json({ message: "No Stripe customer found" });
+      }
+
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const session = await stripeService.createCustomerPortalSession(
+        user.stripeCustomerId,
+        `${baseUrl}/settings`
+      );
+
+      res.json({ url: session.url });
+    } catch (error: any) {
+      console.error("Error creating portal session:", error);
+      // Check if error is due to missing Stripe configuration
+      if (error.message && (error.message.includes('connection not found') || error.message.includes('X_REPLIT_TOKEN'))) {
+        return res.status(503).json({ 
+          message: "Billing service is not configured. Please set up Stripe integration in Replit Secrets." 
+        });
+      }
+      res.status(500).json({ message: "Failed to create portal session" });
     }
   });
 

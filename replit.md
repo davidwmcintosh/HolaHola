@@ -22,9 +22,13 @@ Preferred communication style: Simple, everyday language.
 -   **Storage**: Abstract `IStorage` interface with Drizzle ORM for PostgreSQL.
 -   **AI Integration**: OpenAI-compatible API via Replit's AI Integrations.
 -   **Session Management**: `connect-pg-simple`.
+-   **Authentication**: Replit Auth (OIDC) with email/password and social login support.
+-   **Billing**: Stripe integration via `stripe-replit-sync` for subscription management, automatic data sync via webhooks.
 
 ### Data Models
--   Core entities: Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress, CulturalTips, Topics (`shared/schema.ts`).
+-   Core entities: Users (with Stripe billing fields), Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress, CulturalTips, Topics (`shared/schema.ts`).
+-   All user-specific data (conversations, vocabulary, progress) linked via userId foreign keys for data isolation.
+-   Stripe data automatically synced to PostgreSQL `stripe` schema via webhooks.
 -   Data flow managed by React Query.
 
 ### Core Features
@@ -54,9 +58,26 @@ Preferred communication style: Simple, everyday language.
 -   **Mid-Conversation Native Language Change**: Users can request to change their native language mid-conversation, with intelligent detection and seamless integration.
 -   **Enhanced One-Concept-Per-Message Teaching**: System enforces one-concept-per-message teaching, adapting phrase complexity based on student's difficulty level.
 -   **Vocabulary Reinforcement System**: AI naturally reviews learned words during conversations using evidence-based learning techniques, tracking session vocabulary and integrating due vocabulary from SRS.
+-   **Subscription Tiers**: 
+    - Free: $0/month - 10 AI conversations/month, basic vocabulary
+    - Basic: $9.99/month - Unlimited AI chat, full vocabulary & grammar, progress tracking
+    - Pro: $19.99/month - Everything in Basic + voice chat, pronunciation scoring, priority support
+    - Institutional: $7/seat/month (annual) - All Pro features + admin dashboard, curriculum management, class progress reports, standards alignment
+
+## Business Model
+
+### Dual B2C/B2B Model
+-   **B2C (Individual Learners)**: Monthly subscriptions (Free, Basic $9.99, Pro $19.99) with self-directed learning or optional structured curricula.
+-   **B2B (Schools/Organizations)**: Institutional licensing at $7/seat/month (billed annually) with admin features, curriculum management, and standards-based progress tracking.
+
+### Revenue & Cost Tracking
+-   User table tracks monthly conversation limits and usage for cost analysis.
+-   Stripe integration provides subscription management, payment processing, and customer portal.
+-   Future: detailed API cost tracking per conversation for accurate per-student cost analysis.
 
 ## External Dependencies
 
--   **Third-Party Libraries**: OpenAI API (via Replit AI Integrations), Neon Database Serverless, Drizzle ORM, Radix UI, TanStack Query, Wouter, date-fns, Embla Carousel.
--   **Database**: PostgreSQL (via `DATABASE_URL`) with Drizzle Kit for migrations and connection pooling via `@neondatabase/serverless`.
+-   **Third-Party Services**: Stripe (billing), Replit Auth (authentication), OpenAI API (AI chat via Replit AI Integrations).
+-   **Libraries**: Neon Database Serverless, Drizzle ORM, stripe-replit-sync, Radix UI, TanStack Query, Wouter, date-fns, Embla Carousel.
+-   **Database**: PostgreSQL (via `DATABASE_URL`) with Drizzle Kit for migrations, connection pooling via `@neondatabase/serverless`, and automated Stripe data sync to `stripe` schema.
 -   **Asset Management**: Google Fonts (Inter, Architects Daughter, DM Sans, Fira Code, Geist Mono), static images in `attached_assets/generated_images/`.
