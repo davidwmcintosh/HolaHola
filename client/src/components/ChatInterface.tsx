@@ -17,9 +17,14 @@ import { MessageMedia } from "@/components/MessageMedia";
 import { useStreak } from "@/hooks/use-streak";
 import { useToast } from "@/hooks/use-toast";
 
-export function ChatInterface() {
+interface ChatInterfaceProps {
+  conversationId: string | null;
+  setConversationId: (id: string | null) => void;
+  setCurrentConversationOnboarding: (isOnboarding: boolean | null) => void;
+}
+
+export function ChatInterface({ conversationId, setConversationId, setCurrentConversationOnboarding }: ChatInterfaceProps) {
   const { language, setLanguage, difficulty, userName, setUserName } = useLanguage();
-  const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [waitingForResponse, setWaitingForResponse] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -28,77 +33,6 @@ export function ChatInterface() {
   const lastStreakRecordDateRef = useRef<string | null>(null);
   const { recordPractice } = useStreak();
   const { toast } = useToast();
-  
-  // Auto-create conversation when page loads
-  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
-  const [currentConversationOnboarding, setCurrentConversationOnboarding] = useState<boolean | null>(null);
-  const previousLanguageRef = useRef(language);
-
-  // Reset conversationId when language changes to trigger new conversation creation
-  // BUT NOT if we're currently in onboarding (to prevent race condition)
-  useEffect(() => {
-    // Only reset if language actually changed AND we're not in onboarding
-    if (language !== previousLanguageRef.current && currentConversationOnboarding !== true) {
-      console.log('[LANGUAGE CHANGE] Language changed from', previousLanguageRef.current, 'to', language, '- resetting conversation');
-      setConversationId(null);
-      previousLanguageRef.current = language;
-    }
-  }, [language, currentConversationOnboarding]);
-  
-  // Track the current conversation's onboarding status from message responses
-  useEffect(() => {
-    if (conversationId) {
-      // Fetch conversation to check if it's onboarding
-      apiRequest("GET", `/api/conversations/${conversationId}`)
-        .then(res => res.json())
-        .then(data => {
-          setCurrentConversationOnboarding(data.isOnboarding);
-        })
-        .catch(() => {
-          setCurrentConversationOnboarding(null);
-        });
-    } else {
-      setCurrentConversationOnboarding(null);
-    }
-  }, [conversationId]);
-  
-  useEffect(() => {
-    // Check if we should create a conversation
-    const isOnboardingComplete = userName && userName.trim() !== "";
-    const needsConversation = !conversationId && !isCreatingConversation;
-    
-    // Don't create a new conversation if we're in the middle of onboarding
-    const isCurrentlyOnboarding = currentConversationOnboarding === true;
-    
-    console.log('[AUTO-CREATE] Effect triggered - userName:', userName, 'conversationId:', conversationId, 'isCreating:', isCreatingConversation, 'isComplete:', isOnboardingComplete, 'isCurrentlyOnboarding:', isCurrentlyOnboarding);
-    
-    if (needsConversation && !isCurrentlyOnboarding) {
-      console.log('[AUTO-CREATE] Starting conversation creation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)');
-      setIsCreatingConversation(true);
-      
-      // Create conversation - either onboarding or regular with history
-      apiRequest("POST", "/api/conversations", {
-        language,
-        difficulty,
-        userName: isOnboardingComplete ? userName : null,
-        title: null,
-        isOnboarding: !isOnboardingComplete,
-        includeConversationHistory: isOnboardingComplete, // Only include history for post-onboarding conversations
-      })
-        .then(res => res.json())
-        .then(data => {
-          console.log('[AUTO-CREATE] Conversation created:', data.id);
-          setConversationId(data.id);
-          setIsCreatingConversation(false);
-          // Invalidate and refetch messages for the new conversation
-          queryClient.invalidateQueries({ queryKey: ["/api/conversations", data.id, "messages"] });
-        })
-        .catch(err => {
-          console.error("Failed to create conversation:", err);
-          setIsCreatingConversation(false);
-        });
-    }
-  }, [language, difficulty, userName, conversationId, isCreatingConversation, currentConversationOnboarding]);
 
   // Fetch messages for current conversation
   const { data: messages = [], isLoading } = useQuery<Message[]>({

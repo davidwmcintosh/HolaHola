@@ -28,10 +28,15 @@ interface PronunciationScoreData {
   strengths: string[];
 }
 
-export function VoiceChat() {
+interface VoiceChatProps {
+  conversationId: string | null;
+  setConversationId: (id: string | null) => void;
+  setCurrentConversationOnboarding: (isOnboarding: boolean | null) => void;
+}
+
+export function VoiceChat({ conversationId, setConversationId, setCurrentConversationOnboarding }: VoiceChatProps) {
   const { language, difficulty, userName } = useLanguage();
   const { user } = useAuth();
-  const [conversationId, setConversationId] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
   const [transcript, setTranscript] = useState<Array<{ role: string; content: string; messageId?: string }>>([]);
@@ -79,45 +84,6 @@ export function VoiceChat() {
   useEffect(() => {
     checkCapability();
   }, [checkCapability]);
-
-  // Reset conversationId when language changes to trigger new conversation creation
-  useEffect(() => {
-    setConversationId(null);
-  }, [language]);
-
-  // Auto-create conversation when page loads
-  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
-  
-  useEffect(() => {
-    // Check if we should create a conversation
-    const isOnboardingComplete = userName && userName.trim() !== "";
-    const needsConversation = !conversationId && !isCreatingConversation;
-    
-    if (needsConversation) {
-      setIsCreatingConversation(true);
-      
-      // Create conversation - either onboarding or regular with history
-      apiRequest("POST", "/api/conversations", {
-        language,
-        difficulty,
-        userName: isOnboardingComplete ? userName : null,
-        title: null,
-        isOnboarding: !isOnboardingComplete,
-        includeConversationHistory: isOnboardingComplete, // Only include history for post-onboarding conversations
-      })
-        .then(res => res.json())
-        .then(data => {
-          setConversationId(data.id);
-          setIsCreatingConversation(false);
-          // Invalidate and refetch messages for the new conversation
-          queryClient.invalidateQueries({ queryKey: ["/api/conversations", data.id, "messages"] });
-        })
-        .catch(err => {
-          console.error("Failed to create conversation:", err);
-          setIsCreatingConversation(false);
-        });
-    }
-  }, [language, difficulty, userName, conversationId, isCreatingConversation]);
 
   // Fetch existing messages
   const { data: messages = [] } = useQuery<Message[]>({
