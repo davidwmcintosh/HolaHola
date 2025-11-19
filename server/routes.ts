@@ -7,6 +7,7 @@ import {
   insertMessageSchema,
   insertProgressHistorySchema,
   insertPronunciationScoreSchema,
+  updateUserPreferencesSchema,
 } from "@shared/schema";
 import OpenAI from "openai";
 import { setupRealtimeProxy } from "./realtime-proxy";
@@ -41,6 +42,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Update user learning preferences
+  app.put('/api/user/preferences', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Validate request body
+      const validationResult = updateUserPreferencesSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          message: "Invalid preferences data",
+          errors: validationResult.error.errors 
+        });
+      }
+      
+      const { targetLanguage, nativeLanguage, difficultyLevel, onboardingCompleted } = validationResult.data;
+      
+      const updated = await storage.updateUserPreferences(userId, {
+        targetLanguage,
+        nativeLanguage,
+        difficultyLevel,
+        onboardingCompleted,
+      });
+      
+      if (!updated) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating preferences:", error);
+      res.status(500).json({ message: "Failed to update preferences" });
     }
   });
 

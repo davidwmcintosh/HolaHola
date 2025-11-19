@@ -40,6 +40,12 @@ export interface IStorage {
   // (IMPORTANT) these user operations are mandatory for Replit Auth.
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  updateUserPreferences(userId: string, preferences: {
+    targetLanguage?: string;
+    nativeLanguage?: string;
+    difficultyLevel?: string;
+    onboardingCompleted?: boolean;
+  }): Promise<User | undefined>;
   updateUserStripeInfo(userId: string, stripeInfo: {
     stripeCustomerId?: string;
     stripeSubscriptionId?: string;
@@ -468,6 +474,23 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return upserted;
+  }
+
+  async updateUserPreferences(userId: string, preferences: {
+    targetLanguage?: string;
+    nativeLanguage?: string;
+    difficultyLevel?: string;
+    onboardingCompleted?: boolean;
+  }): Promise<User | undefined> {
+    const [updated] = await db
+      .update(users)
+      .set({
+        ...preferences,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
   }
 
   async updateUserStripeInfo(userId: string, stripeInfo: {

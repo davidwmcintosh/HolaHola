@@ -23,19 +23,33 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  // Learning preferences
+  targetLanguage: varchar("target_language"), // spanish, french, german, italian, portuguese, japanese, mandarin, korean
+  nativeLanguage: varchar("native_language").default("english"), // Language for explanations
+  difficultyLevel: varchar("difficulty_level"), // beginner, intermediate, advanced
+  onboardingCompleted: boolean("onboarding_completed").default(false),
   // Stripe billing integration
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
   subscriptionTier: varchar("subscription_tier").default("free"), // free, basic, pro, institutional
   subscriptionStatus: varchar("subscription_status").default("active"), // active, canceled, past_due, trialing
   // Usage tracking for cost analysis
-  monthlyConversations: integer("monthly_conversations").default(0),
+  monthlyMessageCount: integer("monthly_message_count").default(0), // Voice messages sent this month
+  monthlyMessageLimit: integer("monthly_message_limit").default(20), // 20 for free, unlimited for paid
+  lastMessageResetDate: timestamp("last_message_reset_date").defaultNow(),
   totalConversations: integer("total_conversations").default(0),
-  lastResetDate: timestamp("last_reset_date").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const updateUserPreferencesSchema = z.object({
+  targetLanguage: z.string().optional(),
+  nativeLanguage: z.string().optional(),
+  difficultyLevel: z.string().optional(),
+  onboardingCompleted: z.boolean().optional(),
+});
+
+export type UpdateUserPreferences = z.infer<typeof updateUserPreferencesSchema>;
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 

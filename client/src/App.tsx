@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { UserCircle, Settings as SettingsIcon, LogOut } from "lucide-react";
 import { Link } from "wouter";
 import Landing from "@/pages/Landing";
+import Onboarding from "@/pages/onboarding";
 import Dashboard from "@/pages/dashboard";
 import Chat from "@/pages/chat";
 import ChatIdeas from "@/pages/chat-ideas";
@@ -27,15 +28,21 @@ import NotFound from "@/pages/not-found";
 
 // Replit Auth Integration - Router with authentication check
 function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   return (
     <Switch>
       {isLoading || !isAuthenticated ? (
         <Route path="/" component={Landing} />
+      ) : user && !user.onboardingCompleted ? (
+        <>
+          <Route path="/" component={Onboarding} />
+          <Route path="/onboarding" component={Onboarding} />
+        </>
       ) : (
         <>
           <Route path="/" component={Dashboard} />
+          <Route path="/onboarding" component={Onboarding} />
           <Route path="/chat" component={Chat} />
           <Route path="/chat-ideas" component={ChatIdeas} />
           <Route path="/cultural-tips" component={CulturalTips} />

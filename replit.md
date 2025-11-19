@@ -6,6 +6,18 @@ LinguaFlow is an AI-powered language learning application designed for interacti
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+### November 19, 2025 - Conversational Onboarding Implementation
+- Added user learning preferences fields to database schema: `targetLanguage`, `nativeLanguage`, `difficultyLevel`, `onboardingCompleted`
+- Added usage tracking fields for free tier message limits: `monthlyMessageCount`, `monthlyMessageLimit`, `lastMessageResetDate`
+- Created PUT /api/user/preferences endpoint with Zod validation for updating user preferences
+- Implemented conversational onboarding page (`/onboarding`) with chat-like interface
+- Added navigation logic to redirect new users to onboarding before accessing main app
+- Onboarding flow collects: target language (8 options), native language, and difficulty level (beginner/intermediate/advanced)
+- Implemented error handling with console logging and toast notifications for onboarding flow
+- Added POST /api/logout endpoint for JSON-based logout flow (complements existing GET endpoint)
+
 ## System Architecture
 
 ### Frontend
