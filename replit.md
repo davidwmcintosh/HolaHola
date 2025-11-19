@@ -61,6 +61,7 @@ Preferred communication style: Simple, everyday language.
 -   **Vocabulary Reinforcement System**: AI naturally reviews learned words during conversations using evidence-based learning techniques.
 -   **Subscription Tiers**: Free, Basic, Pro, Institutional, each with varying features and AI model access.
 -   **Multimedia Integration**: Supports images, videos, and audio; includes real-time foreign language text display during voice conversations.
+-   **AI-Generated Educational Images**: AI tutor intelligently displays inline images (stock photos for vocabulary via Unsplash, AI-generated via DALL-E for scenarios/culture) to enhance learning engagement. System uses discriminated union schema (anyOf) with proper type-specific validation and stores media metadata in messages.mediaJson field.
 -   **Image Sharing Backend**: Secure, production-ready backend for image uploads and retrieval with IDOR prevention and user-scoped access control.
 -   **Usage Tracking**: Atomic voice message usage tracking with automatic monthly reset, tiered limits, and dedicated API endpoints.
 
