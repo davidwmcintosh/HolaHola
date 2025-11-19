@@ -31,13 +31,16 @@ export function ChatInterface() {
   // Auto-create conversation when page loads
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [currentConversationOnboarding, setCurrentConversationOnboarding] = useState<boolean | null>(null);
+  const previousLanguageRef = useRef(language);
 
   // Reset conversationId when language changes to trigger new conversation creation
   // BUT NOT if we're currently in onboarding (to prevent race condition)
   useEffect(() => {
-    // Only reset conversationId if we're not in the middle of onboarding
-    if (currentConversationOnboarding !== true) {
+    // Only reset if language actually changed AND we're not in onboarding
+    if (language !== previousLanguageRef.current && currentConversationOnboarding !== true) {
+      console.log('[LANGUAGE CHANGE] Language changed from', previousLanguageRef.current, 'to', language, '- resetting conversation');
       setConversationId(null);
+      previousLanguageRef.current = language;
     }
   }, [language, currentConversationOnboarding]);
   
