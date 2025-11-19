@@ -259,18 +259,18 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
             }
             break;
             
-          case "response.output_audio.delta":
+          case "response.audio.delta":
             if (data.delta && audioPlayerRef.current) {
               audioPlayerRef.current.playAudio(data.delta);
               setIsAiSpeaking(true);
             }
             break;
             
-          case "response.output_audio_transcript.delta":
-            // Build up assistant transcript
+          case "response.audio_transcript.delta":
+            // Build up assistant transcript (streamed)
             break;
             
-          case "response.output_audio_transcript.done":
+          case "response.audio_transcript.done":
             const assistantTranscript = data.transcript;
             setTranscript(prev => [...prev, { role: "assistant", content: assistantTranscript }]);
             
