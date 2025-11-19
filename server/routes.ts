@@ -1511,6 +1511,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Only images are supported" });
       }
 
+      // If messageId is provided, verify the message belongs to the user's conversation
+      if (messageId) {
+        const message = await storage.getMessage(messageId);
+        if (!message) {
+          return res.status(404).json({ error: "Message not found" });
+        }
+
+        const conversation = await storage.getConversation(message.conversationId);
+        if (!conversation || conversation.userId !== userId) {
+          return res.status(403).json({ error: "Unauthorized: message does not belong to your conversation" });
+        }
+      }
+
       // Calculate file size from base64
       const base64Length = base64Data.length - (base64Data.indexOf(',') + 1);
       const fileSize = Math.floor((base64Length * 3) / 4);
@@ -1542,9 +1555,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get images for a message
-  app.get("/api/messages/:messageId/media", async (req, res) => {
+  app.get("/api/messages/:messageId/media", isAuthenticated, async (req: any, res) => {
     try {
-      const media = await storage.getMessageMedia(req.params.messageId);
+      const userId = req.user.claims.sub;
+      const messageId = req.params.messageId;
+
+      // Verify the message belongs to the user's conversation
+      const message = await storage.getMessage(messageId);
+      if (!message) {
+        return res.status(404).json({ error: "Message not found" });
+      }
+
+      const conversation = await storage.getConversation(message.conversationId);
+      if (!conversation || conversation.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized: message does not belong to your conversation" });
+      }
+
+      // Fetch and return media
+      const media = await storage.getMessageMedia(messageId);
       res.json(media);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
