@@ -35,15 +35,36 @@ export function ChatInterface() {
 
   // Auto-create conversation when page loads
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+  const [currentConversationOnboarding, setCurrentConversationOnboarding] = useState<boolean | null>(null);
+  
+  // Track the current conversation's onboarding status from message responses
+  useEffect(() => {
+    if (conversationId) {
+      // Fetch conversation to check if it's onboarding
+      apiRequest("GET", `/api/conversations/${conversationId}`)
+        .then(res => res.json())
+        .then(data => {
+          setCurrentConversationOnboarding(data.isOnboarding);
+        })
+        .catch(() => {
+          setCurrentConversationOnboarding(null);
+        });
+    } else {
+      setCurrentConversationOnboarding(null);
+    }
+  }, [conversationId]);
   
   useEffect(() => {
     // Check if we should create a conversation
     const isOnboardingComplete = userName && userName.trim() !== "";
     const needsConversation = !conversationId && !isCreatingConversation;
     
-    console.log('[AUTO-CREATE] Effect triggered - userName:', userName, 'conversationId:', conversationId, 'isCreating:', isCreatingConversation, 'isComplete:', isOnboardingComplete);
+    // Don't create a new conversation if we're in the middle of onboarding
+    const isCurrentlyOnboarding = currentConversationOnboarding === true;
     
-    if (needsConversation) {
+    console.log('[AUTO-CREATE] Effect triggered - userName:', userName, 'conversationId:', conversationId, 'isCreating:', isCreatingConversation, 'isComplete:', isOnboardingComplete, 'isCurrentlyOnboarding:', isCurrentlyOnboarding);
+    
+    if (needsConversation && !isCurrentlyOnboarding) {
       console.log('[AUTO-CREATE] Starting conversation creation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)');
       setIsCreatingConversation(true);
       
@@ -69,7 +90,7 @@ export function ChatInterface() {
           setIsCreatingConversation(false);
         });
     }
-  }, [language, difficulty, userName, conversationId, isCreatingConversation]);
+  }, [language, difficulty, userName, conversationId, isCreatingConversation, currentConversationOnboarding]);
 
   // Fetch messages for current conversation
   const { data: messages = [], isLoading } = useQuery<Message[]>({
@@ -93,6 +114,12 @@ export function ChatInterface() {
     onSuccess: async (data: any) => {
       // Mark that we're waiting for assistant response
       setWaitingForResponse(true);
+      
+      // Update conversation onboarding status if the server sent updated info
+      if (data.conversationUpdated) {
+        setCurrentConversationOnboarding(data.conversationUpdated.isOnboarding);
+        console.log('[CONVERSATION UPDATE] Updated isOnboarding:', data.conversationUpdated.isOnboarding);
+      }
       
       // Check if conversation was switched by the AI
       if (data.switchedConversation) {

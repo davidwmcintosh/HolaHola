@@ -144,6 +144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If isOnboarding is explicitly set (e.g., from ThreadSelector), use it
       // Otherwise, auto-detect based on user's onboarding status
       let isOnboarding: boolean;
+      let userNativeLanguage: string | undefined;
       
       if (typeof isOnboardingExplicit === 'boolean') {
         // Explicitly set - use it (for manually created threads)
@@ -161,6 +162,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const isNewUser = (!userName || userName === "Student" || !userHasCompletedOnboarding);
         isOnboarding = isNewUser;
         
+        // If user has completed onboarding, retrieve their nativeLanguage from previous conversations
+        if (!isNewUser && userName) {
+          const userPreviousConversations = allConversations
+            .filter(c => c.userName === userName && c.nativeLanguage)
+            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+          
+          console.log('[CONVERSATION CREATE] Found', userPreviousConversations.length, 'previous conversations for user:', userName);
+          console.log('[CONVERSATION CREATE] Previous conversations:', userPreviousConversations.map(c => ({ id: c.id, nativeLanguage: c.nativeLanguage, isOnboarding: c.isOnboarding })));
+          
+          if (userPreviousConversations.length > 0) {
+            userNativeLanguage = userPreviousConversations[0].nativeLanguage || undefined;
+            console.log('[CONVERSATION CREATE] Inherited nativeLanguage from previous conversation:', userNativeLanguage);
+          } else {
+            console.log('[CONVERSATION CREATE] No previous conversations with nativeLanguage found, will use default');
+          }
+        }
+        
         console.log('[CONVERSATION CREATE] userHasCompletedOnboarding:', userHasCompletedOnboarding);
         console.log('[CONVERSATION CREATE] isNewUser (auto-detected):', isNewUser);
       }
@@ -171,13 +189,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isOnboarding,
         onboardingStep: isOnboarding ? "name" : null,
         userName: isOnboarding ? null : userName,
+        nativeLanguage: userNativeLanguage || data.nativeLanguage || "english",
       });
       
       console.log('[CONVERSATION CREATE] Created conversation:', {
         id: conversation.id,
         isOnboarding: conversation.isOnboarding,
         onboardingStep: conversation.onboardingStep,
-        userName: conversation.userName
+        userName: conversation.userName,
+        nativeLanguage: conversation.nativeLanguage
       });
       
       let greetingMessage: string;
@@ -460,7 +480,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             const userName = updatedConversation.userName || "there";
             const targetLanguage = updatedConversation.language;
-            aiResponse = `Perfect, ${userName}! What made you interested in learning ${targetLanguage}?`;
+            const nativeLanguage = updatedConversation.nativeLanguage || "english";
+            
+            // Generate the completion message in the user's native language
+            const nativeLanguagePrompt = `You are a language tutor. The student's name is ${userName}, they want to learn ${targetLanguage}, and their native language is ${nativeLanguage}. 
+            
+            Write a brief, friendly message IN ${nativeLanguage} asking them what motivated them to learn ${targetLanguage}. Keep it conversational and encouraging. Use ONLY ${nativeLanguage} for your response.`;
+            
+            const completionResponse = await openai.chat.completions.create({
+              model: "gpt-5",
+              messages: [{ role: "user", content: nativeLanguagePrompt }],
+              max_completion_tokens: 150,
+            });
+            
+            aiResponse = completionResponse.choices[0].message.content || `Perfect, ${userName}! What made you interested in learning ${targetLanguage}?`;
           } else {
             // Native language unclear, ask again
             console.log('[ONBOARDING-NATIVE-LANG] Extraction failed or low confidence, asking again');
