@@ -87,20 +87,39 @@ export function setupRealtimeProxy(server: Server) {
           if (parsed.type === 'error') {
             console.error('OpenAI Realtime API error:', parsed);
             
-            // Send user-friendly error message to client
+            // Send error message to client
             if (clientWs.readyState === WS.OPEN) {
               const errorMessage = parsed.error?.message || 'Unknown error';
+              const errorType = parsed.error?.type || '';
               
-              // Check if it's an auth/access issue
-              if (errorMessage.includes('server had an error') || errorMessage.includes('server_error')) {
+              // Check if it's ACTUALLY an auth/access issue (not just any server error)
+              const isAuthError = 
+                errorType === 'invalid_request_error' && 
+                (errorMessage.toLowerCase().includes('unauthorized') || 
+                 errorMessage.toLowerCase().includes('authentication') ||
+                 errorMessage.toLowerCase().includes('access denied'));
+              
+              if (isAuthError) {
+                // Real auth/access issue
                 clientWs.send(JSON.stringify({
                   type: 'error',
                   error: {
-                    message: 'Voice chat is unavailable. Your API key does not have WebSocket Realtime API access (this is separate from regular API access). Please verify your OpenAI account tier and billing at platform.openai.com. The Realtime API requires specific permissions and may have usage limits.',
+                    message: 'Voice chat is unavailable. Your API key does not have Realtime API access. Please verify your OpenAI account tier and billing at platform.openai.com.',
                     code: 'realtime_api_access_denied'
                   }
                 }));
+              } else if (errorType === 'server_error') {
+                // Temporary OpenAI server issue - pass through with helpful context
+                clientWs.send(JSON.stringify({
+                  type: 'error',
+                  error: {
+                    message: `OpenAI's servers are experiencing temporary issues. Please try again in a moment. (${errorMessage})`,
+                    code: 'openai_server_error',
+                    originalMessage: errorMessage
+                  }
+                }));
               } else {
+                // Other errors - pass through as-is
                 clientWs.send(JSON.stringify(parsed));
               }
             }
