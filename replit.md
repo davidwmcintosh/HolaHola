@@ -88,5 +88,19 @@ Preferred communication style: Simple, everyday language.
 -   **Architect-Reviewed**: Changes preserve pedagogical approach, prevent student overload, and ensure age-appropriate difficulty while maintaining natural conversation flow.
 -   **End-to-End Tested**: Verified via playwright tests - AI consistently responds with exactly one phrase appropriate for difficulty level (under 150 words) and waits for practice before offering variations.
 
+### Vocabulary Reinforcement System (November 19, 2025)
+-   **Intelligent Vocabulary Recaps**: AI now naturally reviews learned words during conversations using evidence-based learning techniques (7±2 rule, spaced repetition, interleaving, retrieval practice).
+-   **Session Vocabulary Tracking**: Backend tracks recently learned words by querying vocabularyWords table for words created in the last hour, sorted chronologically, limited to 10 most recent words.
+-   **Database Schema Enhancement**: Added `createdAt` timestamp field to vocabularyWords table (`shared/schema.ts` line 52) with `defaultNow()` for temporal tracking. Migration completed successfully without data loss.
+-   **Due Vocabulary Integration**: System fetches both session vocabulary (recent hour) and due vocabulary (SRS flashcards overdue for review) and provides both to AI for contextual review.
+-   **7±2 Rule Implementation**: System prompt instructs AI to initiate mini-reviews after teaching 3-4 new words to prevent cognitive overload. AI applies this rule automatically based on session vocabulary count.
+-   **Natural Conversational Recaps**: AI weaves reviews into conversation organically (e.g., "Can you use café and gracias in a sentence?") rather than quiz-style testing.
+-   **Session-End Summaries**: AI provides comprehensive vocabulary recaps when conversations end or when appropriate breaks occur, listing all words learned with translations.
+-   **Pedagogical Best Practices**: System implements interleaving (mixes session + due vocabulary), retrieval practice (contextual questions), and active recall (students USE words in sentences).
+-   **Before**: AI taught isolated words with no systematic review, leading to poor retention.
+-   **After**: AI tracks taught words, applies 7±2 rule for timely recaps, integrates SRS due words, and ensures systematic reinforcement for better retention.
+-   **Bug Fixes**: Fixed POST `/api/progress-history` endpoint to convert ISO date strings to Date objects before validation, preventing "Expected date, received string" errors. Added RESTful `/api/vocabulary/:language/:difficulty` endpoint with path parameters.
+-   **End-to-End Tested**: Verified via playwright tests - AI consistently teaches one concept at a time (under 200 words), then triggers natural recaps after 4+ words taught. Vocabulary API returns correct JSON structure with all required fields.
+
 ### Known LLM Limitation
 -   **OpenAI Language Compliance**: OpenAI GPT-5 occasionally returns English greetings despite prompts explicitly requesting responses in the user's native language (e.g., "Use ONLY german"). This is inherent LLM behavior, not a code defect. The prompts are correctly configured with the inherited nativeLanguage, but the API sometimes ignores language instructions for short system messages. Consider reinforcing prompts with system messages or few-shot examples if consistent language compliance becomes critical.

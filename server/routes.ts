@@ -917,6 +917,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Vocabulary with path parameters (RESTful alternative)
+  app.get("/api/vocabulary/:language/:difficulty", async (req, res) => {
+    try {
+      const { language, difficulty } = req.params;
+      const words = await storage.getVocabularyWords(language, difficulty);
+      res.json(words);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.patch("/api/vocabulary/:id/review", async (req, res) => {
     try {
       const { id } = req.params;
@@ -978,7 +989,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/progress-history", async (req, res) => {
     try {
-      const validated = insertProgressHistorySchema.parse(req.body);
+      // Convert date string to Date object if necessary
+      const data = {
+        ...req.body,
+        date: req.body.date ? new Date(req.body.date) : undefined,
+      };
+      const validated = insertProgressHistorySchema.parse(data);
       const history = await storage.createProgressHistory(validated);
       res.status(201).json(history);
     } catch (error: any) {
