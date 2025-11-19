@@ -8,6 +8,7 @@ import {
   insertProgressHistorySchema,
   insertPronunciationScoreSchema,
   updateUserPreferencesSchema,
+  conversations,
 } from "@shared/schema";
 import OpenAI from "openai";
 import { setupRealtimeProxy } from "./realtime-proxy";
@@ -429,7 +430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         onboardingStep: isOnboarding ? "name" : null,
         userName: isOnboarding ? null : userName,
         nativeLanguage: userNativeLanguage || data.nativeLanguage || "english",
-      });
+      } as typeof conversations.$inferInsert);
       
       console.log('[CONVERSATION CREATE] Created conversation:', {
         id: conversation.id,
@@ -1027,30 +1028,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 },
                 media: {
                   type: "array",
-                  description: "Images to display with this message (0-2 images max). Use stock for common vocabulary, ai_generated for scenarios/culture.",
+                  description: "Images to display with this message (0-2 images max). For type='stock', include query field. For type='ai_generated', include prompt field.",
                   items: {
-                    type: "object",
-                    properties: {
-                      type: {
-                        type: "string",
-                        enum: ["stock", "ai_generated"],
-                        description: "stock for common objects/vocabulary, ai_generated for specific scenarios/cultural contexts"
+                    anyOf: [
+                      {
+                        type: "object",
+                        properties: {
+                          type: { type: "string", enum: ["stock"] },
+                          query: { type: "string", description: "Search query for stock images (e.g., 'red apple', 'french cafe')" },
+                          alt: { type: "string", description: "Alt text for accessibility" }
+                        },
+                        required: ["type", "query", "alt"],
+                        additionalProperties: false
                       },
-                      query: {
-                        type: "string",
-                        description: "Search query for stock images (e.g., 'red apple', 'french cafe', 'happy person')"
-                      },
-                      prompt: {
-                        type: "string",
-                        description: "DALL-E prompt for AI-generated images (e.g., 'A cozy Parisian cafe with outdoor seating')"
-                      },
-                      alt: {
-                        type: "string",
-                        description: "Alt text describing the image for accessibility"
+                      {
+                        type: "object",
+                        properties: {
+                          type: { type: "string", enum: ["ai_generated"] },
+                          prompt: { type: "string", description: "DALL-E prompt (e.g., 'A cozy Parisian cafe with outdoor seating')" },
+                          alt: { type: "string", description: "Alt text for accessibility" }
+                        },
+                        required: ["type", "prompt", "alt"],
+                        additionalProperties: false
                       }
-                    },
-                    required: ["type", "alt"],
-                    additionalProperties: false
+                    ]
                   }
                 }
               },

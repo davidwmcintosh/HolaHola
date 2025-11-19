@@ -72,7 +72,7 @@ export interface IStorage {
   getSubscription(subscriptionId: string): Promise<any | null>;
 
   // Conversations
-  createConversation(data: InsertConversation): Promise<Conversation>;
+  createConversation(data: typeof conversations.$inferInsert): Promise<Conversation>;
   getConversation(id: string, userId: string): Promise<Conversation | undefined>;
   getUserConversations(userId: string): Promise<Conversation[]>;
   getConversationsByLanguage(language: string, userId: string): Promise<Conversation[]>;
@@ -659,7 +659,7 @@ export class DatabaseStorage implements IStorage {
     return result.rows[0] || null;
   }
 
-  async createConversation(data: InsertConversation): Promise<Conversation> {
+  async createConversation(data: typeof conversations.$inferInsert): Promise<Conversation> {
     const [conversation] = await db.insert(conversations).values(data).returning();
     return conversation;
   }
@@ -768,6 +768,8 @@ export class DatabaseStorage implements IStorage {
       role: messages.role,
       content: messages.content,
       targetLanguageText: messages.targetLanguageText,
+      mediaJson: messages.mediaJson,
+      performanceScore: messages.performanceScore,
       createdAt: messages.createdAt,
     })
       .from(messages)

@@ -478,6 +478,7 @@ export const culturalTipMedia = pgTable("cultural_tip_media", {
 
 export const insertConversationSchema = createInsertSchema(conversations).omit({
   id: true,
+  userId: true,
   createdAt: true,
 });
 
