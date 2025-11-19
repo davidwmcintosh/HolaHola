@@ -1064,7 +1064,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Parse AI response with error handling
       const responseContent = completion.choices[0]?.message?.content || "";
       let aiResponse = "I'm sorry, I couldn't generate a response.";
-      let parsedResponse: { message?: string; vocabulary?: any[]; grammar?: any[] } = {};
+      let parsedResponse: { message?: string; vocabulary?: any[]; media?: any[] } = {};
 
       try {
         parsedResponse = JSON.parse(responseContent);
@@ -1073,6 +1073,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Fallback to plain text if JSON parsing fails
         console.error("Failed to parse AI response as JSON, using plain text:", parseError);
         aiResponse = responseContent || aiResponse;
+      }
+      
+      // Process media requests from AI (fetch stock images or generate AI images)
+      let mediaJson: string | null = null;
+      const mediaItems = Array.isArray(parsedResponse.media) ? parsedResponse.media : [];
+      
+      if (mediaItems.length > 0) {
+        const processedMedia = [];
+        
+        for (const item of mediaItems.slice(0, 2)) { // Max 2 images per message
+          try {
+            if (item.type === "stock" && item.query) {
+              // Fetch stock image from Unsplash
+              const unsplashAccessKey = process.env.UNSPLASH_ACCESS_KEY;
+              if (!unsplashAccessKey) {
+                console.warn('[MULTIMEDIA] Unsplash API key not configured, skipping stock image');
+                continue;
+              }
+              
+              const response = await fetch(
+                `https://api.unsplash.com/photos/random?query=${encodeURIComponent(item.query)}&orientation=landscape&content_filter=high`,
+                {
+                  headers: {
+                    'Authorization': `Client-ID ${unsplashAccessKey}`,
+                    'Accept-Version': 'v1'
+                  }
+                }
+              );
+              
+              if (response.ok) {
+                const data = await response.json();
+                processedMedia.push({
+                  type: "stock",
+                  query: item.query,
+                  url: data.urls.regular,
+                  thumbnailUrl: data.urls.small,
+                  altText: item.alt || data.alt_description || item.query,
+                  attribution: {
+                    photographer: data.user.name,
+                    photographerUrl: data.user.links.html,
+                    unsplashUrl: data.links.html
+                  }
+                });
+              } else {
+                console.warn('[MULTIMEDIA] Failed to fetch stock image for query:', item.query);
+              }
+            } else if (item.type === "ai_generated" && item.prompt) {
+              // Generate AI image with DALL-E
+              const enhancedPrompt = `${item.prompt}. Educational illustration style, clear and engaging, suitable for language learning.`;
+              
+              const imageResponse = await openai.images.generate({
+                model: "gpt-image-1",
+                prompt: enhancedPrompt,
+                n: 1,
+                size: "1024x1024",
+                quality: "standard"
+              });
+              
+              const imageUrl = imageResponse?.data?.[0]?.url;
+              if (imageUrl) {
+                processedMedia.push({
+                  type: "ai_generated",
+                  prompt: item.prompt,
+                  url: imageUrl,
+                  altText: item.alt || item.prompt
+                });
+              } else {
+                console.warn('[MULTIMEDIA] Failed to generate AI image for prompt:', item.prompt);
+              }
+            }
+          } catch (error) {
+            console.error('[MULTIMEDIA] Error processing media item:', error);
+            // Continue processing other media items even if one fails
+          }
+        }
+        
+        if (processedMedia.length > 0) {
+          mediaJson = JSON.stringify(processedMedia);
+          console.log('[MULTIMEDIA] Processed', processedMedia.length, 'media items');
+        }
       }
 
       // Prepend language switch note if language was auto-detected and switched
@@ -1120,11 +1200,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Save AI message
+      // Save AI message with media
       const aiMessage = await storage.createMessage({
         conversationId,
         role: "assistant",
         content: aiResponse,
+        mediaJson: mediaJson || undefined,
       });
 
       // Save vocabulary items from conversation (only if we have valid data)

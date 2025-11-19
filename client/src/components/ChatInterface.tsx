@@ -13,6 +13,7 @@ import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvata
 import { AccentButtons } from "@/components/AccentButtons";
 import { CompactDifficultyControl } from "@/components/CompactDifficultyControl";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { MessageMedia } from "@/components/MessageMedia";
 import { useStreak } from "@/hooks/use-streak";
 import { useToast } from "@/hooks/use-toast";
 
@@ -318,6 +319,9 @@ export function ChatInterface() {
                     }`}
                   >
                     <p className="text-base leading-relaxed">{message.content}</p>
+                    {message.role === "assistant" && message.mediaJson && (
+                      <MessageMedia media={JSON.parse(message.mediaJson)} />
+                    )}
                     <p className="text-xs mt-2 opacity-70">
                       {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
