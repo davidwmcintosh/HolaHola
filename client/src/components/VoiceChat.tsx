@@ -241,6 +241,12 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
           case "conversation.item.input_audio_transcription.completed":
             const userTranscript = data.transcript;
             
+            // CRITICAL FIX: Don't save empty transcripts (prevents duplicates)
+            if (!userTranscript || userTranscript.trim() === "") {
+              console.log('[VOICE CHAT] Skipping empty user transcript');
+              break;
+            }
+            
             // Save to backend
             const messageResponse = await apiRequest("POST", `/api/conversations/${conversationId}/messages`, {
               role: "user",
@@ -248,12 +254,8 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
             });
             const savedMessage = await messageResponse.json();
             
-            // Add to transcript with messageId for pronunciation scoring
-            setTranscript(prev => [...prev, { 
-              role: "user", 
-              content: userTranscript,
-              messageId: savedMessage.id 
-            }]);
+            // Invalidate messages query to refetch and display the saved message
+            await queryClient.invalidateQueries({ queryKey: ['/api/conversations', conversationId, 'messages'] });
 
             // Analyze pronunciation after saving the message
             try {
@@ -280,6 +282,7 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
             
           case "response.audio.delta":
             if (data.delta && audioPlayerRef.current) {
+              console.log('[AUDIO] Playing audio chunk, size:', data.delta.length);
               audioPlayerRef.current.playAudio(data.delta);
               setIsAiSpeaking(true);
             }
@@ -291,13 +294,21 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
             
           case "response.audio_transcript.done":
             const assistantTranscript = data.transcript;
-            setTranscript(prev => [...prev, { role: "assistant", content: assistantTranscript }]);
+            
+            // CRITICAL FIX: Don't save empty transcripts (prevents duplicates)
+            if (!assistantTranscript || assistantTranscript.trim() === "") {
+              console.log('[VOICE CHAT] Skipping empty assistant transcript');
+              break;
+            }
             
             // Save to backend
             await apiRequest("POST", `/api/conversations/${conversationId}/messages`, {
               role: "assistant",
               content: assistantTranscript,
             });
+            
+            // Invalidate messages query to refetch and display the saved message
+            await queryClient.invalidateQueries({ queryKey: ['/api/conversations', conversationId, 'messages'] });
             break;
             
           case "response.done":

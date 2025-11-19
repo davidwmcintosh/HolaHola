@@ -71,10 +71,15 @@ export class AudioPlayer {
 
   async playAudio(base64Audio: string): Promise<void> {
     try {
+      console.log('[AUDIO PLAYER] playAudio called, AudioContext state:', this.audioContext.state);
+      
       // CRITICAL: Resume AudioContext if suspended (browser autoplay policy)
       if (this.audioContext.state === 'suspended') {
-        console.log('[AUDIO] Resuming AudioContext...');
+        console.log('[AUDIO PLAYER] AudioContext is SUSPENDED - attempting to resume...');
         await this.audioContext.resume();
+        console.log('[AUDIO PLAYER] AudioContext resumed! New state:', this.audioContext.state);
+      } else {
+        console.log('[AUDIO PLAYER] AudioContext is already running:', this.audioContext.state);
       }
       
       const audioData = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0));
@@ -90,11 +95,14 @@ export class AudioPlayer {
       audioBuffer.getChannelData(0).set(float32);
 
       this.queue.push(audioBuffer);
+      console.log('[AUDIO PLAYER] Audio chunk added to queue. Queue size:', this.queue.length);
+      
       if (!this.isPlaying) {
+        console.log('[AUDIO PLAYER] Starting playback...');
         this.playNext();
       }
     } catch (error) {
-      console.error('Error playing audio:', error);
+      console.error('[AUDIO PLAYER] Error playing audio:', error);
     }
   }
 
