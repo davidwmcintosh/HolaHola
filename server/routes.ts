@@ -226,15 +226,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
               .map((c, idx) => `${idx + 1}. "${c.title || `Conversation from ${new Date(c.createdAt).toLocaleDateString()}`}" (${c.messageCount} messages)`)
               .join('\n');
             
-            // Create a greeting that includes context about previous conversations
-            greetingMessage = `Welcome back, ${userName}! I see you have some previous conversations:\n\n${conversationContext}\n\nWould you like to continue one of these conversations, or shall we start something new today?`;
+            // Generate greeting in native language with conversation history
+            const nativeLanguage = conversation.nativeLanguage || "english";
+            const greetingPrompt = `You are a ${data.language} language tutor. The student's name is ${userName} and their native language is ${nativeLanguage}.
+            
+            Write a brief, friendly greeting IN ${nativeLanguage} welcoming them back. Mention they have previous conversations and ask if they want to continue one or start fresh. Use ONLY ${nativeLanguage}.`;
+            
+            try {
+              const greetingResponse = await openai.chat.completions.create({
+                model: "gpt-5",
+                messages: [{ role: "user", content: greetingPrompt }],
+                max_completion_tokens: 150,
+              });
+              greetingMessage = greetingResponse.choices[0].message.content || `Welcome back, ${userName}! I see you have some previous conversations. Would you like to continue one or start fresh?`;
+            } catch (error) {
+              console.error('[GREETING ERROR]', error);
+              greetingMessage = `Welcome back, ${userName}! I see you have some previous conversations:\n\n${conversationContext}\n\nWould you like to continue one of these conversations, or shall we start something new today?`;
+            }
           } else {
-            // First conversation for this language
-            greetingMessage = `Welcome, ${userName}! I'm excited to help you learn ${data.language}. Where would you like to begin today?`;
+            // First conversation for this language - generate in native language
+            const nativeLanguage = conversation.nativeLanguage || "english";
+            const greetingPrompt = `You are a ${data.language} language tutor. The student's name is ${userName} and their native language is ${nativeLanguage}.
+            
+            Write a brief, friendly greeting IN ${nativeLanguage} welcoming them and asking where they'd like to begin learning ${data.language}. Use ONLY ${nativeLanguage}.`;
+            
+            try {
+              const greetingResponse = await openai.chat.completions.create({
+                model: "gpt-5",
+                messages: [{ role: "user", content: greetingPrompt }],
+                max_completion_tokens: 150,
+              });
+              greetingMessage = greetingResponse.choices[0].message.content || `Welcome, ${userName}! I'm excited to help you learn ${data.language}. Where would you like to begin today?`;
+            } catch (error) {
+              console.error('[GREETING ERROR]', error);
+              greetingMessage = `Welcome, ${userName}! I'm excited to help you learn ${data.language}. Where would you like to begin today?`;
+            }
           }
         } else {
-          // Standard greeting without history
-          greetingMessage = `Welcome, ${userName}! I'm excited to help you learn ${data.language}. Where would you like to begin today?`;
+          // Standard greeting without history - generate in native language
+          const nativeLanguage = conversation.nativeLanguage || "english";
+          const greetingPrompt = `You are a ${data.language} language tutor. The student's name is ${userName} and their native language is ${nativeLanguage}.
+          
+          Write a brief, friendly greeting IN ${nativeLanguage} welcoming them and asking where they'd like to begin learning ${data.language}. Use ONLY ${nativeLanguage}.`;
+          
+          try {
+            const greetingResponse = await openai.chat.completions.create({
+              model: "gpt-5",
+              messages: [{ role: "user", content: greetingPrompt }],
+              max_completion_tokens: 150,
+            });
+            greetingMessage = greetingResponse.choices[0].message.content || `Welcome, ${userName}! I'm excited to help you learn ${data.language}. Where would you like to begin today?`;
+          } catch (error) {
+            console.error('[GREETING ERROR]', error);
+            greetingMessage = `Welcome, ${userName}! I'm excited to help you learn ${data.language}. Where would you like to begin today?`;
+          }
         }
       }
       
