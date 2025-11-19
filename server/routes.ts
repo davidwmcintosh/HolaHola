@@ -164,6 +164,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // If user has completed onboarding, retrieve their nativeLanguage from previous conversations
         if (!isNewUser && userName) {
+          console.log('[CONVERSATION CREATE] Looking for previous conversations for user:', userName);
+          console.log('[CONVERSATION CREATE] Total conversations in storage:', allConversations.length);
+          console.log('[CONVERSATION CREATE] All conversations:', allConversations.map(c => ({ 
+            id: c.id, 
+            userName: c.userName, 
+            nativeLanguage: c.nativeLanguage, 
+            isOnboarding: c.isOnboarding,
+            language: c.language
+          })));
+          
           const userPreviousConversations = allConversations
             .filter(c => c.userName === userName && c.nativeLanguage)
             .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
@@ -228,9 +238,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // Generate greeting in native language with conversation history
             const nativeLanguage = conversation.nativeLanguage || "english";
+            console.log('[GREETING WITH HISTORY] Generating greeting:', {
+              nativeLanguage,
+              userName,
+              targetLanguage: data.language,
+              conversationId: conversation.id
+            });
+            
             const greetingPrompt = `You are a ${data.language} language tutor. The student's name is ${userName} and their native language is ${nativeLanguage}.
             
             Write a brief, friendly greeting IN ${nativeLanguage} welcoming them back. Mention they have previous conversations and ask if they want to continue one or start fresh. Use ONLY ${nativeLanguage}.`;
+            
+            console.log('[GREETING PROMPT]', greetingPrompt);
             
             try {
               const greetingResponse = await openai.chat.completions.create({
@@ -239,16 +258,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 max_completion_tokens: 150,
               });
               greetingMessage = greetingResponse.choices[0].message.content || `Welcome back, ${userName}! I see you have some previous conversations. Would you like to continue one or start fresh?`;
+              console.log('[GREETING SUCCESS] Generated:', greetingMessage.substring(0, 100));
             } catch (error) {
               console.error('[GREETING ERROR]', error);
               greetingMessage = `Welcome back, ${userName}! I see you have some previous conversations:\n\n${conversationContext}\n\nWould you like to continue one of these conversations, or shall we start something new today?`;
+              console.log('[GREETING FALLBACK] Using English fallback');
             }
           } else {
             // First conversation for this language - generate in native language
             const nativeLanguage = conversation.nativeLanguage || "english";
+            console.log('[GREETING FIRST TIME] Generating greeting:', {
+              nativeLanguage,
+              userName,
+              targetLanguage: data.language,
+              conversationId: conversation.id
+            });
+            
             const greetingPrompt = `You are a ${data.language} language tutor. The student's name is ${userName} and their native language is ${nativeLanguage}.
             
             Write a brief, friendly greeting IN ${nativeLanguage} welcoming them and asking where they'd like to begin learning ${data.language}. Use ONLY ${nativeLanguage}.`;
+            
+            console.log('[GREETING PROMPT]', greetingPrompt);
             
             try {
               const greetingResponse = await openai.chat.completions.create({
@@ -257,17 +287,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 max_completion_tokens: 150,
               });
               greetingMessage = greetingResponse.choices[0].message.content || `Welcome, ${userName}! I'm excited to help you learn ${data.language}. Where would you like to begin today?`;
+              console.log('[GREETING SUCCESS] Generated:', greetingMessage.substring(0, 100));
             } catch (error) {
               console.error('[GREETING ERROR]', error);
               greetingMessage = `Welcome, ${userName}! I'm excited to help you learn ${data.language}. Where would you like to begin today?`;
+              console.log('[GREETING FALLBACK] Using English fallback');
             }
           }
         } else {
           // Standard greeting without history - generate in native language
           const nativeLanguage = conversation.nativeLanguage || "english";
+          console.log('[GREETING STANDARD] Generating greeting:', {
+            nativeLanguage,
+            userName,
+            targetLanguage: data.language,
+            conversationId: conversation.id
+          });
+          
           const greetingPrompt = `You are a ${data.language} language tutor. The student's name is ${userName} and their native language is ${nativeLanguage}.
           
           Write a brief, friendly greeting IN ${nativeLanguage} welcoming them and asking where they'd like to begin learning ${data.language}. Use ONLY ${nativeLanguage}.`;
+          
+          console.log('[GREETING PROMPT]', greetingPrompt);
           
           try {
             const greetingResponse = await openai.chat.completions.create({
@@ -276,9 +317,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               max_completion_tokens: 150,
             });
             greetingMessage = greetingResponse.choices[0].message.content || `Welcome, ${userName}! I'm excited to help you learn ${data.language}. Where would you like to begin today?`;
+            console.log('[GREETING SUCCESS] Generated:', greetingMessage.substring(0, 100));
           } catch (error) {
             console.error('[GREETING ERROR]', error);
             greetingMessage = `Welcome, ${userName}! I'm excited to help you learn ${data.language}. Where would you like to begin today?`;
+            console.log('[GREETING FALLBACK] Using English fallback');
           }
         }
       }
@@ -527,18 +570,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const targetLanguage = updatedConversation.language;
             const nativeLanguage = updatedConversation.nativeLanguage || "english";
             
+            console.log('[ONBOARDING-COMPLETION] Generating completion message:', {
+              userName,
+              targetLanguage,
+              nativeLanguage,
+              conversationId: updatedConversation.id
+            });
+            
             // Generate the completion message in the user's native language
             const nativeLanguagePrompt = `You are a language tutor. The student's name is ${userName}, they want to learn ${targetLanguage}, and their native language is ${nativeLanguage}. 
             
             Write a brief, friendly message IN ${nativeLanguage} asking them what motivated them to learn ${targetLanguage}. Keep it conversational and encouraging. Use ONLY ${nativeLanguage} for your response.`;
             
-            const completionResponse = await openai.chat.completions.create({
-              model: "gpt-5",
-              messages: [{ role: "user", content: nativeLanguagePrompt }],
-              max_completion_tokens: 150,
-            });
+            console.log('[ONBOARDING-COMPLETION PROMPT]', nativeLanguagePrompt);
             
-            aiResponse = completionResponse.choices[0].message.content || `Perfect, ${userName}! What made you interested in learning ${targetLanguage}?`;
+            try {
+              const completionResponse = await openai.chat.completions.create({
+                model: "gpt-5",
+                messages: [{ role: "user", content: nativeLanguagePrompt }],
+                max_completion_tokens: 150,
+              });
+              
+              aiResponse = completionResponse.choices[0].message.content || `Perfect, ${userName}! What made you interested in learning ${targetLanguage}?`;
+              console.log('[ONBOARDING-COMPLETION SUCCESS] Generated:', aiResponse.substring(0, 100));
+            } catch (error) {
+              console.error('[ONBOARDING-COMPLETION ERROR]', error);
+              aiResponse = `Perfect, ${userName}! What made you interested in learning ${targetLanguage}?`;
+              console.log('[ONBOARDING-COMPLETION FALLBACK] Using English fallback');
+            }
           } else {
             // Native language unclear, ask again
             console.log('[ONBOARDING-NATIVE-LANG] Extraction failed or low confidence, asking again');

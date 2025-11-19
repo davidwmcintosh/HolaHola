@@ -27,15 +27,19 @@ export function ChatInterface() {
   const lastStreakRecordDateRef = useRef<string | null>(null);
   const { recordPractice } = useStreak();
   const { toast } = useToast();
-
-  // Reset conversationId when language changes to trigger new conversation creation
-  useEffect(() => {
-    setConversationId(null);
-  }, [language]);
-
+  
   // Auto-create conversation when page loads
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [currentConversationOnboarding, setCurrentConversationOnboarding] = useState<boolean | null>(null);
+
+  // Reset conversationId when language changes to trigger new conversation creation
+  // BUT NOT if we're currently in onboarding (to prevent race condition)
+  useEffect(() => {
+    // Only reset conversationId if we're not in the middle of onboarding
+    if (currentConversationOnboarding !== true) {
+      setConversationId(null);
+    }
+  }, [language, currentConversationOnboarding]);
   
   // Track the current conversation's onboarding status from message responses
   useEffect(() => {
