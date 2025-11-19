@@ -139,39 +139,11 @@ export function setupRealtimeProxy(server: Server) {
       // Handle OpenAI connection open
       openaiWs.on('open', () => {
         console.log('Connected to OpenAI Realtime API');
+        console.log('TESTING: Not sending session.update - using default session from playground');
         
-        // Create simplified system prompt for voice mode
-        // Realtime API has stricter length limits than Chat API
-        const languageNames: Record<string, string> = {
-          english: "English", spanish: "Spanish", french: "French", german: "German", 
-          italian: "Italian", portuguese: "Portuguese", japanese: "Japanese",
-          mandarin: "Mandarin Chinese", korean: "Korean"
-        };
-        const nativeLanguageNames: Record<string, string> = {
-          english: "English", spanish: "Spanish", french: "French", german: "German",
-          italian: "Italian", portuguese: "Portuguese", japanese: "Japanese",
-          mandarin: "Mandarin Chinese", korean: "Korean", arabic: "Arabic",
-          russian: "Russian", hindi: "Hindi"
-        };
-        const languageName = languageNames[language] || language;
-        const nativeLanguageName = nativeLanguageNames[nativeLanguage] || nativeLanguage;
-        
-        // MINIMAL instructions for initial testing
-        // Using very short instructions to isolate if length is causing server errors
-        const systemInstructions = `You are a ${languageName} tutor. The student speaks ${nativeLanguageName}.`;
-        
-        console.log('System instructions length:', systemInstructions.length, 'characters');
-        
-        // MINIMAL session configuration to test for server errors
-        // Testing with absolute minimum to see if our config is causing issues
-        const sessionUpdate = {
-          type: "session.update",
-          session: {
-            voice: "alloy",
-            instructions: systemInstructions
-          },
-        };
-        openaiWs.send(JSON.stringify(sessionUpdate));
+        // HYPOTHESIS: The playground works because it doesn't immediately send session.update
+        // Let's test connecting with NO configuration changes at all
+        // Just keep the connection open and see if we get errors
       });
 
       // Handle errors
