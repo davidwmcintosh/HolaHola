@@ -131,6 +131,15 @@ export async function setupAuth(app: Express) {
       );
     });
   });
+
+  app.post("/api/logout", (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Failed to logout" });
+      }
+      res.status(200).json({ success: true });
+    });
+  });
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
