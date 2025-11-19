@@ -81,3 +81,16 @@ Preferred communication style: Simple, everyday language.
 -   **Libraries**: Neon Database Serverless, Drizzle ORM, stripe-replit-sync, Radix UI, TanStack Query, Wouter, date-fns, Embla Carousel.
 -   **Database**: PostgreSQL (via `DATABASE_URL`) with Drizzle Kit for migrations, connection pooling via `@neondatabase/serverless`, and automated Stripe data sync to `stripe` schema.
 -   **Asset Management**: Google Fonts (Inter, Architects Daughter, DM Sans, Fira Code, Geist Mono), static images in `attached_assets/generated_images/`.
+
+## Available AI Models
+
+### Realtime API Models (Voice Chat)
+The following OpenAI Realtime API models are available for voice chat features:
+-   `gpt-realtime-2025-08-28` - Latest stable model (recommended)
+-   `gpt-4o-realtime-preview-latest` - Auto-updates to latest preview
+-   `gpt-4o-realtime-preview-2025-06-03` - June 2025 preview
+-   `gpt-4o-realtime-preview-2024-12-17` - December 2024 preview
+-   `gpt-4o-realtime-preview-2024-10-01` - October 2024 preview
+-   `gpt-4o-realtime-preview` - Base preview model
+
+**Recommended**: Use `gpt-realtime-2025-08-28` for production voice chat or `gpt-4o-realtime-preview-latest` for automatic updates to newest features.
