@@ -77,11 +77,16 @@ Preferred communication style: Simple, everyday language.
 ### Enhanced One-Concept-Per-Message Teaching (November 19, 2025)
 -   **Complex Request Handling**: Fixed system prompt across all phases (Phase 1, 2, and 3) to enforce one-concept-per-message teaching even for complex multi-step requests.
 -   **Before**: When a user asked "teach me how to order a coffee", the AI would overwhelm them with multiple phrases ("Quisiera un café", "con leche", "solo", "americano", "para llevar") plus cultural tips all in one response.
--   **After**: AI teaches EXACTLY ONE phrase (e.g., "Quisiera un café, por favor") with pronunciation, asks student to practice, and STOPS. Additional variations are taught in subsequent messages after practice.
+-   **After**: AI teaches EXACTLY ONE phrase with pronunciation, asks student to practice, and STOPS. Additional variations are taught in subsequent messages after practice.
 -   **Phase 1 Direct Teaching**: Added explicit handling in Phase 1 for direct teaching requests - treats them as topic selection and immediately begins teaching ONE phrase, signaling readiness to transition from assessment to teaching.
 -   **Phase 2/3 Multi-Step Protocol**: Distinguishes simple lexical questions ("How do you say X?") from complex requests ("Teach me how to order coffee"). Complex requests follow: (1) acknowledge, (2) optional one-sentence plan, (3) teach ONLY first phrase with pronunciation, (4) stop and wait for practice.
--   **Architect-Reviewed**: Changes preserve pedagogical approach and prevent student overload while maintaining natural conversation flow.
--   **End-to-End Tested**: Verified via playwright tests - AI consistently responds with exactly one phrase (under 150 words) and waits for practice before offering variations.
+-   **Difficulty-Aware Teaching**: System prompt now adapts phrase complexity based on student's difficulty level:
+    -   **Beginner**: Absolute simplest phrases (2-3 words max), no articles (un, una, el, la), no complex verbs. Example: "Café, por favor" (not "Un café" or "Quisiera un café")
+    -   **Intermediate**: Common conversational phrases with present tense and polite forms. Example: "Quisiera un café, por favor"
+    -   **Advanced**: Sophisticated expressions with varied tenses and idiomatic usage. Example: "Me apetecería un café con leche, si es posible"
+-   **Pedagogical Progression**: After mastering core nouns + "por favor", AI teaches articles in subsequent messages, then verb forms, ensuring proper scaffolding for beginners.
+-   **Architect-Reviewed**: Changes preserve pedagogical approach, prevent student overload, and ensure age-appropriate difficulty while maintaining natural conversation flow.
+-   **End-to-End Tested**: Verified via playwright tests - AI consistently responds with exactly one phrase appropriate for difficulty level (under 150 words) and waits for practice before offering variations.
 
 ### Known LLM Limitation
 -   **OpenAI Language Compliance**: OpenAI GPT-5 occasionally returns English greetings despite prompts explicitly requesting responses in the user's native language (e.g., "Use ONLY german"). This is inherent LLM behavior, not a code defect. The prompts are correctly configured with the inherited nativeLanguage, but the API sometimes ignores language instructions for short system messages. Consider reinforcing prompts with system messages or few-shot examples if consistent language compliance becomes critical.
