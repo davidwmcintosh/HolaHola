@@ -156,40 +156,19 @@ export function setupRealtimeProxy(server: Server) {
         const languageName = languageNames[language] || language;
         const nativeLanguageName = nativeLanguageNames[nativeLanguage] || nativeLanguage;
         
-        // Simplified instructions for Realtime API
-        const systemInstructions = `You are a friendly ${languageName} language tutor conducting a voice conversation. The student's native language is ${nativeLanguageName}.
-
-Difficulty: ${difficulty}
-${topic ? `Topic focus: ${topic}` : ''}
-
-Guidelines:
-- Speak naturally and conversationally
-- Adjust language complexity to ${difficulty} level
-- ${difficulty === 'beginner' ? 'Use mostly ' + nativeLanguageName + ' (80%) with simple ' + languageName + ' words. Speak slowly and clearly.' : difficulty === 'intermediate' ? 'Use 50/50 mix of ' + nativeLanguageName + ' and ' + languageName + '. Build on basics.' : 'Use mostly ' + languageName + ' (80-90%). Challenge the student.'}
-- ALL explanations and translations must be in ${nativeLanguageName}
-- Ask one question at a time
-- Encourage and praise efforts
-- Keep responses brief and focused
-${difficulty === 'beginner' ? '- For new words, provide phonetic pronunciation and ' + nativeLanguageName + ' translation' : ''}
-
-Be warm, patient, and encouraging. Help them learn naturally through conversation.`;
+        // MINIMAL instructions for initial testing
+        // Using very short instructions to isolate if length is causing server errors
+        const systemInstructions = `You are a ${languageName} tutor. The student speaks ${nativeLanguageName}.`;
         
         console.log('System instructions length:', systemInstructions.length, 'characters');
         
-        // Session configuration with instructions for the AI tutor
-        // Note: Only send supported fields (voice, instructions, turn_detection)
-        // Modalities and transcription cannot be set via session.update
+        // MINIMAL session configuration to test for server errors
+        // Testing with absolute minimum to see if our config is causing issues
         const sessionUpdate = {
           type: "session.update",
           session: {
             voice: "alloy",
-            instructions: systemInstructions,
-            turn_detection: {
-              type: "server_vad",
-              threshold: 0.5,
-              prefix_padding_ms: 300,
-              silence_duration_ms: 500
-            }
+            instructions: systemInstructions
           },
         };
         openaiWs.send(JSON.stringify(sessionUpdate));
