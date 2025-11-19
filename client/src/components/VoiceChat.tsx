@@ -201,6 +201,9 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
         
         const data: RealtimeEvent = JSON.parse(event.data);
         
+        // Debug: Log ALL events to help troubleshoot
+        console.log('[REALTIME EVENT]', data.type, data);
+        
         switch (data.type) {
           case "session.created":
             console.log('Session created:', data);
