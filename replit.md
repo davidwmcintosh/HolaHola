@@ -64,6 +64,15 @@ Preferred communication style: Simple, everyday language.
 -   **Migrated from MemStorage to DatabaseStorage**: Replaced in-memory storage with PostgreSQL persistence using Drizzle ORM for all data models (conversations, messages, vocabulary, progress, etc.).
 -   **Fixed nativeLanguage Inheritance Bug**: Corrected critical bug in `server/routes.ts` (lines 172-200) where new conversations were defaulting to 'english' instead of inheriting the user's previously saved nativeLanguage. The inheritance logic now runs for ALL post-onboarding conversations, regardless of whether `isOnboarding` is explicitly set by the frontend or auto-detected by the backend.
 -   **Verified Inheritance**: Database queries and logs confirm that nativeLanguage inheritance is working correctly (e.g., 28+ conversations with `nativeLanguage='german'` for test users).
+-   **Fixed Progress Date Handling Bug**: Corrected critical bug in `server/routes.ts` PATCH `/api/progress` endpoint where ISO date strings from the frontend were not being converted to Date objects before database updates, causing "value.toISOString is not a function" errors. Now properly converts date strings to Date objects.
+
+### Mid-Conversation Native Language Change Feature
+-   **Dynamic Language Switching**: Users can now request to change their native language (the language used for explanations) mid-conversation without creating a new conversation.
+-   **Intelligent Detection**: Backend uses OpenAI GPT-5 structured outputs (`detectNativeLanguageChangeRequest` in `server/onboarding-utils.ts`) to detect phrases like "explain in Spanish instead", "switch to German", "change explanations to French".
+-   **Smart Guard Condition**: Prevents redundant database writes and confusing confirmation messages when users reaffirm their current native language (e.g., "keep explaining in English" when already using English).
+-   **Lowercase Normalization**: Language names are normalized to lowercase before comparison to ensure consistent matching.
+-   **Seamless Integration**: Updates `conversation.nativeLanguage` in the database and prepends confirmation message to AI response (e.g., "I've switched the explanations to spanish. Let's continue!").
+-   **End-to-End Tested**: Feature verified via playwright tests confirming detection, database updates, and UI acknowledgment.
 
 ### Known LLM Limitation
 -   **OpenAI Language Compliance**: OpenAI GPT-5 occasionally returns English greetings despite prompts explicitly requesting responses in the user's native language (e.g., "Use ONLY german"). This is inherent LLM behavior, not a code defect. The prompts are correctly configured with the inherited nativeLanguage, but the API sometimes ignores language instructions for short system messages. Consider reinforcing prompts with system messages or few-shot examples if consistent language compliance becomes critical.
