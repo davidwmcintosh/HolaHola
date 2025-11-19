@@ -19,14 +19,16 @@ export function setupRealtimeProxy(server: Server) {
       const difficulty = url.searchParams.get('difficulty') || 'beginner';
       const conversationId = url.searchParams.get('conversationId');
 
-      // Fetch conversation to get message count and topic for phase-appropriate prompts
+      // Fetch conversation to get message count, topic, and nativeLanguage for phase-appropriate prompts
       let messageCount = 0;
       let topic: string | null = null;
+      let nativeLanguage = 'english';
       if (conversationId) {
         try {
           const conversation = await storage.getConversation(conversationId);
           if (conversation) {
             topic = conversation.topic ?? null;
+            nativeLanguage = conversation.nativeLanguage || 'english';
           }
           const messages = await storage.getMessagesByConversation(conversationId);
           // Count only user messages to determine conversation phase
@@ -104,10 +106,17 @@ export function setupRealtimeProxy(server: Server) {
           italian: "Italian", portuguese: "Portuguese", japanese: "Japanese",
           mandarin: "Mandarin Chinese", korean: "Korean"
         };
+        const nativeLanguageNames: Record<string, string> = {
+          english: "English", spanish: "Spanish", french: "French", german: "German",
+          italian: "Italian", portuguese: "Portuguese", japanese: "Japanese",
+          mandarin: "Mandarin Chinese", korean: "Korean", arabic: "Arabic",
+          russian: "Russian", hindi: "Hindi"
+        };
         const languageName = languageNames[language] || language;
+        const nativeLanguageName = nativeLanguageNames[nativeLanguage] || nativeLanguage;
         
         // Simplified instructions for Realtime API
-        const systemInstructions = `You are a friendly ${languageName} language tutor conducting a voice conversation.
+        const systemInstructions = `You are a friendly ${languageName} language tutor conducting a voice conversation. The student's native language is ${nativeLanguageName}.
 
 Difficulty: ${difficulty}
 ${topic ? `Topic focus: ${topic}` : ''}
@@ -115,11 +124,12 @@ ${topic ? `Topic focus: ${topic}` : ''}
 Guidelines:
 - Speak naturally and conversationally
 - Adjust language complexity to ${difficulty} level
-- ${difficulty === 'beginner' ? 'Use mostly English (80%) with simple ' + languageName + ' words. Speak slowly and clearly.' : difficulty === 'intermediate' ? 'Use 50/50 mix of English and ' + languageName + '. Build on basics.' : 'Use mostly ' + languageName + ' (80-90%). Challenge the student.'}
+- ${difficulty === 'beginner' ? 'Use mostly ' + nativeLanguageName + ' (80%) with simple ' + languageName + ' words. Speak slowly and clearly.' : difficulty === 'intermediate' ? 'Use 50/50 mix of ' + nativeLanguageName + ' and ' + languageName + '. Build on basics.' : 'Use mostly ' + languageName + ' (80-90%). Challenge the student.'}
+- ALL explanations and translations must be in ${nativeLanguageName}
 - Ask one question at a time
 - Encourage and praise efforts
 - Keep responses brief and focused
-${difficulty === 'beginner' ? '- For new words, provide phonetic pronunciation (e.g., "Hola = oh-LAH")' : ''}
+${difficulty === 'beginner' ? '- For new words, provide phonetic pronunciation and ' + nativeLanguageName + ' translation' : ''}
 
 Be warm, patient, and encouraging. Help them learn naturally through conversation.`;
         

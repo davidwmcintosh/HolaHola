@@ -546,7 +546,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userMessageCount,
         false, // not voice mode
         updatedConversation.topic,
-        previousConversations.length > 0 ? previousConversations : undefined
+        previousConversations.length > 0 ? previousConversations : undefined,
+        updatedConversation.nativeLanguage
       );
 
       // Generate AI response with structured output to extract vocabulary and grammar
