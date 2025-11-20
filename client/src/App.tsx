@@ -105,7 +105,7 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
   // Show full app with sidebar for authenticated users
   return (
     <LanguageProvider>
-      <SidebarProvider defaultOpen={false} style={style as React.CSSProperties}>
+      <SidebarProvider defaultOpen={true} style={style as React.CSSProperties}>
         <div className="flex h-screen w-full">
           <AppSidebar />
           <div className="flex flex-col flex-1">
