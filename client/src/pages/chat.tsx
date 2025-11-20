@@ -12,7 +12,15 @@ export default function Chat() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [currentConversationOnboarding, setCurrentConversationOnboarding] = useState<boolean | null>(null);
-  const [forceNewConversation, setForceNewConversation] = useState(false); // Track if user clicked "New Chat"
+  // Check localStorage to see if user clicked "New Chat" before page reload
+  const [forceNewConversation, setForceNewConversation] = useState(() => {
+    const stored = localStorage.getItem('forceNewConversation');
+    if (stored === 'true') {
+      localStorage.removeItem('forceNewConversation'); // Clear immediately after reading
+      return true;
+    }
+    return false;
+  });
   const [isReloading, setIsReloading] = useState(false); // Smooth transition for page reload
   const previousLanguageRef = useRef(language);
   const creationInProgressRef = useRef(false); // Prevent duplicate conversation creation
@@ -85,7 +93,9 @@ export default function Chat() {
   }, [language, difficulty, userName, conversationId, isCreatingConversation, currentConversationOnboarding, forceNewConversation]);
 
   const handleNewChat = () => {
-    console.log('[SHARED CHAT] User requested new chat - reloading page for clean state');
+    console.log('[SHARED CHAT] User requested new chat - forcing new conversation');
+    // Set flag in localStorage to force new conversation after reload
+    localStorage.setItem('forceNewConversation', 'true');
     // Show smooth transition before reload
     setIsReloading(true);
     // Brief delay to show the transition, then reload

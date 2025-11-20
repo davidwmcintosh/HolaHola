@@ -852,9 +852,8 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
         </div>
       </div>
 
-      {/* Voice chat area */}
-      <Card className="flex flex-col flex-1 m-4 mt-0 overflow-hidden">
-        <ScrollArea className="flex-1">
+      {/* Voice chat area - full height scrollable */}
+      <ScrollArea className="flex-1">
         <div className="space-y-4 p-6">
           {!conversationId ? (
             <div className="flex flex-col justify-center items-center h-full text-center text-muted-foreground p-8">
@@ -1198,7 +1197,6 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
             : "Hold to speak"}
         </p>
       </div>
-    </Card>
     </div>
   );
 }
