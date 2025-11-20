@@ -682,17 +682,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Only save greeting if this is a NEW conversation
-      // Don't add duplicate greetings when reusing existing conversations
-      if (isNewConversation) {
-        console.log('[GREETING] Saving greeting for new conversation');
+      // Only save greeting if conversation has NO messages
+      // Check actual message count instead of relying on isNewConversation flag
+      const existingMessages = await storage.getMessagesByConversation(conversation.id);
+      if (existingMessages.length === 0) {
+        console.log('[GREETING] Saving greeting - conversation is empty');
         await storage.createMessage({
           conversationId: conversation.id,
           role: "assistant",
           content: greetingMessage,
         });
       } else {
-        console.log('[GREETING] Skipping greeting - reusing existing conversation with messages');
+        console.log('[GREETING] Skipping greeting - conversation already has', existingMessages.length, 'messages');
       }
       
       res.json(conversation);
