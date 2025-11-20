@@ -214,23 +214,26 @@ Use a 50/50 mix of ${language} and English. Speak ${language} for main ideas, us
 
 Use mostly ${language} (80-90%) with occasional English explanations for complex grammar. Challenge them with natural, conversational ${language}. Keep responses concise.`;
 
-          // PUSH-TO-TALK MODE: Use server_vad with high threshold to minimize false triggers
-          // Response is manually triggered via response.create when button is released (line 690)
-          console.log('[🔧 CODE VERSION: 2024-11-20-03:17] turn_detection: null (NO VAD)');
+          // PUSH-TO-TALK MODE: Omit turn_detection entirely from session config
+          // Response is manually triggered via response.create when button is released
+          console.log('[🔧 CODE VERSION: 2024-11-20-03:20] turn_detection OMITTED (not sent)');
+
+          // Build session config without turn_detection field
+          const sessionConfig: any = {
+            modalities: ['text', 'audio'],
+            instructions: adaptiveInstructions,
+            voice: 'alloy',
+            input_audio_format: 'pcm16',
+            output_audio_format: 'pcm16',
+            input_audio_transcription: {
+              model: 'whisper-1'
+            }
+            // turn_detection NOT INCLUDED - pure manual control
+          };
 
           ws.send(JSON.stringify({
             type: 'session.update',
-            session: {
-              modalities: ['text', 'audio'],
-              instructions: adaptiveInstructions,
-              voice: 'alloy',
-              input_audio_format: 'pcm16',
-              output_audio_format: 'pcm16',
-              input_audio_transcription: {
-                model: 'whisper-1'
-              },
-              turn_detection: null  // CRITICAL: Disable VAD entirely, use manual response.create only
-            }
+            session: sessionConfig
           }));
           
           // After configuring session, send initial greeting if conversation is empty
