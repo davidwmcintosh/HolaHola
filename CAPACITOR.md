@@ -82,7 +82,13 @@ npx cap open android  # Opens Android Studio
 Edit `capacitor.config.ts` to customize:
 - **appId**: `com.linguaflow.app` (change before publishing)
 - **appName**: Display name in app stores
+- **webDir**: `dist/public` (matches Vite build output - client assets go here, server code goes to dist/)
 - **Plugins**: Splash screen, push notifications, etc.
+
+**Build Structure:**
+- `npm run build` outputs client assets to `dist/public/` and server code to `dist/`
+- Capacitor only needs the client assets, so webDir points to `dist/public`
+- This ensures index.html and all static assets are correctly synced to native projects
 
 ### Adding Native Features
 
