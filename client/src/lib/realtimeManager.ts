@@ -7,11 +7,21 @@ declare global {
     __linguaflow_ws?: WebSocket;
     __linguaflow_conv_id?: string;
     __linguaflow_greeting_sent?: Set<string>;  // Track which conversations have received greetings
+    __linguaflow_connecting?: boolean;  // Lock to prevent simultaneous connections
   }
 }
 
 export function getGlobalWebSocket(): WebSocket | null {
   return window.__linguaflow_ws || null;
+}
+
+export function isGloballyConnecting(): boolean {
+  return window.__linguaflow_connecting || false;
+}
+
+export function setGloballyConnecting(connecting: boolean): void {
+  window.__linguaflow_connecting = connecting;
+  console.log('[REALTIME MANAGER] Connection lock:', connecting ? 'LOCKED' : 'UNLOCKED');
 }
 
 export function setGlobalWebSocket(ws: WebSocket | null, conversationId: string | null): void {

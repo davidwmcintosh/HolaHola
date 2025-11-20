@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 import { CompactDifficultyControl } from "@/components/CompactDifficultyControl";
 import { LanguageSelector } from "@/components/LanguageSelector";
-import { getGlobalWebSocket, setGlobalWebSocket, getGlobalConversationId, hasGreetingBeenSent, markGreetingAsSent } from "@/lib/realtimeManager";
+import { getGlobalWebSocket, setGlobalWebSocket, getGlobalConversationId, hasGreetingBeenSent, markGreetingAsSent, isGloballyConnecting, setGloballyConnecting } from "@/lib/realtimeManager";
 
 interface RealtimeEvent {
   type: string;
@@ -128,6 +128,9 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
       throw new Error('No conversation ID');
     }
 
+    // CRITICAL: Set connection lock to prevent duplicate WebSocket creation
+    setGloballyConnecting(true);
+
     const CONNECTION_TIMEOUT = 10000; // 10 seconds
     let connectionTimer: NodeJS.Timeout | null = null;
 
@@ -165,6 +168,9 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
           console.log('[VOICE CHAT] ✓ Connected directly to OpenAI Realtime API!');
           connectionOpened = true;
           if (connectionTimer) clearTimeout(connectionTimer);
+          
+          // CRITICAL: Clear connection lock now that we've successfully connected
+          setGloballyConnecting(false);
           
           // Clear error and reset reconnecting flag on successful connection
           if (isReconnectingRef.current) {
@@ -506,6 +512,10 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
         if (connectionTimer) clearTimeout(connectionTimer);
+        
+        // CRITICAL: Clear connection lock on error
+        setGloballyConnecting(false);
+        
         setError('Connection error. The OpenAI Realtime API may not be available through your current setup.');
         reject(new Error('WebSocket connection failed'));
       };
@@ -514,6 +524,9 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
         console.log('WebSocket closed', event.code, event.reason);
         wsRef.current = null;
         setGlobalWebSocket(null, null);  // Clear global WebSocket
+        
+        // CRITICAL: Clear connection lock when WebSocket closes
+        setGloballyConnecting(false);
         
         if (!connectionOpened) {
           // Connection closed before it ever opened
@@ -533,6 +546,10 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
       });
     } catch (error: any) {
       console.error('Failed to connect to Realtime API:', error);
+      
+      // CRITICAL: Clear connection lock on error
+      setGloballyConnecting(false);
+      
       throw new Error(`Failed to connect: ${error.message}`);
     }
   }, [conversationId, language, difficulty, user]);
@@ -735,6 +752,36 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
       console.log('[VOICE CHAT] ✓ Reusing existing global WebSocket for conversation:', conversationId, 'readyState:', existingGlobalWs.readyState);
       wsRef.current = existingGlobalWs;
       return;
+    }
+    
+    // CRITICAL LOCK: Prevent simultaneous WebSocket creation during React StrictMode double-mount
+    if (isGloballyConnecting()) {
+      console.log('[VOICE CHAT] ⏸️ Another component is already connecting, waiting...');
+      // Wait 100ms and retry - the other component should finish connecting by then
+      const checkInterval = setInterval(() => {
+        const nowConnected = getGlobalWebSocket();
+        if (nowConnected && getGlobalConversationId() === conversationId) {
+          console.log('[VOICE CHAT] ✓ Using WebSocket created by other component');
+          wsRef.current = nowConnected;
+          clearInterval(checkInterval);
+        } else if (!isGloballyConnecting()) {
+          // Connection lock released but no WebSocket - we should connect
+          console.log('[VOICE CHAT] Lock released, proceeding to connect...');
+          clearInterval(checkInterval);
+          if (conversationId && mounted && capabilityAvailable) {
+            connectToRealtimeAPI().catch((err) => {
+              if (mounted) {
+                console.error('Failed to establish initial connection:', err);
+                setError('Voice chat unavailable. The OpenAI Realtime API may not be accessible. Please use text mode.');
+              }
+            });
+          }
+        }
+      }, 100);
+      
+      return () => {
+        clearInterval(checkInterval);
+      };
     }
     
     // Close any local WebSocket before creating a new one
