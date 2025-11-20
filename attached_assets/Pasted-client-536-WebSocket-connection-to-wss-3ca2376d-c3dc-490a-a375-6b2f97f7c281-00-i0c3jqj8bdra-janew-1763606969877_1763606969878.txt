@@ -1,0 +1,85 @@
+client:536 WebSocket connection to 'wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/?token=_KJszsPXRr-C' failed: 
+setupWebSocket @ client:536
+(anonymous) @ client:531
+client:536 Uncaught (in promise) DOMException: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=_KJszsPXRr-C' is invalid.
+    at setupWebSocket (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:536:19)
+    at fallback (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:509:16)
+    at WebSocket.<anonymous> (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:555:7)
+setupWebSocket @ client:536
+fallback @ client:509
+(anonymous) @ client:555
+chunk-WERSD76P.js?v=2c853f45:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+vendors.bundle.js:2 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+LanguageContext.tsx:21 [LanguageContext] Initializing with language: spanish (from localStorage)
+LanguageContext.tsx:26 [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+LanguageContext.tsx:31 [LanguageContext] Initializing with userName: David (from localStorage)
+audioUtils.ts:67 The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://goo.gl/7K7WLu
+AudioPlayer @ audioUtils.ts:67
+(anonymous) @ VoiceChat.tsx:121
+commitHookEffectListMount @ chunk-WERSD76P.js?v=2c853f45:16915
+commitPassiveMountOnFiber @ chunk-WERSD76P.js?v=2c853f45:18156
+commitPassiveMountEffects_complete @ chunk-WERSD76P.js?v=2c853f45:18129
+commitPassiveMountEffects_begin @ chunk-WERSD76P.js?v=2c853f45:18119
+commitPassiveMountEffects @ chunk-WERSD76P.js?v=2c853f45:18109
+flushPassiveEffectsImpl @ chunk-WERSD76P.js?v=2c853f45:19490
+flushPassiveEffects @ chunk-WERSD76P.js?v=2c853f45:19447
+commitRootImpl @ chunk-WERSD76P.js?v=2c853f45:19416
+commitRoot @ chunk-WERSD76P.js?v=2c853f45:19277
+performSyncWorkOnRoot @ chunk-WERSD76P.js?v=2c853f45:18895
+flushSyncCallbacks @ chunk-WERSD76P.js?v=2c853f45:9119
+(anonymous) @ chunk-WERSD76P.js?v=2c853f45:18627
+setTimeout (async)
+scheduleFn @ @tanstack_react-query.js?v=2c853f45:555
+flush @ @tanstack_react-query.js?v=2c853f45:569
+batch @ @tanstack_react-query.js?v=2c853f45:587
+dispatch_fn @ @tanstack_react-query.js?v=2c853f45:996
+setData @ @tanstack_react-query.js?v=2c853f45:696
+onSuccess @ @tanstack_react-query.js?v=2c853f45:897
+resolve @ @tanstack_react-query.js?v=2c853f45:456
+Promise.then (async)
+run @ @tanstack_react-query.js?v=2c853f45:498
+start @ @tanstack_react-query.js?v=2c853f45:536
+fetch @ @tanstack_react-query.js?v=2c853f45:926
+executeFetch_fn @ @tanstack_react-query.js?v=2c853f45:2211
+onSubscribe @ @tanstack_react-query.js?v=2c853f45:1898
+subscribe @ @tanstack_react-query.js?v=2c853f45:24
+(anonymous) @ @tanstack_react-query.js?v=2c853f45:3022
+subscribeToStore @ chunk-WERSD76P.js?v=2c853f45:11984
+commitHookEffectListMount @ chunk-WERSD76P.js?v=2c853f45:16915
+commitPassiveMountOnFiber @ chunk-WERSD76P.js?v=2c853f45:18156
+commitPassiveMountEffects_complete @ chunk-WERSD76P.js?v=2c853f45:18129
+commitPassiveMountEffects_begin @ chunk-WERSD76P.js?v=2c853f45:18119
+commitPassiveMountEffects @ chunk-WERSD76P.js?v=2c853f45:18109
+flushPassiveEffectsImpl @ chunk-WERSD76P.js?v=2c853f45:19490
+flushPassiveEffects @ chunk-WERSD76P.js?v=2c853f45:19447
+performSyncWorkOnRoot @ chunk-WERSD76P.js?v=2c853f45:18868
+flushSyncCallbacks @ chunk-WERSD76P.js?v=2c853f45:9119
+commitRootImpl @ chunk-WERSD76P.js?v=2c853f45:19432
+commitRoot @ chunk-WERSD76P.js?v=2c853f45:19277
+finishConcurrentRender @ chunk-WERSD76P.js?v=2c853f45:18805
+performConcurrentWorkOnRoot @ chunk-WERSD76P.js?v=2c853f45:18718
+workLoop @ chunk-WERSD76P.js?v=2c853f45:197
+flushWork @ chunk-WERSD76P.js?v=2c853f45:176
+performWorkUntilDeadline @ chunk-WERSD76P.js?v=2c853f45:384
+Show 43 more frames
+Show less
+chat.tsx:52 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false inProgress: false
+chat.tsx:55 [SHARED CHAT] Creating shared conversation... (post-onboarding)
+LanguageContext.tsx:43 [LanguageContext] Hydrating from user preferences: {targetLanguage: 'spanish', difficultyLevel: 'beginner', firstName: 'David'}
+chat.tsx:52 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: true inProgress: true
+chat.tsx:70 [SHARED CHAT] Shared conversation created: c9f8268f-ef6d-468b-abff-0a7826d89d97
+VoiceChat.tsx:108 [VOICE CHAT] Conversation changed, forcing fresh capability check...
+realtimeManager.ts:24 [REALTIME MANAGER] Connection lock: LOCKED
+VoiceChat.tsx:148 [VOICE CHAT] Fetching ephemeral token for direct OpenAI connection...
+2chat.tsx:52 [SHARED CHAT] Auto-create check - userName: David conversationId: c9f8268f-ef6d-468b-abff-0a7826d89d97 isCreating: false inProgress: false
+VoiceChat.tsx:153 [VOICE CHAT] ✓ Token received, connecting directly to OpenAI with model: gpt-4o-realtime-preview-2024-12-17
+realtimeManager.ts:42 [REALTIME MANAGER] ✓ Global WebSocket set for conversation: c9f8268f-ef6d-468b-abff-0a7826d89d97
+VoiceChat.tsx:176 [VOICE CHAT] ✓ Connected directly to OpenAI Realtime API!
+realtimeManager.ts:24 [REALTIME MANAGER] Connection lock: UNLOCKED
+VoiceChat.tsx:219 [🔧 CODE VERSION: 2024-11-20-02:42] Push-to-talk: turn_detection = { type: "none" }
+VoiceChat.tsx:300 [REALTIME EVENT] session.created {type: 'session.created', event_id: 'event_Cdp1BBtjzqsedveXf1lVo', session: {…}}
+VoiceChat.tsx:304 Session created: {type: 'session.created', event_id: 'event_Cdp1BBtjzqsedveXf1lVo', session: {…}}
+VoiceChat.tsx:300 [REALTIME EVENT] error {type: 'error', event_id: 'event_Cdp1Bu7gKmO1lpyq8soWe', error: {…}}
+VoiceChat.tsx:426 Realtime API error: {type: 'error', event_id: 'event_Cdp1Bu7gKmO1lpyq8soWe', error: {…}}
+ws.onmessage @ VoiceChat.tsx:426
+VoiceChat.tsx:246 [VOICE CHAT] Greeting already sent for conversation: c9f8268f-ef6d-468b-abff-0a7826d89d97
