@@ -638,7 +638,13 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
       console.log('[VOICE CHAT] Recording started successfully with token:', myToken);
     } catch (error) {
       console.error('Failed to start recording:', error);
-      setError('Failed to access microphone. Please check permissions.');
+      // Set a structured error for microphone permission issues
+      setError(JSON.stringify({
+        type: 'microphone_permission',
+        title: 'Microphone Access Required',
+        message: 'Unable to access your microphone. Voice chat requires microphone permissions.',
+        action: 'grant_permission'
+      }));
       stoppedTokenRef.current = Math.max(stoppedTokenRef.current, myToken); // Mark failed token as stopped
     }
   };
@@ -962,6 +968,54 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
           try {
             // Try to parse structured error
             const errorData = JSON.parse(error);
+            
+            // Handle microphone permission errors specifically
+            if (errorData.type === 'microphone_permission') {
+              return (
+                <div className="mb-4 p-4 pb-6 bg-destructive/10 text-destructive rounded-lg" data-testid="error-message">
+                  <p className="font-semibold mb-2 text-base">{errorData.title}</p>
+                  <p className="text-sm mb-3">{errorData.message}</p>
+                  
+                  <div className="text-sm text-muted-foreground space-y-2">
+                    <p className="font-medium">How to enable your microphone:</p>
+                    <ul className="list-disc list-inside space-y-1.5 ml-2">
+                      <li><strong>Chrome/Edge:</strong> Look for the <Mic className="inline h-3 w-3 mx-1" /> icon in the address bar and click "Allow"</li>
+                      <li><strong>Firefox:</strong> Click the microphone icon in the address bar and select "Allow"</li>
+                      <li><strong>Safari:</strong> Go to Safari → Settings → Websites → Microphone, then allow this site</li>
+                      <li>If you previously blocked access, you may need to refresh the page after changing permissions</li>
+                    </ul>
+                    <p className="mt-3 pt-2 border-t border-border">
+                      <strong>Alternative:</strong> Use text-based chat mode (fully functional)
+                    </p>
+                  </div>
+                  
+                  <div className="mt-4 flex gap-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        setError(null);
+                        // Try starting recording again - will trigger permission prompt
+                        startRecording();
+                      }}
+                      data-testid="button-retry-microphone"
+                    >
+                      <Mic className="h-3 w-3 mr-2" />
+                      Try Again
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => setError(null)}
+                      data-testid="button-dismiss-error"
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                </div>
+              );
+            }
+            
             if (errorData.type === 'openai_error') {
               return (
                 <div className="mb-4 p-4 pb-6 bg-destructive/10 text-destructive rounded-lg" data-testid="error-message">
@@ -1067,34 +1121,62 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
             // Fall through to simple error display
           }
           
-          // Simple error string fallback
+          // Simple error string fallback - check if it's a microphone permission error
+          const isMicError = error.includes('microphone') || error.includes('Microphone');
+          
           return (
             <div className="mb-4 p-4 pb-6 bg-destructive/10 text-destructive rounded-lg" data-testid="error-message">
-              <p className="font-medium mb-2">Voice Chat Unavailable</p>
+              <p className="font-medium mb-2">
+                {isMicError ? 'Microphone Access Required' : 'Voice Chat Unavailable'}
+              </p>
               <p className="text-sm mb-3">{error}</p>
               <div className="text-sm text-muted-foreground space-y-2">
                 <p className="font-medium">What can I do?</p>
-                <ul className="list-disc list-inside space-y-1 ml-2">
-                  <li>Use text-based chat mode (fully functional)</li>
-                  {capabilityCode === 'access_denied' && (
-                    <li>Get an OpenAI API key with Realtime API access at <a href="https://platform.openai.com" target="_blank" rel="noopener noreferrer" className="underline">platform.openai.com</a></li>
-                  )}
-                  {capabilityCode === 'missing_api_key' && (
-                    <li>Set USER_OPENAI_API_KEY in Replit Secrets with your OpenAI API key</li>
-                  )}
-                  {capabilityCode === 'rate_limit' && (
-                    <li>Check your OpenAI account billing and usage limits</li>
-                  )}
-                  {capabilityCode === 'server_error' && (
-                    <li>Wait a few minutes and try rechecking access</li>
-                  )}
-                </ul>
+                {isMicError ? (
+                  <>
+                    <p className="mb-2">To enable your microphone:</p>
+                    <ul className="list-disc list-inside space-y-1 ml-2">
+                      <li><strong>Chrome/Edge:</strong> Look for the camera/microphone icon in the address bar and click "Allow"</li>
+                      <li><strong>Firefox:</strong> Click the microphone icon in the address bar and select "Allow"</li>
+                      <li><strong>Safari:</strong> Go to Safari → Settings → Websites → Microphone, then allow access</li>
+                      <li>If you previously blocked access, you may need to refresh the page after granting permission</li>
+                    </ul>
+                    <p className="mt-3">Or use text-based chat mode (fully functional)</p>
+                  </>
+                ) : (
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>Use text-based chat mode (fully functional)</li>
+                    {capabilityCode === 'access_denied' && (
+                      <li>Get an OpenAI API key with Realtime API access at <a href="https://platform.openai.com" target="_blank" rel="noopener noreferrer" className="underline">platform.openai.com</a></li>
+                    )}
+                    {capabilityCode === 'missing_api_key' && (
+                      <li>Set USER_OPENAI_API_KEY in Replit Secrets with your OpenAI API key</li>
+                    )}
+                    {capabilityCode === 'rate_limit' && (
+                      <li>Check your OpenAI account billing and usage limits</li>
+                    )}
+                    {capabilityCode === 'server_error' && (
+                      <li>OpenAI's servers are temporarily experiencing issues - wait a few minutes and try rechecking</li>
+                    )}
+                    {!capabilityCode && (
+                      <li>Check your internet connection and try rechecking access</li>
+                    )}
+                  </ul>
+                )}
               </div>
               <div className="mt-4 flex gap-2">
                 <Button 
                   size="sm" 
                   variant="outline"
-                  onClick={() => checkCapability(true)}
+                  onClick={() => {
+                    if (isMicError) {
+                      // For mic errors, try starting recording again (will trigger permission prompt)
+                      setError(null);
+                      startRecording();
+                    } else {
+                      checkCapability(true);
+                    }
+                  }}
                   disabled={isCheckingCapability}
                   data-testid="button-recheck-access"
                 >
@@ -1104,7 +1186,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
                       Checking...
                     </>
                   ) : (
-                    'Recheck Access'
+                    isMicError ? 'Try Again' : 'Recheck Access'
                   )}
                 </Button>
                 <Button 
@@ -1130,6 +1212,8 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
                 setVadMode('push-to-talk');
                 // Will reconnect WebSocket with new mode
               }}
+              aria-pressed={vadMode === 'push-to-talk'}
+              role="button"
               data-testid="button-vad-push-to-talk"
             >
               <Mic className="h-4 w-4 mr-2" />
@@ -1142,6 +1226,8 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
                 setVadMode('semantic_vad');
                 // Will reconnect WebSocket with new mode
               }}
+              aria-pressed={vadMode === 'semantic_vad'}
+              role="button"
               data-testid="button-vad-auto-detect"
             >
               <Radio className="h-4 w-4 mr-2" />
@@ -1215,6 +1301,9 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
               }
             }}
             disabled={!conversationId || !capabilityAvailable}
+            aria-pressed={isRecording}
+            aria-label={isRecording ? "Release to stop recording" : "Hold to speak"}
+            role="button"
             className={`rounded-full h-16 w-16 ${vadMode !== 'push-to-talk' && isVadActive ? 'animate-pulse' : ''}`}
             data-testid="button-toggle-recording"
           >
