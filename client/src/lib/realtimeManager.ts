@@ -6,6 +6,7 @@ declare global {
   interface Window {
     __linguaflow_ws?: WebSocket;
     __linguaflow_conv_id?: string;
+    __linguaflow_greeting_sent?: Set<string>;  // Track which conversations have received greetings
   }
 }
 
@@ -49,4 +50,19 @@ export function clearGlobalWebSocket(): void {
   }
   window.__linguaflow_ws = undefined;
   window.__linguaflow_conv_id = undefined;
+}
+
+export function hasGreetingBeenSent(conversationId: string): boolean {
+  if (!window.__linguaflow_greeting_sent) {
+    window.__linguaflow_greeting_sent = new Set();
+  }
+  return window.__linguaflow_greeting_sent.has(conversationId);
+}
+
+export function markGreetingAsSent(conversationId: string): void {
+  if (!window.__linguaflow_greeting_sent) {
+    window.__linguaflow_greeting_sent = new Set();
+  }
+  window.__linguaflow_greeting_sent.add(conversationId);
+  console.log('[REALTIME MANAGER] Greeting marked as sent for conversation:', conversationId);
 }

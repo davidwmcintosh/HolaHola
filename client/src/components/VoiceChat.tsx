@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 import { CompactDifficultyControl } from "@/components/CompactDifficultyControl";
 import { LanguageSelector } from "@/components/LanguageSelector";
-import { getGlobalWebSocket, setGlobalWebSocket, getGlobalConversationId } from "@/lib/realtimeManager";
+import { getGlobalWebSocket, setGlobalWebSocket, getGlobalConversationId, hasGreetingBeenSent, markGreetingAsSent } from "@/lib/realtimeManager";
 
 interface RealtimeEvent {
   type: string;
@@ -222,13 +222,26 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
           }));
           
           // After configuring session, send initial greeting if conversation is empty
+          // CRITICAL: Only send greeting once per conversation to prevent duplicates
           setTimeout(async () => {
+            if (!conversationId) return;
+            
+            // Check if we've already sent a greeting for this conversation
+            if (hasGreetingBeenSent(conversationId)) {
+              console.log('[VOICE CHAT] Greeting already sent for conversation:', conversationId);
+              return;
+            }
+            
             try {
               const messagesResponse = await fetch(`/api/conversations/${conversationId}/messages`);
               const existingMessages = await messagesResponse.json();
               
               if (existingMessages.length === 0) {
                 console.log('[VOICE CHAT] Empty conversation - sending initial greeting request');
+                
+                // Mark greeting as sent BEFORE sending to prevent race conditions
+                markGreetingAsSent(conversationId);
+                
                 // Use conversation.item.create to trigger AI greeting
                 ws.send(JSON.stringify({
                   type: 'conversation.item.create',
@@ -244,6 +257,9 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
                 
                 // Trigger response
                 ws.send(JSON.stringify({ type: 'response.create' }));
+              } else {
+                // Mark as sent even if messages exist, so we don't check again
+                markGreetingAsSent(conversationId);
               }
             } catch (error) {
               console.error('[VOICE CHAT] Failed to check messages for greeting:', error);
