@@ -22,7 +22,7 @@ import {
 import { createSystemPrompt } from "./system-prompt";
 import { assessMessage, analyzePerformance } from "./difficulty-adjustment";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { generateConversationTitle } from "./conversation-utils";
+import { generateConversationTitle, generateConversationContextSummary } from "./conversation-utils";
 
 // Use Replit AI Integrations for text chat (works reliably)
 // User's personal key (USER_OPENAI_API_KEY) is only used for voice chat in realtime-proxy.ts
@@ -1336,19 +1336,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check for conversation switching directive
       const switchDirectivePattern = /\[\[SWITCH_CONVERSATION:([a-f0-9-]+)\]\]/i;
       const switchMatch = aiResponse.match(switchDirectivePattern);
-      let switchedConversation: any = null;
+      let switchedConversation: any = null; // Initialize as null to prevent stale data reuse
       
       if (switchMatch) {
         const targetConversationId = switchMatch[1];
         console.log('[CONVERSATION SWITCH] Detected switch directive to:', targetConversationId);
         
-        // Validate the target conversation exists and belongs to the user
-        const targetConversation = await storage.getConversation(targetConversationId, userId);
-        
-        if (targetConversation && 
-            targetConversation.userName === updatedConversation.userName &&
-            targetConversation.language === updatedConversation.language &&
-            !targetConversation.isOnboarding) {
+        // Safety check: Prevent switching to the current conversation
+        // This prevents infinite loops if the AI mistakenly emits a switch directive to itself
+        if (targetConversationId === conversationId) {
+          console.warn('[CONVERSATION SWITCH] Cannot switch to current conversation, ignoring directive');
+          aiResponse = aiResponse.replace(switchDirectivePattern, '').trim();
+          switchedConversation = null; // Ensure no stale data
+        } else {
+          // Validate the target conversation exists and belongs to the user
+          const targetConversation = await storage.getConversation(targetConversationId, userId);
+          
+          if (targetConversation && 
+              targetConversation.userName === updatedConversation.userName &&
+              targetConversation.language === updatedConversation.language &&
+              !targetConversation.isOnboarding) {
           
           console.log('[CONVERSATION SWITCH] Valid switch target found:', {
             id: targetConversation.id,
@@ -1359,17 +1366,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Strip the directive from the response
           aiResponse = aiResponse.replace(switchDirectivePattern, '').trim();
           
-          // Set the switched conversation for the response
-          switchedConversation = {
-            id: targetConversation.id,
-            switchedFrom: conversationId,
-            title: targetConversation.title,
-            messageCount: targetConversation.messageCount
-          };
-        } else {
-          console.warn('[CONVERSATION SWITCH] Invalid switch target - conversation not found or not accessible');
-          // Strip the directive even if invalid, so it doesn't show to the user
-          aiResponse = aiResponse.replace(switchDirectivePattern, '').trim();
+          // Generate context summary for the target conversation to help the student remember
+          let contextSummary: string | null = null;
+          try {
+            const targetMessages = await storage.getMessagesByConversation(targetConversationId);
+            if (targetMessages.length > 0) {
+              contextSummary = await generateConversationContextSummary(
+                openai,
+                targetMessages.map(m => ({ role: m.role, content: m.content })),
+                targetConversation.title,
+                targetConversation.language
+              );
+              console.log('[CONVERSATION SWITCH] Generated context summary:', contextSummary);
+            }
+          } catch (error) {
+            console.error('[CONVERSATION SWITCH] Failed to generate context summary:', error);
+            // Continue without summary - not critical
+          }
+          
+            // Set the switched conversation for the response
+            switchedConversation = {
+              id: targetConversation.id,
+              switchedFrom: conversationId,
+              title: targetConversation.title,
+              messageCount: targetConversation.messageCount,
+              contextSummary: contextSummary
+            };
+          } else {
+            console.warn('[CONVERSATION SWITCH] Invalid switch target - conversation not found or not accessible');
+            // Strip the directive even if invalid, so it doesn't show to the user
+            aiResponse = aiResponse.replace(switchDirectivePattern, '').trim();
+            switchedConversation = null; // Ensure no stale data leaks through
+          }
         }
       }
 

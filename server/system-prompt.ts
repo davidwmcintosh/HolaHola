@@ -186,37 +186,60 @@ EXAMPLES:
   // Conversation switching protocol
   const conversationSwitchingProtocol = previousConversations && previousConversations.length > 0 ? `
 
-CONVERSATION SWITCHING PROTOCOL:
-The student has previous conversations in ${languageName}. When they express interest in continuing a previous conversation, you can help them switch to it.
+CONVERSATION HISTORY & SWITCHING:
+The student has previous ${languageName} conversations. You can help them resume past topics naturally.
 
 AVAILABLE PREVIOUS CONVERSATIONS:
 ${previousConversations.map((conv, idx) => 
   `${idx + 1}. ID: ${conv.id} | Title: "${conv.title || `Conversation from ${new Date(conv.createdAt).toLocaleDateString()}`}" | ${conv.messageCount} messages`
 ).join('\n')}
 
-SWITCHING INSTRUCTIONS:
-1. When the student indicates they want to continue a specific previous conversation (e.g., "let's continue restaurant vocabulary" or "I want to resume conversation 2"), identify which conversation they're referring to based on the title or number.
+COMMON STUDENT REQUESTS:
+- "What did we talk about last time?"
+- "Can you remind me what we covered?"
+- "I want to continue where we left off"
+- "Let's go back to [topic]"
+- "Can we review [previous topic]?"
 
-2. If you can confidently match their request to one of the conversations above, emit a special directive to switch:
-   - Use this exact format: [[SWITCH_CONVERSATION:{conversationId}]]
-   - Example: [[SWITCH_CONVERSATION:abc-123-def]]
-   - This directive will be automatically stripped from your visible response
-   - After the directive, include a warm handoff message like "Great! Let's continue our restaurant vocabulary session."
+HOW TO RESPOND TO "REMIND ME" REQUESTS:
+1. **When student asks about previous conversations**:
+   - Mention their most recent conversation title conversationally
+   - Example: "Last time we practiced ordering at a restaurant. Would you like to continue that conversation?"
+   - If they have multiple recent topics, briefly mention 2-3: "I see we've worked on restaurant vocabulary, travel phrases, and job interviews. Which would you like to revisit?"
 
-3. If the student's request is ambiguous or you're not sure which conversation they want:
-   - Ask for clarification: "I see you have conversations about restaurant vocabulary and travel phrases. Which one would you like to continue?"
-   - Do NOT emit the switch directive until you're confident
+2. **If student confirms they want to continue that topic**:
+   - Emit the switch directive: [[SWITCH_CONVERSATION:{conversationId}]]
+   - Provide a warm transition with context reminder
+   - Example full response:
+     "Perfect! Let's continue our restaurant practice.
+     [[SWITCH_CONVERSATION:abc-123-def]]
+     Last time you were learning how to order food and drinks. We'll pick up from there!"
 
-4. If they want to start something new or stay in the current conversation, simply continue without emitting any directive.
+3. **If student is specific about which topic**:
+   - Match their request to a conversation title
+   - Confirm before switching: "Yes! We covered that in our '[Title]' conversation. Ready to continue?"
+   - Wait for confirmation, then emit the directive
 
-IMPORTANT:
-- Only emit ONE switch directive per response
-- The directive must appear on its own line
-- You can include conversational text before and after the directive
-- Example response format:
-  "Absolutely! I'd be happy to continue our previous discussion.
-  [[SWITCH_CONVERSATION:abc-123-def]]
-  Let's pick up where we left off with restaurant vocabulary!"
+4. **If student's request is ambiguous**:
+   - List relevant conversations by title (not ID)
+   - Example: "I see conversations about restaurant vocabulary and travel phrases. Which interests you today?"
+   - Do NOT emit switch directive until you have clear confirmation
+
+5. **If they want something new**:
+   - Simply continue the current conversation
+   - Example: "Great! Let's start fresh with that topic."
+
+SWITCH DIRECTIVE FORMAT:
+- Must be on its own line: [[SWITCH_CONVERSATION:{conversationId}]]
+- Only emit AFTER student confirms interest
+- Include conversational context before and after
+- The directive is invisible to the student (automatically removed)
+
+TONE GUIDELINES:
+- Be conversational and natural, not robotic
+- Reference conversation titles casually: "our restaurant practice" not "Conversation ID abc-123"
+- Show continuity: "Let's pick up where we left off..."
+- Make students feel their progress is remembered and valued
 ` : "";
 
   // Structured listen-and-repeat for Phases 2-3 only (beginner difficulty)

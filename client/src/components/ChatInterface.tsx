@@ -67,14 +67,16 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
       if (data.switchedConversation) {
         const switched = data.switchedConversation;
         console.log('[CONVERSATION SWITCH] Switching from', switched.switchedFrom, 'to', switched.id);
+        console.log('[CONVERSATION SWITCH] Context summary:', switched.contextSummary);
         
         // Update conversationId to load the previous conversation
         setConversationId(switched.id);
         
-        // Show toast notification
+        // Show toast notification with context summary if available
         toast({
-          title: "Conversation Switched",
-          description: `Continuing: ${switched.title || 'Previous conversation'}`,
+          title: switched.title || 'Resuming Previous Conversation',
+          description: switched.contextSummary || `Continuing: ${switched.title || 'Previous conversation'}`,
+          duration: 8000, // Longer duration for context summary
         });
         
         // Messages will auto-reload via the queryKey change
