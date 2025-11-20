@@ -214,23 +214,26 @@ Use a 50/50 mix of ${language} and English. Speak ${language} for main ideas, us
 
 Use mostly ${language} (80-90%) with occasional English explanations for complex grammar. Challenge them with natural, conversational ${language}. Keep responses concise.`;
 
-          // PUSH-TO-TALK MODE: Disable automatic turn detection
-          // Response will be triggered manually when user releases the button
-          console.log('[🔧 CODE VERSION: 2024-11-20-02:30] Push-to-talk mode: turn_detection = null');
+          // PUSH-TO-TALK MODE: Use manual response triggering
+          // We keep server_vad but response is triggered explicitly via response.create (line 690)
+          console.log('[🔧 CODE VERSION: 2024-11-20-02:35] Push-to-talk: manual response.create on button release');
+
+          const sessionConfig: any = {
+            modalities: ['text', 'audio'],
+            instructions: adaptiveInstructions,
+            voice: 'alloy',
+            input_audio_format: 'pcm16',
+            output_audio_format: 'pcm16',
+            input_audio_transcription: {
+              model: 'whisper-1'
+            }
+            // Note: Not including turn_detection to use default behavior
+            // Response is manually triggered via response.create when button released
+          };
 
           ws.send(JSON.stringify({
             type: 'session.update',
-            session: {
-              modalities: ['text', 'audio'],
-              instructions: adaptiveInstructions,
-              voice: 'alloy',
-              input_audio_format: 'pcm16',
-              output_audio_format: 'pcm16',
-              input_audio_transcription: {
-                model: 'whisper-1'
-              },
-              turn_detection: null  // PUSH-TO-TALK: Disable automatic turn detection
-            }
+            session: sessionConfig
           }));
           
           // After configuring session, send initial greeting if conversation is empty
