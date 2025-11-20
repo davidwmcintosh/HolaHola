@@ -52,17 +52,41 @@ export function clearGlobalWebSocket(): void {
   window.__linguaflow_conv_id = undefined;
 }
 
+// PERSISTENT GREETING TRACKER: Uses localStorage to persist across page refreshes
+const GREETING_STORAGE_KEY = 'linguaflow_greetings_sent';
+
+function loadGreetingTracker(): Set<string> {
+  try {
+    const stored = localStorage.getItem(GREETING_STORAGE_KEY);
+    if (stored) {
+      return new Set(JSON.parse(stored));
+    }
+  } catch (e) {
+    console.error('[REALTIME MANAGER] Failed to load greeting tracker:', e);
+  }
+  return new Set();
+}
+
+function saveGreetingTracker(greetings: Set<string>): void {
+  try {
+    localStorage.setItem(GREETING_STORAGE_KEY, JSON.stringify(Array.from(greetings)));
+  } catch (e) {
+    console.error('[REALTIME MANAGER] Failed to save greeting tracker:', e);
+  }
+}
+
 export function hasGreetingBeenSent(conversationId: string): boolean {
   if (!window.__linguaflow_greeting_sent) {
-    window.__linguaflow_greeting_sent = new Set();
+    window.__linguaflow_greeting_sent = loadGreetingTracker();
   }
   return window.__linguaflow_greeting_sent.has(conversationId);
 }
 
 export function markGreetingAsSent(conversationId: string): void {
   if (!window.__linguaflow_greeting_sent) {
-    window.__linguaflow_greeting_sent = new Set();
+    window.__linguaflow_greeting_sent = loadGreetingTracker();
   }
   window.__linguaflow_greeting_sent.add(conversationId);
+  saveGreetingTracker(window.__linguaflow_greeting_sent);
   console.log('[REALTIME MANAGER] Greeting marked as sent for conversation:', conversationId);
 }
