@@ -8,26 +8,46 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### November 20, 2025 - Text Chat Greeting Restoration
-**Issue:** Backend greeting generation was completely removed (lines 573-574 in server/routes.ts), breaking text chat - no initial greeting appeared for new users. Voice chat greeting was working correctly via OpenAI Realtime API.
+### November 20, 2025 - Voice Chat Audio & Greeting Fixes
+
+#### Text Chat Greeting Restoration
+**Issue:** Backend greeting generation was completely removed, breaking text chat - no initial greeting appeared for new users.
 
 **Solution:**
 1. **Added mode parameter** to conversation creation API - frontend passes "text" or "voice" to backend
 2. **Restored conditional greeting generation** - backend generates greeting ONLY when:
    - New conversation AND mode is "text", OR
    - Reused conversation has no messages AND mode is "text" (handles edge case)
-3. **Changed default mode** from "voice" to "text" (chat.tsx line 13) to ensure first conversation gets greeting
-4. **Fixed conversation reuse** - changed `forceNewConversation` default from true to false to prevent duplicates on reload
+3. **Fixed conversation reuse** - changed `forceNewConversation` default from true to false to prevent duplicates on reload
+4. **Reverted default mode to "voice"** - LinguaFlow is primarily voice-based, so voice mode is the default
 
 **Files Modified:**
-- `client/src/pages/chat.tsx`: Added mode parameter, changed defaults
+- `client/src/pages/chat.tsx`: Added mode parameter, set default to "voice" (line 13)
 - `server/routes.ts`: Restored backend greeting logic with edge case handling (lines 576-619)
 
 **Testing:**
-- ✅ Text greeting appears after onboarding
+- ✅ Text greeting appears when switching to text mode
 - ✅ No duplicates on page reload
-- ✅ Voice mode unchanged (greeting via Realtime API)
+- ✅ Voice mode is default (as intended for voice-first app)
 - ✅ Edge case: Conversation created in voice mode gets greeting when switched to text
+
+#### Voice Chat Audio Playback Enhancement
+**Issue:** Unclear if audio playback was working correctly due to browser autoplay policies.
+
+**Solution:**
+1. **Added public `resume()` method** to AudioPlayer class for explicit AudioContext resume
+2. **Improved logging** to track AudioContext state changes and playback events
+3. **Better error handling** in audio playback pipeline
+4. **Cleaner API** - VoiceChat now calls `audioPlayerRef.current.resume()` instead of accessing private properties
+
+**Files Modified:**
+- `client/src/lib/audioUtils.ts`: Added public resume() method and enhanced logging (lines 76-85)
+- `client/src/components/VoiceChat.tsx`: Updated to use public resume() method (line 586)
+
+**Expected Behavior:**
+- AudioContext resumes when user clicks push-to-talk button
+- Console shows detailed audio playback logs for debugging
+- Audio chunks play through Web Audio API
 
 ## System Architecture
 

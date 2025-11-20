@@ -580,12 +580,8 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
       // CRITICAL: Resume audio playback context on user interaction (browser autoplay policy)
       if (audioPlayerRef.current) {
         console.log('[VOICE CHAT] Resuming audio playback on user interaction...');
-        // Access the internal AudioContext and resume it
-        const audioContext = (audioPlayerRef.current as any).audioContext;
-        if (audioContext && audioContext.state === 'suspended') {
-          await audioContext.resume();
-          console.log('[VOICE CHAT] ✓ Audio playback ready!');
-        }
+        await audioPlayerRef.current.resume();
+        console.log('[VOICE CHAT] ✓ Audio playback ready!');
       }
       
       // Check if this start was already stopped

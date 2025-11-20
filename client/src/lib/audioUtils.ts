@@ -67,6 +67,18 @@ export class AudioPlayer {
     this.audioContext = new AudioContext({ sampleRate: 24000 });
     this.gainNode = this.audioContext.createGain();
     this.gainNode.connect(this.audioContext.destination);
+    console.log('[AUDIO PLAYER] AudioPlayer created, initial state:', this.audioContext.state);
+  }
+
+  // Public method to resume AudioContext (called on user interaction)
+  async resume(): Promise<void> {
+    if (this.audioContext.state === 'suspended') {
+      console.log('[AUDIO PLAYER] Resuming AudioContext from suspended state...');
+      await this.audioContext.resume();
+      console.log('[AUDIO PLAYER] ✓ AudioContext resumed! State:', this.audioContext.state);
+    } else {
+      console.log('[AUDIO PLAYER] AudioContext already running, state:', this.audioContext.state);
+    }
   }
 
   async playAudio(base64Audio: string): Promise<void> {
