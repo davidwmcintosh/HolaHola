@@ -1029,7 +1029,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userMessageCount,
         false, // not voice mode
         updatedConversation.topic,
-        previousConversations.length > 0 ? previousConversations : undefined,
+        previousConversations, // Always pass array (even if empty) for consistency
         updatedConversation.nativeLanguage,
         dueVocabulary.length > 0 ? dueVocabulary.map(v => ({
           word: v.word,

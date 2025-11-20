@@ -39,18 +39,68 @@ export function setupRealtimeProxy(server: Server) {
       let messageCount = 0;
       let topic: string | null = null;
       let nativeLanguage = 'english';
+      let conversationLanguage = language; // Use query param as fallback
+      let userName: string | null = null;
+      let previousConversations: Array<{ id: string; title: string | null; messageCount: number; createdAt: string }> = [];
+      
+      // Fetch conversation metadata (topic, nativeLanguage, userName)
       if (conversationId && userId) {
         try {
           const conversation = await storage.getConversation(conversationId, userId);
           if (conversation) {
             topic = conversation.topic ?? null;
             nativeLanguage = conversation.nativeLanguage || 'english';
+            conversationLanguage = conversation.language || conversationLanguage; // Use actual conversation language with fallback
+            userName = conversation.userName || null;
           }
+        } catch (error) {
+          console.error('Failed to fetch conversation metadata:', error);
+        }
+        
+        // Fetch messages for message count (separate try/catch)
+        try {
           const messages = await storage.getMessagesByConversation(conversationId);
           // Count only user messages to determine conversation phase
           messageCount = messages.filter((m: any) => m.role === 'user').length;
         } catch (error) {
           console.error('Failed to fetch messages for conversation:', error);
+        }
+      }
+      
+      // Fallback: fetch user profile for userName if not available from conversation
+      // This matches text mode behavior and ensures history filtering works correctly
+      if (!userName && userId) {
+        try {
+          const user = await storage.getUser(userId);
+          userName = user?.firstName || null;
+        } catch (error) {
+          console.error('Failed to fetch user profile for userName fallback:', error);
+        }
+      }
+      
+      // Fetch previous conversations for conversation history/resumption (unified with text mode)
+      // CRITICAL: Separate try/catch so history fetch never fails due to conversation lookup errors
+      // This matches text mode behavior and ensures history is always available when userId exists
+      if (userId && conversationLanguage) {
+        try {
+          const allUserConversations = await storage.getConversationsByLanguage(conversationLanguage, userId);
+          previousConversations = allUserConversations
+            .filter(c => 
+              c.id !== conversationId && 
+              !c.isOnboarding && 
+              (userName === null || c.userName === userName) && // Only filter by userName if we have one
+              c.messageCount && c.messageCount > 1
+            )
+            .slice(0, 5) // Limit to 5 most recent
+            .map(c => ({
+              id: c.id,
+              title: c.title,
+              messageCount: c.messageCount!, // Safe because we filter for messageCount > 1
+              createdAt: c.createdAt.toISOString()
+            }));
+        } catch (error) {
+          console.error('Failed to fetch previous conversations:', error);
+          // Keep previousConversations as empty array on error
         }
       }
 
@@ -172,12 +222,12 @@ export function setupRealtimeProxy(server: Server) {
         // Generate unified system prompt using shared createSystemPrompt function
         // This ensures voice and text chat use identical learning constraints
         const systemPrompt = createSystemPrompt(
-          language,
+          conversationLanguage, // Use actual conversation language (with fallback to query param)
           difficulty,
           messageCount,
           true, // isVoiceMode = true
           topic,
-          undefined, // previousConversations (not needed for voice)
+          previousConversations, // Always pass array (even if empty) for consistency with text mode
           nativeLanguage,
           undefined, // dueVocabulary (not needed for realtime)
           undefined  // sessionVocabulary (not needed for realtime)
