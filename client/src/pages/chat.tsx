@@ -75,6 +75,7 @@ export default function Chat() {
         isOnboarding: !isOnboardingComplete,
         includeConversationHistory: isOnboardingComplete,
         forceNew: forceNewConversation, // Force new conversation if user clicked "New Chat"
+        mode, // Pass current mode (text or voice) to backend for greeting logic
       })
         .then(res => res.json())
         .then(data => {

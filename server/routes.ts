@@ -570,8 +570,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         nativeLanguage: conversation.nativeLanguage
       });
       
-      // Skip all backend greeting generation - VoiceChat handles voice greetings
-      console.log('[GREETING] Skipping backend greeting - voice greeting handled by frontend');
+      // Generate greeting for TEXT mode only (voice mode handles its own greeting)
+      const mode = req.body.mode || "text"; // Default to text if not specified
+      const shouldGenerateGreeting = isNewConversation && mode === "text";
+      
+      if (shouldGenerateGreeting) {
+        console.log('[GREETING] Generating backend greeting for text mode');
+        
+        // Create personalized greeting for text chat
+        const greeting = userName 
+          ? `Hello ${userName}! I'm excited to help you learn ${conversation.language}. What would you like to practice today?`
+          : `Hello! I'm your ${conversation.language} language tutor. What would you like to learn today?`;
+        
+        // Save greeting message to conversation
+        await storage.createMessage({
+          conversationId: conversation.id,
+          role: "assistant",
+          content: greeting,
+        });
+        
+        console.log('[GREETING] Text mode greeting created');
+      } else if (mode === "voice") {
+        console.log('[GREETING] Skipping backend greeting for voice mode - VoiceChat handles it');
+      } else {
+        console.log('[GREETING] Skipping greeting - conversation already exists or mode unknown');
+      }
       
       res.json(conversation);
     } catch (error: any) {
