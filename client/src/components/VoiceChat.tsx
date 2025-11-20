@@ -254,27 +254,21 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
               console.log('[VOICE CHAT] Marked greeting as sent');
               
               if (existingMessages.length === 0) {
-                console.log('[VOICE CHAT] Empty conversation - sending initial greeting request');
+                console.log('[VOICE CHAT] Empty conversation - triggering AI to greet student by name');
                 
                 // Mark to skip saving the next greeting (prevents duplicates on reload)
                 skipNextGreetingRef.current = true;
                 console.log('[VOICE CHAT] Set skipNextGreeting = true');
                 
-                // Use conversation.item.create to trigger AI greeting
-                ws.send(JSON.stringify({
-                  type: 'conversation.item.create',
-                  item: {
-                    type: 'message',
-                    role: 'user',
-                    content: [{
-                      type: 'input_text',
-                      text: `Hi! I'm ${userName || 'ready to learn'}. Please greet me briefly and ask what I'd like to learn today.`
-                    }]
+                // Trigger AI to greet the student (no user message needed - AI speaks first)
+                // The AI's instructions already tell it to be a tutor, so it will naturally greet
+                ws.send(JSON.stringify({ 
+                  type: 'response.create',
+                  response: {
+                    modalities: ['audio', 'text'],
+                    instructions: `Greet ${userName || 'the student'} warmly by name and ask what they'd like to learn today. Keep it brief (1-2 sentences).`
                   }
                 }));
-                
-                // Trigger response
-                ws.send(JSON.stringify({ type: 'response.create' }));
               } else {
                 console.log('[VOICE CHAT] Conversation already has', existingMessages.length, 'messages, skipping greeting');
               }
