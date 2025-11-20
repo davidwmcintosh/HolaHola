@@ -224,7 +224,7 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
         <div className="flex-1 overflow-hidden">
           <div 
             ref={scrollViewportRef}
-            className="h-full overflow-y-auto p-6"
+            className="h-full overflow-y-auto p-6 scrollbar scrollbar-thumb-rounded scrollbar-track-rounded scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-200 dark:scrollbar-track-gray-800"
           >
             <div className="space-y-4">
           {!conversationId ? (
