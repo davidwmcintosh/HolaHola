@@ -202,12 +202,15 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
           const adaptiveInstructions = difficulty === 'beginner'
             ? `You are a ${language} language tutor for ${userName || 'the student'}. Their native language is english and they are a BEGINNER.
 
-CRITICAL INSTRUCTION FOR BEGINNERS:
+CRITICAL INSTRUCTIONS FOR BEGINNERS:
 - Use mostly English (70-80%) with simple ${language} phrases mixed in
+- ONLY use present tense - NO conditional, subjunctive, future, or past tenses
 - Introduce ${language} gradually - start with greetings, common words, and simple phrases
 - Always translate ${language} words to English immediately after using them
-- Keep sentences short and simple
+- Keep sentences short and simple (5-8 words max per sentence)
 - Example: "¡Hola! (Hello!) How are you today? That's 'Cómo estás' in ${language}."
+- FORBIDDEN: Avoid complex verb forms like "Me gustaría" (conditional), "quisiera" (subjunctive)
+- CORRECT: Use simple verbs like "quiero" (I want), "tengo" (I have), "me gusta" (I like)
 
 Be warm, encouraging, and patient. Keep responses concise (2-3 sentences max).`
             : difficulty === 'intermediate'
@@ -230,38 +233,38 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
           }));
           
           // After configuring session, send initial greeting if conversation is empty
-          // Strategy: Check database first, then mark as sent to prevent duplicates
+          // CRITICAL FIX: Check database FIRST, then conditionally mark as sent
           if (!conversationId) {
             resolve();
             return;
           }
           
           setTimeout(async () => {
-            // FIRST: Check if we've already processed this conversation's greeting
-            if (hasGreetingBeenSent(conversationId)) {
-              console.log('[VOICE CHAT] Greeting already sent for conversation:', conversationId);
-              return;
-            }
-            
             try {
-              // SECOND: Check database for existing messages
+              // FIRST: Check database for existing messages
               const messagesResponse = await fetch(`/api/conversations/${conversationId}/messages`);
               const existingMessages = await messagesResponse.json();
               
-              // THIRD: Mark as sent BEFORE sending to prevent race conditions
-              // (Multiple WebSocket connections might both reach this point, but only first one marks it)
-              markGreetingAsSent(conversationId);
-              console.log('[VOICE CHAT] Marked greeting as sent');
+              // SECOND: Check if we've already processed this conversation's greeting
+              // (Defensive check - prevents duplicates on reconnect)
+              if (hasGreetingBeenSent(conversationId)) {
+                console.log('[VOICE CHAT] Greeting already sent for conversation:', conversationId);
+                return;
+              }
               
+              // THIRD: Only send greeting if conversation is truly empty
               if (existingMessages.length === 0) {
                 console.log('[VOICE CHAT] Empty conversation - triggering AI to greet student by name');
+                
+                // Mark as sent BEFORE sending to prevent race conditions
+                markGreetingAsSent(conversationId);
+                console.log('[VOICE CHAT] Marked greeting as sent');
                 
                 // Mark to skip saving the next greeting (prevents duplicates on reload)
                 skipNextGreetingRef.current = true;
                 console.log('[VOICE CHAT] Set skipNextGreeting = true');
                 
                 // Trigger AI to greet the student (no user message needed - AI speaks first)
-                // The AI's instructions already tell it to be a tutor, so it will naturally greet
                 ws.send(JSON.stringify({ 
                   type: 'response.create',
                   response: {
@@ -271,6 +274,8 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
                 }));
               } else {
                 console.log('[VOICE CHAT] Conversation already has', existingMessages.length, 'messages, skipping greeting');
+                // Mark as sent even if we didn't send (conversation already has messages)
+                markGreetingAsSent(conversationId);
               }
             } catch (error) {
               console.error('[VOICE CHAT] Failed to check messages for greeting:', error);
