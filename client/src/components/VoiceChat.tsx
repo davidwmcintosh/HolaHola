@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 import { CompactDifficultyControl } from "@/components/CompactDifficultyControl";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { getGlobalWebSocket, setGlobalWebSocket, getGlobalConversationId } from "@/lib/realtimeManager";
 
 interface RealtimeEvent {
   type: string;
@@ -462,6 +463,7 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
       ws.onclose = (event) => {
         console.log('WebSocket closed', event.code, event.reason);
         wsRef.current = null;
+        setGlobalWebSocket(null, null);  // Clear global WebSocket
         
         if (!connectionOpened) {
           // Connection closed before it ever opened
@@ -477,6 +479,7 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
       };
 
         wsRef.current = ws;
+        setGlobalWebSocket(ws, conversationId || null);  // Set global WebSocket
       });
     } catch (error: any) {
       console.error('Failed to connect to Realtime API:', error);
@@ -672,10 +675,19 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
   useEffect(() => {
     let mounted = true;
     
-    // CRITICAL FIX: Close any existing WebSocket before creating a new one
-    // This prevents multiple simultaneous connections (e.g., from React StrictMode)
+    // CRITICAL SINGLETON FIX: Check if a global WebSocket already exists for this conversation
+    const existingGlobalWs = getGlobalWebSocket();
+    const existingGlobalConvId = getGlobalConversationId();
+    
+    if (existingGlobalWs && existingGlobalConvId === conversationId && existingGlobalWs.readyState === WebSocket.OPEN) {
+      console.log('[VOICE CHAT] ✓ Reusing existing global WebSocket for conversation:', conversationId);
+      wsRef.current = existingGlobalWs;
+      return;
+    }
+    
+    // Close any local WebSocket before creating a new one
     if (wsRef.current) {
-      console.log('[VOICE CHAT] Closing existing WebSocket before reconnecting...');
+      console.log('[VOICE CHAT] Closing local WebSocket before reconnecting...');
       wsRef.current.close();
       wsRef.current = null;
     }
@@ -691,10 +703,10 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
     
     return () => {
       mounted = false;
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
+      // Don't close the global WebSocket on unmount - let other instances use it
+      // Only clear the local reference
+      wsRef.current = null;
+      
       if (audioRecorderRef.current) {
         audioRecorderRef.current.stopRecording();
         audioRecorderRef.current = null;
