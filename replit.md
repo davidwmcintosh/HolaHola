@@ -8,6 +8,38 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### November 20, 2025 - Voice-First UI Improvements
+
+#### Making Voice the Primary Learning Experience
+**User Feedback:** LinguaFlow should be centrally a voice-based application, with text mode available for accessibility (hearing impaired users) and practical situations (noisy environments, privacy concerns).
+
+**UI Changes Implemented:**
+1. **Voice Learning Button** - Now prominent and primary:
+   - Larger size (default vs sm)
+   - Shows "Recommended" badge when active
+   - Clear labeling: "Voice Learning"
+   - Primary visual weight
+
+2. **Text Mode Button** - Now subtle fallback option:
+   - Smaller size (sm)
+   - Ghost variant (less prominent)
+   - Labeled "Type instead" to signal it's a secondary option
+   - Muted text color
+
+3. **Gentle Hint Bar** - Appears only in text mode:
+   - Message: "Using text mode • Switch to Voice Learning for the best experience"
+   - Muted background, non-intrusive
+   - Disappears when switching back to voice
+
+**Benefits:**
+- Clear visual hierarchy emphasizing voice as the primary learning method
+- Text mode remains fully accessible for users who need it
+- No functionality removed, only visual emphasis adjusted
+- Tested and verified with E2E tests
+
+**Files Modified:**
+- `client/src/pages/chat.tsx`: Updated button styling, added Badge component, added hint bar
+
 ### November 20, 2025 - Unified Architecture: Voice & Text Chat System Prompt Consolidation
 
 #### Architectural Refactoring: Single Source of Truth
