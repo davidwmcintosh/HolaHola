@@ -842,8 +842,8 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
 
   return (
     <div className="flex flex-col h-full">
-      {/* Compact toolbar */}
-      <div className="flex items-center justify-between gap-4 p-4 border-b">
+      {/* Compact toolbar - hidden on mobile for minimalist experience, visible on desktop */}
+      <div className="hidden md:flex items-center justify-between gap-4 p-4 border-b">
         <div className="flex items-center gap-4">
           <InstructorAvatar state={avatarState} className="w-12" />
           <div>
@@ -857,21 +857,35 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
           <CompactDifficultyControl conversationId={conversationId} />
         </div>
       </div>
+      
+      {/* Mobile-only minimalist header */}
+      <div className="md:hidden flex items-center justify-between p-3 border-b">
+        <div className="flex items-center gap-3">
+          <InstructorAvatar state={avatarState} className="w-10" />
+          <div>
+            <h2 className="text-base font-semibold">{languageDisplayName}</h2>
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          <LanguageSelector compact />
+          <CompactDifficultyControl conversationId={conversationId} />
+        </div>
+      </div>
 
-      {/* Voice chat area - full height scrollable */}
+      {/* Voice chat area - full height scrollable, mobile-optimized padding */}
       <ScrollArea className="flex-1">
-        <div className="space-y-4 p-6">
+        <div className="space-y-3 md:space-y-4 p-4 md:p-6">
           {!conversationId ? (
-            <div className="flex flex-col justify-center items-center h-full text-center text-muted-foreground p-8">
-              <MessageSquare className="h-16 w-16 mb-4 opacity-50 animate-pulse" />
-              <p className="text-lg font-medium mb-2">Preparing conversation...</p>
-              <p className="text-sm">Your AI tutor will be with you momentarily</p>
+            <div className="flex flex-col justify-center items-center h-full text-center text-muted-foreground p-6 md:p-8">
+              <MessageSquare className="h-12 md:h-16 w-12 md:w-16 mb-3 md:mb-4 opacity-50 animate-pulse" />
+              <p className="text-base md:text-lg font-medium mb-1 md:mb-2">Preparing conversation...</p>
+              <p className="text-xs md:text-sm">Your AI tutor will be with you momentarily</p>
             </div>
           ) : allMessages.length === 0 ? (
-            <div className="flex flex-col justify-center items-center h-full text-center text-muted-foreground p-8">
-              <Mic className="h-16 w-16 mb-4 opacity-50" />
-              <p className="text-lg font-medium mb-2">Start a voice conversation</p>
-              <p className="text-sm">Press the microphone button to start speaking with your AI tutor</p>
+            <div className="flex flex-col justify-center items-center h-full text-center text-muted-foreground p-6 md:p-8">
+              <Mic className="h-12 md:h-16 w-12 md:w-16 mb-3 md:mb-4 opacity-50" />
+              <p className="text-base md:text-lg font-medium mb-1 md:mb-2">Start a voice conversation</p>
+              <p className="text-xs md:text-sm">Press the microphone button to start speaking with your AI tutor</p>
             </div>
           ) : (
             <>
@@ -886,24 +900,24 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
                 return (
                 <div
                   key={index}
-                  className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                  className={`flex gap-2 md:gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   {message.role === "assistant" && (
-                    <Avatar className="h-10 w-10">
+                    <Avatar className="h-8 md:h-10 w-8 md:w-10 flex-shrink-0">
                       <AvatarFallback className="bg-primary text-primary-foreground">
-                        <Bot className="h-5 w-5" />
+                        <Bot className="h-4 md:h-5 w-4 md:w-5" />
                       </AvatarFallback>
                     </Avatar>
                   )}
-                  <div className="flex flex-col gap-2 max-w-2xl">
+                  <div className="flex flex-col gap-2 max-w-[85%] md:max-w-2xl">
                     <div
-                      className={`rounded-2xl p-4 ${
+                      className={`rounded-2xl md:rounded-2xl p-3 md:p-4 ${
                         message.role === "user"
                           ? "bg-primary text-primary-foreground"
                           : "bg-muted"
                       }`}
                     >
-                      <p className="text-base leading-relaxed">{message.content}</p>
+                      <p className="text-sm md:text-base leading-relaxed">{message.content}</p>
                     </div>
                     
                     {/* Pronunciation score for user messages */}
@@ -930,9 +944,9 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
                     )}
                   </div>
                   {message.role === "user" && (
-                    <Avatar className="h-10 w-10">
+                    <Avatar className="h-8 md:h-10 w-8 md:w-10 flex-shrink-0">
                       <AvatarFallback className="bg-secondary">
-                        <User className="h-5 w-5" />
+                        <User className="h-4 md:h-5 w-4 md:w-5" />
                       </AvatarFallback>
                     </Avatar>
                   )}
@@ -944,18 +958,18 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
         </div>
       </ScrollArea>
 
-      {/* Foreign language text display for visual reinforcement */}
+      {/* Foreign language text display for visual reinforcement - mobile optimized */}
       {isAiSpeaking && transcript.length > 0 && transcript[transcript.length - 1].role === 'assistant' && (
-        <div className="px-6 py-4 border-t bg-primary/5 dark:bg-primary/10">
-          <div className="flex items-start gap-3">
+        <div className="px-4 md:px-6 py-3 md:py-4 border-t bg-primary/5 dark:bg-primary/10">
+          <div className="flex items-start gap-2 md:gap-3">
             <div className="flex-shrink-0">
-              <Volume2 className="h-5 w-5 text-primary animate-pulse" />
+              <Volume2 className="h-4 md:h-5 w-4 md:w-5 text-primary animate-pulse" />
             </div>
             <div className="flex-1">
               <p className="text-xs font-medium text-muted-foreground mb-1">
                 Now speaking in {languageDisplayName}:
               </p>
-              <p className="text-lg font-medium leading-relaxed text-foreground" data-testid="text-current-speech">
+              <p className="text-base md:text-lg font-medium leading-relaxed text-foreground" data-testid="text-current-speech">
                 {transcript[transcript.length - 1].content}
               </p>
             </div>
@@ -963,7 +977,8 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
         </div>
       )}
 
-      <div className="px-6 pt-8 pb-10 border-t max-h-80 overflow-y-auto">
+      {/* Control area - mobile optimized with larger mic button */}
+      <div className="px-4 md:px-6 pt-6 md:pt-8 pb-6 md:pb-10 border-t max-h-80 overflow-y-auto">
         {error && (() => {
           try {
             // Try to parse structured error
@@ -1202,8 +1217,8 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
           );
         })()}
         
-        {/* VAD Mode Toggle */}
-        <div className="flex justify-center mb-4">
+        {/* VAD Mode Toggle - hidden on mobile for simplicity, visible on desktop */}
+        <div className="hidden md:flex justify-center mb-4">
           <div className="inline-flex items-center gap-2 p-1 bg-muted rounded-lg">
             <Button
               variant={vadMode === 'push-to-talk' ? "default" : "ghost"}
@@ -1241,6 +1256,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
           </div>
         </div>
         
+        {/* Large microphone button - extra prominent on mobile */}
         <div className="flex justify-center">
           <Button
             size="lg"
@@ -1304,22 +1320,22 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
             aria-pressed={isRecording}
             aria-label={isRecording ? "Release to stop recording" : "Hold to speak"}
             role="button"
-            className={`rounded-full h-16 w-16 ${vadMode !== 'push-to-talk' && isVadActive ? 'animate-pulse' : ''}`}
+            className={`rounded-full h-20 w-20 md:h-16 md:w-16 ${vadMode !== 'push-to-talk' && isVadActive ? 'animate-pulse' : ''}`}
             data-testid="button-toggle-recording"
           >
             {!capabilityChecked ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-7 md:h-6 w-7 md:w-6 animate-spin" />
             ) : vadMode !== 'push-to-talk' ? (
               // VAD mode: Show visual feedback of detection
-              isVadActive ? <Volume2 className="h-6 w-6" /> : <Radio className="h-6 w-6" />
+              isVadActive ? <Volume2 className="h-7 md:h-6 w-7 md:w-6" /> : <Radio className="h-7 md:h-6 w-7 md:w-6" />
             ) : (
               // Push-to-talk mode: Show mic on/off
-              isRecording ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />
+              isRecording ? <MicOff className="h-7 md:h-6 w-7 md:w-6" /> : <Mic className="h-7 md:h-6 w-7 md:w-6" />
             )}
           </Button>
         </div>
         
-        <p className="text-center text-sm text-muted-foreground mt-4">
+        <p className="text-center text-xs md:text-sm text-muted-foreground mt-3 md:mt-4 px-2">
           {!conversationId
             ? "Create a conversation to start voice chat"
             : !capabilityChecked 

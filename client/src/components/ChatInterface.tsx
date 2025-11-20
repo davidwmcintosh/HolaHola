@@ -203,8 +203,8 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
 
   return (
     <div className="flex flex-col h-full">
-      {/* Compact toolbar */}
-      <div className="flex items-center justify-between gap-4 p-4 border-b">
+      {/* Compact toolbar - hidden on mobile for minimalist experience, visible on desktop */}
+      <div className="hidden md:flex items-center justify-between gap-4 p-4 border-b">
         <div className="flex items-center gap-4">
           <InstructorAvatar state={avatarState} className="w-12" />
           <div>
@@ -218,52 +218,66 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
           <CompactDifficultyControl conversationId={conversationId} />
         </div>
       </div>
+      
+      {/* Mobile-only minimalist header */}
+      <div className="md:hidden flex items-center justify-between p-3 border-b">
+        <div className="flex items-center gap-3">
+          <InstructorAvatar state={avatarState} className="w-10" />
+          <div>
+            <h2 className="text-base font-semibold">{languageDisplayName}</h2>
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          <LanguageSelector compact />
+          <CompactDifficultyControl conversationId={conversationId} />
+        </div>
+      </div>
 
-      {/* Chat area */}
-      <Card className="flex flex-col flex-1 m-4 mt-0">
+      {/* Chat area - mobile optimized */}
+      <Card className="flex flex-col flex-1 m-3 md:m-4 mt-0">
         <div className="flex-1 overflow-hidden">
           <div 
             ref={scrollViewportRef}
-            className="h-full overflow-y-auto p-6 scrollbar scrollbar-thumb-rounded scrollbar-track-rounded scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-200 dark:scrollbar-track-gray-800"
+            className="h-full overflow-y-auto p-4 md:p-6 scrollbar scrollbar-thumb-rounded scrollbar-track-rounded scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-200 dark:scrollbar-track-gray-800"
           >
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
           {!conversationId ? (
-            <div className="flex flex-col justify-center items-center h-full text-center text-muted-foreground p-8">
-              <MessageSquare className="h-16 w-16 mb-4 opacity-50 animate-pulse" />
-              <p className="text-lg font-medium mb-2">Preparing conversation...</p>
-              <p className="text-sm">Your AI tutor will be with you momentarily</p>
+            <div className="flex flex-col justify-center items-center h-full text-center text-muted-foreground p-6 md:p-8">
+              <MessageSquare className="h-12 md:h-16 w-12 md:w-16 mb-3 md:mb-4 opacity-50 animate-pulse" />
+              <p className="text-base md:text-lg font-medium mb-1 md:mb-2">Preparing conversation...</p>
+              <p className="text-xs md:text-sm">Your AI tutor will be with you momentarily</p>
             </div>
           ) : isLoading ? (
             <div className="flex justify-center items-center h-full">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <Loader2 className="h-6 md:h-8 w-6 md:w-8 animate-spin text-muted-foreground" />
             </div>
           ) : messages.length === 0 ? (
             <div className="flex justify-center items-center h-full text-muted-foreground">
-              <p>Start a conversation with your AI tutor!</p>
+              <p className="text-sm md:text-base">Start a conversation with your AI tutor!</p>
             </div>
           ) : (
             <>
               {messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                  className={`flex gap-2 md:gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
                   data-testid={`message-${message.role}`}
                 >
                   {message.role === "assistant" && (
-                    <Avatar className="h-10 w-10">
+                    <Avatar className="h-8 md:h-10 w-8 md:w-10 flex-shrink-0">
                       <AvatarFallback className="bg-primary text-primary-foreground">
-                        <Bot className="h-5 w-5" />
+                        <Bot className="h-4 md:h-5 w-4 md:w-5" />
                       </AvatarFallback>
                     </Avatar>
                   )}
                   <div
-                    className={`max-w-2xl rounded-2xl p-4 ${
+                    className={`max-w-[85%] md:max-w-2xl rounded-2xl p-3 md:p-4 ${
                       message.role === "user"
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted"
                     }`}
                   >
-                    <p className="text-base leading-relaxed">{message.content}</p>
+                    <p className="text-sm md:text-base leading-relaxed">{message.content}</p>
                     {message.role === "assistant" && message.mediaJson && (
                       <MessageMedia media={JSON.parse(message.mediaJson)} />
                     )}
@@ -272,9 +286,9 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
                     </p>
                   </div>
                   {message.role === "user" && (
-                    <Avatar className="h-10 w-10">
+                    <Avatar className="h-8 md:h-10 w-8 md:w-10 flex-shrink-0">
                       <AvatarFallback className="bg-secondary">
-                        <User className="h-5 w-5" />
+                        <User className="h-4 md:h-5 w-4 md:w-5" />
                       </AvatarFallback>
                     </Avatar>
                   )}
@@ -287,7 +301,8 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
           </div>
         </div>
 
-      <div className="p-4 border-t">
+      {/* Input area - mobile optimized */}
+      <div className="p-3 md:p-4 border-t">
         <div className="flex gap-2">
           <Textarea
             ref={textareaRef}
@@ -300,7 +315,7 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
                 handleSend();
               }
             }}
-            className="resize-none min-h-12"
+            className="resize-none min-h-11 md:min-h-12 text-sm md:text-base"
             rows={1}
             disabled={!conversationId}
             data-testid="input-chat-message"
