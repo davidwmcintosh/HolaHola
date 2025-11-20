@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 import { CompactDifficultyControl } from "@/components/CompactDifficultyControl";
 import { LanguageSelector } from "@/components/LanguageSelector";
-import { getGlobalWebSocket, setGlobalWebSocket, getGlobalConversationId, hasGreetingBeenSent, markGreetingAsSent, isGloballyConnecting, setGloballyConnecting } from "@/lib/realtimeManager";
+import { getGlobalWebSocket, setGlobalWebSocket, getGlobalConversationId, hasGreetingBeenSent, markGreetingAsSent, isGloballyConnecting, setGloballyConnecting, clearGlobalWebSocketIfMatch } from "@/lib/realtimeManager";
 
 interface RealtimeEvent {
   type: string;
@@ -522,7 +522,10 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
       ws.onclose = (event) => {
         console.log('WebSocket closed', event.code, event.reason);
         wsRef.current = null;
-        setGlobalWebSocket(null, null);  // Clear global WebSocket
+        
+        // CRITICAL FIX: Only clear global WebSocket if THIS socket is the active one
+        // This prevents stale onclose handlers from closing fresh connections
+        clearGlobalWebSocketIfMatch(ws);
         
         // CRITICAL: Clear connection lock when WebSocket closes
         setGloballyConnecting(false);

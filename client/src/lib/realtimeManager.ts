@@ -62,6 +62,20 @@ export function clearGlobalWebSocket(): void {
   window.__linguaflow_conv_id = undefined;
 }
 
+// CRITICAL FIX: Identity-aware cleanup
+// Only clear the global WebSocket if it matches the provided socket
+// This prevents stale onclose handlers from closing fresh connections
+export function clearGlobalWebSocketIfMatch(ws: WebSocket | null): void {
+  if (!ws || window.__linguaflow_ws !== ws) {
+    console.log('[REALTIME MANAGER] Skipping clear - socket does not match global reference');
+    return;
+  }
+  
+  console.log('[REALTIME MANAGER] Clearing global WebSocket (identity match confirmed)');
+  window.__linguaflow_ws = undefined;
+  window.__linguaflow_conv_id = undefined;
+}
+
 // PERSISTENT GREETING TRACKER: Uses localStorage to persist across page refreshes
 const GREETING_STORAGE_KEY = 'linguaflow_greetings_sent';
 
