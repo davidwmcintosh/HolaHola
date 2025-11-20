@@ -102,6 +102,14 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
     checkCapability();
   }, [checkCapability]);
 
+  // Force fresh capability check when conversation changes (e.g., NEW CHAT button)
+  useEffect(() => {
+    if (conversationId) {
+      console.log('[VOICE CHAT] Conversation changed, forcing fresh capability check...');
+      checkCapability(true); // Force bypass cache
+    }
+  }, [conversationId, checkCapability]);
+
   // Fetch existing messages
   const { data: messages = [] } = useQuery<Message[]>({
     queryKey: ["/api/conversations", conversationId, "messages"],
