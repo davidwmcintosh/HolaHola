@@ -570,16 +570,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         nativeLanguage: conversation.nativeLanguage
       });
       
-      let greetingMessage: string;
+      // Skip backend greeting generation - VoiceChat will send voice greeting
+      let greetingMessage = ""; // Unused, but kept for type safety
       
       if (isOnboarding) {
-        // Start onboarding flow with name question
-        greetingMessage = "Hello! I'm your AI language tutor, and I'm excited to help you on your language learning journey. To get started, may I ask your name please?";
+        // For onboarding, we might need text greeting (but voice chat handles it)
       } else {
-        // Check if we should include previous conversation history
+        // Check if we should include previous conversation history (for future reference)
         const includeHistory = req.body.includeConversationHistory === true;
         
-        if (includeHistory) {
+        if (includeHistory && false) { // Disabled - not generating greetings anymore
           // Fetch previous conversations for this user and language
           const previousConversations = await storage.getConversationsByLanguage(data.language, userId);
           const userPreviousConvos = previousConversations.filter(
@@ -686,19 +686,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Only save greeting if conversation has NO messages
-      // Check actual message count instead of relying on isNewConversation flag
-      const existingMessages = await storage.getMessagesByConversation(conversation.id);
-      if (existingMessages.length === 0) {
-        console.log('[GREETING] Saving greeting - conversation is empty');
-        await storage.createMessage({
-          conversationId: conversation.id,
-          role: "assistant",
-          content: greetingMessage,
-        });
-      } else {
-        console.log('[GREETING] Skipping greeting - conversation already has', existingMessages.length, 'messages');
-      }
+      // DON'T save text greeting - let VoiceChat component send voice greeting instead
+      // This ensures users hear the AI's voice on first load
+      console.log('[GREETING] Skipping text greeting - will be sent as voice by frontend');
       
       res.json(conversation);
     } catch (error: any) {
