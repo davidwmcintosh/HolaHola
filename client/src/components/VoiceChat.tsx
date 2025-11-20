@@ -216,7 +216,7 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
 
           // PUSH-TO-TALK MODE: Use server_vad with high threshold to minimize false triggers
           // Response is manually triggered via response.create when button is released (line 690)
-          console.log('[🔧 CODE VERSION: 2024-11-20-02:52] Push-to-talk with server_vad (high threshold)');
+          console.log('[🔧 CODE VERSION: 2024-11-20-03:00] Push-to-talk, silence 1s (not 2s)');
 
           ws.send(JSON.stringify({
             type: 'session.update',
@@ -233,7 +233,7 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
                 type: 'server_vad',
                 threshold: 0.9,  // Very high threshold to avoid automatic responses
                 prefix_padding_ms: 300,
-                silence_duration_ms: 2000  // 2 seconds of silence before auto-response (we trigger manually first)
+                silence_duration_ms: 1000  // 1 second of silence before auto-response (we trigger manually first)
               }
             }
           }));
