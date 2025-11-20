@@ -1,7 +1,72 @@
 import { WebSocketServer, WebSocket as WS } from 'ws';
 import { Server } from 'http';
+import type { IncomingMessage } from 'http';
 import { storage } from './storage';
 import { createSystemPrompt } from './system-prompt';
+import { parse as parseCookie } from 'cookie';
+import signature from 'cookie-signature';
+
+// Helper function to get userId from authenticated session
+async function getUserIdFromSession(req: IncomingMessage): Promise<string | null> {
+  try {
+    // Parse cookies from the upgrade request
+    const cookieHeader = req.headers.cookie;
+    if (!cookieHeader) {
+      console.log('[AUTH] No cookies in upgrade request');
+      return null;
+    }
+
+    const cookies = parseCookie(cookieHeader);
+    const sessionCookieName = 'connect.sid'; // Default express-session cookie name
+    let sessionId = cookies[sessionCookieName];
+    
+    if (!sessionId) {
+      console.log('[AUTH] No session cookie found');
+      return null;
+    }
+
+    // Remove 's:' prefix if present (express-session signed cookie format)
+    if (sessionId.startsWith('s:')) {
+      sessionId = sessionId.slice(2);
+      // Unsign the cookie using SESSION_SECRET
+      const unsigned = signature.unsign(sessionId, process.env.SESSION_SECRET!);
+      if (unsigned === false) {
+        console.log('[AUTH] Invalid session signature');
+        return null;
+      }
+      sessionId = unsigned;
+    }
+
+    // Query the sessions table to get the session data
+    const { neon } = await import('@neondatabase/serverless');
+    const sql = neon(process.env.DATABASE_URL!);
+    
+    const sessions = await sql`
+      SELECT sess FROM sessions WHERE sid = ${sessionId}
+    `;
+    
+    if (!sessions || sessions.length === 0) {
+      console.log('[AUTH] No session found in database');
+      return null;
+    }
+
+    const sessionData = sessions[0].sess as any;
+    
+    // Extract userId from passport session
+    const userId = sessionData?.passport?.user?.claims?.sub;
+    
+    if (!userId) {
+      console.log('[AUTH] No user ID in session data');
+      return null;
+    }
+
+    console.log('[AUTH] ✓ Successfully authenticated WebSocket connection');
+    return userId;
+  } catch (error) {
+    console.error('[AUTH] Error extracting userId from session:', error);
+    return null;
+  }
+}
 
 export function setupRealtimeProxy(server: Server) {
   const wss = new WebSocketServer({ 
@@ -13,26 +78,33 @@ export function setupRealtimeProxy(server: Server) {
     console.log('Client connected to Realtime proxy');
 
     try {
+      // SECURITY: Extract userId from authenticated session (server-side)
+      // This prevents spoofing and ensures voice mode has same auth as text mode
+      const userId = await getUserIdFromSession(req);
+      
+      if (!userId) {
+        console.error('[AUTH] Unauthorized WebSocket connection - no valid session');
+        clientWs.close(4401, 'Unauthorized: Authentication required');
+        return;
+      }
+
       // Extract session info from query params
       const url = new URL(req.url!, `http://${req.headers.host}`);
       const language = url.searchParams.get('language') || 'spanish';
       const difficulty = url.searchParams.get('difficulty') || 'beginner';
       const conversationId = url.searchParams.get('conversationId');
-      const userId = url.searchParams.get('userId');
       // VAD mode: 'push-to-talk', 'server_vad', or 'semantic_vad'
       const vadMode = url.searchParams.get('vadMode') || 'semantic_vad';
 
       // Fetch user to determine subscription tier for model selection
       let subscriptionTier = 'free';
-      if (userId) {
-        try {
-          const user = await storage.getUser(userId);
-          if (user) {
-            subscriptionTier = user.subscriptionTier || 'free';
-          }
-        } catch (error) {
-          console.error('Failed to fetch user for tier selection:', error);
+      try {
+        const user = await storage.getUser(userId);
+        if (user) {
+          subscriptionTier = user.subscriptionTier || 'free';
         }
+      } catch (error) {
+        console.error('Failed to fetch user for tier selection:', error);
       }
 
       // Fetch conversation to get message count, topic, and nativeLanguage for phase-appropriate prompts
@@ -44,7 +116,7 @@ export function setupRealtimeProxy(server: Server) {
       let previousConversations: Array<{ id: string; title: string | null; messageCount: number; createdAt: string }> = [];
       
       // Fetch conversation metadata (topic, nativeLanguage, userName)
-      if (conversationId && userId) {
+      if (conversationId) {
         try {
           const conversation = await storage.getConversation(conversationId, userId);
           if (conversation) {
@@ -69,7 +141,7 @@ export function setupRealtimeProxy(server: Server) {
       
       // Fallback: fetch user profile for userName if not available from conversation
       // This matches text mode behavior and ensures history filtering works correctly
-      if (!userName && userId) {
+      if (!userName) {
         try {
           const user = await storage.getUser(userId);
           userName = user?.firstName || null;
@@ -81,7 +153,8 @@ export function setupRealtimeProxy(server: Server) {
       // Fetch previous conversations for conversation history/resumption (unified with text mode)
       // CRITICAL: Separate try/catch so history fetch never fails due to conversation lookup errors
       // This matches text mode behavior and ensures history is always available when userId exists
-      if (userId && conversationLanguage) {
+      // userId is guaranteed to exist here because we validated it at the start
+      if (conversationLanguage) {
         try {
           const allUserConversations = await storage.getConversationsByLanguage(conversationLanguage, userId);
           previousConversations = allUserConversations

@@ -151,13 +151,13 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
       console.log('[VOICE CHAT] Connecting through unified proxy...');
       
       // Build WebSocket URL with conversation context
+      // NOTE: userId is derived server-side from authenticated session for security
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.host;
       const params = new URLSearchParams({
         language,
         difficulty,
         conversationId: conversationId || '',
-        userId: user?.id || '',
         vadMode  // Pass VAD mode to server proxy
       });
       const wsUrl = `${protocol}//${host}/api/realtime/ws?${params.toString()}`;
