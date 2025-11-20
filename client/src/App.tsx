@@ -47,30 +47,33 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
+  // For unauthenticated users, show landing page
+  if (isLoading || !isAuthenticated) {
+    return (
+      <PageWrapper>
+        <Switch>
+          <Route path="/" component={Landing} />
+          <Route component={NotFound} />
+        </Switch>
+      </PageWrapper>
+    );
+  }
+
+  // For authenticated users, always define all routes
+  // Onboarding redirection is handled inside the Dashboard component
   return (
     <PageWrapper>
       <Switch>
-        {isLoading || !isAuthenticated ? (
-          <Route path="/" component={Landing} />
-        ) : user && !user.onboardingCompleted ? (
-          <>
-            <Route path="/" component={Onboarding} />
-            <Route path="/onboarding" component={Onboarding} />
-          </>
-        ) : (
-          <>
-            <Route path="/" component={Chat} />
-            <Route path="/dashboard" component={Dashboard} />
-            <Route path="/onboarding" component={Onboarding} />
-            <Route path="/chat" component={Chat} />
-            <Route path="/chat-ideas" component={ChatIdeas} />
-            <Route path="/cultural-tips" component={CulturalTips} />
-            <Route path="/vocabulary" component={Vocabulary} />
-            <Route path="/grammar" component={Grammar} />
-            <Route path="/history" component={History} />
-            <Route path="/settings" component={Settings} />
-          </>
-        )}
+        <Route path="/" component={Dashboard} />
+        <Route path="/dashboard" component={Dashboard} />
+        <Route path="/onboarding" component={Onboarding} />
+        <Route path="/chat" component={Chat} />
+        <Route path="/chat-ideas" component={ChatIdeas} />
+        <Route path="/cultural-tips" component={CulturalTips} />
+        <Route path="/vocabulary" component={Vocabulary} />
+        <Route path="/grammar" component={Grammar} />
+        <Route path="/history" component={History} />
+        <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>
     </PageWrapper>
@@ -134,10 +137,14 @@ function UserMenu() {
 
   const initials = user.firstName && user.lastName
     ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+    : user.firstName
+    ? user.firstName[0].toUpperCase()
     : user.email?.[0]?.toUpperCase() || "U";
 
-  const displayName = user.firstName && user.lastName
-    ? `${user.firstName} ${user.lastName}`
+  const displayName = user.firstName
+    ? user.lastName
+      ? `${user.firstName} ${user.lastName}`
+      : user.firstName
     : user.email || "User";
 
   return (
