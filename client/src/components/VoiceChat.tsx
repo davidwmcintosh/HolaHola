@@ -214,15 +214,9 @@ Use a 50/50 mix of ${language} and English. Speak ${language} for main ideas, us
 
 Use mostly ${language} (80-90%) with occasional English explanations for complex grammar. Challenge them with natural, conversational ${language}. Keep responses concise.`;
 
-          const turnDetectionConfig = {
-            type: 'server_vad',
-            threshold: 0.7,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 700,
-            create_response: false
-          };
-          
-          console.log('[🔧 CODE VERSION: 2024-11-20-02:23] Turn detection config:', turnDetectionConfig);
+          // PUSH-TO-TALK MODE: Disable automatic turn detection
+          // Response will be triggered manually when user releases the button
+          console.log('[🔧 CODE VERSION: 2024-11-20-02:30] Push-to-talk mode: turn_detection = null');
 
           ws.send(JSON.stringify({
             type: 'session.update',
@@ -235,7 +229,7 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
               input_audio_transcription: {
                 model: 'whisper-1'
               },
-              turn_detection: turnDetectionConfig
+              turn_detection: null  // PUSH-TO-TALK: Disable automatic turn detection
             }
           }));
           

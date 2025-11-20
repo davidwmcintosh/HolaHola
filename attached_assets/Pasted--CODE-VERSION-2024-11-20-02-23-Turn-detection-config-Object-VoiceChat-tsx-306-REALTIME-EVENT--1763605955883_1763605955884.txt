@@ -1,0 +1,35 @@
+[🔧 CODE VERSION: 2024-11-20-02:23] Turn detection config: Object
+VoiceChat.tsx:306 [REALTIME EVENT] session.created Object
+VoiceChat.tsx:310 Session created: Object
+VoiceChat.tsx:306 [REALTIME EVENT] session.updated Object
+realtimeManager.ts:101 [REALTIME MANAGER] Greeting marked as sent for conversation: 648c2c5d-b668-48e6-861a-ede55c3c1d9b
+VoiceChat.tsx:264 [VOICE CHAT] Marked greeting as sent
+VoiceChat.tsx:285 [VOICE CHAT] Conversation already has 5 messages, skipping greeting
+chat.tsx:87 [SHARED CHAT] User requested new chat - forcing new conversation
+chat.tsx:52 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false inProgress: false
+chat.tsx:55 [SHARED CHAT] Creating shared conversation... (post-onboarding)
+chat.tsx:52 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: true inProgress: true
+chat.tsx:70 [SHARED CHAT] Shared conversation created: 25ddbc21-f88c-42da-805a-b76fcccd7d43
+VoiceChat.tsx:108 [VOICE CHAT] Conversation changed, forcing fresh capability check...
+realtimeManager.ts:24 [REALTIME MANAGER] Connection lock: LOCKED
+VoiceChat.tsx:148 [VOICE CHAT] Fetching ephemeral token for direct OpenAI connection...
+2chat.tsx:52 [SHARED CHAT] Auto-create check - userName: David conversationId: 25ddbc21-f88c-42da-805a-b76fcccd7d43 isCreating: false inProgress: false
+VoiceChat.tsx:153 [VOICE CHAT] ✓ Token received, connecting directly to OpenAI with model: gpt-4o-realtime-preview-2024-12-17
+realtimeManager.ts:30 [REALTIME MANAGER] Closing existing global WebSocket
+realtimeManager.ts:42 [REALTIME MANAGER] ✓ Global WebSocket set for conversation: 25ddbc21-f88c-42da-805a-b76fcccd7d43
+VoiceChat.tsx:176 [VOICE CHAT] ✓ Connected directly to OpenAI Realtime API!
+realtimeManager.ts:24 [REALTIME MANAGER] Connection lock: UNLOCKED
+VoiceChat.tsx:225 [🔧 CODE VERSION: 2024-11-20-02:23] Turn detection config: {type: 'server_vad', threshold: 0.7, prefix_padding_ms: 300, silence_duration_ms: 700, create_response: false}
+VoiceChat.tsx:306 [REALTIME EVENT] session.created {type: 'session.created', event_id: 'event_CdokgjsaVRc0PMJutGRZ6', session: {…}}
+VoiceChat.tsx:310 Session created: {type: 'session.created', event_id: 'event_CdokgjsaVRc0PMJutGRZ6', session: {…}}
+VoiceChat.tsx:306 [REALTIME EVENT] session.updated {type: 'session.updated', event_id: 'event_CdokgirSeGMvenqwrqius', session: {…}}
+VoiceChat.tsx:536 WebSocket closed 1005 
+realtimeManager.ts:30 [REALTIME MANAGER] Closing existing global WebSocket
+realtimeManager.ts:44 [REALTIME MANAGER] Global WebSocket cleared
+realtimeManager.ts:24 [REALTIME MANAGER] Connection lock: UNLOCKED
+realtimeManager.ts:101 [REALTIME MANAGER] Greeting marked as sent for conversation: 25ddbc21-f88c-42da-805a-b76fcccd7d43
+VoiceChat.tsx:264 [VOICE CHAT] Marked greeting as sent
+VoiceChat.tsx:285 [VOICE CHAT] Conversation already has 1 messages, skipping greeting
+VoiceChat.tsx:536 WebSocket closed 1005 
+realtimeManager.ts:44 [REALTIME MANAGER] Global WebSocket cleared
+realtimeManager.ts:24 [REALTIME MANAGER] Connection lock: UNLOCKED
