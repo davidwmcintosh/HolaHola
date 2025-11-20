@@ -78,8 +78,11 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
       const url = forceRecheck ? '/api/realtime/capability?force=true' : '/api/realtime/capability';
       const response = await fetch(url);
       const data = await response.json();
-      setCapabilityAvailable(data.available);
-      setCapabilityCode(data.code || null);
+      
+      // CRITICAL FIX: Only update state if values actually changed
+      // This prevents unnecessary re-renders and useEffect cleanup cycles
+      setCapabilityAvailable(prev => prev === data.available ? prev : data.available);
+      setCapabilityCode(prev => prev === (data.code || null) ? prev : (data.code || null));
       setCapabilityChecked(true);
       
       if (!data.available) {
@@ -90,8 +93,8 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
     } catch (error) {
       console.error('Failed to check capability:', error);
       setCapabilityChecked(true);
-      setCapabilityAvailable(false);
-      setCapabilityCode('network_error');
+      setCapabilityAvailable(prev => prev === false ? prev : false);
+      setCapabilityCode(prev => prev === 'network_error' ? prev : 'network_error');
       setError('Failed to check voice chat availability. Please check your internet connection.');
     } finally {
       setIsCheckingCapability(false);
