@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Send, Bot, User, Loader2, Mic, MessageSquare } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -27,7 +26,8 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
   const { language, setLanguage, difficulty, userName, setUserName } = useLanguage();
   const [input, setInput] = useState("");
   const [waitingForResponse, setWaitingForResponse] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollViewportRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previousAssistantCountRef = useRef(0);
   const lastStreakRecordDateRef = useRef<string | null>(null);
@@ -155,8 +155,13 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: "smooth" });
+    if (scrollViewportRef.current && messagesEndRef.current) {
+      // Smooth scroll the viewport to the bottom
+      const viewport = scrollViewportRef.current;
+      viewport.scrollTo({
+        top: viewport.scrollHeight,
+        behavior: "smooth"
+      });
     }
   }, [messages]);
 
@@ -216,8 +221,12 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
 
       {/* Chat area */}
       <Card className="flex flex-col flex-1 m-4 mt-0">
-        <ScrollArea className="flex-1 p-6">
-        <div className="space-y-4">
+        <div className="flex-1 overflow-hidden">
+          <div 
+            ref={scrollViewportRef}
+            className="h-full overflow-y-auto p-6"
+          >
+            <div className="space-y-4">
           {!conversationId ? (
             <div className="flex flex-col justify-center items-center h-full text-center text-muted-foreground p-8">
               <MessageSquare className="h-16 w-16 mb-4 opacity-50 animate-pulse" />
@@ -271,11 +280,12 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
                   )}
                 </div>
               ))}
-              <div ref={scrollRef} />
+              <div ref={messagesEndRef} />
             </>
           )}
+            </div>
+          </div>
         </div>
-      </ScrollArea>
 
       <div className="p-4 border-t">
         <div className="flex gap-2">
