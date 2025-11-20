@@ -61,6 +61,9 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const speechDetectedRef = useRef<boolean>(false);
   
+  // Track if initial greeting should be skipped (don't save to DB to avoid duplicates on reload)
+  const skipNextGreetingRef = useRef<boolean>(false);
+  
   // Track start/stop tokens to handle race conditions
   // - startTokenRef: Global counter, incremented for each new start attempt
   // - currentRecordingTokenRef: Which token is currently recording (set when isRecording becomes true)
@@ -253,6 +256,10 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
               if (existingMessages.length === 0) {
                 console.log('[VOICE CHAT] Empty conversation - sending initial greeting request');
                 
+                // Mark to skip saving the next greeting (prevents duplicates on reload)
+                skipNextGreetingRef.current = true;
+                console.log('[VOICE CHAT] Set skipNextGreeting = true');
+                
                 // Use conversation.item.create to trigger AI greeting
                 ws.send(JSON.stringify({
                   type: 'conversation.item.create',
@@ -386,6 +393,13 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
             // CRITICAL FIX: Don't save empty transcripts (prevents duplicates)
             if (!assistantTranscript || assistantTranscript.trim() === "") {
               console.log('[VOICE CHAT] Skipping empty assistant transcript');
+              break;
+            }
+            
+            // GREETING FIX: Skip saving initial greeting to prevent duplicates on reload
+            if (skipNextGreetingRef.current) {
+              console.log('[VOICE CHAT] Skipping initial greeting save (plays as voice only)');
+              skipNextGreetingRef.current = false; // Reset flag
               break;
             }
             
