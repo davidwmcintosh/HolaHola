@@ -61,7 +61,7 @@ export default function Chat() {
     console.log('[SHARED CHAT] Auto-create check - userName:', userName, 'conversationId:', conversationId, 'isCreating:', isCreatingConversation, 'inProgress:', creationInProgressRef.current);
     
     if (needsConversation && !isCurrentlyOnboarding) {
-      console.log('[SHARED CHAT] Creating shared conversation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)');
+      console.log('[SHARED CHAT] Creating shared conversation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)', 'forceNew:', forceNewConversation);
       setIsCreatingConversation(true);
       creationInProgressRef.current = true; // Set flag to prevent duplicate creation
       

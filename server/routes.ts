@@ -540,6 +540,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let conversation;
       let isNewConversation = false;
       
+      console.log('[CONVERSATION CREATE] forceNew flag:', req.body.forceNew, 'recentConversation exists:', !!recentConversation);
+      
       if (recentConversation && !req.body.forceNew) {
         // Reuse existing conversation
         conversation = recentConversation;
