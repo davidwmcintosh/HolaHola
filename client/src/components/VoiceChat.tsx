@@ -724,8 +724,10 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
     const existingGlobalWs = getGlobalWebSocket();
     const existingGlobalConvId = getGlobalConversationId();
     
-    if (existingGlobalWs && existingGlobalConvId === conversationId && existingGlobalWs.readyState === WebSocket.OPEN) {
-      console.log('[VOICE CHAT] ✓ Reusing existing global WebSocket for conversation:', conversationId);
+    // Check if WebSocket is OPEN or CONNECTING (prevents duplicate connections during React StrictMode)
+    if (existingGlobalWs && existingGlobalConvId === conversationId && 
+        (existingGlobalWs.readyState === WebSocket.OPEN || existingGlobalWs.readyState === WebSocket.CONNECTING)) {
+      console.log('[VOICE CHAT] ✓ Reusing existing global WebSocket for conversation:', conversationId, 'readyState:', existingGlobalWs.readyState);
       wsRef.current = existingGlobalWs;
       return;
     }
