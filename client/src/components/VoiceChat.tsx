@@ -177,6 +177,11 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
           connectionOpened = true;
           if (connectionTimer) clearTimeout(connectionTimer);
           
+          // CRITICAL FIX: Set global WebSocket ONLY after successful connection
+          // This prevents React cleanup from closing the socket before it opens
+          wsRef.current = ws;
+          setGlobalWebSocket(ws, conversationId || null);
+          
           // CRITICAL: Clear connection lock now that we've successfully connected
           setGloballyConnecting(false);
           
@@ -538,9 +543,6 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
         setIsRecording(false);
         setIsAiSpeaking(false);
       };
-
-        wsRef.current = ws;
-        setGlobalWebSocket(ws, conversationId || null);  // Set global WebSocket
       });
     } catch (error: any) {
       console.error('Failed to connect to Realtime API:', error);
