@@ -44,6 +44,7 @@ Preferred communication style: Simple, everyday language.
 -   **Subscription Tiers**: Free, Basic, Pro, Institutional, with varying features and AI model access.
 -   **Usage Tracking**: Atomic voice message usage tracking with monthly reset and tiered limits.
 -   **Unified Chat Architecture**: Both voice and text chat utilize a single `createSystemPrompt()` function for consistent instructions and beginner teaching methodologies (e.g., present tense only, one concept at a time, listen-and-repeat sequence, 7±2 word limit). Greeting logic ensures a single greeting message per conversation.
+-   **Auto-Generated Conversation Titles**: After 5 messages, AI automatically generates descriptive conversation titles (e.g., "Job Interview Practice", "Ordering at a Restaurant") to help users find and resume specific conversations. Uses structured output for concise, topic-focused titles (3-6 words max).
 
 ## External Dependencies
 

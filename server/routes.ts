@@ -22,6 +22,7 @@ import {
 import { createSystemPrompt } from "./system-prompt";
 import { assessMessage, analyzePerformance } from "./difficulty-adjustment";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { generateConversationTitle } from "./conversation-utils";
 
 // Use Replit AI Integrations for text chat (works reliably)
 // User's personal key (USER_OPENAI_API_KEY) is only used for voice chat in realtime-proxy.ts
@@ -1379,6 +1380,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content: aiResponse,
         mediaJson: mediaJson || undefined,
       });
+
+      // Generate conversation title automatically after 5 messages (if no title exists)
+      // This helps users find and resume conversations later
+      // IMPORTANT: Fire-and-forget to avoid blocking the chat response
+      // Note: This happens BEFORE res.json(), so title generation starts immediately,
+      // but the HTTP response returns without waiting for completion.
+      const refreshedConversation = await storage.getConversation(conversationId, userId);
+      if (refreshedConversation && 
+          !refreshedConversation.title && 
+          refreshedConversation.messageCount === 5 && 
+          !refreshedConversation.isOnboarding) {
+        
+        console.log('[TITLE GEN] Conversation reached 5 messages without a title, generating automatically (async)...');
+        
+        // Fire-and-forget: Don't await this, let it run in background
+        // Background task completes independently after HTTP response is sent
+        setImmediate(() => {
+          (async () => {
+            try {
+              // Re-read conversation to check title hasn't been set by another request
+              const latestConversation = await storage.getConversation(conversationId, userId);
+              if (!latestConversation || latestConversation.title) {
+                console.log('[TITLE GEN] Title already set or conversation not found, skipping');
+                return;
+              }
+              
+              // Get all messages for context
+              const allMessages = await storage.getMessagesByConversation(conversationId);
+              const generatedTitle = await generateConversationTitle(
+                openai,
+                allMessages.map(m => ({ role: m.role, content: m.content })),
+                latestConversation.language
+              );
+              
+              if (generatedTitle) {
+                console.log('[TITLE GEN] Auto-generated title:', generatedTitle);
+                await storage.updateConversation(conversationId, userId, {
+                  title: generatedTitle
+                });
+                console.log('[TITLE GEN] ✓ Title successfully saved');
+              } else {
+                console.log('[TITLE GEN] No title generated (low confidence or error)');
+              }
+            } catch (error) {
+              console.error('[TITLE GEN] Background task failed (non-critical):', error);
+              // Errors are logged but don't impact chat functionality
+            }
+          })().catch((error) => {
+            // Double-safety: catch any unhandled promise rejections
+            console.error('[TITLE GEN] Unhandled async error:', error);
+          });
+        });
+      }
 
       // Save vocabulary items from conversation (only if we have valid data)
       const vocabulary = Array.isArray(parsedResponse.vocabulary) ? parsedResponse.vocabulary : [];
