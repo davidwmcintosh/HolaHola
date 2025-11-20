@@ -223,24 +223,30 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
           
           // After configuring session, send initial greeting if conversation is empty
           // CRITICAL: Only send greeting once per conversation to prevent duplicates
+          // RACE CONDITION FIX: Mark as "being sent" IMMEDIATELY to prevent duplicate WebSocket sessions from both sending
+          if (!conversationId) {
+            resolve();
+            return;
+          }
+          
+          // Check if we've already sent a greeting for this conversation
+          if (hasGreetingBeenSent(conversationId)) {
+            console.log('[VOICE CHAT] Greeting already sent for conversation:', conversationId);
+            resolve();
+            return;
+          }
+          
+          // IMMEDIATELY mark as sent to block other WebSocket sessions (even before checking messages)
+          markGreetingAsSent(conversationId);
+          console.log('[VOICE CHAT] Marked greeting as sent, will check if conversation is empty...');
+          
           setTimeout(async () => {
-            if (!conversationId) return;
-            
-            // Check if we've already sent a greeting for this conversation
-            if (hasGreetingBeenSent(conversationId)) {
-              console.log('[VOICE CHAT] Greeting already sent for conversation:', conversationId);
-              return;
-            }
-            
             try {
               const messagesResponse = await fetch(`/api/conversations/${conversationId}/messages`);
               const existingMessages = await messagesResponse.json();
               
               if (existingMessages.length === 0) {
                 console.log('[VOICE CHAT] Empty conversation - sending initial greeting request');
-                
-                // Mark greeting as sent BEFORE sending to prevent race conditions
-                markGreetingAsSent(conversationId);
                 
                 // Use conversation.item.create to trigger AI greeting
                 ws.send(JSON.stringify({
@@ -258,8 +264,7 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
                 // Trigger response
                 ws.send(JSON.stringify({ type: 'response.create' }));
               } else {
-                // Mark as sent even if messages exist, so we don't check again
-                markGreetingAsSent(conversationId);
+                console.log('[VOICE CHAT] Conversation already has', existingMessages.length, 'messages, skipping greeting');
               }
             } catch (error) {
               console.error('[VOICE CHAT] Failed to check messages for greeting:', error);
