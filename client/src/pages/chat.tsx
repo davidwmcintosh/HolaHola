@@ -12,6 +12,7 @@ export default function Chat() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [currentConversationOnboarding, setCurrentConversationOnboarding] = useState<boolean | null>(null);
+  const [forceNewConversation, setForceNewConversation] = useState(false); // Track if user clicked "New Chat"
   const previousLanguageRef = useRef(language);
   const creationInProgressRef = useRef(false); // Prevent duplicate conversation creation
 
@@ -62,7 +63,7 @@ export default function Chat() {
         title: null,
         isOnboarding: !isOnboardingComplete,
         includeConversationHistory: isOnboardingComplete,
-        forceNew: false, // Reuse existing conversation by default
+        forceNew: forceNewConversation, // Force new conversation if user clicked "New Chat"
       })
         .then(res => res.json())
         .then(data => {
@@ -70,18 +71,21 @@ export default function Chat() {
           setConversationId(data.id);
           setIsCreatingConversation(false);
           creationInProgressRef.current = false; // Clear flag on success
+          setForceNewConversation(false); // Reset forceNew flag after creating conversation
           queryClient.invalidateQueries({ queryKey: ["/api/conversations", data.id, "messages"] });
         })
         .catch(err => {
           console.error("[SHARED CHAT] Failed to create conversation:", err);
           setIsCreatingConversation(false);
           creationInProgressRef.current = false; // Clear flag on error
+          setForceNewConversation(false); // Reset forceNew flag on error
         });
     }
-  }, [language, difficulty, userName, conversationId, isCreatingConversation, currentConversationOnboarding]);
+  }, [language, difficulty, userName, conversationId, isCreatingConversation, currentConversationOnboarding, forceNewConversation]);
 
   const handleNewChat = () => {
-    console.log('[SHARED CHAT] User requested new chat - resetting conversation');
+    console.log('[SHARED CHAT] User requested new chat - forcing new conversation');
+    setForceNewConversation(true); // Set flag to force new conversation
     setConversationId(null);
     creationInProgressRef.current = false; // Reset flag to allow new conversation creation
   };
