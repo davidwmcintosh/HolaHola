@@ -230,7 +230,7 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
                 threshold: 0.7,  // Increased from 0.5 to reduce false positives from background noise/echo
                 prefix_padding_ms: 300,
                 silence_duration_ms: 700,  // 700ms of silence before committing (balanced for natural speech pauses)
-                create_response: true  // Auto-generate AI response when user speech ends
+                create_response: false  // PUSH-TO-TALK MODE: Only create response when user releases button (line 693)
               }
             }
           }));
