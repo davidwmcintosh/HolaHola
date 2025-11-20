@@ -84,10 +84,9 @@ export default function Chat() {
   }, [language, difficulty, userName, conversationId, isCreatingConversation, currentConversationOnboarding, forceNewConversation]);
 
   const handleNewChat = () => {
-    console.log('[SHARED CHAT] User requested new chat - forcing new conversation');
-    setForceNewConversation(true); // Set flag to force new conversation
-    setConversationId(null);
-    creationInProgressRef.current = false; // Reset flag to allow new conversation creation
+    console.log('[SHARED CHAT] User requested new chat - reloading page for clean state');
+    // Simplest solution: reload page to use exact same code path as initial load (which works perfectly!)
+    window.location.reload();
   };
 
   return (
