@@ -8,6 +8,46 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### November 20, 2025 - Voice Chat Greeting Duplication & Language Complexity Fixes
+
+#### Greeting Duplication Prevention
+**Issue:** Voice chat was sending duplicate greetings when WebSocket reconnected due to abnormal closure (code 1006), causing multiple greeting messages in the conversation.
+
+**Root Cause:** Greeting tracker was marking conversation as "greeted" BEFORE checking if the database already had messages, leading to race conditions on reconnection.
+
+**Solution:**
+1. **Check database FIRST** - Now fetches existing messages before consulting in-memory greeting tracker
+2. **Conditional marking** - Only marks greeting as sent if conversation is truly empty OR already has messages
+3. **Prevents race conditions** - WebSocket reconnections now see existing messages and skip greeting appropriately
+4. **Maintains localStorage persistence** - Greeting tracker still uses localStorage for cross-session tracking
+
+**Files Modified:**
+- `client/src/components/VoiceChat.tsx`: Reordered greeting logic to check database first (lines 232-283)
+
+**Testing:**
+- ✅ Greeting appears exactly once for new conversations
+- ✅ No duplicate greetings on WebSocket reconnection
+- ✅ No duplicate greetings on page reload
+- ✅ Greeting tracker persists across browser sessions
+
+#### Beginner Language Complexity Reduction
+**Issue:** AI was using advanced Spanish grammar (conditional/subjunctive forms like "Me gustaría", "quisiera") for beginner-level students, violating the beginner difficulty expectations.
+
+**Solution:**
+1. **Explicit tense restrictions** - Added "ONLY use present tense - NO conditional, subjunctive, future, or past tenses" to beginner instructions
+2. **Forbidden examples** - Listed specific verb forms to avoid: "gustaría" (conditional), "quisiera" (subjunctive)
+3. **Correct examples** - Provided simple present tense alternatives: "quiero" (I want), "tengo" (I have), "me gusta" (I like)
+4. **Sentence length limits** - Enforced 5-8 words max per sentence for beginners
+
+**Files Modified:**
+- `client/src/components/VoiceChat.tsx`: Enhanced beginner system prompt with tense restrictions (lines 205-218)
+
+**Expected Behavior:**
+- Beginner responses use ONLY present tense verbs
+- No conditional/subjunctive forms in beginner conversations
+- Sentences remain short and simple (5-8 words max)
+- Spanish phrases still translated immediately to English
+
 ### November 20, 2025 - Voice Chat Audio & Greeting Fixes
 
 #### Text Chat Greeting Restoration
