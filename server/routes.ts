@@ -536,11 +536,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
       
       let conversation;
+      let isNewConversation = false;
       
       if (recentConversation && !req.body.forceNew) {
         // Reuse existing conversation
         conversation = recentConversation;
         console.log('[CONVERSATION REUSE] Using existing conversation:', conversation.id);
+        isNewConversation = false;
       } else {
         // Create new conversation only if none exists or explicitly requested
         conversation = await storage.createConversation({
@@ -553,6 +555,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } as typeof conversations.$inferInsert);
         
         console.log('[CONVERSATION CREATE] Created new conversation:', conversation.id);
+        isNewConversation = true;
       }
       
       console.log('[CONVERSATION CREATE] Created conversation:', {
@@ -679,12 +682,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Save the greeting as the first message
-      await storage.createMessage({
-        conversationId: conversation.id,
-        role: "assistant",
-        content: greetingMessage,
-      });
+      // Only save greeting if this is a NEW conversation
+      // Don't add duplicate greetings when reusing existing conversations
+      if (isNewConversation) {
+        console.log('[GREETING] Saving greeting for new conversation');
+        await storage.createMessage({
+          conversationId: conversation.id,
+          role: "assistant",
+          content: greetingMessage,
+        });
+      } else {
+        console.log('[GREETING] Skipping greeting - reusing existing conversation with messages');
+      }
       
       res.json(conversation);
     } catch (error: any) {
