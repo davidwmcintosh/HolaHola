@@ -6,6 +6,52 @@ LinguaFlow is an AI-powered language learning application focused on interactive
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Architectural Principles
+
+### 🚨 UNIFIED CODE PRINCIPLE (Critical)
+**Voice and text chat must share code where reasonable to prevent synchronization issues and feature drift.**
+
+This is a guiding principle that prevents bugs like:
+- Text scrollbar visible but voice scrollbar not visible
+- Error handling different between modes
+- Styling inconsistencies (colors, spacing, animations)
+- Accessibility features present in one mode but missing in the other
+
+#### Where Shared Code Lives
+1. **Utilities** (`client/src/lib/`): Common error handling, audio utils, formatting
+2. **Hooks** (`client/src/hooks/`): Custom hooks used by both components (e.g., `use-streak`)
+3. **Components** (`client/src/components/`): Shared UI components (InstructorAvatar, AccentButtons, etc.)
+4. **Context** (`client/src/contexts/`): Language/difficulty context used by both modes
+5. **Server utils** (`server/`): Unified system prompts, error handling, message processing
+
+#### What Should Be Shared
+- **Error handling logic**: Both modes should handle microphone/API errors identically
+- **Scrollbar/scroll behavior**: Custom CSS classes applied to all scrollable message containers
+- **ARIA attributes**: Accessibility features applied consistently across all interactive elements
+- **Message rendering**: Core message display logic (not the container, but the message bubble styles and media rendering)
+- **Error UI components**: Not duplicated in voice and text, use shared error display component
+- **System prompts**: `createSystemPrompt()` already shared, keep it this way
+- **Styling utilities**: Custom scrollbar, hover states, transitions
+
+#### What Can Differ
+- **Input method**: Voice input vs text input textarea (obviously)
+- **Recording state UI**: Voice-specific UI for recording indicator
+- **Microphone UI**: Voice-specific mic button
+- **Layout**: Text may have different layout than voice
+
+#### Change Checklist
+When making changes to VoiceChat.tsx or ChatInterface.tsx, ask:
+- [ ] Does this feature exist in BOTH components?
+- [ ] If yes, should they share code/styling?
+- [ ] Did I update BOTH places if they should be synchronized?
+- [ ] Are error handling approaches identical?
+- [ ] Is styling (colors, spacing, scrollbars) consistent?
+- [ ] Are accessibility attributes applied to both?
+
+If unsure, default to: **Extract shared logic to utilities/hooks and import in both components.**
+
+---
+
 ## System Architecture
 
 ### Frontend
