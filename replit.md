@@ -22,8 +22,8 @@ Preferred communication style: Simple, everyday language.
 -   **API**: RESTful.
 -   **Storage**: Abstract `IStorage` interface with Drizzle ORM for PostgreSQL.
 -   **AI Integration**: OpenAI-compatible API via Replit's AI Integrations.
--   **Session Management**: `connect-pg-simple`.
--   **Authentication**: Replit Auth (OIDC) with email/password and social login support.
+-   **Session Management**: `connect-pg-simple` with PostgreSQL session store.
+-   **Authentication**: Replit Auth (OIDC) with email/password and social login support. WebSocket connections authenticate via server-side session validation to prevent userId spoofing.
 -   **Billing**: Stripe integration via `stripe-replit-sync` for subscription management.
 
 ### Data Models
@@ -43,9 +43,9 @@ Preferred communication style: Simple, everyday language.
 -   **AI-Generated Educational Images**: Intelligent display of inline images (Unsplash, DALL-E) with caching.
 -   **Subscription Tiers**: Free, Basic, Pro, Institutional, with varying features and AI model access.
 -   **Usage Tracking**: Atomic voice message usage tracking with monthly reset and tiered limits.
--   **Unified Chat Architecture**: Both voice and text chat utilize a single `createSystemPrompt()` function for consistent instructions and beginner teaching methodologies (e.g., present tense only, one concept at a time, listen-and-repeat sequence, 7±2 word limit). Greeting logic ensures a single greeting message per conversation.
+-   **Unified Chat Architecture**: Both voice and text chat utilize a single `createSystemPrompt()` function for consistent instructions and beginner teaching methodologies (e.g., present tense only, one concept at a time, listen-and-repeat sequence, 7±2 word limit). Greeting logic ensures a single greeting message per conversation. Voice and text modes fetch conversation history identically using server-derived userId to ensure secure, consistent prompts.
 -   **Auto-Generated Conversation Titles**: After 5 messages, AI automatically generates descriptive conversation titles (e.g., "Job Interview Practice", "Ordering at a Restaurant") to help users find and resume specific conversations. Uses structured output for concise, topic-focused titles (3-6 words max).
--   **Conversation Memory & Resumption**: When students ask "what did we talk about last time?" or "can you remind me?", the tutor naturally references previous conversation titles and offers to continue where they left off. Upon switching to a previous conversation, AI generates a brief context summary (2-3 sentences) reminding students what they were learning, maintaining continuity and reducing cognitive load when resuming past topics.
+-   **Conversation Memory & Resumption**: When students ask "what did we talk about last time?" or "can you remind me?", the tutor naturally references previous conversation titles and offers to continue where they left off. Upon switching to a previous conversation, AI generates a brief context summary (2-3 sentences) reminding students what they were learning, maintaining continuity and reducing cognitive load when resuming past topics. Both voice and text modes access identical conversation history for consistent context across all interactions.
 
 ## External Dependencies
 
