@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { ChatInterface } from "@/components/ChatInterface";
 import { VoiceChat } from "@/components/VoiceChat";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Mic, Plus } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -120,24 +121,33 @@ export default function Chat() {
       )}
       
       <div className="flex items-center justify-between gap-2 p-4 border-b">
-        <div className="flex items-center gap-2">
-          <Button
-            variant={mode === "text" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setMode("text")}
-            data-testid="button-text-mode"
-          >
-            <MessageSquare className="h-4 w-4 mr-2" />
-            Text
-          </Button>
+        <div className="flex items-center gap-3">
+          {/* Voice button - prominent and primary */}
           <Button
             variant={mode === "voice" ? "default" : "outline"}
-            size="sm"
+            size="default"
             onClick={() => setMode("voice")}
             data-testid="button-voice-mode"
           >
             <Mic className="h-4 w-4 mr-2" />
-            Voice
+            Voice Learning
+            {mode === "voice" && (
+              <Badge variant="secondary" className="ml-2 text-xs">
+                Recommended
+              </Badge>
+            )}
+          </Button>
+          
+          {/* Text button - subtle fallback option */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setMode("text")}
+            data-testid="button-text-mode"
+            className="text-muted-foreground"
+          >
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Type instead
           </Button>
         </div>
         <Button
@@ -150,6 +160,14 @@ export default function Chat() {
           New Chat
         </Button>
       </div>
+      
+      {/* Gentle hint when in text mode */}
+      {mode === "text" && (
+        <div className="px-4 py-2 bg-muted/50 text-sm text-muted-foreground border-b flex items-center gap-2">
+          <MessageSquare className="h-4 w-4" />
+          <span>Using text mode • Switch to <strong className="text-foreground">Voice Learning</strong> for the best experience</span>
+        </div>
+      )}
       <div className="flex-1 overflow-hidden">
         {mode === "voice" ? (
           <VoiceChat 
