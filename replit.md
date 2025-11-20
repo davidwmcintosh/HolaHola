@@ -8,6 +8,34 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### November 20, 2025 - Unified Architecture: Voice & Text Chat System Prompt Consolidation
+
+#### Architectural Refactoring: Single Source of Truth
+**Issue:** Voice chat (VoiceChat.tsx) and text chat (server/routes.ts) used separate, duplicate instruction sets that could drift out of sync. Voice chat had inline beginner constraints while text chat used the comprehensive `createSystemPrompt()` function.
+
+**Solution - Unified Architecture:**
+Both voice and text chat now use the shared `createSystemPrompt()` function from `server/system-prompt.ts`:
+```
+Text Chat:  server/routes.ts → createSystemPrompt(isVoiceMode=false)
+Voice Chat: server/realtime-proxy.ts → createSystemPrompt(isVoiceMode=true)
+Both share: server/system-prompt.ts (single source of truth)
+```
+
+**Implementation:**
+1. **server/realtime-proxy.ts**: Now calls `createSystemPrompt()` when WebSocket connection opens, passing conversation context (language, difficulty, messageCount, topic, nativeLanguage)
+2. **client/src/components/VoiceChat.tsx**: Refactored to connect through server proxy (`/api/realtime/ws`) instead of directly to OpenAI, passing context via URL query params
+3. **Removed duplication**: Eliminated ~40 lines of duplicate beginner instructions from client-side code
+
+**Benefits:**
+- **Single source of truth**: Voice and text chat cannot drift apart - changes apply to both modes automatically
+- **Easier to extend**: Adding syllabus/state standards checking requires changes in one place only
+- **Consistent learning**: Beginner constraints (present tense only, one concept at a time, 7±2 rule, listen-and-repeat) identical across modes
+- **Maintainability**: Voice-specific features (phonetic breakdowns, listen-and-repeat sequence) are conditional in shared function
+
+**Files Modified:**
+- `server/realtime-proxy.ts`: Added createSystemPrompt() call during session initialization (lines 170-200)
+- `client/src/components/VoiceChat.tsx`: Changed from direct OpenAI connection to proxy connection (lines 145-166)
+
 ### November 20, 2025 - Voice Chat Greeting Duplication & Comprehensive Beginner Teaching Fixes
 
 #### Greeting Duplication Prevention

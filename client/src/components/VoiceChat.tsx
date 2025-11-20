@@ -142,23 +142,25 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
     let connectionTimer: NodeJS.Timeout | null = null;
 
     try {
-      // CRITICAL FIX: Get ephemeral token from server, then connect DIRECTLY to OpenAI
-      // This bypasses Replit's server-side WebSocket blocking!
-      console.log('[VOICE CHAT] Fetching ephemeral token for direct OpenAI connection...');
+      // UNIFIED ARCHITECTURE: Connect through server proxy
+      // Proxy uses shared createSystemPrompt() to ensure voice and text chat
+      // have identical learning constraints and advancement goals
+      console.log('[VOICE CHAT] Connecting through unified proxy...');
       
-      const tokenResponse = await apiRequest("POST", "/api/realtime/token", {});
-      const { token, model } = await tokenResponse.json();
+      // Build WebSocket URL with conversation context
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host;
+      const params = new URLSearchParams({
+        language,
+        difficulty,
+        conversationId: conversationId || '',
+        userId: user?.id || ''
+      });
+      const wsUrl = `${protocol}//${host}/api/realtime/ws?${params.toString()}`;
       
-      console.log(`[VOICE CHAT] ✓ Token received, connecting directly to OpenAI with model: ${model}`);
+      console.log(`[VOICE CHAT] ✓ Connecting to proxy with unified system prompt`);
       
-      // Connect DIRECTLY to OpenAI WebSocket (just like the playground!)
-      // Ephemeral token must be passed in subprotocols, not headers!
-      const wsUrl = `wss://api.openai.com/v1/realtime?model=${model}`;
-      const ws = new WebSocket(wsUrl, [
-        "realtime",
-        `openai-insecure-api-key.${token}`,
-        "openai-beta.realtime-v1"
-      ]);
+      const ws = new WebSocket(wsUrl);
       
       let connectionOpened = false;
 
@@ -172,7 +174,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
         }, CONNECTION_TIMEOUT);
 
         ws.onopen = () => {
-          console.log('[VOICE CHAT] ✓ Connected directly to OpenAI Realtime API!');
+          console.log('[VOICE CHAT] ✓ Connected through unified proxy with shared system prompt!');
           connectionOpened = true;
           if (connectionTimer) clearTimeout(connectionTimer);
           
