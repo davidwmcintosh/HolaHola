@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Mic, MicOff, Bot, User, Loader2, Volume2, MessageSquare } from "lucide-react";
+import { Mic, MicOff, Bot, User, Loader2, Volume2, MessageSquare, Radio } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -49,6 +49,9 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
   const [pronunciationScores, setPronunciationScores] = useState<Map<string, PronunciationScoreData>>(new Map());
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
+  // VAD mode: 'push-to-talk' (manual), 'semantic_vad' (auto-detect with AI), 'server_vad' (simple auto-detect)
+  const [vadMode, setVadMode] = useState<'push-to-talk' | 'semantic_vad' | 'server_vad'>('semantic_vad');
+  const [isVadActive, setIsVadActive] = useState(false); // Is VAD currently detecting speech?
   
   const wsRef = useRef<WebSocket | null>(null);
   const audioRecorderRef = useRef<AudioRecorder | null>(null);
@@ -154,7 +157,8 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
         language,
         difficulty,
         conversationId: conversationId || '',
-        userId: user?.id || ''
+        userId: user?.id || '',
+        vadMode  // Pass VAD mode to server proxy
       });
       const wsUrl = `${protocol}//${host}/api/realtime/ws?${params.toString()}`;
       
@@ -204,6 +208,17 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
           // using the shared createSystemPrompt function. This ensures voice and text
           // chat use identical learning constraints and advancement goals.
           // No need to send session.update from client anymore.
+          
+          // VAD MODE: Start continuous recording automatically for auto-detect modes
+          if (vadMode !== 'push-to-talk') {
+            console.log('[VAD] Auto-detect mode active - starting continuous recording');
+            // Small delay to ensure session is fully configured
+            setTimeout(() => {
+              startRecording().catch((err) => {
+                console.error('[VAD] Failed to start continuous recording:', err);
+              });
+            }, 500);
+          }
           
           // After configuring session, send initial greeting if conversation is empty
           // CRITICAL FIX: Check database FIRST, then conditionally mark as sent
@@ -277,12 +292,14 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
             break;
             
           case "input_audio_buffer.speech_started":
-            console.log('Speech started');
+            console.log('[VAD] Speech started');
             speechDetectedRef.current = true;
+            setIsVadActive(true); // Visual feedback: VAD detected speech
             break;
             
           case "input_audio_buffer.speech_stopped":
-            console.log('Speech stopped');
+            console.log('[VAD] Speech stopped');
+            setIsVadActive(false); // Visual feedback: VAD stopped detecting speech
             // VAD automatically commits when speech stops, no manual action needed
             break;
             
@@ -798,7 +815,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
       // Reset processed response IDs when conversation/session changes
       processedResponseIds.current.clear();
     };
-  }, [conversationId, capabilityAvailable, connectToRealtimeAPI]);
+  }, [conversationId, capabilityAvailable, connectToRealtimeAPI, vadMode]);
 
   // Combine backend messages with live transcript (avoiding duplicates)
   // Only include transcript messages that haven't been saved to backend yet
@@ -1102,11 +1119,49 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
           );
         })()}
         
+        {/* VAD Mode Toggle */}
+        <div className="flex justify-center mb-4">
+          <div className="inline-flex items-center gap-2 p-1 bg-muted rounded-lg">
+            <Button
+              variant={vadMode === 'push-to-talk' ? "default" : "ghost"}
+              size="sm"
+              onClick={() => {
+                setVadMode('push-to-talk');
+                // Will reconnect WebSocket with new mode
+              }}
+              data-testid="button-vad-push-to-talk"
+            >
+              <Mic className="h-4 w-4 mr-2" />
+              Push to Talk
+            </Button>
+            <Button
+              variant={vadMode === 'semantic_vad' ? "default" : "ghost"}
+              size="sm"
+              onClick={() => {
+                setVadMode('semantic_vad');
+                // Will reconnect WebSocket with new mode
+              }}
+              data-testid="button-vad-auto-detect"
+            >
+              <Radio className="h-4 w-4 mr-2" />
+              Auto Detect
+              {vadMode === 'semantic_vad' && (
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  Smart
+                </Badge>
+              )}
+            </Button>
+          </div>
+        </div>
+        
         <div className="flex justify-center">
           <Button
             size="lg"
-            variant={isRecording ? "destructive" : "default"}
+            variant={isRecording ? "destructive" : (vadMode !== 'push-to-talk' && isVadActive) ? "default" : "outline"}
             onPointerDown={(e) => {
+              // Only respond to button press in push-to-talk mode
+              if (vadMode !== 'push-to-talk') return;
+              
               // Only start on primary button (left mouse or touch)
               console.log('[VOICE BUTTON] PointerDown - button:', e.button, 'conversationId:', conversationId, 'capabilityAvailable:', capabilityAvailable, 'isRecording:', isRecording);
               if (e.button === 0 && conversationId && capabilityAvailable && !isRecording) {
@@ -1117,23 +1172,27 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
               }
             }}
             onPointerUp={() => {
+              if (vadMode !== 'push-to-talk') return;
               if (isRecording) {
                 stopRecording();
               }
             }}
             onPointerLeave={() => {
+              if (vadMode !== 'push-to-talk') return;
               // Stop if pointer leaves button while recording
               if (isRecording) {
                 stopRecording();
               }
             }}
             onPointerCancel={() => {
+              if (vadMode !== 'push-to-talk') return;
               // Stop if pointer is cancelled (e.g., touch interruption)
               if (isRecording) {
                 stopRecording();
               }
             }}
             onKeyDown={(e) => {
+              if (vadMode !== 'push-to-talk') return;
               // Support keyboard: Space or Enter to start recording
               if (e.key === ' ' || e.key === 'Enter') {
                 console.log('[VOICE BUTTON] KeyDown:', e.key, 'repeat:', e.repeat, 'conversationId:', conversationId, 'capabilityAvailable:', capabilityAvailable, 'isRecording:', isRecording);
@@ -1147,6 +1206,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
               }
             }}
             onKeyUp={(e) => {
+              if (vadMode !== 'push-to-talk') return;
               // Support keyboard: Release Space or Enter to stop recording
               if ((e.key === ' ' || e.key === 'Enter') && isRecording) {
                 e.preventDefault();
@@ -1154,15 +1214,17 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
               }
             }}
             disabled={!conversationId || !capabilityAvailable}
-            className="rounded-full h-16 w-16"
+            className={`rounded-full h-16 w-16 ${vadMode !== 'push-to-talk' && isVadActive ? 'animate-pulse' : ''}`}
             data-testid="button-toggle-recording"
           >
             {!capabilityChecked ? (
               <Loader2 className="h-6 w-6 animate-spin" />
-            ) : isRecording ? (
-              <MicOff className="h-6 w-6" />
+            ) : vadMode !== 'push-to-talk' ? (
+              // VAD mode: Show visual feedback of detection
+              isVadActive ? <Volume2 className="h-6 w-6" /> : <Radio className="h-6 w-6" />
             ) : (
-              <Mic className="h-6 w-6" />
+              // Push-to-talk mode: Show mic on/off
+              isRecording ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />
             )}
           </Button>
         </div>
@@ -1174,9 +1236,10 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
             ? "Checking voice chat availability..." 
             : !capabilityAvailable
             ? "Voice chat unavailable - see error message above"
-            : isRecording 
-            ? "Release to stop recording" 
-            : "Hold to speak"}
+            : vadMode === 'push-to-talk'
+              ? (isRecording ? "Release to stop recording" : "Hold to speak")
+              : (isVadActive ? "Listening..." : "Speak to start - AI will detect when you're done")
+          }
         </p>
       </div>
     </div>

@@ -19,6 +19,8 @@ export function setupRealtimeProxy(server: Server) {
       const difficulty = url.searchParams.get('difficulty') || 'beginner';
       const conversationId = url.searchParams.get('conversationId');
       const userId = url.searchParams.get('userId');
+      // VAD mode: 'push-to-talk', 'server_vad', or 'semantic_vad'
+      const vadMode = url.searchParams.get('vadMode') || 'semantic_vad';
 
       // Fetch user to determine subscription tier for model selection
       let subscriptionTier = 'free';
@@ -182,17 +184,52 @@ export function setupRealtimeProxy(server: Server) {
         );
         
         console.log('[REALTIME PROXY] Sending unified system prompt to OpenAI');
+        console.log(`[REALTIME PROXY] VAD mode: ${vadMode}`);
+        
+        // Configure turn detection based on VAD mode
+        let turnDetection: any;
+        
+        if (vadMode === 'semantic_vad') {
+          // Semantic VAD - best for language learners
+          // Uses AI to understand when user is done speaking
+          // Low eagerness gives learners time to think/pause
+          turnDetection = {
+            type: 'semantic_vad',
+            eagerness: 'low',  // Patient - won't interrupt while thinking
+            create_response: true,
+            interrupt_response: true  // Let user interrupt AI
+          };
+        } else if (vadMode === 'server_vad') {
+          // Server VAD - simple silence-based detection
+          turnDetection = {
+            type: 'server_vad',
+            threshold: 0.5,              // Medium sensitivity
+            prefix_padding_ms: 300,      // Capture 300ms before speech
+            silence_duration_ms: 500,    // Wait 500ms of silence (longer for learners)
+            create_response: true
+          };
+        } else {
+          // Push-to-talk mode - disable automatic turn detection
+          turnDetection = null;
+        }
         
         // Configure session with voice settings and unified instructions
+        const sessionConfig: any = {
+          voice: 'alloy',
+          instructions: systemPrompt,
+          input_audio_transcription: {
+            model: 'whisper-1'
+          }
+        };
+        
+        // Only add turn_detection if not in push-to-talk mode
+        if (turnDetection) {
+          sessionConfig.turn_detection = turnDetection;
+        }
+        
         openaiWs.send(JSON.stringify({
           type: 'session.update',
-          session: {
-            voice: 'alloy',
-            instructions: systemPrompt,
-            input_audio_transcription: {
-              model: 'whisper-1'
-            }
-          }
+          session: sessionConfig
         }));
       });
 
