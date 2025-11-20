@@ -222,28 +222,28 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
           }));
           
           // After configuring session, send initial greeting if conversation is empty
-          // CRITICAL: Only send greeting once per conversation to prevent duplicates
-          // RACE CONDITION FIX: Mark as "being sent" IMMEDIATELY to prevent duplicate WebSocket sessions from both sending
+          // Strategy: Check database first, then mark as sent to prevent duplicates
           if (!conversationId) {
             resolve();
             return;
           }
           
-          // Check if we've already sent a greeting for this conversation
-          if (hasGreetingBeenSent(conversationId)) {
-            console.log('[VOICE CHAT] Greeting already sent for conversation:', conversationId);
-            resolve();
-            return;
-          }
-          
-          // IMMEDIATELY mark as sent to block other WebSocket sessions (even before checking messages)
-          markGreetingAsSent(conversationId);
-          console.log('[VOICE CHAT] Marked greeting as sent, will check if conversation is empty...');
-          
           setTimeout(async () => {
+            // FIRST: Check if we've already processed this conversation's greeting
+            if (hasGreetingBeenSent(conversationId)) {
+              console.log('[VOICE CHAT] Greeting already sent for conversation:', conversationId);
+              return;
+            }
+            
             try {
+              // SECOND: Check database for existing messages
               const messagesResponse = await fetch(`/api/conversations/${conversationId}/messages`);
               const existingMessages = await messagesResponse.json();
+              
+              // THIRD: Mark as sent BEFORE sending to prevent race conditions
+              // (Multiple WebSocket connections might both reach this point, but only first one marks it)
+              markGreetingAsSent(conversationId);
+              console.log('[VOICE CHAT] Marked greeting as sent');
               
               if (existingMessages.length === 0) {
                 console.log('[VOICE CHAT] Empty conversation - sending initial greeting request');
