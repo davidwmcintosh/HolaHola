@@ -14,6 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Button } from "@/components/ui/button";
 import { UserCircle, Settings as SettingsIcon, LogOut } from "lucide-react";
 import { Link } from "wouter";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import Landing from "@/pages/Landing";
 import Onboarding from "@/pages/onboarding";
 import Dashboard from "@/pages/dashboard";
@@ -127,6 +128,7 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
             </main>
           </div>
         </div>
+        <PWAInstallPrompt />
       </SidebarProvider>
     </LanguageProvider>
   );
