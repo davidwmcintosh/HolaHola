@@ -13,6 +13,7 @@ export default function Chat() {
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [currentConversationOnboarding, setCurrentConversationOnboarding] = useState<boolean | null>(null);
   const [forceNewConversation, setForceNewConversation] = useState(false); // Track if user clicked "New Chat"
+  const [isReloading, setIsReloading] = useState(false); // Smooth transition for page reload
   const previousLanguageRef = useRef(language);
   const creationInProgressRef = useRef(false); // Prevent duplicate conversation creation
 
@@ -85,12 +86,26 @@ export default function Chat() {
 
   const handleNewChat = () => {
     console.log('[SHARED CHAT] User requested new chat - reloading page for clean state');
-    // Simplest solution: reload page to use exact same code path as initial load (which works perfectly!)
-    window.location.reload();
+    // Show smooth transition before reload
+    setIsReloading(true);
+    // Brief delay to show the transition, then reload
+    setTimeout(() => {
+      window.location.reload();
+    }, 400);
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col relative">
+      {/* Smooth loading overlay for page reload */}
+      {isReloading && (
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center animate-in fade-in duration-200">
+          <div className="text-center">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite] mb-4" />
+            <p className="text-lg font-medium">Starting new conversation...</p>
+          </div>
+        </div>
+      )}
+      
       <div className="flex items-center justify-between gap-2 p-4 border-b">
         <div className="flex items-center gap-2">
           <Button
