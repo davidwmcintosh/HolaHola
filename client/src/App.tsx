@@ -153,8 +153,8 @@ function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-9 w-9 rounded-full" data-testid="button-user-menu">
-          <Avatar className="h-9 w-9">
+        <Button variant="ghost" className="relative h-8 md:h-10 w-8 md:w-10 rounded-full" data-testid="button-user-menu">
+          <Avatar className="h-8 md:h-10 w-8 md:w-10">
             {user.profileImageUrl && <AvatarImage src={user.profileImageUrl} alt={displayName} />}
             <AvatarFallback>{initials}</AvatarFallback>
           </Avatar>

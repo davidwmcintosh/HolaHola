@@ -1217,9 +1217,9 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
           );
         })()}
         
-        {/* VAD Mode Toggle - hidden on mobile for simplicity, visible on desktop */}
-        <div className="hidden md:flex justify-center mb-4">
-          <div className="inline-flex items-center gap-2 p-1 bg-muted rounded-lg">
+        {/* VAD Mode Toggle - always visible but more compact on mobile */}
+        <div className="flex justify-center mb-3 md:mb-4">
+          <div className="inline-flex items-center gap-1 md:gap-2 p-1 bg-muted rounded-lg">
             <Button
               variant={vadMode === 'push-to-talk' ? "default" : "ghost"}
               size="sm"
@@ -1230,9 +1230,11 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
               aria-pressed={vadMode === 'push-to-talk'}
               role="button"
               data-testid="button-vad-push-to-talk"
+              className="text-xs md:text-sm"
             >
-              <Mic className="h-4 w-4 mr-2" />
-              Push to Talk
+              <Mic className="h-3 md:h-4 w-3 md:w-4 mr-1 md:mr-2" />
+              <span className="hidden sm:inline">Push to Talk</span>
+              <span className="sm:hidden">Push</span>
             </Button>
             <Button
               variant={vadMode === 'semantic_vad' ? "default" : "ghost"}
@@ -1244,11 +1246,13 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
               aria-pressed={vadMode === 'semantic_vad'}
               role="button"
               data-testid="button-vad-auto-detect"
+              className="text-xs md:text-sm"
             >
-              <Radio className="h-4 w-4 mr-2" />
-              Auto Detect
+              <Radio className="h-3 md:h-4 w-3 md:w-4 mr-1 md:mr-2" />
+              <span className="hidden sm:inline">Auto Detect</span>
+              <span className="sm:hidden">Auto</span>
               {vadMode === 'semantic_vad' && (
-                <Badge variant="secondary" className="ml-2 text-xs">
+                <Badge variant="secondary" className="ml-1 md:ml-2 text-xs hidden md:inline-flex">
                   Smart
                 </Badge>
               )}
@@ -1256,12 +1260,13 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
           </div>
         </div>
         
-        {/* Large microphone button - extra prominent on mobile */}
+        {/* Large microphone button - wrapped in a sized container for mobile prominence */}
         <div className="flex justify-center">
-          <Button
-            size="lg"
-            variant={isRecording ? "destructive" : (vadMode !== 'push-to-talk' && isVadActive) ? "default" : "outline"}
-            onPointerDown={(e) => {
+          <div className="w-20 h-20 md:w-16 md:h-16 flex items-center justify-center">
+            <Button
+              size="lg"
+              variant={isRecording ? "destructive" : (vadMode !== 'push-to-talk' && isVadActive) ? "default" : "outline"}
+              onPointerDown={(e) => {
               // Only respond to button press in push-to-talk mode
               if (vadMode !== 'push-to-talk') return;
               
@@ -1320,7 +1325,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
             aria-pressed={isRecording}
             aria-label={isRecording ? "Release to stop recording" : "Hold to speak"}
             role="button"
-            className={`rounded-full h-20 w-20 md:h-16 md:w-16 ${vadMode !== 'push-to-talk' && isVadActive ? 'animate-pulse' : ''}`}
+            className={`rounded-full w-full h-full ${vadMode !== 'push-to-talk' && isVadActive ? 'animate-pulse' : ''}`}
             data-testid="button-toggle-recording"
           >
             {!capabilityChecked ? (
@@ -1333,6 +1338,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
               isRecording ? <MicOff className="h-7 md:h-6 w-7 md:w-6" /> : <Mic className="h-7 md:h-6 w-7 md:w-6" />
             )}
           </Button>
+          </div>
         </div>
         
         <p className="text-center text-xs md:text-sm text-muted-foreground mt-3 md:mt-4 px-2">

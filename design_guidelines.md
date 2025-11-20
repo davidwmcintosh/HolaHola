@@ -1,10 +1,14 @@
 # Interactive Language Tutor - Design Guidelines
 
 ## Design Approach
-**Design System**: Material Design with educational adaptations
+**Design System**: Material Design with educational adaptations, **Mobile-First** responsive design
 **Rationale**: Learning applications benefit from Material's clear hierarchy, familiar interaction patterns, and card-based components. The system's emphasis on clarity and structure supports focused learning.
 
 **Key Design Principles**:
+- **Mobile-First**: Interface optimized for mobile devices, progressively enhanced for desktop
+- **Interface Disappears When Talking**: Minimalist full-screen conversation view with single large button
+- **Voice-First Experience**: Large, prominent microphone button (80px on mobile vs 64px on desktop)
+- **Speed & Natural Feel**: Prioritizing realistic conversation flow above all else
 - Clarity over decoration: Every element serves the learning experience
 - Progressive disclosure: Advanced features don't overwhelm beginners
 - Consistent feedback: Users always know the system's state
@@ -134,9 +138,27 @@
 - Centered in empty content areas
 
 ## Responsive Behavior
-- **Desktop** (lg): Sidebar visible, 3-column stats grid, side-by-side chat layout possible
-- **Tablet** (md): Collapsible sidebar, 2-column grid, full-width chat
-- **Mobile** (base): Hamburger menu, single column, optimized touch targets (min 44px)
+**Mobile-First Breakpoints** (using Tailwind's `md:` at 768px):
+
+- **Mobile** (< 768px): 
+  - Sidebar completely hidden for distraction-free experience
+  - Simplified headers (compact avatar, language name only)
+  - Large microphone button (h-20 w-20 = 80px) for easy touch targets
+  - VAD mode toggle always visible but compact (abbreviated labels: "Push" instead of "Push to Talk", "Auto" instead of "Auto Detect")
+  - Smaller message bubbles (max-w-[85%]) with condensed padding (p-3)
+  - Smaller avatars (h-8 w-8 in messages, h-10 w-10 in headers) and icons
+  - User menu avatar (h-8 w-8 = 32px)
+  - Reduced spacing throughout (p-3, gap-2, space-y-3, gap-1 for VAD toggle)
+  
+- **Desktop** (≥ 768px):
+  - Sidebar visible for navigation and conversation history
+  - Full headers with complete language name and subtitle
+  - Standard microphone button (h-16 w-16 = 64px)
+  - VAD mode toggle with full labels ("Push to Talk", "Auto Detect" with Smart badge)
+  - Larger message bubbles (max-w-2xl) with standard padding (p-4)
+  - Larger avatars (h-10 w-10 in messages, h-12 w-12 in headers) and icons
+  - User menu avatar (h-10 w-10 = 40px)
+  - Standard spacing (p-4, gap-3, space-y-4, gap-2 for VAD toggle)
 
 ## Accessibility
 - Focus indicators on all interactive elements
