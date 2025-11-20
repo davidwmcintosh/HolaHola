@@ -6,6 +6,29 @@ LinguaFlow is an AI-powered language learning application designed for interacti
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+### November 20, 2025 - Text Chat Greeting Restoration
+**Issue:** Backend greeting generation was completely removed (lines 573-574 in server/routes.ts), breaking text chat - no initial greeting appeared for new users. Voice chat greeting was working correctly via OpenAI Realtime API.
+
+**Solution:**
+1. **Added mode parameter** to conversation creation API - frontend passes "text" or "voice" to backend
+2. **Restored conditional greeting generation** - backend generates greeting ONLY when:
+   - New conversation AND mode is "text", OR
+   - Reused conversation has no messages AND mode is "text" (handles edge case)
+3. **Changed default mode** from "voice" to "text" (chat.tsx line 13) to ensure first conversation gets greeting
+4. **Fixed conversation reuse** - changed `forceNewConversation` default from true to false to prevent duplicates on reload
+
+**Files Modified:**
+- `client/src/pages/chat.tsx`: Added mode parameter, changed defaults
+- `server/routes.ts`: Restored backend greeting logic with edge case handling (lines 576-619)
+
+**Testing:**
+- ✅ Text greeting appears after onboarding
+- ✅ No duplicates on page reload
+- ✅ Voice mode unchanged (greeting via Realtime API)
+- ✅ Edge case: Conversation created in voice mode gets greeting when switched to text
+
 ## System Architecture
 
 ### Frontend
