@@ -226,7 +226,56 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
             }
           }));
           
-          console.log('[DEBUG] Greeting logic DISABLED for testing - checking if this prevents 1005 closure');
+          // After configuring session, send initial greeting if conversation is empty
+          // Strategy: Check database first, then mark as sent to prevent duplicates
+          if (!conversationId) {
+            resolve();
+            return;
+          }
+          
+          setTimeout(async () => {
+            // FIRST: Check if we've already processed this conversation's greeting
+            if (hasGreetingBeenSent(conversationId)) {
+              console.log('[VOICE CHAT] Greeting already sent for conversation:', conversationId);
+              return;
+            }
+            
+            try {
+              // SECOND: Check database for existing messages
+              const messagesResponse = await fetch(`/api/conversations/${conversationId}/messages`);
+              const existingMessages = await messagesResponse.json();
+              
+              // THIRD: Mark as sent BEFORE sending to prevent race conditions
+              // (Multiple WebSocket connections might both reach this point, but only first one marks it)
+              markGreetingAsSent(conversationId);
+              console.log('[VOICE CHAT] Marked greeting as sent');
+              
+              if (existingMessages.length === 0) {
+                console.log('[VOICE CHAT] Empty conversation - sending initial greeting request');
+                
+                // Use conversation.item.create to trigger AI greeting
+                ws.send(JSON.stringify({
+                  type: 'conversation.item.create',
+                  item: {
+                    type: 'message',
+                    role: 'user',
+                    content: [{
+                      type: 'input_text',
+                      text: `Hi! I'm ${userName || 'ready to learn'}. Please greet me briefly and ask what I'd like to learn today.`
+                    }]
+                  }
+                }));
+                
+                // Trigger response
+                ws.send(JSON.stringify({ type: 'response.create' }));
+              } else {
+                console.log('[VOICE CHAT] Conversation already has', existingMessages.length, 'messages, skipping greeting');
+              }
+            } catch (error) {
+              console.error('[VOICE CHAT] Failed to check messages for greeting:', error);
+            }
+          }, 500);
+          
           resolve();
         };
 
@@ -804,9 +853,9 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
       </div>
 
       {/* Voice chat area */}
-      <Card className="flex flex-col flex-1 m-4 mt-0">
-        <ScrollArea className="flex-1 p-6">
-        <div className="space-y-4">
+      <Card className="flex flex-col flex-1 m-4 mt-0 overflow-hidden">
+        <ScrollArea className="flex-1">
+        <div className="space-y-4 p-6">
           {!conversationId ? (
             <div className="flex flex-col justify-center items-center h-full text-center text-muted-foreground p-8">
               <MessageSquare className="h-16 w-16 mb-4 opacity-50 animate-pulse" />
