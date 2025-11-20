@@ -221,6 +221,35 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
             }
           }));
           
+          // After configuring session, send initial greeting if conversation is empty
+          setTimeout(async () => {
+            try {
+              const messagesResponse = await fetch(`/api/conversations/${conversationId}/messages`);
+              const existingMessages = await messagesResponse.json();
+              
+              if (existingMessages.length === 0) {
+                console.log('[VOICE CHAT] Empty conversation - sending initial greeting request');
+                // Use conversation.item.create to trigger AI greeting
+                ws.send(JSON.stringify({
+                  type: 'conversation.item.create',
+                  item: {
+                    type: 'message',
+                    role: 'user',
+                    content: [{
+                      type: 'input_text',
+                      text: `Hi! I'm ${userName || 'ready to learn'}. Please greet me briefly and ask what I'd like to learn today.`
+                    }]
+                  }
+                }));
+                
+                // Trigger response
+                ws.send(JSON.stringify({ type: 'response.create' }));
+              }
+            } catch (error) {
+              console.error('[VOICE CHAT] Failed to check messages for greeting:', error);
+            }
+          }, 500);
+          
           resolve();
         };
 
