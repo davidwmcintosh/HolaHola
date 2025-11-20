@@ -13,6 +13,7 @@ export default function Chat() {
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [currentConversationOnboarding, setCurrentConversationOnboarding] = useState<boolean | null>(null);
   const previousLanguageRef = useRef(language);
+  const creationInProgressRef = useRef(false); // Prevent duplicate conversation creation
 
   // Reset conversationId when language changes to trigger new conversation creation
   // BUT NOT if we're currently in onboarding (to prevent race condition)
@@ -44,14 +45,15 @@ export default function Chat() {
   // Auto-create shared conversation
   useEffect(() => {
     const isOnboardingComplete = userName && userName.trim() !== "";
-    const needsConversation = !conversationId && !isCreatingConversation;
+    const needsConversation = !conversationId && !isCreatingConversation && !creationInProgressRef.current;
     const isCurrentlyOnboarding = currentConversationOnboarding === true;
     
-    console.log('[SHARED CHAT] Auto-create check - userName:', userName, 'conversationId:', conversationId, 'isCreating:', isCreatingConversation);
+    console.log('[SHARED CHAT] Auto-create check - userName:', userName, 'conversationId:', conversationId, 'isCreating:', isCreatingConversation, 'inProgress:', creationInProgressRef.current);
     
     if (needsConversation && !isCurrentlyOnboarding) {
       console.log('[SHARED CHAT] Creating shared conversation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)');
       setIsCreatingConversation(true);
+      creationInProgressRef.current = true; // Set flag to prevent duplicate creation
       
       apiRequest("POST", "/api/conversations", {
         language,
@@ -66,11 +68,13 @@ export default function Chat() {
           console.log('[SHARED CHAT] Shared conversation created:', data.id);
           setConversationId(data.id);
           setIsCreatingConversation(false);
+          creationInProgressRef.current = false; // Clear flag on success
           queryClient.invalidateQueries({ queryKey: ["/api/conversations", data.id, "messages"] });
         })
         .catch(err => {
           console.error("[SHARED CHAT] Failed to create conversation:", err);
           setIsCreatingConversation(false);
+          creationInProgressRef.current = false; // Clear flag on error
         });
     }
   }, [language, difficulty, userName, conversationId, isCreatingConversation, currentConversationOnboarding]);
@@ -78,6 +82,7 @@ export default function Chat() {
   const handleNewChat = () => {
     console.log('[SHARED CHAT] User requested new chat - resetting conversation');
     setConversationId(null);
+    creationInProgressRef.current = false; // Reset flag to allow new conversation creation
   };
 
   return (
