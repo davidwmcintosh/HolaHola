@@ -8,7 +8,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### November 20, 2025 - Voice Chat Greeting Duplication & Language Complexity Fixes
+### November 20, 2025 - Voice Chat Greeting Duplication & Comprehensive Beginner Teaching Fixes
 
 #### Greeting Duplication Prevention
 **Issue:** Voice chat was sending duplicate greetings when WebSocket reconnected due to abnormal closure (code 1006), causing multiple greeting messages in the conversation.
@@ -22,7 +22,7 @@ Preferred communication style: Simple, everyday language.
 4. **Maintains localStorage persistence** - Greeting tracker still uses localStorage for cross-session tracking
 
 **Files Modified:**
-- `client/src/components/VoiceChat.tsx`: Reordered greeting logic to check database first (lines 232-283)
+- `client/src/components/VoiceChat.tsx`: Reordered greeting logic to check database first (lines 242-283)
 
 **Testing:**
 - ✅ Greeting appears exactly once for new conversations
@@ -30,23 +30,47 @@ Preferred communication style: Simple, everyday language.
 - ✅ No duplicate greetings on page reload
 - ✅ Greeting tracker persists across browser sessions
 
-#### Beginner Language Complexity Reduction
-**Issue:** AI was using advanced Spanish grammar (conditional/subjunctive forms like "Me gustaría", "quisiera") for beginner-level students, violating the beginner difficulty expectations.
+#### Comprehensive Beginner Teaching System Alignment
+**Issue:** Voice chat (VoiceChat.tsx) and text chat (server/system-prompt.ts) had inconsistent beginner teaching constraints. Voice chat was:
+1. Using advanced grammar (conditional/subjunctive like "Me gustaría", "quisiera")
+2. Missing the "one concept at a time" pacing rule
+3. Missing the 7±2 word limit rule (review after 3-4 words)
+4. Missing structured listen-and-repeat sequence with phonetic breakdowns
 
-**Solution:**
-1. **Explicit tense restrictions** - Added "ONLY use present tense - NO conditional, subjunctive, future, or past tenses" to beginner instructions
-2. **Forbidden examples** - Listed specific verb forms to avoid: "gustaría" (conditional), "quisiera" (subjunctive)
-3. **Correct examples** - Provided simple present tense alternatives: "quiero" (I want), "tengo" (I have), "me gusta" (I like)
-4. **Sentence length limits** - Enforced 5-8 words max per sentence for beginners
+**Solution - Full Alignment with Text Chat Constraints:**
+1. **Language Restrictions:**
+   - ONLY present tense - NO conditional, subjunctive, future, or past tenses
+   - Forbidden verbs: "Me gustaría" (conditional), "quisiera" (subjunctive)
+   - Correct simple verbs: "quiero", "tengo", "me gusta"
+   - Always translate Spanish to English immediately
+
+2. **Listen-and-Repeat Teaching Sequence (7 steps):**
+   - Step 1: INTRODUCE the word
+   - Step 2: SHOW PHONETIC BREAKDOWN with CAPITALIZED stressed syllables
+   - Step 3: SAY IT SLOWLY with pause
+   - Step 4: PROMPT REPETITION
+   - Step 5: PROVIDE ENCOURAGEMENT ("Bueno!", "Perfecto!" or gentle correction)
+   - Step 6: WAIT for student practice before teaching next word
+   - Step 7: Mini-review after 3-4 new words (7±2 rule)
+
+3. **Critical Pacing Rules:**
+   - Teach ONLY ONE new word per response, then STOP
+   - Ask only ONE question per response
+   - DO NOT list multiple words - one at a time only
+   - Provide phonetic breakdowns with CAPITALIZED stressed syllables
+   - After practice, THEN teach next concept in NEXT response
 
 **Files Modified:**
-- `client/src/components/VoiceChat.tsx`: Enhanced beginner system prompt with tense restrictions (lines 205-218)
+- `client/src/components/VoiceChat.tsx`: Comprehensive beginner instructions (lines 205-232)
 
 **Expected Behavior:**
+- Voice and text chat now have identical beginner teaching methodology
 - Beginner responses use ONLY present tense verbs
-- No conditional/subjunctive forms in beginner conversations
-- Sentences remain short and simple (5-8 words max)
-- Spanish phrases still translated immediately to English
+- No conditional/subjunctive forms
+- One word at a time with full listen-and-repeat sequence
+- Phonetic breakdowns with stressed syllable emphasis
+- Regular reviews after 3-4 new words
+- No overwhelming students with multiple questions or concepts
 
 ### November 20, 2025 - Voice Chat Audio & Greeting Fixes
 
