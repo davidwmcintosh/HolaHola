@@ -59,9 +59,11 @@ If unsure, default to: **Extract shared logic to utilities/hooks and import in b
 -   **Routing**: Wouter.
 -   **State Management**: React Context API, TanStack Query.
 -   **UI**: Shadcn/ui (Radix UI base) styled with Tailwind CSS, following Material Design principles, with light/dark mode.
--   **Layout**: Two-column desktop, single-column mobile.
+-   **Layout**: Two-column desktop, single-column mobile with mobile-first responsive design.
 -   **Typography**: Inter (UI text), JetBrains Mono (code/phonetic content).
 -   **UI/UX Decisions**: Prominent "Voice Learning" button with a "Recommended" badge, and a subtle "Type instead" button for text mode, along with a gentle hint bar in text mode encouraging voice learning.
+-   **PWA**: Progressive Web App support with service worker for offline caching, installable to home screen, splash screen, and auto-update notifications.
+-   **Mobile App**: Capacitor configured for iOS and Android native app builds while maintaining 100% code sharing with web version.
 
 ### Backend
 -   **Server**: Express.js on Node.js with TypeScript.
@@ -94,6 +96,8 @@ If unsure, default to: **Extract shared logic to utilities/hooks and import in b
 -   **Unified Chat Architecture**: Both voice and text chat utilize a single `createSystemPrompt()` function for consistent instructions and beginner teaching methodologies (e.g., present tense only, one concept at a time, listen-and-repeat sequence, 7±2 word limit). Greeting logic ensures a single greeting message per conversation. Voice and text modes fetch conversation history identically using server-derived userId to ensure secure, consistent prompts.
 -   **Auto-Generated Conversation Titles**: After 5 messages, AI automatically generates descriptive conversation titles (e.g., "Job Interview Practice", "Ordering at a Restaurant") to help users find and resume specific conversations. Uses structured output for concise, topic-focused titles (3-6 words max).
 -   **Conversation Memory & Resumption**: When students ask "what did we talk about last time?" or "can you remind me?", the tutor naturally references previous conversation titles and offers to continue where they left off. Upon switching to a previous conversation, AI generates a brief context summary (2-3 sentences) reminding students what they were learning, maintaining continuity and reducing cognitive load when resuming past topics. Both voice and text modes access identical conversation history for consistent context across all interactions.
+-   **Mobile-First Responsive Design**: Full responsive layout with breakpoint at 768px (Tailwind `md:`). Mobile view features hidden sidebar, simplified headers, large 80px mic button, compact VAD toggle with abbreviated labels, and condensed spacing. Desktop view shows full sidebar, complete headers with subtitles, standard 64px mic button, and full VAD toggle labels. All avatars and UI elements scale appropriately across breakpoints.
+-   **PWA Install Prompt**: Smart install prompt appears after 3 seconds, can be dismissed for 7 days, and encourages users to add app to home screen for native-like experience.
 
 ## External Dependencies
 
