@@ -38,6 +38,8 @@ Preferred communication style: Simple, everyday language.
 -   **Adaptive Multi-Phase Conversation System**: Gradual transition to target language immersion, adapting to user proficiency.
 -   **User Agency**: AI suggests topics but confirms with the user; features like one-question-per-response.
 -   **Voice Chat**: Real-time voice conversations via OpenAI Realtime API, supporting Semantic Voice Activity Detection (VAD) with low eagerness for learners, Push-to-Talk (default to comply with browser microphone permission requirements), progressive "Listen-and-Repeat", and seamless text/voice mode synchronization. Includes an automatic retry system and enhanced pronunciation feedback. VAD mode defaults to push-to-talk to avoid microphone permission errors on page load.
+    - **Error Handling**: Structured error messaging distinguishes between microphone permission errors, OpenAI server errors, and connection issues. Microphone permission errors display browser-specific guidance (Chrome/Edge, Firefox, Safari) with actionable "Try Again" buttons.
+    - **Accessibility**: ARIA attributes (aria-pressed, aria-label, role) on all voice control buttons for screen reader compatibility.
 -   **Content Guardrails**: Moderation system for appropriate learning content.
 -   **Personalized Learning**: Auto-language detection, scenario-based learning, slow pronunciation with phonetic breakdowns, automatic vocabulary extraction, spaced repetition, streak tracking, progress charts, and auto-difficulty adjustment.
 -   **AI-Generated Educational Images**: Intelligent display of inline images (Unsplash, DALL-E) with caching.
