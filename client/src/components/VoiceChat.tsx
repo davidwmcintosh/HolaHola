@@ -214,19 +214,12 @@ Use a 50/50 mix of ${language} and English. Speak ${language} for main ideas, us
 
 Use mostly ${language} (80-90%) with occasional English explanations for complex grammar. Challenge them with natural, conversational ${language}. Keep responses concise.`;
 
-          // PUSH-TO-TALK MODE: Minimal session config
-          // Response is manually triggered via response.create when button is released
-          console.log('[🔧 CODE VERSION: 2024-11-20-03:23] MINIMAL CONFIG (no transcription)');
+          // PUSH-TO-TALK MODE: ULTRA MINIMAL - just instructions
+          console.log('[🔧 CODE VERSION: 2024-11-20-03:27] ULTRA MINIMAL (instructions only)');
 
-          // Build minimal session config
+          // Build ultra-minimal session config - ONLY instructions
           const sessionConfig: any = {
-            modalities: ['text', 'audio'],
-            instructions: adaptiveInstructions,
-            voice: 'alloy',
-            input_audio_format: 'pcm16',
-            output_audio_format: 'pcm16'
-            // Removed: input_audio_transcription (might be causing 1005)
-            // Removed: turn_detection (manual control only)
+            instructions: adaptiveInstructions
           };
 
           ws.send(JSON.stringify({
