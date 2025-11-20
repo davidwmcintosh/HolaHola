@@ -382,14 +382,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Determine subscription tier and model
+      // NOTE: Both free and pro tiers use the same model - 'gpt-realtime' is not a valid model name
       const subscriptionTier = user.subscriptionTier || 'free';
-      const model = subscriptionTier === 'pro' 
-        ? 'gpt-realtime' 
-        : 'gpt-4o-realtime-preview-2024-12-17';
+      const model = 'gpt-4o-realtime-preview-2024-12-17';
 
       console.log(`[REALTIME TOKEN] Creating ephemeral session for user ${userId}, tier: ${subscriptionTier}, model: ${model}`);
 
       // Create ephemeral session via OpenAI REST API
+      // CRITICAL: Use minimal payload - only model is required
+      // Do NOT send voice, turn_detection, or other config here (send via session.update instead)
       const sessionResponse = await fetch('https://api.openai.com/v1/realtime/sessions', {
         method: 'POST',
         headers: {
@@ -397,8 +398,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model,
-          voice: 'alloy'
+          model
+          // Removed: voice (configure via session.update after connection)
+          // Removed: turn_detection (configure via session.update after connection)
         })
       });
 

@@ -214,8 +214,16 @@ Use a 50/50 mix of ${language} and English. Speak ${language} for main ideas, us
 
 Use mostly ${language} (80-90%) with occasional English explanations for complex grammar. Challenge them with natural, conversational ${language}. Keep responses concise.`;
 
-          // TEST: Skip session.update entirely - use default session from backend
-          console.log('[🔧 CODE VERSION: 2024-11-20-03:31] NO SESSION UPDATE (use defaults)');
+          // Configure session with minimal required fields AFTER connection
+          console.log('[🔧 CODE VERSION: 2024-11-20-03:38] MINIMAL session.update (voice + instructions)');
+
+          ws.send(JSON.stringify({
+            type: 'session.update',
+            session: {
+              voice: 'alloy',
+              instructions: adaptiveInstructions
+            }
+          }));
           
           // After configuring session, send initial greeting if conversation is empty
           // Strategy: Check database first, then mark as sent to prevent duplicates
