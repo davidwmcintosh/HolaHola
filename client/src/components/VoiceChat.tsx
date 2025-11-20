@@ -214,6 +214,16 @@ Use a 50/50 mix of ${language} and English. Speak ${language} for main ideas, us
 
 Use mostly ${language} (80-90%) with occasional English explanations for complex grammar. Challenge them with natural, conversational ${language}. Keep responses concise.`;
 
+          const turnDetectionConfig = {
+            type: 'server_vad',
+            threshold: 0.7,
+            prefix_padding_ms: 300,
+            silence_duration_ms: 700,
+            create_response: false
+          };
+          
+          console.log('[🔧 CODE VERSION: 2024-11-20-02:23] Turn detection config:', turnDetectionConfig);
+
           ws.send(JSON.stringify({
             type: 'session.update',
             session: {
@@ -225,13 +235,7 @@ Use mostly ${language} (80-90%) with occasional English explanations for complex
               input_audio_transcription: {
                 model: 'whisper-1'
               },
-              turn_detection: {
-                type: 'server_vad',
-                threshold: 0.7,  // Increased from 0.5 to reduce false positives from background noise/echo
-                prefix_padding_ms: 300,
-                silence_duration_ms: 700,  // 700ms of silence before committing (balanced for natural speech pauses)
-                create_response: false  // PUSH-TO-TALK MODE: Only create response when user releases button (line 693)
-              }
+              turn_detection: turnDetectionConfig
             }
           }));
           
