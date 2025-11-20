@@ -524,15 +524,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Always create a new conversation to ensure fresh greeting each session
-      const conversation = await storage.createConversation({
-        ...data,
-        userId,
-        isOnboarding,
-        onboardingStep: isOnboarding ? "name" : null,
-        userName: isOnboarding ? null : userName,
-        nativeLanguage: userNativeLanguage || data.nativeLanguage || "english",
-      } as typeof conversations.$inferInsert);
+      // REUSE EXISTING CONVERSATIONS: Check if a recent conversation exists for this user/language
+      // Only create a new one if necessary (prevents creating 100+ conversations)
+      const allConversations = await storage.getUserConversations(userId);
+      const recentConversation = allConversations
+        .filter(c => 
+          c.language === data.language && 
+          c.isOnboarding === isOnboarding &&
+          (!userName || c.userName === userName) // Match userName if provided
+        )
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+      
+      let conversation;
+      
+      if (recentConversation && !req.body.forceNew) {
+        // Reuse existing conversation
+        conversation = recentConversation;
+        console.log('[CONVERSATION REUSE] Using existing conversation:', conversation.id);
+      } else {
+        // Create new conversation only if none exists or explicitly requested
+        conversation = await storage.createConversation({
+          ...data,
+          userId,
+          isOnboarding,
+          onboardingStep: isOnboarding ? "name" : null,
+          userName: isOnboarding ? null : userName,
+          nativeLanguage: userNativeLanguage || data.nativeLanguage || "english",
+        } as typeof conversations.$inferInsert);
+        
+        console.log('[CONVERSATION CREATE] Created new conversation:', conversation.id);
+      }
       
       console.log('[CONVERSATION CREATE] Created conversation:', {
         id: conversation.id,

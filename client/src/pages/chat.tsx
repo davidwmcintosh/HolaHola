@@ -62,6 +62,7 @@ export default function Chat() {
         title: null,
         isOnboarding: !isOnboardingComplete,
         includeConversationHistory: isOnboardingComplete,
+        forceNew: false, // Reuse existing conversation by default
       })
         .then(res => res.json())
         .then(data => {
