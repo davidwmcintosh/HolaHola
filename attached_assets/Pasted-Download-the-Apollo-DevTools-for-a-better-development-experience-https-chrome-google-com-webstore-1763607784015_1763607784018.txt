@@ -1,0 +1,784 @@
+Download the Apollo DevTools for a better development experience: https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+ [LaunchDarkly] LaunchDarkly client initialized
+ Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+28The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+28The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+28The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+ Cache data may be lost when replacing the dealContext field of a Org object.
+
+This could cause additional (usually avoidable) network requests to fetch data that were otherwise cached.
+
+To address this problem (which is not a bug in Apollo Client), either ensure all objects of type OrgDealContext have an ID or a custom merge function, or define a custom merge function for the Org.dealContext field, so InMemoryCache can safely merge these objects:
+
+  existing: {"__typename":"OrgDealContext","dealType":"default","salesContactEmail":null}
+  incoming: {"__typename":"OrgDealContext","dealType":"default"}
+
+For more information about these options, please refer to the documentation:
+
+  * Ensuring entity objects have IDs: https://go.apollo.dev/c/generating-unique-identifiers
+  * Defining custom merge functions: https://go.apollo.dev/c/merging-non-normalized-objects
+
+(anonymous) @ b077aa7fbadf61d7.js:2
+16Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+7Unrecognized feature: 'ambient-light-sensor'.
+7Unrecognized feature: 'battery'.
+7Unrecognized feature: 'execution-while-not-rendered'.
+7Unrecognized feature: 'execution-while-out-of-viewport'.
+7Unrecognized feature: 'layout-animations'.
+7Unrecognized feature: 'legacy-image-formats'.
+7Unrecognized feature: 'navigation-override'.
+7Unrecognized feature: 'oversized-images'.
+7Unrecognized feature: 'publickey-credentials'.
+7Unrecognized feature: 'speaker-selection'.
+7Unrecognized feature: 'unoptimized-images'.
+7Unrecognized feature: 'unsized-media'.
+ Unrecognized feature: 'pointer-lock'.
+z @ ed1e693c96a75807.js:2
+7Allow attribute will take precedence over 'allowfullscreen'.
+7Allow attribute will take precedence over 'allowpaymentrequest'.
+LinguaCoach:1 Access to fetch at 'https://c.adora-cdn.com/sessions/019a9eff-1193-711d-b586-ef04da4cae96/events/token' from origin 'https://replit.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource. If an opaque response serves your needs, set the request's mode to 'no-cors' to fetch the resource with CORS disabled.
+c.adora-cdn.com/sessions/019a9eff-1193-711d-b586-ef04da4cae96/events/token:1 
+        
+        
+       Failed to load resource: net::ERR_FAILED
+7LinguaCoach:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:536 WebSocket connection to 'wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/?token=nFLfoIAcYeUP' failed: 
+setupWebSocket @ 3ca2376d-c3dc-490a-a…ev/@vite/client:536
+3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:536 Uncaught (in promise) DOMException: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=nFLfoIAcYeUP' is invalid.
+    at setupWebSocket (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:536:19)
+    at fallback (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:509:16)
+    at WebSocket.<anonymous> (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:555:7)
+injected.js:37 [LanguageContext] Initializing with language: spanish (from localStorage)
+injected.js:37 [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+injected.js:37 [LanguageContext] Initializing with userName: David (from localStorage)
+injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false inProgress: false
+injected.js:37 [SHARED CHAT] Creating shared conversation... (post-onboarding)
+injected.js:37 [LanguageContext] Hydrating from user preferences: Object
+injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: true inProgress: true
+injected.js:37 [SHARED CHAT] Shared conversation created: 7881d5f9-3184-4110-9e1b-c5b9c0f286bf
+injected.js:37 [VOICE CHAT] Conversation changed, forcing fresh capability check...
+injected.js:37 [REALTIME MANAGER] Connection lock: LOCKED
+injected.js:37 [VOICE CHAT] Fetching ephemeral token for direct OpenAI connection...
+2injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: 7881d5f9-3184-4110-9e1b-c5b9c0f286bf isCreating: false inProgress: false
+injected.js:37 [VOICE CHAT] ✓ Token received, connecting directly to OpenAI with model: gpt-4o-realtime-preview-2024-12-17
+injected.js:37 [REALTIME MANAGER] ✓ Global WebSocket set for conversation: 7881d5f9-3184-4110-9e1b-c5b9c0f286bf
+injected.js:37 [VOICE CHAT] ✓ Connected directly to OpenAI Realtime API!
+injected.js:37 [REALTIME MANAGER] Connection lock: UNLOCKED
+injected.js:37 [🔧 CODE VERSION: 2024-11-20-02:23] Turn detection config: Object
+injected.js:37 [REALTIME EVENT] session.created Object
+injected.js:37 Session created: Object
+injected.js:37 [REALTIME EVENT] session.updated Object
+injected.js:37 [REALTIME MANAGER] Greeting marked as sent for conversation: 7881d5f9-3184-4110-9e1b-c5b9c0f286bf
+injected.js:37 [VOICE CHAT] Marked greeting as sent
+injected.js:37 [VOICE CHAT] Conversation already has 1 messages, skipping greeting
+injected.js:37 [SHARED CHAT] User requested new chat - forcing new conversation
+injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false inProgress: false
+injected.js:37 [SHARED CHAT] Creating shared conversation... (post-onboarding)
+injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: true inProgress: true
+injected.js:37 [SHARED CHAT] Shared conversation created: 648c2c5d-b668-48e6-861a-ede55c3c1d9b
+injected.js:37 [VOICE CHAT] Conversation changed, forcing fresh capability check...
+injected.js:37 [REALTIME MANAGER] Connection lock: LOCKED
+injected.js:37 [VOICE CHAT] Fetching ephemeral token for direct OpenAI connection...
+2injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: 648c2c5d-b668-48e6-861a-ede55c3c1d9b isCreating: false inProgress: false
+injected.js:37 [VOICE CHAT] ✓ Token received, connecting directly to OpenAI with model: gpt-4o-realtime-preview-2024-12-17
+injected.js:37 [REALTIME MANAGER] Closing existing global WebSocket
+injected.js:37 [REALTIME MANAGER] ✓ Global WebSocket set for conversation: 648c2c5d-b668-48e6-861a-ede55c3c1d9b
+injected.js:37 [VOICE CHAT] ✓ Connected directly to OpenAI Realtime API!
+injected.js:37 [REALTIME MANAGER] Connection lock: UNLOCKED
+injected.js:37 [🔧 CODE VERSION: 2024-11-20-02:23] Turn detection config: {type: 'server_vad', threshold: 0.7, prefix_padding_ms: 300, silence_duration_ms: 700, create_response: false}
+injected.js:37 [REALTIME EVENT] session.created {type: 'session.created', event_id: 'event_CdofcXTSvy4Rhl0AE7OOT', session: {…}}
+injected.js:37 Session created: {type: 'session.created', event_id: 'event_CdofcXTSvy4Rhl0AE7OOT', session: {…}}
+injected.js:37 [REALTIME EVENT] session.updated {type: 'session.updated', event_id: 'event_CdofcGtI85f9UN2DhRXJL', session: {…}}
+injected.js:37 WebSocket closed 1005 
+injected.js:37 [REALTIME MANAGER] Closing existing global WebSocket
+injected.js:37 [REALTIME MANAGER] Global WebSocket cleared
+injected.js:37 [REALTIME MANAGER] Connection lock: UNLOCKED
+injected.js:37 [REALTIME MANAGER] Greeting marked as sent for conversation: 648c2c5d-b668-48e6-861a-ede55c3c1d9b
+injected.js:37 [VOICE CHAT] Marked greeting as sent
+injected.js:37 [VOICE CHAT] Conversation already has 1 messages, skipping greeting
+injected.js:37 WebSocket closed 1005 
+injected.js:37 [REALTIME MANAGER] Global WebSocket cleared
+injected.js:37 [REALTIME MANAGER] Connection lock: UNLOCKED
+client:536 WebSocket connection to 'wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/?token=nFLfoIAcYeUP' failed: 
+setupWebSocket @ VM968 client:536
+(anonymous) @ VM968 client:531
+client:536 Uncaught (in promise) DOMException: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=nFLfoIAcYeUP' is invalid.
+    at setupWebSocket (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:536:19)
+    at fallback (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:509:16)
+    at WebSocket.<anonymous> (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:555:7)
+setupWebSocket @ VM968 client:536
+fallback @ VM968 client:509
+(anonymous) @ VM968 client:555
+injected.js:37 [LanguageContext] Initializing with language: spanish (from localStorage)
+injected.js:37 [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+injected.js:37 [LanguageContext] Initializing with userName: David (from localStorage)
+injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false inProgress: false
+injected.js:37 [SHARED CHAT] Creating shared conversation... (post-onboarding)
+injected.js:37 [LanguageContext] Hydrating from user preferences: {targetLanguage: 'spanish', difficultyLevel: 'beginner', firstName: 'David'}
+injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: true inProgress: true
+injected.js:37 [SHARED CHAT] Shared conversation created: 648c2c5d-b668-48e6-861a-ede55c3c1d9b
+injected.js:37 [VOICE CHAT] Conversation changed, forcing fresh capability check...
+injected.js:37 [REALTIME MANAGER] Connection lock: LOCKED
+injected.js:37 [VOICE CHAT] Fetching ephemeral token for direct OpenAI connection...
+2injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: 648c2c5d-b668-48e6-861a-ede55c3c1d9b isCreating: false inProgress: false
+injected.js:37 [VOICE CHAT] ✓ Token received, connecting directly to OpenAI with model: gpt-4o-realtime-preview-2024-12-17
+injected.js:37 [REALTIME MANAGER] ✓ Global WebSocket set for conversation: 648c2c5d-b668-48e6-861a-ede55c3c1d9b
+injected.js:37 [VOICE CHAT] ✓ Connected directly to OpenAI Realtime API!
+injected.js:37 [REALTIME MANAGER] Connection lock: UNLOCKED
+injected.js:37 [🔧 CODE VERSION: 2024-11-20-02:23] Turn detection config: {type: 'server_vad', threshold: 0.7, prefix_padding_ms: 300, silence_duration_ms: 700, create_response: false}
+injected.js:37 [REALTIME EVENT] session.created {type: 'session.created', event_id: 'event_CdohD8iZHUcC4cW4pO4VF', session: {…}}
+injected.js:37 Session created: {type: 'session.created', event_id: 'event_CdohD8iZHUcC4cW4pO4VF', session: {…}}
+injected.js:37 [REALTIME EVENT] session.updated {type: 'session.updated', event_id: 'event_CdohDxumhaRD08FUOu7MU', session: {…}}
+injected.js:37 [VOICE BUTTON] PointerDown - button: 0 conversationId: 648c2c5d-b668-48e6-861a-ede55c3c1d9b capabilityAvailable: true isRecording: false
+injected.js:37 [VOICE BUTTON] Conditions met, calling startRecording()
+injected.js:37 [VOICE CHAT] Starting recording with token: 1 isAiSpeaking: false
+injected.js:37 [VOICE CHAT] Resuming audio playback on user interaction...
+injected.js:37 [VOICE CHAT] Greeting already sent for conversation: 648c2c5d-b668-48e6-861a-ede55c3c1d9b
+audioUtils.ts:25 [Deprecation] The ScriptProcessorNode is deprecated. Use AudioWorkletNode instead. (https://bit.ly/audio-worklet)
+startRecording @ VM1076 audioUtils.ts:25
+await in startRecording (async)
+startRecording @ VM1056 VoiceChat.tsx:465
+onPointerDown @ VM1056 VoiceChat.tsx:1222
+callCallback2 @ VM977 chunk-WERSD76P.js:3674
+invokeGuardedCallbackDev @ VM977 chunk-WERSD76P.js:3699
+invokeGuardedCallback @ VM977 chunk-WERSD76P.js:3733
+invokeGuardedCallbackAndCatchFirstError @ VM977 chunk-WERSD76P.js:3736
+executeDispatch @ VM977 chunk-WERSD76P.js:7014
+processDispatchQueueItemsInOrder @ VM977 chunk-WERSD76P.js:7034
+processDispatchQueue @ VM977 chunk-WERSD76P.js:7043
+dispatchEventsForPlugins @ VM977 chunk-WERSD76P.js:7051
+(anonymous) @ VM977 chunk-WERSD76P.js:7174
+batchedUpdates$1 @ VM977 chunk-WERSD76P.js:18913
+batchedUpdates @ VM977 chunk-WERSD76P.js:3579
+dispatchEventForPluginEventSystem @ VM977 chunk-WERSD76P.js:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ VM977 chunk-WERSD76P.js:5478
+dispatchEvent @ VM977 chunk-WERSD76P.js:5472
+dispatchDiscreteEvent @ VM977 chunk-WERSD76P.js:5449
+Show 15 more frames
+Show less
+injected.js:37 [VOICE CHAT] Recording started successfully with token: 1
+injected.js:37 [REALTIME EVENT] input_audio_buffer.speech_started {type: 'input_audio_buffer.speech_started', event_id: 'event_CdohEb1GQDNFF9T1X7lU1', audio_start_ms: 180, item_id: 'item_CdohEOWJqL7BUd07FJCkn'}
+injected.js:37 Speech started
+injected.js:37 [VOICE CHAT] Stop requested, recordingToken: 1 latestToken: 1 isRecording: true hasRecorder: true
+injected.js:37 [VOICE CHAT] Stopped recording token: 1 stoppedToken now: 1
+injected.js:37 [VOICE CHAT] Stopping active recorder
+injected.js:37 [VOICE CHAT] Committing audio buffer and requesting response
+injected.js:37 [REALTIME EVENT] input_audio_buffer.committed {type: 'input_audio_buffer.committed', event_id: 'event_CdohF17e2F9R8MTIiLHbd', previous_item_id: null, item_id: 'item_CdohEOWJqL7BUd07FJCkn'}
+injected.js:37 [REALTIME EVENT] conversation.item.created {type: 'conversation.item.created', event_id: 'event_CdohFjyPfFaE3nXfTPEAL', previous_item_id: null, item: {…}}
+injected.js:37 [REALTIME EVENT] response.created {type: 'response.created', event_id: 'event_CdohFoOtkIebT0fgeZVjh', response: {…}}
+injected.js:37 [VOICE CHAT] AI response created - blocking new recordings
+injected.js:37 [REALTIME EVENT] response.output_item.added {type: 'response.output_item.added', event_id: 'event_CdohG3Xogh0tn8ykvZ56k', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', output_index: 0, item: {…}}
+injected.js:37 [REALTIME EVENT] conversation.item.created {type: 'conversation.item.created', event_id: 'event_CdohGCNoV83j3gb7efnoU', previous_item_id: 'item_CdohEOWJqL7BUd07FJCkn', item: {…}}
+injected.js:37 [REALTIME EVENT] response.content_part.added {type: 'response.content_part.added', event_id: 'event_CdohGWBRUjWoz33wg8UdY', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGeJb3Ims4eOqUYJet', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGn1gATBnHLJXLSo5D', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGC1BEIoFqu0mbNEX9', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohG9GPJuHc6Jssgm2vV', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGN4QZfNl0ZDFEqekM', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGVY81KF20FlTmMKC1', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohGKo7b1rGA1k2CfKF3', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 6400
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 1
+injected.js:37 [AUDIO PLAYER] Starting playback...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 0
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohGaqYPLkuut2lzEvuI', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 9600
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 1
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 0
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohGba1L9x3W89LOKT0P', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 1
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGNAGvUBb86Tdr7H8B', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGOVyFYUFpDcTlHEaR', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohG0yjqjQNXzVclkMUx', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohGx9LRXApMag0Pt9ZB', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 2
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohGCPLXxnkmcdd0QPBw', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 3
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGFT8Y4o6YLRsGHDkP', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohG974IiorfoeUFcGO8', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGjctIuFpVcuYcnkmV', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 2
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohGNZISUhHop1C84KD0', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 3
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohG1dBCML0D0zrW9TkA', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 4
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohGkDIsPivhmojwpylu', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 5
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGidM750Wv7VR7ZvZO', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGMI2BYEHFFWRPSUPt', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGa21LpYsRG258aBYv', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGKG9e5JrRU7d9o7z1', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGgcKNOqjvf23QeoAb', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGM65TzkIKJfn7xMa4', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohG6XwJjaqf0meUvcss', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGgfPhOCrLnZnpOJYq', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGwcvtwlDK7C7cFbPc', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohGU8L1FqnFtw3gbEuH', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 6
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohGgm5rUKEjwGoii59H', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 7
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohG7s1c91mw4kAT3GiW', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 8
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohG4TfpnOFdcRY1F6Jo', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 9
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 8
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohG5is3oyDZc8Kr1Uuh', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 9
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohGnSsq6fTRmBSywVpe', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 10
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGKNwzJYonxv6PmBTG', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGfXYbGEbFV8XZ4FRY', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGcM2ebZlUjV8YqMsD', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGXjBwFobikipow6YP', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGdLcwRHozmFDbPts5', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohG3XKeBsgwix5Qvu02', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGfL4YaBPU0Vvny7Au', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohGtB8eZgasVY2lvotI', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohHW5oRLCEaNoF9SKkm', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohHvRFlrBApgelYBgfg', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohHTCStxsouu3oE1S1t', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohHJIySZiktgZBBXRxs', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohHOAYkn6wBMK8FMEae', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohHI5kcAcYHJHgtiSPz', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohH9IyCIS4NBV5pagK9', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 11
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 10
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohHxWHEClOcWlREURvy', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 11
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohHzGHqP1lJib53hbaC', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 12
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohHLYZZvzhhZeBXO48Z', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 13
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohHLxR9vUYKJHJQzWf4', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 14
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohHRFHLMNr9VayPEXfC', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 15
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohH9tTnixOUftDBpCUH', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 16
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 15
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohHV5FqtJlozpf8c524', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 16
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohHz67KAB7NfKnU6gSg', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 17
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohHfhXYCNPTV7YocuSN', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohH97Mew3VBK4iI5uKH', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohHTW9Iw7ybFOwPEtpr', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohH2UVnjo3crFin3HjU', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohHc4PpunDDcwCadNZU', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohHBJtPHcuTa9eKPn7U', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohHxPc6pVHNSWxoHBbC', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohHXcujKLJBPcQe92ES', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohHDdkgV1qeMUzmyXqf', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohHRZRFZbQwD9OWLeZp', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohHmw23SukGWKKrAEAJ', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 18
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohHnk7C19SuZ6XtRlnc', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 19
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 18
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohH6sXBpq5oqrnBAe4l', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 19
+injected.js:37 [REALTIME EVENT] conversation.item.input_audio_transcription.delta {type: 'conversation.item.input_audio_transcription.delta', event_id: 'event_CdohHzu4yyBoWCt63dFUu', item_id: 'item_CdohEOWJqL7BUd07FJCkn', content_index: 0, delta: "Let's start fresh.", …}
+injected.js:37 [REALTIME EVENT] conversation.item.input_audio_transcription.completed {type: 'conversation.item.input_audio_transcription.completed', event_id: 'event_CdohHVxFZe27uEuwqfl6j', item_id: 'item_CdohEOWJqL7BUd07FJCkn', content_index: 0, transcript: "Let's start fresh.", …}
+injected.js:37 [VOICE CHAT] Saving user message for item_id: item_CdohEOWJqL7BUd07FJCkn
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohHbK9qdIDeFXI9KbUF', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 20
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohHSMcv0FYn9tNnUASa', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 21
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohHpUJ8MxbZ7kGBZKYZ', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 22
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohHNw72o0dx8DT0Rnfc', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 23
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohH88W6qveBggM4PXdg', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 24
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohHpvxPt9K66KcDjfYp', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 25
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohHxavHEgtex9cwp0Rz', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 24
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohHYN7DessCH1FIG03O', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohHXnQA8oFYlUsV5ioe', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohHtNXdgAt48or6l6w6', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohH1TqMDA9JjS3x5cus', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.delta {type: 'response.audio_transcript.delta', event_id: 'event_CdohHxKs1M2B8pAVtQKaX', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohHoJsNJAJ9WWJJtyt1', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 25
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohIQRlw5bSwhBM77RwH', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 26
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohIP9CzHS8yf4RsrRQd', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 27
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohI7JmUkFdsXwMJz4lo', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 28
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 27
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohI05xXdr41f3hcAW8u', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 28
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohIsNBbdxwguwGJvVSI', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 29
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohIx4YSMOADI1gmRBgH', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 30
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohIKkihUrzdfy0BI1r2', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 31
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohIOobbOZpJqsXCwLvG', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 32
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohITmXzfzzbNcXpDBmu', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 33
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 32
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohITmMHtCiyDxLhTp2w', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 16000
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 33
+injected.js:37 [REALTIME EVENT] response.audio.delta {type: 'response.audio.delta', event_id: 'event_CdohIMln05ONBjqLbxXf7', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [AUDIO] Playing audio chunk, size: 44800
+injected.js:37 [AUDIO PLAYER] playAudio called, AudioContext state: running
+injected.js:37 [AUDIO PLAYER] AudioContext is already running: running
+injected.js:37 [AUDIO PLAYER] Audio chunk added to queue. Queue size: 34
+injected.js:37 [REALTIME EVENT] response.audio.done {type: 'response.audio.done', event_id: 'event_CdohIAqU9qoVd0S6zRipc', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.audio_transcript.done {type: 'response.audio_transcript.done', event_id: 'event_CdohIWSlM5uvoK2AEZb62', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [VOICE CHAT] Saving assistant message for response_id: resp_CdohFCKu7lApb1IYpoCOG
+injected.js:37 [REALTIME EVENT] response.content_part.done {type: 'response.content_part.done', event_id: 'event_CdohIKhLf8sxAms7tYFTG', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', item_id: 'item_CdohFCwMmZptfxhkG3iUa', output_index: 0, …}
+injected.js:37 [REALTIME EVENT] response.output_item.done {type: 'response.output_item.done', event_id: 'event_CdohIYNr7BCzcnv8Ol9Nj', response_id: 'resp_CdohFCKu7lApb1IYpoCOG', output_index: 0, item: {…}}
+injected.js:37 [REALTIME EVENT] response.done {type: 'response.done', event_id: 'event_CdohIIw3JpFZpga9JyQAR', response: {…}}
+injected.js:37 [VOICE CHAT] AI response done, status: completed
+injected.js:37 [REALTIME EVENT] rate_limits.updated {type: 'rate_limits.updated', event_id: 'event_CdohIhyl5SHpXUHhhz4yi', rate_limits: Array(1)}
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 33
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 32
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 31
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 30
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 29
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 28
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 27
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 26
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 25
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 24
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 23
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 22
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 21
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 20
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 19
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 18
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 17
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 16
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 15
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 14
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 13
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 12
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 11
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 10
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 9
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 8
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 7
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 6
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 5
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 4
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 3
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 2
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 1
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:214 
+        
+        
+       POST https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/api/pronunciation-scores/analyze 400 (Bad Request)
+apply @ VM967 injected.js:214
+apiRequest @ VM989 queryClient.ts:9
+ws.onmessage @ VM1056 VoiceChat.tsx:262
+injected.js:37 Failed to analyze pronunciation: Error: 400: {"error":"messageId, conversationId, and transcribedText are required"}
+    at throwIfResNotOk (queryClient.ts:5:11)
+    at async apiRequest (queryClient.ts:15:3)
+    at async ws.onmessage (VoiceChat.tsx:262:42)
+(anonymous) @ VM967 injected.js:37
+ws.onmessage @ VM1056 VoiceChat.tsx:276
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Playing chunk, queue remaining: 0
+injected.js:37 [AUDIO PLAYER] source.start() called successfully
+injected.js:37 [AUDIO PLAYER] Chunk finished, playing next...
+injected.js:37 [AUDIO PLAYER] Queue empty, stopping playback
+client:536 WebSocket connection to 'wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/?token=nFLfoIAcYeUP' failed: 
+setupWebSocket @ client:536
+(anonymous) @ client:531
+client:536 Uncaught (in promise) DOMException: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=nFLfoIAcYeUP' is invalid.
+    at setupWebSocket (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:536:19)
+    at fallback (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:509:16)
+    at WebSocket.<anonymous> (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:555:7)
+setupWebSocket @ client:536
+fallback @ client:509
+(anonymous) @ client:555
+injected.js:37 [LanguageContext] Initializing with language: spanish (from localStorage)
+injected.js:37 [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+injected.js:37 [LanguageContext] Initializing with userName: David (from localStorage)
+injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false inProgress: false
+injected.js:37 [SHARED CHAT] Creating shared conversation... (post-onboarding)
+injected.js:37 [LanguageContext] Hydrating from user preferences: {targetLanguage: 'spanish', difficultyLevel: 'beginner', firstName: 'David'}
+injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: true inProgress: true
+injected.js:37 [SHARED CHAT] Shared conversation created: 648c2c5d-b668-48e6-861a-ede55c3c1d9b
+injected.js:37 [VOICE CHAT] Conversation changed, forcing fresh capability check...
+injected.js:37 [REALTIME MANAGER] Connection lock: LOCKED
+injected.js:37 [VOICE CHAT] Fetching ephemeral token for direct OpenAI connection...
+2injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: 648c2c5d-b668-48e6-861a-ede55c3c1d9b isCreating: false inProgress: false
+injected.js:37 [VOICE CHAT] ✓ Token received, connecting directly to OpenAI with model: gpt-4o-realtime-preview-2024-12-17
+injected.js:37 [REALTIME MANAGER] ✓ Global WebSocket set for conversation: 648c2c5d-b668-48e6-861a-ede55c3c1d9b
+injected.js:37 [VOICE CHAT] ✓ Connected directly to OpenAI Realtime API!
+injected.js:37 [REALTIME MANAGER] Connection lock: UNLOCKED
+injected.js:37 [🔧 CODE VERSION: 2024-11-20-02:23] Turn detection config: {type: 'server_vad', threshold: 0.7, prefix_padding_ms: 300, silence_duration_ms: 700, create_response: false}
+injected.js:37 [REALTIME EVENT] session.created {type: 'session.created', event_id: 'event_CdojzEE80SSZHtdS08FYv', session: {…}}
+injected.js:37 Session created: {type: 'session.created', event_id: 'event_CdojzEE80SSZHtdS08FYv', session: {…}}
+injected.js:37 [REALTIME EVENT] session.updated {type: 'session.updated', event_id: 'event_Cdojztp1UQ2S7GE1dDew1', session: {…}}
+injected.js:37 [VOICE CHAT] Greeting already sent for conversation: 648c2c5d-b668-48e6-861a-ede55c3c1d9b
+client:536 WebSocket connection to 'wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/?token=x1sCuMWa2Wmf' failed: 
+setupWebSocket @ client:536
+(anonymous) @ client:531
+client:536 Uncaught (in promise) DOMException: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=x1sCuMWa2Wmf' is invalid.
+    at setupWebSocket (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:536:19)
+    at fallback (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:509:16)
+    at WebSocket.<anonymous> (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:555:7)
+setupWebSocket @ client:536
+fallback @ client:509
+(anonymous) @ client:555
+injected.js:37 [LanguageContext] Initializing with language: spanish (from localStorage)
+injected.js:37 [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+injected.js:37 [LanguageContext] Initializing with userName: David (from localStorage)
+injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false inProgress: false
+injected.js:37 [SHARED CHAT] Creating shared conversation... (post-onboarding)
+injected.js:37 [LanguageContext] Hydrating from user preferences: {targetLanguage: 'spanish', difficultyLevel: 'beginner', firstName: 'David'}
+injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: true inProgress: true
+injected.js:37 [SHARED CHAT] Shared conversation created: 25ddbc21-f88c-42da-805a-b76fcccd7d43
+injected.js:37 [VOICE CHAT] Conversation changed, forcing fresh capability check...
+injected.js:37 [REALTIME MANAGER] Connection lock: LOCKED
+injected.js:37 [VOICE CHAT] Fetching ephemeral token for direct OpenAI connection...
+2injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: 25ddbc21-f88c-42da-805a-b76fcccd7d43 isCreating: false inProgress: false
+injected.js:37 [VOICE CHAT] ✓ Token received, connecting directly to OpenAI with model: gpt-4o-realtime-preview-2024-12-17
+injected.js:37 [REALTIME MANAGER] ✓ Global WebSocket set for conversation: 25ddbc21-f88c-42da-805a-b76fcccd7d43
+injected.js:37 [VOICE CHAT] ✓ Connected directly to OpenAI Realtime API!
+injected.js:37 [REALTIME MANAGER] Connection lock: UNLOCKED
+injected.js:37 [🔧 CODE VERSION: 2024-11-20-02:30] Push-to-talk mode: turn_detection = null
+injected.js:37 [REALTIME EVENT] session.created {type: 'session.created', event_id: 'event_CdomjhFxfrJyRQ0iqbBkH', session: {…}}
+injected.js:37 Session created: {type: 'session.created', event_id: 'event_CdomjhFxfrJyRQ0iqbBkH', session: {…}}
+injected.js:37 [REALTIME EVENT] session.updated {type: 'session.updated', event_id: 'event_CdomkbPSpDX7qqzp759VE', session: {…}}
+injected.js:37 [REALTIME MANAGER] Greeting marked as sent for conversation: 25ddbc21-f88c-42da-805a-b76fcccd7d43
+injected.js:37 [VOICE CHAT] Marked greeting as sent
+injected.js:37 [VOICE CHAT] Conversation already has 1 messages, skipping greeting
+ [Coframe] Mutation callback infinite loop protection triggered, disconnecting mutation observer {0: MutationRecord}
+(anonymous) @ b077aa7fbadf61d7.js:2
+o @ cf.js?config=%257B%2522projectId%2522%253A%252268c9ad4d4cddb58cf3a1f93d%2522%252C%2522startTime%2522%253A1763604110016%252C%2522timeoutMs%2522%253A1000%252C%2522currentUrl%2522%253A%2522https%253A%252F%252Freplit.com%252Ft%252Fdakota-coding%252Frepls%252FLinguaCoach%2522%252C%2522trackingOnly%2522%253Atrue%257D:10
+error @ cf.js?config=%257B%2522projectId%2522%253A%252268c9ad4d4cddb58cf3a1f93d%2522%252C%2522startTime%2522%253A1763604110016%252C%2522timeoutMs%2522%253A1000%252C%2522currentUrl%2522%253A%2522https%253A%252F%252Freplit.com%252Ft%252Fdakota-coding%252Frepls%252FLinguaCoach%2522%252C%2522trackingOnly%2522%253Atrue%257D:10
+(anonymous) @ cf.js?config=%257B%2522projectId%2522%253A%252268c9ad4d4cddb58cf3a1f93d%2522%252C%2522startTime%2522%253A1763604110016%252C%2522timeoutMs%2522%253A1000%252C%2522currentUrl%2522%253A%2522https%253A%252F%252Freplit.com%252Ft%252Fdakota-coding%252Frepls%252FLinguaCoach%2522%252C%2522trackingOnly%2522%253Atrue%257D:10
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+stallwart.build.js:1 stallwart: failed ping 3
+ Unrecognized feature: 'pointer-lock'.
+z @ ed1e693c96a75807.js:2
+(anonymous) @ ed1e693c96a75807.js:2
+iA @ ed1e693c96a75807.js:2
+iV @ ed1e693c96a75807.js:2
+iU @ ed1e693c96a75807.js:2
+i_ @ ed1e693c96a75807.js:2
+C @ ed1e693c96a75807.js:2
+M @ ed1e693c96a75807.js:2
+client:536 WebSocket connection to 'wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/?token=dbuXnMdfPTe1' failed: 
+setupWebSocket @ client:536
+(anonymous) @ client:531
+client:536 Uncaught (in promise) DOMException: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=dbuXnMdfPTe1' is invalid.
+    at setupWebSocket (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:536:19)
+    at fallback (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:509:16)
+    at WebSocket.<anonymous> (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:555:7)
+setupWebSocket @ client:536
+fallback @ client:509
+(anonymous) @ client:555
+injected.js:37 [LanguageContext] Initializing with language: spanish (from localStorage)
+injected.js:37 [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+injected.js:37 [LanguageContext] Initializing with userName: David (from localStorage)
+injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false inProgress: false
+injected.js:37 [SHARED CHAT] Creating shared conversation... (post-onboarding)
+injected.js:37 [LanguageContext] Hydrating from user preferences: {targetLanguage: 'spanish', difficultyLevel: 'beginner', firstName: 'David'}
+injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: true inProgress: true
+injected.js:37 [SHARED CHAT] Shared conversation created: 33912032-4f79-4034-8fbc-458ccf382b9c
+injected.js:37 [VOICE CHAT] Conversation changed, forcing fresh capability check...
+injected.js:37 [REALTIME MANAGER] Connection lock: LOCKED
+injected.js:37 [VOICE CHAT] Fetching ephemeral token for direct OpenAI connection...
+2injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: 33912032-4f79-4034-8fbc-458ccf382b9c isCreating: false inProgress: false
+injected.js:37 [VOICE CHAT] ✓ Token received, connecting directly to OpenAI with model: gpt-4o-realtime-preview-2024-12-17
+injected.js:37 [REALTIME MANAGER] ✓ Global WebSocket set for conversation: 33912032-4f79-4034-8fbc-458ccf382b9c
+injected.js:37 [VOICE CHAT] ✓ Connected directly to OpenAI Realtime API!
+injected.js:37 [REALTIME MANAGER] Connection lock: UNLOCKED
+injected.js:37 [🔧 CODE VERSION: 2024-11-20-02:35] Push-to-talk: manual response.create on button release
+injected.js:37 [REALTIME EVENT] session.created {type: 'session.created', event_id: 'event_CdowOg8vm0HsYg2msvxsz', session: {…}}
+injected.js:37 Session created: {type: 'session.created', event_id: 'event_CdowOg8vm0HsYg2msvxsz', session: {…}}
+injected.js:37 [REALTIME EVENT] session.updated {type: 'session.updated', event_id: 'event_CdowOA96QPiXMNVvlf8gC', session: {…}}
+injected.js:37 [REALTIME MANAGER] Greeting marked as sent for conversation: 33912032-4f79-4034-8fbc-458ccf382b9c
+injected.js:37 [VOICE CHAT] Marked greeting as sent
+injected.js:37 [VOICE CHAT] Conversation already has 1 messages, skipping greeting
+client:536 WebSocket connection to 'wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/?token=_KJszsPXRr-C' failed: 
+setupWebSocket @ client:536
+(anonymous) @ client:531
+client:536 Uncaught (in promise) DOMException: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=_KJszsPXRr-C' is invalid.
+    at setupWebSocket (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:536:19)
+    at fallback (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:509:16)
+    at WebSocket.<anonymous> (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:555:7)
+setupWebSocket @ client:536
+fallback @ client:509
+(anonymous) @ client:555
+injected.js:37 [LanguageContext] Initializing with language: spanish (from localStorage)
+injected.js:37 [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+injected.js:37 [LanguageContext] Initializing with userName: David (from localStorage)
+injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false inProgress: false
+injected.js:37 [SHARED CHAT] Creating shared conversation... (post-onboarding)
+injected.js:37 [LanguageContext] Hydrating from user preferences: {targetLanguage: 'spanish', difficultyLevel: 'beginner', firstName: 'David'}
+injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: true inProgress: true
+injected.js:37 [SHARED CHAT] Shared conversation created: c9f8268f-ef6d-468b-abff-0a7826d89d97
+injected.js:37 [VOICE CHAT] Conversation changed, forcing fresh capability check...
+injected.js:37 [REALTIME MANAGER] Connection lock: LOCKED
+injected.js:37 [VOICE CHAT] Fetching ephemeral token for direct OpenAI connection...
+2injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: c9f8268f-ef6d-468b-abff-0a7826d89d97 isCreating: false inProgress: false
+injected.js:37 [VOICE CHAT] ✓ Token received, connecting directly to OpenAI with model: gpt-4o-realtime-preview-2024-12-17
+injected.js:37 [REALTIME MANAGER] ✓ Global WebSocket set for conversation: c9f8268f-ef6d-468b-abff-0a7826d89d97
+injected.js:37 [VOICE CHAT] ✓ Connected directly to OpenAI Realtime API!
+injected.js:37 [REALTIME MANAGER] Connection lock: UNLOCKED
+injected.js:37 [🔧 CODE VERSION: 2024-11-20-02:42] Push-to-talk: turn_detection = { type: "none" }
+injected.js:37 [REALTIME EVENT] session.created {type: 'session.created', event_id: 'event_Cdp0LZV9Dh2Z9ktNv4WUk', session: {…}}
+injected.js:37 Session created: {type: 'session.created', event_id: 'event_Cdp0LZV9Dh2Z9ktNv4WUk', session: {…}}
+injected.js:37 [REALTIME EVENT] error {type: 'error', event_id: 'event_Cdp0LLb1dEnxdSSsDpp6x', error: {…}}
+injected.js:37 Realtime API error: {type: 'error', event_id: 'event_Cdp0LLb1dEnxdSSsDpp6x', error: {…}}
+(anonymous) @ injected.js:37
+ws.onmessage @ VoiceChat.tsx:426
+injected.js:37 [REALTIME MANAGER] Greeting marked as sent for conversation: c9f8268f-ef6d-468b-abff-0a7826d89d97
+injected.js:37 [VOICE CHAT] Marked greeting as sent
+injected.js:37 [VOICE CHAT] Conversation already has 1 messages, skipping greeting
+stallwart.build.js:1 stallwart: failed ping 1
+client:536 WebSocket connection to 'wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/?token=9qh58Z0Fpi_G' failed: 
+setupWebSocket @ client:536
+(anonymous) @ client:531
+client:536 Uncaught (in promise) DOMException: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=9qh58Z0Fpi_G' is invalid.
+    at setupWebSocket (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:536:19)
+    at fallback (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:509:16)
+    at WebSocket.<anonymous> (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:555:7)
+setupWebSocket @ client:536
+fallback @ client:509
+(anonymous) @ client:555
+injected.js:37 [LanguageContext] Initializing with language: spanish (from localStorage)
+injected.js:37 [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+injected.js:37 [LanguageContext] Initializing with userName: David (from localStorage)
+injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false inProgress: false
+injected.js:37 [SHARED CHAT] Creating shared conversation... (post-onboarding)
+injected.js:37 [LanguageContext] Hydrating from user preferences: {targetLanguage: 'spanish', difficultyLevel: 'beginner', firstName: 'David'}
+injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: true inProgress: true
+injected.js:37 [SHARED CHAT] Shared conversation created: c9f8268f-ef6d-468b-abff-0a7826d89d97
+injected.js:37 [VOICE CHAT] Conversation changed, forcing fresh capability check...
+injected.js:37 [REALTIME MANAGER] Connection lock: LOCKED
+injected.js:37 [VOICE CHAT] Fetching ephemeral token for direct OpenAI connection...
+2injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: c9f8268f-ef6d-468b-abff-0a7826d89d97 isCreating: false inProgress: false
+injected.js:37 [VOICE CHAT] ✓ Token received, connecting directly to OpenAI with model: gpt-4o-realtime-preview-2024-12-17
+injected.js:37 [REALTIME MANAGER] ✓ Global WebSocket set for conversation: c9f8268f-ef6d-468b-abff-0a7826d89d97
+injected.js:37 [VOICE CHAT] ✓ Connected directly to OpenAI Realtime API!
+injected.js:37 [REALTIME MANAGER] Connection lock: UNLOCKED
+injected.js:37 [🔧 CODE VERSION: 2024-11-20-02:52] Push-to-talk with server_vad (high threshold)
+injected.js:37 [REALTIME EVENT] session.created {type: 'session.created', event_id: 'event_Cdp2znXTtVQbcEx8O0KU6', session: {…}}
+injected.js:37 Session created: {type: 'session.created', event_id: 'event_Cdp2znXTtVQbcEx8O0KU6', session: {…}}
+injected.js:37 [REALTIME EVENT] session.updated {type: 'session.updated', event_id: 'event_Cdp2zKZxd1uP1T7xn6aS9', session: {…}}
+injected.js:37 [VOICE CHAT] Greeting already sent for conversation: c9f8268f-ef6d-468b-abff-0a7826d89d97
+stallwart.build.js:1 stallwart: failed ping 1
