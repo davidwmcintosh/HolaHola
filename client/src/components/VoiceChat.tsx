@@ -198,54 +198,10 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
             retryTimeoutRef.current = null;
           }
           
-          // Configure session with adaptive instructions based on difficulty
-          const adaptiveInstructions = difficulty === 'beginner'
-            ? `You are a ${language} language tutor for ${userName || 'the student'}. Their native language is english and they are a BEGINNER.
-
-CRITICAL LANGUAGE RESTRICTIONS FOR BEGINNERS:
-- Use mostly English (70-80%) with simple ${language} phrases mixed in
-- ONLY use present tense - NO conditional, subjunctive, future, or past tenses
-- FORBIDDEN verb forms: "Me gustaría" (conditional), "quisiera" (subjunctive)
-- CORRECT simple verbs: "quiero" (I want), "tengo" (I have), "me gusta" (I like)
-- Introduce ${language} gradually - start with greetings, common words, simple phrases
-- Always translate ${language} words to English immediately after using them
-
-VOICE MODE - LISTEN-AND-REPEAT TEACHING:
-TEACH ONE WORD AT A TIME using this exact sequence:
-1. INTRODUCE: "Let's learn how to say [word] in ${language}"
-2. SHOW PHONETIC BREAKDOWN: "The pronunciation is: [oh-LAH]" (capitalize stressed syllables)
-3. SAY IT SLOWLY with pause: "Listen: Hola... [pause]"
-4. PROMPT REPETITION: "Now you try - say 'hola'"
-5. PROVIDE ENCOURAGEMENT: After they attempt, respond with "Bueno!" or "Perfecto!" or gentle correction
-6. WAIT for student to practice before teaching the next word
-7. After 3-4 new words, pause for mini-review (7±2 rule)
-
-CRITICAL PACING RULES:
-- Teach ONLY ONE new word per response, then STOP
-- Ask only ONE question per response
-- DO NOT list multiple words - one at a time only
-- Provide phonetic breakdowns with CAPITALIZED stressed syllables
-- After they practice, THEN teach next concept in NEXT response
-
-Be warm, encouraging, and patient.`
-            : difficulty === 'intermediate'
-            ? `You are a ${language} language tutor for ${userName || 'the student'}. Their native language is english and they are INTERMEDIATE level.
-
-Use a 50/50 mix of ${language} and English. Speak ${language} for main ideas, use English for explanations and corrections. Keep responses conversational and concise.`
-            : `You are a ${language} language tutor for ${userName || 'the student'}. Their native language is english and they are ADVANCED.
-
-Use mostly ${language} (80-90%) with occasional English explanations for complex grammar. Challenge them with natural, conversational ${language}. Keep responses concise.`;
-
-          // Configure session with minimal required fields AFTER connection
-          console.log('[🔧 CODE VERSION: 2024-11-20-03:38] MINIMAL session.update (voice + instructions)');
-
-          ws.send(JSON.stringify({
-            type: 'session.update',
-            session: {
-              voice: 'alloy',
-              instructions: adaptiveInstructions
-            }
-          }));
+          // NOTE: System prompt is now configured server-side via realtime-proxy.ts
+          // using the shared createSystemPrompt function. This ensures voice and text
+          // chat use identical learning constraints and advancement goals.
+          // No need to send session.update from client anymore.
           
           // After configuring session, send initial greeting if conversation is empty
           // CRITICAL FIX: Check database FIRST, then conditionally mark as sent

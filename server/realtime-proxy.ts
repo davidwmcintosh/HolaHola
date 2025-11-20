@@ -166,11 +166,34 @@ export function setupRealtimeProxy(server: Server) {
       // Handle OpenAI connection open
       openaiWs.on('open', () => {
         console.log('Connected to OpenAI Realtime API');
-        console.log('TESTING: Not sending session.update - using default session from playground');
         
-        // HYPOTHESIS: The playground works because it doesn't immediately send session.update
-        // Let's test connecting with NO configuration changes at all
-        // Just keep the connection open and see if we get errors
+        // Generate unified system prompt using shared createSystemPrompt function
+        // This ensures voice and text chat use identical learning constraints
+        const systemPrompt = createSystemPrompt(
+          language,
+          difficulty,
+          messageCount,
+          true, // isVoiceMode = true
+          topic,
+          undefined, // previousConversations (not needed for voice)
+          nativeLanguage,
+          undefined, // dueVocabulary (not needed for realtime)
+          undefined  // sessionVocabulary (not needed for realtime)
+        );
+        
+        console.log('[REALTIME PROXY] Sending unified system prompt to OpenAI');
+        
+        // Configure session with voice settings and unified instructions
+        openaiWs.send(JSON.stringify({
+          type: 'session.update',
+          session: {
+            voice: 'alloy',
+            instructions: systemPrompt,
+            input_audio_transcription: {
+              model: 'whisper-1'
+            }
+          }
+        }));
       });
 
       // Handle errors
