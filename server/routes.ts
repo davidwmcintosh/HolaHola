@@ -572,9 +572,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Generate greeting for TEXT mode only (voice mode handles its own greeting)
       const mode = req.body.mode || "text"; // Default to text if not specified
-      const shouldGenerateGreeting = isNewConversation && mode === "text";
       
-      if (shouldGenerateGreeting) {
+      // Check if conversation needs a greeting
+      // Generate greeting when:
+      // 1. New conversation in text mode, OR
+      // 2. Reused conversation in text mode that has no messages (was created in voice mode)
+      let needsGreeting = false;
+      
+      if (mode === "text") {
+        if (isNewConversation) {
+          needsGreeting = true;
+          console.log('[GREETING] New text conversation needs greeting');
+        } else {
+          // Check if reused conversation has any messages
+          const existingMessages = await storage.getMessagesByConversation(conversation.id);
+          if (existingMessages.length === 0) {
+            needsGreeting = true;
+            console.log('[GREETING] Reused conversation has no messages, needs greeting for text mode');
+          }
+        }
+      }
+      
+      if (needsGreeting) {
         console.log('[GREETING] Generating backend greeting for text mode');
         
         // Create personalized greeting for text chat
@@ -593,7 +612,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (mode === "voice") {
         console.log('[GREETING] Skipping backend greeting for voice mode - VoiceChat handles it');
       } else {
-        console.log('[GREETING] Skipping greeting - conversation already exists or mode unknown');
+        console.log('[GREETING] Skipping greeting - conversation already has messages');
       }
       
       res.json(conversation);

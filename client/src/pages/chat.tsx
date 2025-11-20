@@ -13,15 +13,15 @@ export default function Chat() {
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [currentConversationOnboarding, setCurrentConversationOnboarding] = useState<boolean | null>(null);
   // Check localStorage to see if user clicked "New Chat" before page reload
-  // Default to true so page load always creates a fresh conversation
+  // Default to false so page reloads reuse existing conversations
   const [forceNewConversation, setForceNewConversation] = useState(() => {
     const stored = localStorage.getItem('forceNewConversation');
     if (stored === 'true') {
       localStorage.removeItem('forceNewConversation'); // Clear immediately after reading
       return true;
     }
-    // Default to true - always create new conversation on page load
-    return true;
+    // Default to false - reuse existing conversation on page load
+    return false;
   });
   const [isReloading, setIsReloading] = useState(false); // Smooth transition for page reload
   const previousLanguageRef = useRef(language);
