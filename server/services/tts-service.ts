@@ -205,8 +205,67 @@ export class TTSService {
   }
 
   /**
+   * Convert text to SSML with language tags for quoted foreign words
+   * This allows Spanish words in English sentences to be pronounced correctly
+   * 
+   * Note: SSML lang tags are only supported by certain voice types (Neural2, WaveNet)
+   * Chirp voices may not fully support this feature yet
+   */
+  private convertToSSML(text: string, primaryLanguage: string, targetLanguage?: string): { ssml: string; usesSSML: boolean } {
+    // Only apply SSML if we have a target language and primary language is English
+    if (!targetLanguage || primaryLanguage !== 'english') {
+      return { ssml: text, usesSSML: false };
+    }
+
+    // Get the language code for the target language (e.g., 'es-US' for Spanish)
+    const targetVoiceConfig = GOOGLE_VOICE_MAP[targetLanguage.toLowerCase()];
+    if (!targetVoiceConfig) {
+      return { ssml: text, usesSSML: false };
+    }
+
+    // DISABLED: Chirp HD voices don't fully support SSML lang tags yet
+    // This feature will be re-enabled when Google adds full SSML support to Chirp voices
+    console.log(`[SSML] Skipping SSML conversion - Chirp voices have limited SSML support`);
+    return { ssml: text, usesSSML: false };
+
+    // Code below is disabled but preserved for when Chirp voices support SSML
+    /*
+    // Extract just the base language code (e.g., 'es' from 'es-US')
+    const targetLangCode = targetVoiceConfig.languageCode.split('-')[0];
+
+    // Find quoted words (like "Adiós", "hola", 'gracias')
+    // Match single or double quotes around words
+    const quotedWordPattern = /["""']([^"""']+)["""']/g;
+    
+    let hasQuotedWords = false;
+    const processedText = text.replace(quotedWordPattern, (match, word) => {
+      hasQuotedWords = true;
+      // Escape XML special characters in the word
+      const escapedWord = word.replace(/&/g, '&amp;')
+                              .replace(/</g, '&lt;')
+                              .replace(/>/g, '&gt;')
+                              .replace(/"/g, '&quot;')
+                              .replace(/'/g, '&apos;');
+      // Use SSML lang tag to mark this word with the target language
+      return `<lang xml:lang="${targetLangCode}">${escapedWord}</lang>`;
+    });
+
+    if (!hasQuotedWords) {
+      return { ssml: text, usesSSML: false };
+    }
+
+    // Wrap in SSML speak tags
+    const ssmlText = `<speak>${processedText}</speak>`;
+    
+    console.log(`[SSML] Converted text with ${targetLanguage} language tags`);
+    return { ssml: ssmlText, usesSSML: true };
+    */
+  }
+
+  /**
    * Synthesize speech using Google Cloud TTS (Neural2 and Chirp 3 HD voices)
    * Automatically detects language to use the correct voice
+   * Uses SSML to pronounce quoted foreign words with correct accent
    */
   private async synthesizeWithGoogle(text: string, language?: string): Promise<TTSResponse> {
     if (!this.googleClient) {
@@ -218,11 +277,14 @@ export class TTSService {
     const detectedLanguage = this.detectLanguage(text, language);
     const voiceConfig = GOOGLE_VOICE_MAP[detectedLanguage] || GOOGLE_VOICE_MAP['english'];
 
-    console.log(`[Google TTS] Synthesizing ${text.length} chars with ${voiceConfig.name} (${detectedLanguage})`);
+    // Convert to SSML if the text contains quoted foreign words
+    const { ssml, usesSSML } = this.convertToSSML(text, detectedLanguage, language);
+
+    console.log(`[Google TTS] Synthesizing ${text.length} chars with ${voiceConfig.name} (${detectedLanguage})${usesSSML ? ' using SSML' : ''}`);
 
     // Prepare the synthesis request
     const googleRequest: protos.google.cloud.texttospeech.v1.ISynthesizeSpeechRequest = {
-      input: { text },
+      input: usesSSML ? { ssml } : { text },
       voice: {
         languageCode: voiceConfig.languageCode,
         name: voiceConfig.name,
