@@ -207,12 +207,18 @@ export function setupRealtimeProxy(server: Server) {
       const sessionData = await sessionResponse.json();
       console.log('✅ Ephemeral session created');
 
-      // Use the client_secret.value URL directly (contains session token and model)
-      // DO NOT add model param or Authorization header - that causes double-authentication!
-      const wsUrl = sessionData.client_secret.value;
+      // The client_secret.value contains the ephemeral token
+      // Build WebSocket URL with the token (no model param, no Authorization header)
+      const ephemeralToken = sessionData.client_secret.value;
+      const wsUrl = `wss://api.openai.com/v1/realtime?model=${encodeURIComponent(model)}`;
       
-      console.log('[EPHEMERAL SESSION] Connecting with pre-configured URL...');
-      const openaiWs = new WS(wsUrl); // No headers, no query params!
+      console.log('[EPHEMERAL SESSION] Connecting with ephemeral token...');
+      const openaiWs = new WS(wsUrl, {
+        headers: {
+          'Authorization': `Bearer ${ephemeralToken}`,
+          'OpenAI-Beta': 'realtime=v1'
+        }
+      });
 
       // Forward messages from client to OpenAI
       clientWs.on('message', (data) => {
