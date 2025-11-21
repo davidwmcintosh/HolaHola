@@ -372,9 +372,17 @@ Teaching approach:
         console.log('- Instructions length:', instructions.length, 'chars');
         console.log('- Turn detection:', turnDetection ? JSON.stringify(turnDetection) : 'null (push-to-talk)');
         
+        // TESTING: Try absolutely minimal config - just what's required
+        const minimalConfig = {
+          voice: 'alloy'
+          // Removed: instructions, turn_detection - test if they're causing issues
+        };
+        
+        console.log('[TESTING] Sending MINIMAL config (no instructions, no turn_detection)');
+        
         openaiWs.send(JSON.stringify({
           type: 'session.update',
-          session: sessionConfig
+          session: minimalConfig
         }));
       });
 
