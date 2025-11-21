@@ -35,7 +35,7 @@ const openai = new OpenAI({
 // Replit AI Integrations doesn't support /audio/* endpoints
 // Must explicitly set baseURL to use real OpenAI API (not Replit's proxy)
 const voiceOpenAI = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // User's personal OpenAI API key
+  apiKey: process.env.USER_OPENAI_API_KEY, // User's personal OpenAI API key
   baseURL: 'https://api.openai.com/v1', // Direct OpenAI API (not Replit proxy)
 });
 
