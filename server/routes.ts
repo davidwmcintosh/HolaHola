@@ -951,15 +951,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Check if this is a voice mode request (for onboarding too)
-        const isVoiceModeOnboarding = req.body.isVoiceMode === true;
+        const isVoiceMode = req.body.isVoiceMode === true;
+        
+        console.log('[ONBOARDING VOICE MODE] isVoiceMode:', isVoiceMode, 'req.body.isVoiceMode:', req.body.isVoiceMode);
 
         // Save AI response for onboarding (with enrichmentStatus for voice mode)
+        // Only include enrichmentStatus if voice mode to avoid undefined→null conversion
         const aiMessage = await storage.createMessage({
           conversationId,
           role: "assistant",
           content: aiResponse,
-          enrichmentStatus: isVoiceModeOnboarding ? "pending" : undefined,
+          ...(isVoiceMode ? { enrichmentStatus: "pending" } : {}),
         });
+        
+        console.log('[ONBOARDING VOICE MODE] Message created with enrichmentStatus:', aiMessage.enrichmentStatus);
 
         // Return onboarding response with updated conversation
         res.json({ 
@@ -969,7 +974,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         // Queue background enrichment for voice mode onboarding (non-blocking)
-        if (isVoiceModeOnboarding) {
+        if (isVoiceMode) {
           setImmediate(async () => {
             try {
               console.log('[ONBOARDING VOICE ENRICHMENT] Starting for message:', aiMessage.id);
@@ -986,6 +991,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if this is a voice mode request (fast response needed)
+      // Note: isVoiceMode is already declared above for onboarding, but onboarding returns early
+      // so we need to re-declare it here for the regular chat flow
       const isVoiceMode = req.body.isVoiceMode === true;
 
       // Get conversation history (limit to last 20 messages to avoid token limits)
