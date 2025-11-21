@@ -207,7 +207,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-background" data-testid="rest-voice-chat">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-background" data-testid="rest-voice-chat">
       {/* Header with controls */}
       <div className="flex items-center justify-between p-4 border-b bg-card/50 shrink-0">
         <div className="flex items-center gap-3">

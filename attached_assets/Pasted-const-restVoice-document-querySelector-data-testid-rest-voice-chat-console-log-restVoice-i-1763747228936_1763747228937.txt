@@ -1,0 +1,22 @@
+const restVoice = document.querySelector('[data-testid="rest-voice-chat"]');
+console.log(restVoice.innerHTML.split('>').slice(0, 20).join('>\n'));
+VM212:2 <div data-replit-metadata="client/src/components/RestVoiceChat.tsx:212:6" data-component-name="div" class="flex items-center justify-between p-4 border-b bg-card/50 shrink-0">
+<div data-replit-metadata="client/src/components/RestVoiceChat.tsx:213:8" data-component-name="div" class="flex items-center gap-3">
+<div data-replit-metadata="client/src/components/InstructorAvatar.tsx:55:4" data-component-name="div" class="relative " data-testid="instructor-avatar">
+<div data-replit-metadata="client/src/components/InstructorAvatar.tsx:56:6" data-component-name="div" class="relative transition-all duration-300 opacity-100 scale-100">
+<div data-replit-metadata="client/src/components/InstructorAvatar.tsx:79:8" data-component-name="div" class="relative overflow-hidden rounded-2xl bg-card border-2 border-border ">
+<img data-replit-metadata="client/src/components/InstructorAvatar.tsx:88:10" data-component-name="img" src="/@fs/home/runner/workspace/attached_assets/generated_images/Friendly_teacher_idle_state_fd4580c6.png" alt="Language instructor - idle" class="w-full h-full object-cover" data-testid="avatar-state-idle">
+</div>
+</div>
+<div data-replit-metadata="client/src/components/InstructorAvatar.tsx:98:6" data-component-name="div" class="mt-2 text-center">
+<p data-replit-metadata="client/src/components/InstructorAvatar.tsx:99:8" data-component-name="p" class="text-sm text-muted-foreground font-medium">
+Ready to help</p>
+</div>
+</div>
+<div data-replit-metadata="client/src/components/RestVoiceChat.tsx:215:10" data-component-name="div">
+<h2 data-replit-metadata="client/src/components/RestVoiceChat.tsx:216:12" data-component-name="h2" class="text-lg font-semibold">
+Voice Practice (NEW)</h2>
+<p data-replit-metadata="client/src/components/RestVoiceChat.tsx:217:12" data-component-name="p" class="text-sm text-muted-foreground">
+REST-based stable voice chat</p>
+</div>
+</div
