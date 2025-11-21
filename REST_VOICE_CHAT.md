@@ -1,9 +1,15 @@
 # REST Voice Chat Architecture
 
+⚠️ **ACTIVE SYSTEM**: This document describes the production voice system using `RestVoiceChat.tsx`  
+⚠️ **DEPRECATED**: `VoiceChat.tsx` (WebSocket-based) is NOT USED - See VOICE_CHAT_TROUBLESHOOTING.md for history
+
 ## Overview
 LinguaFlow uses a **stable REST-based voice pipeline** for voice learning features, replacing the unstable OpenAI Realtime WebSocket API. This architecture has been proven reliable through extensive testing and is production-ready.
 
 **Status**: ✅ Fully Operational (Nov 21, 2025)
+
+**Active Component**: `client/src/components/RestVoiceChat.tsx`  
+**NOT USED**: `client/src/components/VoiceChat.tsx` (deprecated WebSocket implementation)
 
 ---
 
