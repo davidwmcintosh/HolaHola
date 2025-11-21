@@ -7,7 +7,18 @@ LinguaFlow is an AI-powered language learning application focused on interactive
 Preferred communication style: Simple, everyday language.
 
 ## Active Issues & Troubleshooting
-**Voice Chat Server Errors**: See `VOICE_CHAT_TROUBLESHOOTING.md` for comprehensive diagnostic log. Current status: OpenAI Realtime API returning server errors after session configuration, regardless of model or prompt length. All authentication and session creation tests pass. Issue persists across multiple configurations tested.
+**Voice Chat Server Errors (Nov 21, 3:52 AM)**: See `VOICE_CHAT_TROUBLESHOOTING.md` for comprehensive diagnostic log. 
+
+**Current Status**: OpenAI Realtime API returning `server_error` immediately after session configuration succeeds. Voice chat broke after implementing greeting duplication fix.
+
+**Tests Completed**:
+- ✅ Tested 3 models (Pro, Mini, GA) - all fail identically
+- ✅ Tested multiple prompt lengths (12k, 500, 150 chars) - all fail
+- ✅ Removed `input_audio_transcription` field - still fails
+- ✅ All models work in REST API tests
+- ✅ Authentication, session creation, WebSocket connection all succeed
+
+**Next Steps**: Revert greeting fix changes temporarily to confirm if they caused the issue. See troubleshooting doc for detailed action plan.
 
 ## Architectural Principles
 
