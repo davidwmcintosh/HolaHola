@@ -234,7 +234,7 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
       </div>
 
       {/* Chat area - mobile optimized */}
-      <Card className="flex flex-col flex-1 m-3 md:m-4 mt-0">
+      <Card className="flex flex-col flex-1 m-3 md:m-4 mt-0 overflow-hidden">
           <div 
             ref={scrollViewportRef}
             className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar"

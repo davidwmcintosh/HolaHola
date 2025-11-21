@@ -925,7 +925,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
       )}
 
       {/* Control area - mobile optimized with larger mic button */}
-      <div className="px-4 md:px-6 pt-6 md:pt-8 pb-6 md:pb-10 border-t max-h-80 overflow-y-auto">
+      <div className="px-4 md:px-6 pt-4 md:pt-5 pb-4 md:pb-6 border-t shrink-0">
         {error && (() => {
           try {
             // Try to parse structured error
