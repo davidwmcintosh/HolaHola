@@ -22,8 +22,23 @@ export async function transcribeAudio(audioBlob: Blob, language?: string): Promi
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Transcription failed' }));
-    throw new Error(error.error || `HTTP ${response.status}`);
+    // Try to parse JSON error, but handle HTML responses gracefully
+    let errorMessage = `Failed to transcribe audio (HTTP ${response.status})`;
+    try {
+      const contentType = response.headers.get('content-type');
+      if (contentType?.includes('application/json')) {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } else {
+        // HTML error page or other non-JSON response
+        const textResponse = await response.text();
+        console.error('[Whisper] Non-JSON error response:', textResponse.substring(0, 200));
+        errorMessage = `Transcription failed. Please try again or switch to text mode.`;
+      }
+    } catch (e) {
+      console.error('[Whisper] Failed to parse error response:', e);
+    }
+    throw new Error(errorMessage);
   }
 
   const data = await response.json();
@@ -45,8 +60,23 @@ export async function synthesizeSpeech(text: string, voice: string = 'alloy'): P
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Speech synthesis failed' }));
-    throw new Error(error.error || `HTTP ${response.status}`);
+    // Try to parse JSON error, but handle HTML responses gracefully
+    let errorMessage = `Failed to synthesize speech (HTTP ${response.status})`;
+    try {
+      const contentType = response.headers.get('content-type');
+      if (contentType?.includes('application/json')) {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } else {
+        // HTML error page or other non-JSON response
+        const textResponse = await response.text();
+        console.error('[TTS] Non-JSON error response:', textResponse.substring(0, 200));
+        errorMessage = `Speech synthesis failed. Please try again or switch to text mode.`;
+      }
+    } catch (e) {
+      console.error('[TTS] Failed to parse error response:', e);
+    }
+    throw new Error(errorMessage);
   }
 
   // Response is MP3 audio blob
