@@ -21,7 +21,8 @@ export function createSystemPrompt(
   previousConversations?: PreviousConversation[],
   nativeLanguage: string = "english",
   dueVocabulary?: DueVocabularyWord[],
-  sessionVocabulary?: DueVocabularyWord[]
+  sessionVocabulary?: DueVocabularyWord[],
+  actflLevel?: string | null
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -56,6 +57,41 @@ export function createSystemPrompt(
   const topicContext = topic ? `
 CONVERSATION TOPIC: ${topic}
 The student has chosen to focus on "${topic}". Guide the conversation toward vocabulary, phrases, and scenarios related to this topic. Use this theme to create relevant practice opportunities and teach practical expressions students can use in real-life situations involving ${topic}.
+` : "";
+
+  // ACTFL proficiency level mapping
+  const actflLevelMap: Record<string, { description: string; level: string }> = {
+    novice_low: { level: "Novice Low", description: "Can communicate minimally with memorized words and phrases" },
+    novice_mid: { level: "Novice Mid", description: "Can communicate using memorized words and some phrases on familiar topics" },
+    novice_high: { level: "Novice High", description: "Can handle a variety of simple, uncomplicated communicative tasks in straightforward social situations" },
+    intermediate_low: { level: "Intermediate Low", description: "Can handle successfully a limited number of uncomplicated communicative tasks" },
+    intermediate_mid: { level: "Intermediate Mid", description: "Can handle successfully and with ease most communicative tasks in straightforward social situations" },
+    intermediate_high: { level: "Intermediate High", description: "Can handle successfully with ease most communicative tasks in most social situations" },
+    advanced_low: { level: "Advanced Low", description: "Can narrate and describe in the major time frames with good control" },
+    advanced_mid: { level: "Advanced Mid", description: "Can narrate and describe with detailed elaboration in all major time frames" },
+    advanced_high: { level: "Advanced High", description: "Can communicate with accuracy, clarity, and precision in extended discourse" },
+    superior: { level: "Superior", description: "Can communicate with accuracy and fluency to fully and effectively participate in conversations on a variety of topics" },
+    distinguished: { level: "Distinguished", description: "Can tailor language to a variety of audiences by adapting speech to the perspectives of others" },
+  };
+
+  const actflContext = actflLevel ? `
+ACTFL PROFICIENCY LEVEL: ${actflLevelMap[actflLevel]?.level || actflLevel}
+The student's current assessed proficiency level is ${actflLevelMap[actflLevel]?.level || actflLevel}.
+
+LEVEL DESCRIPTION: ${actflLevelMap[actflLevel]?.description || ""}
+
+TEACHING ALIGNMENT:
+- Align your vocabulary and grammar to this proficiency level
+- ${actflLevel.startsWith('novice') ? 'Use simple, high-frequency words and present tense' : actflLevel.startsWith('intermediate') ? 'Introduce paragraph-level discourse and multiple time frames' : 'Use sophisticated vocabulary and complex structures'}
+- The difficulty setting (${difficulty}) and ACTFL level work together to guide content complexity
+
+CONTENT AUTO-TAGGING:
+As you teach, the system will automatically tag:
+- Vocabulary words with their ACTFL level (e.g., "café" = novice_low, "subjunctive" = advanced_mid)
+- Messages with their complexity level
+- Conversations with overall proficiency focus
+
+This helps track student progress toward higher ACTFL levels over time.
 ` : "";
 
   // Session and due vocabulary for review - integrate SRS with conversation
@@ -302,6 +338,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 - ${nativeLanguageName} is the base language - ${languageName} is the TARGET language being learned
 
 CURRENT PHASE: Initial Assessment (${nativeLanguageName})
+${actflContext}
 ${vocabularyReviewContext}
 ${culturalGuidelines}
 ${multimediaGuidance}
@@ -441,6 +478,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 - When providing examples, use ${languageName} words with ${nativeLanguageName} translations
 
 CURRENT PHASE: Gradual Transition (Gentle Introduction to ${languageName})
+${actflContext}
 ${topicContext}
 ${vocabularyReviewContext}
 ${culturalGuidelines}
@@ -646,6 +684,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 - When providing examples, use ${languageName} words with ${nativeLanguageName} translations
 
 CURRENT PHASE: Active Practice (Primarily ${languageName})
+${actflContext}
 ${topicContext}
 ${vocabularyReviewContext}
 ${culturalGuidelines}

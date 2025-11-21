@@ -113,9 +113,10 @@ export function setupRealtimeProxy(server: Server) {
       let nativeLanguage = 'english';
       let conversationLanguage = language; // Use query param as fallback
       let userName: string | null = null;
+      let actflLevel: string | null = null; // ACTFL proficiency level
       let previousConversations: Array<{ id: string; title: string | null; messageCount: number; createdAt: string }> = [];
       
-      // Fetch conversation metadata (topic, nativeLanguage, userName)
+      // Fetch conversation metadata (topic, nativeLanguage, userName, actflLevel)
       if (conversationId) {
         try {
           const conversation = await storage.getConversation(conversationId, userId);
@@ -124,6 +125,7 @@ export function setupRealtimeProxy(server: Server) {
             nativeLanguage = conversation.nativeLanguage || 'english';
             conversationLanguage = conversation.language || conversationLanguage; // Use actual conversation language with fallback
             userName = conversation.userName || null;
+            actflLevel = conversation.actflLevel ?? null; // Get ACTFL level from conversation
           }
         } catch (error) {
           console.error('Failed to fetch conversation metadata:', error);
@@ -293,7 +295,10 @@ export function setupRealtimeProxy(server: Server) {
           true, // isVoiceMode
           topic,
           previousConversations,
-          nativeLanguage
+          nativeLanguage,
+          undefined, // No due vocabulary (Realtime API has strict size limits)
+          undefined, // No session vocabulary (Realtime API has strict size limits)
+          actflLevel // ACTFL proficiency level
         );
         
         // CRITICAL FIX: Trim instructions to avoid server_error

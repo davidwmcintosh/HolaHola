@@ -33,6 +33,8 @@ export const users = pgTable("users", {
   nativeLanguage: varchar("native_language").default("english"), // Language for explanations
   difficultyLevel: varchar("difficulty_level"), // beginner, intermediate, advanced
   onboardingCompleted: boolean("onboarding_completed").default(false),
+  // ACTFL proficiency tracking
+  actflLevel: varchar("actfl_level"), // novice_low, novice_mid, novice_high, intermediate_low, intermediate_mid, intermediate_high, advanced_low, advanced_mid, advanced_high, superior, distinguished
   // Stripe billing integration
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
@@ -90,6 +92,8 @@ export const messages = pgTable("messages", {
   mediaJson: text("media_json"), // JSON array of media items {type: "stock"|"ai_generated", query?, prompt?, url?, ...}
   // Performance tracking (for user messages only)
   performanceScore: integer("performance_score"), // 0-100: AI assessment of response quality
+  // ACTFL standards tracking - auto-tagged by AI based on language complexity
+  actflLevel: text("actfl_level"), // novice_low, novice_mid, etc. - AI detects complexity of message content
   // Background enrichment status for voice chat optimization
   enrichmentStatus: text("enrichment_status"), // null (complete), "pending", "processing", "failed" - used for split response in voice chat
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -120,6 +124,8 @@ export const grammarExercises = pgTable("grammar_exercises", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   language: text("language").notNull(),
   difficulty: text("difficulty").notNull(),
+  // ACTFL standards tracking
+  actflLevel: text("actfl_level"), // novice_low, novice_mid, etc.
   question: text("question").notNull(),
   options: text("options").array().notNull(),
   correctAnswer: integer("correct_answer").notNull(),
@@ -139,6 +145,9 @@ export const userProgress = pgTable("user_progress", {
   // Auto-difficulty tracking
   suggestedDifficulty: text("suggested_difficulty"), // AI-recommended difficulty level
   lastDifficultyAdjustment: timestamp("last_difficulty_adjustment"), // When difficulty was last changed
+  // ACTFL proficiency tracking
+  currentActflLevel: text("current_actfl_level"), // Current assessed ACTFL level for this language
+  lastActflAssessment: timestamp("last_actfl_assessment"), // When ACTFL level was last updated
 });
 
 export const progressHistory = pgTable("progress_history", {

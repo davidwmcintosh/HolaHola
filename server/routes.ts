@@ -1021,7 +1021,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           [], // No previous conversations (deferred to background)
           conversation.nativeLanguage,
           undefined, // No due vocabulary (deferred to background)
-          undefined // No session vocabulary (deferred to background)
+          undefined, // No session vocabulary (deferred to background)
+          conversation.actflLevel // ACTFL proficiency level
         );
 
         // Determine which model to use based on subscription tier
@@ -1178,7 +1179,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 example: v.example,
                 pronunciation: v.pronunciation
               })) : undefined,
-              sessionVocabulary.length > 0 ? sessionVocabulary : undefined
+              sessionVocabulary.length > 0 ? sessionVocabulary : undefined,
+              enrichmentConversation.actflLevel // ACTFL proficiency level
             );
 
             const enrichedCompletion = await openai.chat.completions.create({
@@ -1461,7 +1463,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           example: v.example,
           pronunciation: v.pronunciation
         })) : undefined,
-        sessionVocabulary.length > 0 ? sessionVocabulary : undefined
+        sessionVocabulary.length > 0 ? sessionVocabulary : undefined,
+        updatedConversation.actflLevel // ACTFL proficiency level
       );
 
       // Determine which model to use based on subscription tier
