@@ -152,7 +152,34 @@ Sometimes browser audio gets stuck:
 3. If you hear YouTube audio → Browser audio works, check site-specific settings
 4. If no YouTube audio → PC audio is misconfigured, check system settings
 
+## Voice Usage Limits (Working as Designed)
+
+The app enforces monthly voice message limits by subscription tier:
+
+| Tier | Voice Messages/Month |
+|------|---------------------|
+| Free | 10 |
+| Basic | 50 |
+| Pro | 500 |
+| Institutional | 1000 |
+
+### If You See "Monthly voice limit reached"
+This is **correct behavior**, not a bug. You've used all your voice messages for the month.
+
+**Options**:
+1. **Switch to text mode** - Unlimited text messages on all tiers
+2. **Upgrade your plan** - Get more voice messages
+3. **Wait for monthly reset** - Voice quota resets on the first of each month
+
+The error message appears at line 182-184 in `RestVoiceChat.tsx`:
+```typescript
+if (err.message?.includes('limit reached') || err.message?.includes('quota')) {
+  errorMessage = 'Monthly voice limit reached. Please upgrade your plan or switch to text mode below.';
+}
+```
+
 ## Related Files
 - `client/src/components/RestVoiceChat.tsx` - Main voice chat component
 - `client/src/lib/restVoiceApi.ts` - API client with TTS synthesis
 - `server/routes.ts` - Backend TTS endpoint (confirmed working)
+- `REST_VOICE_CHAT.md` - Complete voice chat documentation with tier limits
