@@ -288,23 +288,10 @@ export function setupRealtimeProxy(server: Server) {
           turnDetection = null;
         }
         
-        // Use condensed prompt for voice mode - keep it under 500 chars
-        const instructions = `You are a ${conversationLanguage} tutor for ${userName || 'a learner'}.
-Native language: ${nativeLanguage}
-Difficulty: ${difficulty}
-
-Teaching approach:
-- Use simple ${conversationLanguage} appropriate for ${difficulty} level
-- Provide English translations when helpful
-- Speak clearly and at a moderate pace
-- Encourage the student and celebrate their progress
-- Correct mistakes gently
-- Keep responses conversational and natural`;
-        
+        // CRITICAL FIX: instructions field causes server_error
+        // Test with bare minimum config first - only voice
         const sessionConfig: any = {
-          voice: 'alloy',
-          instructions,
-          modalities: ['text', 'audio']
+          voice: 'alloy'
         };
         
         // Only include turn_detection if using VAD mode
@@ -313,9 +300,7 @@ Teaching approach:
           sessionConfig.turn_detection = turnDetection;
         }
         
-        console.log('[SESSION CONFIG] Voice:', sessionConfig.voice);
-        console.log('[SESSION CONFIG] Instructions:', instructions.length, 'chars');
-        console.log('[SESSION CONFIG] Modalities:', sessionConfig.modalities);
+        console.log('[SESSION CONFIG - BARE MINIMUM TEST] Voice:', sessionConfig.voice);
         console.log('[SESSION CONFIG] Turn detection:', turnDetection ? JSON.stringify(turnDetection) : 'push-to-talk (no turn_detection field)');
         console.log('[SESSION CONFIG] Full config:', JSON.stringify(sessionConfig, null, 2));
         

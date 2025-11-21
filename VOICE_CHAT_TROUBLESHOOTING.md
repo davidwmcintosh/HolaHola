@@ -3,6 +3,9 @@
 ## Issue Summary
 Voice chat stopped working at 3:06 AM when attempting to switch from Pro tier model to mini model for free tier users. Getting consistent `server_error` from OpenAI Realtime API after `session.updated` event.
 
+**UPDATE (Nov 21, 1:11 PM) - ARCHITECT IDENTIFIED ROOT CAUSE:**
+The `instructions` field in session configuration is causing the server_error. When omitting instructions and only setting voice, the connection should stay alive. This suggests the instructions content or format is being rejected by OpenAI.
+
 ## Timeline
 
 ### ✅ WORKING STATE (Before Break)
