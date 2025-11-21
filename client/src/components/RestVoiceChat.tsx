@@ -199,22 +199,24 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-        <div className="space-y-4">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <Card className={`p-3 max-w-[80%] ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-card'}`}>
-                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-              </Card>
-            </div>
-          ))}
-          <div ref={scrollRef} />
+      {/* Messages - matches ChatInterface.tsx layout */}
+      <Card className="flex flex-col flex-1 m-3 md:m-4 mt-0 overflow-hidden">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
+          <div className="space-y-3 md:space-y-4">
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`flex gap-2 md:gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <Card className={`p-3 md:p-4 max-w-[85%] md:max-w-2xl rounded-2xl ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                  <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                </Card>
+              </div>
+            ))}
+            <div ref={scrollRef} />
+          </div>
         </div>
-      </div>
+      </Card>
 
       {/* Error display */}
       {error && (
