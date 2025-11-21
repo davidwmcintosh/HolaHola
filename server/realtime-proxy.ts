@@ -216,15 +216,19 @@ export function setupRealtimeProxy(server: Server) {
 
       const sessionData = await sessionResponse.json();
       console.log('✓ Ephemeral session created successfully');
+      console.log('[DEBUG] Session data:', JSON.stringify(sessionData, null, 2));
 
-      // CRITICAL FIX: The client_secret.value is a FULLY-QUALIFIED WebSocket URL
-      // It already contains the session token and model - do NOT add headers or query params!
-      // This was causing double-authentication which triggered server_error
-      const wsUrl = sessionData.client_secret.value;
+      // The ephemeral session response contains client_secret which has the token
+      // We need to use the token to connect, NOT build a URL from it
+      const ephemeralToken = sessionData.client_secret.value;
       
-      console.log('[FIX] Connecting to ephemeral session URL (no extra auth)');
+      // Build the WebSocket URL using the session ID from the response
+      // The session endpoint returns an ID we can connect to
+      const wsUrl = `wss://api.openai.com/v1/realtime/sessions/${sessionData.id}`;
+      
+      console.log('[FIX] Connecting with ephemeral session ID:', sessionData.id);
       const openaiWs = new WS(wsUrl);
-      // No headers! The URL itself contains everything needed
+      // No headers needed - the session ID in the URL authenticates us
 
       // Forward messages from client to OpenAI
       clientWs.on('message', (data) => {
