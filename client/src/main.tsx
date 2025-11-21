@@ -4,30 +4,25 @@ import "./index.css";
 
 createRoot(document.getElementById("root")!).render(<App />);
 
+// TEMPORARILY DISABLED - Service worker causing severe caching issues
+// Will re-enable after cache issues are resolved
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/sw.js')
-      .then((registration) => {
-        console.log('[PWA] Service Worker registered:', registration.scope);
-        
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                console.log('[PWA] New content available, please refresh.');
-                if (window.confirm('New version available! Reload to update?')) {
-                  newWorker.postMessage({ type: 'SKIP_WAITING' });
-                  window.location.reload();
-                }
-              }
-            });
-          }
+    // Unregister any existing service workers
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (let registration of registrations) {
+        registration.unregister().then(() => {
+          console.log('[PWA] Service Worker unregistered');
         });
-      })
-      .catch((error) => {
-        console.error('[PWA] Service Worker registration failed:', error);
-      });
+      }
+    });
+    
+    // Clear all caches
+    caches.keys().then((names) => {
+      for (let name of names) {
+        caches.delete(name);
+      }
+      console.log('[PWA] All caches cleared');
+    });
   });
 }
