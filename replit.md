@@ -6,6 +6,9 @@ LinguaFlow is an AI-powered language learning application focused on interactive
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Active Issues & Troubleshooting
+**Voice Chat Server Errors**: See `VOICE_CHAT_TROUBLESHOOTING.md` for comprehensive diagnostic log. Current status: OpenAI Realtime API returning server errors after session configuration, regardless of model or prompt length. All authentication and session creation tests pass. Issue persists across multiple configurations tested.
+
 ## Architectural Principles
 
 ### 🚨 UNIFIED CODE PRINCIPLE (Critical)
