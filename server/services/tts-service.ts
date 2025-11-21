@@ -160,12 +160,27 @@ export class TTSService {
   }
 
   /**
-   * Detect the actual language of text using franc-min
+   * Detect the actual language of text using franc-min with improved accuracy
    * This ensures we use the correct voice for AI responses (Spanish voice for Spanish, English for English)
    */
-  private detectLanguage(text: string): string {
-    // Use franc to detect the language
-    const detectedCode = franc(text, { minLength: 10 });
+  private detectLanguage(text: string, fallbackLanguage?: string): string {
+    // Clean text for better detection (remove special chars but keep letters)
+    const cleanText = text.replace(/[^\p{L}\s]/gu, ' ').trim();
+    
+    // Simple heuristic: Check for very common English words
+    const commonEnglishWords = /\b(the|is|are|was|were|have|has|had|this|that|these|those|what|when|where|who|how|can|will|would|should|could|may|might|must)\b/i;
+    const hasCommonEnglish = commonEnglishWords.test(cleanText);
+    
+    // Use franc to detect the language (require 15+ chars for better accuracy)
+    const detectedCode = franc(cleanText, { minLength: 15 });
+    
+    // If we detected common English words and franc says French/German/etc, override to English
+    // (franc sometimes misidentifies short English texts with foreign words as other languages)
+    if (hasCommonEnglish && detectedCode !== 'eng') {
+      console.log(`[Language Detection] Override: Common English words detected, ignoring franc result "${detectedCode}"`);
+      console.log(`[Language Detection] Using english for text: "${text.substring(0, 50)}..."`);
+      return 'english';
+    }
     
     // Map franc's ISO 639-3 code to our language name
     const detectedLanguage = FRANC_TO_LANGUAGE_MAP[detectedCode];
@@ -175,7 +190,16 @@ export class TTSService {
       return detectedLanguage;
     }
     
-    // Default to English if detection fails or language not supported
+    // If detection failed but we have a fallback language parameter, use it
+    if (fallbackLanguage) {
+      const normalizedFallback = fallbackLanguage.toLowerCase().trim();
+      if (GOOGLE_VOICE_MAP[normalizedFallback]) {
+        console.log(`[Language Detection] Failed (code: ${detectedCode}), using fallback: ${normalizedFallback}`);
+        return normalizedFallback;
+      }
+    }
+    
+    // Final fallback to English if everything else fails
     console.log(`[Language Detection] Could not detect language (code: ${detectedCode}), defaulting to English`);
     return 'english';
   }
@@ -191,7 +215,7 @@ export class TTSService {
 
     // Auto-detect the actual language of the text instead of using the target language
     // This ensures Spanish gets Spanish voice, English gets English voice
-    const detectedLanguage = this.detectLanguage(text);
+    const detectedLanguage = this.detectLanguage(text, language);
     const voiceConfig = GOOGLE_VOICE_MAP[detectedLanguage] || GOOGLE_VOICE_MAP['english'];
 
     console.log(`[Google TTS] Synthesizing ${text.length} chars with ${voiceConfig.name} (${detectedLanguage})`);
