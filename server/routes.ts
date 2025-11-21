@@ -39,6 +39,25 @@ const voiceOpenAI = new OpenAI({
   baseURL: 'https://api.openai.com/v1', // Direct OpenAI API (not Replit proxy)
 });
 
+// Language name to ISO-639-1 code mapping for OpenAI Whisper API
+const LANGUAGE_TO_ISO_CODE: Record<string, string> = {
+  'english': 'en',
+  'spanish': 'es',
+  'french': 'fr',
+  'german': 'de',
+  'italian': 'it',
+  'portuguese': 'pt',
+  'japanese': 'ja',
+  'mandarin chinese': 'zh',
+  'korean': 'ko',
+};
+
+function getLanguageCode(language: string | undefined): string | undefined {
+  if (!language) return undefined;
+  const normalized = language.toLowerCase().trim();
+  return LANGUAGE_TO_ISO_CODE[normalized];
+}
+
 // Configure multer for audio file uploads (in-memory storage)
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -1537,11 +1556,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[WHISPER] Transcribing audio for user ${userId}, size: ${req.file.size} bytes`);
 
+      // Convert language name to ISO-639-1 code for Whisper API
+      const languageCode = getLanguageCode(req.body.language);
+      console.log(`[WHISPER] Language: ${req.body.language} → ${languageCode || 'auto-detect'}`);
+
       // Call OpenAI Whisper API using personal API key (Replit AI Integrations doesn't support this endpoint)
       const transcription = await voiceOpenAI.audio.transcriptions.create({
         file: await toFile(req.file.buffer, req.file.originalname || 'audio.webm'),
         model: "whisper-1",
-        language: req.body.language || undefined, // Optional language hint
+        language: languageCode, // ISO-639-1 language code (e.g., "es" for Spanish)
       });
 
       console.log(`[WHISPER] ✓ Transcription: "${transcription.text}"`);
