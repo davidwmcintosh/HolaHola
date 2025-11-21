@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { ChatInterface } from "@/components/ChatInterface";
-import { VoiceChat } from "@/components/VoiceChat";
+import { RestVoiceChat as VoiceChat } from "@/components/RestVoiceChat";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Mic, Plus } from "lucide-react";

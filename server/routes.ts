@@ -10,7 +10,7 @@ import {
   updateUserPreferencesSchema,
   conversations,
 } from "@shared/schema";
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import { setupRealtimeProxy } from "./realtime-proxy";
 import {
   extractNameFromMessage,
@@ -23,12 +23,41 @@ import { createSystemPrompt } from "./system-prompt";
 import { assessMessage, analyzePerformance } from "./difficulty-adjustment";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { generateConversationTitle, generateConversationContextSummary } from "./conversation-utils";
+import multer from "multer";
 
 // Use Replit AI Integrations for text chat (works reliably)
 // User's personal key (USER_OPENAI_API_KEY) is only used for voice chat in realtime-proxy.ts
 const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || 'https://api.openai.com/v1',
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+});
+
+// Configure multer for audio file uploads (in-memory storage)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 25 * 1024 * 1024, // 25MB max (OpenAI Whisper limit)
+  },
+  fileFilter: (_req, file, cb) => {
+    // Accept common audio formats (including Safari/iOS formats)
+    const allowedMimeTypes = [
+      'audio/webm',
+      'audio/wav',
+      'audio/mp3',
+      'audio/mpeg',
+      'audio/ogg',
+      'audio/flac',
+      'audio/m4a',
+      'audio/mp4',
+      'audio/mp4a-latm', // iOS Safari
+      'audio/x-m4a',
+    ];
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unsupported audio format: ${file.mimetype}`));
+    }
+  },
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1475,6 +1504,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error in chat:", error);
       res.status(500).json({ error: error.message || "Failed to generate response" });
+    }
+  });
+
+  // ===== NEW REST-Based Voice API (Whisper + GPT + TTS) =====
+  
+  // Transcribe audio using Whisper API
+  app.post("/api/voice/transcribe", isAuthenticated, upload.single('audio'), async (req: any, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No audio file provided" });
+      }
+
+      const userId = req.user.claims.sub;
+      
+      // CRITICAL: Enforce voice usage limits (tier-based)
+      // NOTE: This increments usage before transcription. If transcription fails, 
+      // the usage still counts. This matches the old WebSocket behavior.
+      // Future improvement: Add separate check/increment methods to storage interface.
+      const usageCheck = await storage.checkAndIncrementVoiceUsage(userId);
+      if (!usageCheck.allowed) {
+        return res.status(403).json({
+          error: "Monthly voice message limit reached. Upgrade to continue using voice chat.",
+          limit: usageCheck.limit,
+          remaining: usageCheck.remaining,
+        });
+      }
+      
+      console.log(`[WHISPER] Transcribing audio for user ${userId}, size: ${req.file.size} bytes`);
+
+      // Call OpenAI Whisper API (Node.js-compatible format)
+      const transcription = await openai.audio.transcriptions.create({
+        file: await toFile(req.file.buffer, req.file.originalname || 'audio.webm'),
+        model: "whisper-1",
+        language: req.body.language || undefined, // Optional language hint
+      });
+
+      console.log(`[WHISPER] ✓ Transcription: "${transcription.text}"`);
+      res.json({ text: transcription.text });
+    } catch (error: any) {
+      console.error("[WHISPER] Transcription failed:", error);
+      res.status(500).json({ error: error.message || "Failed to transcribe audio" });
+    }
+  });
+
+  // Synthesize speech using TTS API
+  app.post("/api/voice/synthesize", isAuthenticated, async (req: any, res) => {
+    try {
+      const { text, voice = 'alloy' } = req.body;
+      
+      if (!text) {
+        return res.status(400).json({ error: "No text provided" });
+      }
+
+      const userId = req.user.claims.sub;
+      console.log(`[TTS] Synthesizing speech for user ${userId}, length: ${text.length} chars`);
+
+      // Call OpenAI TTS API
+      const mp3Response = await openai.audio.speech.create({
+        model: "tts-1",
+        voice: voice as any, // 'alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'
+        input: text,
+        response_format: 'mp3',
+      });
+
+      // Convert response to buffer
+      const buffer = Buffer.from(await mp3Response.arrayBuffer());
+      console.log(`[TTS] ✓ Generated ${buffer.length} bytes of audio`);
+
+      // Send audio as MP3
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Content-Length', buffer.length.toString());
+      res.send(buffer);
+    } catch (error: any) {
+      console.error("[TTS] Synthesis failed:", error);
+      res.status(500).json({ error: error.message || "Failed to synthesize speech" });
     }
   });
 
