@@ -303,10 +303,7 @@ Teaching approach:
         
         const sessionConfig: any = {
           voice: 'alloy',
-          instructions,
-          input_audio_transcription: {
-            model: 'whisper-1'
-          }
+          instructions
         };
         
         if (turnDetection) {
