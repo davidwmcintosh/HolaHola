@@ -178,12 +178,17 @@ export function setupRealtimeProxy(server: Server) {
       }
 
       // Select model based on subscription tier
-      // Free/Basic/Institutional use mini model, Pro uses premium model
-      const model = subscriptionTier === 'pro' 
-        ? 'gpt-4o-realtime-preview-2024-12-17'  // Premium model for Pro tier
-        : 'gpt-4o-mini-realtime-preview-2024-12-17';  // Cost-effective model for Free/Basic/Institutional
+      // TEMPORARY: Mini model has server errors (OpenAI known issue)
+      // Using standard model for ALL tiers until OpenAI fixes the mini model
+      // See: https://github.com/openai/openai-python/issues/2352
+      const model = 'gpt-4o-realtime-preview-2024-12-17';  // Standard model (works reliably)
+      
+      // TODO: Restore tier-based model selection when mini model is fixed:
+      // const model = subscriptionTier === 'pro' 
+      //   ? 'gpt-4o-realtime-preview-2024-12-17'  // Premium model for Pro tier
+      //   : 'gpt-4o-mini-realtime-preview-2024-12-17';  // Cost-effective model for Free/Basic/Institutional
 
-      console.log(`Using model: ${model} for tier: ${subscriptionTier}`);
+      console.log(`Using model: ${model} for tier: ${subscriptionTier} (temporary: using standard model for all tiers due to mini model server errors)`);
 
       // CRITICAL FIX: Create ephemeral session FIRST using REST API
       // The playground uses this approach - not direct WebSocket!
@@ -310,7 +315,8 @@ export function setupRealtimeProxy(server: Server) {
         );
         
         console.log('[REALTIME PROXY] Sending unified system prompt to OpenAI');
-        console.log(`[REALTIME PROXY] System prompt length: ${systemPrompt.length} characters`);
+        console.log(`[REALTIME PROXY] Original system prompt length: ${systemPrompt.length} characters`);
+        console.log(`[REALTIME PROXY] Using model: ${model}`);
         console.log(`[REALTIME PROXY] VAD mode: ${vadMode}`);
         
         // Configure turn detection based on VAD mode
@@ -359,6 +365,9 @@ RESPONSE FORMAT:
 3. Ask student to repeat
 
 Keep responses under 3 sentences total. Focus on conversation practice.` : systemPrompt;
+        
+        console.log(`[REALTIME PROXY] Is using mini model: ${isUsingMiniModel}`);
+        console.log(`[REALTIME PROXY] Actual prompt being sent: ${condensedPrompt.length} characters`);
         
         const sessionConfig: any = {
           voice: 'alloy',
