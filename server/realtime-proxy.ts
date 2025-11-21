@@ -177,11 +177,10 @@ export function setupRealtimeProxy(server: Server) {
         }
       }
 
-      // Select model based on subscription tier
-      // Free/Basic/Institutional use mini model, Pro uses premium model
-      const model = subscriptionTier === 'pro' 
-        ? 'gpt-4o-realtime-preview-2024-12-17'  // Premium model for Pro tier
-        : 'gpt-4o-mini-realtime-preview-2024-12-17';  // Cost-effective model for Free/Basic/Institutional
+      // TEMPORARY: Use Pro model for all tiers until we optimize prompt length for mini model
+      // The mini model appears to have stricter instruction length limits
+      // TODO: Optimize system prompt to work within mini model's constraints
+      const model = 'gpt-4o-realtime-preview-2024-12-17';
 
       console.log(`Using model: ${model} for tier: ${subscriptionTier}`);
 
@@ -341,14 +340,9 @@ export function setupRealtimeProxy(server: Server) {
         }
         
         // Configure session with voice settings and unified instructions
-        // TEMPORARY: Use minimal prompt to test if prompt length is causing issues
-        const useMinimalPrompt = true; // TODO: Remove this test flag
-        
         const sessionConfig: any = {
           voice: 'alloy',
-          instructions: useMinimalPrompt 
-            ? "You are a friendly Spanish tutor. Help students learn Spanish through conversation." 
-            : systemPrompt,
+          instructions: systemPrompt,
           input_audio_transcription: {
             model: 'whisper-1'
           }
