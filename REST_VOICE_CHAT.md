@@ -368,6 +368,7 @@ tsx test-openai-key.ts
 - 🖥️ Desktop: 64px mic button, full UI
 - ✅ Touch-optimized controls
 - ✅ Proper viewport scaling
+- ✅ Flex layout optimization: Component uses `flex-1 min-h-0` to properly expand within parent flex containers, ensuring mic button stays visible on all screen sizes
 
 ---
 
