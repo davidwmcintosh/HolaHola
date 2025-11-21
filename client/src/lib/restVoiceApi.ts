@@ -101,6 +101,7 @@ export async function processVoiceMessage(
   const userTranscript = await transcribeAudio(audioBlob, language);
 
   // Step 2: Get AI response using the same endpoint as text chat
+  // Use isVoiceMode flag to trigger fast response path (text-only, no vocab/images)
   const chatResponse = await fetch(`/api/conversations/${conversationId}/messages`, {
     method: 'POST',
     headers: {
@@ -109,6 +110,7 @@ export async function processVoiceMessage(
     body: JSON.stringify({
       role: 'user',
       content: userTranscript,
+      isVoiceMode: true, // Trigger fast text-only response for voice chat
     }),
     credentials: 'include',
   });

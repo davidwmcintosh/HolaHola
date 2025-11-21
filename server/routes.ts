@@ -950,20 +950,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        // Save AI response for onboarding
+        // Check if this is a voice mode request (for onboarding too)
+        const isVoiceModeOnboarding = req.body.isVoiceMode === true;
+
+        // Save AI response for onboarding (with enrichmentStatus for voice mode)
         const aiMessage = await storage.createMessage({
           conversationId,
           role: "assistant",
           content: aiResponse,
+          enrichmentStatus: isVoiceModeOnboarding ? "pending" : undefined,
         });
 
         // Return onboarding response with updated conversation
-        return res.json({ 
+        res.json({ 
           userMessage, 
           aiMessage,
           conversationUpdated: updatedConversation !== conversation ? updatedConversation : undefined
         });
+
+        // Queue background enrichment for voice mode onboarding (non-blocking)
+        if (isVoiceModeOnboarding) {
+          setImmediate(async () => {
+            try {
+              console.log('[ONBOARDING VOICE ENRICHMENT] Starting for message:', aiMessage.id);
+              await storage.updateMessage(aiMessage.id, { enrichmentStatus: null });
+              console.log('[ONBOARDING VOICE ENRICHMENT] Completed (onboarding messages get minimal enrichment)');
+            } catch (enrichError) {
+              console.error('[ONBOARDING VOICE ENRICHMENT] Error:', enrichError);
+              await storage.updateMessage(aiMessage.id, { enrichmentStatus: "failed" });
+            }
+          });
+        }
+
+        return; // Exit early for onboarding
       }
+
+      // Check if this is a voice mode request (fast response needed)
+      const isVoiceMode = req.body.isVoiceMode === true;
 
       // Get conversation history (limit to last 20 messages to avoid token limits)
       const allMessages = await storage.getMessagesByConversation(conversationId);
@@ -1096,8 +1119,203 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = req.user;
       const model = getModelForTier(user.subscriptionTier);
       
-      console.log(`[CHAT] Using model ${model} for tier: ${user.subscriptionTier || 'free'}`);
+      console.log(`[CHAT] Using model ${model} for tier: ${user.subscriptionTier || 'free'}, voiceMode: ${isVoiceMode}`);
 
+      // VOICE MODE: Fast text-only response, then background enrichment
+      if (isVoiceMode) {
+        console.log('[VOICE MODE] Using fast text-only response path');
+        
+        // Quick text-only completion (no structured output, much faster)
+        const quickCompletion = await openai.chat.completions.create({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...recentMessages.map((msg) => ({
+              role: msg.role as "user" | "assistant",
+              content: msg.content,
+            })),
+          ],
+          max_completion_tokens: 500, // Shorter response for voice
+        });
+
+        const aiResponse = quickCompletion.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
+        
+        // Save message immediately with enrichmentStatus="pending"
+        const aiMessage = await storage.createMessage({
+          conversationId,
+          role: "assistant",
+          content: aiResponse,
+          enrichmentStatus: "pending", // Mark for background enrichment
+        });
+
+        // Return response immediately for fast TTS
+        res.json({ userMessage, aiMessage });
+
+        // Queue background enrichment (non-blocking)
+        setImmediate(async () => {
+          try {
+            console.log('[BACKGROUND ENRICHMENT] Starting for message:', aiMessage.id);
+            
+            // Mark as processing
+            await storage.updateMessage(aiMessage.id, { enrichmentStatus: "processing" });
+
+            // Generate enriched version with structured output
+            const enrichedCompletion = await openai.chat.completions.create({
+              model,
+              messages: [
+                { role: "system", content: systemPrompt },
+                ...recentMessages.map((msg) => ({
+                  role: msg.role as "user" | "assistant",
+                  content: msg.content,
+                })),
+              ],
+              max_completion_tokens: 8192,
+              response_format: {
+                type: "json_schema",
+                json_schema: {
+                  name: "tutor_response",
+                  strict: true,
+                  schema: {
+                    type: "object",
+                    properties: {
+                      vocabulary: {
+                        type: "array",
+                        description: "New vocabulary words introduced in this response",
+                        items: {
+                          type: "object",
+                          properties: {
+                            word: { type: "string" },
+                            translation: { type: "string" },
+                            example: { type: "string" },
+                            pronunciation: { type: "string" }
+                          },
+                          required: ["word", "translation", "example", "pronunciation"],
+                          additionalProperties: false
+                        }
+                      },
+                      media: {
+                        type: "array",
+                        description: "Images to display with this message (0-2 images max)",
+                        items: {
+                          anyOf: [
+                            {
+                              type: "object",
+                              properties: {
+                                type: { type: "string", enum: ["stock"] },
+                                query: { type: "string" },
+                                alt: { type: "string" }
+                              },
+                              required: ["type", "query", "alt"],
+                              additionalProperties: false
+                            },
+                            {
+                              type: "object",
+                              properties: {
+                                type: { type: "string", enum: ["ai_generated"] },
+                                prompt: { type: "string" },
+                                alt: { type: "string" }
+                              },
+                              required: ["type", "prompt", "alt"],
+                              additionalProperties: false
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    required: ["vocabulary", "media"],
+                    additionalProperties: false
+                  }
+                }
+              }
+            });
+
+            // Parse enrichment data
+            const enrichmentContent = enrichedCompletion.choices[0]?.message?.content || "{}";
+            let enrichmentData: { vocabulary?: any[]; media?: any[] } = {};
+            
+            try {
+              enrichmentData = JSON.parse(enrichmentContent);
+            } catch (parseError) {
+              console.error('[BACKGROUND ENRICHMENT] Failed to parse enrichment data:', parseError);
+            }
+
+            // Process media (same logic as text mode)
+            let mediaJson: string | null = null;
+            const mediaItems = Array.isArray(enrichmentData.media) ? enrichmentData.media : [];
+            
+            if (mediaItems.length > 0) {
+              const processedMedia = [];
+              
+              for (const item of mediaItems.slice(0, 2)) {
+                try {
+                  if (item.type === "stock" && item.query) {
+                    const cachedImage = await storage.getCachedStockImage(item.query);
+                    
+                    if (cachedImage) {
+                      await storage.incrementImageUsage(cachedImage.id);
+                      const attribution = cachedImage.attributionJson 
+                        ? JSON.parse(cachedImage.attributionJson)
+                        : undefined;
+                      
+                      processedMedia.push({
+                        type: "stock",
+                        query: item.query,
+                        url: cachedImage.url,
+                        thumbnailUrl: cachedImage.thumbnailUrl || undefined,
+                        altText: item.alt || cachedImage.description || item.query,
+                        attribution
+                      });
+                    }
+                  }
+                } catch (error) {
+                  console.error('[BACKGROUND ENRICHMENT] Error processing media:', error);
+                }
+              }
+              
+              if (processedMedia.length > 0) {
+                mediaJson = JSON.stringify(processedMedia);
+              }
+            }
+
+            // Save vocabulary to database
+            if (Array.isArray(enrichmentData.vocabulary) && enrichmentData.vocabulary.length > 0) {
+              for (const vocab of enrichmentData.vocabulary) {
+                try {
+                  await storage.createVocabularyWord({
+                    userId,
+                    language: updatedConversation.language,
+                    word: vocab.word,
+                    translation: vocab.translation,
+                    example: vocab.example,
+                    pronunciation: vocab.pronunciation,
+                    difficulty: updatedConversation.difficulty,
+                  });
+                } catch (vocabError) {
+                  console.error('[BACKGROUND ENRICHMENT] Failed to save vocabulary:', vocabError);
+                }
+              }
+            }
+
+            // Update message with enriched data
+            await storage.updateMessage(aiMessage.id, {
+              mediaJson: mediaJson || undefined,
+              enrichmentStatus: null, // null = complete
+            });
+
+            console.log('[BACKGROUND ENRICHMENT] Completed for message:', aiMessage.id);
+          } catch (enrichError) {
+            console.error('[BACKGROUND ENRICHMENT] Error:', enrichError);
+            await storage.updateMessage(aiMessage.id, { enrichmentStatus: "failed" });
+          }
+        });
+
+        // Exit early - response already sent
+        return;
+      }
+
+      // TEXT MODE: Full structured response with vocabulary and images (existing behavior)
+      console.log('[TEXT MODE] Using full structured response path');
+      
       // Generate AI response with structured output to extract vocabulary and grammar
       const completion = await openai.chat.completions.create({
         model,
