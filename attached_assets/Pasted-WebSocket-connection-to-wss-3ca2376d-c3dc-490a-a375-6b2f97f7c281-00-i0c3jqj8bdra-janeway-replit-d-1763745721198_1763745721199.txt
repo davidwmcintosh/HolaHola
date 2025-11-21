@@ -1,0 +1,24 @@
+WebSocket connection to 'wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/?token=BWLwX1ktoPHC' failed: 
+setupWebSocket @ client:536
+client:536 Uncaught (in promise) DOMException: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=BWLwX1ktoPHC' is invalid.
+    at setupWebSocket (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:536:19)
+    at fallback (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:509:16)
+    at WebSocket.<anonymous> (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:555:7)
+chunk-WERSD76P.js?v=5bb561fa:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+vendors.bundle.js:2 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+LanguageContext.tsx:21 [LanguageContext] Initializing with language: spanish (from localStorage)
+LanguageContext.tsx:26 [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+LanguageContext.tsx:31 [LanguageContext] Initializing with userName: David (from localStorage)
+chat.tsx:92 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false inProgress: false mode: voice
+chat.tsx:95 [SHARED CHAT] Creating shared conversation... (post-onboarding) forceNew: false mode: voice
+LanguageContext.tsx:43 [LanguageContext] Hydrating from user preferences: Object
+main.tsx:25 [PWA] All caches cleared
+chat.tsx:92 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: true inProgress: true mode: voice
+chat.tsx:111 [SHARED CHAT] Shared conversation created: 20956f45-571a-426b-a6c5-252524bc57db mode: voice
+2chat.tsx:92 [SHARED CHAT] Auto-create check - userName: David conversationId: 20956f45-571a-426b-a6c5-252524bc57db isCreating: false inProgress: false mode: voice
+document.querySelector('[data-testid="button-mic-toggle"]')
+<button data-replit-metadata=​"client/​src/​components/​RestVoiceChat.tsx:​265:​12" data-component-name=​"Button" class=​"inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium focus-visible:​outline-none focus-visible:​ring-1 focus-visible:​ring-ring disabled:​pointer-events-none disabled:​opacity-50 [&_svg]​:​pointer-events-none [&_svg]​:​size-4 [&_svg]​:​shrink-0 hover-elevate active-elevate-2 bg-primary text-primary-foreground border border-primary-border h-14 w-14 rounded-full" data-testid=​"button-mic-toggle" aria-pressed=​"false" aria-label=​"Start recording">​…​</button>​flex<svg xmlns=​"http:​/​/​www.w3.org/​2000/​svg" width=​"24" height=​"24" viewBox=​"0 0 24 24" fill=​"none" stroke=​"currentColor" stroke-width=​"2" stroke-linecap=​"round" stroke-linejoin=​"round" class=​"lucide lucide-mic h-6 w-6" data-replit-metadata=​"client/​src/​components/​RestVoiceChat.tsx:​280:​16" data-component-name=​"Mic">​…​</svg>​::after​</button>​
+document.querySelector('[data-testid="rest-voice-chat"]')
+<div data-replit-metadata=​"client/​src/​components/​RestVoiceChat.tsx:​210:​4" data-component-name=​"div" class=​"flex flex-col h-full overflow-hidden bg-background" data-testid=​"rest-voice-chat">​…​</div>​flex
+document.querySelector('[data-testid="button-voice-mode"]')
+<button data-replit-metadata=​"client/​src/​pages/​chat.tsx:​154:​10" data-component-name=​"Button" class=​"inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium focus-visible:​outline-none focus-visible:​ring-1 focus-visible:​ring-ring disabled:​pointer-events-none disabled:​opacity-50 [&_svg]​:​pointer-events-none [&_svg]​:​size-4 [&_svg]​:​shrink-0 hover-elevate active-elevate-2 bg-primary text-primary-foreground border border-primary-border min-h-9 px-4 py-2" data-testid=​"button-voice-mode">​…​</button>​flex
