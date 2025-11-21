@@ -303,16 +303,21 @@ Teaching approach:
         
         const sessionConfig: any = {
           voice: 'alloy',
-          instructions
+          instructions,
+          modalities: ['text', 'audio']
         };
         
+        // Only include turn_detection if using VAD mode
+        // For push-to-talk, omit the field entirely
         if (turnDetection) {
           sessionConfig.turn_detection = turnDetection;
         }
         
         console.log('[SESSION CONFIG] Voice:', sessionConfig.voice);
         console.log('[SESSION CONFIG] Instructions:', instructions.length, 'chars');
-        console.log('[SESSION CONFIG] Turn detection:', turnDetection ? JSON.stringify(turnDetection) : 'push-to-talk');
+        console.log('[SESSION CONFIG] Modalities:', sessionConfig.modalities);
+        console.log('[SESSION CONFIG] Turn detection:', turnDetection ? JSON.stringify(turnDetection) : 'push-to-talk (no turn_detection field)');
+        console.log('[SESSION CONFIG] Full config:', JSON.stringify(sessionConfig, null, 2));
         
         openaiWs.send(JSON.stringify({
           type: 'session.update',
