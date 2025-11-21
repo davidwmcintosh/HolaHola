@@ -58,6 +58,23 @@ function getLanguageCode(language: string | undefined): string | undefined {
   return LANGUAGE_TO_ISO_CODE[normalized];
 }
 
+/**
+ * Determine which GPT model to use based on subscription tier
+ * Free/Basic/Institutional: gpt-4o-mini (faster, cheaper)
+ * Pro: gpt-4o (best quality)
+ */
+function getModelForTier(tier: string | null | undefined): string {
+  const subscriptionTier = tier?.toLowerCase() || 'free';
+  
+  // Pro tier gets the best model
+  if (subscriptionTier === 'pro' || subscriptionTier === 'premium') {
+    return 'gpt-4o';
+  }
+  
+  // All other tiers (free, basic, institutional) get the fast/cheap model
+  return 'gpt-4o-mini';
+}
+
 // Configure multer for audio file uploads (in-memory storage)
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -910,8 +927,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log('[ONBOARDING-COMPLETION PROMPT]', nativeLanguagePrompt);
             
             try {
+              const user = req.user;
+              const model = getModelForTier(user.subscriptionTier);
+              
               const completionResponse = await openai.chat.completions.create({
-                model: "gpt-5",
+                model,
                 messages: [{ role: "user", content: nativeLanguagePrompt }],
                 max_completion_tokens: 150,
               });
@@ -1072,10 +1092,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionVocabulary.length > 0 ? sessionVocabulary : undefined
       );
 
+      // Determine which model to use based on subscription tier
+      const user = req.user;
+      const model = getModelForTier(user.subscriptionTier);
+      
+      console.log(`[CHAT] Using model ${model} for tier: ${user.subscriptionTier || 'free'}`);
+
       // Generate AI response with structured output to extract vocabulary and grammar
-      // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
       const completion = await openai.chat.completions.create({
-        model: "gpt-5",
+        model,
         messages: [
           { role: "system", content: systemPrompt },
           ...recentMessages.map((msg) => ({

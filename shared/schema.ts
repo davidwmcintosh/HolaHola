@@ -88,6 +88,8 @@ export const messages = pgTable("messages", {
   mediaJson: text("media_json"), // JSON array of media items {type: "stock"|"ai_generated", query?, prompt?, url?, ...}
   // Performance tracking (for user messages only)
   performanceScore: integer("performance_score"), // 0-100: AI assessment of response quality
+  // Background enrichment status for voice chat optimization
+  enrichmentStatus: text("enrichment_status"), // null (complete), "pending", "processing", "failed" - used for split response in voice chat
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
