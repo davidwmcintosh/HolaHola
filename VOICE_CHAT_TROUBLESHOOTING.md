@@ -140,24 +140,32 @@ Speak slowly and clearly. Use simple phrases with English translations.`;
 **Result**: Pending test
 **Note**: This tested minimal PROMPT content, NOT minimal session config structure
 
-### 6. Minimal Session Config Test ❌ NOT YET TESTED
-**What we're still sending**:
+### 6. Minimal Session Config Test ✅ TESTED - STILL FAILS
+**Test**: Removed `input_audio_transcription` field completely
 ```typescript
 const sessionConfig = {
   voice: 'alloy',
-  instructions,
-  input_audio_transcription: { model: 'whisper-1' }  // <- Never tested removing this
+  instructions
+  // REMOVED: input_audio_transcription
 };
 ```
-**Test needed**: Try absolute minimal config:
-```typescript
-const sessionConfig = {
-  voice: 'alloy',
-  instructions: 'You are a helpful tutor.'
-  // Remove input_audio_transcription completely
-};
+**Log Output**:
 ```
-**Status**: ⏳ NOT YET TESTED - Priority for tomorrow!
+[REALTIME PROXY] Configuring session...
+OpenAI message type: session.created
+OpenAI message type: session.updated
+OpenAI Realtime API error: {
+  type: 'error',
+  event_id: 'event_CeCQGL2m4e9FqHN7ng6wC',
+  error: {
+    type: 'server_error',
+    code: null,
+    message: 'The server had an error...'
+  }
+}
+```
+**Result**: ❌ STILL FAILS - Same server_error
+**Conclusion**: `input_audio_transcription` field is NOT the cause
 
 ## Known Facts
 
