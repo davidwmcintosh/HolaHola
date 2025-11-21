@@ -265,7 +265,7 @@ export class TTSService {
 
   /**
    * Synthesize speech using Google Cloud TTS (Neural2 and Chirp 3 HD voices)
-   * Automatically detects language to use the correct voice
+   * Uses the target language voice consistently for authentic pronunciation
    * Uses SSML to pronounce quoted foreign words with correct accent
    */
   private async synthesizeWithGoogle(text: string, language?: string): Promise<TTSResponse> {
@@ -273,15 +273,16 @@ export class TTSService {
       throw new Error('Google Cloud TTS client not initialized');
     }
 
-    // Auto-detect the actual language of the text instead of using the target language
-    // This ensures Spanish gets Spanish voice, English gets English voice
-    const detectedLanguage = this.detectLanguage(text, language);
-    const voiceConfig = GOOGLE_VOICE_MAP[detectedLanguage] || GOOGLE_VOICE_MAP['english'];
+    // Use the TARGET language voice consistently (e.g., Spanish voice for Spanish lessons)
+    // This ensures Spanish words are pronounced correctly, even in English explanations
+    // Trade-off: English might have a slight Spanish accent, but Spanish is perfect
+    const targetLanguage = language?.toLowerCase() || 'english';
+    const voiceConfig = GOOGLE_VOICE_MAP[targetLanguage] || GOOGLE_VOICE_MAP['english'];
 
-    // Convert to SSML if the text contains quoted foreign words
-    const { ssml, usesSSML } = this.convertToSSML(text, detectedLanguage, language);
+    // Convert to SSML if the text contains quoted foreign words (disabled for Chirp voices)
+    const { ssml, usesSSML } = this.convertToSSML(text, targetLanguage, language);
 
-    console.log(`[Google TTS] Synthesizing ${text.length} chars with ${voiceConfig.name} (${detectedLanguage})${usesSSML ? ' using SSML' : ''}`);
+    console.log(`[Google TTS] Synthesizing ${text.length} chars with ${voiceConfig.name} (target: ${targetLanguage})${usesSSML ? ' using SSML' : ''}`);
 
     // Prepare the synthesis request
     const googleRequest: protos.google.cloud.texttospeech.v1.ISynthesizeSpeechRequest = {
