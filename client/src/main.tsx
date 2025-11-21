@@ -4,6 +4,19 @@ import "./index.css";
 
 createRoot(document.getElementById("root")!).render(<App />);
 
+// Temporarily disabled service worker to clear aggressive cache
+// Will re-enable after cache issues are resolved
+if ('serviceWorker' in navigator) {
+  // Unregister existing service worker
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    registrations.forEach((registration) => {
+      registration.unregister();
+      console.log('[PWA] Service Worker unregistered for cache clearing');
+    });
+  });
+}
+
+/* ORIGINAL SERVICE WORKER CODE - WILL RE-ENABLE LATER
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
@@ -31,3 +44,4 @@ if ('serviceWorker' in navigator) {
       });
   });
 }
+*/
