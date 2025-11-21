@@ -144,11 +144,11 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     }
   }, [messages, conversationId, language, isProcessing, isRecording]);
 
-  // Spacebar keyboard shortcut for mic button (Ctrl/Cmd + Space for safety)
+  // Enter key keyboard shortcut for mic button
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Only trigger if Ctrl/Cmd + Space is pressed (safer than bare spacebar)
-      if (event.code !== 'Space' || (!event.ctrlKey && !event.metaKey)) return;
+      // Only trigger if Enter is pressed
+      if (event.code !== 'Enter') return;
       
       // Don't trigger if user is typing in an input/textarea/contenteditable
       const target = event.target as HTMLElement;
