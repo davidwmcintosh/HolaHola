@@ -418,12 +418,6 @@ For better text-to-speech pronunciation:
 - Example: "¡Muy bien! (Very good!) ¿Cómo estás? (How are you?)"
 - Keep ${nativeLanguageName} explanations SHORT and inside parentheses
 - This helps the voice synthesizer maintain consistent accent and pronunciation
-${language === 'spanish' ? `
-- CRITICAL TTS FIX FOR SPANISH: The TTS engine incorrectly pronounces silent 'h'. When possible, prefer words without 'h':
-  * Instead of "hola" → use "buenos días", "buenas tardes", or "¿qué tal?"
-  * Instead of "hijo" → use "niño" or "chico" 
-  * Instead of "hacer" → use "crear" or context-specific verbs
-  * If you MUST use a word with silent 'h', that's okay, but prefer alternatives when available` : ''}
 - Use natural, conversational spoken language. Avoid overly formal phrasing
 - Keep responses concise for better voice interaction` : `IMPORTANT - Response Format:
 You must respond with a JSON object containing:
@@ -613,12 +607,6 @@ For better text-to-speech pronunciation:
 - Speak primarily in ${languageName} with brief ${nativeLanguageName} translations in parentheses
 - Example: "¡Perfecto! (Perfect!) Ahora dime... (Now tell me...)"
 - Keep ${nativeLanguageName} explanations SHORT and inside parentheses
-${language === 'spanish' ? `
-- CRITICAL TTS FIX FOR SPANISH: The TTS engine incorrectly pronounces silent 'h'. Prefer words without 'h':
-  * Instead of "hola" → use "buenos días", "buenas tardes", or "¿qué tal?"
-  * Instead of "hijo/hija" → use "niño/niña" or "chico/chica"
-  * Instead of "hacer" → use "crear" or context verbs
-  * If you MUST use 'h' words, that's okay, but alternatives sound better` : ''}
 - Use natural, conversational spoken language. Speak clearly and at a moderate pace
 - This helps maintain consistent accent and authentic pronunciation` : `IMPORTANT - Response Format:
 You must respond with a JSON object containing:
@@ -645,12 +633,6 @@ For better text-to-speech pronunciation:
 - Speak primarily in ${languageName} with brief ${nativeLanguageName} translations in parentheses
 - Example: "Excelente respuesta! (Excellent answer!) Ahora... (Now...)"
 - Keep ${nativeLanguageName} explanations SHORT and inside parentheses
-${language === 'spanish' ? `
-- CRITICAL TTS FIX FOR SPANISH: The TTS incorrectly pronounces silent 'h'. Prefer alternatives:
-  * Instead of "hola" → "buenos días", "buenas tardes", "¿qué tal?"
-  * Instead of "hijo/hija" → "niño/niña", "chico/chica"
-  * Instead of "hacer" → "crear" or specific verbs
-  * Alternatives sound more natural with TTS` : ''}
 - This helps the voice synthesizer maintain consistent ${languageName} accent
 - Use natural, conversational spoken language appropriate for ${difficulty} level
 - Focus on fluent conversation rather than structured repetition exercises` : "");
@@ -909,12 +891,6 @@ For better text-to-speech pronunciation:
 - Speak primarily in ${languageName} with brief ${nativeLanguageName} translations in parentheses
 - Example: "Increíble! (Amazing!) Eso es correcto. (That's correct.)"
 - Keep ${nativeLanguageName} explanations SHORT and inside parentheses
-${language === 'spanish' ? `
-- CRITICAL TTS FIX FOR SPANISH: The TTS pronounces silent 'h' incorrectly. Use alternatives:
-  * Instead of "hola" → "buenos días", "buenas tardes", "¿qué tal?"
-  * Instead of "hijo/hija" → "niño/niña", "chico/chica"  
-  * Instead of "hacer" → "crear" or specific verbs
-  * These alternatives produce better audio quality` : ''}
 - This maintains consistent accent for authentic pronunciation
 - Keep responses natural and conversational for spoken interaction
 - Maintain appropriate pacing for ${difficulty} level fluency` : `IMPORTANT - Response Format:

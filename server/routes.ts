@@ -24,6 +24,7 @@ import { assessMessage, analyzePerformance } from "./difficulty-adjustment";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { generateConversationTitle, generateConversationContextSummary } from "./conversation-utils";
 import multer from "multer";
+import { getTTSService } from "./services/tts-service";
 
 // Use Replit AI Integrations for text chat (works reliably)
 const openai = new OpenAI({
@@ -1850,36 +1851,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Synthesize speech using TTS API
+  // Now uses Google Cloud WaveNet for authentic native pronunciation (with OpenAI fallback)
   app.post("/api/voice/synthesize", isAuthenticated, async (req: any, res) => {
     try {
-      const { text, voice = 'alloy', language } = req.body;
+      const { text, voice, language } = req.body;
       
       if (!text) {
         return res.status(400).json({ error: "No text provided" });
       }
 
       const userId = req.user.claims.sub;
-      console.log(`[TTS] Synthesizing speech for user ${userId}, length: ${text.length} chars, voice: ${voice}, language: ${language || 'default'}`);
+      console.log(`[TTS] Synthesizing speech for user ${userId}, length: ${text.length} chars, language: ${language || 'default'}`);
 
-      // Call OpenAI TTS API using personal API key (Replit AI Integrations doesn't support this endpoint)
-      // Note: OpenAI TTS doesn't have a language parameter - voice selection and text content determine pronunciation
-      // nova and shimmer voices have better multilingual pronunciation than alloy
-      // Using tts-1-hd for higher quality pronunciation (especially important for foreign languages)
-      const mp3Response = await voiceOpenAI.audio.speech.create({
-        model: "tts-1-hd",
-        voice: voice as any, // 'alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'
-        input: text,
-        response_format: 'mp3',
+      // Use TTS service abstraction (Google WaveNet preferred, OpenAI fallback)
+      const ttsService = getTTSService();
+      const result = await ttsService.synthesize({
+        text,
+        language,
+        voice,
       });
 
-      // Convert response to buffer
-      const buffer = Buffer.from(await mp3Response.arrayBuffer());
-      console.log(`[TTS] ✓ Generated ${buffer.length} bytes of audio with voice: ${voice}`);
+      console.log(`[TTS] ✓ Generated ${result.audioBuffer.length} bytes using ${ttsService.getProvider()} provider`);
 
-      // Send audio as MP3
-      res.setHeader('Content-Type', 'audio/mpeg');
-      res.setHeader('Content-Length', buffer.length.toString());
-      res.send(buffer);
+      // Send audio response
+      res.setHeader('Content-Type', result.contentType);
+      res.setHeader('Content-Length', result.audioBuffer.length.toString());
+      res.send(result.audioBuffer);
     } catch (error: any) {
       console.error("[TTS] Synthesis failed:", error);
       res.status(500).json({ error: error.message || "Failed to synthesize speech" });

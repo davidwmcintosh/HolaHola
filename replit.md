@@ -56,13 +56,14 @@ Preferred communication style: Simple, everyday language.
 ### Third-Party Services
 -   **Stripe**: Payment processing and subscription management.
 -   **Replit Auth**: OIDC authentication.
--   **OpenAI API**: Dual client architecture for text chat (Replit AI Integrations) and voice features (User's Personal Key).
+-   **OpenAI API**: Dual client architecture for text chat (Replit AI Integrations) and voice STT (User's Personal Key).
+-   **Google Cloud Text-to-Speech**: WaveNet voices for authentic native pronunciation with SSML support.
 -   **Unsplash**: Stock educational images.
 -   **DALL-E**: AI-generated contextual images.
 
 ### Dual OpenAI Client Architecture
 -   **Replit AI Integrations** (`OPENAI_API_KEY`): Used for text chat completions only, managed by Replit. Models: `gpt-4o-mini`, `gpt-4o`.
--   **User's Personal Key** (`USER_OPENAI_API_KEY`): Used for voice features (Whisper, TTS), managed by the user's OpenAI account. Models: `whisper-1` (STT), `tts-1` (TTS). This separation addresses Replit AI Integrations' lack of Whisper/TTS support and separates text costs from voice costs.
+-   **User's Personal Key** (`USER_OPENAI_API_KEY`): Used for voice STT (Whisper) and TTS fallback, managed by the user's OpenAI account. Models: `whisper-1` (STT), `tts-1-hd` (TTS fallback). This separation addresses Replit AI Integrations' lack of Whisper/TTS support and separates text costs from voice costs.
 
 ### Libraries & Tools
 -   **Database**: Neon PostgreSQL (via `DATABASE_URL`), Drizzle ORM, Drizzle Kit.
@@ -74,10 +75,18 @@ Preferred communication style: Simple, everyday language.
 
 ### AI Models Summary
 -   **Text Chat**: `gpt-4o-mini` (Free/Basic/Institutional), `gpt-4o` (Pro). Tier-based model selection via `getModelForTier()` helper ensures cost efficiency for lower tiers and quality for Pro users.
--   **Voice STT**: `whisper-1` (speech-to-text).
--   **Voice TTS**: `tts-1` (text-to-speech).
+-   **Voice STT**: `whisper-1` (speech-to-text via OpenAI).
+-   **Voice TTS**: Google Cloud WaveNet Neural2 voices (primary), OpenAI `tts-1-hd` (fallback). WaveNet provides authentic native pronunciation with proper phoneme handling (e.g., silent 'h' in Spanish).
 
 ## Recent Technical Improvements (Nov 21, 2025)
+-   **Google Cloud WaveNet TTS Migration**: Migrated from OpenAI TTS to Google Cloud WaveNet for authentic native pronunciation across all 9 supported languages. Implemented TTS service abstraction layer (`server/services/tts-service.ts`) with graceful fallback to OpenAI TTS. WaveNet voices provide:
+    -   Native pronunciation with no American accent artifacts (e.g., correctly handles silent 'h' in Spanish "hola")
+    -   SSML support for fine-grained pronunciation control
+    -   Regional dialect variations (Castilian Spanish, Brazilian Portuguese, etc.)
+    -   Natural prosody and intonation
+    -   Speaking rate set to 0.9x for better language learning comprehension
+    -   Cost: $16/1M characters (1M free tier), ~$1.60/month per Pro user (500 messages)
+    -   Removed all "avoid hola" workarounds from system prompts - AI now teaches natural Spanish
 -   **Voice Chat Performance Optimization**: Implemented split response architecture reducing voice mode latency from ~40s to ~3.6s. Fast text-only AI response is sent immediately, with vocabulary extraction and image generation queued for background processing using `setImmediate()`.
 -   **Tier-Based Model Selection**: Added `getModelForTier()` helper function to centralize model selection logic across all chat flows (text, voice, onboarding). Ensures gpt-4o-mini for cost efficiency (Free/Basic/Institutional tiers) and gpt-4o for quality (Pro tier).
 -   **enrichmentStatus Field**: Added to messages schema to track background processing state ("pending" → null when complete). Uses conditional spread `...(isVoiceMode ? { enrichmentStatus: "pending" } : {})` to avoid undefined→null database conversion.
