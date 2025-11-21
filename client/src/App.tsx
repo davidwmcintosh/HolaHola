@@ -26,6 +26,7 @@ import Grammar from "@/pages/grammar";
 import History from "@/pages/history";
 import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
+import { BUILD_TIME } from "./buildtime";
 
 // Wrapper component that adds container padding for non-chat pages
 function PageWrapper({ children }: { children: React.ReactNode }) {
@@ -86,6 +87,9 @@ function App() {
     "--sidebar-width": "18rem",
     "--sidebar-width-icon": "4rem",
   };
+
+  // Force cache bust
+  console.log('[BUILD] App version:', BUILD_TIME);
 
   return (
     <QueryClientProvider client={queryClient}>
