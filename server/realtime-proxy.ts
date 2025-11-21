@@ -184,18 +184,35 @@ export function setupRealtimeProxy(server: Server) {
       
       console.log(`Using Realtime model: ${model} for tier: ${subscriptionTier}`);
 
-      // Connect directly to OpenAI Realtime API (no ephemeral session)
-      // Ephemeral sessions are for client-side use; we're building a server-side proxy
+      // Create ephemeral session first (required for WebSocket connection)
       const apiKey = process.env.USER_OPENAI_API_KEY;
-      const wsUrl = `wss://api.openai.com/v1/realtime?model=${encodeURIComponent(model)}`;
-      
-      console.log('[DIRECT CONNECTION] Connecting to OpenAI Realtime API...');
-      const openaiWs = new WS(wsUrl, {
+      const sessionResponse = await fetch('https://api.openai.com/v1/realtime/sessions', {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
-          'OpenAI-Beta': 'realtime=v1'
-        }
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          voice: 'alloy',
+        }),
       });
+
+      if (!sessionResponse.ok) {
+        const errorText = await sessionResponse.text();
+        console.error('Failed to create ephemeral session:', errorText);
+        throw new Error(`Ephemeral session creation failed: ${sessionResponse.status}`);
+      }
+
+      const sessionData = await sessionResponse.json();
+      console.log('✅ Ephemeral session created');
+
+      // Use the client_secret.value URL directly (contains session token and model)
+      // DO NOT add model param or Authorization header - that causes double-authentication!
+      const wsUrl = sessionData.client_secret.value;
+      
+      console.log('[EPHEMERAL SESSION] Connecting with pre-configured URL...');
+      const openaiWs = new WS(wsUrl); // No headers, no query params!
 
       // Forward messages from client to OpenAI
       clientWs.on('message', (data) => {
@@ -299,17 +316,17 @@ export function setupRealtimeProxy(server: Server) {
           }
         };
         
-        // TESTING: Temporarily remove instructions to debug server_error
-        // const systemPrompt = createSystemPrompt(
-        //   conversationLanguage,
-        //   difficulty,
-        //   messageCount,
-        //   true, // isVoiceMode
-        //   topic,
-        //   previousConversations,
-        //   nativeLanguage
-        // );
-        // sessionConfig.instructions = systemPrompt;
+        // Add system instructions from shared prompt
+        const systemPrompt = createSystemPrompt(
+          conversationLanguage,
+          difficulty,
+          messageCount,
+          true, // isVoiceMode
+          topic,
+          previousConversations,
+          nativeLanguage
+        );
+        sessionConfig.instructions = systemPrompt;
         
         // Only include turn_detection if using VAD mode
         // For push-to-talk, omit the field entirely
@@ -321,7 +338,7 @@ export function setupRealtimeProxy(server: Server) {
         console.log('[SESSION CONFIG] Voice:', sessionConfig.voice);
         console.log('[SESSION CONFIG] Audio formats:', sessionConfig.input_audio_format, '/', sessionConfig.output_audio_format);
         console.log('[SESSION CONFIG] Turn detection:', turnDetection ? JSON.stringify(turnDetection) : 'push-to-talk (no turn_detection field)');
-        console.log('[SESSION CONFIG] Instructions:', sessionConfig.instructions ? 'SET' : 'NOT SET');
+        console.log('[SESSION CONFIG] Instructions length:', systemPrompt.length, 'chars');
         
         openaiWs.send(JSON.stringify({
           type: 'session.update',
