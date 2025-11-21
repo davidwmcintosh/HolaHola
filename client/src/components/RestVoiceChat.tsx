@@ -1,9 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Loader2, Volume2, Radio } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
+import { Mic, MicOff, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery } from "@tanstack/react-query";
 import { type Message } from "@shared/schema";
@@ -26,18 +24,13 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   const [processingStage, setProcessingStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [avatarState, setAvatarState] = useState<AvatarState>('idle');
-  const [voiceMode, setVoiceMode] = useState<'push-to-talk' | 'open-mic'>('push-to-talk');
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyzerRef = useRef<AnalyserNode | null>(null);
-  const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const isCleaningUpRef = useRef(false); // Prevent cleanup loops
-  const activeConversationRef = useRef<string | null>(null); // Track which conversation is being recorded
+  const activeConversationRef = useRef<string | null>(null);
 
   // Fetch existing messages
   const { data: messages = [] } = useQuery<Message[]>({
@@ -54,35 +47,11 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     };
   }, []);
 
-  // Open mic mode: Auto-start recording on initial load
-  useEffect(() => {
-    if (voiceMode === 'open-mic' && !isRecording && !isProcessing && conversationId && !isCleaningUpRef.current) {
-      console.log('[OPEN MIC] Auto-starting initial recording...');
-      startRecording(true);
-    } else if (voiceMode === 'push-to-talk' && isRecording && !isProcessing) {
-      // If switching to push-to-talk while recording, stop
-      console.log('[PUSH TO TALK] Stopping recording due to mode switch');
-      cleanupRecording();
-    }
-  }, [voiceMode, conversationId]);
-
-  // Cleanup on unmount
+  // Cleanup on unmount or conversation change
   useEffect(() => {
     return () => {
-      console.log('[UNMOUNT] Cleaning up voice recording resources...');
-      isCleaningUpRef.current = true; // Block any further recording attempts
+      console.log('[CLEANUP] Cleaning up voice recording resources...');
       cleanupRecording();
-    };
-  }, []);
-
-  // Cleanup on conversation change (but allow restart)
-  useEffect(() => {
-    return () => {
-      if (conversationId) {
-        console.log('[CONVERSATION CHANGE] Cleaning up for new conversation...');
-        cleanupRecording();
-        // Note: Don't set isCleaningUpRef here - we want to allow recording to restart
-      }
     };
   }, [conversationId]);
 
@@ -107,40 +76,14 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       streamRef.current = null;
     }
     
-    // Close audio context
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-      analyzerRef.current = null;
-    }
-    
-    // Clear silence timeout
-    if (silenceTimeoutRef.current) {
-      clearTimeout(silenceTimeoutRef.current);
-      silenceTimeoutRef.current = null;
-    }
-    
     setIsRecording(false);
   };
 
-  const startRecording = async (isOpenMic = false) => {
-    // Prevent starting if already recording or cleaning up
-    if (isRecording || isCleaningUpRef.current) {
-      console.log('[START] Skipping - already recording or cleaning up');
-      return;
-    }
-    
-    // Wait a bit if there's a pending cleanup
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      console.log('[START] Waiting for previous recorder to stop...');
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
+  const startRecording = async () => {
+    if (isRecording) return;
     
     try {
       setError(null);
-      isCleaningUpRef.current = false;
-      
-      // Capture current conversation ID for this recording session
       activeConversationRef.current = conversationId;
       
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -161,22 +104,16 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       mediaRecorder.onstop = async () => {
         console.log('[RECORDER] Stopped, processing audio...');
         
-        // Check if this recording is still valid for current conversation
         const recordedForConversation = activeConversationRef.current;
         const currentConversation = conversationId;
-        
-        // Process the recorded audio
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         
-        // Cleanup resources before processing
         cleanupRecording();
         
-        // Only process if conversation hasn't changed
         if (recordedForConversation === currentConversation && recordedForConversation) {
-          console.log('[RECORDER] Processing audio for conversation:', recordedForConversation);
           await processRecording(audioBlob, recordedForConversation);
         } else {
-          console.log('[RECORDER] Discarding audio - conversation changed from', recordedForConversation, 'to', currentConversation);
+          console.log('[RECORDER] Discarding audio - conversation changed');
         }
       };
       
@@ -184,80 +121,11 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       mediaRecorder.start();
       setIsRecording(true);
       setAvatarState('listening');
-      
-      // Set up voice activity detection for open mic mode
-      if (isOpenMic) {
-        console.log('[OPEN MIC] Setting up voice activity detection...');
-        setupVoiceActivityDetection(stream);
-      }
     } catch (err: any) {
       console.error('Failed to start recording:', err);
       setError(err.message || 'Failed to access microphone');
       cleanupRecording();
     }
-  };
-
-  const setupVoiceActivityDetection = (stream: MediaStream) => {
-    try {
-      const audioContext = new AudioContext();
-      const analyzer = audioContext.createAnalyser();
-      const microphone = audioContext.createMediaStreamSource(stream);
-      
-      analyzer.smoothingTimeConstant = 0.8;
-      analyzer.fftSize = 1024;
-      
-      microphone.connect(analyzer);
-      
-      audioContextRef.current = audioContext;
-      analyzerRef.current = analyzer;
-      
-      // Monitor audio levels
-      monitorAudioLevel();
-    } catch (err) {
-      console.error('[OPEN MIC] Failed to setup VAD:', err);
-    }
-  };
-
-  const monitorAudioLevel = () => {
-    if (!analyzerRef.current || voiceMode !== 'open-mic') return;
-    
-    const bufferLength = analyzerRef.current.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    
-    const checkLevel = () => {
-      if (!analyzerRef.current || voiceMode !== 'open-mic') return;
-      
-      analyzerRef.current.getByteFrequencyData(dataArray);
-      
-      // Calculate average volume
-      const average = dataArray.reduce((a, b) => a + b) / bufferLength;
-      
-      // Silence threshold (adjust as needed)
-      const SILENCE_THRESHOLD = 10;
-      const SILENCE_DURATION = 1500; // 1.5 seconds of silence before stopping
-      
-      if (average < SILENCE_THRESHOLD) {
-        // User stopped talking - start silence timer
-        if (!silenceTimeoutRef.current) {
-          console.log('[OPEN MIC] Silence detected, starting timer...');
-          silenceTimeoutRef.current = setTimeout(() => {
-            console.log('[OPEN MIC] Silence duration reached, stopping recording...');
-            stopRecording();
-          }, SILENCE_DURATION);
-        }
-      } else {
-        // User is talking - clear silence timer
-        if (silenceTimeoutRef.current) {
-          clearTimeout(silenceTimeoutRef.current);
-          silenceTimeoutRef.current = null;
-        }
-      }
-      
-      // Continue monitoring
-      requestAnimationFrame(checkLevel);
-    };
-    
-    checkLevel();
   };
 
   const stopRecording = () => {
@@ -385,7 +253,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           <div>
             <h2 className="text-lg font-semibold">Voice Practice</h2>
             <p className="text-sm text-muted-foreground">
-              {voiceMode === 'push-to-talk' ? 'Click to talk' : 'Continuous listening'}
+              Click button to record
             </p>
           </div>
         </div>
@@ -393,30 +261,6 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           <LanguageSelector />
           {conversationId && <CompactDifficultyControl conversationId={conversationId} />}
         </div>
-      </div>
-      
-      {/* Voice Mode Toggle */}
-      <div className="px-4 py-3 border-b bg-muted/30 flex items-center justify-center gap-2">
-        <Button
-          variant={voiceMode === 'push-to-talk' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setVoiceMode('push-to-talk')}
-          disabled={isProcessing}
-          data-testid="button-push-to-talk"
-        >
-          <Mic className="h-4 w-4 mr-2" />
-          Push to Talk
-        </Button>
-        <Button
-          variant={voiceMode === 'open-mic' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setVoiceMode('open-mic')}
-          disabled={isProcessing}
-          data-testid="button-open-mic"
-        >
-          <Radio className="h-4 w-4 mr-2" />
-          Open Mic
-        </Button>
       </div>
 
       {/* Messages - matches ChatInterface.tsx layout */}
@@ -464,7 +308,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
                 if (isRecording) {
                   stopRecording();
                 } else {
-                  startRecording(voiceMode === 'open-mic');
+                  startRecording();
                 }
               }}
               disabled={isProcessing || !conversationId}
