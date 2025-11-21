@@ -100,16 +100,15 @@ export async function processVoiceMessage(
   // Step 1: Transcribe audio
   const userTranscript = await transcribeAudio(audioBlob, language);
 
-  // Step 2: Get AI response using existing chat endpoint
-  const chatResponse = await fetch('/api/chat', {
+  // Step 2: Get AI response using the same endpoint as text chat
+  const chatResponse = await fetch(`/api/conversations/${conversationId}/messages`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      conversationId,
-      message: userTranscript,
-      isVoiceMode: true,
+      role: 'user',
+      content: userTranscript,
     }),
     credentials: 'include',
   });
@@ -136,96 +135,23 @@ export async function processVoiceMessage(
 
   const chatData = await chatResponse.json();
   
-  // Validate and extract AI response (handle all GPT response formats)
-  if (!chatData?.aiMessage) {
-    throw new Error('Invalid chat response: missing AI message');
+  // Extract AI message content from server response
+  if (!chatData?.aiMessage?.content) {
+    throw new Error('Invalid chat response: missing AI message content');
   }
   
-  let aiResponse: string;
-  
-  // Extract text content from various response formats (recursive)
-  // Handles all known OpenAI response structures including tool calls and structured outputs
-  const extractText = (data: any): string => {
-    // Null/undefined check
-    if (!data) {
-      return '';
-    }
-    
-    // String response
-    if (typeof data === 'string') {
-      return data;
-    }
-    
-    // Array of messages/segments - recurse on each item
-    if (Array.isArray(data)) {
-      return data
-        .map(item => extractText(item)) // Recursive call
-        .filter(Boolean)
-        .join('\n');
-    }
-    
-    // Object handling
-    if (typeof data === 'object') {
-      // OpenAI tool calls: { tool_calls: [{function: {arguments: '...'}}] }
-      if (data.tool_calls && Array.isArray(data.tool_calls)) {
-        return data.tool_calls
-          .map((call: any) => extractText(call.function?.arguments || call))
-          .filter(Boolean)
-          .join('\n');
-      }
-      
-      // Segments array: { segments: [...] }
-      if (data.segments && Array.isArray(data.segments)) {
-        return data.segments
-          .map((segment: any) => extractText(segment))
-          .filter(Boolean)
-          .join('\n');
-      }
-      
-      // Content array: { content: [{type: 'output_text', text: '...'}, ...] }
-      if (data.content && Array.isArray(data.content)) {
-        return data.content
-          .map((segment: any) => extractText(segment)) // Recursive call
-          .filter(Boolean)
-          .join('\n');
-      }
-      
-      // Content string: { content: '...' }
-      if (data.content && typeof data.content === 'string') {
-        return data.content;
-      }
-      
-      // Text field: { text: '...' }
-      if (data.text) {
-        return data.text;
-      }
-      
-      // Message field: { message: '...' }
-      if (data.message) {
-        return extractText(data.message); // Recursive
-      }
-      
-      // Output field: { output: '...' }
-      if (data.output) {
-        return extractText(data.output); // Recursive
-      }
-    }
-    
-    return '';
-  };
-  
-  aiResponse = extractText(chatData.aiMessage);
+  const aiResponse = chatData.aiMessage.content;
   
   if (!aiResponse || aiResponse.trim() === '') {
     throw new Error('Empty AI response received');
   }
 
   // Step 3: Synthesize speech
-  const audioBlob2 = await synthesizeSpeech(aiResponse);
+  const ttsAudioBlob = await synthesizeSpeech(aiResponse);
 
   return {
     userTranscript,
     aiResponse,
-    audioBlob: audioBlob2,
+    audioBlob: ttsAudioBlob,
   };
 }
