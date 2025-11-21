@@ -164,7 +164,8 @@ export class TTSService {
    * This ensures we use the correct voice for AI responses (Spanish voice for Spanish, English for English)
    */
   private detectLanguage(text: string, fallbackLanguage?: string): string {
-    // Clean text for better detection (remove special chars but keep letters)
+    // Clean text for better detection (remove special chars but keep letters and spaces)
+    // Using Unicode property escape with u flag
     const cleanText = text.replace(/[^\p{L}\s]/gu, ' ').trim();
     
     // Simple heuristic: Check for very common English words
