@@ -32,7 +32,18 @@ Preferred communication style: Simple, everyday language.
 - `client/src/pages/chat.tsx` - Integrated RestVoiceChat
 
 **Debugging Time**: 8+ hours (WebSocket) + 4+ hours (REST implementation)
-**Details**: See `VOICE_CHAT_TROUBLESHOOTING.md` for complete investigation timeline
+**Details**: See `REST_VOICE_CHAT.md` for complete architecture documentation
+
+### API Key Verification - ✅ VERIFIED (Nov 21, 2025)
+**Test Script**: `test-openai-key.ts` - Direct verification of USER_OPENAI_API_KEY
+**Results**: All APIs confirmed working
+- ✅ Whisper (Speech-to-Text): Working
+- ✅ TTS (Text-to-Speech): Working (11,040 byte MP3 generated)
+- ✅ Chat Completions: Working
+- ✅ Key Format: 164 characters, sk-proj-* prefix (valid project key)
+
+**Usage**: Run `tsx test-openai-key.ts` to verify API key anytime
+**Conclusion**: USER_OPENAI_API_KEY is 100% valid and functional for all voice features
 
 ## Architectural Principles
 
@@ -133,9 +144,43 @@ If unsure, default to: **Extract shared logic to utilities/hooks and import in b
 
 ## External Dependencies
 
--   **Third-Party Services**: Stripe (billing), Replit Auth (authentication), OpenAI API (AI chat via Replit AI Integrations), Unsplash (stock images), DALL-E (AI-generated images).
--   **Libraries**: Neon Database Serverless, Drizzle ORM, stripe-replit-sync, Radix UI, TanStack Query, Wouter, date-fns, Embla Carousel.
--   **Database**: PostgreSQL (via `DATABASE_URL`) with Drizzle Kit for migrations, connection pooling via `@neondatabase/serverless`.
--   **AI Models**: 
-    - Voice: `whisper-1` (STT), `tts-1` (TTS), `gpt-4o-mini` (Free tier text generation), `gpt-4o` (Pro tier text generation)
-    - Text chat: `gpt-4o-mini` (Free/Basic/Institutional), `gpt-4o` (Pro)
+### Third-Party Services
+-   **Stripe**: Payment processing and subscription management
+-   **Replit Auth**: OIDC authentication with email/password and social login
+-   **OpenAI API**: Dual client architecture (see below)
+-   **Unsplash**: Stock educational images
+-   **DALL-E**: AI-generated contextual images
+
+### Dual OpenAI Client Architecture
+**CRITICAL**: LinguaFlow uses TWO separate OpenAI API keys for different features:
+
+1. **Replit AI Integrations** (`OPENAI_API_KEY`)
+   - **Purpose**: Text chat completions only
+   - **Managed By**: Replit platform (automatic)
+   - **Models**: `gpt-4o-mini` (Free/Basic/Institutional), `gpt-4o` (Pro)
+   - **Used For**: All text-based conversations
+
+2. **User's Personal Key** (`USER_OPENAI_API_KEY`)
+   - **Purpose**: Voice features (Whisper, TTS)
+   - **Managed By**: User's OpenAI account
+   - **Models**: `whisper-1` (STT), `tts-1` (TTS)
+   - **Used For**: Speech-to-text, text-to-speech
+   - **Verification**: Run `tsx test-openai-key.ts` to verify
+
+**Why Two Keys?**
+- Replit AI Integrations don't support Whisper/TTS APIs
+- Separates text costs (Replit) from voice costs (user)
+- Allows independent scaling and control
+
+### Libraries & Tools
+-   **Database**: Neon PostgreSQL (via `DATABASE_URL`), Drizzle ORM, Drizzle Kit for migrations
+-   **UI Framework**: React, TypeScript, Vite, Wouter (routing)
+-   **UI Components**: Radix UI, Shadcn/ui, Tailwind CSS
+-   **State Management**: TanStack Query, React Context
+-   **Billing**: stripe-replit-sync
+-   **Utilities**: date-fns, Embla Carousel
+
+### AI Models Summary
+-   **Text Chat**: `gpt-4o-mini` (Free/Basic/Institutional), `gpt-4o` (Pro)
+-   **Voice STT**: `whisper-1` (speech-to-text)
+-   **Voice TTS**: `tts-1` (text-to-speech)
