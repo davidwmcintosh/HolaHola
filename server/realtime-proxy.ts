@@ -184,18 +184,67 @@ export function setupRealtimeProxy(server: Server) {
       
       console.log(`Using Realtime model: ${model} for tier: ${subscriptionTier}`);
 
-      // Create ephemeral session first (required for WebSocket connection)
+      // Configure turn detection based on VAD mode
+      let turnDetection: any;
+      
+      if (vadMode === 'semantic_vad') {
+        turnDetection = {
+          type: 'semantic_vad',
+          eagerness: 'low',
+          create_response: true,
+          interrupt_response: true
+        };
+      } else if (vadMode === 'server_vad') {
+        turnDetection = {
+          type: 'server_vad',
+          threshold: 0.5,
+          prefix_padding_ms: 300,
+          silence_duration_ms: 500,
+          create_response: true
+        };
+      }
+      
+      // Create system instructions
+      const systemPrompt = createSystemPrompt(
+        conversationLanguage,
+        difficulty,
+        messageCount,
+        true, // isVoiceMode
+        topic,
+        previousConversations,
+        nativeLanguage
+      );
+
+      // Create ephemeral session with full configuration
       const apiKey = process.env.USER_OPENAI_API_KEY;
+      const sessionConfig: any = {
+        model,
+        modalities: ['text', 'audio'],
+        voice: 'alloy',
+        instructions: systemPrompt,
+        input_audio_format: 'pcm16',
+        output_audio_format: 'pcm16',
+        input_audio_transcription: {
+          model: 'whisper-1'
+        }
+      };
+      
+      // Only include turn_detection if using VAD mode
+      if (turnDetection) {
+        sessionConfig.turn_detection = turnDetection;
+      }
+      
+      console.log('[EPHEMERAL SESSION] Creating with config...');
+      console.log('[SESSION CONFIG] Instructions length:', systemPrompt.length, 'chars');
+      console.log('[SESSION CONFIG] Turn detection:', turnDetection ? turnDetection.type : 'push-to-talk');
+      
       const sessionResponse = await fetch('https://api.openai.com/v1/realtime/sessions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          model,
-          voice: 'alloy',
-        }),
+        body: JSON.stringify(sessionConfig),
       });
 
       if (!sessionResponse.ok) {
@@ -205,14 +254,9 @@ export function setupRealtimeProxy(server: Server) {
       }
 
       const sessionData = await sessionResponse.json();
-      console.log('✅ Ephemeral session response:', JSON.stringify(sessionData, null, 2));
-
-      // DEBUG: Check what we actually got
-      console.log('client_secret type:', typeof sessionData.client_secret);
-      console.log('client_secret.value:', sessionData.client_secret?.value);
+      console.log('✅ Ephemeral session created');
       
       // The client_secret.value contains the ephemeral token
-      // Build WebSocket URL with the token (no model param, no Authorization header)
       const ephemeralToken = sessionData.client_secret.value;
       const wsUrl = `wss://api.openai.com/v1/realtime?model=${encodeURIComponent(model)}`;
       
@@ -291,69 +335,8 @@ export function setupRealtimeProxy(server: Server) {
       // Handle OpenAI connection open
       openaiWs.on('open', () => {
         console.log('Connected to OpenAI Realtime API');
-        console.log('[REALTIME PROXY] Configuring session...');
-        
-        // Configure turn detection based on VAD mode
-        let turnDetection: any;
-        
-        if (vadMode === 'semantic_vad') {
-          turnDetection = {
-            type: 'semantic_vad',
-            eagerness: 'low',
-            create_response: true,
-            interrupt_response: true
-          };
-        } else if (vadMode === 'server_vad') {
-          turnDetection = {
-            type: 'server_vad',
-            threshold: 0.5,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 500,
-            create_response: true
-          };
-        } else {
-          turnDetection = null;
-        }
-        
-        // Configure session with required fields per OpenAI docs
-        const sessionConfig: any = {
-          modalities: ['text', 'audio'],  // Required for voice+text responses
-          voice: 'alloy',
-          input_audio_format: 'pcm16',
-          output_audio_format: 'pcm16',
-          input_audio_transcription: {
-            model: 'whisper-1'
-          }
-        };
-        
-        // Add system instructions from shared prompt
-        const systemPrompt = createSystemPrompt(
-          conversationLanguage,
-          difficulty,
-          messageCount,
-          true, // isVoiceMode
-          topic,
-          previousConversations,
-          nativeLanguage
-        );
-        sessionConfig.instructions = systemPrompt;
-        
-        // Only include turn_detection if using VAD mode
-        // For push-to-talk, omit the field entirely
-        if (turnDetection) {
-          sessionConfig.turn_detection = turnDetection;
-        }
-        
-        console.log('[SESSION CONFIG] Modalities:', sessionConfig.modalities);
-        console.log('[SESSION CONFIG] Voice:', sessionConfig.voice);
-        console.log('[SESSION CONFIG] Audio formats:', sessionConfig.input_audio_format, '/', sessionConfig.output_audio_format);
-        console.log('[SESSION CONFIG] Turn detection:', turnDetection ? JSON.stringify(turnDetection) : 'push-to-talk (no turn_detection field)');
-        console.log('[SESSION CONFIG] Instructions length:', systemPrompt.length, 'chars');
-        
-        openaiWs.send(JSON.stringify({
-          type: 'session.update',
-          session: sessionConfig
-        }));
+        console.log('[EPHEMERAL SESSION] Session already configured, ready for messages');
+        // No need to send session.update - ephemeral session is pre-configured!
       });
 
       // Handle errors
