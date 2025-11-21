@@ -1,0 +1,56 @@
+Uncaught (in promise) TypeError: Failed to execute 'put' on 'Cache': Request scheme 'chrome-extension' is unsupported
+    at sw.js:88:19
+7sw.js:88 Uncaught (in promise) TypeError: Failed to execute 'put' on 'Cache': Request scheme 'chrome-extension' is unsupported
+    at sw.js:88:19
+(anonymous) @ sw.js:88
+7sw.js:88 Uncaught (in promise) TypeError: Failed to execute 'put' on 'Cache': Request scheme 'chrome-extension' is unsupported
+    at sw.js:88:19
+client:536 WebSocket connection to 'wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/?token=w3xrXTaELhwj' failed: 
+setupWebSocket @ client:536
+client:536 Uncaught (in promise) DOMException: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=w3xrXTaELhwj' is invalid.
+    at setupWebSocket (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:536:19)
+    at fallback (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:509:16)
+    at WebSocket.<anonymous> (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:555:7)
+chunk-WERSD76P.js?v=5a569869:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+sw.js:88 Uncaught (in promise) TypeError: Failed to execute 'put' on 'Cache': Request scheme 'chrome-extension' is unsupported
+    at sw.js:88:19
+vendors.bundle.js:2 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+main.tsx:12 [PWA] Service Worker registered: https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/
+sw.js:88 Uncaught (in promise) TypeError: Failed to execute 'put' on 'Cache': Request scheme 'chrome-extension' is unsupported
+    at sw.js:88:19
+LanguageContext.tsx:21 [LanguageContext] Initializing with language: spanish (from localStorage)
+LanguageContext.tsx:26 [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+LanguageContext.tsx:31 [LanguageContext] Initializing with userName: David (from localStorage)
+LanguageContext.tsx:43 [LanguageContext] Hydrating from user preferences: Object
+audioUtils.ts:70 [AUDIO PLAYER] AudioPlayer created, initial state: running
+chat.tsx:64 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false inProgress: false
+chat.tsx:67 [SHARED CHAT] Creating shared conversation... (post-onboarding) forceNew: false
+chat.tsx:64 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: true inProgress: true
+chat.tsx:83 [SHARED CHAT] Shared conversation created: fc6a9899-e6ef-48cc-975d-95065906c9da
+realtimeManager.ts:24 [REALTIME MANAGER] Connection lock: LOCKED
+VoiceChat.tsx:152 [VOICE CHAT] Connecting through unified proxy...
+VoiceChat.tsx:166 [VOICE CHAT] ✓ Connecting to proxy with unified system prompt
+2chat.tsx:64 [SHARED CHAT] Auto-create check - userName: David conversationId: fc6a9899-e6ef-48cc-975d-95065906c9da isCreating: false inProgress: false
+VoiceChat.tsx:182 [VOICE CHAT] ✓ Connected through unified proxy with shared system prompt!
+realtimeManager.ts:42 [REALTIME MANAGER] ✓ Global WebSocket set for conversation: fc6a9899-e6ef-48cc-975d-95065906c9da
+realtimeManager.ts:24 [REALTIME MANAGER] Connection lock: UNLOCKED
+VoiceChat.tsx:240 [VOICE CHAT] Greeting already sent for conversation: fc6a9899-e6ef-48cc-975d-95065906c9da
+VoiceChat.tsx:1274 [VOICE BUTTON] PointerDown - button: 0 conversationId: fc6a9899-e6ef-48cc-975d-95065906c9da capabilityAvailable: true isRecording: false
+VoiceChat.tsx:1276 [VOICE BUTTON] Conditions met, calling startRecording()
+VoiceChat.tsx:564 [VOICE CHAT] Starting recording with token: 1 isAiSpeaking: false
+VoiceChat.tsx:578 [VOICE CHAT] Resuming audio playback on user interaction...
+audioUtils.ts:80 [AUDIO PLAYER] AudioContext already running, state: running
+VoiceChat.tsx:580 [VOICE CHAT] ✓ Audio playback ready!
+audioUtils.ts:27 [Deprecation] The ScriptProcessorNode is deprecated. Use AudioWorkletNode instead. (https://bit.ly/audio-worklet)
+startRecording @ audioUtils.ts:27
+VoiceChat.tsx:638 [VOICE CHAT] Recording started successfully with token: 1
+VoiceChat.tsx:288 [REALTIME EVENT] error Object
+VoiceChat.tsx:423 Realtime API error: Object
+ws.onmessage @ VoiceChat.tsx:423
+VoiceChat.tsx:657 [VOICE CHAT] Stop requested, recordingToken: 1 latestToken: 1 isRecording: true hasRecorder: true
+VoiceChat.tsx:663 [VOICE CHAT] Stopped recording token: 1 stoppedToken now: 1
+VoiceChat.tsx:676 [VOICE CHAT] Stopping active recorder
+VoiceChat.tsx:527 WebSocket closed 1005 
+realtimeManager.ts:74 [REALTIME MANAGER] Clearing global WebSocket (identity match confirmed)
+realtimeManager.ts:24 [REALTIME MANAGER] Connection lock: UNLOCKED
+8chat:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
