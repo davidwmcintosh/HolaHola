@@ -266,27 +266,36 @@ export class TTSService {
   /**
    * Synthesize speech using Google Cloud TTS (Neural2 and Chirp 3 HD voices)
    * Uses the target language voice consistently for authentic pronunciation
-   * Uses SSML to pronounce quoted foreign words with correct accent
    */
   private async synthesizeWithGoogle(text: string, language?: string): Promise<TTSResponse> {
     if (!this.googleClient) {
       throw new Error('Google Cloud TTS client not initialized');
     }
 
-    // Use the TARGET language voice consistently (e.g., Spanish voice for Spanish lessons)
-    // This ensures Spanish words are pronounced correctly, even in English explanations
-    // Trade-off: English might have a slight Spanish accent, but Spanish is perfect
-    const targetLanguage = language?.toLowerCase() || 'english';
-    const voiceConfig = GOOGLE_VOICE_MAP[targetLanguage] || GOOGLE_VOICE_MAP['english'];
+    // Determine which voice to use:
+    // 1. If target language is provided, ALWAYS use that voice (e.g., Spanish voice for Spanish lessons)
+    //    This ensures Spanish words are pronounced correctly, even in English explanations
+    // 2. If no target language, auto-detect the text language
+    let selectedLanguage: string;
+    let voiceConfig: { name: string; languageCode: string };
 
-    // Convert to SSML if the text contains quoted foreign words (disabled for Chirp voices)
-    const { ssml, usesSSML } = this.convertToSSML(text, targetLanguage, language);
+    if (language) {
+      // TARGET LANGUAGE MODE: Use the learning language voice for all content
+      selectedLanguage = language.toLowerCase();
+      voiceConfig = GOOGLE_VOICE_MAP[selectedLanguage] || GOOGLE_VOICE_MAP['english'];
+      console.log(`[Google TTS] Using target language voice: ${voiceConfig.name} (${selectedLanguage})`);
+    } else {
+      // AUTO-DETECT MODE: Detect the actual language of the text
+      selectedLanguage = this.detectLanguage(text);
+      voiceConfig = GOOGLE_VOICE_MAP[selectedLanguage] || GOOGLE_VOICE_MAP['english'];
+      console.log(`[Google TTS] Auto-detected language: ${selectedLanguage}, using ${voiceConfig.name}`);
+    }
 
-    console.log(`[Google TTS] Synthesizing ${text.length} chars with ${voiceConfig.name} (target: ${targetLanguage})${usesSSML ? ' using SSML' : ''}`);
+    console.log(`[Google TTS] Synthesizing ${text.length} chars with ${voiceConfig.name}`);
 
     // Prepare the synthesis request
     const googleRequest: protos.google.cloud.texttospeech.v1.ISynthesizeSpeechRequest = {
-      input: usesSSML ? { ssml } : { text },
+      input: { text },
       voice: {
         languageCode: voiceConfig.languageCode,
         name: voiceConfig.name,
