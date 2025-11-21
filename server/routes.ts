@@ -33,8 +33,10 @@ const openai = new OpenAI({
 
 // Separate OpenAI client for voice features (Whisper + TTS)
 // Replit AI Integrations doesn't support /audio/* endpoints
+// Must explicitly set baseURL to use real OpenAI API (not Replit's proxy)
 const voiceOpenAI = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY, // User's personal OpenAI API key
+  baseURL: 'https://api.openai.com/v1', // Direct OpenAI API (not Replit proxy)
 });
 
 // Configure multer for audio file uploads (in-memory storage)
