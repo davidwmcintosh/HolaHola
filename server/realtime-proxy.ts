@@ -345,10 +345,11 @@ export function setupRealtimeProxy(server: Server) {
         
         const sessionConfig: any = {
           voice: 'alloy',
-          instructions,
-          input_audio_transcription: {
-            model: 'whisper-1'
-          }
+          instructions
+          // TESTING: Removed input_audio_transcription to see if it fixes server_error
+          // input_audio_transcription: {
+          //   model: 'whisper-1'
+          // }
         };
         
         // Only add turn_detection if not in push-to-talk mode
