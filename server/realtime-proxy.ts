@@ -177,10 +177,11 @@ export function setupRealtimeProxy(server: Server) {
         }
       }
 
-      // TEMPORARY: Use Pro model for all tiers until we optimize prompt length for mini model
-      // The mini model appears to have stricter instruction length limits
-      // TODO: Optimize system prompt to work within mini model's constraints
-      const model = 'gpt-4o-realtime-preview-2024-12-17';
+      // Select model based on subscription tier
+      // Free/Basic/Institutional use mini model, Pro uses premium model
+      const model = subscriptionTier === 'pro' 
+        ? 'gpt-4o-realtime-preview-2024-12-17'  // Premium model for Pro tier
+        : 'gpt-4o-mini-realtime-preview-2024-12-17';  // Cost-effective model for Free/Basic/Institutional
 
       console.log(`Using model: ${model} for tier: ${subscriptionTier}`);
 
@@ -340,9 +341,28 @@ export function setupRealtimeProxy(server: Server) {
         }
         
         // Configure session with voice settings and unified instructions
+        // Mini model has stricter instruction length limits, so use condensed version
+        const isUsingMiniModel = model.includes('mini');
+        const condensedPrompt = isUsingMiniModel ? `You are a ${conversationLanguage} tutor for ${userName || 'the student'}. Native language: ${nativeLanguage}. Difficulty: ${difficulty}.
+
+BEGINNER RULES:
+- Use present tense only (no past/future)
+- Teach ONE concept per exchange
+- Max 7 words per ${conversationLanguage} sentence
+- Always provide English translation immediately after
+- Correct errors gently by modeling correct form
+- Use listen-and-repeat: Say phrase, student repeats
+
+RESPONSE FORMAT:
+1. ${conversationLanguage} sentence (max 7 words)
+2. [English: translation]
+3. Ask student to repeat
+
+Keep responses under 3 sentences total. Focus on conversation practice.` : systemPrompt;
+        
         const sessionConfig: any = {
           voice: 'alloy',
-          instructions: systemPrompt,
+          instructions: condensedPrompt,
           input_audio_transcription: {
             model: 'whisper-1'
           }
