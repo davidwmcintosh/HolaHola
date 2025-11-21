@@ -26,6 +26,7 @@ import { generateConversationTitle, generateConversationContextSummary } from ".
 import multer from "multer";
 import { getTTSService } from "./services/tts-service";
 import { getCanDoStatements, getCanDoStatementsByLanguage, getAvailableActflLevels } from "./actfl-can-do-statements";
+import { toInternalActflLevel, toExternalActflLevel } from "./actfl-utils";
 
 // Use Replit AI Integrations for text chat (works reliably)
 const openai = new OpenAI({
@@ -2769,6 +2770,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ACTFL Can-Do Statements API
   // Get Can-Do statements for a specific language and proficiency level
+  // Accepts external format (Title Case: "Novice Low") and returns external format
   app.get("/api/actfl/can-do-statements", isAuthenticated, async (req: any, res) => {
     try {
       const { language, level } = req.query;
@@ -2777,28 +2779,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Language parameter is required" });
       }
 
-      const normalizedLanguage = language.toLowerCase();
+      const normalizedLanguage = language.toLowerCase().trim();
       
-      // If level is provided, filter by level (case-insensitive); otherwise return all for the language
+      // If level is provided, filter by level; otherwise return all for the language
       let statements;
       if (level) {
-        // Normalize level for case-insensitive comparison
-        // Standard ACTFL levels use title case: "Novice Low", "Intermediate Mid", etc.
-        const normalizedLevel = level
-          .toLowerCase()
-          .split(' ')
-          .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(' ');
-        statements = getCanDoStatements(normalizedLanguage, normalizedLevel);
+        // Convert external format (Title Case) to internal format (snake_case)
+        const internalLevel = toInternalActflLevel(level);
+        statements = internalLevel ? getCanDoStatements(normalizedLanguage, internalLevel) : [];
       } else {
         // No level specified - return ALL Can-Do statements for this language
         statements = getCanDoStatementsByLanguage(normalizedLanguage);
       }
 
+      // Convert internal format back to external format for API response
+      const externalStatements = statements.map(stmt => ({
+        ...stmt,
+        actflLevel: toExternalActflLevel(stmt.actflLevel) || stmt.actflLevel
+      }));
+
       res.json({
         language: normalizedLanguage,
         level: level || 'all',
-        statements
+        statements: externalStatements
       });
     } catch (error: any) {
       console.error('Error fetching Can-Do statements:', error);
@@ -2806,15 +2809,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get available ACTFL levels for a language
+  // Get available ACTFL levels for a language (returns external Title Case format)
   app.get("/api/actfl/levels/:language", isAuthenticated, async (req: any, res) => {
     try {
       const { language } = req.params;
-      const levels = getAvailableActflLevels(language.toLowerCase());
+      const internalLevels = getAvailableActflLevels(language.toLowerCase().trim());
+      
+      // Convert internal format to external format for API response
+      const externalLevels = internalLevels.map(level => toExternalActflLevel(level) || level);
       
       res.json({
-        language,
-        levels
+        language: language.toLowerCase().trim(),
+        levels: externalLevels
       });
     } catch (error: any) {
       console.error('Error fetching ACTFL levels:', error);

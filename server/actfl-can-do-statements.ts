@@ -8,7 +8,7 @@
 
 export interface CanDoStatement {
   language: string;
-  actflLevel: string; // e.g., "Novice Low", "Novice Mid", "Intermediate High"
+  actflLevel: string; // Internal format: "novice_low", "intermediate_mid", etc.
   category: 'interpersonal' | 'interpretive' | 'presentational';
   statement: string;
   examples?: string[];
@@ -22,35 +22,35 @@ export const canDoStatements: CanDoStatement[] = [
   // Interpersonal Communication (person-to-person)
   {
     language: 'spanish',
-    actflLevel: 'Novice Low',
+    actflLevel: 'novice_low',
     category: 'interpersonal',
     statement: 'I can greet and leave people in a polite way',
     examples: ['Hola', '¿Cómo estás?', 'Adiós', 'Hasta luego']
   },
   {
     language: 'spanish',
-    actflLevel: 'Novice Low',
+    actflLevel: 'novice_low',
     category: 'interpersonal',
     statement: 'I can introduce myself to someone',
     examples: ['Me llamo...', 'Soy...', 'Mucho gusto']
   },
   {
     language: 'spanish',
-    actflLevel: 'Novice Low',
+    actflLevel: 'novice_low',
     category: 'interpersonal',
     statement: 'I can answer simple questions about my preferences',
     examples: ['Me gusta...', 'No me gusta...', 'Prefiero...']
   },
   {
     language: 'spanish',
-    actflLevel: 'Novice Low',
+    actflLevel: 'novice_low',
     category: 'interpersonal',
     statement: 'I can say simple courtesy phrases',
     examples: ['Por favor', 'Gracias', 'De nada', 'Perdón']
   },
   {
     language: 'spanish',
-    actflLevel: 'Novice Low',
+    actflLevel: 'novice_low',
     category: 'interpersonal',
     statement: 'I can state the names of familiar people, places, and objects',
     examples: ['Esta es mi casa', 'Él es mi amigo', 'Aquí está el libro']
@@ -59,28 +59,28 @@ export const canDoStatements: CanDoStatement[] = [
   // Interpretive Communication (understanding)
   {
     language: 'spanish',
-    actflLevel: 'Novice Low',
+    actflLevel: 'novice_low',
     category: 'interpretive',
     statement: 'I can recognize familiar words and phrases about daily activities',
     examples: ['comer', 'dormir', 'estudiar', 'jugar']
   },
   {
     language: 'spanish',
-    actflLevel: 'Novice Low',
+    actflLevel: 'novice_low',
     category: 'interpretive',
     statement: 'I can recognize numbers in authentic materials',
     examples: ['uno, dos, tres...', 'precios', 'horarios']
   },
   {
     language: 'spanish',
-    actflLevel: 'Novice Low',
+    actflLevel: 'novice_low',
     category: 'interpretive',
     statement: 'I can recognize familiar names, words, and phrases',
     examples: ['nombres propios', 'lugares comunes', 'objetos cotidianos']
   },
   {
     language: 'spanish',
-    actflLevel: 'Novice Low',
+    actflLevel: 'novice_low',
     category: 'interpretive',
     statement: 'I can understand simple questions',
     examples: ['¿Cómo te llamas?', '¿De dónde eres?', '¿Qué te gusta?']
@@ -89,28 +89,28 @@ export const canDoStatements: CanDoStatement[] = [
   // Presentational Communication (one-way communication)
   {
     language: 'spanish',
-    actflLevel: 'Novice Low',
+    actflLevel: 'novice_low',
     category: 'presentational',
     statement: 'I can present information about myself using words and phrases',
     examples: ['Mi nombre es...', 'Tengo ... años', 'Vivo en...']
   },
   {
     language: 'spanish',
-    actflLevel: 'Novice Low',
+    actflLevel: 'novice_low',
     category: 'presentational',
     statement: 'I can express my likes and dislikes using memorized phrases',
     examples: ['Me gusta el fútbol', 'No me gusta la pizza']
   },
   {
     language: 'spanish',
-    actflLevel: 'Novice Low',
+    actflLevel: 'novice_low',
     category: 'presentational',
     statement: 'I can list family members, friends, and familiar people',
     examples: ['Mi madre', 'Mi hermano', 'Mi amigo Pedro']
   },
   {
     language: 'spanish',
-    actflLevel: 'Novice Low',
+    actflLevel: 'novice_low',
     category: 'presentational',
     statement: 'I can present simple information about objects in my environment',
     examples: ['Este es mi libro', 'Mi casa es grande']
