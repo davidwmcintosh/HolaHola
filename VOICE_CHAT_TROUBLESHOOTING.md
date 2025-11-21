@@ -315,6 +315,35 @@ const sessionConfig = {
 - **Evidence**: None currently
 - **Next Step**: Check OpenAI dashboard for usage/limits
 
+## 🎉 RESOLUTION (Nov 21, 2025)
+
+### Root Cause: Wrong API Key Type ✅ SOLVED
+
+**THE PROBLEM:**
+- Using a project-scoped API key (`sk-proj-*`) instead of a regular user API key (`sk-*`)
+- OpenAI's Realtime API does NOT support project-scoped keys
+- This caused consistent `server_error` after session configuration
+
+**THE FIX:**
+- Replaced `USER_OPENAI_API_KEY` with a regular OpenAI user API key
+- Voice chat now works perfectly
+
+**WHY IT WAS HARD TO FIND:**
+1. The error message was generic: "server_error" with no specifics
+2. Authentication succeeded (session creation worked)
+3. REST API tests worked because they used different keys
+4. The error only appeared AFTER session.update, not during auth
+
+**LESSONS LEARNED:**
+- OpenAI project keys (`sk-proj-*`) don't support Realtime API
+- Always test with minimal configuration first
+- Generic "server_error" can mean API key permissions issue
+
+**Total debugging time:** 8+ hours
+**Actual fix:** 2 minutes (wrong API key type)
+
+---
+
 ## Summary for Tomorrow (Nov 21, 3:52 AM)
 
 ### What We Know For Certain ✅
