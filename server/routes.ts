@@ -26,10 +26,15 @@ import { generateConversationTitle, generateConversationContextSummary } from ".
 import multer from "multer";
 
 // Use Replit AI Integrations for text chat (works reliably)
-// User's personal key (USER_OPENAI_API_KEY) is only used for voice chat in realtime-proxy.ts
 const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || 'https://api.openai.com/v1',
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+});
+
+// Separate OpenAI client for voice features (Whisper + TTS)
+// Replit AI Integrations doesn't support /audio/* endpoints
+const voiceOpenAI = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY, // User's personal OpenAI API key
 });
 
 // Configure multer for audio file uploads (in-memory storage)
@@ -1530,8 +1535,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[WHISPER] Transcribing audio for user ${userId}, size: ${req.file.size} bytes`);
 
-      // Call OpenAI Whisper API (Node.js-compatible format)
-      const transcription = await openai.audio.transcriptions.create({
+      // Call OpenAI Whisper API using personal API key (Replit AI Integrations doesn't support this endpoint)
+      const transcription = await voiceOpenAI.audio.transcriptions.create({
         file: await toFile(req.file.buffer, req.file.originalname || 'audio.webm'),
         model: "whisper-1",
         language: req.body.language || undefined, // Optional language hint
@@ -1576,8 +1581,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       console.log(`[TTS] Synthesizing speech for user ${userId}, length: ${text.length} chars`);
 
-      // Call OpenAI TTS API
-      const mp3Response = await openai.audio.speech.create({
+      // Call OpenAI TTS API using personal API key (Replit AI Integrations doesn't support this endpoint)
+      const mp3Response = await voiceOpenAI.audio.speech.create({
         model: "tts-1",
         voice: voice as any, // 'alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'
         input: text,
