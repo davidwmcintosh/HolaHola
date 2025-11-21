@@ -6,12 +6,15 @@ LinguaFlow is an AI-powered language learning application focused on interactive
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
-## Recent Issues & Resolutions
+## Active Issues & Troubleshooting
 
-### Voice Chat Server Errors - ✅ RESOLVED (Nov 21, 2025)
-**Root Cause**: Using a project-scoped API key (`sk-proj-*`) instead of a regular user API key (`sk-*`)
-**Solution**: Replaced with proper OpenAI user API key - voice chat now works perfectly
-**Details**: See `VOICE_CHAT_TROUBLESHOOTING.md` for complete debugging history (8+ hour investigation)
+### Voice Chat Connection Issue - 🔍 IN PROGRESS (Nov 21, 2025)
+**Status**: Backend is ready, frontend connection failing
+**NOT the problem**: ✅ API key is valid and has Realtime API access (confirmed via test script)
+**Actual problem**: Frontend WebSocket connection in VoiceChat.tsx failing to connect
+**Backend status**: Capability check returns `available: true` - server is ready
+**Next steps**: Debug frontend WebSocket connection logic and browser console errors
+**Details**: See `VOICE_CHAT_TROUBLESHOOTING.md` for complete debugging history (8+ hours)
 
 ## Architectural Principles
 

@@ -315,32 +315,49 @@ const sessionConfig = {
 - **Evidence**: None currently
 - **Next Step**: Check OpenAI dashboard for usage/limits
 
-## 🎉 RESOLUTION (Nov 21, 2025)
+## 🔍 INVESTIGATION STATUS (Nov 21, 2025)
 
-### Root Cause: Wrong API Key Type ✅ SOLVED
+### Update: API Key is NOT the Problem ✅ CONFIRMED
 
-**THE PROBLEM:**
-- Using a project-scoped API key (`sk-proj-*`) instead of a regular user API key (`sk-*`)
-- OpenAI's Realtime API does NOT support project-scoped keys
-- This caused consistent `server_error` after session configuration
+**INITIAL HYPOTHESIS (INCORRECT):**
+- ❌ We initially thought project-scoped keys (`sk-proj-*`) didn't support Realtime API
+- ❌ We thought the issue was the API key type
 
-**THE FIX:**
-- Replaced `USER_OPENAI_API_KEY` with a regular OpenAI user API key
-- Voice chat now works perfectly
+**ACTUAL FINDINGS:**
+- ✅ **OpenAI now uses `sk-proj-` keys as the default** (they phased out old `sk-` keys)
+- ✅ **Both `sk-` and `sk-proj-` keys work with Realtime API**
+- ✅ **Our API key HAS Realtime API access** - Confirmed by:
+  - Minimal test script succeeded: `✅ SUCCESS! Minimal config works!`
+  - Capability check endpoint returns: `{"available":true,"reason":"Voice chat is ready!"}`
+  - Server confirms: `"Your API key has Realtime API access"`
 
-**WHY IT WAS HARD TO FIND:**
-1. The error message was generic: "server_error" with no specifics
-2. Authentication succeeded (session creation worked)
-3. REST API tests worked because they used different keys
-4. The error only appeared AFTER session.update, not during auth
+**REAL PROBLEM:**
+- ❌ Voice chat still shows "unavailable" error in frontend
+- ❌ Browser console shows WebSocket connection issues
+- ✅ Backend capability check passes
+- ✅ API key authentication works
+- **Conclusion:** The issue is in the **frontend WebSocket connection**, not the API key
 
-**LESSONS LEARNED:**
-- OpenAI project keys (`sk-proj-*`) don't support Realtime API
-- Always test with minimal configuration first
-- Generic "server_error" can mean API key permissions issue
+**WHAT WE'VE RULED OUT:**
+1. ❌ API key validity - CONFIRMED WORKING
+2. ❌ API key type (`sk-proj-` vs `sk-`) - Both types work
+3. ❌ Realtime API access - CONFIRMED we have access
+4. ❌ Server capability - Backend says voice chat is ready
+5. ❌ Model choice - Tested 3 different models
+6. ❌ Prompt length - Tested multiple sizes
+7. ❌ Session configuration - Minimal config works in test script
+
+**NEXT DEBUGGING FOCUS:**
+- Frontend WebSocket connection logic in `VoiceChat.tsx`
+- Browser console errors during connection attempt
+- Network issues or CORS problems
+- Frontend state management preventing connection
 
 **Total debugging time:** 8+ hours
-**Actual fix:** 2 minutes (wrong API key type)
+**Lessons learned:** 
+- Don't assume API key type based on prefix format
+- Always test backend separately from frontend
+- Generic errors require isolated component testing
 
 ---
 
