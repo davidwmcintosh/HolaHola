@@ -48,14 +48,18 @@ export async function transcribeAudio(audioBlob: Blob, language?: string): Promi
 /**
  * Synthesize speech from text using TTS
  * Returns an audio blob (MP3)
+ * language: Target language for pronunciation (e.g., 'spanish', 'french')
  */
-export async function synthesizeSpeech(text: string, voice: string = 'alloy'): Promise<Blob> {
+export async function synthesizeSpeech(text: string, language?: string, voice?: string): Promise<Blob> {
+  // Use nova voice for better multilingual pronunciation (default to nova if language specified)
+  const selectedVoice = voice || (language ? 'nova' : 'alloy');
+  
   const response = await fetch('/api/voice/synthesize', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ text, voice }),
+    body: JSON.stringify({ text, voice: selectedVoice, language }),
     credentials: 'include', // Include auth cookies
   });
 
@@ -148,8 +152,8 @@ export async function processVoiceMessage(
     throw new Error('Empty AI response received');
   }
 
-  // Step 3: Synthesize speech
-  const ttsAudioBlob = await synthesizeSpeech(aiResponse);
+  // Step 3: Synthesize speech with target language for proper pronunciation
+  const ttsAudioBlob = await synthesizeSpeech(aiResponse, language);
 
   return {
     userTranscript,

@@ -1852,16 +1852,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Synthesize speech using TTS API
   app.post("/api/voice/synthesize", isAuthenticated, async (req: any, res) => {
     try {
-      const { text, voice = 'alloy' } = req.body;
+      const { text, voice = 'alloy', language } = req.body;
       
       if (!text) {
         return res.status(400).json({ error: "No text provided" });
       }
 
       const userId = req.user.claims.sub;
-      console.log(`[TTS] Synthesizing speech for user ${userId}, length: ${text.length} chars`);
+      console.log(`[TTS] Synthesizing speech for user ${userId}, length: ${text.length} chars, voice: ${voice}, language: ${language || 'default'}`);
 
       // Call OpenAI TTS API using personal API key (Replit AI Integrations doesn't support this endpoint)
+      // Note: OpenAI TTS doesn't have a language parameter - voice selection and text content determine pronunciation
+      // nova and shimmer voices have better multilingual pronunciation than alloy
       const mp3Response = await voiceOpenAI.audio.speech.create({
         model: "tts-1",
         voice: voice as any, // 'alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'
@@ -1871,7 +1873,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Convert response to buffer
       const buffer = Buffer.from(await mp3Response.arrayBuffer());
-      console.log(`[TTS] ✓ Generated ${buffer.length} bytes of audio`);
+      console.log(`[TTS] ✓ Generated ${buffer.length} bytes of audio with voice: ${voice}`);
 
       // Send audio as MP3
       res.setHeader('Content-Type', 'audio/mpeg');
