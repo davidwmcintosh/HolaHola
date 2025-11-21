@@ -26,7 +26,7 @@ Core data models include Users (with Stripe billing fields), Conversations, Mess
 -   **Stripe**: Payment processing and subscription management.
 -   **Replit Auth**: OIDC authentication.
 -   **OpenAI API**: For text chat completions (via Replit AI Integrations) and voice STT (Whisper) via user's personal key.
--   **Google Cloud Text-to-Speech**: For authentic native pronunciation using WaveNet voices with SSML support.
+-   **Google Cloud Text-to-Speech**: For authentic native pronunciation using Chirp 3 HD voices (latest model) with automatic language detection via franc-min and English word heuristics.
 -   **Unsplash**: Stock educational images.
 -   **DALL-E**: AI-generated contextual images.
 
@@ -36,9 +36,9 @@ Core data models include Users (with Stripe billing fields), Conversations, Mess
 -   **UI Components**: Radix UI, Shadcn/ui, Tailwind CSS.
 -   **State Management**: TanStack Query, React Context.
 -   **Billing**: `stripe-replit-sync`.
--   **Utilities**: `date-fns`, Embla Carousel.
+-   **Utilities**: `date-fns`, Embla Carousel, `franc-min` (language detection).
 
 ### AI Models
 -   **Text Chat**: `gpt-4o-mini` (Free/Basic/Institutional tiers), `gpt-4o` (Pro tier).
 -   **Voice STT**: `whisper-1` (OpenAI).
--   **Voice TTS**: Google Cloud WaveNet Neural2 voices (primary), OpenAI `tts-1-hd` (fallback).
+-   **Voice TTS**: Google Cloud Chirp 3 HD voices with automatic language detection (`es-US-Chirp-HD-O` for Spanish, `en-US-Chirp-HD-O` for English), OpenAI `tts-1-hd` (fallback).

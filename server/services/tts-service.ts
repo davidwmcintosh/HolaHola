@@ -34,7 +34,7 @@ export interface TTSResponse {
  * - WaveNet: Classic premium voices
  */
 const GOOGLE_VOICE_MAP: Record<string, { name: string; languageCode: string }> = {
-  'spanish': { name: 'es-ES-Neural2-A', languageCode: 'es-ES' }, // Castilian Spanish, Neural2
+  'spanish': { name: 'es-US-Chirp-HD-O', languageCode: 'es-US' }, // US Spanish, Chirp 3 HD
   'english': { name: 'en-US-Chirp-HD-O', languageCode: 'en-US' }, // US English, Chirp 3 HD
   'french': { name: 'fr-FR-Neural2-A', languageCode: 'fr-FR' }, // French, Neural2
   'german': { name: 'de-DE-Neural2-A', languageCode: 'de-DE' }, // German, Neural2
