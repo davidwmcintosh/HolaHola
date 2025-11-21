@@ -2163,15 +2163,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[WHISPER] Transcribing audio for user ${userId}, size: ${req.file.size} bytes`);
 
-      // Convert language name to ISO-639-1 code for Whisper API
-      const languageCode = getLanguageCode(req.body.language);
-      console.log(`[WHISPER] Language: ${req.body.language} → ${languageCode || 'auto-detect'}`);
+      // Let Whisper auto-detect the language instead of forcing it
+      // This allows users to speak in ANY language (English, Spanish, or mixed)
+      // Previously we passed the TARGET language which caused English speech to be transcribed as Spanish!
+      console.log(`[WHISPER] Using auto-detect mode (was forcing: ${req.body.language})`);
 
       // Call OpenAI Whisper API using personal API key (Replit AI Integrations doesn't support this endpoint)
       const transcription = await voiceOpenAI.audio.transcriptions.create({
         file: await toFile(req.file.buffer, req.file.originalname || 'audio.webm'),
         model: "whisper-1",
-        language: languageCode, // ISO-639-1 language code (e.g., "es" for Spanish)
+        // NO language parameter = auto-detect (best for language learning apps)
       });
 
       console.log(`[WHISPER] ✓ Transcription: "${transcription.text}"`);
