@@ -13,6 +13,7 @@ export default function Chat() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [currentConversationOnboarding, setCurrentConversationOnboarding] = useState<boolean | null>(null);
+  const previousModeRef = useRef<"text" | "voice">("voice");
   // Check localStorage to see if user clicked "New Chat" before page reload
   // Default to false so page reloads reuse existing conversations
   const [forceNewConversation, setForceNewConversation] = useState(() => {
@@ -39,6 +40,33 @@ export default function Chat() {
     }
   }, [language, currentConversationOnboarding]);
   
+  // Reset conversationId when mode changes to trigger new conversation creation with correct mode
+  // Only reset if conversation is empty (no messages) to avoid losing user's conversation
+  useEffect(() => {
+    if (mode !== previousModeRef.current && conversationId) {
+      console.log('[SHARED CHAT] Mode changed from', previousModeRef.current, 'to', mode, '- checking if conversation is empty');
+      // Check if current conversation has any messages
+      apiRequest("GET", `/api/conversations/${conversationId}/messages`)
+        .then(res => res.json())
+        .then(messages => {
+          if (messages.length === 0) {
+            console.log('[SHARED CHAT] Conversation is empty - resetting to create new conversation with mode:', mode);
+            setConversationId(null);
+          } else {
+            console.log('[SHARED CHAT] Conversation has', messages.length, 'messages - keeping existing conversation');
+          }
+          previousModeRef.current = mode;
+        })
+        .catch(err => {
+          console.error('[SHARED CHAT] Failed to check messages:', err);
+          previousModeRef.current = mode;
+        });
+    } else if (mode !== previousModeRef.current) {
+      // No conversation yet, just update the ref
+      previousModeRef.current = mode;
+    }
+  }, [mode, conversationId]);
+  
   // Track the current conversation's onboarding status
   useEffect(() => {
     if (conversationId) {
@@ -61,10 +89,10 @@ export default function Chat() {
     const needsConversation = !conversationId && !isCreatingConversation && !creationInProgressRef.current;
     const isCurrentlyOnboarding = currentConversationOnboarding === true;
     
-    console.log('[SHARED CHAT] Auto-create check - userName:', userName, 'conversationId:', conversationId, 'isCreating:', isCreatingConversation, 'inProgress:', creationInProgressRef.current);
+    console.log('[SHARED CHAT] Auto-create check - userName:', userName, 'conversationId:', conversationId, 'isCreating:', isCreatingConversation, 'inProgress:', creationInProgressRef.current, 'mode:', mode);
     
     if (needsConversation && !isCurrentlyOnboarding) {
-      console.log('[SHARED CHAT] Creating shared conversation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)', 'forceNew:', forceNewConversation);
+      console.log('[SHARED CHAT] Creating shared conversation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)', 'forceNew:', forceNewConversation, 'mode:', mode);
       setIsCreatingConversation(true);
       creationInProgressRef.current = true; // Set flag to prevent duplicate creation
       
@@ -80,7 +108,7 @@ export default function Chat() {
       })
         .then(res => res.json())
         .then(data => {
-          console.log('[SHARED CHAT] Shared conversation created:', data.id);
+          console.log('[SHARED CHAT] Shared conversation created:', data.id, 'mode:', mode);
           setConversationId(data.id);
           setIsCreatingConversation(false);
           creationInProgressRef.current = false; // Clear flag on success
@@ -94,7 +122,7 @@ export default function Chat() {
           setForceNewConversation(false); // Reset forceNew flag on error
         });
     }
-  }, [language, difficulty, userName, conversationId, isCreatingConversation, currentConversationOnboarding, forceNewConversation]);
+  }, [language, difficulty, userName, conversationId, isCreatingConversation, currentConversationOnboarding, forceNewConversation, mode]);
 
   const handleNewChat = () => {
     console.log('[SHARED CHAT] User requested new chat - forcing new conversation');
