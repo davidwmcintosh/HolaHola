@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Loader2, Volume2 } from "lucide-react";
+import { Mic, MicOff, Loader2, Volume2, Radio } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery } from "@tanstack/react-query";
 import { type Message } from "@shared/schema";
@@ -25,11 +26,16 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   const [processingStage, setProcessingStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [avatarState, setAvatarState] = useState<AvatarState>('idle');
+  const [voiceMode, setVoiceMode] = useState<'push-to-talk' | 'open-mic'>('push-to-talk');
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyzerRef = useRef<AnalyserNode | null>(null);
+  const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   // Fetch existing messages
   const { data: messages = [] } = useQuery<Message[]>({
@@ -46,6 +52,18 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     };
   }, []);
 
+  // Open mic mode: Auto-start recording and monitor for silence
+  useEffect(() => {
+    if (voiceMode === 'open-mic' && !isRecording && !isProcessing && conversationId) {
+      console.log('[OPEN MIC] Auto-starting recording...');
+      startRecording(true); // Pass flag to indicate open mic mode
+    } else if (voiceMode === 'push-to-talk' && isRecording) {
+      // If switching back to push-to-talk while recording, stop recording
+      console.log('[PUSH TO TALK] Stopping recording due to mode switch');
+      stopRecording();
+    }
+  }, [voiceMode, isRecording, isProcessing, conversationId]);
+
   // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) {
@@ -53,10 +71,11 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     }
   }, [messages]);
 
-  const startRecording = async () => {
+  const startRecording = async (isOpenMic = false) => {
     try {
       setError(null);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
       
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm',
@@ -74,6 +93,21 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         // Stop all tracks
         stream.getTracks().forEach(track => track.stop());
         
+        // Clean up audio context and analyzer
+        if (audioContextRef.current) {
+          audioContextRef.current.close();
+          audioContextRef.current = null;
+          analyzerRef.current = null;
+        }
+        
+        // Clear silence timeout
+        if (silenceTimeoutRef.current) {
+          clearTimeout(silenceTimeoutRef.current);
+          silenceTimeoutRef.current = null;
+        }
+        
+        streamRef.current = null;
+        
         // Process the recorded audio
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         await processRecording(audioBlob);
@@ -83,16 +117,91 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       mediaRecorder.start();
       setIsRecording(true);
       setAvatarState('listening');
+      
+      // Set up voice activity detection for open mic mode
+      if (isOpenMic) {
+        console.log('[OPEN MIC] Setting up voice activity detection...');
+        setupVoiceActivityDetection(stream);
+      }
     } catch (err: any) {
       console.error('Failed to start recording:', err);
       setError(err.message || 'Failed to access microphone');
     }
   };
 
+  const setupVoiceActivityDetection = (stream: MediaStream) => {
+    try {
+      const audioContext = new AudioContext();
+      const analyzer = audioContext.createAnalyser();
+      const microphone = audioContext.createMediaStreamSource(stream);
+      
+      analyzer.smoothingTimeConstant = 0.8;
+      analyzer.fftSize = 1024;
+      
+      microphone.connect(analyzer);
+      
+      audioContextRef.current = audioContext;
+      analyzerRef.current = analyzer;
+      
+      // Monitor audio levels
+      monitorAudioLevel();
+    } catch (err) {
+      console.error('[OPEN MIC] Failed to setup VAD:', err);
+    }
+  };
+
+  const monitorAudioLevel = () => {
+    if (!analyzerRef.current || voiceMode !== 'open-mic') return;
+    
+    const bufferLength = analyzerRef.current.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
+    const checkLevel = () => {
+      if (!analyzerRef.current || voiceMode !== 'open-mic') return;
+      
+      analyzerRef.current.getByteFrequencyData(dataArray);
+      
+      // Calculate average volume
+      const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+      
+      // Silence threshold (adjust as needed)
+      const SILENCE_THRESHOLD = 10;
+      const SILENCE_DURATION = 1500; // 1.5 seconds of silence before stopping
+      
+      if (average < SILENCE_THRESHOLD) {
+        // User stopped talking - start silence timer
+        if (!silenceTimeoutRef.current) {
+          console.log('[OPEN MIC] Silence detected, starting timer...');
+          silenceTimeoutRef.current = setTimeout(() => {
+            console.log('[OPEN MIC] Silence duration reached, stopping recording...');
+            stopRecording();
+          }, SILENCE_DURATION);
+        }
+      } else {
+        // User is talking - clear silence timer
+        if (silenceTimeoutRef.current) {
+          clearTimeout(silenceTimeoutRef.current);
+          silenceTimeoutRef.current = null;
+        }
+      }
+      
+      // Continue monitoring
+      requestAnimationFrame(checkLevel);
+    };
+    
+    checkLevel();
+  };
+
   const stopRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+    }
+    
+    // Clean up silence timer
+    if (silenceTimeoutRef.current) {
+      clearTimeout(silenceTimeoutRef.current);
+      silenceTimeoutRef.current = null;
     }
   };
 
@@ -105,6 +214,9 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
 
     setIsProcessing(true);
     setAvatarState('idle'); // Processing state
+    
+    // Important: Check if we're in open mic mode before processing starts
+    const wasOpenMic = voiceMode === 'open-mic';
 
     try {
       // Step 1: Transcribe
@@ -172,6 +284,16 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         queryKey: ["/api/conversations", conversationId, "messages"],
       });
       
+      // Auto-restart recording in open mic mode after processing completes
+      if (wasOpenMic && voiceMode === 'open-mic') {
+        console.log('[OPEN MIC] Auto-restarting recording after response...');
+        setTimeout(() => {
+          if (!isProcessing && voiceMode === 'open-mic') {
+            startRecording(true);
+          }
+        }, 500); // Brief delay to let audio finish playing
+      }
+      
     } catch (err: any) {
       console.error('[REST VOICE] Error:', err);
       
@@ -213,9 +335,9 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         <div className="flex items-center gap-3">
           <InstructorAvatar state={avatarState} />
           <div>
-            <h2 className="text-lg font-semibold">Voice Practice (NEW)</h2>
+            <h2 className="text-lg font-semibold">Voice Practice</h2>
             <p className="text-sm text-muted-foreground">
-              REST-based stable voice chat
+              {voiceMode === 'push-to-talk' ? 'Click to talk' : 'Continuous listening'}
             </p>
           </div>
         </div>
@@ -223,6 +345,30 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           <LanguageSelector />
           {conversationId && <CompactDifficultyControl conversationId={conversationId} />}
         </div>
+      </div>
+      
+      {/* Voice Mode Toggle */}
+      <div className="px-4 py-3 border-b bg-muted/30 flex items-center justify-center gap-2">
+        <Button
+          variant={voiceMode === 'push-to-talk' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setVoiceMode('push-to-talk')}
+          disabled={isRecording || isProcessing}
+          data-testid="button-push-to-talk"
+        >
+          <Mic className="h-4 w-4 mr-2" />
+          Push to Talk
+        </Button>
+        <Button
+          variant={voiceMode === 'open-mic' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setVoiceMode('open-mic')}
+          disabled={isRecording || isProcessing}
+          data-testid="button-open-mic"
+        >
+          <Radio className="h-4 w-4 mr-2" />
+          Open Mic
+        </Button>
       </div>
 
       {/* Messages - matches ChatInterface.tsx layout */}
@@ -266,7 +412,13 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
               size="icon"
               variant={isRecording ? 'destructive' : 'default'}
               className="h-14 w-14 rounded-full"
-              onClick={isRecording ? stopRecording : startRecording}
+              onClick={() => {
+                if (isRecording) {
+                  stopRecording();
+                } else {
+                  startRecording(false); // Push-to-talk mode when clicking button
+                }
+              }}
               disabled={isProcessing || !conversationId}
               data-testid="button-mic-toggle"
               aria-pressed={isRecording}
