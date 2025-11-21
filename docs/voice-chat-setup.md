@@ -1,128 +1,178 @@
 # Voice Chat Setup Guide
 
+⚠️ **IMPORTANT**: This documentation covers the REST-based voice system (`RestVoiceChat.tsx`).  
+The old WebSocket-based system (`VoiceChat.tsx`) is DEPRECATED and no longer used.
+
 ## Overview
 
-The voice chat feature provides real-time speech-to-speech conversation with an AI language tutor using the OpenAI Realtime API. This allows for more immersive language practice with natural voice interactions.
+The voice chat feature provides Push-to-Talk speech-to-speech conversation with an AI language tutor using a stable REST-based pipeline. This architecture replaced the unstable OpenAI Realtime WebSocket API with proven, production-ready REST endpoints.
+
+**Current System**: REST-based voice pipeline (Whisper STT → GPT-4 Chat → TTS)
 
 ## Architecture
 
 ### Frontend Components
-- **VoiceChat.tsx**: Main component handling voice conversations
-  - WebSocket connection to backend proxy
-  - Audio recording using Web Audio API
-  - Audio playback with buffering
-  - Live transcription display
-  - Visual feedback for recording/speaking states
+- **RestVoiceChat.tsx**: Main component for voice conversations (ACTIVE SYSTEM)
+  - Push-to-Talk microphone recording using MediaRecorder API
+  - REST API calls for transcription, chat, and synthesis
+  - Automatic audio format handling (WebM, MP4 for iOS/Safari)
+  - Message display with synchronized text and audio playback
+  - Error handling with user-friendly fallback suggestions
 
-- **audioUtils.ts**: Audio handling utilities
-  - `AudioRecorder`: Captures microphone input in PCM16 format
-  - `AudioPlayer`: Plays received audio with queueing
+- **restVoiceApi.ts**: API client for voice features
+  - Handles all REST API calls
+  - Robust response parsing (handles string, object, nested content arrays)
+  - Comprehensive error handling with context-specific messages
+  - Audio blob conversion for playback
 
 ### Backend Components
-- **realtime-proxy.ts**: WebSocket proxy server
-  - Forwards client connections to OpenAI Realtime API
-  - Manages authentication securely
-  - Configures session parameters (language, difficulty, voice)
+- **routes.ts**: REST API endpoints
+  - `POST /api/voice/transcribe` - Whisper speech-to-text
+  - `POST /api/voice/synthesize` - OpenAI TTS text-to-speech
+  - Tier-based usage enforcement with atomic quota tracking
+  - Language code mapping (spanish → es, french → fr, etc.)
+
+- **storage.ts**: Usage tracking
+  - `checkVoiceUsage()` - Verify user has remaining quota
+  - `incrementVoiceUsage()` - Atomically update usage count
+  - Monthly usage reset logic
+  - Tiered limits (Free: 10, Basic: 50, Pro: 500, Institutional: 1000)
 
 ## Requirements
 
-### OpenAI Realtime API Access
-The voice chat feature requires access to the OpenAI Realtime API, which may not be included in Replit AI Integrations. You have two options:
+### OpenAI API Key for Voice Features
+Voice features require a **User's Personal OpenAI API Key** (`USER_OPENAI_API_KEY`) for Whisper STT and TTS:
 
-#### Option 1: Use Replit AI Integrations (Recommended)
-- Check if `AI_INTEGRATIONS_OPENAI_BASE_URL` supports the Realtime API
-- If available, the feature will work out of the box
-- No additional configuration needed
-
-#### Option 2: Use Your Own OpenAI API Key
-If Replit AI Integrations doesn't support the Realtime API:
-
-1. Get an OpenAI API key with Realtime API access from https://platform.openai.com
-2. Update environment variables:
-   ```bash
-   AI_INTEGRATIONS_OPENAI_BASE_URL=https://api.openai.com/v1
-   AI_INTEGRATIONS_OPENAI_API_KEY=your_openai_api_key_here
-   ```
+1. Get an OpenAI API key from https://platform.openai.com
+2. Add it as a secret named `USER_OPENAI_API_KEY` in the Secrets tab
 3. Restart the application
 
+**Note**: Text chat uses `OPENAI_API_KEY` (Replit AI Integrations), while voice uses `USER_OPENAI_API_KEY`. This separates text costs from voice costs.
+
 ### Browser Requirements
-- Modern browser with Web Audio API support (Chrome, Firefox, Safari, Edge)
+- Modern browser with MediaRecorder API support (Chrome, Firefox, Safari, Edge)
 - Microphone permissions granted
 - Secure context (HTTPS or localhost)
 
 ## Usage
 
-1. Navigate to the Chat page
-2. Select "Voice" mode using the toggle button
+1. Navigate to the Call Tutor page (/chat)
+2. Click "Voice Learning" (recommended button)
 3. Choose your target language and difficulty level
-4. Click the microphone button to start recording
+4. Press and hold the large microphone button to record
 5. Speak in your target language
-6. AI tutor will respond with voice and text
-7. Click the button again to stop recording
+6. Release the button when done speaking
+7. AI tutor will respond with voice and text
+8. Click "Type instead" to switch to text mode
 
 ## Features
 
-- **Voice Activity Detection (VAD)**: Automatically detects when you stop speaking
+- **Push-to-Talk Recording**: Hold to record, release to send
+- **Split Response Architecture**: Fast text response (~3.6s) with background enrichment
 - **Live Transcription**: See what you said and what the AI responds
-- **Natural Turn-Taking**: Interrupt-friendly conversation flow
-- **Multi-language Support**: Works with Spanish, French, German, etc.
+- **Usage Tracking**: Monthly quota limits based on subscription tier
+- **Tier-Based Model Selection**: gpt-4o-mini (Free/Basic/Institutional), gpt-4o (Pro)
+- **Multi-language Support**: Works with Spanish, French, German, Italian, Portuguese, Japanese, Korean, Chinese, Russian
 - **Difficulty Adaptation**: AI adjusts language complexity based on level
+- **Seamless Mode Switching**: Switch between voice and text anytime
 
 ## Troubleshooting
 
-### "Connection error" Message
-- The OpenAI Realtime API may not be available through your current setup
-- Try using the text-based chat mode as an alternative
-- Or provide your own OpenAI API key with Realtime API access
+### "Invalid OpenAI API key" Error
+- Verify `USER_OPENAI_API_KEY` is set correctly in Secrets tab
+- Ensure the API key has access to Whisper and TTS models
+- Try regenerating the API key in OpenAI dashboard
+- Fallback: Use "Type instead" for text-only chat
+
+### "Monthly voice limit reached" Error
+- Free tier: 10 voice messages/month
+- Basic tier: 50 voice messages/month
+- Pro tier: 500 voice messages/month
+- Institutional tier: 1000 voice messages/month
+- Fallback: Use text mode or upgrade subscription
 
 ### "Failed to access microphone"
 - Check browser permissions
 - Ensure you're using HTTPS or localhost
 - Try a different browser
+- iOS users: Use Safari for best compatibility
+
+### "Failed to transcribe audio"
+- Speak more clearly or louder
+- Check microphone input levels
+- Try recording again
+- Fallback: Use text mode
+
+### "Failed to generate speech"
+- The text response is still saved to conversation
+- Refresh the page to retry
+- Fallback: Use text mode for this conversation
 
 ### No audio playback
 - Check system volume and browser audio settings
 - Ensure speakers/headphones are connected
 - Try refreshing the page
 
-### Laggy or delayed responses
-- Check network connection
-- The Realtime API has ~500ms latency typically
-- Consider using text mode for slow connections
-
 ## Technical Details
 
 ### Audio Format
-- Input: PCM16, 24kHz, mono
-- Output: PCM16, 24kHz, mono
-- Encoding: Base64 over WebSocket
+- Input: WebM (Chrome/Firefox) or MP4 (Safari/iOS)
+- Whisper API handles automatic format conversion
+- TTS Output: MP3, 24kHz, mono
+- Browser playback: Native HTML5 Audio API
 
-### API Events
-The implementation uses the OpenAI Realtime API GA interface with events:
-- `session.update`: Configure session
-- `input_audio_buffer.append`: Send audio chunks
-- `response.output_audio.delta`: Receive audio chunks
-- `response.output_audio_transcript.done`: Get transcription
+### API Flow
+1. Browser records audio using MediaRecorder
+2. POST audio blob to `/api/voice/transcribe` (Whisper STT)
+3. POST transcribed text to `/api/conversations/:id/messages` (GPT chat)
+4. POST AI response to `/api/voice/synthesize` (TTS)
+5. Return audio blob to browser for playback
+6. Increment usage quota atomically
 
 ### Security
 - API keys never exposed to frontend
-- Backend WebSocket proxy handles authentication
-- Ephemeral connections (no persistent storage)
+- Backend handles all OpenAI API calls
+- Session-based authentication (Replit Auth OIDC)
+- Server-side usage quota enforcement
+- Atomic SQL updates prevent race conditions
+
+## Performance
+
+- **Voice Pipeline**: ~9s total (1s Whisper + 4.4s GPT + 3.3s TTS)
+- **Split Response**: ~3.6s for text response (background enrichment queued)
+- **Background Processing**: Vocabulary extraction and image generation via `setImmediate()`
 
 ## Limitations
 
-1. **API Availability**: Requires OpenAI Realtime API access
-2. **Browser Support**: Limited to modern browsers
-3. **Network Dependency**: Requires stable internet connection
-4. **Mobile**: May have performance issues on older devices
-5. **Cost**: Realtime API is more expensive than text-based chat
+1. **API Key Required**: Needs `USER_OPENAI_API_KEY` for voice features
+2. **Usage Quotas**: Monthly limits based on subscription tier
+3. **Browser Support**: Requires MediaRecorder API (modern browsers only)
+4. **Network Dependency**: Requires stable internet connection
+5. **Mobile**: iOS requires Safari for best compatibility
+6. **Cost**: Whisper + TTS costs are separate from text chat
 
-## Future Enhancements
+## Migration from WebSocket System
 
-Potential improvements:
-- [ ] Offline mode with local speech recognition
-- [ ] Voice selection (different AI tutor voices)
-- [ ] Conversation recording/playback
-- [ ] Background noise suppression
-- [ ] Mobile app with native audio handling
-- [ ] Fallback to STT + Chat + TTS pipeline
+**Old System** (DEPRECATED):
+- Component: `VoiceChat.tsx`
+- Architecture: WebSocket to OpenAI Realtime API
+- Status: Unstable, removed from production
+
+**New System** (ACTIVE):
+- Component: `RestVoiceChat.tsx`
+- Architecture: REST endpoints (Whisper + GPT + TTS)
+- Status: Production-stable, actively maintained
+
+**Why We Switched**:
+- WebSocket Realtime API was unstable (server_error issues)
+- REST pipeline is proven and reliable
+- Better error handling and recovery
+- Atomic usage tracking prevents quota issues
+- Split response architecture reduces latency
+
+## Documentation
+
+For detailed technical documentation, see:
+- `REST_VOICE_CHAT.md` - Complete REST voice architecture
+- `VOICE_CHAT_TROUBLESHOOTING.md` - WebSocket failure history and REST pivot
+- `replit.md` - System architecture overview
