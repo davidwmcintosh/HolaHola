@@ -3,6 +3,12 @@
 ## Issue Summary
 Voice chat stopped working at 3:06 AM when attempting to switch from Pro tier model to mini model for free tier users. Getting consistent `server_error` from OpenAI Realtime API after `session.updated` event.
 
+**✅ ROOT CAUSE IDENTIFIED (Nov 21, 1:34 PM):**
+The system prompt instructions field was too long (11,994 chars), causing OpenAI Realtime API to return `server_error` immediately after `session.updated`. The gpt-4o-mini-realtime-preview model has an undocumented instruction length limit.
+
+**SOLUTION:**
+Implemented instruction trimming to 4000 characters for free tier (mini model) in `server/realtime-proxy.ts`. This keeps the session stable while maintaining core teaching functionality.
+
 **UPDATE (Nov 21, 1:11 PM) - ARCHITECT IDENTIFIED ROOT CAUSE:**
 The `instructions` field in session configuration is causing the server_error. When omitting instructions and only setting voice, the connection should stay alive. This suggests the instructions content or format is being rejected by OpenAI.
 

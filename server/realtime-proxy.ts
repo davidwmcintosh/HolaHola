@@ -297,8 +297,8 @@ export function setupRealtimeProxy(server: Server) {
         );
         
         // CRITICAL FIX: Trim instructions to avoid server_error
-        // Limit to ~7000 chars to be safe (leaves room for other fields)
-        const MAX_INSTRUCTION_LENGTH = 7000;
+        // Testing with very conservative limit (4000 chars) for mini model
+        const MAX_INSTRUCTION_LENGTH = 4000;
         if (systemPrompt.length > MAX_INSTRUCTION_LENGTH) {
           console.log(`[TRIM] Instructions too long (${systemPrompt.length} chars), trimming to ${MAX_INSTRUCTION_LENGTH}...`);
           systemPrompt = systemPrompt.substring(0, MAX_INSTRUCTION_LENGTH) + '\n\n[Instructions trimmed for performance]';
