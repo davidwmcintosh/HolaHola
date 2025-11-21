@@ -22,8 +22,13 @@ This document provides an overview of all documentation files in the project.
 
 ## Voice Chat Documentation
 
-### REST_VOICE_CHAT.md ⭐ NEW
+⚠️ **ACTIVE SYSTEM**: RestVoiceChat.tsx (REST-based)  
+⚠️ **DEPRECATED**: VoiceChat.tsx (WebSocket-based) - DO NOT USE
+
+### REST_VOICE_CHAT.md ⭐ ACTIVE SYSTEM
 **Complete REST voice chat architecture documentation**
+- **Component**: `RestVoiceChat.tsx` (client/src/components/RestVoiceChat.tsx)
+- **API Client**: `restVoiceApi.ts` (client/src/lib/restVoiceApi.ts)
 - Architecture overview (Browser → Whisper → GPT → TTS → Playback)
 - API endpoints (`/api/voice/transcribe`, `/api/voice/synthesize`)
 - Dual OpenAI client architecture explained
@@ -34,7 +39,7 @@ This document provides an overview of all documentation files in the project.
 - Testing and verification (test-openai-key.ts)
 - Mobile support
 - Accessibility features
-- Performance characteristics
+- Performance characteristics (77% latency reduction vs WebSocket)
 - Troubleshooting guide
 - Migration notes from WebSocket
 
@@ -42,14 +47,19 @@ This document provides an overview of all documentation files in the project.
 
 ---
 
-### VOICE_CHAT_TROUBLESHOOTING.md
+### VOICE_CHAT_TROUBLESHOOTING.md ⚠️ HISTORICAL REFERENCE
 **Historical WebSocket debugging timeline**
+- **Component**: `VoiceChat.tsx` (DEPRECATED - DO NOT USE)
 - Complete investigation of failed WebSocket implementation
 - Configuration attempts and failures
 - Timeline of debugging efforts (8+ hours)
+- Root cause: OpenAI Realtime WebSocket API instability
+- Decision to pivot to REST architecture
 - Lessons learned
 
 **When to use**: Understanding why we pivoted to REST, historical context, avoiding WebSocket approach.
+
+**DO NOT USE** the WebSocket approach described in this document - it is deprecated.
 
 ---
 
