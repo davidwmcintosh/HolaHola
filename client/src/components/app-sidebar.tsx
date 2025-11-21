@@ -58,10 +58,21 @@ export function AppSidebar() {
             <SidebarMenu>
               {visibleMenuItems.map((item) => {
                 const isActive = location === item.url;
+                // Use Link for accessible navigation while still setting force flag
+                const handleClick = (e: React.MouseEvent) => {
+                  if (item.title === "Call Tutor") {
+                    localStorage.setItem('forceNewConversation', 'true');
+                  }
+                };
+                
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={isActive} data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}>
-                      <Link href={item.url}>
+                    <SidebarMenuButton 
+                      asChild
+                      isActive={isActive}
+                      data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}
+                    >
+                      <Link href={item.url} onClick={handleClick}>
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </Link>

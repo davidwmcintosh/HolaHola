@@ -8,6 +8,12 @@ interface WelcomeHeroProps {
 }
 
 export function WelcomeHero({ onStartPractice }: WelcomeHeroProps) {
+  const handleStartPractice = () => {
+    // Force new conversation when starting practice from dashboard
+    localStorage.setItem('forceNewConversation', 'true');
+    onStartPractice?.();
+  };
+
   return (
     <div className="relative overflow-hidden rounded-lg">
       <div className="relative h-96 flex items-center justify-center">
@@ -27,7 +33,7 @@ export function WelcomeHero({ onStartPractice }: WelcomeHeroProps) {
           <Button 
             size="lg" 
             className="text-base px-6 py-3"
-            onClick={onStartPractice}
+            onClick={handleStartPractice}
             data-testid="button-start-practice"
           >
             Start Practicing

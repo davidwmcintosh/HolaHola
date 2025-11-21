@@ -5,7 +5,7 @@ import { Mic, MicOff, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery } from "@tanstack/react-query";
 import { type Message } from "@shared/schema";
-import { processVoiceMessage } from "@/lib/restVoiceApi";
+import { processVoiceMessage, synthesizeSpeech } from "@/lib/restVoiceApi";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 import { CompactDifficultyControl } from "@/components/CompactDifficultyControl";
 import { LanguageSelector } from "@/components/LanguageSelector";
@@ -30,11 +30,16 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   const scrollRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const currentConversationRef = useRef<string | null>(conversationId);
+  const hasPlayedGreetingRef = useRef<string | null>(null); // Track which conversation's greeting was played
+  const isRecordingRef = useRef<boolean>(false);
+  const isProcessingRef = useRef<boolean>(false);
   
-  // Keep ref updated with current conversation
+  // Keep refs updated with current state
   useEffect(() => {
     currentConversationRef.current = conversationId;
-  }, [conversationId]);
+    isRecordingRef.current = isRecording;
+    isProcessingRef.current = isProcessing;
+  }, [conversationId, isRecording, isProcessing]);
 
   // Fetch existing messages
   const { data: messages = [] } = useQuery<Message[]>({
@@ -66,6 +71,117 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     }
   }, [messages]);
 
+  // Auto-play greeting message in new conversations
+  useEffect(() => {
+    // Only process if we have messages and conversation ID
+    if (!conversationId || !messages || messages.length === 0) return;
+    
+    // Don't play greeting if already recording or processing
+    if (isRecording || isProcessing) return;
+    
+    // Check if we already played this conversation's greeting
+    if (hasPlayedGreetingRef.current === conversationId) return;
+    
+    // Check if this is a new conversation with just a greeting (1 AI message, no user messages)
+    const aiMessages = messages.filter(m => m.role === 'assistant');
+    const userMessages = messages.filter(m => m.role === 'user');
+    
+    if (aiMessages.length === 1 && userMessages.length === 0) {
+      const greetingMessage = aiMessages[0];
+      const greetingConversationId = conversationId; // Capture for closure
+      
+      // Generate TTS for the greeting (but don't change state yet)
+      console.log('[VOICE GREETING] Generating greeting audio for new conversation');
+      
+      synthesizeSpeech(greetingMessage.content, language)
+        .then(audioBlob => {
+          // Use refs to check current state (not stale closure values)
+          // Don't play if:
+          // 1. User started recording or processing
+          // 2. Conversation changed
+          if (isRecordingRef.current || isProcessingRef.current) {
+            console.log('[VOICE GREETING] Skipping playback - user is now recording/processing');
+            return;
+          }
+          
+          if (currentConversationRef.current !== greetingConversationId) {
+            console.log('[VOICE GREETING] Skipping playback - conversation changed');
+            return;
+          }
+          
+          if (audioPlayerRef.current) {
+            const audioUrl = URL.createObjectURL(audioBlob);
+            audioPlayerRef.current.src = audioUrl;
+            
+            audioPlayerRef.current.onended = () => {
+              URL.revokeObjectURL(audioUrl);
+              setAvatarState('idle');
+            };
+            
+            audioPlayerRef.current.onerror = () => {
+              URL.revokeObjectURL(audioUrl);
+              setAvatarState('idle');
+            };
+            
+            // Set speaking state only immediately before playing
+            setAvatarState('speaking');
+            
+            audioPlayerRef.current.play()
+              .then(() => {
+                console.log('[VOICE GREETING] Greeting audio playing');
+                hasPlayedGreetingRef.current = greetingConversationId;
+              })
+              .catch(err => {
+                console.error('[VOICE GREETING] Failed to play greeting:', err);
+                setAvatarState('idle');
+                URL.revokeObjectURL(audioUrl);
+              });
+          }
+        })
+        .catch(err => {
+          console.error('[VOICE GREETING] Failed to generate greeting audio:', err);
+        });
+    }
+  }, [messages, conversationId, language, isProcessing, isRecording]);
+
+  // Spacebar keyboard shortcut for mic button (Ctrl/Cmd + Space for safety)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only trigger if Ctrl/Cmd + Space is pressed (safer than bare spacebar)
+      if (event.code !== 'Space' || (!event.ctrlKey && !event.metaKey)) return;
+      
+      // Don't trigger if user is typing in an input/textarea/contenteditable
+      const target = event.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' || 
+        target.tagName === 'TEXTAREA' || 
+        target.isContentEditable ||
+        target.closest('[contenteditable="true"]')
+      ) return;
+      
+      // Don't trigger if no conversation or processing
+      if (!conversationId || isProcessing) return;
+      
+      // Prevent default behavior
+      event.preventDefault();
+      
+      // Toggle recording
+      if (isRecording) {
+        stopRecording();
+      } else {
+        startRecording();
+      }
+    };
+
+    // Add event listener
+    window.addEventListener('keydown', handleKeyDown);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [conversationId, isRecording, isProcessing]);
+
   const cleanupRecording = () => {
     console.log('[CLEANUP] Cleaning up recording resources...');
     
@@ -81,6 +197,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     }
     
     setIsRecording(false);
+    isRecordingRef.current = false; // Update ref immediately
   };
 
   const startRecording = async () => {
@@ -124,6 +241,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           mediaRecorderRef.current = null;
           streamRef.current = null;
           setIsRecording(false);
+          isRecordingRef.current = false; // Update ref immediately
           setAvatarState('idle');
         } else {
           console.log('[RECORDER] Session superseded - new recording already started');
@@ -146,6 +264,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       mediaRecorderRef.current = mediaRecorder;
       mediaRecorder.start();
       setIsRecording(true);
+      isRecordingRef.current = true; // Update ref immediately
       setAvatarState('listening');
     } catch (err: any) {
       console.error('Failed to start recording:', err);
@@ -173,6 +292,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     }
 
     setIsProcessing(true);
+    isProcessingRef.current = true; // Update ref immediately
     setAvatarState('idle');
 
     try {
@@ -266,6 +386,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       setAvatarState('idle');
     } finally {
       setIsProcessing(false);
+      isProcessingRef.current = false; // Update ref immediately
       setProcessingStage(null);
     }
   };
