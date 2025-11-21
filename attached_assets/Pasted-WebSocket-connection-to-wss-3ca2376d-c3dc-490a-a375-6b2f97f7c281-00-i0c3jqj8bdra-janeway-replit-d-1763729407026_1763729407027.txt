@@ -1,0 +1,120 @@
+WebSocket connection to 'wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/?token=DSuKn-dNdc8y' failed: 
+setupWebSocket @ client:536
+(anonymous) @ client:531
+client:536 Uncaught (in promise) DOMException: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=DSuKn-dNdc8y' is invalid.
+    at setupWebSocket (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:536:19)
+    at fallback (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:509:16)
+    at WebSocket.<anonymous> (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:555:7)
+setupWebSocket @ client:536
+fallback @ client:509
+(anonymous) @ client:555
+chunk-WERSD76P.js?v=5a569869:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+vendors.bundle.js:2 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+main.tsx:12 [PWA] Service Worker registered: https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/
+LanguageContext.tsx:21 [LanguageContext] Initializing with language: spanish (from localStorage)
+LanguageContext.tsx:26 [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+LanguageContext.tsx:31 [LanguageContext] Initializing with userName: David (from localStorage)
+audioUtils.ts:67 The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://goo.gl/7K7WLu
+AudioPlayer @ audioUtils.ts:67
+(anonymous) @ VoiceChat.tsx:124
+commitHookEffectListMount @ chunk-WERSD76P.js?v=5a569869:16915
+commitPassiveMountOnFiber @ chunk-WERSD76P.js?v=5a569869:18156
+commitPassiveMountEffects_complete @ chunk-WERSD76P.js?v=5a569869:18129
+commitPassiveMountEffects_begin @ chunk-WERSD76P.js?v=5a569869:18119
+commitPassiveMountEffects @ chunk-WERSD76P.js?v=5a569869:18109
+flushPassiveEffectsImpl @ chunk-WERSD76P.js?v=5a569869:19490
+flushPassiveEffects @ chunk-WERSD76P.js?v=5a569869:19447
+commitRootImpl @ chunk-WERSD76P.js?v=5a569869:19416
+commitRoot @ chunk-WERSD76P.js?v=5a569869:19277
+performSyncWorkOnRoot @ chunk-WERSD76P.js?v=5a569869:18895
+flushSyncCallbacks @ chunk-WERSD76P.js?v=5a569869:9119
+(anonymous) @ chunk-WERSD76P.js?v=5a569869:18627
+setTimeout (async)
+scheduleFn @ @tanstack_react-query.js?v=5a569869:555
+flush @ @tanstack_react-query.js?v=5a569869:569
+batch @ @tanstack_react-query.js?v=5a569869:587
+dispatch_fn @ @tanstack_react-query.js?v=5a569869:996
+setData @ @tanstack_react-query.js?v=5a569869:696
+onSuccess @ @tanstack_react-query.js?v=5a569869:897
+resolve @ @tanstack_react-query.js?v=5a569869:456
+Promise.then (async)
+run @ @tanstack_react-query.js?v=5a569869:498
+start @ @tanstack_react-query.js?v=5a569869:536
+fetch @ @tanstack_react-query.js?v=5a569869:926
+executeFetch_fn @ @tanstack_react-query.js?v=5a569869:2211
+onSubscribe @ @tanstack_react-query.js?v=5a569869:1898
+subscribe @ @tanstack_react-query.js?v=5a569869:24
+(anonymous) @ @tanstack_react-query.js?v=5a569869:3022
+subscribeToStore @ chunk-WERSD76P.js?v=5a569869:11984
+commitHookEffectListMount @ chunk-WERSD76P.js?v=5a569869:16915
+commitPassiveMountOnFiber @ chunk-WERSD76P.js?v=5a569869:18156
+commitPassiveMountEffects_complete @ chunk-WERSD76P.js?v=5a569869:18129
+commitPassiveMountEffects_begin @ chunk-WERSD76P.js?v=5a569869:18119
+commitPassiveMountEffects @ chunk-WERSD76P.js?v=5a569869:18109
+flushPassiveEffectsImpl @ chunk-WERSD76P.js?v=5a569869:19490
+flushPassiveEffects @ chunk-WERSD76P.js?v=5a569869:19447
+performSyncWorkOnRoot @ chunk-WERSD76P.js?v=5a569869:18868
+flushSyncCallbacks @ chunk-WERSD76P.js?v=5a569869:9119
+commitRootImpl @ chunk-WERSD76P.js?v=5a569869:19432
+commitRoot @ chunk-WERSD76P.js?v=5a569869:19277
+finishConcurrentRender @ chunk-WERSD76P.js?v=5a569869:18805
+performConcurrentWorkOnRoot @ chunk-WERSD76P.js?v=5a569869:18718
+workLoop @ chunk-WERSD76P.js?v=5a569869:197
+flushWork @ chunk-WERSD76P.js?v=5a569869:176
+performWorkUntilDeadline @ chunk-WERSD76P.js?v=5a569869:384
+Show 43 more frames
+Show less
+audioUtils.ts:70 [AUDIO PLAYER] AudioPlayer created, initial state: suspended
+chat.tsx:92 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false inProgress: false mode: voice
+chat.tsx:95 [SHARED CHAT] Creating shared conversation... (post-onboarding) forceNew: false mode: voice
+LanguageContext.tsx:43 [LanguageContext] Hydrating from user preferences: {targetLanguage: 'spanish', difficultyLevel: 'beginner', firstName: 'David'}
+chat.tsx:92 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: true inProgress: true mode: voice
+chat.tsx:111 [SHARED CHAT] Shared conversation created: fc6a9899-e6ef-48cc-975d-95065906c9da mode: voice
+realtimeManager.ts:24 [REALTIME MANAGER] Connection lock: LOCKED
+VoiceChat.tsx:152 [VOICE CHAT] Connecting through unified proxy...
+VoiceChat.tsx:166 [VOICE CHAT] ✓ Connecting to proxy with unified system prompt
+2chat.tsx:92 [SHARED CHAT] Auto-create check - userName: David conversationId: fc6a9899-e6ef-48cc-975d-95065906c9da isCreating: false inProgress: false mode: voice
+VoiceChat.tsx:182 [VOICE CHAT] ✓ Connected through unified proxy with shared system prompt!
+realtimeManager.ts:42 [REALTIME MANAGER] ✓ Global WebSocket set for conversation: fc6a9899-e6ef-48cc-975d-95065906c9da
+realtimeManager.ts:24 [REALTIME MANAGER] Connection lock: UNLOCKED
+VoiceChat.tsx:240 [VOICE CHAT] Greeting already sent for conversation: fc6a9899-e6ef-48cc-975d-95065906c9da
+VoiceChat.tsx:1274 [VOICE BUTTON] PointerDown - button: 0 conversationId: fc6a9899-e6ef-48cc-975d-95065906c9da capabilityAvailable: true isRecording: false
+VoiceChat.tsx:1276 [VOICE BUTTON] Conditions met, calling startRecording()
+VoiceChat.tsx:564 [VOICE CHAT] Starting recording with token: 1 isAiSpeaking: false
+VoiceChat.tsx:578 [VOICE CHAT] Resuming audio playback on user interaction...
+audioUtils.ts:76 [AUDIO PLAYER] Resuming AudioContext from suspended state...
+audioUtils.ts:78 [AUDIO PLAYER] ✓ AudioContext resumed! State: running
+VoiceChat.tsx:580 [VOICE CHAT] ✓ Audio playback ready!
+audioUtils.ts:27 [Deprecation] The ScriptProcessorNode is deprecated. Use AudioWorkletNode instead. (https://bit.ly/audio-worklet)
+startRecording @ audioUtils.ts:27
+await in startRecording (async)
+startRecording @ VoiceChat.tsx:612
+await in startRecording (async)
+onPointerDown @ VoiceChat.tsx:1277
+callCallback2 @ chunk-WERSD76P.js?v=5a569869:3674
+invokeGuardedCallbackDev @ chunk-WERSD76P.js?v=5a569869:3699
+invokeGuardedCallback @ chunk-WERSD76P.js?v=5a569869:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-WERSD76P.js?v=5a569869:3736
+executeDispatch @ chunk-WERSD76P.js?v=5a569869:7014
+processDispatchQueueItemsInOrder @ chunk-WERSD76P.js?v=5a569869:7034
+processDispatchQueue @ chunk-WERSD76P.js?v=5a569869:7043
+dispatchEventsForPlugins @ chunk-WERSD76P.js?v=5a569869:7051
+(anonymous) @ chunk-WERSD76P.js?v=5a569869:7174
+batchedUpdates$1 @ chunk-WERSD76P.js?v=5a569869:18913
+batchedUpdates @ chunk-WERSD76P.js?v=5a569869:3579
+dispatchEventForPluginEventSystem @ chunk-WERSD76P.js?v=5a569869:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-WERSD76P.js?v=5a569869:5478
+dispatchEvent @ chunk-WERSD76P.js?v=5a569869:5472
+dispatchDiscreteEvent @ chunk-WERSD76P.js?v=5a569869:5449
+Show 15 more frames
+Show less
+VoiceChat.tsx:638 [VOICE CHAT] Recording started successfully with token: 1
+VoiceChat.tsx:288 [REALTIME EVENT] error {type: 'error', error: {…}}
+VoiceChat.tsx:423 Realtime API error: {type: 'error', error: {…}}
+ws.onmessage @ VoiceChat.tsx:423
+VoiceChat.tsx:657 [VOICE CHAT] Stop requested, recordingToken: 1 latestToken: 1 isRecording: true hasRecorder: true
+VoiceChat.tsx:663 [VOICE CHAT] Stopped recording token: 1 stoppedToken now: 1
+VoiceChat.tsx:676 [VOICE CHAT] Stopping active recorder
+VoiceChat.tsx:527 WebSocket closed 1005 
+realtimeManager.ts:74 [REALTIME MANAGER] Clearing global WebSocket (identity match confirmed)
+realtimeManager.ts:24 [REALTIME MANAGER] Connection lock: UNLOCKED

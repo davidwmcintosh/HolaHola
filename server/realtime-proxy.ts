@@ -356,6 +356,11 @@ export function setupRealtimeProxy(server: Server) {
           sessionConfig.turn_detection = turnDetection;
         }
         
+        console.log('[SESSION CONFIG] Sending to OpenAI:');
+        console.log('- Voice:', sessionConfig.voice);
+        console.log('- Instructions length:', instructions.length, 'chars');
+        console.log('- Turn detection:', turnDetection ? JSON.stringify(turnDetection) : 'null (push-to-talk)');
+        
         openaiWs.send(JSON.stringify({
           type: 'session.update',
           session: sessionConfig
