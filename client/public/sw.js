@@ -1,5 +1,5 @@
-const CACHE_NAME = 'linguaflow-v1';
-const RUNTIME_CACHE = 'linguaflow-runtime-v1';
+const CACHE_NAME = 'linguaflow-v2';
+const RUNTIME_CACHE = 'linguaflow-runtime-v2';
 
 const STATIC_ASSETS = [
   '/',
