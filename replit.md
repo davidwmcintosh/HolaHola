@@ -87,8 +87,33 @@ Preferred communication style: Simple, everyday language.
     -   Speaking rate set to 0.9x for better language learning comprehension
     -   Cost: $16/1M characters (1M free tier), ~$1.60/month per Pro user (500 messages)
     -   Removed all "avoid hola" workarounds from system prompts - AI now teaches natural Spanish
--   **Voice Chat Performance Optimization**: Implemented split response architecture reducing voice mode latency from ~40s to ~3.6s. Fast text-only AI response is sent immediately, with vocabulary extraction and image generation queued for background processing using `setImmediate()`.
+-   **Voice Chat Performance Optimization (Nov 21, 2025)**: Implemented dedicated fast-path for voice mode reducing end-to-end latency from ~18-20s to ~5.5s (70% improvement). Voice mode now uses minimal context (10 recent messages vs 20) and skips expensive operations (language detection, native language change detection, vocabulary queries) by returning immediate text-only AI responses. Background enrichment pipeline processes structured completions with vocabulary/media extraction asynchronously via `setImmediate()`. Text mode unchanged and continues using full structured response path with inline vocabulary/media processing. Performance breakdown: STT ~700ms, AI completion ~1.4s (down from 7-10s), TTS ~3.2s, background enrichment ~4.5s (non-blocking).
 -   **Tier-Based Model Selection**: Added `getModelForTier()` helper function to centralize model selection logic across all chat flows (text, voice, onboarding). Ensures gpt-4o-mini for cost efficiency (Free/Basic/Institutional tiers) and gpt-4o for quality (Pro tier).
 -   **enrichmentStatus Field**: Added to messages schema to track background processing state ("pending" → null when complete). Uses conditional spread `...(isVoiceMode ? { enrichmentStatus: "pending" } : {})` to avoid undefined→null database conversion.
 -   **Mobile Layout Fix**: Resolved mic button visibility issue on mobile devices where flex layout constraints prevented button from appearing on screen. Changed RestVoiceChat root container from `h-full` to `flex-1 min-h-0` to properly participate in flex chain from parent components.
 -   **Cache-Busting System**: Implemented build timestamp mechanism (`client/src/buildtime.ts`) to force browsers to load fresh JavaScript when code changes, bypassing aggressive CDN/proxy caching. This ensures layout fixes and other updates are immediately visible to users without requiring service worker manipulation.
+
+## Testing & Quality Assurance
+
+### Voice/Text Mode Regression Testing
+To verify voice performance and text mode vocabulary persistence after code changes:
+
+**Voice Mode Test:**
+1. Create test user via OIDC, complete onboarding (any language, beginner)
+2. Send voice message: "I want to practice greetings"
+3. Verify response time ≤6 seconds
+4. Check server logs for telemetry: `[VOICE FAST-PATH]` with STT/completion/TTS timings
+5. Verify background enrichment completes: `[Background Enrichment] ✓ Complete`
+
+**Text Mode Test:**
+1. Create test user via OIDC, complete onboarding (Spanish, English native, beginner)
+2. Send text message: "Please teach me the Spanish word for coffee"
+3. Verify assistant response appears within 10 seconds
+4. Check server logs: `[TEXT MODE] ✓ Saved vocabulary: café`
+5. Query database to verify vocabulary persisted:
+   ```sql
+   SELECT * FROM vocabulary_words WHERE user_id = 'test-user-id' AND word = 'café';
+   ```
+6. Verify row exists with translation, example, pronunciation fields
+
+**Critical: Simple messages like "Hola" may not trigger vocabulary generation (expected behavior). Use descriptive prompts requesting specific vocabulary to ensure AI generates structured output.**
