@@ -245,10 +245,6 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
               if (existingMessages.length === 0) {
                 console.log('[VOICE CHAT] Empty conversation - triggering AI to greet student by name');
                 
-                // Mark as sent BEFORE sending to prevent race conditions
-                markGreetingAsSent(conversationId);
-                console.log('[VOICE CHAT] Marked greeting as sent');
-                
                 // Mark to skip saving the next greeting (prevents duplicates on reload)
                 skipNextGreetingRef.current = true;
                 console.log('[VOICE CHAT] Set skipNextGreeting = true');
@@ -261,6 +257,10 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
                     instructions: `Greet ${userName || 'the student'} warmly by name and ask what they'd like to learn today. Keep it brief (1-2 sentences).`
                   }
                 }));
+                
+                // Mark as sent AFTER sending greeting request (prevents duplicate requests)
+                markGreetingAsSent(conversationId);
+                console.log('[VOICE CHAT] Marked greeting as requested for conversation:', conversationId);
               } else {
                 console.log('[VOICE CHAT] Conversation already has', existingMessages.length, 'messages, skipping greeting');
                 // Mark as sent even if we didn't send (conversation already has messages)
