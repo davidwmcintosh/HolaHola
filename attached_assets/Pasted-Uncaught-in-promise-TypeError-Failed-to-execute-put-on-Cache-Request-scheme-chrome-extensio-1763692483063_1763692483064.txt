@@ -1,0 +1,35 @@
+Uncaught (in promise) TypeError: Failed to execute 'put' on 'Cache': Request scheme 'chrome-extension' is unsupported
+    at sw.js:88:19
+client:536 WebSocket connection to 'wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/?token=w3xrXTaELhwj' failed: 
+setupWebSocket @ client:536
+client:536 Uncaught (in promise) DOMException: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=w3xrXTaELhwj' is invalid.
+    at setupWebSocket (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:536:19)
+    at fallback (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:509:16)
+    at WebSocket.<anonymous> (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:555:7)
+chunk-WERSD76P.js?v=5a569869:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+sw.js:88 Uncaught (in promise) TypeError: Failed to execute 'put' on 'Cache': Request scheme 'chrome-extension' is unsupported
+    at sw.js:88:19
+vendors.bundle.js:2 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+main.tsx:12 [PWA] Service Worker registered: https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/
+sw.js:88 Uncaught (in promise) TypeError: Failed to execute 'put' on 'Cache': Request scheme 'chrome-extension' is unsupported
+    at sw.js:88:19
+LanguageContext.tsx:21 [LanguageContext] Initializing with language: spanish (from localStorage)
+LanguageContext.tsx:26 [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+LanguageContext.tsx:31 [LanguageContext] Initializing with userName: David (from localStorage)
+LanguageContext.tsx:43 [LanguageContext] Hydrating from user preferences: Object
+audioUtils.ts:70 [AUDIO PLAYER] AudioPlayer created, initial state: running
+chat.tsx:64 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false inProgress: false
+chat.tsx:67 [SHARED CHAT] Creating shared conversation... (post-onboarding) forceNew: false
+chat.tsx:64 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: true inProgress: true
+chat.tsx:83 [SHARED CHAT] Shared conversation created: 78a9d4aa-3767-4814-ac6b-3c003f1326a7
+realtimeManager.ts:24 [REALTIME MANAGER] Connection lock: LOCKED
+VoiceChat.tsx:152 [VOICE CHAT] Connecting through unified proxy...
+VoiceChat.tsx:166 [VOICE CHAT] ✓ Connecting to proxy with unified system prompt
+2chat.tsx:64 [SHARED CHAT] Auto-create check - userName: David conversationId: 78a9d4aa-3767-4814-ac6b-3c003f1326a7 isCreating: false inProgress: false
+VoiceChat.tsx:182 [VOICE CHAT] ✓ Connected through unified proxy with shared system prompt!
+realtimeManager.ts:42 [REALTIME MANAGER] ✓ Global WebSocket set for conversation: 78a9d4aa-3767-4814-ac6b-3c003f1326a7
+realtimeManager.ts:24 [REALTIME MANAGER] Connection lock: UNLOCKED
+VoiceChat.tsx:246 [VOICE CHAT] Empty conversation - triggering AI to greet student by name
+realtimeManager.ts:115 [REALTIME MANAGER] Greeting marked as sent for conversation: 78a9d4aa-3767-4814-ac6b-3c003f1326a7
+VoiceChat.tsx:250 [VOICE CHAT] Marked greeting as sent
+VoiceChat.tsx:254 [VOICE CHAT] Set skipNextGreeting = true
