@@ -27,20 +27,34 @@ Voice chat stopped working at 3:06 AM when attempting to switch from Pro tier mo
 - **Error Started**: 3:06 AM - Consistent server errors after session configuration
 - **Additional Change**: Added tier-based model selection to use `gpt-4o-mini-realtime-preview-2024-12-17`
 
-### 🔍 ROOT CAUSE HYPOTHESIS
-**The mic breaking is likely NOT related to the model switch, but to changes made during the greeting duplication fix!**
+### 🔍 ROOT CAUSE HYPOTHESIS - UPDATED
 
-**IMPORTANT FOR TOMORROW**: The greeting fix changes were made in:
-- VoiceChat.tsx (client-side)
-- routes.ts (server-side)
-- realtimeManager.ts (client-side utility)
+**CONFIRMED: It's NOT the model!**
+- Tested Pro model (`gpt-4o-realtime-preview-2024-12-17`) - ❌ STILL FAILS
+- Tested Mini model (`gpt-4o-mini-realtime-preview-2024-12-17`) - ❌ STILL FAILS
+- **Both models worked perfectly in REST API tests** ✅
+- **Voice chat was working before greeting fix** ✅
 
-**BUT** the error is happening in the WebSocket proxy (`server/realtime-proxy.ts`) which was NOT modified for greeting fixes. This suggests:
-1. The greeting fix might have indirectly triggered a code path that exposed a pre-existing bug
-2. OR the model switch happened at the same time as the greeting fix and both need to be reverted
-3. OR there's a session configuration issue that needs investigation
+**CONCLUSION: The issue is NOT model-related. It's something in the session configuration or greeting fix changes.**
 
-**Next debugging step**: Try reverting just the model tier selection (back to Pro model for all tiers) to see if error persists. If it does, then it's definitely related to greeting fix or something else.
+**What changed between working and broken state:**
+1. **Greeting fix changes** (client-side):
+   - `VoiceChat.tsx` - Added greeting tracking, skipNextGreetingRef
+   - `routes.ts` - Modified backend greeting logic
+   - `realtimeManager.ts` - Added localStorage greeting tracking
+
+2. **Possible culprits in `server/realtime-proxy.ts`:**
+   - System prompt generation (createSystemPrompt call)
+   - Session configuration parameters
+   - Turn detection settings
+   - Input audio transcription settings
+
+**Tomorrow's debugging strategy:**
+1. ✅ ~~Try Pro model~~ - DONE, still fails
+2. **Next**: Comment out greeting-related logic in VoiceChat.tsx and test
+3. **Next**: Test with absolute minimal session config (just voice, no instructions)
+4. **Next**: Check if system prompt is being generated correctly
+5. **Last resort**: Try the newer GA model `gpt-realtime`
 
 ## Error Details
 ```json
@@ -108,9 +122,14 @@ Keep responses under 3 sentences.`;
 **Conclusion**: Prompt length is NOT the root cause
 
 ### 4. Model Switching Test
-**Test**: Forced ALL tiers to use standard model temporarily
+**Test A**: Forced ALL tiers to use standard model temporarily
 **Result**: STILL GOT SERVER ERROR even with standard model
 **Conclusion**: Issue is not model-specific
+
+**Test B**: Tested JUST Pro model (reverting mini model change completely)
+**Result**: ❌ STILL FAILS - Same server_error
+**Log Output**: `Using model: gpt-4o-realtime-preview-2024-12-17 for tier: free`
+**Conclusion**: ✅ **CONFIRMED - NOT A MODEL ISSUE**. Both models fail identically.
 
 ### 5. Minimal Prompt Test
 **Test**: Stripped down to absolute minimal prompt (~150 chars)
