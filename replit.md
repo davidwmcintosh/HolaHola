@@ -8,13 +8,20 @@ Preferred communication style: Simple, everyday language.
 
 ## Active Issues & Troubleshooting
 
-### Voice Chat Connection Issue - 🔍 IN PROGRESS (Nov 21, 2025)
-**Status**: Backend is ready, frontend connection failing
-**NOT the problem**: ✅ API key is valid and has Realtime API access (confirmed via test script)
-**Actual problem**: Frontend WebSocket connection in VoiceChat.tsx failing to connect
-**Backend status**: Capability check returns `available: true` - server is ready
-**Next steps**: Debug frontend WebSocket connection logic and browser console errors
-**Details**: See `VOICE_CHAT_TROUBLESHOOTING.md` for complete debugging history (8+ hours)
+### Voice Chat Connection Issue - ✅ RESOLVED (Nov 21, 2025)
+**Root Cause**: Double-authentication when connecting to OpenAI Realtime API
+- The ephemeral session endpoint returns a `client_secret.value` which is a fully-qualified WebSocket URL (contains session token and model)
+- Code was **ignoring this URL** and building its own with `?model=` query param
+- Code was **also** sending an `Authorization` header with the ephemeral token
+- This caused OpenAI to reject connections with `server_error` immediately after `session.created`
+
+**The Fix**: Use `client_secret.value` directly as WebSocket URL with no additional headers or query params
+- File: `server/realtime-proxy.ts` line 226
+- Changed from: `wss://api.openai.com/v1/realtime?model=X` + `Authorization` header
+- Changed to: Direct use of `sessionData.client_secret.value` with no headers
+
+**Debugging Time**: 8+ hours
+**Details**: See `VOICE_CHAT_TROUBLESHOOTING.md` for complete investigation timeline
 
 ## Architectural Principles
 

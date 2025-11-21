@@ -555,3 +555,57 @@ Teaching approach:
 
 **Last Updated**: November 21, 2025 12:55 PM
 **Status**: RESOLVED - Fix applied, awaiting user confirmation
+
+---
+
+## ✅ FINAL RESOLUTION (Nov 21, 2025 - 1:00 PM)
+
+### Root Cause: Double-Authentication
+The ephemeral session creation was working correctly, but the WebSocket connection was failing due to **double-authentication**:
+
+**The Problem:**
+1. OpenAI's ephemeral session endpoint (`POST /v1/realtime/sessions`) returns `client_secret.value`
+2. This value is a **fully-qualified WebSocket URL** like `wss://api.openai.com/v1/realtime/sessions/sess_abc123xyz`
+3. This URL already contains:
+   - The session token (embedded in the URL path)
+   - The model (configured during session creation)
+4. Our code was **ignoring** this URL and building our own: `wss://api.openai.com/v1/realtime?model=gpt-4o-mini-realtime-preview-2024-12-17`
+5. We were **also** adding an `Authorization: Bearer <ephemeral_token>` header
+6. This resulted in **double-authentication** which OpenAI rejected with `server_error`
+
+**The Fix:**
+```typescript
+// BEFORE (BROKEN):
+const wsUrl = `wss://api.openai.com/v1/realtime?model=${model}`;
+const openaiWs = new WS(wsUrl, {
+  headers: {
+    'Authorization': `Bearer ${ephemeralToken}`,
+    'OpenAI-Beta': 'realtime=v1',
+  },
+});
+
+// AFTER (WORKING):
+const wsUrl = sessionData.client_secret.value; // Use the URL directly!
+const openaiWs = new WS(wsUrl); // No headers, no query params!
+```
+
+**Why This Wasn't Obvious:**
+- The error happened AFTER `session.created` (connection succeeded)
+- The error message was generic `server_error` with no specific auth failure
+- Test scripts worked because they used `client_secret.value` directly
+- Documentation examples show both approaches, making it unclear which is correct
+
+**File Changed:**
+- `server/realtime-proxy.ts` (lines 220-230)
+
+**Lessons Learned:**
+1. When OpenAI returns a pre-configured URL, use it exactly as-is
+2. Don't add redundant authentication when the URL already contains credentials
+3. Generic `server_error` messages can hide specific issues like double-auth
+4. Always compare working test scripts line-by-line with production code
+
+**Testing Status:**
+- [x] Fixed double-authentication in realtime-proxy.ts
+- [x] Restored session.update with proper configuration
+- [x] Code ready for testing
+- [ ] Awaiting user verification that voice chat works end-to-end
