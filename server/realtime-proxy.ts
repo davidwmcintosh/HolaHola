@@ -336,11 +336,19 @@ export function setupRealtimeProxy(server: Server) {
           turnDetection = null;
         }
         
-        // Use condensed prompt for mini model
-        const isUsingMiniModel = model.includes('mini');
-        const instructions = isUsingMiniModel 
-          ? `You are a ${conversationLanguage} tutor. Student: ${userName || 'learner'}. Native: ${nativeLanguage}. Level: ${difficulty}. Use simple ${conversationLanguage} with English translations.`
-          : systemPrompt;
+        // ALWAYS use condensed prompt for voice mode - full prompt causes server_error
+        // OpenAI Realtime API has character limit for instructions
+        const instructions = `You are a ${conversationLanguage} tutor for ${userName || 'a learner'}.
+Native language: ${nativeLanguage}
+Difficulty: ${difficulty}
+
+Teaching approach:
+- Use simple ${conversationLanguage} appropriate for ${difficulty} level
+- Provide English translations when helpful
+- Speak clearly and at a moderate pace
+- Encourage the student and celebrate their progress
+- Correct mistakes gently
+- Keep responses conversational and natural`;
         
         const sessionConfig: any = {
           voice: 'alloy',
