@@ -138,6 +138,26 @@ const testPrompt = `You are a helpful ${conversationLanguage} language tutor.
 Speak slowly and clearly. Use simple phrases with English translations.`;
 ```
 **Result**: Pending test
+**Note**: This tested minimal PROMPT content, NOT minimal session config structure
+
+### 6. Minimal Session Config Test ❌ NOT YET TESTED
+**What we're still sending**:
+```typescript
+const sessionConfig = {
+  voice: 'alloy',
+  instructions,
+  input_audio_transcription: { model: 'whisper-1' }  // <- Never tested removing this
+};
+```
+**Test needed**: Try absolute minimal config:
+```typescript
+const sessionConfig = {
+  voice: 'alloy',
+  instructions: 'You are a helpful tutor.'
+  // Remove input_audio_transcription completely
+};
+```
+**Status**: ⏳ NOT YET TESTED - Priority for tomorrow!
 
 ## Known Facts
 
