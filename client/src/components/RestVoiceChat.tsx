@@ -239,7 +239,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
             <Button
               size="icon"
               variant={isRecording ? 'destructive' : 'default'}
-              className="h-20 w-20 rounded-full"
+              className="h-14 w-14 rounded-full"
               onClick={isRecording ? stopRecording : startRecording}
               disabled={isProcessing || !conversationId}
               data-testid="button-mic-toggle"
@@ -247,11 +247,11 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
               aria-label={isRecording ? "Stop recording" : "Start recording"}
             >
               {isProcessing ? (
-                <Loader2 className="h-8 w-8 animate-spin" />
+                <Loader2 className="h-6 w-6 animate-spin" />
               ) : isRecording ? (
-                <MicOff className="h-8 w-8" />
+                <MicOff className="h-6 w-6" />
               ) : (
-                <Mic className="h-8 w-8" />
+                <Mic className="h-6 w-6" />
               )}
             </Button>
           </div>
