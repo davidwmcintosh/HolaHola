@@ -216,44 +216,47 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
             <div ref={scrollRef} />
           </div>
         </div>
-      </Card>
 
-      {/* Error display */}
-      {error && (
-        <div className="mx-4 mb-2 p-3 bg-destructive/10 border border-destructive rounded-md">
-          <p className="text-sm text-destructive">{error}</p>
-        </div>
-      )}
-
-      {/* Processing status */}
-      {processingStage && (
-        <div className="mx-4 mb-2 p-3 bg-accent rounded-md flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <p className="text-sm">{processingStage}</p>
-        </div>
-      )}
-
-      {/* Mic control */}
-      <div className="flex justify-center items-center p-6 border-t bg-card/50 shrink-0">
-        <Button
-          size="icon"
-          variant={isRecording ? 'destructive' : 'default'}
-          className="h-20 w-20 rounded-full"
-          onClick={isRecording ? stopRecording : startRecording}
-          disabled={isProcessing || !conversationId}
-          data-testid="button-mic-toggle"
-          aria-pressed={isRecording}
-          aria-label={isRecording ? "Stop recording" : "Start recording"}
-        >
-          {isProcessing ? (
-            <Loader2 className="h-8 w-8 animate-spin" />
-          ) : isRecording ? (
-            <MicOff className="h-8 w-8" />
-          ) : (
-            <Mic className="h-8 w-8" />
+        {/* Mic control area - inside Card like text input */}
+        <div className="p-3 md:p-4 border-t shrink-0">
+          {/* Error display */}
+          {error && (
+            <div className="mb-3 p-3 bg-destructive/10 border border-destructive rounded-md">
+              <p className="text-sm text-destructive">{error}</p>
+            </div>
           )}
-        </Button>
-      </div>
+
+          {/* Processing status */}
+          {processingStage && (
+            <div className="mb-3 p-3 bg-accent rounded-md flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <p className="text-sm">{processingStage}</p>
+            </div>
+          )}
+
+          {/* Mic button */}
+          <div className="flex justify-center items-center">
+            <Button
+              size="icon"
+              variant={isRecording ? 'destructive' : 'default'}
+              className="h-20 w-20 rounded-full"
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={isProcessing || !conversationId}
+              data-testid="button-mic-toggle"
+              aria-pressed={isRecording}
+              aria-label={isRecording ? "Stop recording" : "Start recording"}
+            >
+              {isProcessing ? (
+                <Loader2 className="h-8 w-8 animate-spin" />
+              ) : isRecording ? (
+                <MicOff className="h-8 w-8" />
+              ) : (
+                <Mic className="h-8 w-8" />
+              )}
+            </Button>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }
