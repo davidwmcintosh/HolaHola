@@ -128,17 +128,43 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       setProcessingStage('Playing response...');
       setAvatarState('speaking');
       
-      if (audioPlayerRef.current) {
+      if (audioPlayerRef.current && result.audioBlob) {
+        console.log('[REST VOICE] Audio blob size:', result.audioBlob.size, 'bytes');
+        console.log('[REST VOICE] Audio blob type:', result.audioBlob.type);
+        
         const audioUrl = URL.createObjectURL(result.audioBlob);
         audioPlayerRef.current.src = audioUrl;
         
         audioPlayerRef.current.onended = () => {
+          console.log('[REST VOICE] Audio playback ended');
           URL.revokeObjectURL(audioUrl);
           setAvatarState('idle');
           setProcessingStage(null);
         };
         
-        await audioPlayerRef.current.play();
+        audioPlayerRef.current.onerror = (e) => {
+          console.error('[REST VOICE] Audio playback error:', e);
+          setError('Failed to play audio. The text response is still saved.');
+          URL.revokeObjectURL(audioUrl);
+          setAvatarState('idle');
+          setProcessingStage(null);
+        };
+        
+        try {
+          console.log('[REST VOICE] Starting audio playback...');
+          await audioPlayerRef.current.play();
+          console.log('[REST VOICE] ✓ Audio playback started successfully');
+        } catch (playError: any) {
+          console.error('[REST VOICE] Failed to play audio:', playError);
+          setError(`Audio playback blocked: ${playError.message}. Check browser autoplay settings.`);
+          URL.revokeObjectURL(audioUrl);
+          setAvatarState('idle');
+          setProcessingStage(null);
+        }
+      } else {
+        console.warn('[REST VOICE] No audio blob or audio player unavailable');
+        setProcessingStage(null);
+        setAvatarState('idle');
       }
       
       // Refresh messages
