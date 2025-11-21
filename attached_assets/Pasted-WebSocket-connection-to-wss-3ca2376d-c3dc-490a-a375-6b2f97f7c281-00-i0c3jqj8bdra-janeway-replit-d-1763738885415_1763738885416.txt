@@ -1,0 +1,29 @@
+WebSocket connection to 'wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/?token=Ov5A3KYlg5Lq' failed: 
+setupWebSocket @ client:536
+(anonymous) @ client:531
+client:536 Uncaught (in promise) DOMException: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=Ov5A3KYlg5Lq' is invalid.
+    at setupWebSocket (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:536:19)
+    at fallback (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:509:16)
+    at WebSocket.<anonymous> (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:555:7)
+setupWebSocket @ client:536
+fallback @ client:509
+(anonymous) @ client:555
+chunk-WERSD76P.js?v=5bb561fa:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+vendors.bundle.js:2 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+LanguageContext.tsx:21 [LanguageContext] Initializing with language: spanish (from localStorage)
+LanguageContext.tsx:26 [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+LanguageContext.tsx:31 [LanguageContext] Initializing with userName: David (from localStorage)
+chat.tsx:92 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false inProgress: false mode: voice
+chat.tsx:95 [SHARED CHAT] Creating shared conversation... (post-onboarding) forceNew: false mode: voice
+LanguageContext.tsx:43 [LanguageContext] Hydrating from user preferences: {targetLanguage: 'spanish', difficultyLevel: 'beginner', firstName: 'David'}
+chat.tsx:92 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: true inProgress: true mode: voice
+chat.tsx:111 [SHARED CHAT] Shared conversation created: 95bc2883-2a18-455e-bdec-393ef9d889e9 mode: voice
+2chat.tsx:92 [SHARED CHAT] Auto-create check - userName: David conversationId: 95bc2883-2a18-455e-bdec-393ef9d889e9 isCreating: false inProgress: false mode: voice
+6chat:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+RestVoiceChat.tsx:112 [REST VOICE] Transcribing audio...
+RestVoiceChat.tsx:116 [REST VOICE] Sending to GPT...
+RestVoiceChat.tsx:120 [REST VOICE] Generating speech...
+RestVoiceChat.tsx:150 [REST VOICE] Error: SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+processRecording @ RestVoiceChat.tsx:150
+await in processRecording (async)
+mediaRecorder.onstop @ RestVoiceChat.tsx:79

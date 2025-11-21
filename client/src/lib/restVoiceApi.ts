@@ -114,20 +114,20 @@ export async function processVoiceMessage(
     credentials: 'include',
   });
 
+  // Check content type BEFORE parsing (even for 200 OK responses)
+  const contentType = chatResponse.headers.get('content-type');
+  if (!contentType?.includes('application/json')) {
+    const textResponse = await chatResponse.text();
+    console.error('[Chat] Non-JSON response:', textResponse.substring(0, 500));
+    throw new Error(`Chat endpoint returned ${contentType || 'non-JSON'} instead of JSON. Check server logs.`);
+  }
+
   if (!chatResponse.ok) {
-    // Try to parse JSON error, but handle HTML responses gracefully
+    // Try to parse JSON error
     let errorMessage = `Chat failed (HTTP ${chatResponse.status})`;
     try {
-      const contentType = chatResponse.headers.get('content-type');
-      if (contentType?.includes('application/json')) {
-        const errorData = await chatResponse.json();
-        errorMessage = errorData.error || errorMessage;
-      } else {
-        // HTML error page or other non-JSON response
-        const textResponse = await chatResponse.text();
-        console.error('[Chat] Non-JSON error response:', textResponse.substring(0, 500));
-        errorMessage = `Chat endpoint returned HTML error. Check server logs.`;
-      }
+      const errorData = await chatResponse.json();
+      errorMessage = errorData.error || errorMessage;
     } catch (e) {
       console.error('[Chat] Failed to parse error response:', e);
     }
