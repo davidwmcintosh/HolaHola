@@ -26,11 +26,15 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   const [avatarState, setAvatarState] = useState<AvatarState>('idle');
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const activeConversationRef = useRef<string | null>(null);
+  const currentConversationRef = useRef<string | null>(conversationId);
+  
+  // Keep ref updated with current conversation
+  useEffect(() => {
+    currentConversationRef.current = conversationId;
+  }, [conversationId]);
 
   // Fetch existing messages
   const { data: messages = [] } = useQuery<Message[]>({
@@ -84,7 +88,9 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     
     try {
       setError(null);
-      activeConversationRef.current = conversationId;
+      
+      // Capture conversation ID for this session
+      const recordingConversationId = conversationId;
       
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -93,27 +99,47 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         mimeType: 'audio/webm',
       });
       
-      audioChunksRef.current = [];
+      // Isolated state for this recording session
+      const recordingChunks: Blob[] = [];
+      const sessionStream = stream; // Capture in closure
+      const sessionRecorder = mediaRecorder; // Capture in closure
       
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
+          recordingChunks.push(event.data);
         }
       };
       
       mediaRecorder.onstop = async () => {
         console.log('[RECORDER] Stopped, processing audio...');
         
-        const recordedForConversation = activeConversationRef.current;
-        const currentConversation = conversationId;
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        // Check if this is still the active session
+        const isActiveSession = mediaRecorderRef.current === sessionRecorder;
         
-        cleanupRecording();
+        // Session-safe cleanup: only touch resources that belong to THIS session
+        sessionStream.getTracks().forEach(track => track.stop());
         
-        if (recordedForConversation === currentConversation && recordedForConversation) {
-          await processRecording(audioBlob, recordedForConversation);
+        // Only touch shared state if this is still the active session
+        if (isActiveSession) {
+          mediaRecorderRef.current = null;
+          streamRef.current = null;
+          setIsRecording(false);
+          setAvatarState('idle');
         } else {
-          console.log('[RECORDER] Discarding audio - conversation changed');
+          console.log('[RECORDER] Session superseded - new recording already started');
+        }
+        
+        // Build audio blob from this session's chunks
+        const audioBlob = new Blob(recordingChunks, { type: 'audio/webm' });
+        
+        // Check if conversation changed by comparing to current ref value
+        const currentConv = currentConversationRef.current;
+        
+        if (recordingConversationId === currentConv && recordingConversationId && isActiveSession) {
+          console.log('[RECORDER] Processing audio for conversation:', recordingConversationId);
+          await processRecording(audioBlob, recordingConversationId);
+        } else {
+          console.log('[RECORDER] Discarding audio - conversation changed or session superseded');
         }
       };
       
@@ -140,8 +166,8 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   };
 
   const processRecording = async (audioBlob: Blob, targetConversationId: string) => {
-    if (!targetConversationId || isCleaningUpRef.current) {
-      console.log('[PROCESS] Skipping - no conversation or cleaning up');
+    if (!targetConversationId) {
+      console.log('[PROCESS] Skipping - no conversation');
       setAvatarState('idle');
       return;
     }
