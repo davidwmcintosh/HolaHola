@@ -566,6 +566,17 @@ export class DatabaseStorage implements IStorage {
       return { allowed: false, remaining: 0, limit: 0 };
     }
 
+    // DEVELOPER OVERRIDE: Admins and developers bypass all limits
+    const developerRoles = ['admin', 'developer'];
+    if (user.role && developerRoles.includes(user.role)) {
+      console.log(`[DEVELOPER MODE] User ${userId} (role: ${user.role}) bypassing voice limits`);
+      return {
+        allowed: true,
+        remaining: 999999,
+        limit: 999999,
+      };
+    }
+
     const currentCount = user.monthlyMessageCount || 0;
     const limit = user.monthlyMessageLimit || 20;
     
@@ -590,6 +601,13 @@ export class DatabaseStorage implements IStorage {
     const user = await this.getUser(userId);
     if (!user) {
       throw new Error('User not found');
+    }
+
+    // DEVELOPER OVERRIDE: Admins and developers don't increment counter
+    const developerRoles = ['admin', 'developer'];
+    if (user.role && developerRoles.includes(user.role)) {
+      console.log(`[DEVELOPER MODE] User ${userId} (role: ${user.role}) skipping usage increment`);
+      return; // Skip increment for developers
     }
 
     const limit = user.monthlyMessageLimit || 20;
@@ -624,6 +642,17 @@ export class DatabaseStorage implements IStorage {
     const user = await this.getUser(userId);
     if (!user) {
       return { allowed: false, remaining: 0, limit: 0 };
+    }
+
+    // DEVELOPER OVERRIDE: Admins and developers bypass all limits
+    const developerRoles = ['admin', 'developer'];
+    if (user.role && developerRoles.includes(user.role)) {
+      console.log(`[DEVELOPER MODE] User ${userId} (role: ${user.role}) bypassing voice limits (no increment)`);
+      return {
+        allowed: true,
+        remaining: 999999,
+        limit: 999999,
+      };
     }
 
     const currentCount = user.monthlyMessageCount || 0;
