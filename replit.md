@@ -39,7 +39,7 @@ Preferred communication style: Simple, everyday language.
 -   **Conversational Onboarding**: AI-guided setup with a three-layer defensive architecture.
 -   **Adaptive Multi-Phase Conversation System**: Gradual transition to target language immersion, adapting to user proficiency.
 -   **User Agency**: AI suggests topics but confirms with the user; features like one-question-per-response.
--   **Voice Chat**: Production-stable REST-based voice pipeline (Whisper STT → GPT → TTS). Supports Push-to-Talk recording, seamless text/voice mode synchronization, and enhanced pronunciation feedback. Includes usage enforcement, error handling, and robust response parsing.
+-   **Voice Chat**: Production-stable REST-based voice pipeline (Whisper STT → GPT → TTS). Supports Push-to-Talk recording, seamless text/voice mode synchronization, and enhanced pronunciation feedback. Includes usage enforcement, error handling, and robust response parsing. **Split Response Architecture**: Voice mode delivers fast text-only responses (~3.6s) with background enrichment for vocabulary extraction and image generation, reducing latency from 40s to under 4s.
 -   **Content Guardrails**: Moderation system for appropriate learning content.
 -   **Personalized Learning**: Auto-language detection, scenario-based learning, slow pronunciation with phonetic breakdowns, automatic vocabulary extraction, spaced repetition, streak tracking, progress charts, and auto-difficulty adjustment.
 -   **AI-Generated Educational Images**: Intelligent display of inline images (Unsplash, DALL-E) with caching.
@@ -73,6 +73,11 @@ Preferred communication style: Simple, everyday language.
 -   **Utilities**: date-fns, Embla Carousel.
 
 ### AI Models Summary
--   **Text Chat**: `gpt-4o-mini` (Free/Basic/Institutional), `gpt-4o` (Pro).
+-   **Text Chat**: `gpt-4o-mini` (Free/Basic/Institutional), `gpt-4o` (Pro). Tier-based model selection via `getModelForTier()` helper ensures cost efficiency for lower tiers and quality for Pro users.
 -   **Voice STT**: `whisper-1` (speech-to-text).
 -   **Voice TTS**: `tts-1` (text-to-speech).
+
+## Recent Technical Improvements (Nov 21, 2025)
+-   **Voice Chat Performance Optimization**: Implemented split response architecture reducing voice mode latency from ~40s to ~3.6s. Fast text-only AI response is sent immediately, with vocabulary extraction and image generation queued for background processing using `setImmediate()`.
+-   **Tier-Based Model Selection**: Added `getModelForTier()` helper function to centralize model selection logic across all chat flows (text, voice, onboarding). Ensures gpt-4o-mini for cost efficiency (Free/Basic/Institutional tiers) and gpt-4o for quality (Pro tier).
+-   **enrichmentStatus Field**: Added to messages schema to track background processing state ("pending" → null when complete). Uses conditional spread `...(isVoiceMode ? { enrichmentStatus: "pending" } : {})` to avoid undefined→null database conversion.
