@@ -177,12 +177,11 @@ export function setupRealtimeProxy(server: Server) {
         }
       }
 
-      // Select model based on subscription tier
-      const model = subscriptionTier === 'pro' 
-        ? 'gpt-4o-realtime-preview-2024-12-17'
-        : 'gpt-4o-mini-realtime-preview-2024-12-17';
-
-      console.log(`Using model: ${model} for tier: ${subscriptionTier}`);
+      // TESTING: Use GA model (Aug 2025 release) for all tiers
+      // This is the newer, more stable version with 30% better accuracy
+      const model = 'gpt-realtime';
+      
+      console.log(`Using GA model: ${model} for tier: ${subscriptionTier}`);
 
       // CRITICAL FIX: Create ephemeral session FIRST using REST API
       // The playground uses this approach - not direct WebSocket!
