@@ -288,11 +288,30 @@ export function setupRealtimeProxy(server: Server) {
           turnDetection = null;
         }
         
-        // CRITICAL FIX: instructions field causes server_error
-        // Test with bare minimum config first - only voice
+        // Configure session with required fields per OpenAI docs
         const sessionConfig: any = {
-          voice: 'alloy'
+          type: 'realtime',  // CRITICAL: Required per OpenAI docs
+          modalities: ['text', 'audio'],  // Required for voice+text responses
+          voice: 'alloy',
+          input_audio_format: 'pcm16',
+          output_audio_format: 'pcm16',
+          input_audio_transcription: {
+            model: 'whisper-1'
+          }
         };
+        
+        // Add system instructions from shared prompt
+        const systemPrompt = createSystemPrompt(
+          conversationLanguage,
+          difficulty,
+          messageCount,
+          true, // isVoiceMode
+          topic,
+          previousConversations,
+          nativeLanguage
+        );
+        
+        sessionConfig.instructions = systemPrompt;
         
         // Only include turn_detection if using VAD mode
         // For push-to-talk, omit the field entirely
@@ -300,9 +319,12 @@ export function setupRealtimeProxy(server: Server) {
           sessionConfig.turn_detection = turnDetection;
         }
         
-        console.log('[SESSION CONFIG - BARE MINIMUM TEST] Voice:', sessionConfig.voice);
+        console.log('[SESSION CONFIG] Type:', sessionConfig.type);
+        console.log('[SESSION CONFIG] Modalities:', sessionConfig.modalities);
+        console.log('[SESSION CONFIG] Voice:', sessionConfig.voice);
+        console.log('[SESSION CONFIG] Audio formats:', sessionConfig.input_audio_format, '/', sessionConfig.output_audio_format);
         console.log('[SESSION CONFIG] Turn detection:', turnDetection ? JSON.stringify(turnDetection) : 'push-to-talk (no turn_detection field)');
-        console.log('[SESSION CONFIG] Full config:', JSON.stringify(sessionConfig, null, 2));
+        console.log('[SESSION CONFIG] Instructions length:', systemPrompt.length, 'chars');
         
         openaiWs.send(JSON.stringify({
           type: 'session.update',

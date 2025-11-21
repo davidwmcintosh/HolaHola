@@ -75,11 +75,55 @@ The error happens AFTER session configuration succeeds. This suggests the proble
    - Turn detection settings
    - WebSocket proxy logic
 
-**TOMORROW'S ACTION PLAN (Prioritized):**
-1. 🔴 **HIGH PRIORITY**: Revert greeting fix changes temporarily to confirm causation
-2. 🟡 **MEDIUM**: Test with absolutely minimal session config (remove turn_detection)
-3. 🟡 **MEDIUM**: Add detailed logging of system prompt being sent
-4. 🟢 **LOW**: Contact OpenAI support with session IDs if issue persists
+**ACTION COMPLETED (Nov 21, 1:17 PM):**
+1. ✅ **REVERTED GREETING FIX**: Removed all greeting logic changes
+   - VoiceChat.tsx: Removed lines 224-272 and 389-394
+   - routes.ts: Simplified to only greet new conversations
+   - realtimeManager.ts: Left unchanged (functions not being called)
+2. ✅ **TESTED**: Voice chat STILL BROKEN after revert
+3. ❌ **CONCLUSION**: Greeting fix was NOT the root cause
+
+**CURRENT STATUS:**
+- Session config is BARE MINIMUM: `{ voice: "alloy" }` (no turn_detection, no instructions)
+- Error pattern unchanged: session.created ✅ → session.updated ✅ → server_error ❌
+- This happens with the SIMPLEST possible configuration
+
+**ROOT CAUSE FOUND (Nov 21, 1:21 PM):**
+🎯 **Missing `type: 'realtime'` field in session config**
+
+The OpenAI Realtime API documentation shows that session.update requires:
+```json
+{
+  "type": "session.update",
+  "session": {
+    "type": "realtime",  // <-- We were missing this!
+    "modalities": ["text", "audio"],  // <-- Array format required
+    "voice": "alloy",
+    "input_audio_format": "pcm16",  // <-- Exact string required
+    "output_audio_format": "pcm16"
+  }
+}
+```
+
+**What we were sending (WRONG):**
+```json
+{
+  "type": "session.update",
+  "session": {
+    "voice": "alloy"  // Missing type, modalities, audio formats
+  }
+}
+```
+
+**Fixed in:** `server/realtime-proxy.ts` lines 294-333
+- Added `type: 'realtime'` (required field)
+- Added `modalities: ['text', 'audio']` (proper array format)
+- Added `input_audio_format: 'pcm16'` (exact string match)
+- Added `output_audio_format: 'pcm16'` (exact string match)
+- Restored `instructions` field (works fine with proper session config)
+- Added `input_audio_transcription` config
+
+**Reference:** https://platform.openai.com/docs/api-reference/realtime-client-events/session/update
 
 ## Error Details
 ```json
