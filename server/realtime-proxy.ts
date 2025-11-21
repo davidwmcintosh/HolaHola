@@ -178,17 +178,11 @@ export function setupRealtimeProxy(server: Server) {
       }
 
       // Select model based on subscription tier
-      // TEMPORARY: Mini model has server errors (OpenAI known issue)
-      // Using standard model for ALL tiers until OpenAI fixes the mini model
-      // See: https://github.com/openai/openai-python/issues/2352
-      const model = 'gpt-4o-realtime-preview-2024-12-17';  // Standard model (works reliably)
-      
-      // TODO: Restore tier-based model selection when mini model is fixed:
-      // const model = subscriptionTier === 'pro' 
-      //   ? 'gpt-4o-realtime-preview-2024-12-17'  // Premium model for Pro tier
-      //   : 'gpt-4o-mini-realtime-preview-2024-12-17';  // Cost-effective model for Free/Basic/Institutional
+      const model = subscriptionTier === 'pro' 
+        ? 'gpt-4o-realtime-preview-2024-12-17'
+        : 'gpt-4o-mini-realtime-preview-2024-12-17';
 
-      console.log(`Using model: ${model} for tier: ${subscriptionTier} (temporary: using standard model for all tiers due to mini model server errors)`);
+      console.log(`Using model: ${model} for tier: ${subscriptionTier}`);
 
       // CRITICAL FIX: Create ephemeral session FIRST using REST API
       // The playground uses this approach - not direct WebSocket!
@@ -314,10 +308,7 @@ export function setupRealtimeProxy(server: Server) {
           undefined  // sessionVocabulary (not needed for realtime)
         );
         
-        console.log('[REALTIME PROXY] Sending unified system prompt to OpenAI');
-        console.log(`[REALTIME PROXY] Original system prompt length: ${systemPrompt.length} characters`);
-        console.log(`[REALTIME PROXY] Using model: ${model}`);
-        console.log(`[REALTIME PROXY] VAD mode: ${vadMode}`);
+        console.log('[REALTIME PROXY] Configuring session...');
         
         // Configure turn detection based on VAD mode
         let turnDetection: any;
@@ -346,14 +337,15 @@ export function setupRealtimeProxy(server: Server) {
           turnDetection = null;
         }
         
-        // TEMPORARY: Test with minimal prompt to debug server errors
-        const testPrompt = `You are a helpful ${conversationLanguage} language tutor. Speak slowly and clearly. Use simple ${conversationLanguage} phrases with English translations.`;
-        
-        console.log(`[REALTIME PROXY] Using minimal test prompt: ${testPrompt.length} characters`);
+        // Use condensed prompt for mini model
+        const isUsingMiniModel = model.includes('mini');
+        const instructions = isUsingMiniModel 
+          ? `You are a ${conversationLanguage} tutor. Student: ${userName || 'learner'}. Native: ${nativeLanguage}. Level: ${difficulty}. Use simple ${conversationLanguage} with English translations.`
+          : systemPrompt;
         
         const sessionConfig: any = {
           voice: 'alloy',
-          instructions: testPrompt,
+          instructions,
           input_audio_transcription: {
             model: 'whisper-1'
           }
