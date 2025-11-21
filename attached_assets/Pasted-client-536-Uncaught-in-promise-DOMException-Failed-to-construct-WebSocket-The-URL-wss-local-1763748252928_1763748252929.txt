@@ -1,0 +1,38 @@
+client:536 Uncaught (in promise) DOMException: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=8_tTTY8-TCE_' is invalid.
+    at setupWebSocket (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:536:19)
+    at fallback (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:509:16)
+    at WebSocket.<anonymous> (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:555:7)
+chunk-WERSD76P.js?v=5bb561fa:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+App.tsx:92 [BUILD] App version: 1763747293
+vendors.bundle.js:2 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+main.tsx:25 [PWA] All caches cleared
+LanguageContext.tsx:21 [LanguageContext] Initializing with language: spanish (from localStorage)
+LanguageContext.tsx:26 [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+LanguageContext.tsx:31 [LanguageContext] Initializing with userName: David (from localStorage)
+chat.tsx:92 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false inProgress: false mode: voice
+chat.tsx:95 [SHARED CHAT] Creating shared conversation... (post-onboarding) forceNew: true mode: voice
+LanguageContext.tsx:43 [LanguageContext] Hydrating from user preferences: Object
+chat.tsx:92 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: true inProgress: true mode: voice
+chat.tsx:111 [SHARED CHAT] Shared conversation created: d2a6c4a6-3b03-4c22-a2ff-c495950a3922 mode: voice
+2chat.tsx:92 [SHARED CHAT] Auto-create check - userName: David conversationId: d2a6c4a6-3b03-4c22-a2ff-c495950a3922 isCreating: false inProgress: false mode: voice
+RestVoiceChat.tsx:112 [REST VOICE] Transcribing audio...
+RestVoiceChat.tsx:116 [REST VOICE] Sending to GPT...
+RestVoiceChat.tsx:120 [REST VOICE] Generating speech...
+RestVoiceChat.tsx:124 [REST VOICE] ✓ Transcript: Ordering coffee.
+RestVoiceChat.tsx:125 [REST VOICE] ✓ Response: Perfect! Let's start learning about that! In Spanish, you can say: "Un café, por favor." (A coffee, please; oon kah-FEH, por fah-VOR). Try saying that!
+RestVoiceChat.tsx:132 [REST VOICE] Audio blob size: 177600 bytes
+RestVoiceChat.tsx:133 [REST VOICE] Audio blob type: audio/mpeg
+RestVoiceChat.tsx:154 [REST VOICE] Starting audio playback...
+RestVoiceChat.tsx:156 [REST VOICE] ✓ Audio playback started successfully
+RestVoiceChat.tsx:139 [REST VOICE] Audio playback ended
+6chat:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+RestVoiceChat.tsx:112 [REST VOICE] Transcribing audio...
+RestVoiceChat.tsx:116 [REST VOICE] Sending to GPT...
+RestVoiceChat.tsx:120 [REST VOICE] Generating speech...
+RestVoiceChat.tsx:124 [REST VOICE] ✓ Transcript: ¡Hola!
+RestVoiceChat.tsx:125 [REST VOICE] ✓ Response: Great job saying "¡Hola!" (Hello)! It's always a friendly way to start a conversation. How would you order a coffee in Spanish?
+RestVoiceChat.tsx:132 [REST VOICE] Audio blob size: 157440 bytes
+RestVoiceChat.tsx:133 [REST VOICE] Audio blob type: audio/mpeg
+RestVoiceChat.tsx:154 [REST VOICE] Starting audio playback...
+RestVoiceChat.tsx:156 [REST VOICE] ✓ Audio playback started successfully
+RestVoiceChat.tsx:139 [REST VOICE] Audio playback ended
