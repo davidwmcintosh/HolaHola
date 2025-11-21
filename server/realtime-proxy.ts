@@ -215,18 +215,16 @@ export function setupRealtimeProxy(server: Server) {
       }
 
       const sessionData = await sessionResponse.json();
-      const ephemeralToken = sessionData.client_secret.value;
       console.log('✓ Ephemeral session created successfully');
 
-      // Now connect to WebSocket using ephemeral token
-      const wsUrl = `wss://api.openai.com/v1/realtime?model=${model}`;
+      // CRITICAL FIX: The client_secret.value is a FULLY-QUALIFIED WebSocket URL
+      // It already contains the session token and model - do NOT add headers or query params!
+      // This was causing double-authentication which triggered server_error
+      const wsUrl = sessionData.client_secret.value;
       
-      const openaiWs = new WS(wsUrl, {
-        headers: {
-          'Authorization': `Bearer ${ephemeralToken}`,
-          'OpenAI-Beta': 'realtime=v1',
-        },
-      });
+      console.log('[FIX] Connecting to ephemeral session URL (no extra auth)');
+      const openaiWs = new WS(wsUrl);
+      // No headers! The URL itself contains everything needed
 
       // Forward messages from client to OpenAI
       clientWs.on('message', (data) => {
@@ -295,52 +293,31 @@ export function setupRealtimeProxy(server: Server) {
       // Handle OpenAI connection open
       openaiWs.on('open', () => {
         console.log('Connected to OpenAI Realtime API');
-        
-        // Generate unified system prompt using shared createSystemPrompt function
-        // This ensures voice and text chat use identical learning constraints
-        const systemPrompt = createSystemPrompt(
-          conversationLanguage, // Use actual conversation language (with fallback to query param)
-          difficulty,
-          messageCount,
-          true, // isVoiceMode = true
-          topic,
-          previousConversations, // Always pass array (even if empty) for consistency with text mode
-          nativeLanguage,
-          undefined, // dueVocabulary (not needed for realtime)
-          undefined  // sessionVocabulary (not needed for realtime)
-        );
-        
         console.log('[REALTIME PROXY] Configuring session...');
         
         // Configure turn detection based on VAD mode
         let turnDetection: any;
         
         if (vadMode === 'semantic_vad') {
-          // Semantic VAD - best for language learners
-          // Uses AI to understand when user is done speaking
-          // Low eagerness gives learners time to think/pause
           turnDetection = {
             type: 'semantic_vad',
-            eagerness: 'low',  // Patient - won't interrupt while thinking
+            eagerness: 'low',
             create_response: true,
-            interrupt_response: true  // Let user interrupt AI
+            interrupt_response: true
           };
         } else if (vadMode === 'server_vad') {
-          // Server VAD - simple silence-based detection
           turnDetection = {
             type: 'server_vad',
-            threshold: 0.5,              // Medium sensitivity
-            prefix_padding_ms: 300,      // Capture 300ms before speech
-            silence_duration_ms: 500,    // Wait 500ms of silence (longer for learners)
+            threshold: 0.5,
+            prefix_padding_ms: 300,
+            silence_duration_ms: 500,
             create_response: true
           };
         } else {
-          // Push-to-talk mode - disable automatic turn detection
           turnDetection = null;
         }
         
-        // ALWAYS use condensed prompt for voice mode - full prompt causes server_error
-        // OpenAI Realtime API has character limit for instructions
+        // Use condensed prompt for voice mode - keep it under 500 chars
         const instructions = `You are a ${conversationLanguage} tutor for ${userName || 'a learner'}.
 Native language: ${nativeLanguage}
 Difficulty: ${difficulty}
@@ -355,39 +332,24 @@ Teaching approach:
         
         const sessionConfig: any = {
           voice: 'alloy',
-          instructions
-          // TESTING: Removed input_audio_transcription to see if it fixes server_error
-          // input_audio_transcription: {
-          //   model: 'whisper-1'
-          // }
+          instructions,
+          input_audio_transcription: {
+            model: 'whisper-1'
+          }
         };
         
-        // Only add turn_detection if not in push-to-talk mode
         if (turnDetection) {
           sessionConfig.turn_detection = turnDetection;
         }
         
-        console.log('[SESSION CONFIG] Sending to OpenAI:');
-        console.log('- Voice:', sessionConfig.voice);
-        console.log('- Instructions length:', instructions.length, 'chars');
-        console.log('- Turn detection:', turnDetection ? JSON.stringify(turnDetection) : 'null (push-to-talk)');
+        console.log('[SESSION CONFIG] Voice:', sessionConfig.voice);
+        console.log('[SESSION CONFIG] Instructions:', instructions.length, 'chars');
+        console.log('[SESSION CONFIG] Turn detection:', turnDetection ? JSON.stringify(turnDetection) : 'push-to-talk');
         
-        // TESTING: Try absolutely minimal config - just what's required
-        const minimalConfig = {
-          voice: 'alloy'
-          // Removed: instructions, turn_detection - test if they're causing issues
-        };
-        
-        console.log('[TESTING] NOT sending session.update - using default session from REST API');
-        
-        // TESTING: Don't send session.update at all
-        // The ephemeral session was created via REST with voice: alloy
-        // Maybe we CAN'T update sessions created via the ephemeral endpoint?
-        
-        // openaiWs.send(JSON.stringify({
-        //   type: 'session.update',
-        //   session: minimalConfig
-        // }));
+        openaiWs.send(JSON.stringify({
+          type: 'session.update',
+          session: sessionConfig
+        }));
       });
 
       // Handle errors
