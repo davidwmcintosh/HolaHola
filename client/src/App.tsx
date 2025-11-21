@@ -34,7 +34,7 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
   const isFullHeightPage = fullHeightPages.includes(location);
 
   if (isFullHeightPage) {
-    return <div className="h-full">{children}</div>;
+    return <div className="flex flex-col h-full">{children}</div>;
   }
 
   return (
