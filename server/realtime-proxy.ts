@@ -205,8 +205,12 @@ export function setupRealtimeProxy(server: Server) {
       }
 
       const sessionData = await sessionResponse.json();
-      console.log('✅ Ephemeral session created');
+      console.log('✅ Ephemeral session response:', JSON.stringify(sessionData, null, 2));
 
+      // DEBUG: Check what we actually got
+      console.log('client_secret type:', typeof sessionData.client_secret);
+      console.log('client_secret.value:', sessionData.client_secret?.value);
+      
       // The client_secret.value contains the ephemeral token
       // Build WebSocket URL with the token (no model param, no Authorization header)
       const ephemeralToken = sessionData.client_secret.value;
