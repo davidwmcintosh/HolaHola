@@ -177,8 +177,11 @@ export function setupRealtimeProxy(server: Server) {
         }
       }
 
-      // Use latest stable preview model (Dec 2024 release)
-      const model = 'gpt-4o-realtime-preview-2024-12-17';
+      // Select model based on subscription tier
+      // Free/Basic/Institutional use mini model, Pro uses premium model
+      const model = subscriptionTier === 'pro' 
+        ? 'gpt-4o-realtime-preview-2024-12-17'  // Premium model for Pro tier
+        : 'gpt-4o-mini-realtime-preview-2024-12-17';  // Cost-effective model for Free/Basic/Institutional
 
       console.log(`Using model: ${model} for tier: ${subscriptionTier}`);
 
