@@ -299,18 +299,17 @@ export function setupRealtimeProxy(server: Server) {
           }
         };
         
-        // Add system instructions from shared prompt
-        const systemPrompt = createSystemPrompt(
-          conversationLanguage,
-          difficulty,
-          messageCount,
-          true, // isVoiceMode
-          topic,
-          previousConversations,
-          nativeLanguage
-        );
-        
-        sessionConfig.instructions = systemPrompt;
+        // TESTING: Temporarily remove instructions to debug server_error
+        // const systemPrompt = createSystemPrompt(
+        //   conversationLanguage,
+        //   difficulty,
+        //   messageCount,
+        //   true, // isVoiceMode
+        //   topic,
+        //   previousConversations,
+        //   nativeLanguage
+        // );
+        // sessionConfig.instructions = systemPrompt;
         
         // Only include turn_detection if using VAD mode
         // For push-to-talk, omit the field entirely
@@ -322,7 +321,7 @@ export function setupRealtimeProxy(server: Server) {
         console.log('[SESSION CONFIG] Voice:', sessionConfig.voice);
         console.log('[SESSION CONFIG] Audio formats:', sessionConfig.input_audio_format, '/', sessionConfig.output_audio_format);
         console.log('[SESSION CONFIG] Turn detection:', turnDetection ? JSON.stringify(turnDetection) : 'push-to-talk (no turn_detection field)');
-        console.log('[SESSION CONFIG] Instructions length:', systemPrompt.length, 'chars');
+        console.log('[SESSION CONFIG] Instructions:', sessionConfig.instructions ? 'SET' : 'NOT SET');
         
         openaiWs.send(JSON.stringify({
           type: 'session.update',
