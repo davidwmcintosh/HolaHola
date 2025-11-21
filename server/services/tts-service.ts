@@ -1,5 +1,6 @@
 import { TextToSpeechClient, protos } from '@google-cloud/text-to-speech';
 import OpenAI from 'openai';
+import { franc } from 'franc-min';
 
 /**
  * TTS Provider Interface
@@ -24,25 +25,40 @@ export interface TTSResponse {
 }
 
 /**
- * Google Cloud WaveNet Voice Mapping
- * Maps language codes to optimal neural voices with regional variants
+ * Google Cloud TTS Voice Mapping
+ * Maps language codes to optimal voices with regional variants
  * 
- * WaveNet voices provide:
- * - Native pronunciation (no American accent artifacts)
- * - SSML support for fine-grained control
- * - Regional dialect variations
- * - Natural prosody and intonation
+ * Voice tiers:
+ * - Chirp 3 HD: Latest model, highest quality (31 locales, 8 styles)
+ * - Neural2: High quality WaveNet voices (40+ speakers)
+ * - WaveNet: Classic premium voices
  */
 const GOOGLE_VOICE_MAP: Record<string, { name: string; languageCode: string }> = {
-  'spanish': { name: 'es-ES-Neural2-A', languageCode: 'es-ES' }, // Castilian Spanish, female
-  'english': { name: 'en-US-Neural2-A', languageCode: 'en-US' }, // US English, female
-  'french': { name: 'fr-FR-Neural2-A', languageCode: 'fr-FR' }, // French, female
-  'german': { name: 'de-DE-Neural2-A', languageCode: 'de-DE' }, // German, female
-  'italian': { name: 'it-IT-Neural2-A', languageCode: 'it-IT' }, // Italian, female
-  'portuguese': { name: 'pt-BR-Neural2-A', languageCode: 'pt-BR' }, // Brazilian Portuguese, female
-  'japanese': { name: 'ja-JP-Neural2-B', languageCode: 'ja-JP' }, // Japanese, female
-  'mandarin chinese': { name: 'cmn-CN-Wavenet-A', languageCode: 'cmn-CN' }, // Mandarin, female
-  'korean': { name: 'ko-KR-Neural2-A', languageCode: 'ko-KR' }, // Korean, female
+  'spanish': { name: 'es-ES-Neural2-A', languageCode: 'es-ES' }, // Castilian Spanish, Neural2
+  'english': { name: 'en-US-Chirp-HD-O', languageCode: 'en-US' }, // US English, Chirp 3 HD
+  'french': { name: 'fr-FR-Neural2-A', languageCode: 'fr-FR' }, // French, Neural2
+  'german': { name: 'de-DE-Neural2-A', languageCode: 'de-DE' }, // German, Neural2
+  'italian': { name: 'it-IT-Neural2-A', languageCode: 'it-IT' }, // Italian, Neural2
+  'portuguese': { name: 'pt-BR-Neural2-A', languageCode: 'pt-BR' }, // Brazilian Portuguese, Neural2
+  'japanese': { name: 'ja-JP-Neural2-B', languageCode: 'ja-JP' }, // Japanese, Neural2
+  'mandarin chinese': { name: 'cmn-CN-Wavenet-A', languageCode: 'cmn-CN' }, // Mandarin, WaveNet
+  'korean': { name: 'ko-KR-Neural2-A', languageCode: 'ko-KR' }, // Korean, Neural2
+};
+
+/**
+ * Language code mapping for franc-min detection
+ * Maps franc's ISO 639-3 codes to our language names
+ */
+const FRANC_TO_LANGUAGE_MAP: Record<string, string> = {
+  'spa': 'spanish',
+  'eng': 'english',
+  'fra': 'french',
+  'deu': 'german',
+  'ita': 'italian',
+  'por': 'portuguese',
+  'jpn': 'japanese',
+  'cmn': 'mandarin chinese',
+  'kor': 'korean',
 };
 
 /**
@@ -144,19 +160,41 @@ export class TTSService {
   }
 
   /**
-   * Synthesize speech using Google Cloud WaveNet
-   * Provides authentic native pronunciation with SSML support
+   * Detect the actual language of text using franc-min
+   * This ensures we use the correct voice for AI responses (Spanish voice for Spanish, English for English)
+   */
+  private detectLanguage(text: string): string {
+    // Use franc to detect the language
+    const detectedCode = franc(text, { minLength: 10 });
+    
+    // Map franc's ISO 639-3 code to our language name
+    const detectedLanguage = FRANC_TO_LANGUAGE_MAP[detectedCode];
+    
+    if (detectedLanguage) {
+      console.log(`[Language Detection] Detected "${detectedCode}" → ${detectedLanguage} from text: "${text.substring(0, 50)}..."`);
+      return detectedLanguage;
+    }
+    
+    // Default to English if detection fails or language not supported
+    console.log(`[Language Detection] Could not detect language (code: ${detectedCode}), defaulting to English`);
+    return 'english';
+  }
+
+  /**
+   * Synthesize speech using Google Cloud TTS (Neural2 and Chirp 3 HD voices)
+   * Automatically detects language to use the correct voice
    */
   private async synthesizeWithGoogle(text: string, language?: string): Promise<TTSResponse> {
     if (!this.googleClient) {
       throw new Error('Google Cloud TTS client not initialized');
     }
 
-    // Determine voice based on target language
-    const normalizedLanguage = language?.toLowerCase().trim() || 'english';
-    const voiceConfig = GOOGLE_VOICE_MAP[normalizedLanguage] || GOOGLE_VOICE_MAP['english'];
+    // Auto-detect the actual language of the text instead of using the target language
+    // This ensures Spanish gets Spanish voice, English gets English voice
+    const detectedLanguage = this.detectLanguage(text);
+    const voiceConfig = GOOGLE_VOICE_MAP[detectedLanguage] || GOOGLE_VOICE_MAP['english'];
 
-    console.log(`[Google WaveNet] Synthesizing ${text.length} chars in ${normalizedLanguage} with voice ${voiceConfig.name}`);
+    console.log(`[Google TTS] Synthesizing ${text.length} chars with ${voiceConfig.name} (${detectedLanguage})`);
 
     // Prepare the synthesis request
     const googleRequest: protos.google.cloud.texttospeech.v1.ISynthesizeSpeechRequest = {
