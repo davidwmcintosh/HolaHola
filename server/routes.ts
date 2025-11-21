@@ -543,8 +543,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('[CONVERSATION CREATE] forceNew flag:', req.body.forceNew, 'recentConversation exists:', !!recentConversation);
       
+      // Check if recent conversation has messages before reusing
+      let canReuseConversation = false;
       if (recentConversation && !req.body.forceNew) {
-        // Reuse existing conversation
+        const existingMessages = await storage.getMessagesByConversation(recentConversation.id);
+        canReuseConversation = existingMessages.length > 0;
+        console.log('[CONVERSATION CREATE] Recent conversation has', existingMessages.length, 'messages, canReuse:', canReuseConversation);
+      }
+      
+      if (canReuseConversation && recentConversation) {
+        // Reuse existing conversation (only if it has messages)
         conversation = recentConversation;
         console.log('[CONVERSATION REUSE] Using existing conversation:', conversation.id);
         isNewConversation = false;
