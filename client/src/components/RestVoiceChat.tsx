@@ -151,9 +151,11 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       
       // Provide helpful recovery guidance based on error type
       let errorMessage = err.message || 'Voice processing failed';
+      let allowRetry = true;
       
-      if (err.message?.includes('limit reached')) {
-        errorMessage = 'Monthly voice limit reached. Please upgrade your plan or switch to text mode.';
+      if (err.message?.includes('limit reached') || err.message?.includes('quota')) {
+        errorMessage = 'Monthly voice limit reached. Please upgrade your plan or switch to text mode below.';
+        allowRetry = false; // Quota errors can't be retried
       } else if (err.message?.includes('transcribe') || err.message?.includes('Whisper')) {
         errorMessage = 'Failed to transcribe audio. Try speaking more clearly or switch to text mode.';
       } else if (err.message?.includes('synthesize') || err.message?.includes('TTS')) {
@@ -164,6 +166,11 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       
       setError(errorMessage);
       setAvatarState('idle');
+      
+      // Reset recording state so user can switch modes after quota errors
+      if (!allowRetry) {
+        setIsRecording(false);
+      }
     } finally {
       setIsProcessing(false);
       setProcessingStage(null);

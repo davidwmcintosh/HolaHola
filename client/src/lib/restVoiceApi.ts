@@ -91,28 +91,85 @@ export async function processVoiceMessage(
 
   const chatData = await chatResponse.json();
   
-  // Validate and extract AI response (handle string, object, or array responses)
+  // Validate and extract AI response (handle all GPT response formats)
   if (!chatData?.aiMessage) {
     throw new Error('Invalid chat response: missing AI message');
   }
   
   let aiResponse: string;
   
-  if (typeof chatData.aiMessage === 'string') {
-    // Simple string response
-    aiResponse = chatData.aiMessage;
-  } else if (Array.isArray(chatData.aiMessage)) {
-    // Array response (tool calls/multipart) - concatenate text content
-    aiResponse = chatData.aiMessage
-      .map((part: any) => part.content || part.text || '')
-      .filter(Boolean)
-      .join('\n');
-  } else if (chatData.aiMessage.content) {
-    // Object with content field
-    aiResponse = chatData.aiMessage.content;
-  } else {
-    throw new Error('Invalid chat response: unable to extract message content');
-  }
+  // Extract text content from various response formats (recursive)
+  // Handles all known OpenAI response structures including tool calls and structured outputs
+  const extractText = (data: any): string => {
+    // Null/undefined check
+    if (!data) {
+      return '';
+    }
+    
+    // String response
+    if (typeof data === 'string') {
+      return data;
+    }
+    
+    // Array of messages/segments - recurse on each item
+    if (Array.isArray(data)) {
+      return data
+        .map(item => extractText(item)) // Recursive call
+        .filter(Boolean)
+        .join('\n');
+    }
+    
+    // Object handling
+    if (typeof data === 'object') {
+      // OpenAI tool calls: { tool_calls: [{function: {arguments: '...'}}] }
+      if (data.tool_calls && Array.isArray(data.tool_calls)) {
+        return data.tool_calls
+          .map((call: any) => extractText(call.function?.arguments || call))
+          .filter(Boolean)
+          .join('\n');
+      }
+      
+      // Segments array: { segments: [...] }
+      if (data.segments && Array.isArray(data.segments)) {
+        return data.segments
+          .map((segment: any) => extractText(segment))
+          .filter(Boolean)
+          .join('\n');
+      }
+      
+      // Content array: { content: [{type: 'output_text', text: '...'}, ...] }
+      if (data.content && Array.isArray(data.content)) {
+        return data.content
+          .map((segment: any) => extractText(segment)) // Recursive call
+          .filter(Boolean)
+          .join('\n');
+      }
+      
+      // Content string: { content: '...' }
+      if (data.content && typeof data.content === 'string') {
+        return data.content;
+      }
+      
+      // Text field: { text: '...' }
+      if (data.text) {
+        return data.text;
+      }
+      
+      // Message field: { message: '...' }
+      if (data.message) {
+        return extractText(data.message); // Recursive
+      }
+      
+      // Output field: { output: '...' }
+      if (data.output) {
+        return extractText(data.output); // Recursive
+      }
+    }
+    
+    return '';
+  };
+  
+  aiResponse = extractText(chatData.aiMessage);
   
   if (!aiResponse || aiResponse.trim() === '') {
     throw new Error('Empty AI response received');

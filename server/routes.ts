@@ -1518,11 +1518,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const userId = req.user.claims.sub;
       
-      // CRITICAL: Enforce voice usage limits (tier-based)
-      // NOTE: This increments usage before transcription. If transcription fails, 
-      // the usage still counts. This matches the old WebSocket behavior.
-      // Future improvement: Add separate check/increment methods to storage interface.
-      const usageCheck = await storage.checkAndIncrementVoiceUsage(userId);
+      // CRITICAL: Check voice usage limits BEFORE transcription (don't increment yet)
+      const usageCheck = await storage.checkVoiceUsage(userId);
       if (!usageCheck.allowed) {
         return res.status(403).json({
           error: "Monthly voice message limit reached. Upgrade to continue using voice chat.",
@@ -1541,6 +1538,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       console.log(`[WHISPER] ✓ Transcription: "${transcription.text}"`);
+      
+      // Only increment usage AFTER successful transcription
+      // Uses conditional UPDATE to prevent race conditions
+      try {
+        await storage.incrementVoiceUsage(userId);
+      } catch (usageError: any) {
+        // Race condition: quota was exhausted between check and increment
+        if (usageError.message?.includes('limit exceeded')) {
+          // Re-fetch usage stats to provide accurate limit/remaining info
+          const stats = await storage.getUserUsageStats(userId);
+          return res.status(403).json({
+            error: "Monthly voice message limit reached. Upgrade to continue using voice chat.",
+            limit: stats.monthlyMessageLimit,
+            remaining: stats.remaining,
+          });
+        }
+        throw usageError; // Re-throw if it's not a quota error
+      }
+      
       res.json({ text: transcription.text });
     } catch (error: any) {
       console.error("[WHISPER] Transcription failed:", error);

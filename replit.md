@@ -8,19 +8,30 @@ Preferred communication style: Simple, everyday language.
 
 ## Active Issues & Troubleshooting
 
-### Voice Chat Connection Issue - ✅ RESOLVED (Nov 21, 2025)
-**Root Cause**: Double-authentication when connecting to OpenAI Realtime API
-- The ephemeral session endpoint returns a `client_secret.value` which is a fully-qualified WebSocket URL (contains session token and model)
-- Code was **ignoring this URL** and building its own with `?model=` query param
-- Code was **also** sending an `Authorization` header with the ephemeral token
-- This caused OpenAI to reject connections with `server_error` immediately after `session.created`
+### Voice Chat Architecture Pivot - ✅ COMPLETED (Nov 21, 2025)
+**Issue**: OpenAI Realtime WebSocket API proved unstable after 3+ hours of debugging
+- Multiple configurations tested (ephemeral sessions, direct WebSocket, various instruction lengths, multiple models)
+- All failed identically with `server_error` after `session.updated` event
+- Root cause appears to be upstream OpenAI API defect, not fixable client-side
 
-**The Fix**: Use `client_secret.value` directly as WebSocket URL with no additional headers or query params
-- File: `server/realtime-proxy.ts` line 226
-- Changed from: `wss://api.openai.com/v1/realtime?model=X` + `Authorization` header
-- Changed to: Direct use of `sessionData.client_secret.value` with no headers
+**Solution**: Pivoted to stable REST-based voice pipeline
+- Architecture: Record audio → Whisper STT → GPT-4 text → TTS → Playback
+- Backend endpoints:
+  - `POST /api/voice/transcribe` - Whisper speech-to-text (supports Safari/iOS audio formats)
+  - `POST /api/voice/synthesize` - OpenAI TTS text-to-speech
+- Frontend: `RestVoiceChat.tsx` component (replaces broken WebSocket implementation)
+- Usage tracking: Check quota BEFORE transcription, increment AFTER success (prevents failed attempts from consuming quota)
+- Error recovery: Context-specific error messages with fallback guidance (encourages mode switching)
+- Concurrency safety: Conditional SQL UPDATE with atomic quota enforcement
 
-**Debugging Time**: 8+ hours
+**Files Modified**:
+- `client/src/components/RestVoiceChat.tsx` - New REST voice chat component
+- `client/src/lib/restVoiceApi.ts` - REST API client with nested content array support
+- `server/routes.ts` - New voice endpoints with proper usage enforcement
+- `server/storage.ts` - Split usage methods (`checkVoiceUsage` + `incrementVoiceUsage`)
+- `client/src/pages/chat.tsx` - Integrated RestVoiceChat
+
+**Debugging Time**: 8+ hours (WebSocket) + 4+ hours (REST implementation)
 **Details**: See `VOICE_CHAT_TROUBLESHOOTING.md` for complete investigation timeline
 
 ## Architectural Principles
@@ -102,9 +113,13 @@ If unsure, default to: **Extract shared logic to utilities/hooks and import in b
 -   **Conversational Onboarding**: AI-guided setup with a three-layer defensive architecture.
 -   **Adaptive Multi-Phase Conversation System**: Gradual transition to target language immersion, adapting to user proficiency.
 -   **User Agency**: AI suggests topics but confirms with the user; features like one-question-per-response.
--   **Voice Chat**: Real-time voice conversations via OpenAI Realtime API, supporting Semantic Voice Activity Detection (VAD) with low eagerness for learners, Push-to-Talk (default to comply with browser microphone permission requirements), progressive "Listen-and-Repeat", and seamless text/voice mode synchronization. Includes an automatic retry system and enhanced pronunciation feedback. VAD mode defaults to push-to-talk to avoid microphone permission errors on page load.
-    - **Error Handling**: Structured error messaging distinguishes between microphone permission errors, OpenAI server errors, and connection issues. Microphone permission errors display browser-specific guidance (Chrome/Edge, Firefox, Safari) with actionable "Try Again" buttons.
-    - **Accessibility**: ARIA attributes (aria-pressed, aria-label, role) on all voice control buttons for screen reader compatibility.
+-   **Voice Chat**: Production-stable REST-based voice pipeline (Whisper STT → GPT → TTS), replacing unstable WebSocket Realtime API. Supports Push-to-Talk recording, seamless text/voice mode synchronization, and enhanced pronunciation feedback.
+    - **Architecture**: Record browser audio → POST to `/api/voice/transcribe` (Whisper) → POST to `/api/chat` (GPT-4) → POST to `/api/voice/synthesize` (TTS) → Play MP3 in browser
+    - **Mobile Support**: Accepts Safari/iOS audio formats (audio/mp4, audio/mp4a-latm) in addition to WebM
+    - **Usage Enforcement**: Tier-based monthly limits enforced server-side with atomic SQL updates, quota checked BEFORE transcription and incremented AFTER success
+    - **Error Handling**: Context-specific error messages (quota, transcription, synthesis) with fallback guidance encouraging mode switching
+    - **Response Parsing**: Robust handling of all GPT response formats (string, object, nested content arrays for tool calls)
+    - **Accessibility**: ARIA attributes (aria-pressed, aria-label, role) on all voice control buttons for screen reader compatibility
 -   **Content Guardrails**: Moderation system for appropriate learning content.
 -   **Personalized Learning**: Auto-language detection, scenario-based learning, slow pronunciation with phonetic breakdowns, automatic vocabulary extraction, spaced repetition, streak tracking, progress charts, and auto-difficulty adjustment.
 -   **AI-Generated Educational Images**: Intelligent display of inline images (Unsplash, DALL-E) with caching.
@@ -121,4 +136,6 @@ If unsure, default to: **Extract shared logic to utilities/hooks and import in b
 -   **Third-Party Services**: Stripe (billing), Replit Auth (authentication), OpenAI API (AI chat via Replit AI Integrations), Unsplash (stock images), DALL-E (AI-generated images).
 -   **Libraries**: Neon Database Serverless, Drizzle ORM, stripe-replit-sync, Radix UI, TanStack Query, Wouter, date-fns, Embla Carousel.
 -   **Database**: PostgreSQL (via `DATABASE_URL`) with Drizzle Kit for migrations, connection pooling via `@neondatabase/serverless`.
--   **AI Models**: `gpt-4o-mini-realtime-preview-2025-09-25` (Free/Basic/Institutional tiers) and `gpt-realtime` (Pro tier) for voice chat.
+-   **AI Models**: 
+    - Voice: `whisper-1` (STT), `tts-1` (TTS), `gpt-4o-mini` (Free tier text generation), `gpt-4o` (Pro tier text generation)
+    - Text chat: `gpt-4o-mini` (Free/Basic/Institutional), `gpt-4o` (Pro)

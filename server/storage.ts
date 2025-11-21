@@ -60,6 +60,8 @@ export interface IStorage {
   }): Promise<User | undefined>;
 
   // Usage tracking for voice messages
+  checkVoiceUsage(userId: string): Promise<{allowed: boolean, remaining: number, limit: number}>;
+  incrementVoiceUsage(userId: string): Promise<void>;
   checkAndIncrementVoiceUsage(userId: string): Promise<{allowed: boolean, remaining: number, limit: number}>;
   getUserUsageStats(userId: string): Promise<{monthlyMessageCount: number, monthlyMessageLimit: number, remaining: number}>;
   resetMonthlyUsageIfNeeded(userId: string): Promise<void>;
@@ -552,6 +554,66 @@ export class DatabaseStorage implements IStorage {
           updatedAt: now,
         })
         .where(eq(users.id, userId));
+    }
+  }
+
+  async checkVoiceUsage(userId: string): Promise<{allowed: boolean, remaining: number, limit: number}> {
+    // Reset monthly counter if needed
+    await this.resetMonthlyUsageIfNeeded(userId);
+    
+    const user = await this.getUser(userId);
+    if (!user) {
+      return { allowed: false, remaining: 0, limit: 0 };
+    }
+
+    const currentCount = user.monthlyMessageCount || 0;
+    const limit = user.monthlyMessageLimit || 20;
+    
+    // Paid tiers have "unlimited" (high limit like 999999)
+    const paidTiers = ['basic', 'pro', 'institutional'];
+    const isPaidTier = user.subscriptionTier && paidTiers.includes(user.subscriptionTier);
+    const effectiveLimit = isPaidTier ? 999999 : limit;
+
+    const allowed = currentCount < effectiveLimit;
+    const remaining = Math.max(0, effectiveLimit - currentCount);
+
+    return {
+      allowed,
+      remaining,
+      limit: effectiveLimit,
+    };
+  }
+
+  async incrementVoiceUsage(userId: string): Promise<void> {
+    // Atomic increment with limit check to prevent race conditions
+    // This UPDATE will only succeed if the current count is below the limit
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const limit = user.monthlyMessageLimit || 20;
+    const paidTiers = ['basic', 'pro', 'institutional'];
+    const isPaidTier = user.subscriptionTier && paidTiers.includes(user.subscriptionTier);
+    const effectiveLimit = isPaidTier ? 999999 : limit;
+
+    const [updated] = await db
+      .update(users)
+      .set({
+        monthlyMessageCount: sql`${users.monthlyMessageCount} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(users.id, userId),
+          sql`${users.monthlyMessageCount} < ${effectiveLimit}`
+        )
+      )
+      .returning();
+
+    // If no row was updated, user has exceeded limit (race condition)
+    if (!updated) {
+      throw new Error('Voice usage limit exceeded');
     }
   }
 
