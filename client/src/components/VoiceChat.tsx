@@ -3,7 +3,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Mic, MicOff, Bot, User, Loader2, Volume2, MessageSquare, Radio } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -820,8 +819,9 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
       </div>
 
       {/* Voice chat area - full height scrollable, mobile-optimized padding */}
-      <ScrollArea className="flex-1">
-        <div className="space-y-3 md:space-y-4 p-4 md:p-6">
+      <Card className="flex flex-col flex-1 m-3 md:m-4 mt-0 overflow-hidden">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
+          <div className="space-y-3 md:space-y-4">
           {!conversationId ? (
             <div className="flex flex-col justify-center items-center h-full text-center text-muted-foreground p-6 md:p-8">
               <MessageSquare className="h-12 md:h-16 w-12 md:w-16 mb-3 md:mb-4 opacity-50 animate-pulse" />
@@ -902,8 +902,9 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
               <div ref={scrollRef} />
             </>
           )}
+          </div>
         </div>
-      </ScrollArea>
+      </Card>
 
       {/* Foreign language text display for visual reinforcement - mobile optimized */}
       {isAiSpeaking && transcript.length > 0 && transcript[transcript.length - 1].role === 'assistant' && (
