@@ -290,7 +290,6 @@ export function setupRealtimeProxy(server: Server) {
         
         // Configure session with required fields per OpenAI docs
         const sessionConfig: any = {
-          type: 'realtime',  // CRITICAL: Required per OpenAI docs
           modalities: ['text', 'audio'],  // Required for voice+text responses
           voice: 'alloy',
           input_audio_format: 'pcm16',
@@ -319,7 +318,6 @@ export function setupRealtimeProxy(server: Server) {
           sessionConfig.turn_detection = turnDetection;
         }
         
-        console.log('[SESSION CONFIG] Type:', sessionConfig.type);
         console.log('[SESSION CONFIG] Modalities:', sessionConfig.modalities);
         console.log('[SESSION CONFIG] Voice:', sessionConfig.voice);
         console.log('[SESSION CONFIG] Audio formats:', sessionConfig.input_audio_format, '/', sessionConfig.output_audio_format);
