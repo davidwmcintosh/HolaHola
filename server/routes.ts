@@ -1001,6 +1001,342 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // so we need to re-declare it here for the regular chat flow
       const isVoiceMode = req.body.isVoiceMode === true;
 
+      // VOICE MODE FAST-PATH: Skip expensive operations for sub-5s responses
+      if (isVoiceMode) {
+        console.log('[VOICE FAST-PATH] Entering optimized voice mode path');
+        const startTime = Date.now();
+
+        // Fetch only last 10 messages for context (vs 20 in text mode)
+        const allMessages = await storage.getMessagesByConversation(conversationId);
+        const recentMessages = allMessages.slice(-10);
+        const userMessageCount = recentMessages.filter(m => m.role === "user").length;
+
+        // Create minimal system prompt (skip vocabulary/conversation queries for speed)
+        const systemPrompt = createSystemPrompt(
+          conversation.language,
+          conversation.difficulty,
+          userMessageCount,
+          false, // not voice mode indicator
+          conversation.topic,
+          [], // No previous conversations (deferred to background)
+          conversation.nativeLanguage,
+          undefined, // No due vocabulary (deferred to background)
+          undefined // No session vocabulary (deferred to background)
+        );
+
+        // Determine which model to use based on subscription tier
+        const user = req.user;
+        const model = getModelForTier(user.subscriptionTier, user);
+        
+        const fetchTime = Date.now() - startTime;
+        console.log(`[VOICE FAST-PATH] Context fetched in ${fetchTime}ms, starting AI completion`);
+
+        // Quick text-only completion (no structured output, much faster)
+        const completionStart = Date.now();
+        const quickCompletion = await openai.chat.completions.create({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...recentMessages.map((msg) => ({
+              role: msg.role as "user" | "assistant",
+              content: msg.content,
+            })),
+          ],
+          max_completion_tokens: 500, // Shorter response for voice
+        });
+        const completionTime = Date.now() - completionStart;
+
+        const aiResponse = quickCompletion.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
+        
+        // Save message immediately with enrichmentStatus="pending"
+        const aiMessage = await storage.createMessage({
+          conversationId,
+          role: "assistant",
+          content: aiResponse,
+          enrichmentStatus: "pending", // Mark for background enrichment
+        });
+
+        const totalTime = Date.now() - startTime;
+        console.log(`[VOICE FAST-PATH] Completed in ${totalTime}ms (fetch: ${fetchTime}ms, AI: ${completionTime}ms)`);
+
+        // Return response immediately for fast TTS
+        res.json({ userMessage, aiMessage });
+
+        // Queue comprehensive background enrichment (non-blocking)
+        setImmediate(async () => {
+          try {
+            console.log('[VOICE BACKGROUND] Starting comprehensive enrichment for message:', aiMessage.id);
+            const bgStart = Date.now();
+            
+            // Mark as processing
+            await storage.updateMessage(aiMessage.id, { enrichmentStatus: "processing" });
+
+            // Fetch all required data for enrichment (that we skipped in fast-path)
+            const allMessagesForEnrichment = await storage.getMessagesByConversation(conversationId);
+            const recentMessagesForEnrichment = allMessagesForEnrichment.slice(-20);
+            const userMessageCountForEnrichment = recentMessagesForEnrichment.filter(m => m.role === "user").length;
+            const wordCount = messageData.content.match(/[a-zA-ZÀ-ÿ]+/g)?.length || 0;
+
+            // Get latest conversation state (may have changed)
+            let enrichmentConversation = await storage.getConversation(conversationId, userId);
+            if (!enrichmentConversation) {
+              console.error('[VOICE BACKGROUND] Conversation no longer exists, aborting enrichment');
+              await storage.updateMessage(aiMessage.id, { enrichmentStatus: "failed" });
+              return;
+            }
+
+            // Detect language changes (deferred from fast-path)
+            if (userMessageCountForEnrichment >= 3 && wordCount >= 5) {
+              const languageDetection = await detectLanguage(openai, messageData.content, enrichmentConversation.language);
+              
+              if (languageDetection.shouldSwitch && 
+                  languageDetection.detectedLanguage !== enrichmentConversation.language &&
+                  languageDetection.detectedLanguage !== "english" &&
+                  languageDetection.confidence > 0.8) {
+                
+                console.log('[VOICE BACKGROUND] Auto-detected language switch:', enrichmentConversation.language, '→', languageDetection.detectedLanguage);
+                
+                enrichmentConversation = await storage.updateConversation(conversationId, userId, {
+                  language: languageDetection.detectedLanguage,
+                }) || enrichmentConversation;
+              }
+            }
+
+            // Detect native language change requests (deferred from fast-path)
+            const nativeLanguageChangeRequest = await detectNativeLanguageChangeRequest(
+              openai,
+              messageData.content,
+              enrichmentConversation.nativeLanguage || "english"
+            );
+
+            if (nativeLanguageChangeRequest.wantsToChange && 
+                nativeLanguageChangeRequest.newNativeLanguage &&
+                nativeLanguageChangeRequest.confidence !== "low" &&
+                nativeLanguageChangeRequest.newNativeLanguage !== enrichmentConversation.nativeLanguage) {
+              
+              console.log('[VOICE BACKGROUND] Native language change detected:', enrichmentConversation.nativeLanguage, '→', nativeLanguageChangeRequest.newNativeLanguage);
+              
+              enrichmentConversation = await storage.updateConversation(conversationId, userId, {
+                nativeLanguage: nativeLanguageChangeRequest.newNativeLanguage,
+              }) || enrichmentConversation;
+            }
+
+            // Fetch vocabulary and conversation context (deferred from fast-path)
+            const allUserConversations = await storage.getConversationsByLanguage(enrichmentConversation.language, userId);
+            const previousConversations = allUserConversations
+              .filter(c => 
+                c.id !== conversationId && 
+                !c.isOnboarding && 
+                c.userName === enrichmentConversation.userName &&
+                c.messageCount && c.messageCount > 1
+              )
+              .slice(0, 5)
+              .map(c => ({
+                id: c.id,
+                title: c.title,
+                messageCount: c.messageCount,
+                createdAt: c.createdAt.toISOString()
+              }));
+
+            const allSessionVocab = await storage.getVocabularyWords(
+              enrichmentConversation.language,
+              userId,
+              enrichmentConversation.difficulty
+            );
+            
+            const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+            const sessionVocabulary = allSessionVocab
+              .filter(v => new Date(v.createdAt) > oneHourAgo)
+              .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+              .slice(-10)
+              .map(v => ({
+                word: v.word,
+                translation: v.translation,
+                example: v.example,
+                pronunciation: v.pronunciation
+              }));
+
+            const dueVocabulary = await storage.getDueVocabulary(
+              enrichmentConversation.language,
+              userId,
+              enrichmentConversation.difficulty,
+              5
+            );
+
+            // Generate enriched completion with structured output
+            const enrichedSystemPrompt = createSystemPrompt(
+              enrichmentConversation.language,
+              enrichmentConversation.difficulty,
+              userMessageCountForEnrichment,
+              false,
+              enrichmentConversation.topic,
+              previousConversations,
+              enrichmentConversation.nativeLanguage,
+              dueVocabulary.length > 0 ? dueVocabulary.map(v => ({
+                word: v.word,
+                translation: v.translation,
+                example: v.example,
+                pronunciation: v.pronunciation
+              })) : undefined,
+              sessionVocabulary.length > 0 ? sessionVocabulary : undefined
+            );
+
+            const enrichedCompletion = await openai.chat.completions.create({
+              model,
+              messages: [
+                { role: "system", content: enrichedSystemPrompt },
+                ...recentMessagesForEnrichment.map((msg) => ({
+                  role: msg.role as "user" | "assistant",
+                  content: msg.content,
+                })),
+              ],
+              max_completion_tokens: 8192,
+              response_format: {
+                type: "json_schema",
+                json_schema: {
+                  name: "tutor_response",
+                  strict: true,
+                  schema: {
+                    type: "object",
+                    properties: {
+                      vocabulary: {
+                        type: "array",
+                        description: "New vocabulary words introduced in this response",
+                        items: {
+                          type: "object",
+                          properties: {
+                            word: { type: "string" },
+                            translation: { type: "string" },
+                            example: { type: "string" },
+                            pronunciation: { type: "string" }
+                          },
+                          required: ["word", "translation", "example", "pronunciation"],
+                          additionalProperties: false
+                        }
+                      },
+                      media: {
+                        type: "array",
+                        description: "Images to display with this message (0-2 images max)",
+                        items: {
+                          anyOf: [
+                            {
+                              type: "object",
+                              properties: {
+                                type: { type: "string", enum: ["stock"] },
+                                query: { type: "string" },
+                                alt: { type: "string" }
+                              },
+                              required: ["type", "query", "alt"],
+                              additionalProperties: false
+                            },
+                            {
+                              type: "object",
+                              properties: {
+                                type: { type: "string", enum: ["ai_generated"] },
+                                prompt: { type: "string" },
+                                alt: { type: "string" }
+                              },
+                              required: ["type", "prompt", "alt"],
+                              additionalProperties: false
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    required: ["vocabulary", "media"],
+                    additionalProperties: false
+                  }
+                }
+              }
+            });
+
+            // Parse enrichment data
+            const enrichmentContent = enrichedCompletion.choices[0]?.message?.content || "{}";
+            let enrichmentData: { vocabulary?: any[]; media?: any[] } = {};
+            
+            try {
+              enrichmentData = JSON.parse(enrichmentContent);
+            } catch (parseError) {
+              console.error('[VOICE BACKGROUND] Failed to parse enrichment data:', parseError);
+            }
+
+            // Process media
+            let mediaJson: string | null = null;
+            const mediaItems = Array.isArray(enrichmentData.media) ? enrichmentData.media : [];
+            
+            if (mediaItems.length > 0) {
+              const processedMedia = [];
+              
+              for (const item of mediaItems.slice(0, 2)) {
+                try {
+                  if (item.type === "stock" && item.query) {
+                    const cachedImage = await storage.getCachedStockImage(item.query);
+                    
+                    if (cachedImage) {
+                      await storage.incrementImageUsage(cachedImage.id);
+                      const attribution = cachedImage.attributionJson 
+                        ? JSON.parse(cachedImage.attributionJson)
+                        : undefined;
+                      
+                      processedMedia.push({
+                        type: "stock",
+                        query: item.query,
+                        url: cachedImage.url,
+                        thumbnailUrl: cachedImage.thumbnailUrl || undefined,
+                        altText: item.alt || cachedImage.description || item.query,
+                        attribution
+                      });
+                    }
+                  }
+                } catch (error) {
+                  console.error('[VOICE BACKGROUND] Error processing media:', error);
+                }
+              }
+              
+              if (processedMedia.length > 0) {
+                mediaJson = JSON.stringify(processedMedia);
+              }
+            }
+
+            // Save vocabulary to database
+            if (Array.isArray(enrichmentData.vocabulary) && enrichmentData.vocabulary.length > 0) {
+              for (const vocab of enrichmentData.vocabulary) {
+                try {
+                  await storage.createVocabularyWord({
+                    userId,
+                    language: enrichmentConversation.language,
+                    word: vocab.word,
+                    translation: vocab.translation,
+                    example: vocab.example,
+                    pronunciation: vocab.pronunciation,
+                    difficulty: enrichmentConversation.difficulty,
+                  });
+                } catch (vocabError) {
+                  console.error('[VOICE BACKGROUND] Failed to save vocabulary:', vocabError);
+                }
+              }
+            }
+
+            // Update message with enriched data
+            await storage.updateMessage(aiMessage.id, {
+              mediaJson: mediaJson || undefined,
+              enrichmentStatus: null, // null = complete
+            });
+
+            const bgTime = Date.now() - bgStart;
+            console.log(`[VOICE BACKGROUND] Enrichment completed in ${bgTime}ms (${enrichmentData.vocabulary?.length || 0} vocab, ${mediaItems.length} media)`);
+          } catch (enrichError: any) {
+            console.error('[VOICE BACKGROUND] Enrichment failed:', enrichError);
+            await storage.updateMessage(aiMessage.id, { enrichmentStatus: "failed" });
+          }
+        });
+
+        return; // Exit early for voice mode fast-path
+      }
+
+      // TEXT MODE: Original comprehensive path with all checks
+      console.log('[TEXT MODE] Using standard comprehensive response path');
+
       // Get conversation history (limit to last 20 messages to avoid token limits)
       const allMessages = await storage.getMessagesByConversation(conversationId);
       const recentMessages = allMessages.slice(-20);
