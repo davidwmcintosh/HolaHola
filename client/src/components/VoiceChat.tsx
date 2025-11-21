@@ -221,55 +221,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
             }, 500);
           }
           
-          // After configuring session, send initial greeting if conversation is empty
-          // CRITICAL FIX: Check database FIRST, then conditionally mark as sent
-          if (!conversationId) {
-            resolve();
-            return;
-          }
-          
-          setTimeout(async () => {
-            try {
-              // FIRST: Check database for existing messages
-              const messagesResponse = await fetch(`/api/conversations/${conversationId}/messages`);
-              const existingMessages = await messagesResponse.json();
-              
-              // SECOND: Check if we've already processed this conversation's greeting
-              // (Defensive check - prevents duplicates on reconnect)
-              if (hasGreetingBeenSent(conversationId)) {
-                console.log('[VOICE CHAT] Greeting already sent for conversation:', conversationId);
-                return;
-              }
-              
-              // THIRD: Only send greeting if conversation is truly empty
-              if (existingMessages.length === 0) {
-                console.log('[VOICE CHAT] Empty conversation - triggering AI to greet student by name');
-                
-                // Mark to skip saving the next greeting (prevents duplicates on reload)
-                skipNextGreetingRef.current = true;
-                console.log('[VOICE CHAT] Set skipNextGreeting = true');
-                
-                // Trigger AI to greet the student (no user message needed - AI speaks first)
-                ws.send(JSON.stringify({ 
-                  type: 'response.create',
-                  response: {
-                    modalities: ['audio', 'text'],
-                    instructions: `Greet ${userName || 'the student'} warmly by name and ask what they'd like to learn today. Keep it brief (1-2 sentences).`
-                  }
-                }));
-                
-                // Mark as sent AFTER sending greeting request (prevents duplicate requests)
-                markGreetingAsSent(conversationId);
-                console.log('[VOICE CHAT] Marked greeting as requested for conversation:', conversationId);
-              } else {
-                console.log('[VOICE CHAT] Conversation already has', existingMessages.length, 'messages, skipping greeting');
-                // Mark as sent even if we didn't send (conversation already has messages)
-                markGreetingAsSent(conversationId);
-              }
-            } catch (error) {
-              console.error('[VOICE CHAT] Failed to check messages for greeting:', error);
-            }
-          }, 500);
+          // REVERTED: Removed greeting logic to debug voice chat issue
           
           resolve();
         };
@@ -386,12 +338,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
               break;
             }
             
-            // GREETING FIX: Skip saving initial greeting to prevent duplicates on reload
-            if (skipNextGreetingRef.current) {
-              console.log('[VOICE CHAT] Skipping initial greeting save (plays as voice only)');
-              skipNextGreetingRef.current = false; // Reset flag
-              break;
-            }
+            // REVERTED: Removed skip greeting logic
             
             // DEDUPLICATION: Check if we've already processed this response_id
             if (processedResponseIds.current.has(responseId)) {
