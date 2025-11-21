@@ -1747,9 +1747,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         parsedResponse = JSON.parse(responseContent);
         aiResponse = parsedResponse.message || aiResponse;
+        console.log('[TEXT MODE] Parsed response:', {
+          hasMessage: !!parsedResponse.message,
+          vocabularyCount: parsedResponse.vocabulary?.length || 0,
+          mediaCount: parsedResponse.media?.length || 0
+        });
       } catch (parseError) {
         // Fallback to plain text if JSON parsing fails
-        console.error("Failed to parse AI response as JSON, using plain text:", parseError);
+        console.error("[TEXT MODE] Failed to parse AI response as JSON, using plain text:", parseError);
         aiResponse = responseContent || aiResponse;
       }
       
@@ -2088,6 +2093,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Save vocabulary items from conversation (only if we have valid data)
       const vocabulary = Array.isArray(parsedResponse.vocabulary) ? parsedResponse.vocabulary : [];
+      console.log('[TEXT MODE] Processing vocabulary - count:', vocabulary.length);
+      
       for (const vocab of vocabulary) {
         if (vocab?.word && vocab?.translation && vocab?.example) {
           await storage.createVocabularyWord({
@@ -2099,8 +2106,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             example: vocab.example,
             pronunciation: vocab.pronunciation || "",
           });
+          console.log('[TEXT MODE] ✓ Saved vocabulary:', vocab.word);
+        } else {
+          console.warn('[TEXT MODE] ⚠️ Skipping invalid vocabulary:', vocab);
         }
       }
+      
+      console.log('[TEXT MODE] Final message data:', {
+        hasMediaJson: !!mediaJson,
+        vocabularyProcessed: vocabulary.length
+      });
 
       // Grammar extraction from conversations is currently disabled
       // The current schema stores grammar as multiple-choice exercises (question + options + correctAnswer)
