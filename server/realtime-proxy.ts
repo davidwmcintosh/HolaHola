@@ -378,12 +378,16 @@ Teaching approach:
           // Removed: instructions, turn_detection - test if they're causing issues
         };
         
-        console.log('[TESTING] Sending MINIMAL config (no instructions, no turn_detection)');
+        console.log('[TESTING] NOT sending session.update - using default session from REST API');
         
-        openaiWs.send(JSON.stringify({
-          type: 'session.update',
-          session: minimalConfig
-        }));
+        // TESTING: Don't send session.update at all
+        // The ephemeral session was created via REST with voice: alloy
+        // Maybe we CAN'T update sessions created via the ephemeral endpoint?
+        
+        // openaiWs.send(JSON.stringify({
+        //   type: 'session.update',
+        //   session: minimalConfig
+        // }));
       });
 
       // Handle errors
