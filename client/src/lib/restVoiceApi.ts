@@ -115,8 +115,23 @@ export async function processVoiceMessage(
   });
 
   if (!chatResponse.ok) {
-    const error = await chatResponse.json().catch(() => ({ error: 'Chat failed' }));
-    throw new Error(error.error || `HTTP ${chatResponse.status}`);
+    // Try to parse JSON error, but handle HTML responses gracefully
+    let errorMessage = `Chat failed (HTTP ${chatResponse.status})`;
+    try {
+      const contentType = chatResponse.headers.get('content-type');
+      if (contentType?.includes('application/json')) {
+        const errorData = await chatResponse.json();
+        errorMessage = errorData.error || errorMessage;
+      } else {
+        // HTML error page or other non-JSON response
+        const textResponse = await chatResponse.text();
+        console.error('[Chat] Non-JSON error response:', textResponse.substring(0, 500));
+        errorMessage = `Chat endpoint returned HTML error. Check server logs.`;
+      }
+    } catch (e) {
+      console.error('[Chat] Failed to parse error response:', e);
+    }
+    throw new Error(errorMessage);
   }
 
   const chatData = await chatResponse.json();
