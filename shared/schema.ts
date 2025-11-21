@@ -24,8 +24,10 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   // User role for dual-path system
-  role: varchar("role").default("student"), // student, teacher, admin
+  role: varchar("role").default("student"), // student, teacher, admin, developer
   learningPathMode: varchar("learning_path_mode").default("open"), // open, structured
+  // Developer testing override
+  developerModel: varchar("developer_model"), // null (use tier-based), 'gpt-4o-mini', or 'gpt-4o' for developers/admins
   // Learning preferences
   targetLanguage: varchar("target_language"), // english, spanish, french, german, italian, portuguese, japanese, mandarin, korean
   nativeLanguage: varchar("native_language").default("english"), // Language for explanations

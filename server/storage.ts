@@ -867,6 +867,7 @@ export class DatabaseStorage implements IStorage {
       targetLanguageText: messages.targetLanguageText,
       mediaJson: messages.mediaJson,
       performanceScore: messages.performanceScore,
+      enrichmentStatus: messages.enrichmentStatus,
       createdAt: messages.createdAt,
     })
       .from(messages)

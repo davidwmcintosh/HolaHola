@@ -62,8 +62,17 @@ function getLanguageCode(language: string | undefined): string | undefined {
  * Determine which GPT model to use based on subscription tier
  * Free/Basic/Institutional: gpt-4o-mini (faster, cheaper)
  * Pro: gpt-4o (best quality)
+ * Developer/Admin: Can override via developerModel field
  */
-function getModelForTier(tier: string | null | undefined): string {
+function getModelForTier(tier: string | null | undefined, user?: { role?: string | null, developerModel?: string | null }): string {
+  // DEVELOPER OVERRIDE: Allow developers/admins to test specific models
+  if (user?.role && ['admin', 'developer'].includes(user.role)) {
+    if (user.developerModel === 'gpt-4o' || user.developerModel === 'gpt-4o-mini') {
+      console.log(`[DEVELOPER MODE] Using override model: ${user.developerModel} (role: ${user.role})`);
+      return user.developerModel;
+    }
+  }
+  
   const subscriptionTier = tier?.toLowerCase() || 'free';
   
   // Pro tier gets the best model
@@ -928,7 +937,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             try {
               const user = req.user;
-              const model = getModelForTier(user.subscriptionTier);
+              const model = getModelForTier(user.subscriptionTier, user);
               
               const completionResponse = await openai.chat.completions.create({
                 model,
@@ -1120,7 +1129,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Determine which model to use based on subscription tier
       const user = req.user;
-      const model = getModelForTier(user.subscriptionTier);
+      const model = getModelForTier(user.subscriptionTier, user);
       
       console.log(`[CHAT] Using model ${model} for tier: ${user.subscriptionTier || 'free'}, voiceMode: ${isVoiceMode}`);
 
