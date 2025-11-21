@@ -1864,8 +1864,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Call OpenAI TTS API using personal API key (Replit AI Integrations doesn't support this endpoint)
       // Note: OpenAI TTS doesn't have a language parameter - voice selection and text content determine pronunciation
       // nova and shimmer voices have better multilingual pronunciation than alloy
+      // Using tts-1-hd for higher quality pronunciation (especially important for foreign languages)
       const mp3Response = await voiceOpenAI.audio.speech.create({
-        model: "tts-1",
+        model: "tts-1-hd",
         voice: voice as any, // 'alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'
         input: text,
         response_format: 'mp3',

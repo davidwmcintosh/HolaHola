@@ -412,7 +412,14 @@ Since you're in voice mode with a beginner, you can gently encourage them to rep
 - Only with the familiar encouraging words, not formal vocabulary yet
 - This builds speaking confidence before formal lessons begin in Phase 2` : ""}
 
-${isVoiceMode ? `VOICE MODE NOTE: Use natural, conversational spoken language. Avoid overly formal phrasing. Keep responses concise for better voice interaction.` : `IMPORTANT - Response Format:
+${isVoiceMode ? `VOICE MODE - PRONUNCIATION & LANGUAGE USE:
+For better text-to-speech pronunciation:
+- Speak primarily in ${languageName} with brief ${nativeLanguageName} translations in parentheses
+- Example: "¡Muy bien! (Very good!) ¿Cómo estás? (How are you?)"
+- Keep ${nativeLanguageName} explanations SHORT and inside parentheses
+- This helps the voice synthesizer maintain consistent accent and pronunciation
+- Use natural, conversational spoken language. Avoid overly formal phrasing
+- Keep responses concise for better voice interaction` : `IMPORTANT - Response Format:
 You must respond with a JSON object containing:
 - message: Your conversational response (primarily in English with 1-2 encouraging ${languageName} words with inline translations)
 - vocabulary: Array of any new ${languageName} words you introduce (with word, translation, example, pronunciation)
@@ -595,7 +602,13 @@ Guidelines:
   (Note: ${languageName} examples with question marks don't count as questions to the student)
 - **CRITICAL: When you ask a question directed at the student, END your response immediately after the question mark. No additional encouragement, commentary, or follow-up text. This creates natural conversational pauses.**
 
-${isVoiceMode ? `VOICE MODE NOTE: Use natural, conversational spoken language. Speak clearly and at a moderate pace. Pause naturally to give students time to repeat words.` : `IMPORTANT - Response Format:
+${isVoiceMode ? `VOICE MODE - PRONUNCIATION & LANGUAGE USE:
+For better text-to-speech pronunciation:
+- Speak primarily in ${languageName} with brief ${nativeLanguageName} translations in parentheses
+- Example: "¡Perfecto! (Perfect!) Ahora dime... (Now tell me...)"
+- Keep ${nativeLanguageName} explanations SHORT and inside parentheses
+- Use natural, conversational spoken language. Speak clearly and at a moderate pace
+- This helps maintain consistent accent and authentic pronunciation` : `IMPORTANT - Response Format:
 You must respond with a JSON object containing:
 - message: Your conversational response (gentle mix of English and ${languageName})
 - vocabulary: Array of new ${languageName} words you introduce (with word, translation, example, pronunciation)
@@ -615,7 +628,14 @@ Include ONLY 1 vocabulary item per response - teach one concept, let them practi
   const phase3VoiceInstructions = isVoiceMode && difficulty === "beginner" ? structuredListenRepeat : 
     (isVoiceMode ? `
 
-VOICE MODE NOTE: Use natural, conversational spoken language appropriate for ${difficulty} level. Focus on fluent conversation rather than structured repetition exercises.` : "");
+VOICE MODE - PRONUNCIATION & LANGUAGE USE:
+For better text-to-speech pronunciation:
+- Speak primarily in ${languageName} with brief ${nativeLanguageName} translations in parentheses
+- Example: "Excelente respuesta! (Excellent answer!) Ahora... (Now...)"
+- Keep ${nativeLanguageName} explanations SHORT and inside parentheses
+- This helps the voice synthesizer maintain consistent ${languageName} accent
+- Use natural, conversational spoken language appropriate for ${difficulty} level
+- Focus on fluent conversation rather than structured repetition exercises` : "");
 
   return `You are a friendly and encouraging ${languageName} language tutor.
 
@@ -866,7 +886,14 @@ Error Correction:
 - Briefly explain the pattern if needed
 - Move on quickly - don't dwell on mistakes
 
-${isVoiceMode ? `VOICE MODE NOTE: Keep responses natural and conversational for spoken interaction. Maintain appropriate pacing for ${difficulty} level fluency.` : `IMPORTANT - Response Format:
+${isVoiceMode ? `VOICE MODE - PRONUNCIATION & LANGUAGE USE:
+For better text-to-speech pronunciation:
+- Speak primarily in ${languageName} with brief ${nativeLanguageName} translations in parentheses
+- Example: "Increíble! (Amazing!) Eso es correcto. (That's correct.)"
+- Keep ${nativeLanguageName} explanations SHORT and inside parentheses
+- This maintains consistent accent for authentic pronunciation
+- Keep responses natural and conversational for spoken interaction
+- Maintain appropriate pacing for ${difficulty} level fluency` : `IMPORTANT - Response Format:
 You must respond with a JSON object containing:
 - message: Your conversational response (primarily in ${languageName})
 - vocabulary: Array of new or challenging words you use (with word, translation, example, pronunciation)
