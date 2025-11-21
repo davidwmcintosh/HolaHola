@@ -310,6 +310,7 @@ export function setupRealtimeProxy(server: Server) {
         );
         
         console.log('[REALTIME PROXY] Sending unified system prompt to OpenAI');
+        console.log(`[REALTIME PROXY] System prompt length: ${systemPrompt.length} characters`);
         console.log(`[REALTIME PROXY] VAD mode: ${vadMode}`);
         
         // Configure turn detection based on VAD mode
@@ -340,9 +341,14 @@ export function setupRealtimeProxy(server: Server) {
         }
         
         // Configure session with voice settings and unified instructions
+        // TEMPORARY: Use minimal prompt to test if prompt length is causing issues
+        const useMinimalPrompt = true; // TODO: Remove this test flag
+        
         const sessionConfig: any = {
           voice: 'alloy',
-          instructions: systemPrompt,
+          instructions: useMinimalPrompt 
+            ? "You are a friendly Spanish tutor. Help students learn Spanish through conversation." 
+            : systemPrompt,
           input_audio_transcription: {
             model: 'whisper-1'
           }
