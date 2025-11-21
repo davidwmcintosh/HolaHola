@@ -226,7 +226,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       </div>
 
       {/* Messages - matches ChatInterface.tsx layout */}
-      <Card className="flex flex-col flex-1 min-h-0 m-3 md:m-4 mt-0 overflow-hidden">
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
         <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 custom-scrollbar">
           <div className="space-y-3 md:space-y-4">
             {messages.map((msg) => (
@@ -282,7 +282,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
             </Button>
           </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }
