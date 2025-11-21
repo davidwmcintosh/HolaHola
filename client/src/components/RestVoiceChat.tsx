@@ -156,6 +156,9 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       if (err.message?.includes('limit reached') || err.message?.includes('quota')) {
         errorMessage = 'Monthly voice limit reached. Please upgrade your plan or switch to text mode below.';
         allowRetry = false; // Quota errors can't be retried
+      } else if (err.message?.includes('401') || err.message?.includes('API key') || err.message?.includes('authentication')) {
+        errorMessage = 'Invalid OpenAI API key. Please update your USER_OPENAI_API_KEY in the Secrets tab or switch to text mode.';
+        allowRetry = false; // Auth errors need manual intervention
       } else if (err.message?.includes('transcribe') || err.message?.includes('Whisper')) {
         errorMessage = 'Failed to transcribe audio. Try speaking more clearly or switch to text mode.';
       } else if (err.message?.includes('synthesize') || err.message?.includes('TTS')) {
@@ -178,9 +181,9 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   };
 
   return (
-    <div className="flex flex-col h-full bg-background" data-testid="rest-voice-chat">
+    <div className="flex flex-col h-full overflow-hidden bg-background" data-testid="rest-voice-chat">
       {/* Header with controls */}
-      <div className="flex items-center justify-between p-4 border-b bg-card/50">
+      <div className="flex items-center justify-between p-4 border-b bg-card/50 shrink-0">
         <div className="flex items-center gap-3">
           <InstructorAvatar state={avatarState} />
           <div>
@@ -197,7 +200,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
+      <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
         <div className="space-y-4">
           {messages.map((msg) => (
             <div
@@ -211,7 +214,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           ))}
           <div ref={scrollRef} />
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Error display */}
       {error && (
@@ -229,7 +232,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       )}
 
       {/* Mic control */}
-      <div className="flex justify-center items-center p-6 border-t bg-card/50">
+      <div className="flex justify-center items-center p-6 border-t bg-card/50 shrink-0">
         <Button
           size="icon"
           variant={isRecording ? 'destructive' : 'default'}
@@ -237,6 +240,8 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           onClick={isRecording ? stopRecording : startRecording}
           disabled={isProcessing || !conversationId}
           data-testid="button-mic-toggle"
+          aria-pressed={isRecording}
+          aria-label={isRecording ? "Stop recording" : "Start recording"}
         >
           {isProcessing ? (
             <Loader2 className="h-8 w-8 animate-spin" />
