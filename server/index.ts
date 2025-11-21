@@ -4,6 +4,7 @@ import { getStripeSecretKey, getStripeWebhookSecret } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { getTTSService } from "./services/tts-service";
 
 const app = express();
 
@@ -140,6 +141,41 @@ app.use((req, res, next) => {
     res.status(status).json({ message });
     throw err;
   });
+
+  // Run TTS service health check on startup
+  try {
+    console.log('\n┌─────────────────────────────────────────────────────────────┐');
+    console.log('│ TTS SERVICE HEALTH CHECK                                    │');
+    console.log('└─────────────────────────────────────────────────────────────┘');
+    
+    const ttsService = getTTSService();
+    const status = await ttsService.getStatus();
+    
+    console.log(`Provider Configuration:`);
+    console.log(`  • Current Provider: ${status.currentProvider}`);
+    console.log(`  • Google Cloud TTS Available: ${status.googleAvailable ? '✓' : '✗'}`);
+    console.log(`  • OpenAI TTS Available: ${status.openaiAvailable ? '✓' : '✗'}`);
+    
+    if (status.googleAvailable) {
+      console.log(`  • Google Cloud TTS Healthy: ${status.googleHealthy ? '✓' : '✗'}`);
+      if (status.healthMessage) {
+        console.log(`  • Status: ${status.healthMessage}`);
+      }
+    }
+    
+    if (status.fallbackActive) {
+      console.warn('\n⚠️  WARNING: Google Cloud TTS is not healthy, using OpenAI TTS fallback');
+      console.warn('   Voice quality degraded - users will hear OpenAI voices instead of authentic WaveNet pronunciation');
+      console.warn('   See setup instructions above to enable Google Cloud TTS API');
+    } else if (status.googleHealthy) {
+      console.log('\n✓ Google Cloud WaveNet TTS is active and healthy');
+      console.log('  Users will receive authentic native pronunciation');
+    }
+    
+    console.log('─────────────────────────────────────────────────────────────\n');
+  } catch (error: any) {
+    console.error('TTS health check failed:', error.message);
+  }
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route

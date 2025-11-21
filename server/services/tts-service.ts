@@ -105,14 +105,28 @@ export class TTSService {
       try {
         return await this.synthesizeWithGoogle(text, language);
       } catch (error: any) {
-        console.error('[TTS Service] Google WaveNet failed:', error.message);
+        // Enhanced error logging with actionable diagnostics
+        console.error('┌─────────────────────────────────────────────────────────────┐');
+        console.error('│ ⚠️  GOOGLE CLOUD TTS FAILED - FALLING BACK TO OPENAI TTS   │');
+        console.error('└─────────────────────────────────────────────────────────────┘');
+        console.error(`Error: ${error.message}`);
+        
+        if (error.code === 7 || error.message?.includes('PERMISSION_DENIED')) {
+          console.error('\n📋 SETUP REQUIRED:');
+          console.error('1. Enable Google Cloud Text-to-Speech API:');
+          console.error('   https://console.cloud.google.com/apis/library/texttospeech.googleapis.com');
+          console.error('2. Ensure service account has roles/texttospeech.user permission');
+          console.error('3. Restart the application after enabling');
+          console.error('\n⚠️  Impact: Using OpenAI TTS with American accent instead of native WaveNet pronunciation');
+        }
         
         // Attempt fallback to OpenAI if available
         if (this.openaiClient) {
-          console.warn('[TTS Service] ⚠️  Falling back to OpenAI TTS due to Google error');
+          console.warn('[TTS Service] → Switching to OpenAI TTS fallback...');
           try {
             const result = await this.synthesizeWithOpenAI(text, voice);
             console.log('[TTS Service] ✓ Fallback to OpenAI TTS succeeded');
+            console.warn('[TTS Service] ⚠️  WARNING: Voice quality degraded - using OpenAI instead of authentic WaveNet pronunciation');
             return result; // SUCCESS: Return the fallback result
           } catch (fallbackError: any) {
             console.error('[TTS Service] OpenAI TTS fallback also failed:', fallbackError.message);
@@ -218,6 +232,98 @@ export class TTSService {
       return this.googleClient !== null;
     }
     return this.openaiClient !== null;
+  }
+
+  /**
+   * Health check for Google Cloud TTS API
+   * Tests if the API is enabled and accessible
+   */
+  async healthCheckGoogle(): Promise<{ healthy: boolean; error?: string; message?: string }> {
+    if (!this.googleClient) {
+      return {
+        healthy: false,
+        error: 'Google Cloud TTS client not initialized',
+        message: 'Set GOOGLE_CLOUD_TTS_CREDENTIALS environment variable with valid service account JSON'
+      };
+    }
+
+    try {
+      // Try a minimal synthesis request to verify API is enabled
+      const testRequest: protos.google.cloud.texttospeech.v1.ISynthesizeSpeechRequest = {
+        input: { text: 'test' },
+        voice: {
+          languageCode: 'en-US',
+          name: 'en-US-Neural2-A',
+        },
+        audioConfig: {
+          audioEncoding: 'MP3',
+        },
+      };
+
+      await this.googleClient.synthesizeSpeech(testRequest);
+      return {
+        healthy: true,
+        message: 'Google Cloud TTS API is enabled and accessible'
+      };
+    } catch (error: any) {
+      // Check for specific error codes
+      if (error.code === 7 || error.message?.includes('PERMISSION_DENIED')) {
+        return {
+          healthy: false,
+          error: 'PERMISSION_DENIED',
+          message: 'Google Cloud Text-to-Speech API is not enabled. Enable it at: https://console.cloud.google.com/apis/library/texttospeech.googleapis.com'
+        };
+      }
+
+      if (error.message?.includes('has not been used in project')) {
+        return {
+          healthy: false,
+          error: 'API_NOT_ENABLED',
+          message: 'Google Cloud Text-to-Speech API has not been used in project. Enable it in Google Cloud Console and ensure service account has roles/texttospeech.user permission'
+        };
+      }
+
+      return {
+        healthy: false,
+        error: error.code || 'UNKNOWN',
+        message: `Google Cloud TTS health check failed: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * Get TTS service status including provider health
+   */
+  async getStatus(): Promise<{
+    currentProvider: TTSProvider;
+    googleAvailable: boolean;
+    openaiAvailable: boolean;
+    googleHealthy?: boolean;
+    healthMessage?: string;
+    fallbackActive: boolean;
+  }> {
+    const googleAvailable = this.isProviderAvailable('google');
+    const openaiAvailable = this.isProviderAvailable('openai');
+
+    let googleHealthy = false;
+    let healthMessage = '';
+
+    if (googleAvailable) {
+      const healthCheck = await this.healthCheckGoogle();
+      googleHealthy = healthCheck.healthy;
+      healthMessage = healthCheck.message || healthCheck.error || '';
+    }
+
+    const fallbackActive = this.provider === 'google' && !googleHealthy && openaiAvailable;
+
+    return {
+      currentProvider: this.provider,
+      googleAvailable,
+      openaiAvailable,
+      googleHealthy,
+      healthMessage,
+      fallbackActive
+    };
   }
 }
 
