@@ -123,7 +123,7 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
                 <UserMenu />
               </div>
             </header>
-            <main className="flex-1 overflow-hidden">
+            <main className="flex-1 overflow-auto">
               <Router />
             </main>
           </div>
