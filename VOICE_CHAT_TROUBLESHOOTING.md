@@ -185,10 +185,24 @@ const sessionConfig = {
 
 ## Next Steps
 
-1. **Immediate**: Test minimal session config (remove input_audio_transcription)
-2. **Short-term**: Implement automatic retry logic with exponential backoff
-3. **Medium-term**: Add fallback to text-only mode when voice fails
-4. **Long-term**: Monitor OpenAI status page and community reports
+### Priority 1: Try Newer GA Model (Recommended)
+**Model**: `gpt-realtime` (GA release from August 2025)
+- **Why**: Newer production-ready model (not preview)
+- **Benefits**: 30% better accuracy, 20% cost reduction, more natural speech
+- **Status**: Confirmed working with our API key on Nov 19, 2025
+- **Source**: `API_KEY_MANAGEMENT.md` from previous testing
+- **Action**: Update model names in `server/realtime-proxy.ts`:
+  ```typescript
+  const model = subscriptionTier === 'pro' 
+    ? 'gpt-realtime'  // Try GA model instead of preview
+    : 'gpt-4o-mini-realtime-preview-2024-12-17';
+  ```
+
+### Other Investigation Steps
+1. **Test minimal session config** (remove input_audio_transcription)
+2. **Implement automatic retry logic** with exponential backoff
+3. **Add fallback to text-only mode** when voice fails
+4. **Monitor OpenAI status page** and community reports
 
 ## Workarounds Attempted
 
