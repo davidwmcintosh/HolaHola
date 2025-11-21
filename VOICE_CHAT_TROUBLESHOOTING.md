@@ -4,9 +4,43 @@
 Voice chat stopped working at 3:06 AM when attempting to switch from Pro tier model to mini model for free tier users. Getting consistent `server_error` from OpenAI Realtime API after `session.updated` event.
 
 ## Timeline
-- **Working State**: Voice chat worked perfectly with Pro tier model (`gpt-4o-realtime-preview-2024-12-17`)
-- **Breaking Change**: Added tier-based model selection to use `gpt-4o-mini-realtime-preview-2024-12-17` for free/basic/institutional tiers
+
+### ✅ WORKING STATE (Before Break)
+- **Mic was working** - Audio recording functional
+- **Tutor was responding** - Voice chat fully operational
+- **Model**: Using `gpt-4o-realtime-preview-2024-12-17` (Pro tier model)
+
+### ⚠️ GREETING DUPLICATION ISSUE
+- **Problem**: Greeting messages being created multiple times
+- **Action**: Made changes to fix greeting duplication
+- **Files Changed**: 
+  - `client/src/lib/realtimeManager.ts` - Added `hasGreetingBeenSent()` and `markGreetingAsSent()` using localStorage
+  - `server/routes.ts` - Modified to ONLY generate greetings for text mode (voice mode handles its own)
+  - `client/src/components/VoiceChat.tsx` - Added:
+    - `skipNextGreetingRef` to prevent duplicate greeting saves
+    - Check for `hasGreetingBeenSent()` before sending greeting
+    - Logic to skip saving greeting to database
+    - `markGreetingAsSent()` tracking (lines 222-271, 387-394)
+
+### ❌ BREAKING POINT
+- **After Greeting Fix**: Mic stopped working
 - **Error Started**: 3:06 AM - Consistent server errors after session configuration
+- **Additional Change**: Added tier-based model selection to use `gpt-4o-mini-realtime-preview-2024-12-17`
+
+### 🔍 ROOT CAUSE HYPOTHESIS
+**The mic breaking is likely NOT related to the model switch, but to changes made during the greeting duplication fix!**
+
+**IMPORTANT FOR TOMORROW**: The greeting fix changes were made in:
+- VoiceChat.tsx (client-side)
+- routes.ts (server-side)
+- realtimeManager.ts (client-side utility)
+
+**BUT** the error is happening in the WebSocket proxy (`server/realtime-proxy.ts`) which was NOT modified for greeting fixes. This suggests:
+1. The greeting fix might have indirectly triggered a code path that exposed a pre-existing bug
+2. OR the model switch happened at the same time as the greeting fix and both need to be reverted
+3. OR there's a session configuration issue that needs investigation
+
+**Next debugging step**: Try reverting just the model tier selection (back to Pro model for all tiers) to see if error persists. If it does, then it's definitely related to greeting fix or something else.
 
 ## Error Details
 ```json
