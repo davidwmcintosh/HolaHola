@@ -346,32 +346,14 @@ export function setupRealtimeProxy(server: Server) {
           turnDetection = null;
         }
         
-        // Configure session with voice settings and unified instructions
-        // Mini model has stricter instruction length limits, so use condensed version
-        const isUsingMiniModel = model.includes('mini');
-        const condensedPrompt = isUsingMiniModel ? `You are a ${conversationLanguage} tutor for ${userName || 'the student'}. Native language: ${nativeLanguage}. Difficulty: ${difficulty}.
-
-BEGINNER RULES:
-- Use present tense only (no past/future)
-- Teach ONE concept per exchange
-- Max 7 words per ${conversationLanguage} sentence
-- Always provide English translation immediately after
-- Correct errors gently by modeling correct form
-- Use listen-and-repeat: Say phrase, student repeats
-
-RESPONSE FORMAT:
-1. ${conversationLanguage} sentence (max 7 words)
-2. [English: translation]
-3. Ask student to repeat
-
-Keep responses under 3 sentences total. Focus on conversation practice.` : systemPrompt;
+        // TEMPORARY: Test with minimal prompt to debug server errors
+        const testPrompt = `You are a helpful ${conversationLanguage} language tutor. Speak slowly and clearly. Use simple ${conversationLanguage} phrases with English translations.`;
         
-        console.log(`[REALTIME PROXY] Is using mini model: ${isUsingMiniModel}`);
-        console.log(`[REALTIME PROXY] Actual prompt being sent: ${condensedPrompt.length} characters`);
+        console.log(`[REALTIME PROXY] Using minimal test prompt: ${testPrompt.length} characters`);
         
         const sessionConfig: any = {
           voice: 'alloy',
-          instructions: condensedPrompt,
+          instructions: testPrompt,
           input_audio_transcription: {
             model: 'whisper-1'
           }
