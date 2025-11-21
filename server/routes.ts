@@ -952,8 +952,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Check if this is a voice mode request (for onboarding too)
         const isVoiceMode = req.body.isVoiceMode === true;
-        
-        console.log('[ONBOARDING VOICE MODE] isVoiceMode:', isVoiceMode, 'req.body.isVoiceMode:', req.body.isVoiceMode);
 
         // Save AI response for onboarding (with enrichmentStatus for voice mode)
         // Only include enrichmentStatus if voice mode to avoid undefined→null conversion
@@ -963,8 +961,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           content: aiResponse,
           ...(isVoiceMode ? { enrichmentStatus: "pending" } : {}),
         });
-        
-        console.log('[ONBOARDING VOICE MODE] Message created with enrichmentStatus:', aiMessage.enrichmentStatus);
 
         // Return onboarding response with updated conversation
         res.json({ 
