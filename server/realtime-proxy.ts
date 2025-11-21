@@ -178,57 +178,24 @@ export function setupRealtimeProxy(server: Server) {
       }
 
       // Use correct OpenAI Realtime API model based on tier
-      // Free tier: gpt-4o-mini-realtime-preview (cheaper, suitable for learning)
-      // Pro tier: gpt-4o-realtime-preview (premium, best quality)
       const model = subscriptionTier === 'pro' 
         ? 'gpt-4o-realtime-preview-2024-12-17'
         : 'gpt-4o-mini-realtime-preview-2024-12-17';
       
       console.log(`Using Realtime model: ${model} for tier: ${subscriptionTier}`);
 
-      // CRITICAL FIX: Create ephemeral session FIRST using REST API
-      // The playground uses this approach - not direct WebSocket!
-      console.log('Creating ephemeral Realtime session via REST...');
+      // Connect directly to OpenAI Realtime API (no ephemeral session)
+      // Ephemeral sessions are for client-side use; we're building a server-side proxy
       const apiKey = process.env.USER_OPENAI_API_KEY;
+      const wsUrl = `wss://api.openai.com/v1/realtime?model=${encodeURIComponent(model)}`;
       
-      const sessionResponse = await fetch('https://api.openai.com/v1/realtime/sessions', {
-        method: 'POST',
+      console.log('[DIRECT CONNECTION] Connecting to OpenAI Realtime API...');
+      const openaiWs = new WS(wsUrl, {
         headers: {
           'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model,
-          voice: 'alloy'
-        })
+          'OpenAI-Beta': 'realtime=v1'
+        }
       });
-
-      if (!sessionResponse.ok) {
-        const errorText = await sessionResponse.text();
-        console.error('Failed to create Realtime session:', sessionResponse.status, errorText);
-        clientWs.send(JSON.stringify({
-          type: 'error',
-          error: { message: `Failed to create session: ${errorText}` }
-        }));
-        clientWs.close();
-        return;
-      }
-
-      const sessionData = await sessionResponse.json();
-      console.log('✓ Ephemeral session created successfully');
-      console.log('[DEBUG] Session data:', JSON.stringify(sessionData, null, 2));
-
-      // The ephemeral session response contains client_secret which has the token
-      // We need to use the token to connect, NOT build a URL from it
-      const ephemeralToken = sessionData.client_secret.value;
-      
-      // Build the WebSocket URL using the session ID from the response
-      // The session endpoint returns an ID we can connect to
-      const wsUrl = `wss://api.openai.com/v1/realtime/sessions/${sessionData.id}`;
-      
-      console.log('[FIX] Connecting with ephemeral session ID:', sessionData.id);
-      const openaiWs = new WS(wsUrl);
-      // No headers needed - the session ID in the URL authenticates us
 
       // Forward messages from client to OpenAI
       clientWs.on('message', (data) => {
