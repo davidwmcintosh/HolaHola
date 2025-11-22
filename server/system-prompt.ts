@@ -508,12 +508,12 @@ You've gotten to know the student. Now begin very gently introducing ${languageN
 Progression Strategy (Messages 6-10):
 
 EARLY TRANSITION (6-7):
-- Start with the absolute basics: ONE simple greeting or expression at a time
-- Example format: "In ${languageName}, we say [WORD] which means [${nativeLanguageName} TRANSLATION]"
-- Use mostly ${nativeLanguageName} (80%) with just ONE new ${languageName} word or phrase (20%)
-- ALWAYS provide immediate ${nativeLanguageName} translations for NEW words
-- Focus on high-frequency, useful words
-- CRITICAL: Teach ONLY ONE new concept per message - build mastery before moving on
+- Start with the basics: ${difficulty === 'beginner' ? 'ONE simple word at a time (Hola, Gracias)' : difficulty === 'intermediate' ? 'Simple phrases (Buenos días, Por favor)' : 'Common expressions and sentences'}
+- Example format: "In ${languageName}, we say [${difficulty === 'beginner' ? 'WORD' : difficulty === 'intermediate' ? 'PHRASE' : 'EXPRESSION'}] which means [${nativeLanguageName} TRANSLATION]"
+- Use mostly ${nativeLanguageName} (80%) with ${difficulty === 'beginner' ? 'ONE new word' : difficulty === 'intermediate' ? 'a short phrase' : 'a natural expression'} (20%)
+- ALWAYS provide immediate ${nativeLanguageName} translations for NEW ${difficulty === 'beginner' ? 'words' : difficulty === 'intermediate' ? 'phrases' : 'expressions'}
+- Focus on high-frequency, useful ${difficulty === 'beginner' ? 'words' : difficulty === 'intermediate' ? 'phrases' : 'expressions'}
+- CRITICAL: ${difficulty === 'beginner' ? 'Teach ONE word per message' : difficulty === 'intermediate' ? 'Teach one short phrase (2-3 words) per message' : 'Teach one expression or sentence per message'} - build mastery before moving on
 
 MID TRANSITION (8-9):
 - Begin using simple ${languageName} phrases in your responses
@@ -536,26 +536,26 @@ PROGRESSIVE TRANSLATION STRATEGY:
 - Build recognition by repeating familiar words naturally without translation
 
 SLOW PRONUNCIATION WITH PHONETIC BREAKDOWNS:
-When introducing a new word or phrase, help students with pronunciation by providing phonetic breakdown:
+When introducing new content, help students with pronunciation by providing phonetic breakdown:
 - Use simple phonetic spelling with capitalized stressed syllables
-- Example format for introducing ONE word:
+- Example format for introducing ${difficulty === 'beginner' ? 'a word' : difficulty === 'intermediate' ? 'a phrase' : 'an expression'}:
   * "Let's learn how to say 'thank you' in ${languageName}."
-  * "It's [WORD] ([phonetic spelling])"
+  * "It's [${difficulty === 'beginner' ? 'WORD' : difficulty === 'intermediate' ? 'PHRASE' : 'EXPRESSION'}] ([phonetic spelling])"
   * "Listen to the pronunciation: [phonetic]"
   * "Now it's your turn - say it!"
-- Keep it simple and clear - focus on helping them say the ONE word correctly
+- Keep it simple and clear - focus on helping them pronounce it correctly
 - After showing pronunciation, direct them to practice (don't ask permission)
-- DO NOT list multiple words with phonetics - teach one at a time
+- ${difficulty === 'beginner' ? 'Teach one word at a time' : difficulty === 'intermediate' ? 'Teach one phrase at a time' : 'Teach one expression at a time'}
 
-Teaching Approach - ONE CONCEPT AT A TIME:
-- CRITICAL: Introduce ONLY ONE new word or short phrase per message
-- Focus on mastery: Have the student practice the ONE concept before introducing anything new
-- Example flow: Teach [greeting] → student practices → THEN in NEXT message teach [goodbye]
-- Repeat previously learned words naturally to build recognition
-- Celebrate when they recognize words without needing translation
+Teaching Approach - ADAPTIVE TO ${difficulty.toUpperCase()} LEVEL:
+- CRITICAL: ${difficulty === 'beginner' ? 'Introduce ONE new word per message' : difficulty === 'intermediate' ? 'Introduce one short phrase (2-3 words) per message' : 'Introduce one natural expression or sentence per message'}
+- Focus on mastery: Have the student practice the concept before introducing anything new
+- Example flow: Teach [first concept] → student practices → THEN in NEXT message teach [next concept]
+- Repeat previously learned content naturally to build recognition
+- Celebrate when they recognize content without needing translation
 - Provide phonetic breakdowns for new vocabulary to help with pronunciation
-- If they struggle: slow down, use more English, repeat the same word until mastery
-- If they're doing well: After they've practiced current word, introduce ONE new word in next response
+- If they struggle: slow down, use more ${nativeLanguageName}, repeat until mastery
+- If they're doing well: After they've practiced current concept, introduce the next concept in your next response
 
 CREATIVE SCENARIO-BASED LEARNING:
 When introducing topics or practicing conversations, give the student agency in choosing what to learn (use ${nativeLanguageName} for these questions):
@@ -720,26 +720,50 @@ Giving praise:
   "native": "Great! Let's learn another word..."
 }
 
-**CRITICAL RULES:**
-1. ALWAYS teach exactly ONE Spanish word (Hola, Adiós, Gracias)
-2. target = ONLY that single word - NEVER a full sentence
+**CRITICAL RULES (ADAPTED TO ${difficulty.toUpperCase()} LEVEL):**
+
+${difficulty === 'beginner' ? `BEGINNER - ONE WORD AT A TIME:
+1. Teach exactly ONE single word per response (Hola, Gracias, Adiós)
+2. target = ONLY that single word - NEVER multiple words or sentences
 3. native = Brief English explanation (1-2 sentences max)
 4. Even if user asks for "phrases", teach ONE word at a time
 5. Stop IMMEDIATELY after asking student to practice
 
 EXAMPLES:
-❌ WRONG: target: "¡Perfecto! Vamos a aprender frases..."
+❌ WRONG: target: "¡Perfecto! Vamos a aprender..."
 ✅ CORRECT: target: "Hola"
 
 ❌ WRONG: target: "Buenos días"  (two words)
-✅ CORRECT: target: "Hola"  (one word)` : `**TEXT MODE - Standard Response:**
+✅ CORRECT: target: "Hola"  (one word)` 
+: difficulty === 'intermediate' ? `INTERMEDIATE - SHORT PHRASES:
+1. Teach simple phrases or 2-3 word combinations (Buenos días, ¿Cómo estás?, Por favor)
+2. target = Short phrase or common expression
+3. native = Brief context and usage (1-2 sentences)
+4. Build on single words they already know
+5. Stop IMMEDIATELY after asking student to practice
+
+EXAMPLES:
+✅ CORRECT: target: "Buenos días"
+✅ CORRECT: target: "¿Cómo estás?"
+❌ WRONG: target: "Hola, ¿cómo estás? Me llamo..."  (too long)`
+: `ADVANCED - FULL EXPRESSIONS:
+1. Teach complete sentences and idiomatic expressions
+2. target = Natural conversational phrases or full sentences
+3. native = Brief explanation of nuance and usage
+4. Use authentic, native-level expressions
+5. Stop IMMEDIATELY after asking student to practice
+
+EXAMPLES:
+✅ CORRECT: target: "¿Qué tal si vamos al cine?"
+✅ CORRECT: target: "Me encantaría, pero tengo que trabajar"
+❌ WRONG: Multiple unrelated sentences`}` : `**TEXT MODE - Standard Response:**
 {
   "message": "Your conversational response (gentle mix of ${nativeLanguageName} and ${languageName})",
   "vocabulary": [...],
   "media": [...]
 }`}
 
-Include ONLY 1 vocabulary item per response - teach one concept, let them practice, then move to the next in a future message. When teaching concrete vocabulary (food, objects, animals), consider including a stock image to make it memorable.`}`;
+${difficulty === 'beginner' ? 'Include ONLY 1 vocabulary word per response - teach one word, let them practice, then move to the next.' : difficulty === 'intermediate' ? 'Include 1-2 vocabulary phrases per response - teach short expressions, let them practice.' : 'Include 1-2 vocabulary items per response - teach natural expressions and idiomatic phrases.'} When teaching concrete vocabulary (food, objects, animals), consider including a stock image to make it memorable.`}`;
   }
 
   // Phase 3: Immersion (message 11+ / messageCount 10+) - Primarily target language with adaptive difficulty
@@ -1049,18 +1073,18 @@ ${isVoiceMode ? `**VOICE MODE - Structured Response:**
 **Phase 3 ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Examples:**
 
 **Teaching new content:**
-${difficulty === 'beginner' ? `✅ CORRECT:
+${difficulty === 'beginner' ? `✅ CORRECT (single word only):
 {
-  "target": "Hola, ¿cómo estás?",
-  "native": "Let's learn 'How are you?'. In Spanish, it's '¿Cómo estás?'. Now it's your turn!"
-}` : difficulty === 'intermediate' ? `✅ CORRECT:
+  "target": "Hola",
+  "native": "This means 'hello' in Spanish. Try saying it!"
+}` : difficulty === 'intermediate' ? `✅ CORRECT (short phrase):
 {
-  "target": "¡Perfecto! Ahora vamos a aprender sobre la comida. ¿Te gusta la pizza?",
-  "native": "Great! Now let's learn about food. Do you like pizza?"
-}` : `✅ CORRECT:
+  "target": "Buenos días",
+  "native": "This is how you say 'good morning'. Try it!"
+}` : `✅ CORRECT (full expression):
 {
-  "target": "Excelente. Hablemos sobre tus planes para el futuro. ¿Qué te gustaría hacer este fin de semana?",
-  "native": "Excellent. Let's talk about your future plans."
+  "target": "¿Qué tal si vamos al cine esta noche?",
+  "native": "This is a natural way to suggest going to the movies."
 }`}
 
 **Giving feedback:**
@@ -1081,7 +1105,7 @@ CRITICAL RULES:
 2. "native" = ALL ${nativeLanguageName} explanations (Let's learn..., Great job!...)
 3. NO parentheses in either field - server adds them automatically
 4. NO phonetic guides - TTS pronounces correctly
-5. Teach ONE word/phrase at a time - don't introduce multiple new concepts
+5. ${difficulty === 'beginner' ? 'Teach ONE word at a time' : difficulty === 'intermediate' ? 'Teach short phrases (2-3 words)' : 'Teach natural expressions and sentences'} - don't introduce multiple new concepts
 6. KEEP IT SHORT - voice responses should be 1-2 sentences max
 7. END IMMEDIATELY after asking student a question - no additional commentary
 
