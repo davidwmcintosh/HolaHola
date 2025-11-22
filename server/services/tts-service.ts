@@ -1,4 +1,5 @@
 import { TextToSpeechClient, protos } from '@google-cloud/text-to-speech';
+import { v1beta1 as ttsV1Beta1 } from '@google-cloud/text-to-speech';
 import OpenAI from 'openai';
 import { franc } from 'franc-min';
 
@@ -17,11 +18,21 @@ export interface TTSRequest {
 }
 
 /**
+ * Word-level timing information for synchronized subtitles
+ */
+export interface WordTiming {
+  word: string;
+  startTime: number; // Seconds
+  endTime: number;   // Seconds
+}
+
+/**
  * Common TTS Response Interface
  */
 export interface TTSResponse {
   audioBuffer: Buffer;
   contentType: string;
+  wordTimings?: WordTiming[]; // Optional word-level timestamps for karaoke-style highlighting
 }
 
 /**
@@ -70,6 +81,7 @@ const FRANC_TO_LANGUAGE_MAP: Record<string, string> = {
  */
 export class TTSService {
   private googleClient: TextToSpeechClient | null = null;
+  private googleBetaClient: ttsV1Beta1.TextToSpeechClient | null = null;
   private openaiClient: OpenAI | null = null;
   private provider: TTSProvider;
 
@@ -83,7 +95,10 @@ export class TTSService {
         this.googleClient = new TextToSpeechClient({
           credentials,
         });
-        console.log('[TTS Service] ✓ Google Cloud WaveNet initialized');
+        this.googleBetaClient = new ttsV1Beta1.TextToSpeechClient({
+          credentials,
+        });
+        console.log('[TTS Service] ✓ Google Cloud WaveNet initialized (v1 + v1beta1)');
       } catch (error) {
         console.error('[TTS Service] Failed to initialize Google Cloud TTS:', error);
         // Fall back to OpenAI if Google credentials are invalid
@@ -263,28 +278,102 @@ export class TTSService {
   }
 
   /**
+   * Escape special XML characters for SSML
+   */
+  private escapeXML(text: string): string {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+
+  /**
+   * Convert plain text to SSML with mark tags between words for timing
+   */
+  private textToSSMLWithMarks(text: string): { ssml: string; words: string[] } {
+    // Split text into words (preserving whitespace and punctuation)
+    const words = text.match(/\S+/g) || [];
+    
+    // Build SSML with <mark> tags between words
+    let ssml = '<speak>';
+    words.forEach((word, index) => {
+      // Escape XML special characters in the word
+      ssml += this.escapeXML(word);
+      // Add space and mark tag after each word (except the last one)
+      if (index < words.length - 1) {
+        ssml += ` <mark name="${index}"/>`;
+      }
+    });
+    ssml += '</speak>';
+    
+    return { ssml, words };
+  }
+
+  /**
+   * Parse timepoints from Google TTS response into WordTiming array
+   * 
+   * Logic: <mark name="N"/> appears AFTER word N, so timepoint N marks:
+   * - End of word N
+   * - Start of word N+1
+   */
+  private parseWordTimings(timepoints: any[], words: string[], audioTime?: number): WordTiming[] {
+    const wordTimings: WordTiming[] = [];
+    
+    if (words.length === 0) return wordTimings;
+    
+    // Word 0: starts at 0, ends at first mark (or estimated)
+    const firstEndTime = timepoints.length > 0 ? timepoints[0].timeSeconds : 0.3;
+    wordTimings.push({
+      word: words[0],
+      startTime: 0,
+      endTime: firstEndTime,
+    });
+    
+    // Words 1 to N-1: use consecutive timepoints
+    for (let i = 0; i < timepoints.length; i++) {
+      const markIndex = parseInt(timepoints[i].markName || '0', 10);
+      const wordIndex = markIndex + 1; // Mark after word N means word N+1
+      
+      if (wordIndex < words.length) {
+        const startTime = timepoints[i].timeSeconds || 0;
+        
+        // End time is next mark or audio end
+        const endTime = i < timepoints.length - 1
+          ? timepoints[i + 1].timeSeconds
+          : audioTime || (startTime + 0.5); // Fallback: estimate
+        
+        wordTimings.push({
+          word: words[wordIndex],
+          startTime,
+          endTime,
+        });
+      }
+    }
+    
+    return wordTimings;
+  }
+
+  /**
    * Synthesize speech using Google Cloud TTS (Neural2 and Chirp 3 HD voices)
    * Uses the target language voice consistently for authentic pronunciation
+   * Now with word-level timing for synchronized subtitles
    */
   private async synthesizeWithGoogle(text: string, language?: string): Promise<TTSResponse> {
-    if (!this.googleClient) {
-      throw new Error('Google Cloud TTS client not initialized');
+    if (!this.googleBetaClient) {
+      throw new Error('Google Cloud TTS beta client not initialized');
     }
 
-    // Determine which voice to use:
-    // 1. If target language is provided, ALWAYS use that voice (e.g., Spanish voice for Spanish lessons)
-    //    This ensures Spanish words are pronounced correctly, even in English explanations
-    // 2. If no target language, auto-detect the text language
+    // Determine which voice to use
     let selectedLanguage: string;
     let voiceConfig: { name: string; languageCode: string };
 
     if (language) {
-      // TARGET LANGUAGE MODE: Use the learning language voice for all content
       selectedLanguage = language.toLowerCase();
       voiceConfig = GOOGLE_VOICE_MAP[selectedLanguage] || GOOGLE_VOICE_MAP['english'];
       console.log(`[Google TTS] Using target language voice: ${voiceConfig.name} (${selectedLanguage})`);
     } else {
-      // AUTO-DETECT MODE: Detect the actual language of the text
       selectedLanguage = this.detectLanguage(text);
       voiceConfig = GOOGLE_VOICE_MAP[selectedLanguage] || GOOGLE_VOICE_MAP['english'];
       console.log(`[Google TTS] Auto-detected language: ${selectedLanguage}, using ${voiceConfig.name}`);
@@ -292,23 +381,27 @@ export class TTSService {
 
     console.log(`[Google TTS] Synthesizing ${text.length} chars with ${voiceConfig.name}`);
 
-    // Prepare the synthesis request
-    const googleRequest: protos.google.cloud.texttospeech.v1.ISynthesizeSpeechRequest = {
-      input: { text },
+    // Convert text to SSML with mark tags for word-level timing
+    const { ssml, words } = this.textToSSMLWithMarks(text);
+
+    // Prepare the synthesis request using v1beta1 API with timepointing
+    const request = {
+      input: { ssml },
       voice: {
         languageCode: voiceConfig.languageCode,
         name: voiceConfig.name,
       },
       audioConfig: {
-        audioEncoding: 'MP3',
-        speakingRate: 0.9, // Slightly slower for language learning
+        audioEncoding: 'MP3' as const,
+        speakingRate: 0.9,
         pitch: 0,
         volumeGainDb: 0,
       },
+      enableTimePointing: ['SSML_MARK'] as any[],
     };
 
-    // Call Google Cloud TTS API
-    const [response] = await this.googleClient.synthesizeSpeech(googleRequest);
+    // Call Google Cloud TTS API (v1beta1)
+    const [response] = await this.googleBetaClient.synthesizeSpeech(request);
 
     if (!response.audioContent) {
       throw new Error('Google TTS returned no audio content');
@@ -317,9 +410,17 @@ export class TTSService {
     const audioBuffer = Buffer.from(response.audioContent as Uint8Array);
     console.log(`[Google WaveNet] ✓ Generated ${audioBuffer.length} bytes`);
 
+    // Parse word-level timestamps
+    let wordTimings: WordTiming[] | undefined;
+    if (response.timepoints && response.timepoints.length > 0) {
+      wordTimings = this.parseWordTimings(response.timepoints, words);
+      console.log(`[Google TTS] ✓ Extracted ${wordTimings.length} word timings for ${words.length} words`);
+    }
+
     return {
       audioBuffer,
       contentType: 'audio/mpeg',
+      wordTimings,
     };
   }
 

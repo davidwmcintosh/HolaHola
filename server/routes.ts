@@ -2396,9 +2396,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Synthesize speech using TTS API
   // Now uses Google Cloud WaveNet for authentic native pronunciation (with OpenAI fallback)
+  // Returns both audio and word-level timing data for synchronized subtitles
   app.post("/api/voice/synthesize", isAuthenticated, async (req: any, res) => {
     try {
-      const { text, voice, language } = req.body;
+      const { text, voice, language, returnTimings } = req.body;
       
       if (!text) {
         return res.status(400).json({ error: "No text provided" });
@@ -2420,7 +2421,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[TTS] ✓ Generated ${result.audioBuffer.length} bytes using ${ttsService.getProvider()} provider`);
 
-      // Send audio response
+      // If client requested word timings, return JSON with audio + timings
+      if (returnTimings && result.wordTimings) {
+        return res.json({
+          audio: result.audioBuffer.toString('base64'),
+          wordTimings: result.wordTimings,
+          contentType: result.contentType,
+        });
+      }
+
+      // Default: Send audio only (backward compatible)
       res.setHeader('Content-Type', result.contentType);
       res.setHeader('Content-Length', result.audioBuffer.length.toString());
       res.send(result.audioBuffer);
