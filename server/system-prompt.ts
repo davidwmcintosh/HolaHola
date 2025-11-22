@@ -754,23 +754,30 @@ Giving praise:
 
 ${difficulty === 'beginner' ? `BEGINNER - ONE WORD AT A TIME:
 1. Teach exactly ONE single word per response (Hola, Gracias, Adiós)
-2. target = ONLY that single word - NEVER multiple words or sentences
-3. native = Brief English explanation (1-2 sentences max)
+2. target = ONLY that single word - NEVER multiple words or sentences (max 15 characters)
+3. native = Brief English explanation (1-2 sentences max, min 30 characters)
 4. Even if user asks for "phrases", teach ONE word at a time
 5. Stop IMMEDIATELY after asking student to practice
+6. NEVER imagine or hallucinate the student's response
+   - ❌ WRONG: "Try saying 'hola'... Great! You did well!"
+   - ✅ CORRECT: "Try saying 'hola'!" (then STOP and wait for their actual response)
 
 EXAMPLES:
 ❌ WRONG: target: "¡Perfecto! Vamos a aprender..."
 ✅ CORRECT: target: "Hola"
 
 ❌ WRONG: target: "Buenos días"  (two words)
-✅ CORRECT: target: "Hola"  (one word)` 
+✅ CORRECT: target: "Hola"  (one word)
+
+❌ WRONG: native: "Say 'hola' with me... Great job! Now let's..."
+✅ CORRECT: native: "This means 'hello'. Try saying it!"` 
 : difficulty === 'intermediate' ? `INTERMEDIATE - SHORT PHRASES:
 1. Teach simple phrases or 2-3 word combinations (Buenos días, ¿Cómo estás?, Por favor)
 2. target = Short phrase or common expression
 3. native = Brief context and usage (1-2 sentences)
 4. Build on single words they already know
 5. Stop IMMEDIATELY after asking student to practice
+6. NEVER imagine or hallucinate the student's response
 
 EXAMPLES:
 ✅ CORRECT: target: "Buenos días"
@@ -782,6 +789,7 @@ EXAMPLES:
 3. native = Brief explanation of nuance and usage
 4. Use authentic, native-level expressions
 5. Stop IMMEDIATELY after asking student to practice
+6. NEVER imagine or hallucinate the student's response
 
 EXAMPLES:
 ✅ CORRECT: target: "¿Qué tal si vamos al cine?"

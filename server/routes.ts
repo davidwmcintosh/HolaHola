@@ -1278,12 +1278,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.warn('[VOICE VALIDATION] AI violated beginner constraints, extracting target word');
               
               // Strategy: Extract Spanish word from native field (often in quotes)
-              // Examples: "Say 'Hola'!" → "Hola", "The word 'gracias' means..." → "gracias"
-              const quotedWordMatch = native.match(/['"]([a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]+)['"]/);
+              // Examples: "Say 'Hola'!" → "Hola", "'hello' is 'hola'" → "hola" (skip English)
+              const quotedWords = [...native.matchAll(/['"]([a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]+)['"]/g)];
               
-              if (quotedWordMatch && quotedWordMatch[1].length <= MAX_TARGET_CHARS) {
-                target = quotedWordMatch[1];
-                console.log(`[VOICE VALIDATION] ✓ Extracted quoted word from native: "${target}"`);
+              // Find first quoted word that's NOT common English (hello, thank you, goodbye, etc.)
+              const englishWords = new Set(['hello', 'goodbye', 'thank', 'thanks', 'please', 'yes', 'no']);
+              const spanishWord = quotedWords
+                .map(match => match[1])
+                .find(word => !englishWords.has(word.toLowerCase()) && word.length <= MAX_TARGET_CHARS);
+              
+              if (spanishWord) {
+                target = spanishWord;
+                console.log(`[VOICE VALIDATION] ✓ Extracted Spanish word from quotes: "${target}"`);
+              } else if (quotedWords.length > 0 && quotedWords[quotedWords.length - 1][1].length <= MAX_TARGET_CHARS) {
+                // Fallback: Use last quoted word (often the Spanish translation)
+                target = quotedWords[quotedWords.length - 1][1];
+                console.log(`[VOICE VALIDATION] ✓ Extracted last quoted word: "${target}"`);
               } else {
                 // Fallback: Try first word from original target
                 const firstWord = target.split(/\s+/)[0].replace(/[¡!¿?.,;]/g, '');
