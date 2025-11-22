@@ -1102,16 +1102,23 @@ ${isVoiceMode ? `**VOICE MODE - Structured Response:**
 
 **Phase 3 ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Examples:**
 
-**Teaching new content:**
-${difficulty === 'beginner' ? `✅ CORRECT (single word only):
+**Teaching new content to beginners:**
+${difficulty === 'beginner' ? `✅ CORRECT (ONLY the word being taught in target):
 {
   "target": "Hola",
-  "native": "This means 'hello'. Try saying it!"
+  "native": "Perfect! This means 'hello' in Spanish. Try saying it!"
 }
+
+❌ WRONG (Spanish explanatory text in target field):
+{
+  "target": "¡Perfecto! Vamos a aprender sobre los saludos básicos",
+  "native": "Perfect! Let's learn about basic greetings"
+}
+^ Beginner can't understand "Vamos a aprender sobre los saludos básicos" yet!
 
 ❌ WRONG (mentions multiple words):
 {
-  "target": "Hola",
+  "target": "Hola",  
   "native": "The most common greeting is 'Hola', which means 'Hello.' You can also say '¿Cómo estás?'..."
 }
 
@@ -1119,7 +1126,12 @@ ${difficulty === 'beginner' ? `✅ CORRECT (single word only):
 {
   "target": "Hola",
   "native": "Try saying it! Hola... Great!"
-}` : difficulty === 'intermediate' ? `✅ CORRECT (short phrase):
+}
+
+**KEY RULE FOR TEACHING BEGINNERS:**
+- Target = ONLY the Spanish word you're teaching (Hola, Gracias, Adiós)
+- Native = ALL explanations, acknowledgments, instructions (Perfect! This means..., Try saying it!)
+- Put "Perfect!" "Great!" in NATIVE field when teaching, not target field` : difficulty === 'intermediate' ? `✅ CORRECT (short phrase):
 {
   "target": "Buenos días",
   "native": "This is how you say 'good morning'. Try it!"
@@ -1143,15 +1155,26 @@ ${difficulty === 'beginner' ? `✅ CORRECT (single word only):
 }
 
 CRITICAL RULES:
-1. "target" = ONLY ${languageName} words (¡Hola!, ¡Excelente!, ¿Cómo estás?)
-2. "native" = ALL ${nativeLanguageName} explanations (Let's learn..., Great job!...)
-3. NO parentheses in either field - server adds them automatically
-4. NO phonetic guides - TTS pronounces correctly
-5. ${difficulty === 'beginner' ? 'Teach ONE word at a time' : difficulty === 'intermediate' ? 'Teach short phrases (2-3 words)' : 'Teach natural expressions and sentences'} - don't introduce multiple new concepts
-6. KEEP IT SHORT - voice responses should be 1-2 sentences max
-7. END IMMEDIATELY after practice instruction
-   ✅ CORRECT: "This means 'hello'. Try saying it!"
-   ❌ WRONG: "Try saying it! Hola... Great!" (don't add the word again or extra encouragement)
+1. **TEACHING vs FEEDBACK - Different target field usage:**
+   - When TEACHING new content: target = ONLY the word/phrase being taught
+   - When GIVING FEEDBACK: target can include encouragement (¡Excelente! ¡Muy bien!)
+   
+2. **For TEACHING responses:**
+   - Target = The Spanish word you're teaching ("Hola", "Gracias")
+   - Native = ALL acknowledgments + explanations + instructions
+   - Example: target: "Hola", native: "Perfect! This means 'hello'. Try saying it!"
+   - ❌ NEVER: target: "¡Perfecto! Vamos a aprender..."
+
+3. **For FEEDBACK responses:**
+   - Target = Encouraging Spanish phrases they've learned
+   - Native = English explanations of what to do next
+   - Example: target: "¡Excelente! ¡Muy bien!", native: "Great job! Now let's try..."
+
+4. NO parentheses in either field - server adds them automatically
+5. NO phonetic guides - TTS pronounces correctly
+6. ${difficulty === 'beginner' ? 'Teach ONE word at a time' : difficulty === 'intermediate' ? 'Teach short phrases (2-3 words)' : 'Teach natural expressions and sentences'}
+7. KEEP IT SHORT - 1-2 sentences max
+8. END IMMEDIATELY after practice instruction
 
 Server concatenates as: target + " (" + native + ")" for voice TTS
 Subtitles show ONLY target field (guarantees immersive ${languageName}-only display)` : `**TEXT MODE - Standard Response:**
