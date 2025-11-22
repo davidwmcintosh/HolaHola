@@ -70,15 +70,11 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     };
   }, [conversationId]);
 
-  // Auto-scroll - only when new messages arrive, not on every render
-  const previousMessageCountRef = useRef(0);
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    const currentCount = messages.length;
-    // Only scroll if message count increased (new message added)
-    if (currentCount > previousMessageCountRef.current && scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (scrollRef.current) {
+      scrollRef.current.scrollIntoView({ behavior: "smooth" });
     }
-    previousMessageCountRef.current = currentCount;
   }, [messages]);
 
   // Auto-play greeting message in new conversations
