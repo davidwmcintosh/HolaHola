@@ -715,12 +715,14 @@ CRITICAL: Separate Spanish from English into TWO fields:
   "native": "Great job! Now let's try..."
 }
 
-RULES:
+CRITICAL RULES:
 1. "target" = ONLY ${languageName} words (¡Hola!, ¡Excelente!, ¿Cómo estás?)
 2. "native" = ALL ${nativeLanguageName} explanations (Let's learn..., Great job!...)
 3. NO parentheses in either field - server adds them automatically
 4. NO phonetic guides - TTS pronounces correctly
-5. Teach ONE word at a time - don't introduce multiple new words in one response` : `**TEXT MODE - Standard Response:**
+5. Teach ONE word at a time - don't introduce multiple new concepts
+6. KEEP IT SHORT - voice responses should be 1-2 sentences max
+7. END IMMEDIATELY after asking student a question - no additional commentary` : `**TEXT MODE - Standard Response:**
 {
   "message": "Your conversational response (gentle mix of ${nativeLanguageName} and ${languageName})",
   "vocabulary": [...],
@@ -1064,12 +1066,14 @@ ${difficulty === 'beginner' ? `✅ CORRECT:
   "native": "..."
 }
 
-RULES:
+CRITICAL RULES:
 1. "target" = ONLY ${languageName} words (¡Hola!, ¡Excelente!, ¿Cómo estás?)
 2. "native" = ALL ${nativeLanguageName} explanations (Let's learn..., Great job!...)
 3. NO parentheses in either field - server adds them automatically
 4. NO phonetic guides - TTS pronounces correctly
-5. Teach ONE word/phrase at a time - don't introduce multiple new concepts in one response
+5. Teach ONE word/phrase at a time - don't introduce multiple new concepts
+6. KEEP IT SHORT - voice responses should be 1-2 sentences max
+7. END IMMEDIATELY after asking student a question - no additional commentary
 
 Server concatenates as: target + " (" + native + ")" for voice TTS
 Subtitles show ONLY target field (guarantees immersive ${languageName}-only display)` : `**TEXT MODE - Standard Response:**

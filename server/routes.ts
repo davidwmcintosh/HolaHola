@@ -1219,7 +1219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               content: msg.content,
             })),
           ],
-          max_completion_tokens: 500, // Shorter response for voice
+          max_completion_tokens: 150, // Very short response for voice (1-2 sentences)
           response_format: {
             type: "json_schema",
             json_schema: {
@@ -1740,7 +1740,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               content: msg.content,
             })),
           ],
-          max_completion_tokens: 500, // Shorter response for voice
+          max_completion_tokens: 150, // Very short response for voice (1-2 sentences)
         });
 
         const responseContent = quickCompletion.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
