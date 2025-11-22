@@ -62,14 +62,31 @@ function getLanguageCode(language: string | undefined): string | undefined {
 }
 
 /**
- * Strip markdown formatting and pronunciation guides from text before sending to TTS
- * Removes: ** (bold), * (italic), _ (underline), ` (code), (parentheses), etc.
- * Preserves: Core message text that should be spoken
+ * Strip markdown formatting from text before sending to TTS
+ * Removes: ** (bold), * (italic), English translations in parentheses
+ * Preserves: Phonetic pronunciations (kah-FEH format)
  */
 function stripMarkdownForSpeech(text: string): string {
   return text
-    // Remove parentheses and their content (pronunciation guides, translations)
-    .replace(/\([^)]*\)/g, '')
+    // Smart parentheses handling: Keep pronunciation, remove translations
+    // Pattern: (Translation; pronunciation) -> keep only pronunciation
+    // Pattern: (Translation) -> remove entirely
+    // Pattern: (pronunciation) -> keep
+    .replace(/\(([^)]+)\)/g, (match, content) => {
+      // If there's a semicolon, keep only the part after it (pronunciation)
+      if (content.includes(';')) {
+        const parts = content.split(';');
+        // Return the pronunciation part (after semicolon), trimmed
+        return parts[1].trim();
+      }
+      // If no semicolon, check if it looks like a pronunciation (has hyphens and caps)
+      // Pronunciations typically look like: kah-FEH, por fah-VOR
+      if (content.match(/[A-Z]{2,}/) || content.includes('-')) {
+        return content; // Keep pronunciation
+      }
+      // Otherwise it's likely a translation, remove it
+      return '';
+    })
     // Remove bold (**text**)
     .replace(/\*\*(.+?)\*\*/g, '$1')
     // Remove italic (*text* or _text_)
