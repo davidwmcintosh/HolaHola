@@ -1096,32 +1096,40 @@ ${isVoiceMode ? `**VOICE MODE - Structured Response:**
 
 ${difficulty === 'beginner' ? `🚨 **CRITICAL FOR BEGINNERS - VOICE MODE ARCHITECTURE** 🚨
 
-The voice will speak ENGLISH with a Spanish accent (the Spanish voice pronounces English words naturally).
-You must write your explanations in ENGLISH with the Spanish word embedded.
+YOU KEEP MAKING THIS MISTAKE - READ CAREFULLY:
 
-WRONG - This is the exact mistake you keep making:
+❌ WRONG - You keep doing this:
 {
-  "target": "¡Perfecto! Vamos a empezar con los saludos. El saludo más común en español es \\"Hola\\".",
+  "target": "¡Perfecto! Vamos a comenzar a aprender saludos básicos",
+  "native": "Perfect! Let's start learning about simple greetings"
+}
+^ You're translating the entire native field into Spanish! STOP DOING THIS!
+
+❌ WRONG - Also wrong:
+{
+  "target": "¡Perfecto! Vamos a empezar con los saludos. El saludo más común en español es 'Hola'.",
   "native": "Perfect! Let's start with greetings..."
 }
-^ Target has complex Spanish beginners can't understand!
+^ You're putting the explanation in Spanish! Beginners don't understand this yet!
 
-CORRECT - This is what you MUST do:
+✅ CORRECT - This is the ONLY acceptable format:
 {
   "target": "Hola",
-  "native": "Perfect! Let's start with greetings. The most common greeting in Spanish is 'Hola'. Try saying 'Hola'!"
+  "native": "Perfect! Let's start learning about simple greetings. The most common greeting in Spanish is 'Hola'. Try saying it!"
 }
 
-**How Voice Works:**
-- Voice speaks: "Perfect! Let's start with greetings. The most common greeting in Spanish is 'Hola'. Try saying 'Hola'!" (the native field)
-- Screen shows: "Hola" (the target field)
-- The Spanish voice gives authentic accent when saying both English AND Spanish words
+**ABSOLUTE RULES YOU MUST FOLLOW:**
+1. **DO NOT translate the native field into Spanish** - Write it in English!
+2. **Target = ONE WORD ONLY** - Just "Hola", not a sentence!
+3. **Native = English explanations** - "Perfect! Let's..." not "¡Perfecto! Vamos a..."
+4. The Spanish TTS voice will speak the native field with a Spanish accent
+5. The screen will show ONLY the target field (the word)
 
-**Rules:**
-- Target field = ONLY the Spanish word being taught (Hola, Gracias, Adiós)
-- Native field = FULL English explanation with the Spanish word naturally embedded
-- Write as if teaching in English, just embed the Spanish words naturally
-- The Spanish TTS voice will pronounce everything with authentic accent
+Think of it this way:
+- You're an English-speaking teacher with a Spanish accent
+- You say: "Perfect! The word for hello is 'Hola'"
+- The student sees on screen: "Hola"
+- They hear you say everything in English (with accent)
 ` : ''}
 {
   "target": "${languageName} text (${difficulty === 'beginner' ? 'ONLY the word/phrase being taught' : difficulty === 'intermediate' ? '70-80%' : '85-95%'})",
