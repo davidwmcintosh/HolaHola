@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, MessageSquare } from "lucide-react";
+import { type Message } from "@shared/schema";
 import tutorSpeakingUrl from "@assets/generated_images/Teacher_speaking_animatedly_62a6f01b.png";
 import tutorIdleUrl from "@assets/generated_images/Friendly_teacher_idle_state_fd4580c6.png";
 
@@ -8,14 +9,6 @@ interface WordTiming {
   word: string;
   startTime: number;
   endTime: number;
-}
-
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  targetLanguageText?: string;
-  wordTimingsJson?: string;
 }
 
 interface ImmersiveTutorProps {

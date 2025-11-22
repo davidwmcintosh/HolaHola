@@ -10,6 +10,7 @@ import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvata
 import { CompactDifficultyControl } from "@/components/CompactDifficultyControl";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { queryClient } from "@/lib/queryClient";
+import { VoiceChatViewManager } from "@/components/VoiceChatViewManager";
 
 interface RestVoiceChatProps {
   conversationId: string | null;
@@ -24,7 +25,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   const [processingStage, setProcessingStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [avatarState, setAvatarState] = useState<AvatarState>('idle');
-  const [recordingMode, setRecordingMode] = useState<'auto-stop' | 'push-to-talk' | null>(null);
+  const [currentPlayingMessageId, setCurrentPlayingMessageId] = useState<string | null>(null);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
@@ -122,15 +123,18 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
             audioPlayerRef.current.onended = () => {
               URL.revokeObjectURL(audioUrl);
               setAvatarState('idle');
+              setCurrentPlayingMessageId(null);
             };
             
             audioPlayerRef.current.onerror = () => {
               URL.revokeObjectURL(audioUrl);
               setAvatarState('idle');
+              setCurrentPlayingMessageId(null);
             };
             
-            // Set speaking state only immediately before playing
+            // Set speaking state and current playing message before playing
             setAvatarState('speaking');
+            setCurrentPlayingMessageId(greetingMessage.id);
             
             audioPlayerRef.current.play()
               .then(() => {
@@ -140,6 +144,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
               .catch(err => {
                 console.error('[VOICE GREETING] Failed to play greeting:', err);
                 setAvatarState('idle');
+                setCurrentPlayingMessageId(null);
                 URL.revokeObjectURL(audioUrl);
               });
           }
@@ -171,13 +176,13 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       // Prevent default behavior
       event.preventDefault();
       
-      // Toggle recording (auto-stop mode only - Enter key doesn't make sense for push-to-talk)
-      if (isRecording && recordingMode === 'auto-stop') {
-        console.log('[KEYBOARD] Enter pressed - manually stopping auto-stop recording');
-        stopRecording();
-      } else if (!isRecording) {
-        console.log('[KEYBOARD] Enter pressed - starting auto-stop recording');
-        startRecording();
+      // Toggle recording using push-to-talk mode
+      if (isRecording) {
+        console.log('[KEYBOARD] Enter pressed - stopping recording');
+        stopPushToTalkRecording();
+      } else {
+        console.log('[KEYBOARD] Enter pressed - starting recording');
+        startPushToTalkRecording();
       }
     };
 
@@ -219,7 +224,6 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     
     setIsRecording(false);
     isRecordingRef.current = false; // Update ref immediately
-    setRecordingMode(null); // Reset mode to prevent stale state
   };
 
   const setupSilenceDetection = (stream: MediaStream) => {
@@ -298,7 +302,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     
     try {
       setError(null);
-      setRecordingMode('auto-stop');
+      
       
       // Capture conversation ID for this session
       const recordingConversationId = conversationId;
@@ -352,7 +356,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           setIsRecording(false);
           isRecordingRef.current = false; // Update ref immediately
           setAvatarState('idle');
-          setRecordingMode(null);
+          
         } else {
           console.log('[RECORDER] Session superseded - new recording already started');
         }
@@ -404,7 +408,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     
     try {
       setError(null);
-      setRecordingMode('push-to-talk');
+      
       
       // Capture conversation ID for this session
       const recordingConversationId = conversationId;
@@ -443,7 +447,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           setIsRecording(false);
           isRecordingRef.current = false;
           setAvatarState('idle');
-          setRecordingMode(null);
+          
         } else {
           console.log('[PUSH-TO-TALK] Session superseded - new recording already started');
         }
@@ -472,7 +476,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     } catch (err: any) {
       console.error('Failed to start push-to-talk recording:', err);
       setError(err.message || 'Failed to access microphone');
-      setRecordingMode(null);
+      
       cleanupRecording();
     }
   };
@@ -483,7 +487,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       mediaRecorderRef.current.stop();
     } else {
       cleanupRecording();
-      setRecordingMode(null);
+      
     }
   };
 
@@ -516,6 +520,17 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       console.log('[REST VOICE] ✓ Transcript:', result.userTranscript);
       console.log('[REST VOICE] ✓ Response:', result.aiResponse);
       
+      // Refetch messages to get the new assistant message (waits for fetch to complete)
+      await queryClient.refetchQueries({
+        queryKey: ["/api/conversations", targetConversationId, "messages"],
+      });
+      
+      // Get the latest assistant message ID for subtitle display
+      const updatedMessages = queryClient.getQueryData<Message[]>(["/api/conversations", targetConversationId, "messages"]);
+      const latestAssistantMessage = updatedMessages?.filter(m => m.role === 'assistant').pop();
+      
+      console.log('[REST VOICE] Latest assistant message for highlighting:', latestAssistantMessage?.id);
+      
       // Step 4: Play response
       setProcessingStage('Playing response...');
       setAvatarState('speaking');
@@ -527,10 +542,16 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         const audioUrl = URL.createObjectURL(result.audioBlob);
         audioPlayerRef.current.src = audioUrl;
         
+        // Set the currently playing message ID before playing
+        if (latestAssistantMessage) {
+          setCurrentPlayingMessageId(latestAssistantMessage.id);
+        }
+        
         audioPlayerRef.current.onended = () => {
           console.log('[REST VOICE] Audio playback ended');
           URL.revokeObjectURL(audioUrl);
           setAvatarState('idle');
+          setCurrentPlayingMessageId(null);
           setProcessingStage(null);
         };
         
@@ -539,6 +560,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           setError('Failed to play audio. The text response is still saved.');
           URL.revokeObjectURL(audioUrl);
           setAvatarState('idle');
+          setCurrentPlayingMessageId(null);
           setProcessingStage(null);
         };
         
@@ -551,6 +573,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           setError(`Audio playback blocked: ${playError.message}. Check browser autoplay settings.`);
           URL.revokeObjectURL(audioUrl);
           setAvatarState('idle');
+          setCurrentPlayingMessageId(null);
           setProcessingStage(null);
         }
       } else {
@@ -558,11 +581,6 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         setProcessingStage(null);
         setAvatarState('idle');
       }
-      
-      // Refresh messages
-      queryClient.invalidateQueries({
-        queryKey: ["/api/conversations", targetConversationId, "messages"],
-      });
       
     } catch (err: any) {
       console.error('[REST VOICE] Error:', err);
@@ -603,9 +621,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           <div>
             <h2 className="text-lg font-semibold">Voice Practice</h2>
             <p className="text-sm text-muted-foreground">
-              {isRecording 
-                ? `Listening... (${recordingMode === 'auto-stop' ? 'auto-stop mode' : 'push-to-talk mode'})` 
-                : "Choose your recording mode below"}
+              {isRecording ? "Listening..." : "Press and hold mic to speak"}
             </p>
           </div>
         </div>
@@ -615,145 +631,18 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         </div>
       </div>
 
-      {/* Messages - matches ChatInterface.tsx layout */}
-      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 custom-scrollbar">
-          <div className="space-y-3 md:space-y-4">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex gap-2 md:gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <Card className={`p-3 md:p-4 max-w-[85%] md:max-w-2xl rounded-2xl ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                  <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                </Card>
-              </div>
-            ))}
-            <div ref={scrollRef} />
-          </div>
-        </div>
-
-        {/* Mic control area - inside Card like text input */}
-        <div className="p-3 md:p-4 border-t shrink-0">
-          {/* Error display */}
-          {error && (
-            <div className="mb-3 p-3 bg-destructive/10 border border-destructive rounded-md">
-              <p className="text-sm text-destructive">{error}</p>
-            </div>
-          )}
-
-          {/* Processing status */}
-          {processingStage && (
-            <div className="mb-3 p-3 bg-accent rounded-md flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <p className="text-sm">{processingStage}</p>
-            </div>
-          )}
-
-          {/* Two recording modes for A/B testing */}
-          <div className="flex flex-col items-center gap-4">
-            <div className="grid grid-cols-2 gap-4 w-full max-w-md">
-              {/* Auto-stop mode */}
-              <div className="flex flex-col items-center gap-2">
-                <Button
-                  size="icon"
-                  variant={isRecording && recordingMode === 'auto-stop' ? 'destructive' : 'default'}
-                  className="h-14 w-14 rounded-full"
-                  onClick={() => {
-                    if (!isProcessing && conversationId && !isRecording) {
-                      startRecording();
-                    } else if (isRecording && recordingMode === 'auto-stop') {
-                      stopRecording();
-                    }
-                  }}
-                  disabled={isProcessing || !conversationId || (isRecording && recordingMode !== 'auto-stop')}
-                  data-testid="button-auto-stop"
-                  aria-pressed={isRecording && recordingMode === 'auto-stop'}
-                  aria-label="Click to speak - auto-stops after silence"
-                >
-                  {isProcessing ? (
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  ) : isRecording && recordingMode === 'auto-stop' ? (
-                    <Mic className="h-6 w-6 animate-pulse" />
-                  ) : (
-                    <Mic className="h-6 w-6" />
-                  )}
-                </Button>
-                <div className="text-center">
-                  <p className="text-xs font-medium" data-testid="label-auto-stop">Click to Speak</p>
-                  <p className="text-xs text-muted-foreground">Auto-stops</p>
-                </div>
-              </div>
-
-              {/* Push-to-talk mode */}
-              <div className="flex flex-col items-center gap-2">
-                <Button
-                  size="icon"
-                  variant={isRecording && recordingMode === 'push-to-talk' ? 'destructive' : 'default'}
-                  className="h-14 w-14 rounded-full"
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    if (!isProcessing && conversationId && !isRecording) {
-                      startPushToTalkRecording();
-                    }
-                  }}
-                  onPointerUp={(e) => {
-                    e.preventDefault();
-                    if (isRecording && recordingMode === 'push-to-talk') {
-                      stopPushToTalkRecording();
-                    }
-                  }}
-                  onPointerCancel={(e) => {
-                    e.preventDefault();
-                    if (isRecording && recordingMode === 'push-to-talk') {
-                      console.log('[PUSH-TO-TALK] Pointer cancelled - stopping recording');
-                      stopPushToTalkRecording();
-                    }
-                  }}
-                  onPointerLeave={(e) => {
-                    e.preventDefault();
-                    if (isRecording && recordingMode === 'push-to-talk') {
-                      stopPushToTalkRecording();
-                    }
-                  }}
-                  onTouchCancel={(e) => {
-                    e.preventDefault();
-                    if (isRecording && recordingMode === 'push-to-talk') {
-                      console.log('[PUSH-TO-TALK] Touch cancelled - stopping recording');
-                      stopPushToTalkRecording();
-                    }
-                  }}
-                  disabled={isProcessing || !conversationId || (isRecording && recordingMode !== 'push-to-talk')}
-                  data-testid="button-push-to-talk"
-                  aria-pressed={isRecording && recordingMode === 'push-to-talk'}
-                  aria-label="Hold to speak"
-                >
-                  {isProcessing ? (
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  ) : isRecording && recordingMode === 'push-to-talk' ? (
-                    <Mic className="h-6 w-6 animate-pulse" />
-                  ) : (
-                    <Mic className="h-6 w-6" />
-                  )}
-                </Button>
-                <div className="text-center">
-                  <p className="text-xs font-medium" data-testid="label-push-to-talk">Push to Talk</p>
-                  <p className="text-xs text-muted-foreground">Hold down</p>
-                </div>
-              </div>
-            </div>
-            
-            {/* Status text */}
-            {isRecording && (
-              <p className="text-xs text-muted-foreground text-center" data-testid="text-recording-status">
-                {recordingMode === 'auto-stop' 
-                  ? "🎙️ Recording... (auto-stops after 2s silence)" 
-                  : "🎙️ Recording... (release to stop)"
-                }
-              </p>
-            )}
-          </div>
-        </div>
+      {/* Immersive Voice Chat with View Manager */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <VoiceChatViewManager
+          conversationId={conversationId}
+          messages={messages}
+          onRecordingStart={startPushToTalkRecording}
+          onRecordingStop={stopPushToTalkRecording}
+          isRecording={isRecording}
+          isPlaying={avatarState === 'speaking'}
+          currentPlayingMessageId={currentPlayingMessageId ?? undefined}
+          audioElementRef={audioPlayerRef}
+        />
       </div>
     </div>
   );
