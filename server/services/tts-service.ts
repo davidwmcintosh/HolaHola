@@ -358,11 +358,10 @@ export class TTSService {
   /**
    * Synthesize speech using Google Cloud TTS (Neural2 and Chirp 3 HD voices)
    * Uses the target language voice consistently for authentic pronunciation
-   * Now with word-level timing for synchronized subtitles
    */
   private async synthesizeWithGoogle(text: string, language?: string): Promise<TTSResponse> {
-    if (!this.googleBetaClient) {
-      throw new Error('Google Cloud TTS beta client not initialized');
+    if (!this.googleClient) {
+      throw new Error('Google Cloud TTS client not initialized');
     }
 
     // Determine which voice to use
@@ -381,12 +380,10 @@ export class TTSService {
 
     console.log(`[Google TTS] Synthesizing ${text.length} chars with ${voiceConfig.name}`);
 
-    // Convert text to SSML with mark tags for word-level timing
-    const { ssml, words } = this.textToSSMLWithMarks(text);
-
-    // Prepare the synthesis request using v1beta1 API with timepointing
+    // Prepare the synthesis request using standard v1 API
+    // Note: Chirp 3 HD voices don't support enableTimePointing beta feature
     const request = {
-      input: { ssml },
+      input: { text }, // Use plain text instead of SSML
       voice: {
         languageCode: voiceConfig.languageCode,
         name: voiceConfig.name,
@@ -397,11 +394,10 @@ export class TTSService {
         pitch: 0,
         volumeGainDb: 0,
       },
-      enableTimePointing: ['SSML_MARK'] as any[],
     };
 
-    // Call Google Cloud TTS API (v1beta1)
-    const [response] = await this.googleBetaClient.synthesizeSpeech(request);
+    // Call Google Cloud TTS API (v1)
+    const [response] = await this.googleClient.synthesizeSpeech(request);
 
     if (!response.audioContent) {
       throw new Error('Google TTS returned no audio content');
@@ -410,17 +406,11 @@ export class TTSService {
     const audioBuffer = Buffer.from(response.audioContent as Uint8Array);
     console.log(`[Google WaveNet] ✓ Generated ${audioBuffer.length} bytes`);
 
-    // Parse word-level timestamps
-    let wordTimings: WordTiming[] | undefined;
-    if (response.timepoints && response.timepoints.length > 0) {
-      wordTimings = this.parseWordTimings(response.timepoints, words);
-      console.log(`[Google TTS] ✓ Extracted ${wordTimings.length} word timings for ${words.length} words`);
-    }
-
     return {
       audioBuffer,
       contentType: 'audio/mpeg',
-      wordTimings,
+      // Word timings not available without beta API
+      wordTimings: undefined,
     };
   }
 
