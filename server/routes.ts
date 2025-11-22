@@ -1275,18 +1275,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             if (target.length > MAX_TARGET_CHARS) {
               console.warn(`[VOICE VALIDATION] Target too long (${target.length} > ${MAX_TARGET_CHARS}): "${target.substring(0, 50)}"`);
-              console.warn('[VOICE VALIDATION] AI violated beginner constraints, using fallback');
+              console.warn('[VOICE VALIDATION] AI violated beginner constraints, extracting target word');
               
-              // Fallback: Extract first word or use safe default
-              const firstWord = target.split(/\s+/)[0];
-              if (firstWord.length <= MAX_TARGET_CHARS) {
-                target = firstWord;
-                console.log(`[VOICE VALIDATION] Extracted first word: "${target}"`);
+              // Strategy: Extract Spanish word from native field (often in quotes)
+              // Examples: "Say 'Hola'!" → "Hola", "The word 'gracias' means..." → "gracias"
+              const quotedWordMatch = native.match(/['"]([a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]+)['"]/);
+              
+              if (quotedWordMatch && quotedWordMatch[1].length <= MAX_TARGET_CHARS) {
+                target = quotedWordMatch[1];
+                console.log(`[VOICE VALIDATION] ✓ Extracted quoted word from native: "${target}"`);
               } else {
-                // Use safe fallback word
-                target = "Hola";
-                native = "Let's practice the most common Spanish greeting: 'Hola'. Try saying it!";
-                console.log('[VOICE VALIDATION] Using fallback: "Hola"');
+                // Fallback: Try first word from original target
+                const firstWord = target.split(/\s+/)[0].replace(/[¡!¿?.,;]/g, '');
+                if (firstWord.length <= MAX_TARGET_CHARS && /[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]/.test(firstWord)) {
+                  target = firstWord;
+                  console.log(`[VOICE VALIDATION] ✓ Extracted first word: "${target}"`);
+                } else {
+                  // Last resort: Safe default
+                  target = "Hola";
+                  native = "Let's practice the most common Spanish greeting: 'Hola'. Try saying it!";
+                  console.log('[VOICE VALIDATION] Using safe fallback: "Hola"');
+                }
               }
             }
             
