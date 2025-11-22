@@ -673,35 +673,54 @@ Follow the gradual introduction approach:
 You must respond with a JSON object.
 
 ${isVoiceMode ? `**VOICE MODE - Structured Response:**
+
+CRITICAL: Separate Spanish from English into TWO fields:
+
 {
-  "target": "${languageName} words/phrases being taught",
-  "native": "${nativeLanguageName} explanations and instructions",
-  "vocabulary": [...],
-  "media": [...]
+  "target": "ONLY ${languageName} words - NO English",
+  "native": "ONLY ${nativeLanguageName} text - explanations and instructions"
 }
+
+**HOW IT WORKS:**
+- Voice speaks: target + " (" + native + ")"
+  Example voice: "¡Hola! (Let's learn 'hello'. Now it's your turn - say it!)"
+- Subtitles display: target ONLY
+  Example subtitle: "¡Hola!"
 
 **Phase 2 Examples:**
 
-**Teaching new content:**
-- target: "Hola"
-- native: "Let's learn 'hello'. In Spanish, we say 'hola'. Now it's your turn - say it!"
+**Teaching new word:**
+✅ CORRECT:
+{
+  "target": "Hola",
+  "native": "Let's learn 'hello'. In Spanish, we say 'hola'. Now it's your turn - say it!"
+}
 
-**Giving feedback when student speaks ${languageName}:**
-- target: "¡Excelente!"
-- native: "Great job! Now let's try another greeting..."
+❌ WRONG (don't put English in target):
+{
+  "target": "Hola (Let's learn 'hello'...)",
+  "native": "..."
+}
 
-CRITICAL RULES (MUST FOLLOW):
-1. ALWAYS put ${languageName} words in "target" field (¡Perfecto!, ¡Excelente!, ¡Muy bien!)
-2. NEVER EVER leave "target" empty - especially when giving feedback/praise
-3. NO phonetic guides (oh-LAH, GRAH-syahs) - TTS pronounces correctly automatically
-4. Put ${nativeLanguageName} explanations in "native" field
+**Giving feedback:**
+✅ CORRECT:
+{
+  "target": "¡Excelente!",
+  "native": "Great job! Now let's try another word..."
+}
 
-COMMON MISTAKE TO AVOID:
-❌ BAD: {"target": "", "native": "Great job! Now let's try..."}
-✅ GOOD: {"target": "¡Excelente!", "native": "Great job! Now let's try..."}
+❌ WRONG (never empty target):
+{
+  "target": "",
+  "native": "Great job! Now let's try..."
+}
 
-Server concatenates as: target + " (" + native + ")" for voice TTS
-Subtitles show ONLY target field` : `**TEXT MODE - Standard Response:**
+RULES:
+1. "target" = ONLY ${languageName} words (¡Hola!, ¡Excelente!, ¿Cómo estás?)
+2. "native" = ALL ${nativeLanguageName} explanations (Let's learn..., Great job!...)
+3. NO parentheses in either field - server adds them automatically
+4. NO phonetic guides - TTS pronounces correctly
+5. Teach ONE word at a time - don't introduce multiple new words in one response` : `**TEXT MODE - Standard Response:**
 {
   "message": "Your conversational response (gentle mix of ${nativeLanguageName} and ${languageName})",
   "vocabulary": [...],
@@ -1018,24 +1037,39 @@ ${isVoiceMode ? `**VOICE MODE - Structured Response:**
 **Phase 3 ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Examples:**
 
 **Teaching new content:**
-${difficulty === 'beginner' ? `- target: "Hola, ¿cómo estás?"
-- native: "Let's learn 'How are you?'. In Spanish, it's '¿Cómo estás?'. Now it's your turn!"` : difficulty === 'intermediate' ? `- target: "¡Perfecto! Ahora vamos a aprender sobre la comida. ¿Te gusta la pizza?"
-- native: "Great! Now let's learn about food. Do you like pizza?"` : `- target: "Excelente. Hablemos sobre tus planes para el futuro. ¿Qué te gustaría hacer este fin de semana?"
-- native: "Excellent. Let's talk about your future plans."`}
+${difficulty === 'beginner' ? `✅ CORRECT:
+{
+  "target": "Hola, ¿cómo estás?",
+  "native": "Let's learn 'How are you?'. In Spanish, it's '¿Cómo estás?'. Now it's your turn!"
+}` : difficulty === 'intermediate' ? `✅ CORRECT:
+{
+  "target": "¡Perfecto! Ahora vamos a aprender sobre la comida. ¿Te gusta la pizza?",
+  "native": "Great! Now let's learn about food. Do you like pizza?"
+}` : `✅ CORRECT:
+{
+  "target": "Excelente. Hablemos sobre tus planes para el futuro. ¿Qué te gustaría hacer este fin de semana?",
+  "native": "Excellent. Let's talk about your future plans."
+}`}
 
-**Giving feedback when student speaks ${languageName}:**
-- target: "¡Excelente! ¡Muy bien!"
-- native: "Great job! You've got the pronunciation down! Now let's try..."
-  
-CRITICAL RULES (MUST FOLLOW):
-1. ALWAYS put ${languageName} encouragement in "target" field (¡Perfecto!, ¡Excelente!, ¡Muy bien!)
-2. NEVER EVER leave "target" empty - especially when giving feedback/praise  
-3. NO phonetic guides (KOH-moh, GRAH-syahs) - TTS pronounces correctly automatically
-4. Put ${nativeLanguageName} explanations in "native" field
+**Giving feedback:**
+✅ CORRECT:
+{
+  "target": "¡Excelente! ¡Muy bien!",
+  "native": "Great job! You've got the pronunciation down! Now let's try..."
+}
 
-COMMON MISTAKE TO AVOID:
-❌ BAD: {"target": "", "native": "Great job! Now let's try..."}
-✅ GOOD: {"target": "¡Excelente!", "native": "Great job! Now let's try..."}
+❌ WRONG (don't mix languages in target):
+{
+  "target": "¡Excelente! (Excellent!) 'Hola!' is a friendly way to greet...",
+  "native": "..."
+}
+
+RULES:
+1. "target" = ONLY ${languageName} words (¡Hola!, ¡Excelente!, ¿Cómo estás?)
+2. "native" = ALL ${nativeLanguageName} explanations (Let's learn..., Great job!...)
+3. NO parentheses in either field - server adds them automatically
+4. NO phonetic guides - TTS pronounces correctly
+5. Teach ONE word/phrase at a time - don't introduce multiple new concepts in one response
 
 Server concatenates as: target + " (" + native + ")" for voice TTS
 Subtitles show ONLY target field (guarantees immersive ${languageName}-only display)` : `**TEXT MODE - Standard Response:**
