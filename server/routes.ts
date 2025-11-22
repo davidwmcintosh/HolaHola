@@ -1254,7 +1254,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   media: {
                     type: "array",
                     description: "Images (0-2 max) - can be empty array",
-                    items: { type: "object", additionalProperties: true }
+                    items: {
+                      type: "object",
+                      properties: {
+                        query: { type: "string" },
+                        description: { type: "string" }
+                      },
+                      required: ["query", "description"],
+                      additionalProperties: false
+                    }
                   }
                 },
                 required: ["target", "native"],
