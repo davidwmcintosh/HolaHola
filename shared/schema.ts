@@ -88,6 +88,8 @@ export const messages = pgTable("messages", {
   content: text("content").notNull(),
   // Voice conversation text display - shows foreign language text on screen for reading reinforcement
   targetLanguageText: text("target_language_text"), // Foreign language portion to display during voice chat
+  // Subtitle sequence for showing multiple subtitles (encouragement + teaching word)
+  subtitlesJson: text("subtitles_json"), // JSON array of {text: string, duration?: number} - shows sequentially
   // Word-level timing data for synchronized subtitle highlighting (karaoke-style)
   wordTimingsJson: text("word_timings_json"), // JSON array of {word: string, startTime: number, endTime: number}
   // AI tutor multimedia - images from stock sources or AI-generated

@@ -49,8 +49,29 @@ export function ImmersiveTutor({
     if (currentPlayingMessageId && isPlaying) {
       const message = messages.find(m => m.id === currentPlayingMessageId);
       if (message && message.role === "assistant") {
-        // Show ONLY target language text (Spanish, French, etc.)
-        // If there's no target language text (e.g., greetings in native language), show nothing
+        // Handle subtitle sequence if available (encouragement + teaching word)
+        if (message.subtitlesJson) {
+          try {
+            const subtitles = JSON.parse(message.subtitlesJson);
+            if (Array.isArray(subtitles) && subtitles.length > 0) {
+              // Show first subtitle (encouragement)
+              setCurrentText(subtitles[0].text);
+              
+              // After duration (or 2s default), show next subtitle (teaching word)
+              if (subtitles.length > 1) {
+                const duration = subtitles[0].duration || 2000;
+                setTimeout(() => {
+                  setCurrentText(subtitles[1].text);
+                }, duration);
+              }
+              return;
+            }
+          } catch (e) {
+            console.error("Failed to parse subtitle sequence:", e);
+          }
+        }
+        
+        // Fallback: Show ONLY target language text (Spanish, French, etc.)
         setCurrentText(message.targetLanguageText || "");
         
         // Parse word timings if available
