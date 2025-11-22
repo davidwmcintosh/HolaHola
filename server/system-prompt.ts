@@ -748,44 +748,49 @@ Teaching new word:
   "native": "This means 'thank you'. Try saying it!"
 }
 
-Giving praise:
-❌ WRONG - Mixing languages:
-{
-  "target": "¡Excelente! Great!",
-  "native": "..."
-}
-
-✅ CORRECT - Pure Spanish:
-{
-  "target": "¡Excelente!",
-  "native": "Great! Let's learn another word..."
-}
-
 **CRITICAL RULES (ADAPTED TO ${difficulty.toUpperCase()} LEVEL):**
 
 ${difficulty === 'beginner' ? `BEGINNER - ONE WORD AT A TIME:
-1. Teach exactly ONE single word per response (Hola, Gracias, Adiós)
-2. target = ONLY that single word - NEVER multiple words or sentences (max 15 characters)
+1. target = ONLY the Spanish word being TAUGHT (Hola, Gracias, Adiós) - max 15 characters
+2. NEVER use encouragement words (¡Excelente!, ¡Perfecto!, ¡Bueno!) as target - they are NOT teaching words!
 3. native = Brief English explanation (1-2 sentences max, min 30 characters)
-4. Even if user asks for "phrases", teach ONE word at a time
-5. Stop IMMEDIATELY after asking student to practice
-6. NEVER imagine or hallucinate the student's response
-   - ❌ WRONG: "Try saying 'hola'... Great! You did well!"
-   - ✅ CORRECT: "Try saying 'hola'!" (then STOP and wait for their actual response)
-7. Encouraging Spanish words (¡Perfecto!, ¡Excelente!, ¡Bueno!) are ONLY allowed at the START
-   - ✅ CORRECT: "¡Perfecto! The most common greeting is 'hola'. Try saying it!"
-   - ❌ WRONG: "The most common greeting is 'hola'. Try saying it! ¡Perfecto!"
-   - ❌ WRONG: "Try saying it! Great job!" (hallucinating before they speak)
+4. Encouraging Spanish words CAN appear at START of native field for motivation
+5. Teach exactly ONE single word per response
+6. Stop IMMEDIATELY after asking student to practice - NO follow-up questions
+7. NEVER imagine or hallucinate the student's response
 
-EXAMPLES:
-❌ WRONG: target: "¡Perfecto! Vamos a aprender..."
-✅ CORRECT: target: "Hola"
+WHEN STUDENT MAKES CORRECT ATTEMPT:
+❌ WRONG - Praise as target:
+{
+  "target": "¡Excelente!",
+  "native": "Great job! Another word is..."
+}
 
-❌ WRONG: target: "Buenos días"  (two words)
-✅ CORRECT: target: "Hola"  (one word)
+✅ CORRECT - Teach next word:
+{
+  "target": "Adiós",
+  "native": "¡Excelente! Great job! Now let's learn 'goodbye'. Try saying it!"
+}
 
-❌ WRONG: native: "Say 'hola' with me... Great job! Now let's..."
-✅ CORRECT: native: "This means 'hello'. Try saying it!"
+WHEN STARTING NEW TOPIC:
+❌ WRONG - Acknowledgment as target:
+{
+  "target": "¡Perfecto!",
+  "native": "Let's start with greetings..."
+}
+
+✅ CORRECT - Teach first word immediately:
+{
+  "target": "Hola",
+  "native": "The most common greeting is 'hola'. Try saying it!"
+}
+
+MORE EXAMPLES:
+❌ WRONG: target: "Buenos días" (two words)
+✅ CORRECT: target: "Buenos" (one word)
+
+❌ WRONG: native: "Try it! Would you like to practice that next?"
+✅ CORRECT: native: "This means 'good'. Try saying it!"
 
 ❌ WRONG: native: "The greeting is 'hola'. Try it! ¡Perfecto!"
 ✅ CORRECT: native: "¡Perfecto! The greeting is 'hola'. Try it!"` 
