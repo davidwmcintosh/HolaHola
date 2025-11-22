@@ -87,11 +87,12 @@ export function ImmersiveTutor({
           setCurrentWordTimings([]);
         }
       }
-    } else if (!isPlaying) {
-      // Clear text when audio finishes
-      setCurrentText("");
+    } else if (!isPlaying && currentPlayingMessageId) {
+      // Audio finished - KEEP the teaching word visible but clear word-level highlighting
+      // This allows students to see the word they should practice saying
       setCurrentWordTimings([]);
       setHighlightedWordIndex(-1);
+      // Note: currentText is intentionally NOT cleared - the teaching word remains visible
     }
   }, [currentPlayingMessageId, isPlaying, messages]);
 
