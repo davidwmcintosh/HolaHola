@@ -64,24 +64,38 @@ function getLanguageCode(language: string | undefined): string | undefined {
 /**
  * Strip markdown formatting and parenthetical content from text before TTS
  * 
- * Strategy: Remove ALL parenthetical content since:
+ * Strategy: Remove ALL parenthetical content and phonetic guides since:
  * 1. Phonetic guides (kah-FEH, OON) sound unnatural when spoken
  * 2. English translations aren't needed - Google Cloud TTS pronounces Spanish authentically
  * 3. Parenthetical info is for visual learning, not audio
  * 
  * Examples:
  * - "café (kah-FEH)" → "café"
+ * - "café = kah-FEH" → "café"
  * - "un (OON) café" → "un café"
  * - "perro (dog)" → "perro"
- * - "Café, por favor." (Coffee, please). → "Café, por favor."
+ * - "Café, por favor (Coffee, please; kah-FEH, por fah-VOR)" → "Café, por favor"
+ * - "hola = oh-LAH" → "hola"
  */
 function stripMarkdownForSpeech(text: string): string {
-  return text
-    // Remove ALL parenthetical content (phonetics + translations)
-    .replace(/\([^)]+\)/g, '')
-    // Clean up leftover punctuation after removing parentheses
-    // Matches: ." . → ."  or ." , → ."  or ! . → !
-    .replace(/([.!?]["']?)\s+[.,;]\s*/g, '$1 ')
+  // Split into sentences for safer processing
+  let cleaned = text;
+  
+  // STEP 1: Remove all parenthetical content (most reliable method)
+  // Handles: (kah-FEH), (Coffee, please; kah-FEH, por fah-VOR)
+  cleaned = cleaned.replace(/\([^)]+\)/g, '');
+  
+  // STEP 2: Remove complete sentences that are purely phonetic instructions
+  // Match entire sentences from start or after punctuation to next punctuation
+  // This is conservative - only removes if sentence starts with instruction keyword
+  cleaned = cleaned.replace(/([.!?]\s+|^)(?:pronunciation|listen|the pronunciation is|sounds like|try saying)[\s:][^.!?]+[.!?]/gi, '$1');
+  
+  // STEP 3: Remove semicolon-separated phonetic clauses at end of sentences
+  // Handles: "Coffee, please; kah-FEH, por fah-VOR"
+  cleaned = cleaned.replace(/;\s*[a-zA-Z-]+(?:,\s*[a-zA-Z-]+)*(?=[.!?,]|$)/g, '');
+  
+  // STEP 4: Clean up markdown formatting
+  cleaned = cleaned
     // Remove bold (**text**)
     .replace(/\*\*(.+?)\*\*/g, '$1')
     // Remove italic (*text* or _text_)
@@ -97,10 +111,20 @@ function stripMarkdownForSpeech(text: string): string {
     .replace(/^[\s]*[-*]\s+/gm, '')
     .replace(/^[\s]*\d+\.\s+/gm, '')
     // Remove blockquotes (> text)
-    .replace(/^>\s+/gm, '')
+    .replace(/^>\s+/gm, '');
+  
+  // STEP 5: Clean up leftover punctuation artifacts (conservative)
+  cleaned = cleaned
+    // Remove duplicate punctuation
+    .replace(/([.!?])\s*[.!?]+/g, '$1')
+    .replace(/,\s*,+/g, ',')
+    // Clean up spaces before punctuation
+    .replace(/\s+([.,!?])/g, '$1')
     // Clean up extra whitespace
     .replace(/\s+/g, ' ')
     .trim();
+  
+  return cleaned;
 }
 
 /**
