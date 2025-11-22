@@ -63,13 +63,23 @@ function getLanguageCode(language: string | undefined): string | undefined {
 
 /**
  * Strip markdown formatting from text before sending to TTS
- * Removes: ** (bold), * (italic), ` (code), parentheses symbols
- * Preserves: Content inside parentheses (translations + pronunciations)
+ * Removes: ** (bold), * (italic), ` (code), phonetic pronunciations
+ * Keeps: English translations in parentheses
+ * 
+ * Examples:
+ * - "café (kah-FEH)" → "café"
+ * - "un (OON)" → "un"
+ * - "por favor (por fah-VOR)" → "por favor"
+ * - "perro (dog)" → "perro dog"
  */
 function stripMarkdownForSpeech(text: string): string {
   return text
-    // Remove parentheses but keep their content
-    .replace(/\(([^)]+)\)/g, '$1')
+    // Remove phonetic pronunciations (uppercase/mixed case with hyphens in parentheses)
+    // Matches: (kah-FEH), (OON), (LEH-cheh), (por fah-VOR)
+    .replace(/\([A-Z][A-Za-z\-\s]+\)/g, '')
+    // Keep translations but remove parentheses (lowercase words in parentheses)
+    // Matches: (dog), (the coffee), (please)
+    .replace(/\(([a-z][^)]*)\)/g, '$1')
     // Remove bold (**text**)
     .replace(/\*\*(.+?)\*\*/g, '$1')
     // Remove italic (*text* or _text_)
