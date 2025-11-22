@@ -1333,6 +1333,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
           hasTargetLanguage = hasSignificantTargetLanguageContent(targetLanguageText);
           
           console.log('[VOICE STRUCTURED] ✓ Valid format | Target:', target.substring(0, 50), '| Native:', native.substring(0, 50));
+          
+          // SERVER-SIDE VALIDATION: Reject responses that violate critical rules
+          const encouragementWords = ['perfecto', 'excelente', 'bien', 'bueno', 'genial', 'fantástico', 'maravilloso', 'bravo'];
+          const targetLower = target.toLowerCase().replace(/[¡!¿?]/g, '');
+          const isEncouragement = encouragementWords.some(word => targetLower.includes(word));
+          const endsWithQuestion = native.trim().endsWith('?');
+          const isMultipleWords = conversation.difficulty === 'beginner' && target.split(/\s+/).length > 1;
+          
+          if (isEncouragement || endsWithQuestion || isMultipleWords) {
+            console.warn('[VOICE VALIDATION CRITICAL] AI violated critical rules:');
+            if (isEncouragement) console.warn('  ✗ Target is encouragement word:', target);
+            if (endsWithQuestion) console.warn('  ✗ Native ends with question:', native.substring(native.length - 50));
+            if (isMultipleWords) console.warn('  ✗ Target has multiple words (beginner):', target);
+            
+            // Extract Spanish word from native field
+            const quotedWords = [...native.matchAll(/['"]([a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]+)['"]/g)];
+            const englishWords = new Set(['hello', 'goodbye', 'thank', 'thanks', 'please', 'yes', 'no', 'good', 'morning', 'afternoon', 'evening', 'night']);
+            
+            let extractedWord = quotedWords
+              .map(match => match[1])
+              .find(word => !englishWords.has(word.toLowerCase()) && word.length <= MAX_TARGET_CHARS);
+            
+            if (!extractedWord && quotedWords.length > 0) {
+              extractedWord = quotedWords[quotedWords.length - 1][1];
+            }
+            
+            if (extractedWord) {
+              target = extractedWord;
+              console.log('[VOICE VALIDATION FIXED] ✓ Extracted teaching word from native:', target);
+            } else {
+              // Use fallback word
+              target = "Hola";
+              console.log('[VOICE VALIDATION FIXED] Using safe fallback: Hola');
+            }
+            
+            // Remove questions from native
+            if (endsWithQuestion) {
+              // Find last sentence before question
+              const sentences = native.split(/[.!]/);
+              if (sentences.length > 1) {
+                // Use all sentences except the last (question)
+                native = sentences.slice(0, -1).join('. ').trim();
+                // Ensure it ends with "Try saying it!"
+                if (!native.toLowerCase().includes('try saying')) {
+                  native += `. Try saying '${target}'!`;
+                }
+                console.log('[VOICE VALIDATION FIXED] ✓ Removed question, added "Try saying it!"');
+              }
+            }
+          }
+          
+          console.log('[VOICE STRUCTURED] ✓ Valid format | Target:', target.substring(0, 50), '| Native:', native.substring(0, 50));
         } catch (error) {
           // Schema enforcement should prevent this, but log if it happens
           console.error('[VOICE CRITICAL ERROR] Failed to parse structured response:', error);
