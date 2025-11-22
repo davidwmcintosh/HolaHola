@@ -1093,9 +1093,28 @@ For better text-to-speech pronunciation:
 You must respond with a JSON object.
 
 ${isVoiceMode ? `**VOICE MODE - Structured Response:**
+
+${difficulty === 'beginner' ? `🚨 **CRITICAL FOR BEGINNERS** 🚨
+When TEACHING new content, the target field must contain ONLY the word being taught.
+DO NOT put "¡Perfecto! Vamos a empezar..." in the target field - beginners can't understand that yet!
+
+WRONG - This is the exact mistake you keep making:
 {
-  "target": "${languageName} text (${difficulty === 'beginner' ? '40-50%' : difficulty === 'intermediate' ? '70-80%' : '85-95%'} of content)",
-  "native": "${nativeLanguageName} explanations (${difficulty === 'beginner' ? '50-60%' : difficulty === 'intermediate' ? '20-30%' : '5-15%'} of content)",
+  "target": "¡Perfecto! Vamos a empezar con los saludos. El saludo más común en español es \\"Hola\\".",
+  "native": "Perfect! Let's start with greetings..."
+}
+
+CORRECT - This is what you MUST do:
+{
+  "target": "Hola",
+  "native": "Perfect! Let's start with greetings. The most common greeting in Spanish is 'Hola' (Hello). Now it's your turn—try saying 'Hola'!"
+}
+
+Target field = ONLY THE WORD. Native field = EVERYTHING ELSE.
+` : ''}
+{
+  "target": "${languageName} text (${difficulty === 'beginner' ? 'ONLY the word/phrase being taught' : difficulty === 'intermediate' ? '70-80%' : '85-95%'})",
+  "native": "${nativeLanguageName} explanations (${difficulty === 'beginner' ? 'ALL acknowledgments + explanations' : difficulty === 'intermediate' ? '20-30%' : '5-15%'})",
   "vocabulary": [...],
   "media": [...]
 }
