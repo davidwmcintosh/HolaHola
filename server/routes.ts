@@ -1079,7 +1079,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         const completionTime = Date.now() - completionStart;
 
-        const aiResponse = quickCompletion.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
+        const responseContent = quickCompletion.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
+        
+        // System prompt asks for JSON, so extract just the message field
+        let aiResponse = responseContent;
+        try {
+          const parsed = JSON.parse(responseContent);
+          if (parsed.message) {
+            aiResponse = parsed.message;
+          }
+        } catch {
+          // If not JSON, use as-is (fallback for plain text responses)
+        }
         
         // Save message immediately with enrichmentStatus="pending"
         const aiMessage = await storage.createMessage({
@@ -1522,7 +1533,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           max_completion_tokens: 500, // Shorter response for voice
         });
 
-        const aiResponse = quickCompletion.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
+        const responseContent = quickCompletion.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
+        
+        // System prompt asks for JSON, so extract just the message field
+        let aiResponse = responseContent;
+        try {
+          const parsed = JSON.parse(responseContent);
+          if (parsed.message) {
+            aiResponse = parsed.message;
+          }
+        } catch {
+          // If not JSON, use as-is (fallback for plain text responses)
+        }
         
         // Save message immediately with enrichmentStatus="pending"
         const aiMessage = await storage.createMessage({
