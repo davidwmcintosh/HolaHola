@@ -449,14 +449,13 @@ Since you're in voice mode with a beginner, use direct prompts to build comfort 
 - Only with the familiar encouraging words, not formal vocabulary yet
 - This builds speaking confidence before formal lessons begin in Phase 2` : ""}
 
-${isVoiceMode ? `VOICE MODE - PRONUNCIATION & LANGUAGE USE:
-For better text-to-speech pronunciation:
-- Speak primarily in ${languageName} with brief ${nativeLanguageName} translations in parentheses
-- Example: "¡Muy bien! (Very good!) ¿Cómo estás? (How are you?)"
-- Keep ${nativeLanguageName} explanations SHORT and inside parentheses
-- This helps the voice synthesizer maintain consistent accent and pronunciation
-- Use natural, conversational spoken language. Avoid overly formal phrasing
-- Keep responses concise for better voice interaction` : `IMPORTANT - Response Format:
+${isVoiceMode ? `VOICE MODE - PHASE 1 LANGUAGE BALANCE:
+CRITICAL: Phase 1 is 100% ${nativeLanguageName} - NO ${languageName} teaching yet!
+- Speak entirely in ${nativeLanguageName} to build rapport
+- Use natural, conversational spoken language
+- Keep responses concise and friendly
+- Save ${languageName} teaching for Phase 2 (message 6+)
+- Example: "Hi! What made you want to learn ${languageName}?"` : `IMPORTANT - Response Format:
 You must respond with a JSON object containing:
 - message: Your conversational response (primarily in English with 1-2 encouraging ${languageName} words with inline translations)
 - vocabulary: Array of any new ${languageName} words you introduce (with word, translation, example, pronunciation)
@@ -640,13 +639,14 @@ Guidelines:
   (Note: ${languageName} examples with question marks don't count as questions to the student)
 - **CRITICAL: When you ask a question directed at the student, END your response immediately after the question mark. No additional encouragement, commentary, or follow-up text. This creates natural conversational pauses.**
 
-${isVoiceMode ? `VOICE MODE - PRONUNCIATION & LANGUAGE USE:
-For better text-to-speech pronunciation:
-- Speak primarily in ${languageName} with brief ${nativeLanguageName} translations in parentheses
-- Example: "¡Perfecto! (Perfect!) Ahora dime... (Now tell me...)"
-- Keep ${nativeLanguageName} explanations SHORT and inside parentheses
-- Use natural, conversational spoken language. Speak clearly and at a moderate pace
-- This helps maintain consistent accent and authentic pronunciation` : `IMPORTANT - Response Format:
+${isVoiceMode ? `VOICE MODE - PHASE 2 LANGUAGE BALANCE:
+Follow the gradual introduction approach:
+- Messages 6-7: Mostly ${nativeLanguageName} (80%) with ONE ${languageName} word (20%)
+  * Example: "In Spanish, we say 'hola' (oh-LAH) for 'hello'. Now it's your turn - say it!"
+- Messages 8-10: More ${languageName} (30-40%) with ${nativeLanguageName} explanations
+  * Example: "¡Perfecto! (Perfect!) Now let's learn 'thank you'..."
+- Keep ${nativeLanguageName} explanations clear and conversational
+- Gradually increase ${languageName} as student progresses` : `IMPORTANT - Response Format:
 You must respond with a JSON object containing:
 - message: Your conversational response (gentle mix of English and ${languageName})
 - vocabulary: Array of new ${languageName} words you introduce (with word, translation, example, pronunciation)
@@ -666,14 +666,21 @@ Include ONLY 1 vocabulary item per response - teach one concept, let them practi
   const phase3VoiceInstructions = isVoiceMode && difficulty === "beginner" ? structuredListenRepeat : 
     (isVoiceMode ? `
 
-VOICE MODE - PRONUNCIATION & LANGUAGE USE:
-For better text-to-speech pronunciation:
-- Speak primarily in ${languageName} with brief ${nativeLanguageName} translations in parentheses
+VOICE MODE - PHASE 3 LANGUAGE BALANCE:
+${difficulty === "beginner" ? `BEGINNER: Use moderate Spanish (40-50%) with substantial English (50-60%)
+- Example: "Let's learn 'thank you'. In Spanish, it's 'gracias' (GRAH-syahs). Now it's your turn - say it!"
+- Keep English explanations full and clear
+- Use Spanish for encouragement: "¡Perfecto! (Perfect!)"
+- ONE new word per message`
+: difficulty === "intermediate" ? `INTERMEDIATE: Use Spanish heavily (70-80%) with English support (20-30%)
+- Example: "¡Perfecto! (Perfect!) Ahora vamos a aprender... (Now let's learn...)"
+- Brief English explanations for new concepts
+- Natural conversation flow with translations in parentheses`
+: `ADVANCED: Use Spanish almost exclusively (85-95%) with minimal English (5-15%)
 - Example: "Excelente respuesta! (Excellent answer!) Ahora... (Now...)"
-- Keep ${nativeLanguageName} explanations SHORT and inside parentheses
-- This helps the voice synthesizer maintain consistent ${languageName} accent
-- Use natural, conversational spoken language appropriate for ${difficulty} level
-- Focus on fluent conversation rather than structured repetition exercises` : "");
+- English only for very complex new concepts
+- Natural, fluent conversation`}
+- Use natural, conversational spoken language appropriate for ${difficulty} level` : "");
 
   return `You are a friendly and encouraging ${languageName} language tutor.
 
