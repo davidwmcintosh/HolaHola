@@ -153,13 +153,11 @@ export async function processVoiceMessage(
   }
 
   // Step 3: Synthesize speech with target language for proper pronunciation
-  // Use targetLanguageText if available (Spanish only), otherwise use full content
-  // This ensures TTS speaks ONLY Spanish without English explanations for authentic pronunciation
-  const ttsText = chatData.aiMessage.targetLanguageText || aiResponse;
+  // Use FULL content (English + Spanish) with target language voice
+  // This gives English explanations a Spanish accent for authentic immersion
+  console.log('[VOICE TTS] Synthesizing full content with', language, 'voice');
   
-  console.log('[VOICE TTS] Using text for synthesis:', ttsText.substring(0, 100));
-  
-  const ttsAudioBlob = await synthesizeSpeech(ttsText, language);
+  const ttsAudioBlob = await synthesizeSpeech(aiResponse, language);
 
   return {
     userTranscript,
