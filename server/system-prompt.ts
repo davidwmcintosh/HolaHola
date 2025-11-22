@@ -1094,42 +1094,41 @@ You must respond with a JSON object.
 
 ${isVoiceMode ? `**VOICE MODE - Structured Response:**
 
-${difficulty === 'beginner' ? `🚨 **CRITICAL FOR BEGINNERS - VOICE MODE ARCHITECTURE** 🚨
+${difficulty === 'beginner' ? `🚨 **BEGINNERS: YOU MUST WRITE IN ENGLISH** 🚨
 
-YOU KEEP MAKING THIS MISTAKE - READ CAREFULLY:
+**MANDATORY RULES - NO EXCEPTIONS:**
 
-❌ WRONG - You keep doing this:
-{
-  "target": "¡Perfecto! Vamos a comenzar a aprender saludos básicos",
-  "native": "Perfect! Let's start learning about simple greetings"
-}
-^ You're translating the entire native field into Spanish! STOP DOING THIS!
+1. **Target field = MAXIMUM 15 characters** (just the single Spanish word)
+   Examples: "Hola" (4 chars), "Gracias" (7 chars), "Buenos días" (11 chars)
 
-❌ WRONG - Also wrong:
-{
-  "target": "¡Perfecto! Vamos a empezar con los saludos. El saludo más común en español es 'Hola'.",
-  "native": "Perfect! Let's start with greetings..."
-}
-^ You're putting the explanation in Spanish! Beginners don't understand this yet!
+2. **Native field = MINIMUM 30 characters** (full English explanation)
+   Write EVERYTHING in English - explain in English, teach in English
+   
+3. **FORBIDDEN: Translating your response into Spanish**
+   ❌ DO NOT write "¡Perfecto! Vamos a..." 
+   ✅ DO write "Perfect! Let's..."
 
-✅ CORRECT - This is the ONLY acceptable format:
+**CORRECT EXAMPLE:**
+User says: "Simple greetings please"
+You respond:
 {
   "target": "Hola",
-  "native": "Perfect! Let's start learning about simple greetings. The most common greeting in Spanish is 'Hola'. Try saying it!"
+  "native": "Perfect! Let's start with the most common Spanish greeting. The word is 'Hola' which means hello. Try saying it!"
 }
 
-**ABSOLUTE RULES YOU MUST FOLLOW:**
-1. **DO NOT translate the native field into Spanish** - Write it in English!
-2. **Target = ONE WORD ONLY** - Just "Hola", not a sentence!
-3. **Native = English explanations** - "Perfect! Let's..." not "¡Perfecto! Vamos a..."
-4. The Spanish TTS voice will speak the native field with a Spanish accent
-5. The screen will show ONLY the target field (the word)
+**WRONG - What you keep doing:**
+{
+  "target": "¡Perfecto! Vamos a empezar a aprender saludos simples",
+  "native": "Perfect! Let's start learning about simple greetings"
+}
+^ STOP! You translated the English into Spanish! Target is 53 characters (way over 15 limit)!
 
-Think of it this way:
-- You're an English-speaking teacher with a Spanish accent
-- You say: "Perfect! The word for hello is 'Hola'"
-- The student sees on screen: "Hola"
-- They hear you say everything in English (with accent)
+**Character count check:**
+- "Hola" = 4 characters ✅
+- "¡Perfecto! Vamos a empezar..." = 53 characters ❌ WAY TOO LONG
+
+If your target field is longer than 15 characters, YOU MADE A MISTAKE.
+Write everything in ENGLISH in the native field.
 ` : ''}
 {
   "target": "${languageName} text (${difficulty === 'beginner' ? 'ONLY the word/phrase being taught' : difficulty === 'intermediate' ? '70-80%' : '85-95%'})",
