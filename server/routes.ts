@@ -62,6 +62,34 @@ function getLanguageCode(language: string | undefined): string | undefined {
 }
 
 /**
+ * Strip markdown formatting from text before sending to TTS
+ * Removes: ** (bold), * (italic), _ (underline), ` (code), etc.
+ * Preserves: Natural parentheses and punctuation that should be spoken
+ */
+function stripMarkdownForSpeech(text: string): string {
+  return text
+    // Remove bold (**text**)
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    // Remove italic (*text* or _text_)
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/_(.+?)_/g, '$1')
+    // Remove inline code (`text`)
+    .replace(/`(.+?)`/g, '$1')
+    // Remove headings (# text)
+    .replace(/^#{1,6}\s+/gm, '')
+    // Remove horizontal rules
+    .replace(/^[-*_]{3,}$/gm, '')
+    // Remove list markers (- or * or numbers)
+    .replace(/^[\s]*[-*]\s+/gm, '')
+    .replace(/^[\s]*\d+\.\s+/gm, '')
+    // Remove blockquotes (> text)
+    .replace(/^>\s+/gm, '')
+    // Clean up extra whitespace
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * Determine which GPT model to use based on subscription tier
  * Free/Basic/Institutional: gpt-4o-mini (faster, cheaper)
  * Pro: gpt-4o (best quality)
@@ -2218,12 +2246,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const userId = req.user.claims.sub;
-      console.log(`[TTS] Synthesizing speech for user ${userId}, length: ${text.length} chars, language: ${language || 'default'}`);
+      
+      // Strip markdown formatting before TTS (removes **, *, parentheses, etc.)
+      const cleanText = stripMarkdownForSpeech(text);
+      console.log(`[TTS] Synthesizing speech for user ${userId}, original: ${text.length} chars, cleaned: ${cleanText.length} chars, language: ${language || 'default'}`);
 
       // Use TTS service abstraction (Google WaveNet preferred, OpenAI fallback)
       const ttsService = getTTSService();
       const result = await ttsService.synthesize({
-        text,
+        text: cleanText,
         language,
         voice,
       });
