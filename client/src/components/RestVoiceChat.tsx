@@ -400,7 +400,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           <div>
             <h2 className="text-lg font-semibold">Voice Practice</h2>
             <p className="text-sm text-muted-foreground">
-              Click button to record
+              Hold button to record
             </p>
           </div>
         </div>
@@ -445,23 +445,41 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
             </div>
           )}
 
-          {/* Mic button */}
+          {/* Mic button - Push-to-talk */}
           <div className="flex justify-center items-center">
             <Button
               size="icon"
               variant={isRecording ? 'destructive' : 'default'}
               className="h-14 w-14 rounded-full"
-              onClick={() => {
+              onMouseDown={() => {
+                if (!isProcessing && conversationId && !isRecording) {
+                  startRecording();
+                }
+              }}
+              onMouseUp={() => {
                 if (isRecording) {
                   stopRecording();
-                } else {
+                }
+              }}
+              onMouseLeave={() => {
+                if (isRecording) {
+                  stopRecording();
+                }
+              }}
+              onTouchStart={() => {
+                if (!isProcessing && conversationId && !isRecording) {
                   startRecording();
+                }
+              }}
+              onTouchEnd={() => {
+                if (isRecording) {
+                  stopRecording();
                 }
               }}
               disabled={isProcessing || !conversationId}
               data-testid="button-mic-toggle"
               aria-pressed={isRecording}
-              aria-label={isRecording ? "Stop recording" : "Start recording"}
+              aria-label={isRecording ? "Recording - release to stop" : "Hold to record"}
             >
               {isProcessing ? (
                 <Loader2 className="h-6 w-6 animate-spin" />
