@@ -720,12 +720,19 @@ Giving praise:
   "native": "Great! Let's learn another word..."
 }
 
-**RULES:**
-1. target = The ${languageName} word you're teaching (Hola, Gracias, Adiós)
-2. native = English explanation ONLY - NO pronunciation guides
-3. Don't talk ABOUT a word without SHOWING it in target field
-4. ONE word per response, 1-2 sentences TOTAL
-5. Stop IMMEDIATELY after questions` : `**TEXT MODE - Standard Response:**
+**CRITICAL RULES:**
+1. ALWAYS teach exactly ONE Spanish word (Hola, Adiós, Gracias)
+2. target = ONLY that single word - NEVER a full sentence
+3. native = Brief English explanation (1-2 sentences max)
+4. Even if user asks for "phrases", teach ONE word at a time
+5. Stop IMMEDIATELY after asking student to practice
+
+EXAMPLES:
+❌ WRONG: target: "¡Perfecto! Vamos a aprender frases..."
+✅ CORRECT: target: "Hola"
+
+❌ WRONG: target: "Buenos días"  (two words)
+✅ CORRECT: target: "Hola"  (one word)` : `**TEXT MODE - Standard Response:**
 {
   "message": "Your conversational response (gentle mix of ${nativeLanguageName} and ${languageName})",
   "vocabulary": [...],
