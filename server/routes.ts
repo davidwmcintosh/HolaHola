@@ -1265,8 +1265,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error('Structured response missing target or native fields');
           }
           
-          const target = (parsed.target || '').trim();
-          const native = (parsed.native || '').trim();
+          let target = (parsed.target || '').trim();
+          let native = (parsed.native || '').trim();
+          
+          // BEGINNER VALIDATION: Enforce character limits
+          if (conversation.difficulty === 'beginner') {
+            const MAX_TARGET_CHARS = 15;
+            const MIN_NATIVE_CHARS = 30;
+            
+            if (target.length > MAX_TARGET_CHARS) {
+              console.warn(`[VOICE VALIDATION] Target too long (${target.length} > ${MAX_TARGET_CHARS}): "${target.substring(0, 50)}"`);
+              console.warn('[VOICE VALIDATION] AI violated beginner constraints, using fallback');
+              
+              // Fallback: Extract first word or use safe default
+              const firstWord = target.split(/\s+/)[0];
+              if (firstWord.length <= MAX_TARGET_CHARS) {
+                target = firstWord;
+                console.log(`[VOICE VALIDATION] Extracted first word: "${target}"`);
+              } else {
+                // Use safe fallback word
+                target = "Hola";
+                native = "Let's practice the most common Spanish greeting: 'Hola'. Try saying it!";
+                console.log('[VOICE VALIDATION] Using fallback: "Hola"');
+              }
+            }
+            
+            if (native.length < MIN_NATIVE_CHARS) {
+              console.warn(`[VOICE VALIDATION] Native too short (${native.length} < ${MIN_NATIVE_CHARS}): "${native}"`);
+              // Use fallback
+              native = `Great! Now let's practice saying '${target}'. Try repeating after me!`;
+              console.log('[VOICE VALIDATION] Using extended native fallback');
+            }
+          }
           
           // VOICE MODE ARCHITECTURE FOR BEGINNERS:
           // - TTS speaks: native field ONLY (English with Spanish accent, Spanish words embedded naturally)
@@ -1274,6 +1304,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // - Subtitles show: target field ONLY (the Spanish word being taught)
           //   Example: "Hola"
           // This ensures beginners hear full explanations in English while seeing only the target word
+          
+          // Sanitize native text to prevent punctuation artifacts
+          native = native.replace(/([¡!¿?])\1+/g, '$1'); // Remove repeated punctuation
           aiResponse = native || target; // Use native field for speech
           
           // Subtitles use ONLY target field (guarantees Spanish-only display)
