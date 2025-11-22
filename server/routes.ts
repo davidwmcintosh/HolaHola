@@ -62,24 +62,23 @@ function getLanguageCode(language: string | undefined): string | undefined {
 }
 
 /**
- * Strip markdown formatting from text before sending to TTS
- * Removes: ** (bold), * (italic), ` (code), phonetic pronunciations
- * Keeps: English translations in parentheses
+ * Strip markdown formatting and parenthetical content from text before TTS
+ * 
+ * Strategy: Remove ALL parenthetical content since:
+ * 1. Phonetic guides (kah-FEH, OON) sound unnatural when spoken
+ * 2. English translations aren't needed - Google Cloud TTS pronounces Spanish authentically
+ * 3. Parenthetical info is for visual learning, not audio
  * 
  * Examples:
  * - "café (kah-FEH)" → "café"
- * - "un (OON)" → "un"
- * - "por favor (por fah-VOR)" → "por favor"
- * - "perro (dog)" → "perro dog"
+ * - "un (OON) café" → "un café"
+ * - "perro (dog)" → "perro"
+ * - "por favor (please)" → "por favor"
  */
 function stripMarkdownForSpeech(text: string): string {
   return text
-    // Remove phonetic pronunciations (uppercase/mixed case with hyphens in parentheses)
-    // Matches: (kah-FEH), (OON), (LEH-cheh), (por fah-VOR)
-    .replace(/\([A-Z][A-Za-z\-\s]+\)/g, '')
-    // Keep translations but remove parentheses (lowercase words in parentheses)
-    // Matches: (dog), (the coffee), (please)
-    .replace(/\(([a-z][^)]*)\)/g, '$1')
+    // Remove ALL parenthetical content (phonetics + translations)
+    .replace(/\([^)]+\)/g, '')
     // Remove bold (**text**)
     .replace(/\*\*(.+?)\*\*/g, '$1')
     // Remove italic (*text* or _text_)

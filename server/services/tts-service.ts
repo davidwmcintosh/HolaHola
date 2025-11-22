@@ -165,8 +165,7 @@ export class TTSService {
    */
   private detectLanguage(text: string, fallbackLanguage?: string): string {
     // Clean text for better detection (remove special chars but keep letters and spaces)
-    // Using Unicode property escape with u flag
-    const cleanText = text.replace(/[^\p{L}\s]/gu, ' ').trim();
+    const cleanText = text.replace(/[^a-zA-ZÀ-ÿ\u0100-\u017F\u0180-\u024F\s]/g, ' ').trim();
     
     // Simple heuristic: Check for very common English words
     const commonEnglishWords = /\b(the|is|are|was|were|have|has|had|this|that|these|those|what|when|where|who|how|can|will|would|should|could|may|might|must)\b/i;
