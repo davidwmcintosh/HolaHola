@@ -17,6 +17,7 @@ interface ImmersiveTutorProps {
   onRecordingStart: () => void;
   onRecordingStop: () => void;
   isRecording: boolean;
+  isProcessing?: boolean;
   isPlaying: boolean;
   currentPlayingMessageId?: string;
   onToggleView?: () => void; // Toggle between live and history view
@@ -29,6 +30,7 @@ export function ImmersiveTutor({
   onRecordingStart,
   onRecordingStop,
   isRecording,
+  isProcessing = false,
   isPlaying,
   currentPlayingMessageId,
   onToggleView,
@@ -112,8 +114,30 @@ export function ImmersiveTutor({
           src={tutorImageUrl}
           alt="Language Tutor"
           className="w-full h-full object-contain"
-          data-testid="img-tutor-avatar"
+          data-testid={isPlaying ? "avatar-state-speaking" : "avatar-state-idle"}
         />
+        
+        {/* Recording Indicator */}
+        {isRecording && (
+          <div 
+            className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-destructive/90 text-destructive-foreground rounded-full shadow-lg"
+            data-testid="indicator-recording"
+          >
+            <div className="w-3 h-3 bg-destructive-foreground rounded-full animate-pulse" />
+            <span className="text-sm font-medium">Recording</span>
+          </div>
+        )}
+        
+        {/* Processing Indicator */}
+        {isProcessing && (
+          <div 
+            className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-primary/90 text-primary-foreground rounded-full shadow-lg"
+            data-testid="indicator-processing"
+          >
+            <div className="w-3 h-3 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm font-medium">Processing</span>
+          </div>
+        )}
         
         {/* Subtitle Overlay */}
         {currentText && (
@@ -165,13 +189,45 @@ export function ImmersiveTutor({
           </Button>
         )}
 
-        {/* Main Recording Button */}
+        {/* Main Recording Button (Push-to-Talk) */}
         <Button
           variant={isRecording ? "destructive" : "default"}
           size="icon"
-          onClick={isRecording ? onRecordingStop : onRecordingStart}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            if (!isRecording && !isProcessing) {
+              onRecordingStart();
+            }
+          }}
+          onPointerUp={(e) => {
+            e.preventDefault();
+            if (isRecording) {
+              onRecordingStop();
+            }
+          }}
+          onPointerCancel={(e) => {
+            e.preventDefault();
+            if (isRecording) {
+              onRecordingStop();
+            }
+          }}
+          onPointerLeave={(e) => {
+            e.preventDefault();
+            if (isRecording) {
+              onRecordingStop();
+            }
+          }}
+          onTouchCancel={(e) => {
+            e.preventDefault();
+            if (isRecording) {
+              onRecordingStop();
+            }
+          }}
+          disabled={isProcessing}
           className="h-20 w-20 md:h-24 md:w-24 rounded-full shadow-lg"
           data-testid={isRecording ? "button-stop-recording" : "button-start-recording"}
+          aria-pressed={isRecording}
+          aria-label="Press and hold to speak"
         >
           {isRecording ? (
             <MicOff className="h-10 w-10 md:h-12 md:w-12" />

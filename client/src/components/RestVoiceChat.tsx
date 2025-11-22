@@ -639,6 +639,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           onRecordingStart={startPushToTalkRecording}
           onRecordingStop={stopPushToTalkRecording}
           isRecording={isRecording}
+          isProcessing={isProcessing}
           isPlaying={avatarState === 'speaking'}
           currentPlayingMessageId={currentPlayingMessageId ?? undefined}
           audioElementRef={audioPlayerRef}

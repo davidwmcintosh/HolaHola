@@ -11,6 +11,7 @@ interface VoiceChatViewManagerProps {
   onRecordingStart: () => void;
   onRecordingStop: () => void;
   isRecording: boolean;
+  isProcessing?: boolean;
   isPlaying: boolean;
   currentPlayingMessageId?: string;
   audioElementRef?: React.RefObject<HTMLAudioElement>;
@@ -22,6 +23,7 @@ export function VoiceChatViewManager({
   onRecordingStart,
   onRecordingStop,
   isRecording,
+  isProcessing,
   isPlaying,
   currentPlayingMessageId,
   audioElementRef,
@@ -97,6 +99,7 @@ export function VoiceChatViewManager({
               onRecordingStart={onRecordingStart}
               onRecordingStop={onRecordingStop}
               isRecording={isRecording}
+              isProcessing={isProcessing}
               isPlaying={isPlaying}
               currentPlayingMessageId={currentPlayingMessageId}
               onToggleView={toggleView}
