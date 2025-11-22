@@ -49,8 +49,9 @@ export function ImmersiveTutor({
     if (currentPlayingMessageId && isPlaying) {
       const message = messages.find(m => m.id === currentPlayingMessageId);
       if (message && message.role === "assistant") {
-        // Show target language text (Spanish) with pronunciation
-        setCurrentText(message.targetLanguageText || message.content);
+        // Show ONLY target language text (Spanish, French, etc.)
+        // If there's no target language text (e.g., greetings in native language), show nothing
+        setCurrentText(message.targetLanguageText || "");
         
         // Parse word timings if available
         if (message.wordTimingsJson) {
