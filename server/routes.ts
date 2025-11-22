@@ -1372,6 +1372,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } else {
               console.warn('[VOICE DUAL-SUBTITLE] Could not extract teaching word, using single subtitle');
             }
+            
+            // CRITICAL: Prepend Spanish encouragement to TTS speech so it's actually spoken
+            // This ensures students HEAR the encouragement with authentic Spanish pronunciation
+            native = `${target} ${native}`;
+            console.log('[VOICE DUAL-SUBTITLE] ✓ Prepended encouragement to TTS speech:', target);
           }
           
           // Remove questions from native field
