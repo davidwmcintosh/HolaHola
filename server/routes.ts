@@ -73,12 +73,15 @@ function getLanguageCode(language: string | undefined): string | undefined {
  * - "café (kah-FEH)" → "café"
  * - "un (OON) café" → "un café"
  * - "perro (dog)" → "perro"
- * - "por favor (please)" → "por favor"
+ * - "Café, por favor." (Coffee, please). → "Café, por favor."
  */
 function stripMarkdownForSpeech(text: string): string {
   return text
     // Remove ALL parenthetical content (phonetics + translations)
     .replace(/\([^)]+\)/g, '')
+    // Clean up leftover punctuation after removing parentheses
+    // Matches: ." . → ."  or ." , → ."  or ! . → !
+    .replace(/([.!?]["']?)\s+[.,;]\s*/g, '$1 ')
     // Remove bold (**text**)
     .replace(/\*\*(.+?)\*\*/g, '$1')
     // Remove italic (*text* or _text_)
