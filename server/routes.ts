@@ -1192,7 +1192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           conversation.language,
           conversation.difficulty,
           userMessageCount,
-          false, // not voice mode indicator
+          true, // IS voice mode - use voice-specific language balance
           conversation.topic,
           [], // No previous conversations (deferred to background)
           conversation.nativeLanguage,
