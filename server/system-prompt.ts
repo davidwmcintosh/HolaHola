@@ -772,6 +772,10 @@ ${difficulty === 'beginner' ? `BEGINNER - ONE WORD AT A TIME:
 6. NEVER imagine or hallucinate the student's response
    - ❌ WRONG: "Try saying 'hola'... Great! You did well!"
    - ✅ CORRECT: "Try saying 'hola'!" (then STOP and wait for their actual response)
+7. Encouraging Spanish words (¡Perfecto!, ¡Excelente!, ¡Bueno!) are ONLY allowed at the START
+   - ✅ CORRECT: "¡Perfecto! The most common greeting is 'hola'. Try saying it!"
+   - ❌ WRONG: "The most common greeting is 'hola'. Try saying it! ¡Perfecto!"
+   - ❌ WRONG: "Try saying it! Great job!" (hallucinating before they speak)
 
 EXAMPLES:
 ❌ WRONG: target: "¡Perfecto! Vamos a aprender..."
@@ -781,7 +785,10 @@ EXAMPLES:
 ✅ CORRECT: target: "Hola"  (one word)
 
 ❌ WRONG: native: "Say 'hola' with me... Great job! Now let's..."
-✅ CORRECT: native: "This means 'hello'. Try saying it!"` 
+✅ CORRECT: native: "This means 'hello'. Try saying it!"
+
+❌ WRONG: native: "The greeting is 'hola'. Try it! ¡Perfecto!"
+✅ CORRECT: native: "¡Perfecto! The greeting is 'hola'. Try it!"` 
 : difficulty === 'intermediate' ? `INTERMEDIATE - SHORT PHRASES:
 1. Teach simple phrases or 2-3 word combinations (Buenos días, ¿Cómo estás?, Por favor)
 2. target = Short phrase or common expression
