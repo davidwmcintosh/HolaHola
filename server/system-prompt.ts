@@ -704,7 +704,7 @@ Teaching "Hola":
 ✅ CORRECT:
 {
   "target": "Hola",
-  "native": "In Spanish, we say 'Hola' for hello. Can you say 'Hola'?"
+  "native": "In Spanish, we say 'Hola' for hello. Can you try saying it?"
 }
 
 Giving feedback:
@@ -722,10 +722,11 @@ Giving feedback:
 
 **RULES:**
 1. target = PURE ${languageName} (¡Hola!, ¡Excelente!)
-2. native = ALL English explanations
+2. native = ALL English explanations - NO pronunciation guides like (OH-lah)
 3. ONE word per response
 4. 1-2 sentences TOTAL
-5. Stop IMMEDIATELY after questions` : `**TEXT MODE - Standard Response:**
+5. Stop IMMEDIATELY after questions
+6. NEVER include phonetic pronunciations - TTS handles pronunciation` : `**TEXT MODE - Standard Response:**
 {
   "message": "Your conversational response (gentle mix of ${nativeLanguageName} and ${languageName})",
   "vocabulary": [...],
