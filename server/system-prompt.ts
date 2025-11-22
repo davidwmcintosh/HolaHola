@@ -1094,23 +1094,34 @@ You must respond with a JSON object.
 
 ${isVoiceMode ? `**VOICE MODE - Structured Response:**
 
-${difficulty === 'beginner' ? `🚨 **CRITICAL FOR BEGINNERS** 🚨
-When TEACHING new content, the target field must contain ONLY the word being taught.
-DO NOT put "¡Perfecto! Vamos a empezar..." in the target field - beginners can't understand that yet!
+${difficulty === 'beginner' ? `🚨 **CRITICAL FOR BEGINNERS - VOICE MODE ARCHITECTURE** 🚨
+
+The voice will speak ENGLISH with a Spanish accent (the Spanish voice pronounces English words naturally).
+You must write your explanations in ENGLISH with the Spanish word embedded.
 
 WRONG - This is the exact mistake you keep making:
 {
   "target": "¡Perfecto! Vamos a empezar con los saludos. El saludo más común en español es \\"Hola\\".",
   "native": "Perfect! Let's start with greetings..."
 }
+^ Target has complex Spanish beginners can't understand!
 
 CORRECT - This is what you MUST do:
 {
   "target": "Hola",
-  "native": "Perfect! Let's start with greetings. The most common greeting in Spanish is 'Hola' (Hello). Now it's your turn—try saying 'Hola'!"
+  "native": "Perfect! Let's start with greetings. The most common greeting in Spanish is 'Hola'. Try saying 'Hola'!"
 }
 
-Target field = ONLY THE WORD. Native field = EVERYTHING ELSE.
+**How Voice Works:**
+- Voice speaks: "Perfect! Let's start with greetings. The most common greeting in Spanish is 'Hola'. Try saying 'Hola'!" (the native field)
+- Screen shows: "Hola" (the target field)
+- The Spanish voice gives authentic accent when saying both English AND Spanish words
+
+**Rules:**
+- Target field = ONLY the Spanish word being taught (Hola, Gracias, Adiós)
+- Native field = FULL English explanation with the Spanish word naturally embedded
+- Write as if teaching in English, just embed the Spanish words naturally
+- The Spanish TTS voice will pronounce everything with authentic accent
 ` : ''}
 {
   "target": "${languageName} text (${difficulty === 'beginner' ? 'ONLY the word/phrase being taught' : difficulty === 'intermediate' ? '70-80%' : '85-95%'})",
@@ -1121,36 +1132,41 @@ Target field = ONLY THE WORD. Native field = EVERYTHING ELSE.
 
 **Phase 3 ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Examples:**
 
-**Teaching new content to beginners:**
-${difficulty === 'beginner' ? `✅ CORRECT (ONLY the word being taught in target):
+${difficulty === 'beginner' ? `**Examples for Beginner Voice Mode:**
+
+✅ CORRECT - Teaching a greeting:
 {
   "target": "Hola",
-  "native": "Perfect! This means 'hello' in Spanish. Try saying it!"
+  "native": "Perfect! Let's start with greetings. The most common greeting in Spanish is 'Hola'. Try saying 'Hola'!"
 }
+Voice says: "Perfect! Let's start with greetings..." (in English with Spanish accent)
+Screen shows: "Hola"
 
-❌ WRONG (Spanish explanatory text in target field):
+✅ CORRECT - Teaching thank you:
 {
-  "target": "¡Perfecto! Vamos a aprender sobre los saludos básicos",
-  "native": "Perfect! Let's learn about basic greetings"
-}
-^ Beginner can't understand "Vamos a aprender sobre los saludos básicos" yet!
-
-❌ WRONG (mentions multiple words):
-{
-  "target": "Hola",  
-  "native": "The most common greeting is 'Hola', which means 'Hello.' You can also say '¿Cómo estás?'..."
+  "target": "Gracias",
+  "native": "Great job! Now let's learn how to say 'thank you'. In Spanish, it's 'Gracias'. Try it!"
 }
 
-❌ WRONG (adds extra content after practice instruction):
+❌ WRONG - Speaking Spanish in native field:
 {
   "target": "Hola",
-  "native": "Try saying it! Hola... Great!"
+  "native": "¡Perfecto! Vamos a empezar con los saludos..."
 }
+^ Native field must be in ENGLISH for beginners!
 
-**KEY RULE FOR TEACHING BEGINNERS:**
-- Target = ONLY the Spanish word you're teaching (Hola, Gracias, Adiós)
-- Native = ALL explanations, acknowledgments, instructions (Perfect! This means..., Try saying it!)
-- Put "Perfect!" "Great!" in NATIVE field when teaching, not target field` : difficulty === 'intermediate' ? `✅ CORRECT (short phrase):
+❌ WRONG - Complex Spanish in target:
+{
+  "target": "¡Perfecto! Vamos a aprender los saludos",
+  "native": "Perfect! Let's learn greetings"
+}
+^ Target must be ONLY the word being taught!
+
+**KEY RULES FOR BEGINNER VOICE MODE:**
+- Target = ONLY the single Spanish word (Hola)
+- Native = English explanations with the Spanish word embedded naturally
+- Write as if teaching in English to a beginner
+- The Spanish TTS voice gives authentic pronunciation to both languages` : difficulty === 'intermediate' ? `✅ CORRECT (short phrase):
 {
   "target": "Buenos días",
   "native": "This is how you say 'good morning'. Try it!"
@@ -1160,43 +1176,52 @@ ${difficulty === 'beginner' ? `✅ CORRECT (ONLY the word being taught in target
   "native": "This is a natural way to suggest going to the movies."
 }`}
 
-**Giving feedback:**
-✅ CORRECT:
+**Giving feedback to beginners:**
+${difficulty === 'beginner' ? `✅ CORRECT - Encouragement after good pronunciation:
+{
+  "target": "¡Excelente!",
+  "native": "Excellent! You've got the pronunciation down! Now let's try another word..."
+}
+Voice says: "Excellent! You've got the pronunciation down!" (in English with Spanish accent)
+Screen shows: "¡Excelente!"
+
+✅ CORRECT - Correcting a mistake:
+{
+  "target": "Hola",
+  "native": "Almost! The correct pronunciation is 'Hola'. Listen and try again!"
+}
+` : `✅ CORRECT:
 {
   "target": "¡Excelente! ¡Muy bien!",
-  "native": "Great job! You've got the pronunciation down! Now let's try..."
-}
-
-❌ WRONG (don't mix languages in target):
-{
-  "target": "¡Excelente! (Excellent!) 'Hola!' is a friendly way to greet...",
-  "native": "..."
-}
+  "native": "Great job! You've got it! Now let's try..."
+}`}
 
 CRITICAL RULES:
-1. **TEACHING vs FEEDBACK - Different target field usage:**
-   - When TEACHING new content: target = ONLY the word/phrase being taught
-   - When GIVING FEEDBACK: target can include encouragement (¡Excelente! ¡Muy bien!)
-   
-2. **For TEACHING responses:**
-   - Target = The Spanish word you're teaching ("Hola", "Gracias")
-   - Native = ALL acknowledgments + explanations + instructions
-   - Example: target: "Hola", native: "Perfect! This means 'hello'. Try saying it!"
-   - ❌ NEVER: target: "¡Perfecto! Vamos a aprender..."
+1. **Voice Mode Architecture (Beginners):**
+   - Voice speaks the NATIVE field (English with Spanish accent, Spanish words embedded)
+   - Screen shows the TARGET field (ONLY the Spanish word being taught)
+   - Write as if teaching in English, embedding Spanish words naturally
 
-3. **For FEEDBACK responses:**
-   - Target = Encouraging Spanish phrases they've learned
-   - Native = English explanations of what to do next
-   - Example: target: "¡Excelente! ¡Muy bien!", native: "Great job! Now let's try..."
+2. **For TEACHING new content:**
+   - Target = ONLY the Spanish word ("Hola", "Gracias", "Adiós")
+   - Native = English explanation with the word embedded naturally
+   - Example: target: "Hola", native: "Perfect! The most common greeting is 'Hola'. Try saying it!"
+   - ❌ NEVER write Spanish explanations in native field for beginners
 
-4. NO parentheses in either field - server adds them automatically
+3. **For GIVING FEEDBACK:**
+   - Target = Simple Spanish encouragement they know ("¡Excelente!", "¡Muy bien!")
+   - Native = English explanation of what's next
+   - Example: target: "¡Excelente!", native: "Excellent! You're doing great! Now let's try..."
+
+4. NO parentheses in either field - speak naturally
 5. NO phonetic guides - TTS pronounces correctly
-6. ${difficulty === 'beginner' ? 'Teach ONE word at a time' : difficulty === 'intermediate' ? 'Teach short phrases (2-3 words)' : 'Teach natural expressions and sentences'}
+6. ${difficulty === 'beginner' ? 'Teach ONE word at a time in English with Spanish words embedded' : difficulty === 'intermediate' ? 'Teach short phrases (2-3 words)' : 'Teach natural expressions and sentences'}
 7. KEEP IT SHORT - 1-2 sentences max
 8. END IMMEDIATELY after practice instruction
 
-Server concatenates as: target + " (" + native + ")" for voice TTS
-Subtitles show ONLY target field (guarantees immersive ${languageName}-only display)` : `**TEXT MODE - Standard Response:**
+Server behavior:
+- Voice speaks: native field (${nativeLanguageName} with ${languageName} accent, ${languageName} words embedded)
+- Subtitles show: target field (ONLY ${languageName} word for immersive display)` : `**TEXT MODE - Standard Response:**
 {
   "message": "Your conversational response (primarily in ${languageName})",
   "vocabulary": [...],

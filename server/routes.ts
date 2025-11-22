@@ -1268,16 +1268,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const target = (parsed.target || '').trim();
           const native = (parsed.native || '').trim();
           
-          // CRITICAL: Target field should NEVER be empty when giving feedback/teaching
-          // AI must include Spanish encouragement (¡Perfecto!, ¡Excelente!, etc.)
-          if (!target && native) {
-            console.warn('[VOICE WARNING] Empty target field detected - AI should include Spanish!');
-            console.warn('[VOICE RESPONSE]:', { target, native: native.substring(0, 100) });
-          }
-          
-          // Concatenate for spoken content: target + (native)
-          // When target is empty, fallback to native only (but log warning above)
-          aiResponse = target && native ? `${target} (${native})` : (target || native);
+          // VOICE MODE ARCHITECTURE FOR BEGINNERS:
+          // - TTS speaks: native field ONLY (English with Spanish accent, Spanish words embedded naturally)
+          //   Example: "Perfect! Let's start with greetings. The most common greeting is 'Hola'. Try saying 'Hola'!"
+          // - Subtitles show: target field ONLY (the Spanish word being taught)
+          //   Example: "Hola"
+          // This ensures beginners hear full explanations in English while seeing only the target word
+          aiResponse = native || target; // Use native field for speech
           
           // Subtitles use ONLY target field (guarantees Spanish-only display)
           targetLanguageText = target;
