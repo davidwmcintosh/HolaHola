@@ -831,45 +831,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Generate greeting if it's a new conversation
       if (isNewConversation) {
-        // For voice mode, use target language with English translations in parentheses
-        // For text mode, use English only
-        let greeting: string;
-        const isVoiceMode = req.body.isVoiceMode === true;
-        
-        if (isVoiceMode) {
-          // Voice mode: Target language first, English in parentheses
-          const languageGreetings: Record<string, string> = {
-            'spanish': userName 
-              ? `¡Hola ${userName}! (Hello ${userName}!) Estoy emocionado de ayudarte a aprender español. (I'm excited to help you learn Spanish.) ¿Qué te gustaría practicar hoy? (What would you like to practice today?)`
-              : `¡Hola! (Hello!) Soy tu tutor de español. (I'm your Spanish tutor.) ¿Qué te gustaría aprender hoy? (What would you like to learn today?)`,
-            'french': userName
-              ? `Bonjour ${userName}! (Hello ${userName}!) Je suis ravi de vous aider à apprendre le français. (I'm excited to help you learn French.) Qu'aimeriez-vous pratiquer aujourd'hui? (What would you like to practice today?)`
-              : `Bonjour! (Hello!) Je suis votre tuteur de français. (I'm your French tutor.) Qu'aimeriez-vous apprendre aujourd'hui? (What would you like to learn today?)`,
-            'german': userName
-              ? `Hallo ${userName}! (Hello ${userName}!) Ich freue mich, dir beim Deutschlernen zu helfen. (I'm excited to help you learn German.) Was möchtest du heute üben? (What would you like to practice today?)`
-              : `Hallo! (Hello!) Ich bin dein Deutschlehrer. (I'm your German tutor.) Was möchtest du heute lernen? (What would you like to learn today?)`
-          };
-          
-          greeting = languageGreetings[conversation.language] || 
-                     (userName 
-                       ? `Hello ${userName}! I'm excited to help you learn ${conversation.language}. What would you like to practice today?`
-                       : `Hello! I'm your ${conversation.language} language tutor. What would you like to learn today?`);
-        } else {
-          // Text mode: English only
-          greeting = userName 
-            ? `Hello ${userName}! I'm excited to help you learn ${conversation.language}. What would you like to practice today?`
-            : `Hello! I'm your ${conversation.language} language tutor. What would you like to learn today?`;
-        }
-        
-        // For voice mode, extract target language text (removing English in parentheses)
-        const targetLanguageText = isVoiceMode ? extractTargetLanguageText(greeting) : null;
-        const hasTargetLanguage = targetLanguageText && hasSignificantTargetLanguageContent(targetLanguageText);
+        // Greeting is always in student's native language (beginner-friendly)
+        // For voice mode: spoken with target language voice (English gets Spanish accent)
+        // Subtitles will be empty since there's no target language text in the greeting
+        const greeting = userName 
+          ? `Hello ${userName}! I'm excited to help you learn ${conversation.language}. What would you like to practice today?`
+          : `Hello! I'm your ${conversation.language} language tutor. What would you like to learn today?`;
         
         await storage.createMessage({
           conversationId: conversation.id,
           role: "assistant",
           content: greeting,
-          targetLanguageText: hasTargetLanguage ? targetLanguageText : undefined,
+          // No target_language_text for greetings (all in student's native language)
         });
       }
       
