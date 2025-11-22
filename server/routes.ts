@@ -23,6 +23,7 @@ import { createSystemPrompt } from "./system-prompt";
 import { assessMessage, analyzePerformance } from "./difficulty-adjustment";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { generateConversationTitle, generateConversationContextSummary } from "./conversation-utils";
+import { extractTargetLanguageText, hasSignificantTargetLanguageContent } from "./text-utils";
 import multer from "multer";
 import { getTTSService } from "./services/tts-service";
 import { getCanDoStatements, getCanDoStatementsByLanguage, getAvailableActflLevels } from "./actfl-can-do-statements";
@@ -828,17 +829,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         nativeLanguage: conversation.nativeLanguage
       });
       
-      // REVERTED: Simplified greeting logic to debug voice chat issue
       // Generate greeting if it's a new conversation
       if (isNewConversation) {
         const greeting = userName 
           ? `Hello ${userName}! I'm excited to help you learn ${conversation.language}. What would you like to practice today?`
           : `Hello! I'm your ${conversation.language} language tutor. What would you like to learn today?`;
         
+        // For voice mode, extract target language text (removing English in parentheses)
+        // Greetings are typically in English only, so target_language_text will be null
+        // Target language text is extracted in voice responses where AI uses target language
+        const targetLanguageText = extractTargetLanguageText(greeting);
+        const hasTargetLanguage = hasSignificantTargetLanguageContent(targetLanguageText) && 
+                                   targetLanguageText !== greeting;
+        
         await storage.createMessage({
           conversationId: conversation.id,
           role: "assistant",
           content: greeting,
+          targetLanguageText: hasTargetLanguage ? targetLanguageText : undefined,
         });
       }
       
@@ -1130,12 +1138,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Check if this is a voice mode request (for onboarding too)
         const isVoiceMode = req.body.isVoiceMode === true;
 
+        // Extract target language text for voice mode onboarding
+        const targetLanguageText = isVoiceMode ? extractTargetLanguageText(aiResponse) : null;
+        const hasTargetLanguage = targetLanguageText && hasSignificantTargetLanguageContent(targetLanguageText);
+
         // Save AI response for onboarding (with enrichmentStatus for voice mode)
         // Only include enrichmentStatus if voice mode to avoid undefined→null conversion
         const aiMessage = await storage.createMessage({
           conversationId,
           role: "assistant",
           content: aiResponse,
+          ...(hasTargetLanguage ? { targetLanguageText } : {}),
           ...(isVoiceMode ? { enrichmentStatus: "pending" } : {}),
         });
 
@@ -1227,11 +1240,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // If not JSON, use as-is (fallback for plain text responses)
         }
         
+        // Extract target language text for voice mode (removes English in parentheses)
+        // Example: "¡Hola! (Hello!) ¿Cómo estás? (How are you?)" → "¡Hola! ¿Cómo estás?"
+        const targetLanguageText = extractTargetLanguageText(aiResponse);
+        const hasTargetLanguage = hasSignificantTargetLanguageContent(targetLanguageText);
+        
+        console.log('[VOICE MESSAGE] Content length:', aiResponse.length, 'Target language length:', targetLanguageText.length);
+        
         // Save message immediately with enrichmentStatus="pending"
         const aiMessage = await storage.createMessage({
           conversationId,
           role: "assistant",
           content: aiResponse,
+          targetLanguageText: hasTargetLanguage ? targetLanguageText : undefined,
           enrichmentStatus: "pending", // Mark for background enrichment
         });
 
