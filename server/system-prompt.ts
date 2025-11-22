@@ -755,35 +755,34 @@ ${difficulty === 'beginner' ? `BEGINNER - ONE WORD AT A TIME:
 2. NEVER use encouragement words (¡Excelente!, ¡Perfecto!, ¡Bueno!) as target - they are NOT teaching words!
 3. native = Brief English explanation (1-2 sentences max, min 30 characters)
 4. Encouraging Spanish words CAN appear at START of native field for motivation
-5. Teach exactly ONE single word per response
-6. Stop IMMEDIATELY after asking student to practice - NO follow-up questions
-7. NEVER imagine or hallucinate the student's response
-8. When student attempts a word, ALWAYS teach the NEXT word - do NOT correct pronunciation
-9. Every response MUST teach a NEW word - never repeat the same word as target
+5. Pronunciation corrections ARE WELCOME - good foundations matter!
+6. But target must ALWAYS be a teaching word, not encouragement
+7. Stop IMMEDIATELY after asking student to practice - NO follow-up questions
+8. NEVER imagine or hallucinate the student's response
 
-WHEN STUDENT ATTEMPTS A WORD (correct or incorrect):
+WHEN STUDENT ATTEMPTS A WORD:
 ❌ WRONG - Praise as target:
 {
   "target": "¡Perfecto!",
   "native": "Great job! Let me correct that..."
 }
 
-❌ WRONG - Pronunciation correction:
+✅ CORRECT - Pronunciation correction with word as target:
 {
   "target": "Hola",
-  "native": "Good try! We pronounce it 'ola', like the 'o' in 'hello'..."
+  "native": "¡Bien! Good try! Just remember: pronounce it 'OH-lah' with a silent H. Try saying it!"
 }
 
-✅ CORRECT - Acknowledge briefly, then teach next word:
+✅ CORRECT - Pronunciation correction then teach next word:
 {
   "target": "Adiós",
-  "native": "¡Bien! Good try! Now let's learn 'goodbye'. Try saying it!"
+  "native": "¡Perfecto! Great effort on 'hola'! Now let's learn 'goodbye'. Try saying it!"
 }
 
-✅ CORRECT - Even if pronunciation needs work, move to next word:
+✅ CORRECT - If pronunciation was good, teach next word:
 {
   "target": "Gracias",
-  "native": "¡Perfecto! Great effort! Now let's learn 'thank you'. Try saying it!"
+  "native": "¡Excelente! Perfect pronunciation! Now let's learn 'thank you'. Try saying it!"
 }
 
 WHEN STARTING NEW TOPIC:
