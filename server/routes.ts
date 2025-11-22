@@ -62,12 +62,14 @@ function getLanguageCode(language: string | undefined): string | undefined {
 }
 
 /**
- * Strip markdown formatting from text before sending to TTS
- * Removes: ** (bold), * (italic), _ (underline), ` (code), etc.
- * Preserves: Natural parentheses and punctuation that should be spoken
+ * Strip markdown formatting and pronunciation guides from text before sending to TTS
+ * Removes: ** (bold), * (italic), _ (underline), ` (code), (parentheses), etc.
+ * Preserves: Core message text that should be spoken
  */
 function stripMarkdownForSpeech(text: string): string {
   return text
+    // Remove parentheses and their content (pronunciation guides, translations)
+    .replace(/\([^)]*\)/g, '')
     // Remove bold (**text**)
     .replace(/\*\*(.+?)\*\*/g, '$1')
     // Remove italic (*text* or _text_)
