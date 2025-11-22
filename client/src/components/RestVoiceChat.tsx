@@ -34,6 +34,12 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   const isRecordingRef = useRef<boolean>(false);
   const isProcessingRef = useRef<boolean>(false);
   
+  // Silence detection refs
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const silenceCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
   // Keep refs updated with current state
   useEffect(() => {
     currentConversationRef.current = conversationId;
@@ -165,10 +171,12 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       // Prevent default behavior
       event.preventDefault();
       
-      // Toggle recording
+      // Toggle recording (start if stopped, stop if recording)
       if (isRecording) {
+        console.log('[KEYBOARD] Enter pressed - manually stopping recording');
         stopRecording();
       } else {
+        console.log('[KEYBOARD] Enter pressed - starting recording (auto-stop after silence)');
         startRecording();
       }
     };
@@ -196,8 +204,97 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       streamRef.current = null;
     }
     
+    // Clean up silence detection
+    if (silenceTimeoutRef.current) {
+      clearTimeout(silenceTimeoutRef.current);
+      silenceTimeoutRef.current = null;
+    }
+    
+    if (silenceCheckIntervalRef.current) {
+      clearInterval(silenceCheckIntervalRef.current);
+      silenceCheckIntervalRef.current = null;
+    }
+    
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    
+    analyserRef.current = null;
+    
     setIsRecording(false);
     isRecordingRef.current = false; // Update ref immediately
+  };
+
+  const setupSilenceDetection = (stream: MediaStream) => {
+    try {
+      // Create audio context and analyser
+      const audioContext = new AudioContext();
+      const analyser = audioContext.createAnalyser();
+      const microphone = audioContext.createMediaStreamSource(stream);
+      
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.8;
+      microphone.connect(analyser);
+      
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+      
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      
+      // Thresholds
+      const SILENCE_THRESHOLD = 10; // Volume below this is considered silence (0-255 scale)
+      const SILENCE_DURATION = 2000; // 2 seconds of silence triggers auto-stop
+      
+      let silenceStartTime: number | null = null;
+      
+      // Check audio level every 100ms
+      silenceCheckIntervalRef.current = setInterval(() => {
+        if (!isRecordingRef.current) {
+          // Stopped recording externally, cleanup
+          if (silenceCheckIntervalRef.current) {
+            clearInterval(silenceCheckIntervalRef.current);
+            silenceCheckIntervalRef.current = null;
+          }
+          return;
+        }
+        
+        analyser.getByteTimeDomainData(dataArray);
+        
+        // Calculate average volume
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          const value = Math.abs(dataArray[i] - 128); // Center around 0
+          sum += value;
+        }
+        const average = sum / bufferLength;
+        
+        // Check if silent
+        if (average < SILENCE_THRESHOLD) {
+          if (silenceStartTime === null) {
+            silenceStartTime = Date.now();
+            console.log('[SILENCE DETECTION] Silence started');
+          } else {
+            const silenceDuration = Date.now() - silenceStartTime;
+            if (silenceDuration >= SILENCE_DURATION) {
+              console.log('[SILENCE DETECTION] 2 seconds of silence detected - auto-stopping');
+              stopRecording();
+            }
+          }
+        } else {
+          // Reset silence timer if sound detected
+          if (silenceStartTime !== null) {
+            console.log('[SILENCE DETECTION] Sound detected - resetting silence timer');
+          }
+          silenceStartTime = null;
+        }
+      }, 100); // Check every 100ms
+      
+    } catch (err) {
+      console.error('[SILENCE DETECTION] Failed to setup:', err);
+      // Continue recording without silence detection
+    }
   };
 
   const startRecording = async () => {
@@ -266,6 +363,10 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       setIsRecording(true);
       isRecordingRef.current = true; // Update ref immediately
       setAvatarState('listening');
+      
+      // Start silence detection for auto-stop
+      console.log('[VOICE] Starting silence detection');
+      setupSilenceDetection(stream);
     } catch (err: any) {
       console.error('Failed to start recording:', err);
       setError(err.message || 'Failed to access microphone');
@@ -400,7 +501,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           <div>
             <h2 className="text-lg font-semibold">Voice Practice</h2>
             <p className="text-sm text-muted-foreground">
-              Hold button to record
+              {isRecording ? "Listening... (auto-stops after 2s silence)" : "Click to start speaking"}
             </p>
           </div>
         </div>
@@ -445,46 +546,32 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
             </div>
           )}
 
-          {/* Mic button - Push-to-talk */}
+          {/* Mic button - Click to start, auto-stops after silence */}
           <div className="flex justify-center items-center">
             <Button
               size="icon"
               variant={isRecording ? 'destructive' : 'default'}
               className="h-14 w-14 rounded-full"
-              onMouseDown={() => {
-                if (!isProcessing && conversationId && !isRecording) {
-                  startRecording();
-                }
-              }}
-              onMouseUp={() => {
-                if (isRecording) {
-                  stopRecording();
-                }
-              }}
-              onMouseLeave={() => {
-                if (isRecording) {
-                  stopRecording();
-                }
-              }}
-              onTouchStart={() => {
-                if (!isProcessing && conversationId && !isRecording) {
-                  startRecording();
-                }
-              }}
-              onTouchEnd={() => {
-                if (isRecording) {
-                  stopRecording();
+              onClick={() => {
+                if (!isProcessing && conversationId) {
+                  if (isRecording) {
+                    // Manual stop if needed
+                    stopRecording();
+                  } else {
+                    // Start recording (will auto-stop after 2s silence)
+                    startRecording();
+                  }
                 }
               }}
               disabled={isProcessing || !conversationId}
               data-testid="button-mic-toggle"
               aria-pressed={isRecording}
-              aria-label={isRecording ? "Recording - release to stop" : "Hold to record"}
+              aria-label={isRecording ? "Recording - stops after 2s silence or click to stop" : "Click to start speaking"}
             >
               {isProcessing ? (
                 <Loader2 className="h-6 w-6 animate-spin" />
               ) : isRecording ? (
-                <MicOff className="h-6 w-6" />
+                <Mic className="h-6 w-6 animate-pulse" />
               ) : (
                 <Mic className="h-6 w-6" />
               )}
