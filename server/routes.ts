@@ -1208,7 +1208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const fetchTime = Date.now() - startTime;
         console.log(`[VOICE FAST-PATH] Context fetched in ${fetchTime}ms, starting AI completion`);
 
-        // Quick text-only completion (no structured output, much faster)
+        // Quick structured completion for voice mode (enforces target/native format)
         const completionStart = Date.now();
         const quickCompletion = await openai.chat.completions.create({
           model,
@@ -1220,28 +1220,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
             })),
           ],
           max_completion_tokens: 500, // Shorter response for voice
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "voice_response",
+              strict: true,
+              schema: {
+                type: "object",
+                properties: {
+                  target: { 
+                    type: "string",
+                    description: "Target language text only (Spanish, French, etc.) - or empty string if none"
+                  },
+                  native: { 
+                    type: "string",
+                    description: "Native language explanations and teaching content"
+                  },
+                  vocabulary: {
+                    type: "array",
+                    description: "New vocabulary words (if any) - can be empty array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        word: { type: "string" },
+                        translation: { type: "string" },
+                        example: { type: "string" },
+                        pronunciation: { type: "string" }
+                      },
+                      required: ["word", "translation", "example", "pronunciation"],
+                      additionalProperties: false
+                    }
+                  },
+                  media: {
+                    type: "array",
+                    description: "Images (0-2 max) - can be empty array",
+                    items: { type: "object", additionalProperties: true }
+                  }
+                },
+                required: ["target", "native"],
+                additionalProperties: false
+              }
+            }
+          }
         });
         const completionTime = Date.now() - completionStart;
 
-        const responseContent = quickCompletion.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
+        const responseContent = quickCompletion.choices[0]?.message?.content || "{}";
         
-        // System prompt asks for JSON, so extract just the message field
-        let aiResponse = responseContent;
+        // Parse and validate structured JSON response (schema-enforced)
+        let aiResponse: string;
+        let targetLanguageText = '';
+        let hasTargetLanguage = false;
+        
         try {
           const parsed = JSON.parse(responseContent);
-          if (parsed.message) {
-            aiResponse = parsed.message;
+          
+          // Strict validation: Ensure both target and native fields exist
+          if (typeof parsed.target !== 'string' || typeof parsed.native !== 'string') {
+            console.error('[VOICE VALIDATION ERROR] Missing required fields:', {
+              hasTarget: typeof parsed.target === 'string',
+              hasNative: typeof parsed.native === 'string',
+              response: responseContent.substring(0, 200)
+            });
+            throw new Error('Structured response missing target or native fields');
           }
-        } catch {
-          // If not JSON, use as-is (fallback for plain text responses)
+          
+          const target = parsed.target || '';
+          const native = parsed.native || '';
+          
+          // Concatenate for spoken content: target + (native)
+          aiResponse = target && native ? `${target} (${native})` : (target || native);
+          
+          // Subtitles use ONLY target field (guarantees Spanish-only display)
+          targetLanguageText = target;
+          hasTargetLanguage = hasSignificantTargetLanguageContent(targetLanguageText);
+          
+          console.log('[VOICE STRUCTURED] ✓ Valid format | Target:', target.substring(0, 50), '| Native:', native.substring(0, 50));
+        } catch (error) {
+          // Schema enforcement should prevent this, but log if it happens
+          console.error('[VOICE CRITICAL ERROR] Failed to parse structured response:', error);
+          console.error('[VOICE RAW RESPONSE]:', responseContent.substring(0, 500));
+          
+          // Fallback: Use native language error message (no Spanish to avoid confusion)
+          aiResponse = "I'm having trouble generating a response. Please try again.";
+          targetLanguageText = '';
+          hasTargetLanguage = false;
         }
         
-        // Extract target language text for voice mode (removes English in parentheses)
-        // Example: "¡Hola! (Hello!) ¿Cómo estás? (How are you?)" → "¡Hola! ¿Cómo estás?"
-        const targetLanguageText = extractTargetLanguageText(aiResponse);
-        const hasTargetLanguage = hasSignificantTargetLanguageContent(targetLanguageText);
-        
-        console.log('[VOICE MESSAGE] Content length:', aiResponse.length, 'Target language length:', targetLanguageText.length);
+        console.log('[VOICE MESSAGE] Content:', aiResponse.length, 'chars | Target lang:', targetLanguageText.length, 'chars');
         
         // Save message immediately with enrichmentStatus="pending"
         const aiMessage = await storage.createMessage({
@@ -1514,10 +1580,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
 
+            // TODO: Generate TTS with word timings (requires Google Cloud beta API)
+            // For now, enrichment focuses on vocabulary and media
+            // Word timing support to be added in future iteration
+
             // Update message with enriched data
             await storage.updateMessage(aiMessage.id, {
               mediaJson: mediaJson || undefined,
-              enrichmentStatus: null, // null = complete
+              enrichmentStatus: null, // null = complete (enriched)
             });
 
             const bgTime = Date.now() - bgStart;
@@ -1854,10 +1924,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
 
+            // TODO: Generate TTS with word timings (requires Google Cloud beta API)
+            // For now, enrichment focuses on vocabulary and media
+            // Word timing support to be added in future iteration
+
             // Update message with enriched data
             await storage.updateMessage(aiMessage.id, {
               mediaJson: mediaJson || undefined,
-              enrichmentStatus: null, // null = complete
+              enrichmentStatus: null, // null = complete (enriched)
             });
 
             console.log('[BACKGROUND ENRICHMENT] Completed for message:', aiMessage.id);
@@ -1951,13 +2025,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Parse AI response with error handling
       const responseContent = completion.choices[0]?.message?.content || "";
       let aiResponse = "I'm sorry, I couldn't generate a response.";
-      let parsedResponse: { message?: string; vocabulary?: any[]; media?: any[] } = {};
+      let parsedResponse: { message?: string; target?: string; native?: string; vocabulary?: any[]; media?: any[] } = {};
 
       try {
         parsedResponse = JSON.parse(responseContent);
-        aiResponse = parsedResponse.message || aiResponse;
+        
+        // Handle both structured (target+native) and standard (message) formats
+        if (parsedResponse.target !== undefined && parsedResponse.native !== undefined) {
+          // Voice mode structured format (shouldn't happen in text mode, but handle gracefully)
+          const target = parsedResponse.target || '';
+          const native = parsedResponse.native || '';
+          aiResponse = target && native ? `${target} (${native})` : (target || native);
+          console.log('[TEXT MODE] Got structured format (unexpected), concatenated');
+        } else if (parsedResponse.message) {
+          aiResponse = parsedResponse.message;
+        }
+        
         console.log('[TEXT MODE] Parsed response:', {
           hasMessage: !!parsedResponse.message,
+          hasStructured: !!(parsedResponse.target !== undefined || parsedResponse.native !== undefined),
           vocabularyCount: parsedResponse.vocabulary?.length || 0,
           mediaCount: parsedResponse.media?.length || 0
         });

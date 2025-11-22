@@ -460,10 +460,27 @@ CRITICAL: Phase 1 is 100% ${nativeLanguageName} - NO ${languageName} teaching ye
 - Keep responses concise and friendly
 - Save ${languageName} teaching for Phase 2 (message 6+)
 - Example: "Hi! What made you want to learn ${languageName}?"` : `IMPORTANT - Response Format:
-You must respond with a JSON object containing:
-- message: Your conversational response (primarily in English with 1-2 encouraging ${languageName} words with inline translations)
-- vocabulary: Array of any new ${languageName} words you introduce (with word, translation, example, pronunciation)
-- media: Array of 0-2 images (stock for common vocabulary, ai_generated for scenarios/culture). Usually empty in Phase 1 since you're not teaching vocabulary yet.
+You must respond with a JSON object.
+
+${isVoiceMode ? `**VOICE MODE - Structured Response:**
+{
+  "target": "${languageName} text only (or empty string if no ${languageName} content)",
+  "native": "${nativeLanguageName} explanations and teaching content",
+  "vocabulary": [...],
+  "media": [...]
+}
+
+**Phase 1 (All ${nativeLanguageName})**: 
+- target: "" (empty - no ${languageName} in greetings)
+- native: "Hi! What made you want to learn ${languageName}?" 
+
+The server will concatenate as: target + " (" + native + ")" for voice TTS
+Subtitles will show ONLY the target field (guarantees no English in subtitles)` : `**TEXT MODE - Standard Response:**
+{
+  "message": "Your conversational response (primarily in ${nativeLanguageName} with 1-2 encouraging ${languageName} words with inline translations)",
+  "vocabulary": [...],
+  "media": [...]
+}`}
 
 During this phase, vocabulary and media arrays will typically be empty since you're only using encouraging words, not teaching formal vocabulary. Only include items if the student spontaneously attempts ${languageName} and you want to teach them something.`}
 
@@ -653,10 +670,32 @@ Follow the gradual introduction approach:
 - Keep ${nativeLanguageName} explanations clear and conversational in parentheses
 - The voice speaks EVERYTHING; subtitles show ONLY ${languageName} (removes parentheses)
 - Gradually increase ${languageName} as student progresses` : `IMPORTANT - Response Format:
-You must respond with a JSON object containing:
-- message: Your conversational response (gentle mix of English and ${languageName})
-- vocabulary: Array of new ${languageName} words you introduce (with word, translation, example, pronunciation)
-- media: Array of 0-2 images to enhance learning (stock for common vocabulary, ai_generated for scenarios/culture)
+You must respond with a JSON object.
+
+${isVoiceMode ? `**VOICE MODE - Structured Response:**
+{
+  "target": "${languageName} words/phrases being taught",
+  "native": "${nativeLanguageName} explanations and instructions",
+  "vocabulary": [...],
+  "media": [...]
+}
+
+**Phase 2 Examples:**
+- Message 6-7 (20% ${languageName}):
+  * target: "Hola"
+  * native: "Let's learn 'hello'. In Spanish, we say 'hola', oh-LAH. Now it's your turn - say it!"
+
+- Message 8-10 (30-40% ${languageName}):
+  * target: "¡Perfecto! Gracias"
+  * native: "Perfect! Now let's learn 'thank you'. It's 'gracias', GRAH-syahs. Your turn!"
+
+Server concatenates as: target + " (" + native + ")" for voice TTS
+Subtitles show ONLY target field` : `**TEXT MODE - Standard Response:**
+{
+  "message": "Your conversational response (gentle mix of ${nativeLanguageName} and ${languageName})",
+  "vocabulary": [...],
+  "media": [...]
+}`}
 
 Include ONLY 1 vocabulary item per response - teach one concept, let them practice, then move to the next in a future message. When teaching concrete vocabulary (food, objects, animals), consider including a stock image to make it memorable.`}`;
   }
@@ -955,10 +994,29 @@ For better text-to-speech pronunciation:
 - This maintains consistent accent for authentic pronunciation
 - Keep responses natural and conversational for spoken interaction
 - Maintain appropriate pacing for ${difficulty} level fluency` : `IMPORTANT - Response Format:
-You must respond with a JSON object containing:
-- message: Your conversational response (primarily in ${languageName})
-- vocabulary: Array of new or challenging words you use (with word, translation, example, pronunciation)
-- media: Array of 0-2 images to enhance learning (stock for common vocabulary, ai_generated for scenarios/culture)
+You must respond with a JSON object.
+
+${isVoiceMode ? `**VOICE MODE - Structured Response:**
+{
+  "target": "${languageName} text (${difficulty === 'beginner' ? '40-50%' : difficulty === 'intermediate' ? '70-80%' : '85-95%'} of content)",
+  "native": "${nativeLanguageName} explanations (${difficulty === 'beginner' ? '50-60%' : difficulty === 'intermediate' ? '20-30%' : '5-15%'} of content)",
+  "vocabulary": [...],
+  "media": [...]
+}
+
+**Phase 3 ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Examples:**
+${difficulty === 'beginner' ? `- target: "Hola, ¿cómo estás?"
+  - native: "Let's learn 'How are you?'. In Spanish, it's '¿Cómo estás?', KOH-moh eh-STAHS. Now it's your turn!"` : difficulty === 'intermediate' ? `- target: "¡Perfecto! Ahora vamos a aprender sobre la comida. ¿Te gusta la pizza?"
+  - native: "Great! Now let's learn about food. Do you like pizza?"` : `- target: "Excelente. Hablemos sobre tus planes para el futuro. ¿Qué te gustaría hacer este fin de semana?"
+  - native: "Excellent. Let's talk about your future plans."`}
+
+Server concatenates as: target + " (" + native + ")" for voice TTS
+Subtitles show ONLY target field (guarantees immersive ${languageName}-only display)` : `**TEXT MODE - Standard Response:**
+{
+  "message": "Your conversational response (primarily in ${languageName})",
+  "vocabulary": [...],
+  "media": [...]
+}`}
 
 Actively identify vocabulary in your responses. Include 2-4 vocabulary items per response when appropriate, focusing on words that match the ${difficulty} difficulty level. When teaching concrete vocabulary or cultural scenarios, consider adding relevant images to boost engagement and retention.`}
 
