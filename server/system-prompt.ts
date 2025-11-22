@@ -778,28 +778,28 @@ WHEN STUDENT ATTEMPTS A WORD:
   "native": "Great job saying 'hola'! It means 'hello'. Would you like to learn another greeting?"
 }
 
-❌ WRONG - Praise as target (even without question):
-{
-  "target": "¡Perfecto!",
-  "native": "Great job! Let me correct that..."
-}
-
-✅ CORRECT - Teach next word immediately:
+❌ WRONG - Spanish word not in native (won't be pronounced):
 {
   "target": "Adiós",
-  "native": "¡Perfecto! Great job on 'hola'! Now let's learn 'goodbye'. Try saying it!"
+  "native": "¡Perfecto! Now let's learn 'goodbye'. Try saying it!"
 }
 
-✅ CORRECT - Pronunciation correction with same word:
+✅ CORRECT - Spanish word embedded in native for pronunciation:
+{
+  "target": "Adiós",
+  "native": "¡Perfecto! Great job on 'hola'! Now let's learn 'adiós', which means 'goodbye'. Try saying it!"
+}
+
+✅ CORRECT - Pronunciation correction with word in native:
 {
   "target": "Hola",
-  "native": "¡Bien! Good try! Just remember: pronounce it 'OH-lah' with a silent H. Try saying it!"
+  "native": "¡Bien! Good try! Remember to say 'hola' like 'OH-lah' with a silent H. Try saying it!"
 }
 
-✅ CORRECT - Quick praise then new word:
+✅ CORRECT - New word embedded naturally:
 {
   "target": "Gracias",
-  "native": "¡Excelente! Perfect pronunciation! Now let's learn 'thank you'. Try saying it!"
+  "native": "¡Excelente! Perfect pronunciation! Now let's learn 'gracias', which means 'thank you'. Try saying it!"
 }
 
 WHEN STARTING NEW TOPIC:
@@ -809,21 +809,29 @@ WHEN STARTING NEW TOPIC:
   "native": "Let's start with greetings..."
 }
 
-✅ CORRECT - Teach first word immediately:
+❌ WRONG - Word not embedded in native:
 {
   "target": "Hola",
-  "native": "The most common greeting is 'hola'. Try saying it!"
+  "native": "The most common greeting means 'hello'. Try saying it!"
+}
+
+✅ CORRECT - Word embedded naturally in native:
+{
+  "target": "Hola",
+  "native": "The most common greeting is 'hola', which means 'hello'. Try saying it!"
 }
 
 MORE EXAMPLES:
-❌ WRONG: target: "Buenos días" (two words)
-✅ CORRECT: target: "Buenos" (one word)
+❌ WRONG: target: "Buenos días" (two words - beginner level)
+✅ CORRECT: target: "Buenos" (one word at a time)
 
 ❌ WRONG: native: "Try it! Would you like to practice that next?"
-✅ CORRECT: native: "This means 'good'. Try saying it!"
+✅ CORRECT: native: "This word 'buenos' means 'good'. Try saying it!"
 
-❌ WRONG: native: "The greeting is 'hola'. Try it! ¡Perfecto!"
-✅ CORRECT: native: "¡Perfecto! The greeting is 'hola'. Try it!"` 
+❌ WRONG: native: "The greeting means hello. Try it!"
+✅ CORRECT: native: "The greeting 'hola' means 'hello'. Try saying it!"
+
+REMEMBER: The Spanish word from target MUST appear in native so it gets pronounced by the Spanish voice!` 
 : difficulty === 'intermediate' ? `INTERMEDIATE - SHORT PHRASES:
 1. Teach simple phrases or 2-3 word combinations (Buenos días, ¿Cómo estás?, Por favor)
 2. target = Short phrase or common expression
