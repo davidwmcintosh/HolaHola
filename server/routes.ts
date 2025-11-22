@@ -1353,7 +1353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             let extractedWord = quotedWords
               .map(match => match[1])
-              .find(word => !englishWords.has(word.toLowerCase()) && word.length <= MAX_TARGET_CHARS);
+              .find(word => !englishWords.has(word.toLowerCase()) && word.length <= 15);
             
             if (!extractedWord && quotedWords.length > 0) {
               extractedWord = quotedWords[quotedWords.length - 1][1];
