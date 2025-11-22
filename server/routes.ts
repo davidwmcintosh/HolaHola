@@ -62,69 +62,168 @@ function getLanguageCode(language: string | undefined): string | undefined {
 }
 
 /**
- * Strip markdown formatting and parenthetical content from text before TTS
+ * Strip markdown formatting and phonetic content from text before TTS
  * 
- * Strategy: Remove ALL parenthetical content and phonetic guides since:
- * 1. Phonetic guides (kah-FEH, OON) sound unnatural when spoken
- * 2. English translations aren't needed - Google Cloud TTS pronounces Spanish authentically
- * 3. Parenthetical info is for visual learning, not audio
+ * Architecture: Sentence-level classification pipeline (per architect guidance)
+ * 1. Split text into sentences
+ * 2. Clean each sentence (remove parentheticals, markdown)
+ * 3. Classify and filter phonetic-only sentences
+ * 4. Rebuild clean text
  * 
  * Examples:
  * - "café (kah-FEH)" → "café"
- * - "café = kah-FEH" → "café"
- * - "un (OON) café" → "un café"
- * - "perro (dog)" → "perro"
+ * - "Pronunciation: kah-FEH. Try it!" → "Try it!"
  * - "Café, por favor (Coffee, please; kah-FEH, por fah-VOR)" → "Café, por favor"
- * - "hola = oh-LAH" → "hola"
+ * - "perro (dog)" → "perro"
+ * 
+ * Exported for unit testing
  */
-function stripMarkdownForSpeech(text: string): string {
-  // Split into sentences for safer processing
-  let cleaned = text;
+export function stripMarkdownForSpeech(text: string): string {
+  // Split text into sentences (simple approach)
+  const sentences = text.split(/([.!?]+\s+)/).reduce((acc: string[], part, i, arr) => {
+    if (i % 2 === 0 && part.trim()) {
+      const punct = arr[i + 1] || '';
+      acc.push((part + punct).trim());
+    }
+    return acc;
+  }, []);
   
-  // STEP 1: Remove all parenthetical content (most reliable method)
-  // Handles: (kah-FEH), (Coffee, please; kah-FEH, por fah-VOR)
-  cleaned = cleaned.replace(/\([^)]+\)/g, '');
+  // Process each sentence
+  const cleanedSentences = sentences
+    .map(sentence => cleanSentence(sentence))
+    .filter(sentence => !isPhoneticInstruction(sentence))
+    .filter(sentence => sentence.trim().length > 0);
   
-  // STEP 2: Remove complete sentences that are purely phonetic instructions
-  // Match entire sentences from start or after punctuation to next punctuation
-  // This is conservative - only removes if sentence starts with instruction keyword
-  cleaned = cleaned.replace(/([.!?]\s+|^)(?:pronunciation|listen|the pronunciation is|sounds like|try saying)[\s:][^.!?]+[.!?]/gi, '$1');
+  // Rebuild text
+  return cleanedSentences.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Check if token is whitelisted non-phonetic pattern
+ */
+function isWhitelistedToken(token: string): boolean {
+  // CamelCase without hyphen: iPhone, JavaScript
+  if (!token.includes('-') && /[a-z]/.test(token) && /[A-Z]/.test(token)) return true;
   
-  // STEP 3: Remove semicolon-separated phonetic clauses at end of sentences
-  // Handles: "Coffee, please; kah-FEH, por fah-VOR"
-  cleaned = cleaned.replace(/;\s*[a-zA-Z-]+(?:,\s*[a-zA-Z-]+)*(?=[.!?,]|$)/g, '');
+  // Locale codes: en-US, es-MX
+  if (/^[a-z]{2,4}-[A-Z]{2,4}$/.test(token)) return true;
   
-  // STEP 4: Clean up markdown formatting
-  cleaned = cleaned
-    // Remove bold (**text**)
+  // Proper nouns: Pre-Columbian
+  if (/^[A-Z][a-z]+-[A-Z][a-z]+/.test(token)) return true;
+  
+  // Normal hyphenated words: face-to-face, well-known
+  if (/^[a-z]+-[a-z]+$/.test(token)) return true;
+  
+  return false;
+}
+
+/**
+ * Check if token is phonetic syllable (stress pattern)
+ * Normalizes diacritics to catch accented syllables like "fah-VÓR"
+ * Returns true for: "kah-FEH", "fah-VOR", "fah-VÓR", "oh-LAH", "OH-LAH"
+ * Returns false for: "en-US", "Pre-Columbian", "face-to-face", "iPhone", "say"
+ */
+function isPhoneticToken(token: string): boolean {
+  // Must have hyphen
+  if (!token.includes('-')) return false;
+  
+  // Check whitelist first
+  if (isWhitelistedToken(token)) return false;
+  
+  // Normalize diacritics for pattern matching (fah-VÓR → fah-VOR)
+  const normalized = normalizeDiacritics(token);
+  
+  // Phonetic patterns: lowercase-UPPERCASE or UPPERCASE-UPPERCASE
+  return /^[a-z]+-[A-Z]+$/.test(normalized) || /^[A-Z]+-[A-Z]+$/.test(normalized);
+}
+
+/**
+ * Remove phonetic tokens from a clause while preserving spacing and punctuation
+ * Strips phonetic syllables while preserving normal words and whitespace
+ * Examples:
+ * - "kah-FEH, por fah-VOR" → "por"
+ * - "kah-FEH once more" → "once more"
+ * - "Pre-Columbian stories" → "Pre-Columbian stories" (preserved)
+ */
+function removePhoneticTokens(clause: string): string {
+  // Split on word boundaries while capturing whitespace and punctuation
+  const tokens = clause.split(/(\s+|,\s*)/);
+  
+  const cleaned = tokens.filter(token => {
+    // Keep whitespace and punctuation
+    if (/^[\s,]*$/.test(token)) return true;
+    
+    const trimmed = token.trim();
+    if (trimmed.length === 0) return true;
+    
+    // Remove phonetic tokens
+    return !isPhoneticToken(trimmed);
+  });
+  
+  return cleaned.join('').replace(/\s+/g, ' ').replace(/,\s*,/g, ',').replace(/^\s*,\s*/, '').trim();
+}
+
+/**
+ * Clean a single sentence by removing parentheticals, phonetic tokens, and markdown
+ * Removes individual phonetic tokens from mixed clauses
+ */
+function cleanSentence(sentence: string): string {
+  let text = sentence;
+  
+  // Remove parenthetical content (always safe - typically phonetics/translations)
+  text = text.replace(/\([^)]+\)/g, '');
+  
+  // Remove phonetic tokens from equals/semicolon clauses
+  text = text.replace(/(\s*[;=]\s*)([^.!?]+)/g, (match, delimiter, clause) => {
+    const cleaned = removePhoneticTokens(clause);
+    // If clause becomes empty after removing phonetics, remove delimiter too
+    if (cleaned.length === 0) return '';
+    return delimiter + cleaned;
+  });
+  
+  // Remove markdown
+  text = text
     .replace(/\*\*(.+?)\*\*/g, '$1')
-    // Remove italic (*text* or _text_)
     .replace(/\*(.+?)\*/g, '$1')
     .replace(/_(.+?)_/g, '$1')
-    // Remove inline code (`text`)
     .replace(/`(.+?)`/g, '$1')
-    // Remove headings (# text)
     .replace(/^#{1,6}\s+/gm, '')
-    // Remove horizontal rules
     .replace(/^[-*_]{3,}$/gm, '')
-    // Remove list markers (- or * or numbers)
     .replace(/^[\s]*[-*]\s+/gm, '')
     .replace(/^[\s]*\d+\.\s+/gm, '')
-    // Remove blockquotes (> text)
-    .replace(/^>\s+/gm, '');
-  
-  // STEP 5: Clean up leftover punctuation artifacts (conservative)
-  cleaned = cleaned
-    // Remove duplicate punctuation
-    .replace(/([.!?])\s*[.!?]+/g, '$1')
-    .replace(/,\s*,+/g, ',')
-    // Clean up spaces before punctuation
-    .replace(/\s+([.,!?])/g, '$1')
-    // Clean up extra whitespace
+    .replace(/^>\s+/gm, '')
+    // Clean whitespace
     .replace(/\s+/g, ' ')
     .trim();
+    
+  return text;
+}
+
+/**
+ * Normalize diacritics for phonetic detection
+ */
+function normalizeDiacritics(text: string): string {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Classify if sentence is purely a phonetic instruction
+ */
+function isPhoneticInstruction(sentence: string): boolean {
+  const lower = sentence.toLowerCase().trim();
   
-  return cleaned;
+  // Check if sentence starts with instruction keywords
+  const keywords = [
+    'pronunciation:',
+    'phonetically:',
+    'listen:',
+    'the pronunciation is',
+    'sounds like',
+    'try saying',
+    'say it like'
+  ];
+  
+  return keywords.some(keyword => lower.startsWith(keyword));
 }
 
 /**
