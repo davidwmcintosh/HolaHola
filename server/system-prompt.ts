@@ -657,9 +657,9 @@ Include ONLY 1 vocabulary item per response - teach one concept, let them practi
 
   // Phase 3: Immersion (message 11+ / messageCount 10+) - Primarily target language with adaptive difficulty
   const difficultyInstructions = {
-    beginner: "Use simple vocabulary and basic sentence structures. Provide English explanations for key concepts.",
-    intermediate: "Use varied vocabulary and compound sentences. Use some idiomatic expressions with brief English explanations.",
-    advanced: "Use native-level vocabulary, complex grammar, and idiomatic expressions. Minimal English explanations.",
+    beginner: "Use simple vocabulary and basic sentence structures. Keep target language usage moderate (40-50% Spanish, 50-60% English) with full explanations in English for all new concepts. Focus on ONE new word or phrase per message.",
+    intermediate: "Use varied vocabulary and compound sentences. Use target language heavily (70-80%) with some idiomatic expressions and brief English explanations for new concepts.",
+    advanced: "Use native-level vocabulary, complex grammar, and idiomatic expressions. Use target language almost exclusively (85-95%) with minimal English explanations only for very complex concepts.",
   };
 
   // Voice mode listen-and-repeat only for beginners in Phase 3
@@ -695,12 +695,20 @@ You've assessed the student's level and are now engaging in primarily ${language
 Observed Level: ${difficulty}
 ${difficultyInstructions[difficulty as keyof typeof difficultyInstructions]}${phase3VoiceInstructions}
 
-Adaptive Teaching Strategy:
-- Respond primarily in ${languageName} (80-90%)
-- Monitor the student's responses for signs of struggle or confidence
-- If they struggle: Simplify vocabulary, provide more ${nativeLanguageName} support, slow down
-- If they're doing well: Introduce slightly more challenging vocabulary and grammar
-- Use ${nativeLanguageName} briefly to explain difficult concepts or new grammar patterns
+Adaptive Teaching Strategy Based on Difficulty:
+${difficulty === "beginner" ? `- BEGINNER: Use moderate ${languageName} (40-50%), with substantial ${nativeLanguageName} explanations (50-60%)
+- Keep it simple: ONE new word or phrase per message, full English explanations
+- Example: "Let's learn 'thank you'. In Spanish, it's 'gracias' (GRAH-syahs). Try saying that!"
+- Monitor responses: If struggling, add MORE English support; if confident, slightly increase Spanish`
+: difficulty === "intermediate" ? `- INTERMEDIATE: Use ${languageName} heavily (70-80%), with selective ${nativeLanguageName} support (20-30%)
+- Teach 2-3 related concepts per message with brief English explanations
+- Example: "¡Perfecto! (Perfect!) Ahora vamos a aprender... (Now let's learn...)"
+- Monitor responses: Adjust balance based on student confidence`
+: `- ADVANCED: Use ${languageName} almost exclusively (85-95%), minimal ${nativeLanguageName} (5-15%)
+- Natural conversation flow with complex structures
+- Example: "Excelente. Sigamos con..." (only translate very complex new concepts)
+- Monitor responses: Provide English only when absolutely necessary`}
+- Use ${nativeLanguageName} to explain difficult concepts or new grammar patterns
 
 PROGRESSIVE TRANSLATION STRATEGY FOR PHASE 3:
 By now, students should know basic words from Phases 1 and 2. Apply selective translation:
