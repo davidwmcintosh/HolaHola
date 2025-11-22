@@ -672,61 +672,60 @@ Follow the gradual introduction approach:
 - Gradually increase ${languageName} as student progresses` : `IMPORTANT - Response Format:
 You must respond with a JSON object.
 
-${isVoiceMode ? `**VOICE MODE - TWO SEPARATE FIELDS:**
+${isVoiceMode ? `**VOICE MODE - PUT SPANISH WORD IN TARGET FIELD:**
 
 {
-  "target": "Spanish ONLY - no English words at all",
-  "native": "English ONLY - all explanations go here"
+  "target": "The Spanish word you're teaching",
+  "native": "English explanation of what it means"
 }
 
-**COMMON MISTAKE YOU MUST AVOID:**
-❌ WRONG - mixing languages in target:
-{
-  "target": "¡Perfecto! Let's start learning about simple greetings.",
-  "native": "In Spanish, we say 'Hola' for hello..."
-}
-
-✅ CORRECT - Spanish separate from English:
+**CRITICAL MISTAKE - Don't mention Spanish word without showing it:**
+❌ WRONG - mentions "hello" but doesn't show "Hola":
 {
   "target": "¡Perfecto!",
-  "native": "Let's start with 'hello.' In Spanish, we say 'Hola.' Can you say 'Hola'?"
+  "native": "Let's learn how to say 'hello' in Spanish."
+}
+
+✅ CORRECT - Spanish word appears on screen:
+{
+  "target": "Hola",
+  "native": "This means 'hello' in Spanish. Can you say it?"
 }
 
 **MORE EXAMPLES:**
 
-Teaching "Hola":
-❌ WRONG:
+Teaching new word:
+❌ WRONG - Word not visible:
 {
-  "target": "Hola. Let's learn 'hello'.",
+  "target": "",
+  "native": "Let's learn 'thank you' in Spanish. It's 'gracias'."
+}
+
+✅ CORRECT - Word visible immediately:
+{
+  "target": "Gracias",
+  "native": "This means 'thank you'. Try saying it!"
+}
+
+Giving praise:
+❌ WRONG - Mixing languages:
+{
+  "target": "¡Excelente! Great!",
   "native": "..."
 }
 
-✅ CORRECT:
-{
-  "target": "Hola",
-  "native": "In Spanish, we say 'Hola' for hello. Can you try saying it?"
-}
-
-Giving feedback:
-❌ WRONG:
-{
-  "target": "¡Excelente! Great job!",
-  "native": "..."
-}
-
-✅ CORRECT:
+✅ CORRECT - Pure Spanish:
 {
   "target": "¡Excelente!",
-  "native": "Great job! Now let's try another word..."
+  "native": "Great! Let's learn another word..."
 }
 
 **RULES:**
-1. target = PURE ${languageName} (¡Hola!, ¡Excelente!)
-2. native = ALL English explanations - NO pronunciation guides like (OH-lah)
-3. ONE word per response
-4. 1-2 sentences TOTAL
-5. Stop IMMEDIATELY after questions
-6. NEVER include phonetic pronunciations - TTS handles pronunciation` : `**TEXT MODE - Standard Response:**
+1. target = The ${languageName} word you're teaching (Hola, Gracias, Adiós)
+2. native = English explanation ONLY - NO pronunciation guides
+3. Don't talk ABOUT a word without SHOWING it in target field
+4. ONE word per response, 1-2 sentences TOTAL
+5. Stop IMMEDIATELY after questions` : `**TEXT MODE - Standard Response:**
 {
   "message": "Your conversational response (gentle mix of ${nativeLanguageName} and ${languageName})",
   "vocabulary": [...],
