@@ -1235,34 +1235,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   native: { 
                     type: "string",
                     description: "Native language explanations and teaching content"
-                  },
-                  vocabulary: {
-                    type: "array",
-                    description: "New vocabulary words (if any) - can be empty array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        word: { type: "string" },
-                        translation: { type: "string" },
-                        example: { type: "string" },
-                        pronunciation: { type: "string" }
-                      },
-                      required: ["word", "translation", "example", "pronunciation"],
-                      additionalProperties: false
-                    }
-                  },
-                  media: {
-                    type: "array",
-                    description: "Images (0-2 max) - can be empty array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        query: { type: "string" },
-                        description: { type: "string" }
-                      },
-                      required: ["query", "description"],
-                      additionalProperties: false
-                    }
                   }
                 },
                 required: ["target", "native"],
