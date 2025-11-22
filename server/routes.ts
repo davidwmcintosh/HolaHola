@@ -214,13 +214,13 @@ function isPhoneticInstruction(sentence: string): boolean {
   const lower = sentence.toLowerCase().trim();
   
   // Check if sentence starts with instruction keywords
+  // NOTE: "try saying" is intentionally removed - it's an important instructional phrase that should be spoken
   const keywords = [
     'pronunciation:',
     'phonetically:',
     'listen:',
     'the pronunciation is',
     'sounds like',
-    'try saying',
     'say it like'
   ];
   
