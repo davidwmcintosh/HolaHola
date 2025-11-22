@@ -1327,7 +1327,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Sanitize native text to prevent punctuation artifacts
           native = native.replace(/([¡!¿?])\1+/g, '$1'); // Remove repeated punctuation
-          aiResponse = native || target; // Use native field for speech
           
           // Subtitles use ONLY target field (guarantees Spanish-only display)
           targetLanguageText = target;
@@ -1393,6 +1392,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log('[VOICE VALIDATION] ✓ Removed question, added "Try saying it!"');
             }
           }
+          
+          // CRITICAL: Assign aiResponse AFTER all validation to ensure cleaned content is used
+          aiResponse = native || target;
           
           console.log('[VOICE STRUCTURED] ✓ Valid format | Target:', target.substring(0, 50), '| Native:', native.substring(0, 50));
         } catch (error) {
