@@ -24,6 +24,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   const [processingStage, setProcessingStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [avatarState, setAvatarState] = useState<AvatarState>('idle');
+  const [recordingMode, setRecordingMode] = useState<'auto-stop' | 'push-to-talk' | null>(null);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
@@ -34,7 +35,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   const isRecordingRef = useRef<boolean>(false);
   const isProcessingRef = useRef<boolean>(false);
   
-  // Silence detection refs
+  // Silence detection refs (only for auto-stop mode)
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const silenceCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -170,12 +171,12 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       // Prevent default behavior
       event.preventDefault();
       
-      // Toggle recording (start if stopped, stop if recording)
-      if (isRecording) {
-        console.log('[KEYBOARD] Enter pressed - manually stopping recording');
+      // Toggle recording (auto-stop mode only - Enter key doesn't make sense for push-to-talk)
+      if (isRecording && recordingMode === 'auto-stop') {
+        console.log('[KEYBOARD] Enter pressed - manually stopping auto-stop recording');
         stopRecording();
-      } else {
-        console.log('[KEYBOARD] Enter pressed - starting recording (auto-stop after silence)');
+      } else if (!isRecording) {
+        console.log('[KEYBOARD] Enter pressed - starting auto-stop recording');
         startRecording();
       }
     };
@@ -218,6 +219,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     
     setIsRecording(false);
     isRecordingRef.current = false; // Update ref immediately
+    setRecordingMode(null); // Reset mode to prevent stale state
   };
 
   const setupSilenceDetection = (stream: MediaStream) => {
@@ -296,6 +298,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     
     try {
       setError(null);
+      setRecordingMode('auto-stop');
       
       // Capture conversation ID for this session
       const recordingConversationId = conversationId;
@@ -349,6 +352,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           setIsRecording(false);
           isRecordingRef.current = false; // Update ref immediately
           setAvatarState('idle');
+          setRecordingMode(null);
         } else {
           console.log('[RECORDER] Session superseded - new recording already started');
         }
@@ -391,6 +395,95 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     } else {
       // If recorder already inactive, cleanup manually
       cleanupRecording();
+    }
+  };
+
+  // Push-to-talk mode: Hold down to record, release to stop
+  const startPushToTalkRecording = async () => {
+    if (isRecording) return;
+    
+    try {
+      setError(null);
+      setRecordingMode('push-to-talk');
+      
+      // Capture conversation ID for this session
+      const recordingConversationId = conversationId;
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm',
+      });
+      
+      // Isolated state for this recording session
+      const recordingChunks: Blob[] = [];
+      const sessionStream = stream; // Capture in closure
+      const sessionRecorder = mediaRecorder; // Capture in closure
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordingChunks.push(event.data);
+        }
+      };
+      
+      mediaRecorder.onstop = async () => {
+        console.log('[PUSH-TO-TALK] Stopped, processing audio...');
+        
+        // Check if this is still the active session
+        const isActiveSession = mediaRecorderRef.current === sessionRecorder;
+        
+        // Session-safe cleanup: only touch resources that belong to THIS session
+        sessionStream.getTracks().forEach(track => track.stop());
+        
+        // Only touch shared state if this is still the active session
+        if (isActiveSession) {
+          mediaRecorderRef.current = null;
+          streamRef.current = null;
+          setIsRecording(false);
+          isRecordingRef.current = false;
+          setAvatarState('idle');
+          setRecordingMode(null);
+        } else {
+          console.log('[PUSH-TO-TALK] Session superseded - new recording already started');
+        }
+        
+        // Build audio blob from this session's chunks
+        const audioBlob = new Blob(recordingChunks, { type: 'audio/webm' });
+        
+        // Check if conversation changed by comparing to current ref value
+        const currentConv = currentConversationRef.current;
+        
+        if (recordingConversationId === currentConv && recordingConversationId && isActiveSession) {
+          console.log('[PUSH-TO-TALK] Processing audio for conversation:', recordingConversationId);
+          await processRecording(audioBlob, recordingConversationId);
+        } else {
+          console.log('[PUSH-TO-TALK] Discarding audio - conversation changed or session superseded');
+        }
+      };
+      
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setIsRecording(true);
+      isRecordingRef.current = true;
+      setAvatarState('listening');
+      
+      console.log('[PUSH-TO-TALK] Recording started - release to stop');
+    } catch (err: any) {
+      console.error('Failed to start push-to-talk recording:', err);
+      setError(err.message || 'Failed to access microphone');
+      setRecordingMode(null);
+      cleanupRecording();
+    }
+  };
+
+  const stopPushToTalkRecording = () => {
+    console.log('[PUSH-TO-TALK] Releasing button, stopping recording...');
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    } else {
+      cleanupRecording();
+      setRecordingMode(null);
     }
   };
 
@@ -510,7 +603,9 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           <div>
             <h2 className="text-lg font-semibold">Voice Practice</h2>
             <p className="text-sm text-muted-foreground">
-              {isRecording ? "Listening... (auto-stops after 2s silence)" : "Click to start speaking"}
+              {isRecording 
+                ? `Listening... (${recordingMode === 'auto-stop' ? 'auto-stop mode' : 'push-to-talk mode'})` 
+                : "Choose your recording mode below"}
             </p>
           </div>
         </div>
@@ -555,42 +650,108 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
             </div>
           )}
 
-          {/* Mic button - Click to start, auto-stops after silence */}
-          <div className="flex flex-col items-center gap-2">
-            <Button
-              size="icon"
-              variant={isRecording ? 'destructive' : 'default'}
-              className="h-14 w-14 rounded-full"
-              onClick={() => {
-                if (!isProcessing && conversationId) {
-                  if (isRecording) {
-                    // Manual stop if needed
-                    stopRecording();
-                  } else {
-                    // Start recording (will auto-stop after 2s silence)
-                    startRecording();
-                  }
+          {/* Two recording modes for A/B testing */}
+          <div className="flex flex-col items-center gap-4">
+            <div className="grid grid-cols-2 gap-4 w-full max-w-md">
+              {/* Auto-stop mode */}
+              <div className="flex flex-col items-center gap-2">
+                <Button
+                  size="icon"
+                  variant={isRecording && recordingMode === 'auto-stop' ? 'destructive' : 'default'}
+                  className="h-14 w-14 rounded-full"
+                  onClick={() => {
+                    if (!isProcessing && conversationId && !isRecording) {
+                      startRecording();
+                    } else if (isRecording && recordingMode === 'auto-stop') {
+                      stopRecording();
+                    }
+                  }}
+                  disabled={isProcessing || !conversationId || (isRecording && recordingMode !== 'auto-stop')}
+                  data-testid="button-auto-stop"
+                  aria-pressed={isRecording && recordingMode === 'auto-stop'}
+                  aria-label="Click to speak - auto-stops after silence"
+                >
+                  {isProcessing ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : isRecording && recordingMode === 'auto-stop' ? (
+                    <Mic className="h-6 w-6 animate-pulse" />
+                  ) : (
+                    <Mic className="h-6 w-6" />
+                  )}
+                </Button>
+                <div className="text-center">
+                  <p className="text-xs font-medium" data-testid="label-auto-stop">Click to Speak</p>
+                  <p className="text-xs text-muted-foreground">Auto-stops</p>
+                </div>
+              </div>
+
+              {/* Push-to-talk mode */}
+              <div className="flex flex-col items-center gap-2">
+                <Button
+                  size="icon"
+                  variant={isRecording && recordingMode === 'push-to-talk' ? 'destructive' : 'default'}
+                  className="h-14 w-14 rounded-full"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    if (!isProcessing && conversationId && !isRecording) {
+                      startPushToTalkRecording();
+                    }
+                  }}
+                  onPointerUp={(e) => {
+                    e.preventDefault();
+                    if (isRecording && recordingMode === 'push-to-talk') {
+                      stopPushToTalkRecording();
+                    }
+                  }}
+                  onPointerCancel={(e) => {
+                    e.preventDefault();
+                    if (isRecording && recordingMode === 'push-to-talk') {
+                      console.log('[PUSH-TO-TALK] Pointer cancelled - stopping recording');
+                      stopPushToTalkRecording();
+                    }
+                  }}
+                  onPointerLeave={(e) => {
+                    e.preventDefault();
+                    if (isRecording && recordingMode === 'push-to-talk') {
+                      stopPushToTalkRecording();
+                    }
+                  }}
+                  onTouchCancel={(e) => {
+                    e.preventDefault();
+                    if (isRecording && recordingMode === 'push-to-talk') {
+                      console.log('[PUSH-TO-TALK] Touch cancelled - stopping recording');
+                      stopPushToTalkRecording();
+                    }
+                  }}
+                  disabled={isProcessing || !conversationId || (isRecording && recordingMode !== 'push-to-talk')}
+                  data-testid="button-push-to-talk"
+                  aria-pressed={isRecording && recordingMode === 'push-to-talk'}
+                  aria-label="Hold to speak"
+                >
+                  {isProcessing ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : isRecording && recordingMode === 'push-to-talk' ? (
+                    <Mic className="h-6 w-6 animate-pulse" />
+                  ) : (
+                    <Mic className="h-6 w-6" />
+                  )}
+                </Button>
+                <div className="text-center">
+                  <p className="text-xs font-medium" data-testid="label-push-to-talk">Push to Talk</p>
+                  <p className="text-xs text-muted-foreground">Hold down</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Status text */}
+            {isRecording && (
+              <p className="text-xs text-muted-foreground text-center" data-testid="text-recording-status">
+                {recordingMode === 'auto-stop' 
+                  ? "🎙️ Recording... (auto-stops after 2s silence)" 
+                  : "🎙️ Recording... (release to stop)"
                 }
-              }}
-              disabled={isProcessing || !conversationId}
-              data-testid="button-mic-toggle"
-              aria-pressed={isRecording}
-              aria-label={isRecording ? "Recording - stops after 2s silence or click to stop" : "Click to start speaking"}
-            >
-              {isProcessing ? (
-                <Loader2 className="h-6 w-6 animate-spin" />
-              ) : isRecording ? (
-                <Mic className="h-6 w-6 animate-pulse" />
-              ) : (
-                <Mic className="h-6 w-6" />
-              )}
-            </Button>
-            <p className="text-xs text-muted-foreground text-center" data-testid="text-mic-instructions">
-              {isRecording 
-                ? "Auto-stops after 2s silence" 
-                : "Click or press Enter to speak"
-              }
-            </p>
+              </p>
+            )}
           </div>
         </div>
       </div>
