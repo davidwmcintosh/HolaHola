@@ -672,57 +672,60 @@ Follow the gradual introduction approach:
 - Gradually increase ${languageName} as student progresses` : `IMPORTANT - Response Format:
 You must respond with a JSON object.
 
-${isVoiceMode ? `**VOICE MODE - Structured Response:**
-
-CRITICAL: Separate Spanish from English into TWO fields:
+${isVoiceMode ? `**VOICE MODE - TWO SEPARATE FIELDS:**
 
 {
-  "target": "ONLY ${languageName} words - NO English",
-  "native": "ONLY ${nativeLanguageName} text - explanations and instructions"
+  "target": "Spanish ONLY - no English words at all",
+  "native": "English ONLY - all explanations go here"
 }
 
-**HOW IT WORKS:**
-- Voice speaks: target + " (" + native + ")"
-  Example voice: "¡Hola! (Let's learn 'hello'. Now it's your turn - say it!)"
-- Subtitles display: target ONLY
-  Example subtitle: "¡Hola!"
-
-**Phase 2 Examples:**
-
-**Teaching new word:**
-✅ CORRECT:
+**COMMON MISTAKE YOU MUST AVOID:**
+❌ WRONG - mixing languages in target:
 {
-  "target": "Hola",
-  "native": "Let's learn 'hello'. In Spanish, we say 'hola'. Now it's your turn - say it!"
+  "target": "¡Perfecto! Let's start learning about simple greetings.",
+  "native": "In Spanish, we say 'Hola' for hello..."
 }
 
-❌ WRONG (don't put English in target):
+✅ CORRECT - Spanish separate from English:
 {
-  "target": "Hola (Let's learn 'hello'...)",
+  "target": "¡Perfecto!",
+  "native": "Let's start with 'hello.' In Spanish, we say 'Hola.' Can you say 'Hola'?"
+}
+
+**MORE EXAMPLES:**
+
+Teaching "Hola":
+❌ WRONG:
+{
+  "target": "Hola. Let's learn 'hello'.",
   "native": "..."
 }
 
-**Giving feedback:**
+✅ CORRECT:
+{
+  "target": "Hola",
+  "native": "In Spanish, we say 'Hola' for hello. Can you say 'Hola'?"
+}
+
+Giving feedback:
+❌ WRONG:
+{
+  "target": "¡Excelente! Great job!",
+  "native": "..."
+}
+
 ✅ CORRECT:
 {
   "target": "¡Excelente!",
   "native": "Great job! Now let's try another word..."
 }
 
-❌ WRONG (never empty target):
-{
-  "target": "",
-  "native": "Great job! Now let's try..."
-}
-
-CRITICAL RULES:
-1. "target" = ONLY ${languageName} words (¡Hola!, ¡Excelente!, ¿Cómo estás?)
-2. "native" = ALL ${nativeLanguageName} explanations (Let's learn..., Great job!...)
-3. NO parentheses in either field - server adds them automatically
-4. NO phonetic guides - TTS pronounces correctly
-5. Teach ONE word at a time - don't introduce multiple new concepts
-6. KEEP IT SHORT - voice responses should be 1-2 sentences max
-7. END IMMEDIATELY after asking student a question - no additional commentary` : `**TEXT MODE - Standard Response:**
+**RULES:**
+1. target = PURE ${languageName} (¡Hola!, ¡Excelente!)
+2. native = ALL English explanations
+3. ONE word per response
+4. 1-2 sentences TOTAL
+5. Stop IMMEDIATELY after questions` : `**TEXT MODE - Standard Response:**
 {
   "message": "Your conversational response (gentle mix of ${nativeLanguageName} and ${languageName})",
   "vocabulary": [...],
