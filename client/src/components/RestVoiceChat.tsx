@@ -614,24 +614,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-background" data-testid="rest-voice-chat">
-      {/* Header with controls */}
-      <div className="flex items-center justify-between p-4 border-b bg-card/50 shrink-0">
-        <div className="flex items-center gap-3">
-          <InstructorAvatar state={avatarState} />
-          <div>
-            <h2 className="text-lg font-semibold">Voice Practice</h2>
-            <p className="text-sm text-muted-foreground">
-              {isRecording ? "Listening..." : "Press and hold mic to speak"}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <LanguageSelector />
-          {conversationId && <CompactDifficultyControl conversationId={conversationId} />}
-        </div>
-      </div>
-
-      {/* Immersive Voice Chat with View Manager */}
+      {/* Immersive Voice Chat with View Manager - Full Screen */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <VoiceChatViewManager
           conversationId={conversationId}
