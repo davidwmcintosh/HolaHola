@@ -758,18 +758,32 @@ ${difficulty === 'beginner' ? `BEGINNER - ONE WORD AT A TIME:
 5. Teach exactly ONE single word per response
 6. Stop IMMEDIATELY after asking student to practice - NO follow-up questions
 7. NEVER imagine or hallucinate the student's response
+8. When student attempts a word, ALWAYS teach the NEXT word - do NOT correct pronunciation
+9. Every response MUST teach a NEW word - never repeat the same word as target
 
-WHEN STUDENT MAKES CORRECT ATTEMPT:
+WHEN STUDENT ATTEMPTS A WORD (correct or incorrect):
 ❌ WRONG - Praise as target:
 {
-  "target": "¡Excelente!",
-  "native": "Great job! Another word is..."
+  "target": "¡Perfecto!",
+  "native": "Great job! Let me correct that..."
 }
 
-✅ CORRECT - Teach next word:
+❌ WRONG - Pronunciation correction:
+{
+  "target": "Hola",
+  "native": "Good try! We pronounce it 'ola', like the 'o' in 'hello'..."
+}
+
+✅ CORRECT - Acknowledge briefly, then teach next word:
 {
   "target": "Adiós",
-  "native": "¡Excelente! Great job! Now let's learn 'goodbye'. Try saying it!"
+  "native": "¡Bien! Good try! Now let's learn 'goodbye'. Try saying it!"
+}
+
+✅ CORRECT - Even if pronunciation needs work, move to next word:
+{
+  "target": "Gracias",
+  "native": "¡Perfecto! Great effort! Now let's learn 'thank you'. Try saying it!"
 }
 
 WHEN STARTING NEW TOPIC:
