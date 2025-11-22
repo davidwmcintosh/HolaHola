@@ -37,7 +37,6 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   // Silence detection refs
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const silenceCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Keep refs updated with current state
@@ -205,11 +204,6 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     }
     
     // Clean up silence detection
-    if (silenceTimeoutRef.current) {
-      clearTimeout(silenceTimeoutRef.current);
-      silenceTimeoutRef.current = null;
-    }
-    
     if (silenceCheckIntervalRef.current) {
       clearInterval(silenceCheckIntervalRef.current);
       silenceCheckIntervalRef.current = null;
@@ -332,6 +326,21 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         
         // Session-safe cleanup: only touch resources that belong to THIS session
         sessionStream.getTracks().forEach(track => track.stop());
+        
+        // Clean up silence detection resources IMMEDIATELY after stop
+        if (silenceCheckIntervalRef.current) {
+          clearInterval(silenceCheckIntervalRef.current);
+          silenceCheckIntervalRef.current = null;
+          console.log('[CLEANUP] Cleared silence detection interval');
+        }
+        
+        if (audioContextRef.current) {
+          audioContextRef.current.close();
+          audioContextRef.current = null;
+          console.log('[CLEANUP] Closed AudioContext');
+        }
+        
+        analyserRef.current = null;
         
         // Only touch shared state if this is still the active session
         if (isActiveSession) {
@@ -547,7 +556,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           )}
 
           {/* Mic button - Click to start, auto-stops after silence */}
-          <div className="flex justify-center items-center">
+          <div className="flex flex-col items-center gap-2">
             <Button
               size="icon"
               variant={isRecording ? 'destructive' : 'default'}
@@ -576,6 +585,12 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
                 <Mic className="h-6 w-6" />
               )}
             </Button>
+            <p className="text-xs text-muted-foreground text-center" data-testid="text-mic-instructions">
+              {isRecording 
+                ? "Auto-stops after 2s silence" 
+                : "Click or press Enter to speak"
+              }
+            </p>
           </div>
         </div>
       </div>
