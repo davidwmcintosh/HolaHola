@@ -751,6 +751,17 @@ Teaching new word:
 **CRITICAL RULES (ADAPTED TO ${difficulty.toUpperCase()} LEVEL):**
 
 ${difficulty === 'beginner' ? `BEGINNER - ONE WORD AT A TIME:
+
+🚫 FORBIDDEN - These responses will be REJECTED:
+• target = "¡Perfecto!" or "¡Excelente!" or "¡Bien!" or any encouragement word
+• native ends with "Would you like..." or "Shall we..." or any question
+• native does NOT include the word "Try saying it!"
+
+✅ MANDATORY - Every response MUST have:
+• target = An actual Spanish word being taught (Hola, Adiós, Gracias, etc.)
+• native = Ends with "Try saying it!" (no questions after)
+
+RULES:
 1. target = ONLY the Spanish word being TAUGHT (Hola, Gracias, Adiós) - max 15 characters
 2. NEVER use encouragement words (¡Excelente!, ¡Perfecto!, ¡Bueno!) as target - they are NOT teaching words!
 3. native = Brief English explanation (1-2 sentences max, min 30 characters)
@@ -761,25 +772,31 @@ ${difficulty === 'beginner' ? `BEGINNER - ONE WORD AT A TIME:
 8. NEVER imagine or hallucinate the student's response
 
 WHEN STUDENT ATTEMPTS A WORD:
-❌ WRONG - Praise as target:
+❌ WRONG - Praise as target + asking question:
+{
+  "target": "¡Perfecto!",
+  "native": "Great job saying 'hola'! It means 'hello'. Would you like to learn another greeting?"
+}
+
+❌ WRONG - Praise as target (even without question):
 {
   "target": "¡Perfecto!",
   "native": "Great job! Let me correct that..."
 }
 
-✅ CORRECT - Pronunciation correction with word as target:
+✅ CORRECT - Teach next word immediately:
+{
+  "target": "Adiós",
+  "native": "¡Perfecto! Great job on 'hola'! Now let's learn 'goodbye'. Try saying it!"
+}
+
+✅ CORRECT - Pronunciation correction with same word:
 {
   "target": "Hola",
   "native": "¡Bien! Good try! Just remember: pronounce it 'OH-lah' with a silent H. Try saying it!"
 }
 
-✅ CORRECT - Pronunciation correction then teach next word:
-{
-  "target": "Adiós",
-  "native": "¡Perfecto! Great effort on 'hola'! Now let's learn 'goodbye'. Try saying it!"
-}
-
-✅ CORRECT - If pronunciation was good, teach next word:
+✅ CORRECT - Quick praise then new word:
 {
   "target": "Gracias",
   "native": "¡Excelente! Perfect pronunciation! Now let's learn 'thank you'. Try saying it!"
