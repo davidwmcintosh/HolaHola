@@ -1005,10 +1005,21 @@ ${isVoiceMode ? `**VOICE MODE - Structured Response:**
 }
 
 **Phase 3 ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Examples:**
+
+**Teaching new content:**
 ${difficulty === 'beginner' ? `- target: "Hola, ¿cómo estás?"
   - native: "Let's learn 'How are you?'. In Spanish, it's '¿Cómo estás?', KOH-moh eh-STAHS. Now it's your turn!"` : difficulty === 'intermediate' ? `- target: "¡Perfecto! Ahora vamos a aprender sobre la comida. ¿Te gusta la pizza?"
   - native: "Great! Now let's learn about food. Do you like pizza?"` : `- target: "Excelente. Hablemos sobre tus planes para el futuro. ¿Qué te gustaría hacer este fin de semana?"
   - native: "Excellent. Let's talk about your future plans."`}
+
+**Giving feedback when student speaks ${languageName}:**
+- target: "¡Excelente! ¡Muy bien!"
+  - native: "Great job! You've got the pronunciation down! Now let's try..."
+  
+CRITICAL: ALWAYS put ${languageName} encouragement in "target" and ${nativeLanguageName} explanations in "native"
+- "target" should contain ${languageName} words (¡Perfecto!, ¡Excelente!, ¡Muy bien!)
+- "native" should contain ${nativeLanguageName} teaching content
+- NEVER leave "target" empty when giving feedback - use encouraging ${languageName} phrases
 
 Server concatenates as: target + " (" + native + ")" for voice TTS
 Subtitles show ONLY target field (guarantees immersive ${languageName}-only display)` : `**TEXT MODE - Standard Response:**
