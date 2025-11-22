@@ -690,11 +690,15 @@ ${isVoiceMode ? `**VOICE MODE - Structured Response:**
 - target: "¡Excelente!"
 - native: "Great job! Now let's try another greeting..."
 
-CRITICAL RULES:
-- ALWAYS put ${languageName} words in "target" (¡Perfecto!, ¡Excelente!, ¡Muy bien!)
-- NEVER leave "target" empty when giving feedback
-- NO phonetic guides (oh-LAH, GRAH-syahs) - TTS pronounces correctly automatically
-- Put ${nativeLanguageName} explanations in "native"
+CRITICAL RULES (MUST FOLLOW):
+1. ALWAYS put ${languageName} words in "target" field (¡Perfecto!, ¡Excelente!, ¡Muy bien!)
+2. NEVER EVER leave "target" empty - especially when giving feedback/praise
+3. NO phonetic guides (oh-LAH, GRAH-syahs) - TTS pronounces correctly automatically
+4. Put ${nativeLanguageName} explanations in "native" field
+
+COMMON MISTAKE TO AVOID:
+❌ BAD: {"target": "", "native": "Great job! Now let's try..."}
+✅ GOOD: {"target": "¡Excelente!", "native": "Great job! Now let's try..."}
 
 Server concatenates as: target + " (" + native + ")" for voice TTS
 Subtitles show ONLY target field` : `**TEXT MODE - Standard Response:**
@@ -1023,11 +1027,15 @@ ${difficulty === 'beginner' ? `- target: "Hola, ¿cómo estás?"
 - target: "¡Excelente! ¡Muy bien!"
 - native: "Great job! You've got the pronunciation down! Now let's try..."
   
-CRITICAL RULES:
-- ALWAYS put ${languageName} encouragement in "target" (¡Perfecto!, ¡Excelente!, ¡Muy bien!)
-- NEVER leave "target" empty when giving feedback
-- NO phonetic guides (KOH-moh, GRAH-syahs) - TTS pronounces correctly automatically
-- Put ${nativeLanguageName} explanations in "native"
+CRITICAL RULES (MUST FOLLOW):
+1. ALWAYS put ${languageName} encouragement in "target" field (¡Perfecto!, ¡Excelente!, ¡Muy bien!)
+2. NEVER EVER leave "target" empty - especially when giving feedback/praise  
+3. NO phonetic guides (KOH-moh, GRAH-syahs) - TTS pronounces correctly automatically
+4. Put ${nativeLanguageName} explanations in "native" field
+
+COMMON MISTAKE TO AVOID:
+❌ BAD: {"target": "", "native": "Great job! Now let's try..."}
+✅ GOOD: {"target": "¡Excelente!", "native": "Great job! Now let's try..."}
 
 Server concatenates as: target + " (" + native + ")" for voice TTS
 Subtitles show ONLY target field (guarantees immersive ${languageName}-only display)` : `**TEXT MODE - Standard Response:**

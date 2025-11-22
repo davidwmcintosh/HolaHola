@@ -1230,11 +1230,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 properties: {
                   target: { 
                     type: "string",
-                    description: "Target language text only (Spanish, French, etc.) - or empty string if none"
+                    description: "Target language text (Spanish/French/etc.) - REQUIRED, NEVER EMPTY. Always include target language encouragement when giving feedback (¡Perfecto!, ¡Excelente!, etc.)"
                   },
                   native: { 
                     type: "string",
-                    description: "Native language explanations and teaching content"
+                    description: "Native language (English) explanations and teaching content"
                   }
                 },
                 required: ["target", "native"],
@@ -1265,10 +1265,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error('Structured response missing target or native fields');
           }
           
-          const target = parsed.target || '';
-          const native = parsed.native || '';
+          const target = (parsed.target || '').trim();
+          const native = (parsed.native || '').trim();
+          
+          // CRITICAL: Target field should NEVER be empty when giving feedback/teaching
+          // AI must include Spanish encouragement (¡Perfecto!, ¡Excelente!, etc.)
+          if (!target && native) {
+            console.warn('[VOICE WARNING] Empty target field detected - AI should include Spanish!');
+            console.warn('[VOICE RESPONSE]:', { target, native: native.substring(0, 100) });
+          }
           
           // Concatenate for spoken content: target + (native)
+          // When target is empty, fallback to native only (but log warning above)
           aiResponse = target && native ? `${target} (${native})` : (target || native);
           
           // Subtitles use ONLY target field (guarantees Spanish-only display)
