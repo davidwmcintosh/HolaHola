@@ -1035,6 +1035,253 @@ If you value these at >$2,300 combined, Option B pays off immediately:
 
 ---
 
+## 6.6. What Does "2M Context Integration" Actually Take?
+
+### TL;DR: It's Not a Separate Integration
+
+**The 2M context window is automatic** if you switch to Gemini. You don't need to "integrate" it—it just becomes available.
+
+The real question is: **What new features would you BUILD that use 2M context?**
+
+---
+
+### What You Get "For Free" with Gemini
+
+If you do Option A or B (migrate to Gemini), this happens automatically:
+
+```typescript
+// BEFORE (OpenAI - 128K context)
+const completion = await openai.chat.completions.create({
+  model: "gpt-4o-mini", // 128K token limit
+  messages: recentMessages.slice(-50) // Can only fit ~50 messages
+});
+
+// AFTER (Gemini - 2M context)
+const completion = await model.generateContent({
+  model: "gemini-2.5-flash", // 2M token limit
+  contents: allMessages // Can fit THOUSANDS of messages
+});
+```
+
+**No extra work needed.** The 2M context is just there, waiting to be used.
+
+---
+
+### Current Behavior (Doesn't Use Extra Context)
+
+Right now, your app only sends recent messages regardless of which LLM you use:
+
+```typescript
+// You only send last 20-50 messages
+const recentMessages = await storage.getMessagesByConversation(
+  conversationId, 
+  20 // Only last 20 messages
+);
+```
+
+**Why?** Because GPT has 128K limit, so you adapted to that constraint.
+
+---
+
+### New Features You Could Build (Using 2M Context)
+
+#### **1. Long-Term Learning Continuity** ⏱️ **3-5 hours**
+
+**What it does:** AI remembers everything you've learned, even from months ago
+
+```typescript
+// BEFORE: Only last 20 messages
+const recentMessages = await storage.getMessagesByConversation(conversationId, 20);
+
+// AFTER: ALL messages from entire learning journey
+const allMessages = await storage.getMessagesByConversation(
+  conversationId, 
+  999999 // No limit
+);
+
+// AI now sees:
+// - Every word you've learned (6 months ago to today)
+// - Every mistake you made
+// - Patterns in your errors
+// - When you first learned subjunctive mood
+```
+
+**User experience:**
+> "You struggled with subjunctive on Jan 15, mastered it by Feb 10. Let's review since you haven't used it in 2 weeks."
+
+**Implementation:**
+- ✅ Remove message limit in conversation query
+- ✅ Test that Gemini can handle large message arrays (1000+ messages)
+- ✅ Add loading indicator for first message (might be slightly slower)
+
+**Time:** 3-5 hours
+
+---
+
+#### **2. Cross-Language Learning** 🌍 **8-12 hours**
+
+**What it does:** AI sees your progress across ALL languages, not just current conversation
+
+```typescript
+// NEW FEATURE: Load vocabulary from ALL languages
+const allVocabulary = await storage.getAllUserVocabulary(userId);
+
+// Add to system prompt
+const systemPrompt = createSystemPrompt(
+  targetLanguage,
+  difficultyLevel,
+  conversationHistory,
+  allVocabulary, // NEW: All languages, not just current
+  actflLevel
+);
+
+// AI can now say:
+// "You learned 'casa' in Spanish means 'house'. 
+//  In French, it's 'maison' - notice the similarity to 'mansion' in English."
+```
+
+**User experience:**
+- Learning French after Spanish? AI shows cognates and shared patterns
+- Learning Japanese after Mandarin? AI shows shared kanji characters
+- AI can reference vocabulary across all 9 languages you've studied
+
+**Implementation:**
+- ✅ Create `getAllUserVocabulary(userId)` query (all languages)
+- ✅ Update system prompt to accept multi-language vocabulary
+- ✅ Test across language pairs (Spanish → French, etc.)
+- ✅ Add UI to show cross-language connections
+
+**Time:** 8-12 hours
+
+---
+
+#### **3. Institutional Classroom Analytics** 📊 **20-30 hours**
+
+**What it does:** Teachers see aggregate patterns across entire class history
+
+```typescript
+// NEW FEATURE: Analyze entire class over semester
+const classMessages = await storage.getMessagesByClassroom(
+  classroomId,
+  { startDate: semesterStart, endDate: today }
+);
+
+// AI analyzes thousands of messages:
+// - Common mistakes across 30 students
+// - Vocabulary retention rates
+// - Grammar patterns that need reinforcement
+
+// Generate report:
+const report = await model.generateContent({
+  contents: classMessages, // 2M context = entire semester
+  prompt: "Analyze common struggles and generate focus areas for next unit"
+});
+```
+
+**User experience (teacher dashboard):**
+> "Analysis of Spanish 101 - Fall 2024:
+> - 23/30 students struggle with ser vs estar
+> - Vocabulary retention: 78% (state avg: 71%)
+> - Recommended focus: 4 weeks on subjunctive mood"
+
+**Implementation:**
+- ✅ Build classroom message aggregation queries
+- ✅ Create analytics prompt templates
+- ✅ Build teacher dashboard UI (charts, reports)
+- ✅ Generate exportable reports (PDF/Excel)
+- ✅ Add student privacy controls
+
+**Time:** 20-30 hours
+
+---
+
+#### **4. Conversation Resume with Full Context** 💬 **3-5 hours**
+
+**What it does:** Pick up exactly where you left off, weeks later
+
+```typescript
+// BEFORE: "What were we talking about?"
+// New conversation starts fresh, AI has no idea what happened last week
+
+// AFTER: Resume with full context
+const allPriorMessages = await storage.getMessagesByConversation(conversationId);
+
+// AI sees:
+// - Last conversation was 3 weeks ago
+// - You were learning restaurant vocabulary
+// - You had trouble with "cuenta" vs "factura"
+// - You wanted to practice ordering dessert next time
+```
+
+**User experience:**
+> "Welcome back! Last time we practiced ordering food at restaurants. You wanted to work on asking for the check and ordering dessert. Ready to continue where we left off?"
+
+**Implementation:**
+- ✅ Load full conversation history (already done if you remove limit)
+- ✅ Add "resume conversation" prompt template
+- ✅ Test with conversations from weeks/months ago
+- ✅ Add UI indicator showing "resuming from [date]"
+
+**Time:** 3-5 hours
+
+---
+
+### Summary: What "2M Integration" Actually Takes
+
+| Feature | Implementation Time | User Value | Revenue Impact |
+|---------|---------------------|------------|----------------|
+| **Base migration** | 12-29 hrs | Get 2M context (unused) | API cost savings only |
+| **Long-term continuity** | +3 hrs | ⭐⭐⭐⭐⭐ Very High | Retention improvement |
+| **Cross-language learning** | +10 hrs | ⭐⭐⭐ Medium | Pro tier differentiation |
+| **Classroom analytics** | +25 hrs | ⭐⭐⭐⭐ High | Institutional tier unlock |
+| **Resume conversations** | +4 hrs | ⭐⭐⭐⭐ High | UX improvement |
+
+**Phased Approach:**
+
+- **Phase 1: Migration Only** (29 hours) - Switch to Gemini, get 2M context, don't use it yet
+- **Phase 2: Easy Wins** (+7 hours) - Long-term continuity + Resume conversations = 36 hours total
+- **Phase 3: Premium Features** (+35 hours) - Cross-language + Analytics = 71 hours total
+
+---
+
+### Does This Change the ROI?
+
+**Base migration (Option B):**
+- Cost: $2,900
+- Savings: $613/year
+- ROI: 4.7 years ⚠️
+
+**With Phase 2 "Easy Wins":**
+- Cost: $3,600 (29 + 7 hrs)
+- Savings: $613/year
+- New value: Significantly better UX → improved retention
+- ROI: Depends on retention impact (likely positive)
+
+**With Phase 3 "Full Features":**
+- Cost: $7,100 (71 hrs total)
+- Savings: $613/year
+- New value: Unlocks institutional tier revenue
+- ROI: **Could be immediate** if you land institutional customers
+
+**Key insight:** If you're planning to build institutional features anyway (for Institutional tier revenue), the migration becomes a **strategic investment**, not just cost optimization.
+
+---
+
+### Recommended Approach
+
+1. **Migrate to Gemini (Option B)** - 29 hours, $2,900
+2. **Implement "Easy Wins"** immediately after - +7 hours, $700
+3. **Save "Premium Features" for later** - Only build when you have institutional customer demand
+
+**Total upfront:** 36 hours ($3,600) for migration + high-value UX improvements
+
+**Build institutional features only when:**
+- You have paying institutional customers lined up
+- You're pitching to school districts/universities
+- Institutional tier becomes a revenue priority
+
+---
+
 ## 7. Migration Recommendations
 
 ### Option A: Hybrid Approach (Recommended)
