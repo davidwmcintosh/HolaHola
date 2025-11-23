@@ -39,8 +39,10 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="container mx-auto p-8 max-w-7xl">
-      {children}
+    <div className="h-full overflow-auto">
+      <div className="container mx-auto p-8 max-w-7xl">
+        {children}
+      </div>
     </div>
   );
 }
