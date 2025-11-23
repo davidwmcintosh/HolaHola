@@ -203,38 +203,8 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
 
   return (
     <div className="flex flex-col h-full">
-      {/* Compact toolbar - hidden on mobile for minimalist experience, visible on desktop */}
-      <div className="hidden md:flex items-center justify-between gap-4 p-4 border-b shrink-0">
-        <div className="flex items-center gap-4">
-          <InstructorAvatar state={avatarState} className="w-12" />
-          <div>
-            <h2 className="text-lg font-semibold">Practice {languageDisplayName}</h2>
-            <p className="text-xs text-muted-foreground">Chat with your AI tutor</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <LanguageSelector compact />
-          <CompactDifficultyControl conversationId={conversationId} />
-        </div>
-      </div>
-      
-      {/* Mobile-only minimalist header */}
-      <div className="md:hidden flex items-center justify-between p-3 border-b shrink-0">
-        <div className="flex items-center gap-3">
-          <InstructorAvatar state={avatarState} className="w-10" />
-          <div>
-            <h2 className="text-base font-semibold">{languageDisplayName}</h2>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <LanguageSelector compact />
-          <CompactDifficultyControl conversationId={conversationId} />
-        </div>
-      </div>
-
-      {/* Chat area - mobile optimized */}
-      <Card className="flex flex-col flex-1 m-3 md:m-4 mt-0 overflow-hidden">
+      {/* Chat area - mobile optimized, clean interface matching voice mode */}
+      <Card className="flex flex-col flex-1 m-3 md:m-4 overflow-hidden">
           <div 
             ref={scrollViewportRef}
             className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar"
