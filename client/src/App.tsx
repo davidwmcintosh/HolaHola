@@ -26,6 +26,7 @@ import Grammar from "@/pages/grammar";
 import History from "@/pages/history";
 import CanDoProgress from "@/pages/can-do-progress";
 import Settings from "@/pages/settings";
+import TeacherDashboard from "@/pages/teacher-dashboard";
 import NotFound from "@/pages/not-found";
 import { BUILD_TIME } from "./buildtime";
 
@@ -82,6 +83,7 @@ function Router() {
         <Route path="/grammar" component={Grammar} />
         <Route path="/history" component={History} />
         <Route path="/can-do-progress" component={CanDoProgress} />
+        <Route path="/teacher/dashboard" component={TeacherDashboard} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>
