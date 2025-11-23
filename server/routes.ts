@@ -1363,22 +1363,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             
             if (teachingPhrases.length > 0) {
-              // Create subtitle sequence: [encouragement (2s), phrase1 (3s), phrase2 (3s), ..., lastPhrase (persist)]
+              // Find the phrase the tutor is asking student to repeat (e.g., "Try saying 'Buenos días'!")
+              const trySayingMatch = native.match(/(?:try|practice|repeat)(?:ing)?\s+(?:saying|to say)?\s*['"]([^'"]+)['"]/i);
+              let finalPhrase = teachingPhrases[teachingPhrases.length - 1]; // Default to last phrase
+              
+              if (trySayingMatch) {
+                const requestedPhrase = trySayingMatch[1].trim();
+                // Find exact match in teaching phrases (case-insensitive)
+                const matchedPhrase = teachingPhrases.find(p => 
+                  p.toLowerCase() === requestedPhrase.toLowerCase()
+                );
+                
+                if (matchedPhrase) {
+                  finalPhrase = matchedPhrase;
+                  console.log('[VOICE DUAL-SUBTITLE] Found "Try saying" phrase:', finalPhrase);
+                }
+              }
+              
+              // Create subtitle sequence: [encouragement (2s), phrase1 (3s), phrase2 (3s), ..., requestedPhrase (persist)]
               const subtitleSequence: Array<{ text: string; duration: number | null }> = [
                 { text: target, duration: 2000 } // Show encouragement for 2 seconds
               ];
               
-              // Add all teaching phrases - intermediate ones show for 3 seconds, last one persists
-              teachingPhrases.forEach((phrase, index) => {
-                const isLastPhrase = index === teachingPhrases.length - 1;
-                subtitleSequence.push({
-                  text: phrase,
-                  duration: isLastPhrase ? null : 3000 // Last phrase persists, others show for 3s
-                });
+              // Add all teaching phrases (except the final one) - show for 3 seconds each
+              teachingPhrases.forEach((phrase) => {
+                if (phrase !== finalPhrase) {
+                  subtitleSequence.push({
+                    text: phrase,
+                    duration: 3000
+                  });
+                }
+              });
+              
+              // Add the final phrase (what they're asked to repeat) - persists on screen
+              subtitleSequence.push({
+                text: finalPhrase,
+                duration: null
               });
               
               subtitlesJson = JSON.stringify(subtitleSequence);
-              console.log('[VOICE DUAL-SUBTITLE] ✓ Created sequence with', teachingPhrases.length, 'phrases:', teachingPhrases.join(' → '));
+              console.log('[VOICE DUAL-SUBTITLE] ✓ Created sequence with', teachingPhrases.length, 'phrases, final:', finalPhrase);
             } else {
               console.warn('[VOICE DUAL-SUBTITLE] Could not extract teaching phrases, using single subtitle');
             }
