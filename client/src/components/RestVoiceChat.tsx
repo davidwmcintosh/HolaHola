@@ -19,7 +19,7 @@ interface RestVoiceChatProps {
 }
 
 export function RestVoiceChat({ conversationId, setConversationId, setCurrentConversationOnboarding }: RestVoiceChatProps) {
-  const { language, difficulty } = useLanguage();
+  const { language, difficulty, setLanguage } = useLanguage();
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStage, setProcessingStage] = useState<string | null>(null);
@@ -520,6 +520,23 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       
       console.log('[REST VOICE] ✓ Transcript:', result.userTranscript);
       console.log('[REST VOICE] ✓ Response:', result.aiResponse);
+      
+      // Handle conversation updates (language switch, onboarding, etc.)
+      if (result.conversationUpdated) {
+        const updated = result.conversationUpdated;
+        console.log('[VOICE] Conversation updated:', updated);
+        
+        // Update language context if language changed
+        if (updated.language && updated.language !== language) {
+          console.log('[VOICE] Updating language context:', language, '->', updated.language);
+          setLanguage(updated.language);
+        }
+        
+        // Update onboarding status
+        if (updated.isOnboarding !== undefined) {
+          setCurrentConversationOnboarding(updated.isOnboarding);
+        }
+      }
       
       // Refetch messages to get the new assistant message (waits for fetch to complete)
       await queryClient.refetchQueries({

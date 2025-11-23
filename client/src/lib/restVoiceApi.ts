@@ -94,6 +94,12 @@ export interface VoiceChatResult {
   userTranscript: string;
   aiResponse: string;
   audioBlob: Blob;
+  conversationUpdated?: {
+    id: string;
+    language?: string;
+    isOnboarding?: boolean;
+    userName?: string;
+  };
 }
 
 export async function processVoiceMessage(
@@ -152,16 +158,20 @@ export async function processVoiceMessage(
     throw new Error('Empty AI response received');
   }
 
-  // Step 3: Synthesize speech with target language for proper pronunciation
-  // Use FULL content (English + Spanish) with target language voice
-  // This gives English explanations a Spanish accent for authentic immersion
-  console.log('[VOICE TTS] Synthesizing full content with', language, 'voice');
+  // Step 3: Determine correct language for TTS
+  // If conversation language changed, use the new language for TTS
+  const ttsLanguage = chatData.conversationUpdated?.language || language;
   
-  const ttsAudioBlob = await synthesizeSpeech(aiResponse, language);
+  // Use FULL content (English + target language) with target language voice
+  // This gives English explanations an authentic accent for immersion
+  console.log('[VOICE TTS] Synthesizing full content with', ttsLanguage, 'voice');
+  
+  const ttsAudioBlob = await synthesizeSpeech(aiResponse, ttsLanguage);
 
   return {
     userTranscript,
     aiResponse,
     audioBlob: ttsAudioBlob,
+    conversationUpdated: chatData.conversationUpdated,
   };
 }
