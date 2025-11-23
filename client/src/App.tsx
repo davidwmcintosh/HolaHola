@@ -34,6 +34,7 @@ import StudentJoinClass from "@/pages/student-join-class";
 import StudentAssignments from "@/pages/student-assignments";
 import CurriculumBuilder from "@/pages/curriculum-builder";
 import NotFound from "@/pages/not-found";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { BUILD_TIME } from "./buildtime";
 
 // Wrapper component that adds container padding for non-chat pages
@@ -90,12 +91,32 @@ function Router() {
         <Route path="/history" component={History} />
         <Route path="/can-do-progress" component={CanDoProgress} />
         
-        {/* Teacher Routes */}
-        <Route path="/teacher/dashboard" component={TeacherDashboard} />
-        <Route path="/teacher/classes/:classId" component={ClassManagement} />
-        <Route path="/teacher/assignments/new" component={AssignmentCreator} />
-        <Route path="/teacher/assignments/:assignmentId/grade" component={AssignmentGrading} />
-        <Route path="/teacher/curriculum" component={CurriculumBuilder} />
+        {/* Teacher Routes - Protected */}
+        <Route path="/teacher/dashboard">
+          <ProtectedRoute requireRole="teacher">
+            <TeacherDashboard />
+          </ProtectedRoute>
+        </Route>
+        <Route path="/teacher/classes/:classId">
+          <ProtectedRoute requireRole="teacher">
+            <ClassManagement />
+          </ProtectedRoute>
+        </Route>
+        <Route path="/teacher/assignments/new">
+          <ProtectedRoute requireRole="teacher">
+            <AssignmentCreator />
+          </ProtectedRoute>
+        </Route>
+        <Route path="/teacher/assignments/:assignmentId/grade">
+          <ProtectedRoute requireRole="teacher">
+            <AssignmentGrading />
+          </ProtectedRoute>
+        </Route>
+        <Route path="/teacher/curriculum">
+          <ProtectedRoute requireRole="teacher">
+            <CurriculumBuilder />
+          </ProtectedRoute>
+        </Route>
         
         {/* Student Routes */}
         <Route path="/student/join-class" component={StudentJoinClass} />
