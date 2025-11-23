@@ -91,6 +91,23 @@ The following files reference the old OpenAI-based architecture and are preserve
 
 ---
 
+## Institutional Features Documentation
+
+### docs/institutional-standards-integration.md ⭐ PRODUCTION-READY
+**Complete B2B institutional features implementation**
+- ACTFL standards integration (proficiency levels, Can-Do statements)
+- Teacher dashboard and class management
+- Assignment creation, submission, and grading workflows
+- Curriculum builder (paths/units/lessons hierarchy)
+- Student enrollment system (6-character class codes)
+- Frontend route guards + backend authorization
+- Standardized form architecture across 6 pages
+- Production status: Milestones 1-3.5 COMPLETED
+
+**When to use**: Understanding institutional features, teacher workflows, student management, assignment systems.
+
+---
+
 ## Other Documentation
 
 ### CAPACITOR.md
@@ -176,12 +193,22 @@ project/
 - **Cost**: $7 total migration cost
 - **Savings**: ~$600/year ongoing
 
+### ✅ Institutional Features Completed
+- **Teacher Dashboard**: Class management, student tracking, progress reports
+- **Assignment System**: Full creation, submission, and grading workflows
+- **Curriculum Builder**: Hierarchical path/unit/lesson structure
+- **Student Features**: Class joining, assignment submission
+- **Security**: Frontend route guards + backend authorization
+- **Form Architecture**: Standardized shadcn Form + zodResolver across all 6 pages
+- **Backend**: 32 storage methods, 29 secure API endpoints
+
 ### ✅ Documentation Updated
+- `replit.md`: Added comprehensive Institutional Features Implementation section
+- `docs/institutional-standards-integration.md`: Marked Milestones 1-3.5 as completed
+- `DOCUMENTATION_INDEX.md`: Added institutional features documentation section
 - `docs/voice-chat-setup.md`: Updated to reflect Gemini/Deepgram architecture
 - `docs/LLM-Migration-Analysis.md`: Marked as completed with historical note
 - `DEVELOPER_QUICK_COMMANDS.md`: Updated model names to Gemini
-- `DOCUMENTATION_INDEX.md`: Reflected new AI integration architecture
-- `replit.md`: Updated in earlier migration work
 
 ---
 
