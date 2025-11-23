@@ -1338,6 +1338,329 @@ const allPriorMessages = await storage.getMessagesByConversation(conversationId)
 
 ---
 
+## 6.7. How 2M Context Changes Your Chat History UI
+
+### Current Approach (128K Constraint)
+
+**What you have now:**
+```
+📋 Conversation History Page:
+- List of past conversations
+- Each card shows: Title, Date, Duration, Message Count
+- "View" button to see conversation details
+- Filter by language (sidebar selector)
+```
+
+**Current limitations (imposed by 128K):**
+- Each conversation is **isolated** - AI doesn't remember other chats
+- When you "restart" a conversation, AI only sees last 20-50 messages
+- No connections between conversations
+- Search finds conversations by metadata (title, date) - not content
+
+---
+
+### With 2M Context: Transformative UI Changes
+
+#### **1. "Resume" Instead of "Restart"** ⏱️ **2 hours implementation**
+
+**Current:**
+```
+[View Conversation] → Shows messages → ??? (unclear how to continue)
+```
+
+**With 2M:**
+```typescript
+// Load ALL messages from conversation (not just last 20)
+const allMessages = await storage.getMessagesByConversation(conversationId);
+
+// AI sees complete history
+const response = await model.generateContent({
+  contents: allMessages, // Entire conversation in context
+  systemPrompt: `Continue conversation from ${lastMessageDate}. 
+    User was learning: [topics from full history]`
+});
+```
+
+**UI Change:**
+```
+┌─────────────────────────────────────┐
+│ Spanish Greetings - Oct 15         │
+│ ● 45 messages • 30 min             │
+│                                     │
+│ Last discussed:                     │
+│ • "Buenos días" vs "Buenas tardes" │
+│ • Formal greetings                  │
+│                                     │
+│ [Resume Conversation] ← NEW!       │
+│ (picks up exactly where you left)  │
+└─────────────────────────────────────┘
+```
+
+**User experience:**
+> "Welcome back! Last time we practiced greeting people at different times of day. You wanted to work on formal vs informal next. Ready to continue?"
+
+---
+
+#### **2. Learning Timeline View** ⏱️ **8 hours implementation**
+
+**Instead of:** Flat list of conversations
+
+**With 2M:** Interactive timeline showing learning progression
+
+```
+┌─────────────────────────────────────────────────┐
+│  Learning Journey: Spanish                      │
+│                                                  │
+│  Week 1 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
+│  ┌─ Oct 15: Greetings & Introductions           │
+│  │  Learned: "Hola", "Buenos días", "¿Cómo?"   │
+│  │  [Resume]                                    │
+│  │                                               │
+│  └─ Oct 17: Restaurant Ordering                  │
+│     Learned: "Cuenta", "Mesa", "Camarero"       │
+│     Struggled with: ser vs estar                │
+│     [Resume]                                     │
+│                                                  │
+│  Week 2 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
+│  ┌─ Oct 22: Restaurant (continued)              │
+│  │  Mastered: ser vs estar ✓                   │
+│  │  New: subjunctive mood                       │
+│  │  [Resume]                                    │
+└─────────────────────────────────────────────────┘
+```
+
+**Implementation:**
+```typescript
+// AI analyzes entire conversation history to generate timeline
+const timeline = await model.generateContent({
+  contents: allUserConversations, // All conversations in 2M context
+  prompt: `Analyze learning progression:
+    - Group conversations by week
+    - Identify vocabulary learned per session
+    - Track concepts mastered vs struggling
+    - Show connections between sessions`
+});
+```
+
+---
+
+#### **3. Cross-Conversation Insights** ⏱️ **6 hours implementation**
+
+**Current:** Each conversation card is standalone
+
+**With 2M:** Show how conversations relate to each other
+
+```
+┌─────────────────────────────────────────────────┐
+│ Restaurant Vocabulary - Oct 22                  │
+│ ● 32 messages • 25 min • Intermediate           │
+│                                                  │
+│ 📊 Learning Connections:                        │
+│ ┌─────────────────────────────────────────────┐ │
+│ │ ↑ Built on: "Greetings" (Oct 15)           │ │
+│ │              Used: "Por favor", "Gracias"   │ │
+│ │                                              │ │
+│ │ → Related to: "Shopping" (Oct 20)           │ │
+│ │              Similar: Numbers, money vocab   │ │
+│ │                                              │ │
+│ │ ↓ Led to: "Subjunctive Mood" (Oct 24)      │ │
+│ │            Because you struggled with       │ │
+│ │            "Quisiera" (I would like)        │ │
+│ └─────────────────────────────────────────────┘ │
+│                                                  │
+│ [Resume] [View Full History]                    │
+└─────────────────────────────────────────────────┘
+```
+
+**How it works:**
+- AI analyzes ALL conversations in 2M context
+- Identifies vocabulary/grammar that appears across multiple chats
+- Shows learning progression and dependencies
+
+---
+
+#### **4. Smart Search (Content-Aware)** ⏱️ **4 hours implementation**
+
+**Current:** Search by title/date/metadata
+
+**With 2M:** AI-powered semantic search across ALL conversations
+
+```
+┌─────────────────────────────────────────────────┐
+│ 🔍 Search your learning history                 │
+│                                                  │
+│ [When did I learn "por favor"?              ] │
+│                                                  │
+│ Results:                                         │
+│ ✓ Oct 15: Greetings - First learned            │
+│   "Por favor means 'please'. Use it when       │
+│    asking for things politely."                 │
+│                                                  │
+│ ✓ Oct 22: Restaurant - Used in context         │
+│   "Un café, por favor" (Coffee, please)        │
+│                                                  │
+│ ✓ Oct 27: Shopping - Mastered usage            │
+│   Used correctly 8 times without prompting     │
+│                                                  │
+│ [View all mentions across 12 conversations]     │
+└─────────────────────────────────────────────────┘
+```
+
+**User can ask:**
+- "When did I learn subjunctive mood?"
+- "Show me all conversations about restaurants"
+- "What mistakes did I make with ser vs estar?"
+- "When did I first use 'quisiera' correctly?"
+
+**Implementation:**
+```typescript
+// AI searches across ALL conversations in its 2M context
+const searchResults = await model.generateContent({
+  contents: allUserConversations, // Entire learning history
+  prompt: `Search query: "${userQuery}"
+    Find all mentions across conversations
+    Show context for each mention
+    Include date, conversation title, and snippet`
+});
+```
+
+---
+
+#### **5. Vocabulary Progress Tracker** ⏱️ **6 hours implementation**
+
+**Instead of:** Separate vocabulary page (isolated)
+
+**With 2M:** Show when/where you learned each word across all conversations
+
+```
+┌─────────────────────────────────────────────────┐
+│ Vocabulary: "Casa" (house)                      │
+│                                                  │
+│ Learning Journey:                                │
+│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
+│ Oct 15: First learned                           │
+│  "Casa means house. Mi casa = My house"         │
+│                                                  │
+│ Oct 18: Used in sentence (struggled)            │
+│  ❌ "La casa está grande" (incorrect)           │
+│  ✓ Corrected to: "La casa es grande"           │
+│                                                  │
+│ Oct 22: Used correctly                          │
+│  ✓ "Mi casa tiene tres habitaciones"           │
+│                                                  │
+│ Oct 30: Mastered ✓                              │
+│  Used correctly 5 times across 2 conversations  │
+│                                                  │
+│ [See all 12 uses across 7 conversations]        │
+└─────────────────────────────────────────────────┘
+```
+
+**How it works:**
+- AI sees every time you used "casa" across all conversations
+- Tracks progression from first learning → mistakes → mastery
+- Shows context for each usage
+
+---
+
+#### **6. "Continue Learning" Smart Suggestions** ⏱️ **3 hours implementation**
+
+**Current:** History page is passive (just shows past chats)
+
+**With 2M:** AI analyzes ALL history to suggest next steps
+
+```
+┌─────────────────────────────────────────────────┐
+│ 💡 Continue Your Learning                       │
+│                                                  │
+│ Based on your 45 conversations:                 │
+│                                                  │
+│ ┌─────────────────────────────────────────────┐ │
+│ │ 📌 Review Subjunctive Mood                  │ │
+│ │ You learned this 2 weeks ago but haven't   │ │
+│ │ practiced since Oct 24. Let's refresh!      │ │
+│ │ [Start Review Session]                      │ │
+│ └─────────────────────────────────────────────┘ │
+│                                                  │
+│ ┌─────────────────────────────────────────────┐ │
+│ │ 🎯 Master "Ser vs Estar"                    │ │
+│ │ You've struggled with this across           │ │
+│ │ 8 conversations. Ready to nail it?          │ │
+│ │ [Focused Practice]                          │ │
+│ └─────────────────────────────────────────────┘ │
+│                                                  │
+│ ┌─────────────────────────────────────────────┐ │
+│ │ ✨ New Topic: Past Tense                    │ │
+│ │ You've mastered present tense across        │ │
+│ │ 20 conversations. Time to level up!         │ │
+│ │ [Start New Topic]                           │ │
+│ └─────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────┘
+```
+
+**Implementation:**
+```typescript
+// AI analyzes ALL conversations to find patterns
+const suggestions = await model.generateContent({
+  contents: allUserConversations,
+  prompt: `Analyze learning history:
+    - What did they learn but haven't practiced recently?
+    - What do they consistently struggle with?
+    - What are they ready to learn next based on mastery?
+    Generate 3 personalized suggestions with rationale.`
+});
+```
+
+---
+
+### Summary: Before vs After
+
+| Feature | Current (128K) | With 2M Context |
+|---------|----------------|-----------------|
+| **View Past Chats** | List of conversations | Learning timeline + connections |
+| **Resume Conversation** | Starts fresh, limited history | Picks up exactly where you left off |
+| **Search** | By title/date | Semantic search across all content |
+| **Vocabulary Tracking** | Isolated word list | Full learning journey per word |
+| **Insights** | None | AI suggests next steps based on ALL history |
+| **Connections** | Each chat standalone | Shows how chats build on each other |
+
+---
+
+### Implementation Roadmap
+
+**Phase 1: Foundation** (10 hours)
+- Resume conversations with full context (2 hrs)
+- Content-aware search (4 hrs)
+- Smart suggestions (3 hrs)
+
+**Phase 2: Visualization** (14 hours)
+- Learning timeline view (8 hrs)
+- Cross-conversation insights (6 hrs)
+
+**Phase 3: Advanced** (12 hours)
+- Vocabulary progress tracker (6 hrs)
+- Multi-language comparison view (6 hrs)
+
+**Total: 36 hours** to completely transform chat history UX
+
+---
+
+### Cost-Benefit
+
+**Without 2M context:**
+- Chat history = passive archive
+- Users rarely revisit old conversations
+- No learning continuity
+
+**With 2M context:**
+- Chat history = active learning tool
+- Users can track progression
+- AI remembers entire learning journey
+- Significantly better retention and engagement
+
+**ROI:** Even at 36 hours ($3,600), if this improves retention by just 10%, it pays for itself quickly.
+
+---
+
 ## 7. Migration Recommendations
 
 ### Option A: Hybrid Approach (Recommended)
