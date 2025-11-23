@@ -1280,9 +1280,12 @@ CRITICAL RULES:
 
 2. **For TEACHING new content:**
    - Target = ONLY the Spanish word ("Hola", "Gracias", "Adiós")
-   - Native = English explanation with the word embedded naturally
+   - Native = English explanation with the word embedded naturally in SINGLE QUOTES
    - Example: target: "Hola", native: "Perfect! The most common greeting is 'Hola'. Try saying it!"
    - ❌ NEVER write Spanish explanations in native field for beginners
+   - ⚠️ CRITICAL: When mentioning teaching a word, ALWAYS include it in quotes in native field
+   - ❌ WRONG: "Next, let's learn how to say 'goodbye' in Spanish" (missing Spanish word)
+   - ✅ CORRECT: "Next, let's learn how to say 'goodbye' in Spanish: 'Adiós'! Try it!"
 
 3. **For GIVING FEEDBACK:**
    - Target = Simple Spanish encouragement they know ("¡Excelente!", "¡Muy bien!")
@@ -1291,9 +1294,10 @@ CRITICAL RULES:
 
 4. NO parentheses in either field - speak naturally
 5. NO phonetic guides - TTS pronounces correctly
-6. ${difficulty === 'beginner' ? 'Teach ONE word at a time in English with Spanish words embedded' : difficulty === 'intermediate' ? 'Teach short phrases (2-3 words)' : 'Teach natural expressions and sentences'}
+6. ${difficulty === 'beginner' ? 'Teach ONE word at a time in English with Spanish words embedded IN QUOTES' : difficulty === 'intermediate' ? 'Teach short phrases (2-3 words)' : 'Teach natural expressions and sentences'}
 7. KEEP IT SHORT - 1-2 sentences max
 8. END IMMEDIATELY after practice instruction
+9. ⚠️ MANDATORY: All Spanish words in native field MUST be in single quotes 'like this'
 
 Server behavior:
 - Voice speaks: native field (${nativeLanguageName} with ${languageName} accent, ${languageName} words embedded)
