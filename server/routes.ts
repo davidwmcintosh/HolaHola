@@ -28,19 +28,26 @@ import multer from "multer";
 import { getTTSService } from "./services/tts-service";
 import { getCanDoStatements, getCanDoStatementsByLanguage, getAvailableActflLevels } from "./actfl-can-do-statements";
 import { toInternalActflLevel, toExternalActflLevel } from "./actfl-utils";
+import { GoogleGenAI } from "@google/genai";
+import { createClient } from "@deepgram/sdk";
 
-// Use Replit AI Integrations for text chat (works reliably)
+// ============================================================================
+// AI PROVIDERS: Gemini (Text) + Deepgram (Voice STT) + Google Cloud (Voice TTS)
+// ============================================================================
+
+// Gemini for text chat via Replit AI Integrations (no API key needed)
+const gemini = new GoogleGenAI({
+  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || ''
+});
+
+// Deepgram for voice STT (Speech-to-Text)
+// 54% better accuracy for non-native speakers, <300ms latency
+const deepgram = createClient(process.env.DEEPGRAM_API_KEY || '');
+
+// Keep OpenAI for legacy fallback during migration
 const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || 'https://api.openai.com/v1',
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
-
-// Separate OpenAI client for voice features (Whisper + TTS)
-// Replit AI Integrations doesn't support /audio/* endpoints
-// Must explicitly set baseURL to use real OpenAI API (not Replit's proxy)
-const voiceOpenAI = new OpenAI({
-  apiKey: process.env.USER_OPENAI_API_KEY, // User's personal OpenAI API key
-  baseURL: 'https://api.openai.com/v1', // Direct OpenAI API (not Replit proxy)
 });
 
 // Language name to ISO-639-1 code mapping for OpenAI Whisper API
@@ -236,7 +243,7 @@ function isPhoneticInstruction(sentence: string): boolean {
 function getModelForTier(tier: string | null | undefined, user?: { role?: string | null, developerModel?: string | null }): string {
   // DEVELOPER OVERRIDE: Allow developers/admins to test specific models
   if (user?.role && ['admin', 'developer'].includes(user.role)) {
-    if (user.developerModel === 'gpt-4o' || user.developerModel === 'gpt-4o-mini') {
+    if (user.developerModel) {
       console.log(`[DEVELOPER MODE] Using override model: ${user.developerModel} (role: ${user.role})`);
       return user.developerModel;
     }
@@ -244,13 +251,102 @@ function getModelForTier(tier: string | null | undefined, user?: { role?: string
   
   const subscriptionTier = tier?.toLowerCase() || 'free';
   
-  // Pro tier gets the best model
+  // Pro tier gets the best model (Gemini 2.5 Pro)
   if (subscriptionTier === 'pro' || subscriptionTier === 'premium') {
-    return 'gpt-4o';
+    return 'gemini-2.5-pro';
   }
   
-  // All other tiers (free, basic, institutional) get the fast/cheap model
-  return 'gpt-4o-mini';
+  // All other tiers (free, basic, institutional) get Gemini 2.5 Flash
+  // Fast, cheap, excellent for daily learning (1M context, $0.10/$0.40 per 1M tokens)
+  return 'gemini-2.5-flash';
+}
+
+/**
+ * Call Gemini for simple text completion (no structured output)
+ */
+async function callGemini(
+  model: string,
+  messages: Array<{ role: string; content: string }>
+): Promise<string> {
+  // Translate OpenAI-style messages to Gemini format
+  const systemMessage = messages.find(m => m.role === 'system')?.content || '';
+  const conversationMessages = messages.filter(m => m.role !== 'system');
+  
+  // Build contents for Gemini
+  const contents: any[] = [];
+  
+  // Add system instruction as first user message if present
+  if (systemMessage) {
+    contents.push({
+      role: 'user',
+      parts: [{ text: systemMessage }]
+    });
+  }
+  
+  // Add conversation messages
+  conversationMessages.forEach(msg => {
+    contents.push({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.content }]
+    });
+  });
+  
+  // Call Gemini
+  const response = await gemini.models.generateContent({
+    model,
+    contents: contents.length > 0 ? contents : [{ role: 'user', parts: [{ text: 'Hello' }] }]
+  });
+  
+  // Google GenAI returns text as a property getter
+  return response.text || "";
+}
+
+/**
+ * Call Gemini with JSON schema for structured output
+ * Translates OpenAI-style messages to Gemini format
+ */
+async function callGeminiWithSchema(
+  model: string,
+  messages: Array<{ role: string; content: string }>,
+  schema: any
+): Promise<any> {
+  // Translate OpenAI-style messages to Gemini format
+  const systemMessage = messages.find(m => m.role === 'system')?.content || '';
+  const conversationMessages = messages.filter(m => m.role !== 'system');
+  
+  // Build contents for Gemini
+  const contents: any[] = [];
+  
+  // Add system instruction as first user message if present
+  if (systemMessage) {
+    contents.push({
+      role: 'user',
+      parts: [{ text: systemMessage }]
+    });
+  }
+  
+  // Add conversation messages
+  conversationMessages.forEach(msg => {
+    contents.push({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.content }]
+    });
+  });
+  
+  // Call Gemini with JSON schema
+  // Note: @google/genai uses different API structure
+  const response = await gemini.models.generateContent({
+    model,
+    contents: contents.length > 0 ? contents : [{ role: 'user', parts: [{ text: 'Hello' }] }],
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: schema,
+    },
+  });
+  
+  // Google GenAI returns text as a property getter
+  const responseText = response.text || "{}";
+  return JSON.parse(responseText);
 }
 
 // Configure multer for audio file uploads (in-memory storage)
@@ -1111,13 +1207,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const user = req.user;
               const model = getModelForTier(user.subscriptionTier, user);
               
-              const completionResponse = await openai.chat.completions.create({
-                model,
-                messages: [{ role: "user", content: nativeLanguagePrompt }],
-                max_completion_tokens: 150,
-              });
+              aiResponse = await callGemini(model, [
+                { role: "user", content: nativeLanguagePrompt }
+              ]);
               
-              aiResponse = completionResponse.choices[0].message.content || `Perfect, ${userName}! What made you interested in learning ${targetLanguage}?`;
               console.log('[ONBOARDING-COMPLETION SUCCESS] Generated:', aiResponse.substring(0, 100));
             } catch (error) {
               console.error('[ONBOARDING-COMPLETION ERROR]', error);
@@ -1208,44 +1301,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const fetchTime = Date.now() - startTime;
         console.log(`[VOICE FAST-PATH] Context fetched in ${fetchTime}ms, starting AI completion`);
 
-        // Quick structured completion for voice mode (enforces target/native format)
+        // Quick structured completion for voice mode (enforces target/native format) - Gemini
         const completionStart = Date.now();
-        const quickCompletion = await openai.chat.completions.create({
+        const voiceResponseSchema = {
+          type: "object",
+          properties: {
+            target: { 
+              type: "string",
+              description: "Target language text (Spanish/French/etc.) - REQUIRED, NEVER EMPTY. Always include target language encouragement when giving feedback (¡Perfecto!, ¡Excelente!, etc.)"
+            },
+            native: { 
+              type: "string",
+              description: "Native language (English) explanations and teaching content"
+            }
+          },
+          required: ["target", "native"]
+        };
+        
+        const parsed = await callGeminiWithSchema(
           model,
-          messages: [
+          [
             { role: "system", content: systemPrompt },
             ...recentMessages.map((msg) => ({
               role: msg.role as "user" | "assistant",
               content: msg.content,
             })),
           ],
-          max_completion_tokens: 150, // Very short response for voice (1-2 sentences)
-          response_format: {
-            type: "json_schema",
-            json_schema: {
-              name: "voice_response",
-              strict: true,
-              schema: {
-                type: "object",
-                properties: {
-                  target: { 
-                    type: "string",
-                    description: "Target language text (Spanish/French/etc.) - REQUIRED, NEVER EMPTY. Always include target language encouragement when giving feedback (¡Perfecto!, ¡Excelente!, etc.)"
-                  },
-                  native: { 
-                    type: "string",
-                    description: "Native language (English) explanations and teaching content"
-                  }
-                },
-                required: ["target", "native"],
-                additionalProperties: false
-              }
-            }
-          }
-        });
+          voiceResponseSchema
+        );
         const completionTime = Date.now() - completionStart;
 
-        const responseContent = quickCompletion.choices[0]?.message?.content || "{}";
+        const responseContent = JSON.stringify(parsed);
         
         // Parse and validate structured JSON response (schema-enforced)
         let aiResponse: string;
@@ -1607,83 +1693,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
               enrichmentConversation.actflLevel // ACTFL proficiency level
             );
 
-            const enrichedCompletion = await openai.chat.completions.create({
-              model,
-              messages: [
-                { role: "system", content: enrichedSystemPrompt },
-                ...recentMessagesForEnrichment.map((msg) => ({
-                  role: msg.role as "user" | "assistant",
-                  content: msg.content,
-                })),
-              ],
-              max_completion_tokens: 8192,
-              response_format: {
-                type: "json_schema",
-                json_schema: {
-                  name: "tutor_response",
-                  strict: true,
-                  schema: {
+            const enrichmentSchema = {
+              type: "object",
+              properties: {
+                vocabulary: {
+                  type: "array",
+                  description: "New vocabulary words introduced in this response",
+                  items: {
                     type: "object",
                     properties: {
-                      vocabulary: {
-                        type: "array",
-                        description: "New vocabulary words introduced in this response",
-                        items: {
-                          type: "object",
-                          properties: {
-                            word: { type: "string" },
-                            translation: { type: "string" },
-                            example: { type: "string" },
-                            pronunciation: { type: "string" }
-                          },
-                          required: ["word", "translation", "example", "pronunciation"],
-                          additionalProperties: false
-                        }
-                      },
-                      media: {
-                        type: "array",
-                        description: "Images to display with this message (0-2 images max)",
-                        items: {
-                          anyOf: [
-                            {
-                              type: "object",
-                              properties: {
-                                type: { type: "string", enum: ["stock"] },
-                                query: { type: "string" },
-                                alt: { type: "string" }
-                              },
-                              required: ["type", "query", "alt"],
-                              additionalProperties: false
-                            },
-                            {
-                              type: "object",
-                              properties: {
-                                type: { type: "string", enum: ["ai_generated"] },
-                                prompt: { type: "string" },
-                                alt: { type: "string" }
-                              },
-                              required: ["type", "prompt", "alt"],
-                              additionalProperties: false
-                            }
-                          ]
-                        }
-                      }
+                      word: { type: "string" },
+                      translation: { type: "string" },
+                      example: { type: "string" },
+                      pronunciation: { type: "string" }
                     },
-                    required: ["vocabulary", "media"],
-                    additionalProperties: false
+                    required: ["word", "translation", "example", "pronunciation"]
+                  }
+                },
+                media: {
+                  type: "array",
+                  description: "Images to display with this message (0-2 images max)",
+                  items: {
+                    type: "object",
+                    properties: {
+                      type: { type: "string", enum: ["stock", "ai_generated"] },
+                      query: { type: "string", nullable: true },
+                      prompt: { type: "string", nullable: true },
+                      alt: { type: "string" }
+                    },
+                    required: ["type", "alt"]
                   }
                 }
-              }
-            });
-
-            // Parse enrichment data
-            const enrichmentContent = enrichedCompletion.choices[0]?.message?.content || "{}";
+              },
+              required: ["vocabulary", "media"]
+            };
+            
             let enrichmentData: { vocabulary?: any[]; media?: any[] } = {};
             
             try {
-              enrichmentData = JSON.parse(enrichmentContent);
+              enrichmentData = await callGeminiWithSchema(
+                model,
+                [
+                  { role: "system", content: enrichedSystemPrompt },
+                  ...recentMessagesForEnrichment.map((msg) => ({
+                    role: msg.role as "user" | "assistant",
+                    content: msg.content,
+                  })),
+                ],
+                enrichmentSchema
+              );
             } catch (parseError) {
-              console.error('[VOICE BACKGROUND] Failed to parse enrichment data:', parseError);
+              console.error('[VOICE BACKGROUND] Failed to generate enrichment data:', parseError);
             }
 
             // Process media
@@ -1905,20 +1965,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isVoiceMode) {
         console.log('[VOICE MODE] Using fast text-only response path');
         
-        // Quick text-only completion (no structured output, much faster)
-        const quickCompletion = await openai.chat.completions.create({
+        // Quick text-only completion (Gemini, much faster)
+        const responseContent = await callGemini(
           model,
-          messages: [
+          [
             { role: "system", content: systemPrompt },
             ...recentMessages.map((msg) => ({
               role: msg.role as "user" | "assistant",
               content: msg.content,
             })),
-          ],
-          max_completion_tokens: 150, // Very short response for voice (1-2 sentences)
-        });
-
-        const responseContent = quickCompletion.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
+          ]
+        ).catch(() => "I'm sorry, I couldn't generate a response.");
         
         // System prompt asks for JSON, so extract just the message field
         let aiResponse = responseContent;
@@ -1950,84 +2007,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Mark as processing
             await storage.updateMessage(aiMessage.id, { enrichmentStatus: "processing" });
 
-            // Generate enriched version with structured output
-            const enrichedCompletion = await openai.chat.completions.create({
-              model,
-              messages: [
-                { role: "system", content: systemPrompt },
-                ...recentMessages.map((msg) => ({
-                  role: msg.role as "user" | "assistant",
-                  content: msg.content,
-                })),
-              ],
-              max_completion_tokens: 8192,
-              response_format: {
-                type: "json_schema",
-                json_schema: {
-                  name: "tutor_response",
-                  strict: true,
-                  schema: {
+            // Generate enriched version with structured output (Gemini)
+            const enrichmentSchemaV2 = {
+              type: "object",
+              properties: {
+                vocabulary: {
+                  type: "array",
+                  description: "New vocabulary words introduced in this response",
+                  items: {
                     type: "object",
                     properties: {
-                      vocabulary: {
-                        type: "array",
-                        description: "New vocabulary words introduced in this response",
-                        items: {
-                          type: "object",
-                          properties: {
-                            word: { type: "string" },
-                            translation: { type: "string" },
-                            example: { type: "string" },
-                            pronunciation: { type: "string" }
-                          },
-                          required: ["word", "translation", "example", "pronunciation"],
-                          additionalProperties: false
-                        }
-                      },
-                      media: {
-                        type: "array",
-                        description: "Images to display with this message (0-2 images max)",
-                        items: {
-                          anyOf: [
-                            {
-                              type: "object",
-                              properties: {
-                                type: { type: "string", enum: ["stock"] },
-                                query: { type: "string" },
-                                alt: { type: "string" }
-                              },
-                              required: ["type", "query", "alt"],
-                              additionalProperties: false
-                            },
-                            {
-                              type: "object",
-                              properties: {
-                                type: { type: "string", enum: ["ai_generated"] },
-                                prompt: { type: "string" },
-                                alt: { type: "string" }
-                              },
-                              required: ["type", "prompt", "alt"],
-                              additionalProperties: false
-                            }
-                          ]
-                        }
-                      }
+                      word: { type: "string" },
+                      translation: { type: "string" },
+                      example: { type: "string" },
+                      pronunciation: { type: "string" }
                     },
-                    required: ["vocabulary", "media"],
-                    additionalProperties: false
+                    required: ["word", "translation", "example", "pronunciation"]
+                  }
+                },
+                media: {
+                  type: "array",
+                  description: "Images to display with this message (0-2 images max)",
+                  items: {
+                    type: "object",
+                    properties: {
+                      type: { type: "string", enum: ["stock", "ai_generated"] },
+                      query: { type: "string", nullable: true },
+                      prompt: { type: "string", nullable: true },
+                      alt: { type: "string" }
+                    },
+                    required: ["type", "alt"]
                   }
                 }
-              }
-            });
-
-            // Parse enrichment data
-            const enrichmentContent = enrichedCompletion.choices[0]?.message?.content || "{}";
+              },
+              required: ["vocabulary", "media"]
+            };
+            
             let enrichmentData: { vocabulary?: any[]; media?: any[] } = {};
             
             try {
-              enrichmentData = JSON.parse(enrichmentContent);
+              enrichmentData = await callGeminiWithSchema(
+                model,
+                [
+                  { role: "system", content: systemPrompt },
+                  ...recentMessages.map((msg) => ({
+                    role: msg.role as "user" | "assistant",
+                    content: msg.content,
+                  })),
+                ],
+                enrichmentSchemaV2
+              );
             } catch (parseError) {
-              console.error('[BACKGROUND ENRICHMENT] Failed to parse enrichment data:', parseError);
+              console.error('[BACKGROUND ENRICHMENT] Failed to generate enrichment data:', parseError);
             }
 
             // Process media (same logic as text mode)
@@ -2109,89 +2140,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // TEXT MODE: Full structured response with vocabulary and images (existing behavior)
-      console.log('[TEXT MODE] Using full structured response path');
+      console.log('[TEXT MODE] Using full structured response path (Gemini)');
       
-      // Generate AI response with structured output to extract vocabulary and grammar
-      const completion = await openai.chat.completions.create({
-        model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...recentMessages.map((msg) => ({
-            role: msg.role as "user" | "assistant",
-            content: msg.content,
-          })),
-        ],
-        max_completion_tokens: 8192,
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "tutor_response",
-            strict: true,
-            schema: {
+      // Define JSON schema for structured output (Gemini format)
+      const tutorResponseSchema = {
+        type: "object",
+        properties: {
+          message: {
+            type: "string",
+            description: "The conversational response to the student"
+          },
+          vocabulary: {
+            type: "array",
+            description: "New vocabulary words introduced in this response",
+            items: {
               type: "object",
               properties: {
-                message: {
-                  type: "string",
-                  description: "The conversational response to the student"
-                },
-                vocabulary: {
-                  type: "array",
-                  description: "New vocabulary words introduced in this response",
-                  items: {
-                    type: "object",
-                    properties: {
-                      word: { type: "string" },
-                      translation: { type: "string" },
-                      example: { type: "string" },
-                      pronunciation: { type: "string" }
-                    },
-                    required: ["word", "translation", "example", "pronunciation"],
-                    additionalProperties: false
-                  }
-                },
-                media: {
-                  type: "array",
-                  description: "Images to display with this message (0-2 images max). For type='stock', include query field. For type='ai_generated', include prompt field.",
-                  items: {
-                    anyOf: [
-                      {
-                        type: "object",
-                        properties: {
-                          type: { type: "string", enum: ["stock"] },
-                          query: { type: "string", description: "Search query for stock images (e.g., 'red apple', 'french cafe')" },
-                          alt: { type: "string", description: "Alt text for accessibility" }
-                        },
-                        required: ["type", "query", "alt"],
-                        additionalProperties: false
-                      },
-                      {
-                        type: "object",
-                        properties: {
-                          type: { type: "string", enum: ["ai_generated"] },
-                          prompt: { type: "string", description: "DALL-E prompt (e.g., 'A cozy Parisian cafe with outdoor seating')" },
-                          alt: { type: "string", description: "Alt text for accessibility" }
-                        },
-                        required: ["type", "prompt", "alt"],
-                        additionalProperties: false
-                      }
-                    ]
-                  }
-                }
+                word: { type: "string" },
+                translation: { type: "string" },
+                example: { type: "string" },
+                pronunciation: { type: "string" }
               },
-              required: ["message", "vocabulary", "media"],
-              additionalProperties: false
+              required: ["word", "translation", "example", "pronunciation"]
+            }
+          },
+          media: {
+            type: "array",
+            description: "Images to display with this message (0-2 images max)",
+            items: {
+              type: "object",
+              properties: {
+                type: { type: "string", enum: ["stock", "ai_generated"] },
+                query: { type: "string", nullable: true },
+                prompt: { type: "string", nullable: true },
+                alt: { type: "string" }
+              },
+              required: ["type", "alt"]
             }
           }
-        }
-      });
-
-      // Parse AI response with error handling
-      const responseContent = completion.choices[0]?.message?.content || "";
-      let aiResponse = "I'm sorry, I couldn't generate a response.";
+        },
+        required: ["message", "vocabulary", "media"]
+      };
+      
+      // Generate AI response with Gemini
       let parsedResponse: { message?: string; target?: string; native?: string; vocabulary?: any[]; media?: any[] } = {};
+      let aiResponse = "I'm sorry, I couldn't generate a response.";
 
       try {
-        parsedResponse = JSON.parse(responseContent);
+        parsedResponse = await callGeminiWithSchema(
+          model,
+          [
+            { role: "system", content: systemPrompt },
+            ...recentMessages.map((msg) => ({
+              role: msg.role as "user" | "assistant",
+              content: msg.content,
+            })),
+          ],
+          tutorResponseSchema
+        );
         
         // Handle both structured (target+native) and standard (message) formats
         if (parsedResponse.target !== undefined && parsedResponse.native !== undefined) {
@@ -2211,9 +2217,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           mediaCount: parsedResponse.media?.length || 0
         });
       } catch (parseError) {
-        // Fallback to plain text if JSON parsing fails
-        console.error("[TEXT MODE] Failed to parse AI response as JSON, using plain text:", parseError);
-        aiResponse = responseContent || aiResponse;
+        // Fallback if generation fails
+        console.error("[TEXT MODE] Failed to generate AI response:", parseError);
+        aiResponse = "I'm sorry, I couldn't generate a response.";
       }
       
       // Process media requests from AI (fetch stock images or generate AI images)
@@ -2619,21 +2625,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      console.log(`[WHISPER] Transcribing audio for user ${userId}, size: ${req.file.size} bytes`);
+      console.log(`[DEEPGRAM] Transcribing audio for user ${userId}, size: ${req.file.size} bytes`);
 
-      // Let Whisper auto-detect the language instead of forcing it
-      // This allows users to speak in ANY language (English, Spanish, or mixed)
-      // Previously we passed the TARGET language which caused English speech to be transcribed as Spanish!
-      console.log(`[WHISPER] Using auto-detect mode (was forcing: ${req.body.language})`);
+      // Use Deepgram Nova-3 for better accuracy on non-native pronunciation
+      // Auto-detect language (like Whisper) - supports all languages
+      console.log(`[DEEPGRAM] Using Nova-3 with auto-detect mode (requested: ${req.body.language})`);
 
-      // Call OpenAI Whisper API using personal API key (Replit AI Integrations doesn't support this endpoint)
-      const transcription = await voiceOpenAI.audio.transcriptions.create({
-        file: await toFile(req.file.buffer, req.file.originalname || 'audio.webm'),
-        model: "whisper-1",
-        // NO language parameter = auto-detect (best for language learning apps)
-      });
+      // Call Deepgram Nova-3 API (54% better WER than Whisper, <300ms latency)
+      const { result } = await deepgram.listen.prerecorded.transcribeFile(
+        req.file.buffer,
+        {
+          model: "nova-3",
+          language: "multi", // Auto-detect (supports English, Spanish, French, etc.)
+          smart_format: true, // Better formatting
+          punctuate: true, // Add punctuation
+          diarize: false, // Single speaker
+        }
+      );
 
-      console.log(`[WHISPER] ✓ Transcription: "${transcription.text}"`);
+      if (!result) {
+        throw new Error("Deepgram returned null result");
+      }
+
+      const transcription = {
+        text: result.results.channels[0].alternatives[0].transcript || ""
+      };
+
+      console.log(`[DEEPGRAM] ✓ Transcription: "${transcription.text}"`);
       
       // Only increment usage AFTER successful transcription
       // Uses conditional UPDATE to prevent race conditions
