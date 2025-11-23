@@ -1283,17 +1283,21 @@ const allPriorMessages = await storage.getMessagesByConversation(conversationId)
 
 | Feature | Implementation Time | User Value | Revenue Impact |
 |---------|---------------------|------------|----------------|
-| **Base migration** | 12-29 hrs | Get 2M context (unused) | API cost savings only |
-| **Long-term continuity** | +3 hrs | ⭐⭐⭐⭐⭐ Very High | Retention improvement |
-| **Cross-language learning** | +10 hrs | ⭐⭐⭐ Medium | Pro tier differentiation |
-| **Classroom analytics** | +25 hrs | ⭐⭐⭐⭐ High | Institutional tier unlock |
-| **Resume conversations** | +4 hrs | ⭐⭐⭐⭐ High | UX improvement |
+| **Base migration** | 6.5 hrs | Get 2M context (unused) | API cost savings only |
+| **Resume conversations** | +1 hr | ⭐⭐⭐⭐⭐ Very High | UX improvement |
+| **Smart search** | +2 hrs | ⭐⭐⭐⭐ High | UX improvement |
+| **Smart suggestions** | +2 hrs | ⭐⭐⭐⭐⭐ Very High | Retention improvement |
+| **Learning timeline** | +4 hrs | ⭐⭐⭐⭐ High | Pro tier differentiation |
+| **Cross-conversation insights** | +3 hrs | ⭐⭐⭐ Medium | Pro tier differentiation |
+| **Vocabulary tracker** | +3 hrs | ⭐⭐⭐⭐ High | Pro tier differentiation |
+| **Classroom analytics** | +20 hrs | ⭐⭐⭐⭐ High | Institutional tier unlock |
 
 **Phased Approach:**
 
-- **Phase 1: Migration Only** (29 hours) - Switch to Gemini, get 2M context, don't use it yet
-- **Phase 2: Easy Wins** (+7 hours) - Long-term continuity + Resume conversations = 36 hours total
-- **Phase 3: Premium Features** (+35 hours) - Cross-language + Analytics = 71 hours total
+- **Phase 1: Migration Only** (6.5 hours) - Switch to Gemini, get 2M context, don't use it yet
+- **Phase 2: Quick Wins** (+5 hours) - Resume + Search + Suggestions = 11.5 hours total
+- **Phase 3: Visualization** (+7 hours) - Timeline + Insights = 18.5 hours total
+- **Phase 4: Advanced** (+23 hours) - Vocabulary tracker + Analytics = 41.5 hours total
 
 ---
 
@@ -1304,37 +1308,49 @@ const allPriorMessages = await storage.getMessagesByConversation(conversationId)
 - Savings: $613/year
 - ROI: **13 months** ✅
 
-**With Phase 2 "Easy Wins":**
-- Cost: $1,050 (6.5 + 4 hrs)
+**With Phase 2 "Quick Wins":**
+- Cost: $1,150 (6.5 + 5 hrs)
 - Savings: $613/year
-- New value: Significantly better UX → improved retention
-- ROI: **17 months** (still viable)
+- New value: Resume + Search + Suggestions → significantly better UX
+- ROI: **23 months** (still viable)
 
-**With Phase 3 "Full Features":**
-- Cost: $3,150 (31.5 hrs total)
+**With Phase 3 "Visualization":**
+- Cost: $1,850 (6.5 + 5 + 7 hrs = 18.5 hrs)
+- Savings: $613/year
+- New value: Timeline + Insights → Pro tier differentiation
+- ROI: **3 years** (marginal, only if building Pro features)
+
+**With Phase 4 "Full Advanced":**
+- Cost: $4,150 (41.5 hrs total)
 - Savings: $613/year
 - New value: Unlocks institutional tier revenue
-- ROI: **5 years** (only worth it for institutional revenue)
+- ROI: **6.8 years** (only worth it for institutional revenue)
 
 **Key insight:** 
-- Migration alone (13-month ROI) is now reasonable ✅
-- Adding "easy wins" (17-month ROI) still viable ✅
-- Full institutional features only make sense if you have customers lined up
+- Migration alone (13-month ROI) ✅
+- + Quick Wins (23-month ROI) ✅ **RECOMMENDED**
+- + Visualization (3-year ROI) ⚠️ (only if building Pro tier)
+- + Advanced features (6.8-year ROI) ❌ (only for institutional customers)
 
 ---
 
-### Recommended Approach
+### Recommended Approach (UPDATED)
 
 1. **Migrate to Gemini (Option B)** - 6.5 hours, $650
-2. **Implement "Easy Wins"** immediately after - +4 hours, $400
-3. **Save "Premium Features" for later** - Only build when you have institutional customer demand
+2. **Implement "Quick Wins"** immediately after - +5 hours, $500
+   - Resume conversations
+   - Smart search
+   - Smart suggestions
+3. **Save visualization features for later** - Only build when:
+   - You're launching Pro tier features
+   - Timeline/insights become differentiators
+4. **Build institutional features only when:**
+   - You have paying institutional customers lined up
+   - You're pitching to school districts/universities
 
-**Total upfront:** 10.5 hours ($1,050) for migration + high-value UX improvements
+**Total upfront (RECOMMENDED):** 11.5 hours ($1,150) for migration + high-value UX improvements
 
-**Build institutional features only when:**
-- You have paying institutional customers lined up
-- You're pitching to school districts/universities
-- Institutional tier becomes a revenue priority
+**23-month ROI** (vs original "36 hours" estimate that would've been 6-year ROI!)
 
 ---
 
@@ -1625,26 +1641,63 @@ const suggestions = await model.generateContent({
 
 ---
 
-### Implementation Roadmap
+### Implementation Roadmap (HONEST ESTIMATES)
 
-**Phase 1: Foundation** (10 hours)
-- Resume conversations with full context (2 hrs)
-- Content-aware search (4 hrs)
-- Smart suggestions (3 hrs)
+**What each feature ACTUALLY involves:**
 
-**Phase 2: Visualization** (14 hours)
-- Learning timeline view (8 hrs)
-- Cross-conversation insights (6 hrs)
+**1. Resume conversations** (1 hour)
+- Remove message limit in query (5 mins)
+- Add "Resume" button to UI (15 mins)
+- Update prompt template (15 mins)
+- Test (15 mins)
 
-**Phase 3: Advanced** (12 hours)
-- Vocabulary progress tracker (6 hrs)
-- Multi-language comparison view (6 hrs)
+**2. Smart search** (2 hours)
+- Add search input to history page (30 mins)
+- Create AI search function (30 mins)
+- Display results (30 mins)
+- Test (30 mins)
 
-**Total: 36 hours** to completely transform chat history UX
+**3. Smart suggestions** (2 hours)
+- AI analysis of all conversations (30 mins)
+- Suggestion card UI (1 hour)
+- Test (30 mins)
+
+**4. Learning timeline** (4 hours)
+- AI to analyze progression (1 hour)
+- Timeline UI component (2 hours)
+- Test (1 hour)
+
+**5. Cross-conversation insights** (3 hours)
+- AI to find connections (1 hour)
+- Update conversation cards (1.5 hours)
+- Test (30 mins)
+
+**6. Vocabulary tracker** (3 hours)
+- AI to track word usage (1 hour)
+- Progress view UI (1.5 hours)
+- Test (30 mins)
 
 ---
 
-### Cost-Benefit
+**Phase 1 (Quick Wins): 5 hours**
+- Resume conversations (1 hr)
+- Smart search (2 hrs)
+- Smart suggestions (2 hrs)
+
+**Phase 2 (Visualization): 7 hours**
+- Learning timeline (4 hrs)
+- Cross-conversation insights (3 hrs)
+
+**Phase 3 (Advanced): 3 hours**
+- Vocabulary progress tracker (3 hrs)
+
+**Total: 15 hours** to completely transform chat history UX
+
+*(Originally said 36 hours - that was inflated with enterprise assumptions)*
+
+---
+
+### Cost-Benefit (HONEST)
 
 **Without 2M context:**
 - Chat history = passive archive
@@ -1657,7 +1710,9 @@ const suggestions = await model.generateContent({
 - AI remembers entire learning journey
 - Significantly better retention and engagement
 
-**ROI:** Even at 36 hours ($3,600), if this improves retention by just 10%, it pays for itself quickly.
+**ROI:** At 15 hours ($1,500), if this improves retention by just 5%, it pays for itself in a few months.
+
+**Quick wins (Phase 1):** Just 5 hours gets you Resume + Smart Search + Suggestions = major UX improvement
 
 ---
 
