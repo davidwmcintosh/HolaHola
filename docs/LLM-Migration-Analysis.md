@@ -764,6 +764,284 @@ These components remain unchanged:
 
 ---
 
+## 6.5. Implementation Cost & Timeline Analysis
+
+### Developer Effort Estimates
+
+**Assumptions:**
+- Senior developer rate: **$100/hour** (typical for full-stack engineer)
+- Working hours: **6 productive hours/day** (accounting for meetings, code review, context switching)
+- Testing overhead: **30% additional time** beyond coding
+- Risk buffer: **20% contingency** for unexpected issues
+
+---
+
+### Option A: Hybrid (Whisper + Gemini Text)
+
+**Scope:** Migrate text chat only, keep Whisper for STT
+
+#### Task Breakdown:
+
+| Task | Hours | Days |
+|------|-------|------|
+| **1. Gemini Integration Setup** | 4 | 0.7 |
+| • Add Gemini SDK via Replit AI Integrations | 1 | 0.2 |
+| • Configure environment variables | 0.5 | 0.1 |
+| • Test connection and authentication | 1 | 0.2 |
+| • Update deployment config | 0.5 | 0.1 |
+| • Documentation | 1 | 0.2 |
+| | | |
+| **2. Text Chat Endpoint Migration** | 12 | 2.0 |
+| • Update server/routes.ts (chat completions) | 4 | 0.7 |
+| • Convert message format (OpenAI → Gemini) | 2 | 0.3 |
+| • Error handling and retries | 2 | 0.3 |
+| • Response parsing and streaming support | 3 | 0.5 |
+| • Unit tests | 1 | 0.2 |
+| | | |
+| **3. Structured JSON Output Migration** | 16 | 2.7 |
+| • Update onboarding-utils.ts (name extraction) | 4 | 0.7 |
+| • Update language detection logic | 4 | 0.7 |
+| • Update native language extraction | 4 | 0.7 |
+| • Update conversation-utils.ts (title generation) | 3 | 0.5 |
+| • Integration tests | 1 | 0.2 |
+| | | |
+| **4. System Prompt Adaptation** | 6 | 1.0 |
+| • Test Gemini prompt handling | 2 | 0.3 |
+| • Adjust formatting for optimal results | 3 | 0.5 |
+| • Edge case testing | 1 | 0.2 |
+| | | |
+| **5. Testing & QA** | 18 | 3.0 |
+| • A/B testing setup (10% rollout) | 4 | 0.7 |
+| • Manual testing across all 9 languages | 6 | 1.0 |
+| • Performance/latency benchmarking | 2 | 0.3 |
+| • Quality comparison (GPT vs Gemini) | 4 | 0.7 |
+| • Bug fixes from testing | 2 | 0.3 |
+| | | |
+| **6. Rollout & Monitoring** | 4 | 0.7 |
+| • Gradual rollout (10% → 50% → 100%) | 2 | 0.3 |
+| • Error logging and monitoring setup | 1 | 0.2 |
+| • Rollback plan documentation | 1 | 0.2 |
+| | | |
+| **Base Total** | 60 hours | 10.0 days |
+| **+ Testing Overhead (30%)** | +18 hours | +3.0 days |
+| **+ Risk Buffer (20%)** | +15.6 hours | +2.6 days |
+| **TOTAL EFFORT** | **93.6 hours** | **15.6 days** |
+
+#### Cost Analysis:
+
+| Metric | Value |
+|--------|-------|
+| **Developer Hours** | 94 hours |
+| **Calendar Time** | **3.2 weeks** (15.6 work days) |
+| **Engineering Cost** | **$9,400** (94 hrs × $100/hr) |
+| **Monthly API Savings** | $1.10/month |
+| **Annual Savings** | $13.20/year |
+| **ROI Break-Even** | **712 years** ❌ |
+
+**Verdict:** ❌ **NOT RECOMMENDED** - Massive engineering cost for 1% savings
+
+---
+
+### Option B: Deepgram + Gemini (RECOMMENDED)
+
+**Scope:** Migrate text chat to Gemini + STT to Deepgram Batch
+
+#### Task Breakdown:
+
+| Task | Hours | Days |
+|------|-------|------|
+| **1. Gemini Migration** (same as Option A) | 60 | 10.0 |
+| | | |
+| **2. Deepgram STT Integration** | 24 | 4.0 |
+| • Set up Deepgram API key | 1 | 0.2 |
+| • Update server/routes.ts (STT endpoint) | 8 | 1.3 |
+| • Convert audio format handling | 3 | 0.5 |
+| • Update client/src/lib/restVoiceApi.ts | 4 | 0.7 |
+| • Response format conversion | 2 | 0.3 |
+| • Error handling and retries | 3 | 0.5 |
+| • Unit tests | 3 | 0.5 |
+| | | |
+| **3. Language Support Testing** | 12 | 2.0 |
+| • Test all 9 supported languages | 6 | 1.0 |
+| • Accuracy comparison (Whisper vs Deepgram) | 4 | 0.7 |
+| • Fallback to Whisper for unsupported langs | 2 | 0.3 |
+| | | |
+| **4. Voice Quality Assurance** | 18 | 3.0 |
+| • End-to-end voice chat testing | 6 | 1.0 |
+| • Latency benchmarking | 3 | 0.5 |
+| • Accent/noise handling tests | 4 | 0.7 |
+| • Edge case testing (short clips, silence) | 3 | 0.5 |
+| • Bug fixes | 2 | 0.3 |
+| | | |
+| **5. Gradual Rollout** | 6 | 1.0 |
+| • 10% → 50% → 100% phased rollout | 3 | 0.5 |
+| • Monitoring and alerting setup | 2 | 0.3 |
+| • Rollback plan + documentation | 1 | 0.2 |
+| | | |
+| **Base Total** | 120 hours | 20.0 days |
+| **+ Testing Overhead (30%)** | +36 hours | +6.0 days |
+| **+ Risk Buffer (20%)** | +31.2 hours | +5.2 days |
+| **TOTAL EFFORT** | **187.2 hours** | **31.2 days** |
+
+#### Cost Analysis:
+
+| Metric | Value |
+|--------|-------|
+| **Developer Hours** | 187 hours |
+| **Calendar Time** | **6.2 weeks** (31 work days) |
+| **Engineering Cost** | **$18,720** (187 hrs × $100/hr) |
+| **Monthly API Savings** | $51.10/month |
+| **Annual Savings** | $613.20/year |
+| **ROI Break-Even** | **30.5 months** (2.5 years) |
+
+**Additional Benefits (Hard to Quantify):**
+- ✅ Users don't need OpenAI API keys (reduces onboarding friction)
+- ✅ Platform controls STT quality (no user key variations)
+- ✅ Access to 2M context window (enables new features)
+- ✅ Best-in-class STT accuracy (Deepgram Nova-3)
+
+**Opportunity Cost:**
+- 187 hours could build ~3-4 new features instead
+- Examples: Advanced grammar exercises, pronunciation scoring, cultural tips expansion
+
+**Verdict:** ⚠️ **CONDITIONALLY RECOMMENDED** if:
+1. You plan to run at higher scale (>1,000 hrs/month = 10 months payback)
+2. Removing user API key requirement is a business priority
+3. 2M context features are on your roadmap
+4. You have 6-8 weeks of available engineering capacity
+
+---
+
+### Option C: Deepgram Real-Time + Gemini
+
+**Scope:** Full migration including real-time streaming STT
+
+#### Task Breakdown:
+
+| Task | Hours | Days |
+|------|-------|------|
+| **1-3. Gemini + Deepgram Batch** (same as Option B) | 120 | 20.0 |
+| | | |
+| **4. Real-Time WebSocket Architecture** | 40 | 6.7 |
+| • WebSocket server setup | 8 | 1.3 |
+| • Real-time audio streaming (client) | 10 | 1.7 |
+| • Deepgram streaming SDK integration | 8 | 1.3 |
+| • Buffering and chunk management | 6 | 1.0 |
+| • Latency optimization | 5 | 0.8 |
+| • Error recovery (disconnects, retries) | 3 | 0.5 |
+| | | |
+| **5. Frontend Refactor** | 24 | 4.0 |
+| • Real-time transcription display | 8 | 1.3 |
+| • Audio chunk streaming from browser | 10 | 1.7 |
+| • UI state management (recording, streaming) | 4 | 0.7 |
+| • Progressive transcription updates | 2 | 0.3 |
+| | | |
+| **6. Real-Time Testing** | 20 | 3.3 |
+| • Latency benchmarking (<300ms target) | 4 | 0.7 |
+| • Network interruption handling | 4 | 0.7 |
+| • Multi-user concurrent testing | 4 | 0.7 |
+| • Cross-browser compatibility | 4 | 0.7 |
+| • Bug fixes | 4 | 0.7 |
+| | | |
+| **Base Total** | 204 hours | 34.0 days |
+| **+ Testing Overhead (30%)** | +61.2 hours | +10.2 days |
+| **+ Risk Buffer (20%)** | +53 hours | +8.8 days |
+| **TOTAL EFFORT** | **318.2 hours** | **53 days** |
+
+#### Cost Analysis:
+
+| Metric | Value |
+|--------|-------|
+| **Developer Hours** | 318 hours |
+| **Calendar Time** | **10.6 weeks** (53 work days) |
+| **Engineering Cost** | **$31,820** (318 hrs × $100/hr) |
+| **Monthly API Cost** | $234.20/month |
+| **vs Current** | +$48.90/month (+26%) |
+| **ROI Break-Even** | **NEVER** (costs more) ❌ |
+
+**Verdict:** ❌ **NOT RECOMMENDED** unless:
+- User experience is worth +$49/month operational cost
+- You have 10+ weeks of engineering capacity
+- Real-time streaming is a competitive differentiator
+
+---
+
+### Option D: Status Quo (Do Nothing)
+
+| Metric | Value |
+|--------|-------|
+| **Developer Hours** | 0 hours |
+| **Calendar Time** | 0 days |
+| **Engineering Cost** | $0 |
+| **Opportunity Cost** | 0 features missed |
+| **Monthly Cost** | $185.30 (baseline) |
+
+**Verdict:** ✅ **RECOMMENDED** if:
+- Engineering team is already at capacity
+- Current costs are acceptable
+- No urgent need for 2M context features
+- Feature development prioritized over cost optimization
+
+---
+
+### Implementation Timeline Comparison
+
+| Option | Engineering Time | Calendar Time | Cost | Annual Savings | ROI |
+|--------|-----------------|---------------|------|----------------|-----|
+| **A: Hybrid** | 94 hrs | 3.2 weeks | $9,400 | $13/year | 712 years ❌ |
+| **B: Deepgram + Gemini** | 187 hrs | 6.2 weeks | $18,720 | $613/year | **2.5 years** ⚠️ |
+| **C: Real-time** | 318 hrs | 10.6 weeks | $31,820 | -$587/year | Never ❌ |
+| **D: Status Quo** | 0 hrs | 0 weeks | $0 | $0 | N/A ✅ |
+
+---
+
+### Key Insights
+
+1. **Option A (Hybrid) is not worth it** - $9,400 engineering cost for $13/year savings
+2. **Option B breaks even in 2.5 years** - Only viable if you scale to >1,000 hrs/month voice usage
+3. **Option C costs more long-term** - Premium UX but negative ROI
+4. **Opportunity cost matters** - 187 hours = 3-4 new features
+
+### When Option B Makes Sense
+
+**Scale Scenarios:**
+
+| Monthly Voice Hours | Annual Savings (B) | ROI Timeline |
+|---------------------|-------------------|--------------|
+| 500 hrs (current) | $613 | 2.5 years |
+| 1,000 hrs | $1,226 | **1.3 years** ✅ |
+| 2,500 hrs | $3,065 | **6 months** ✅ |
+| 5,000 hrs | $6,130 | **3 months** ✅ |
+
+**Strategic Value (Beyond Cost):**
+
+If you value these at >$15,000 combined, Option B pays off immediately:
+
+1. **Remove API key friction** - Easier user onboarding (est. +5% conversion = $X)
+2. **2M context window** - Enable premium features:
+   - Long-term learning continuity
+   - Cross-language pattern recognition
+   - Institutional classroom analytics
+3. **Platform control** - No user key variations, consistent quality
+
+---
+
+### Revised Recommendation
+
+**For Current Scale (500 hrs/month):**
+→ **Option D (Status Quo)** - Engineering time better spent on features
+
+**If you expect 2x growth in 12 months (1,000 hrs/month):**
+→ **Option B (Deepgram + Gemini)** - ROI in 1.3 years
+
+**If 2M context features are roadmap priorities:**
+→ **Option B** - Strategic investment pays off via premium feature enablement
+
+**Never:**
+→ Option A (bad ROI) or Option C (negative ROI)
+
+---
+
 ## 7. Migration Recommendations
 
 ### Option A: Hybrid Approach (Recommended)
