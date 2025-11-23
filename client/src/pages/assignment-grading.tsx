@@ -4,14 +4,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { useParams, Link } from "wouter";
 import { ArrowLeft, CheckCircle2, Clock, FileText } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 interface Assignment {
   id: string;
@@ -43,12 +46,25 @@ interface AssignmentSubmission {
   };
 }
 
+const gradeFormSchema = z.object({
+  score: z.coerce.number().nonnegative("Score must be positive"),
+  feedback: z.string().optional(),
+});
+
+type GradeFormValues = z.infer<typeof gradeFormSchema>;
+
 export default function AssignmentGrading() {
   const { assignmentId } = useParams();
   const { toast } = useToast();
   const [gradingSubmission, setGradingSubmission] = useState<AssignmentSubmission | null>(null);
-  const [score, setScore] = useState("");
-  const [feedback, setFeedback] = useState("");
+  
+  const gradeForm = useForm<GradeFormValues>({
+    resolver: zodResolver(gradeFormSchema),
+    defaultValues: {
+      score: 0,
+      feedback: "",
+    },
+  });
 
   const { data: assignment, isLoading: isLoadingAssignment } = useQuery<Assignment>({
     queryKey: ["/api/assignments", assignmentId],
@@ -73,8 +89,7 @@ export default function AssignmentGrading() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/assignments", assignmentId, "submissions"] });
       setGradingSubmission(null);
-      setScore("");
-      setFeedback("");
+      gradeForm.reset();
       toast({
         title: "Submission Graded",
         description: "The grade has been saved successfully.",
@@ -89,14 +104,13 @@ export default function AssignmentGrading() {
     },
   });
 
-  const handleGradeSubmission = () => {
-    if (!gradingSubmission) return;
+  const handleGradeSubmission = (values: GradeFormValues) => {
+    if (!gradingSubmission || !assignment) return;
 
-    const scoreNum = parseFloat(score);
-    if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > (assignment?.maxScore || 100)) {
+    if (values.score > assignment.maxScore) {
       toast({
         title: "Invalid Score",
-        description: `Score must be between 0 and ${assignment?.maxScore || 100}`,
+        description: `Score must be between 0 and ${assignment.maxScore}`,
         variant: "destructive",
       });
       return;
@@ -104,15 +118,17 @@ export default function AssignmentGrading() {
 
     gradeSubmissionMutation.mutate({
       submissionId: gradingSubmission.id,
-      score: scoreNum,
-      feedback: feedback.trim(),
+      score: values.score,
+      feedback: values.feedback || "",
     });
   };
 
   const openGradingDialog = (submission: AssignmentSubmission) => {
     setGradingSubmission(submission);
-    setScore(submission.teacherScore?.toString() || "");
-    setFeedback(submission.teacherFeedback || "");
+    gradeForm.reset({
+      score: submission.teacherScore || 0,
+      feedback: submission.teacherFeedback || "",
+    });
   };
 
   if (isLoadingAssignment) {
@@ -328,42 +344,59 @@ export default function AssignmentGrading() {
               Provide a score and feedback for this student's work.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="score">Score (out of {assignment.maxScore})</Label>
-              <Input
-                id="score"
-                type="number"
-                min="0"
-                max={assignment.maxScore}
-                step="0.5"
-                value={score}
-                onChange={(e) => setScore(e.target.value)}
-                data-testid="input-score"
-                placeholder="0"
+          <Form {...gradeForm}>
+            <form onSubmit={gradeForm.handleSubmit(handleGradeSubmission)} className="space-y-4 py-4">
+              <FormField
+                control={gradeForm.control}
+                name="score"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Score (out of {assignment?.maxScore || 100})</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        max={assignment?.maxScore || 100}
+                        step="0.5"
+                        data-testid="input-score"
+                        placeholder="0"
+                        {...field}
+                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="feedback">Feedback (Optional)</Label>
-              <Textarea
-                id="feedback"
-                value={feedback}
-                onChange={(e) => setFeedback(e.target.value)}
-                data-testid="input-feedback"
-                placeholder="Great work! Consider..."
-                rows={4}
+              <FormField
+                control={gradeForm.control}
+                name="feedback"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Feedback (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        data-testid="input-feedback"
+                        placeholder="Great work! Consider..."
+                        rows={4}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              onClick={handleGradeSubmission}
-              disabled={gradeSubmissionMutation.isPending}
-              data-testid="button-save-grade"
-            >
-              {gradeSubmissionMutation.isPending ? "Saving..." : "Save Grade"}
-            </Button>
-          </DialogFooter>
+              <DialogFooter>
+                <Button
+                  type="submit"
+                  disabled={gradeSubmissionMutation.isPending}
+                  data-testid="button-save-grade"
+                >
+                  {gradeSubmissionMutation.isPending ? "Saving..." : "Save Grade"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>

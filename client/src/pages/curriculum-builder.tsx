@@ -4,14 +4,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { BookOpen, Plus, FolderOpen, FileText } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertCurriculumPathSchema, insertCurriculumUnitSchema, insertCurriculumLessonSchema } from "@shared/schema";
+import { z } from "zod";
 
 interface CurriculumPath {
   id: string;
@@ -40,6 +44,22 @@ interface CurriculumLesson {
   orderIndex: number;
 }
 
+const pathFormSchema = insertCurriculumPathSchema.extend({
+  description: z.string().optional(),
+});
+type PathFormValues = z.infer<typeof pathFormSchema>;
+
+const unitFormSchema = insertCurriculumUnitSchema.extend({
+  description: z.string().optional(),
+});
+type UnitFormValues = z.infer<typeof unitFormSchema>;
+
+const lessonFormSchema = insertCurriculumLessonSchema.extend({
+  description: z.string().optional(),
+  content: z.string().optional(),
+});
+type LessonFormValues = z.infer<typeof lessonFormSchema>;
+
 export default function CurriculumBuilder() {
   const { toast } = useToast();
   const [createPathOpen, setCreatePathOpen] = useState(false);
@@ -48,20 +68,37 @@ export default function CurriculumBuilder() {
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
 
-  // Path form state
-  const [pathName, setPathName] = useState("");
-  const [pathDescription, setPathDescription] = useState("");
-  const [pathLanguage, setPathLanguage] = useState("spanish");
-  const [pathLevel, setPathLevel] = useState("beginner");
+  const pathForm = useForm<PathFormValues>({
+    resolver: zodResolver(pathFormSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      language: "spanish",
+      targetLevel: "beginner",
+      isPublished: false,
+    },
+  });
 
-  // Unit form state
-  const [unitName, setUnitName] = useState("");
-  const [unitDescription, setUnitDescription] = useState("");
+  const unitForm = useForm<UnitFormValues>({
+    resolver: zodResolver(unitFormSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      pathId: "",
+      orderIndex: 0,
+    },
+  });
 
-  // Lesson form state
-  const [lessonName, setLessonName] = useState("");
-  const [lessonDescription, setLessonDescription] = useState("");
-  const [lessonContent, setLessonContent] = useState("");
+  const lessonForm = useForm<LessonFormValues>({
+    resolver: zodResolver(lessonFormSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      content: "",
+      unitId: "",
+      orderIndex: 0,
+    },
+  });
 
   const { data: paths, isLoading: isLoadingPaths } = useQuery<CurriculumPath[]>({
     queryKey: ["/api/curriculum/paths"],
@@ -78,7 +115,7 @@ export default function CurriculumBuilder() {
   });
 
   const createPathMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: PathFormValues) => {
       return apiRequest("/api/curriculum/paths", {
         method: "POST",
         body: JSON.stringify(data),
@@ -87,7 +124,7 @@ export default function CurriculumBuilder() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/curriculum/paths"] });
       setCreatePathOpen(false);
-      resetPathForm();
+      pathForm.reset();
       toast({
         title: "Curriculum Path Created",
         description: "Your curriculum path has been created successfully.",
@@ -103,7 +140,7 @@ export default function CurriculumBuilder() {
   });
 
   const createUnitMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: UnitFormValues) => {
       return apiRequest("/api/curriculum/units", {
         method: "POST",
         body: JSON.stringify(data),
@@ -114,7 +151,7 @@ export default function CurriculumBuilder() {
         queryClient.invalidateQueries({ queryKey: ["/api/curriculum/paths", selectedPath, "units"] });
       }
       setCreateUnitOpen(false);
-      resetUnitForm();
+      unitForm.reset();
       toast({
         title: "Unit Created",
         description: "The unit has been added to the curriculum path.",
@@ -130,7 +167,7 @@ export default function CurriculumBuilder() {
   });
 
   const createLessonMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: LessonFormValues) => {
       return apiRequest("/api/curriculum/lessons", {
         method: "POST",
         body: JSON.stringify(data),
@@ -141,7 +178,7 @@ export default function CurriculumBuilder() {
         queryClient.invalidateQueries({ queryKey: ["/api/curriculum/units", selectedUnit, "lessons"] });
       }
       setCreateLessonOpen(false);
-      resetLessonForm();
+      lessonForm.reset();
       toast({
         title: "Lesson Created",
         description: "The lesson has been added to the unit.",
@@ -156,41 +193,8 @@ export default function CurriculumBuilder() {
     },
   });
 
-  const resetPathForm = () => {
-    setPathName("");
-    setPathDescription("");
-    setPathLanguage("spanish");
-    setPathLevel("beginner");
-  };
-
-  const resetUnitForm = () => {
-    setUnitName("");
-    setUnitDescription("");
-  };
-
-  const resetLessonForm = () => {
-    setLessonName("");
-    setLessonDescription("");
-    setLessonContent("");
-  };
-
-  const handleCreatePath = () => {
-    if (!pathName.trim()) {
-      toast({
-        title: "Error",
-        description: "Path name is required",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    createPathMutation.mutate({
-      name: pathName.trim(),
-      description: pathDescription.trim() || null,
-      language: pathLanguage,
-      targetLevel: pathLevel,
-      isPublished: false,
-    });
+  const handleCreatePath = (values: PathFormValues) => {
+    createPathMutation.mutate(values);
   };
 
   const handleCreateUnit = () => {
@@ -203,21 +207,12 @@ export default function CurriculumBuilder() {
       return;
     }
 
-    if (!unitName.trim()) {
-      toast({
-        title: "Error",
-        description: "Unit name is required",
-        variant: "destructive",
-      });
-      return;
-    }
-
     const maxOrder = units?.reduce((max, u) => Math.max(max, u.orderIndex), 0) || 0;
-
+    const values = unitForm.getValues();
+    
     createUnitMutation.mutate({
+      ...values,
       pathId: selectedPath,
-      name: unitName.trim(),
-      description: unitDescription.trim() || null,
       orderIndex: maxOrder + 1,
     });
   };
@@ -232,22 +227,12 @@ export default function CurriculumBuilder() {
       return;
     }
 
-    if (!lessonName.trim()) {
-      toast({
-        title: "Error",
-        description: "Lesson name is required",
-        variant: "destructive",
-      });
-      return;
-    }
-
     const maxOrder = lessons?.reduce((max, l) => Math.max(max, l.orderIndex), 0) || 0;
-
+    const values = lessonForm.getValues();
+    
     createLessonMutation.mutate({
+      ...values,
       unitId: selectedUnit,
-      name: lessonName.trim(),
-      description: lessonDescription.trim() || null,
-      content: lessonContent.trim() || null,
       orderIndex: maxOrder + 1,
     });
   };
@@ -271,66 +256,100 @@ export default function CurriculumBuilder() {
               <DialogTitle>Create Curriculum Path</DialogTitle>
               <DialogDescription>Create a new curriculum path for your students</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="path-name">Name</Label>
-                <Input
-                  id="path-name"
-                  placeholder="Spanish for Beginners"
-                  value={pathName}
-                  onChange={(e) => setPathName(e.target.value)}
-                  data-testid="input-path-name"
+            <Form {...pathForm}>
+              <form onSubmit={pathForm.handleSubmit(handleCreatePath)} className="space-y-4 py-4">
+                <FormField
+                  control={pathForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Name</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Spanish for Beginners"
+                          data-testid="input-path-name"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="path-description">Description</Label>
-                <Textarea
-                  id="path-description"
-                  placeholder="A comprehensive path for learning basic Spanish"
-                  value={pathDescription}
-                  onChange={(e) => setPathDescription(e.target.value)}
-                  data-testid="input-path-description"
+                <FormField
+                  control={pathForm.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="A comprehensive path for learning basic Spanish"
+                          data-testid="input-path-description"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="path-language">Language</Label>
-                  <Select value={pathLanguage} onValueChange={setPathLanguage}>
-                    <SelectTrigger id="path-language" data-testid="select-path-language">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="spanish">Spanish</SelectItem>
-                      <SelectItem value="french">French</SelectItem>
-                      <SelectItem value="german">German</SelectItem>
-                      <SelectItem value="italian">Italian</SelectItem>
-                      <SelectItem value="portuguese">Portuguese</SelectItem>
-                      <SelectItem value="japanese">Japanese</SelectItem>
-                      <SelectItem value="korean">Korean</SelectItem>
-                      <SelectItem value="chinese">Chinese</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={pathForm.control}
+                    name="language"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Language</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-path-language">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="spanish">Spanish</SelectItem>
+                            <SelectItem value="french">French</SelectItem>
+                            <SelectItem value="german">German</SelectItem>
+                            <SelectItem value="italian">Italian</SelectItem>
+                            <SelectItem value="portuguese">Portuguese</SelectItem>
+                            <SelectItem value="japanese">Japanese</SelectItem>
+                            <SelectItem value="korean">Korean</SelectItem>
+                            <SelectItem value="chinese">Chinese</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={pathForm.control}
+                    name="targetLevel"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Target Level</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-path-level">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="beginner">Beginner</SelectItem>
+                            <SelectItem value="intermediate">Intermediate</SelectItem>
+                            <SelectItem value="advanced">Advanced</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="path-level">Target Level</Label>
-                  <Select value={pathLevel} onValueChange={setPathLevel}>
-                    <SelectTrigger id="path-level" data-testid="select-path-level">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="beginner">Beginner</SelectItem>
-                      <SelectItem value="intermediate">Intermediate</SelectItem>
-                      <SelectItem value="advanced">Advanced</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={handleCreatePath} disabled={createPathMutation.isPending} data-testid="button-confirm-create-path">
-                {createPathMutation.isPending ? "Creating..." : "Create Path"}
-              </Button>
-            </DialogFooter>
+                <DialogFooter>
+                  <Button type="submit" disabled={createPathMutation.isPending} data-testid="button-confirm-create-path">
+                    {createPathMutation.isPending ? "Creating..." : "Create Path"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>
@@ -382,33 +401,49 @@ export default function CurriculumBuilder() {
                         <DialogTitle>Create Unit</DialogTitle>
                         <DialogDescription>Add a new unit to this curriculum path</DialogDescription>
                       </DialogHeader>
-                      <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="unit-name">Unit Name</Label>
-                          <Input
-                            id="unit-name"
-                            placeholder="Greetings and Introductions"
-                            value={unitName}
-                            onChange={(e) => setUnitName(e.target.value)}
-                            data-testid="input-unit-name"
+                      <Form {...unitForm}>
+                        <form onSubmit={(e) => { e.preventDefault(); handleCreateUnit(); }} className="space-y-4 py-4">
+                          <FormField
+                            control={unitForm.control}
+                            name="name"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Unit Name</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="Greetings and Introductions"
+                                    data-testid="input-unit-name"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
                           />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="unit-description">Description</Label>
-                          <Textarea
-                            id="unit-description"
-                            placeholder="Learn basic greetings and how to introduce yourself"
-                            value={unitDescription}
-                            onChange={(e) => setUnitDescription(e.target.value)}
-                            data-testid="input-unit-description"
+                          <FormField
+                            control={unitForm.control}
+                            name="description"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Description</FormLabel>
+                                <FormControl>
+                                  <Textarea
+                                    placeholder="Learn basic greetings and how to introduce yourself"
+                                    data-testid="input-unit-description"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
                           />
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button onClick={handleCreateUnit} disabled={createUnitMutation.isPending} data-testid="button-confirm-create-unit">
-                          {createUnitMutation.isPending ? "Creating..." : "Create Unit"}
-                        </Button>
-                      </DialogFooter>
+                          <DialogFooter>
+                            <Button type="submit" disabled={createUnitMutation.isPending} data-testid="button-confirm-create-unit">
+                              {createUnitMutation.isPending ? "Creating..." : "Create Unit"}
+                            </Button>
+                          </DialogFooter>
+                        </form>
+                      </Form>
                     </DialogContent>
                   </Dialog>
                 </div>
@@ -444,44 +479,67 @@ export default function CurriculumBuilder() {
                                   <DialogTitle>Create Lesson</DialogTitle>
                                   <DialogDescription>Add a new lesson to this unit</DialogDescription>
                                 </DialogHeader>
-                                <div className="space-y-4 py-4">
-                                  <div className="space-y-2">
-                                    <Label htmlFor="lesson-name">Lesson Name</Label>
-                                    <Input
-                                      id="lesson-name"
-                                      placeholder="Saying Hello"
-                                      value={lessonName}
-                                      onChange={(e) => setLessonName(e.target.value)}
-                                      data-testid="input-lesson-name"
+                                <Form {...lessonForm}>
+                                  <form onSubmit={(e) => { e.preventDefault(); handleCreateLesson(); }} className="space-y-4 py-4">
+                                    <FormField
+                                      control={lessonForm.control}
+                                      name="name"
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>Lesson Name</FormLabel>
+                                          <FormControl>
+                                            <Input
+                                              placeholder="Saying Hello"
+                                              data-testid="input-lesson-name"
+                                              {...field}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
                                     />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor="lesson-description">Description</Label>
-                                    <Textarea
-                                      id="lesson-description"
-                                      placeholder="Learn common greeting phrases"
-                                      value={lessonDescription}
-                                      onChange={(e) => setLessonDescription(e.target.value)}
-                                      data-testid="input-lesson-description"
+                                    <FormField
+                                      control={lessonForm.control}
+                                      name="description"
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>Description</FormLabel>
+                                          <FormControl>
+                                            <Textarea
+                                              placeholder="Learn common greeting phrases"
+                                              data-testid="input-lesson-description"
+                                              {...field}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
                                     />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor="lesson-content">Content</Label>
-                                    <Textarea
-                                      id="lesson-content"
-                                      placeholder="Lesson materials and instructions..."
-                                      value={lessonContent}
-                                      onChange={(e) => setLessonContent(e.target.value)}
-                                      data-testid="input-lesson-content"
-                                      rows={6}
+                                    <FormField
+                                      control={lessonForm.control}
+                                      name="content"
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>Content</FormLabel>
+                                          <FormControl>
+                                            <Textarea
+                                              placeholder="Lesson materials and instructions..."
+                                              data-testid="input-lesson-content"
+                                              rows={6}
+                                              {...field}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
                                     />
-                                  </div>
-                                </div>
-                                <DialogFooter>
-                                  <Button onClick={handleCreateLesson} disabled={createLessonMutation.isPending} data-testid="button-confirm-create-lesson">
-                                    {createLessonMutation.isPending ? "Creating..." : "Create Lesson"}
-                                  </Button>
-                                </DialogFooter>
+                                    <DialogFooter>
+                                      <Button type="submit" disabled={createLessonMutation.isPending} data-testid="button-confirm-create-lesson">
+                                        {createLessonMutation.isPending ? "Creating..." : "Create Lesson"}
+                                      </Button>
+                                    </DialogFooter>
+                                  </form>
+                                </Form>
                               </DialogContent>
                             </Dialog>
                           </div>

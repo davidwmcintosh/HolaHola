@@ -4,14 +4,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Users, BookOpen, ClipboardList } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertTeacherClassSchema } from "@shared/schema";
+import { z } from "zod";
 
 interface TeacherClass {
   id: string;
@@ -23,19 +27,35 @@ interface TeacherClass {
   createdAt: Date;
 }
 
+const createClassFormSchema = insertTeacherClassSchema.pick({
+  name: true,
+  description: true,
+  language: true,
+}).extend({
+  description: z.string().optional(),
+});
+
+type CreateClassFormValues = z.infer<typeof createClassFormSchema>;
+
 export default function TeacherDashboard() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [className, setClassName] = useState("");
-  const [classDescription, setClassDescription] = useState("");
-  const [classLanguage, setClassLanguage] = useState("spanish");
   const { toast } = useToast();
+
+  const form = useForm<CreateClassFormValues>({
+    resolver: zodResolver(createClassFormSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      language: "spanish",
+    },
+  });
 
   const { data: classes, isLoading } = useQuery<TeacherClass[]>({
     queryKey: ["/api/teacher/classes"],
   });
 
   const createClassMutation = useMutation({
-    mutationFn: async (data: { name: string; description: string; language: string }) => {
+    mutationFn: async (data: CreateClassFormValues) => {
       return apiRequest("/api/teacher/classes", {
         method: "POST",
         body: JSON.stringify(data),
@@ -44,9 +64,7 @@ export default function TeacherDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/teacher/classes"] });
       setCreateDialogOpen(false);
-      setClassName("");
-      setClassDescription("");
-      setClassLanguage("spanish");
+      form.reset();
       toast({
         title: "Class Created",
         description: "Your class has been created successfully.",
@@ -61,20 +79,8 @@ export default function TeacherDashboard() {
     },
   });
 
-  const handleCreateClass = () => {
-    if (!className.trim()) {
-      toast({
-        title: "Error",
-        description: "Class name is required",
-        variant: "destructive",
-      });
-      return;
-    }
-    createClassMutation.mutate({
-      name: className,
-      description: classDescription,
-      language: classLanguage,
-    });
+  const handleCreateClass = (values: CreateClassFormValues) => {
+    createClassMutation.mutate(values);
   };
 
   return (
@@ -98,56 +104,81 @@ export default function TeacherDashboard() {
                 Create a new class for your students. They'll join using the generated code.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="class-name">Class Name</Label>
-                <Input
-                  id="class-name"
-                  placeholder="Spanish 101"
-                  value={className}
-                  onChange={(e) => setClassName(e.target.value)}
-                  data-testid="input-class-name"
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleCreateClass)} className="space-y-4 py-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Class Name</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Spanish 101"
+                          data-testid="input-class-name"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="class-description">Description (Optional)</Label>
-                <Textarea
-                  id="class-description"
-                  placeholder="Beginner Spanish class for high school students"
-                  value={classDescription}
-                  onChange={(e) => setClassDescription(e.target.value)}
-                  data-testid="input-class-description"
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description (Optional)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Beginner Spanish class for high school students"
+                          data-testid="input-class-description"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="class-language">Language</Label>
-                <Select value={classLanguage} onValueChange={setClassLanguage}>
-                  <SelectTrigger id="class-language" data-testid="select-class-language">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="spanish">Spanish</SelectItem>
-                    <SelectItem value="french">French</SelectItem>
-                    <SelectItem value="german">German</SelectItem>
-                    <SelectItem value="italian">Italian</SelectItem>
-                    <SelectItem value="portuguese">Portuguese</SelectItem>
-                    <SelectItem value="japanese">Japanese</SelectItem>
-                    <SelectItem value="korean">Korean</SelectItem>
-                    <SelectItem value="chinese">Chinese</SelectItem>
-                    <SelectItem value="english">English</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                onClick={handleCreateClass}
-                disabled={createClassMutation.isPending}
-                data-testid="button-confirm-create-class"
-              >
-                {createClassMutation.isPending ? "Creating..." : "Create Class"}
-              </Button>
-            </DialogFooter>
+                <FormField
+                  control={form.control}
+                  name="language"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Language</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-class-language">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="spanish">Spanish</SelectItem>
+                          <SelectItem value="french">French</SelectItem>
+                          <SelectItem value="german">German</SelectItem>
+                          <SelectItem value="italian">Italian</SelectItem>
+                          <SelectItem value="portuguese">Portuguese</SelectItem>
+                          <SelectItem value="japanese">Japanese</SelectItem>
+                          <SelectItem value="korean">Korean</SelectItem>
+                          <SelectItem value="chinese">Chinese</SelectItem>
+                          <SelectItem value="english">English</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter>
+                  <Button
+                    type="submit"
+                    disabled={createClassMutation.isPending}
+                    data-testid="button-confirm-create-class"
+                  >
+                    {createClassMutation.isPending ? "Creating..." : "Create Class"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>

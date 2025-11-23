@@ -3,12 +3,15 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import { BookOpen, Users, ArrowRight } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 interface EnrolledClass {
   id: string;
@@ -23,26 +26,38 @@ interface EnrolledClass {
   };
 }
 
+const joinClassFormSchema = z.object({
+  joinCode: z.string().min(1, "Join code is required").toUpperCase(),
+});
+
+type JoinClassFormValues = z.infer<typeof joinClassFormSchema>;
+
 export default function StudentJoinClass() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [joinCode, setJoinCode] = useState("");
+  
+  const form = useForm<JoinClassFormValues>({
+    resolver: zodResolver(joinClassFormSchema),
+    defaultValues: {
+      joinCode: "",
+    },
+  });
 
   const { data: enrolledClasses, isLoading } = useQuery<EnrolledClass[]>({
     queryKey: ["/api/student/classes"],
   });
 
   const joinClassMutation = useMutation({
-    mutationFn: async (code: string) => {
+    mutationFn: async (values: JoinClassFormValues) => {
       return apiRequest("/api/student/enroll", {
         method: "POST",
-        body: JSON.stringify({ joinCode: code }),
+        body: JSON.stringify(values),
       });
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/student/classes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/student/all-assignments"] });
-      setJoinCode("");
+      form.reset();
       toast({
         title: "Joined Class!",
         description: `You've successfully joined ${data.class?.name || "the class"}.`,
@@ -57,20 +72,8 @@ export default function StudentJoinClass() {
     },
   });
 
-  const handleJoinClass = (e: React.FormEvent) => {
-    e.preventDefault();
-    const code = joinCode.trim().toUpperCase();
-    
-    if (!code) {
-      toast({
-        title: "Error",
-        description: "Please enter a join code",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    joinClassMutation.mutate(code);
+  const handleJoinClass = (values: JoinClassFormValues) => {
+    joinClassMutation.mutate(values);
   };
 
   const activeEnrollments = enrolledClasses?.filter(e => e.class?.isActive) || [];
@@ -92,32 +95,42 @@ export default function StudentJoinClass() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleJoinClass} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="joinCode">Join Code</Label>
-              <Input
-                id="joinCode"
-                placeholder="ABC123"
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                data-testid="input-join-code"
-                className="text-lg font-mono"
-                maxLength={8}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleJoinClass)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="joinCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Join Code</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="ABC123"
+                        data-testid="input-join-code"
+                        className="text-lg font-mono"
+                        maxLength={8}
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Join codes are usually 6-8 characters long
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              <p className="text-sm text-muted-foreground">
-                Join codes are usually 6-8 characters long
-              </p>
-            </div>
-            <Button
-              type="submit"
-              disabled={joinClassMutation.isPending || !joinCode.trim()}
-              data-testid="button-join-class"
-              className="w-full"
-            >
-              <ArrowRight className="w-4 h-4 mr-2" />
-              {joinClassMutation.isPending ? "Joining..." : "Join Class"}
-            </Button>
-          </form>
+              <Button
+                type="submit"
+                disabled={joinClassMutation.isPending}
+                data-testid="button-join-class"
+                className="w-full"
+              >
+                <ArrowRight className="w-4 h-4 mr-2" />
+                {joinClassMutation.isPending ? "Joining..." : "Join Class"}
+              </Button>
+            </form>
+          </Form>
         </CardContent>
       </Card>
 

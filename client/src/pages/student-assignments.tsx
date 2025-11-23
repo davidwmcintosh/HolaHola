@@ -3,13 +3,16 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Clock, CheckCircle2, AlertCircle, FileText, Send } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 interface EnrolledClass {
   id: string;
@@ -48,11 +51,23 @@ interface StudentSubmission {
   assignment?: Assignment;
 }
 
+const submissionFormSchema = z.object({
+  content: z.string().min(1, "Please enter your work before submitting"),
+});
+
+type SubmissionFormValues = z.infer<typeof submissionFormSchema>;
+
 export default function StudentAssignments() {
   const { toast } = useToast();
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
-  const [submissionContent, setSubmissionContent] = useState("");
   const [viewingSubmission, setViewingSubmission] = useState<StudentSubmission | null>(null);
+  
+  const submissionForm = useForm<SubmissionFormValues>({
+    resolver: zodResolver(submissionFormSchema),
+    defaultValues: {
+      content: "",
+    },
+  });
 
   const { data: enrolledClasses } = useQuery<EnrolledClass[]>({
     queryKey: ["/api/student/classes"],
@@ -89,7 +104,7 @@ export default function StudentAssignments() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/student/submissions"] });
       setSelectedAssignment(null);
-      setSubmissionContent("");
+      submissionForm.reset();
       toast({
         title: "Assignment Submitted",
         description: "Your work has been submitted successfully.",
@@ -104,28 +119,19 @@ export default function StudentAssignments() {
     },
   });
 
-  const handleSubmit = () => {
+  const handleSubmit = (values: SubmissionFormValues) => {
     if (!selectedAssignment) return;
-
-    if (!submissionContent.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter your work before submitting",
-        variant: "destructive",
-      });
-      return;
-    }
 
     submitAssignmentMutation.mutate({
       assignmentId: selectedAssignment.id,
-      content: submissionContent.trim(),
+      content: values.content.trim(),
     });
   };
 
   const openSubmissionDialog = (assignment: Assignment) => {
     const existingSubmission = submissions?.find(s => s.assignmentId === assignment.id);
     setSelectedAssignment(assignment);
-    setSubmissionContent(existingSubmission?.content || "");
+    submissionForm.reset({ content: existingSubmission?.content || "" });
   };
 
   const getAssignmentStatus = (assignment: Assignment) => {
@@ -369,28 +375,39 @@ export default function StudentAssignments() {
                 <p className="text-sm whitespace-pre-wrap">{selectedAssignment.instructions}</p>
               </div>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="submission">Your Work</Label>
-              <Textarea
-                id="submission"
-                value={submissionContent}
-                onChange={(e) => setSubmissionContent(e.target.value)}
-                data-testid="input-submission"
-                placeholder="Enter your work here..."
-                rows={8}
-              />
-            </div>
+            <Form {...submissionForm}>
+              <form onSubmit={submissionForm.handleSubmit(handleSubmit)} className="space-y-4">
+                <FormField
+                  control={submissionForm.control}
+                  name="content"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Your Work</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          data-testid="input-submission"
+                          placeholder="Enter your work here..."
+                          rows={8}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter>
+                  <Button
+                    type="submit"
+                    disabled={submitAssignmentMutation.isPending}
+                    data-testid="button-submit-assignment"
+                  >
+                    <Send className="w-4 h-4 mr-2" />
+                    {submitAssignmentMutation.isPending ? "Submitting..." : "Submit Assignment"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
           </div>
-          <DialogFooter>
-            <Button
-              onClick={handleSubmit}
-              disabled={submitAssignmentMutation.isPending}
-              data-testid="button-submit-assignment"
-            >
-              <Send className="w-4 h-4 mr-2" />
-              {submitAssignmentMutation.isPending ? "Submitting..." : "Submit Assignment"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
