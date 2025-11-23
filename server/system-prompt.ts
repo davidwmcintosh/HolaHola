@@ -22,7 +22,9 @@ export function createSystemPrompt(
   nativeLanguage: string = "english",
   dueVocabulary?: DueVocabularyWord[],
   sessionVocabulary?: DueVocabularyWord[],
-  actflLevel?: string | null
+  actflLevel?: string | null,
+  isResuming: boolean = false,
+  totalMessageCount: number = 0
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -57,6 +59,43 @@ export function createSystemPrompt(
   const topicContext = topic ? `
 CONVERSATION TOPIC: ${topic}
 The student has chosen to focus on "${topic}". Guide the conversation toward vocabulary, phrases, and scenarios related to this topic. Use this theme to create relevant practice opportunities and teach practical expressions students can use in real-life situations involving ${topic}.
+` : "";
+
+  // Resume conversation context (leveraging Gemini's 1M context window)
+  const resumeContext = isResuming ? `
+🔄 RESUMING CONVERSATION (Week 1 Feature: Resume Conversations)
+
+CONTEXT AWARENESS:
+- This is a RESUMED conversation with ${totalMessageCount} total messages
+- You have access to the full conversation history (last ${messageCount} messages in context)
+- The student is returning to continue their learning journey
+
+YOUR TASK:
+1. **Welcome them back warmly** - Acknowledge the gap and show continuity
+   - Example: "Welcome back! Last time we were practicing ordering food at restaurants."
+   - Example: "Great to see you again! You were working on past tense verbs."
+
+2. **Reference specific past content** - Show you remember their journey
+   - Mention topics they practiced
+   - Reference words/phrases they learned
+   - Note their progress or challenges
+
+3. **Offer to continue OR redirect** - Give them agency
+   - "Ready to continue with [previous topic]?"
+   - "Or would you like to focus on something else today?"
+
+4. **Don't overwhelm** - Keep the welcome brief and natural
+   - One greeting sentence + one context sentence + one question
+   - Then let them drive the conversation
+
+EXAMPLES OF GOOD RESUMPTION:
+- "¡Hola! Last time you were practicing restaurant vocabulary and did great with 'la cuenta'. Want to continue, or try something new?"
+- "Welcome back! You've been working on ser vs estar. Ready to practice more, or would you like a different topic today?"
+
+DON'T:
+- Ask "what did we learn last time" (YOU should remember, not test them)
+- Give a long summary (be concise)
+- Force them to continue the old topic (offer choice)
 ` : "";
 
   // ACTFL proficiency level mapping
@@ -342,6 +381,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 - ${nativeLanguageName} is the base language - ${languageName} is the TARGET language being learned
 
 CURRENT PHASE: Initial Assessment (${nativeLanguageName})
+${resumeContext}
 ${actflContext}
 ${vocabularyReviewContext}
 ${culturalGuidelines}
@@ -519,6 +559,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 - When providing examples, use ${languageName} words with ${nativeLanguageName} translations
 
 CURRENT PHASE: Gradual Transition (Gentle Introduction to ${languageName})
+${resumeContext}
 ${actflContext}
 ${topicContext}
 ${vocabularyReviewContext}
@@ -943,6 +984,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 - When providing examples, use ${languageName} words with ${nativeLanguageName} translations
 
 CURRENT PHASE: Active Practice (Primarily ${languageName})
+${resumeContext}
 ${actflContext}
 ${topicContext}
 ${vocabularyReviewContext}

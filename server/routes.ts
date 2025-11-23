@@ -1325,10 +1325,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('[VOICE FAST-PATH] Entering optimized voice mode path');
         const startTime = Date.now();
 
-        // Fetch only last 10 messages for context (vs 20 in text mode)
+        // Fetch conversation history with Gemini's 1M context window (can handle 100+ messages)
         const allMessages = await storage.getMessagesByConversation(conversationId);
-        const recentMessages = allMessages.slice(-10);
+        const contextLimit = 100; // Increased from 10 to leverage Gemini's large context window
+        const recentMessages = allMessages.slice(-contextLimit);
         const userMessageCount = recentMessages.filter(m => m.role === "user").length;
+        const isResumingConversation = allMessages.length > contextLimit && userMessageCount > 0;
+        
+        if (isResumingConversation) {
+          console.log(`[RESUME] Voice conversation has ${allMessages.length} total messages, resuming with last ${contextLimit}`);
+        }
 
         // Create minimal system prompt (skip vocabulary/conversation queries for speed)
         const systemPrompt = createSystemPrompt(
@@ -1341,7 +1347,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           conversation.nativeLanguage,
           undefined, // No due vocabulary (deferred to background)
           undefined, // No session vocabulary (deferred to background)
-          conversation.actflLevel // ACTFL proficiency level
+          conversation.actflLevel, // ACTFL proficiency level
+          isResumingConversation, // Week 1 Feature: Resume conversation awareness
+          allMessages.length // Total message count for resume context
         );
 
         // Determine which model to use based on subscription tier
@@ -1740,7 +1748,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 pronunciation: v.pronunciation
               })) : undefined,
               sessionVocabulary.length > 0 ? sessionVocabulary : undefined,
-              enrichmentConversation.actflLevel // ACTFL proficiency level
+              enrichmentConversation.actflLevel, // ACTFL proficiency level
+              false, // Background enrichment doesn't need resume context
+              0 // Background enrichment doesn't need total message count
             );
 
             const enrichmentSchema = {
@@ -1877,9 +1887,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // TEXT MODE: Original comprehensive path with all checks
       console.log('[TEXT MODE] Using standard comprehensive response path');
 
-      // Get conversation history (limit to last 20 messages to avoid token limits)
+      // Get conversation history with Gemini's 1M context window (can handle 150+ messages)
       const allMessages = await storage.getMessagesByConversation(conversationId);
-      const recentMessages = allMessages.slice(-20);
+      const contextLimit = 150; // Increased from 20 to leverage Gemini's large context window
+      const recentMessages = allMessages.slice(-contextLimit);
+      const isResumingConversation = allMessages.length > contextLimit;
 
       // Detect language in user's message for auto-switching (only after a few messages)
       let updatedConversation = conversation;
@@ -2002,7 +2014,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           pronunciation: v.pronunciation
         })) : undefined,
         sessionVocabulary.length > 0 ? sessionVocabulary : undefined,
-        updatedConversation.actflLevel // ACTFL proficiency level
+        updatedConversation.actflLevel, // ACTFL proficiency level
+        isResumingConversation, // Week 1 Feature: Resume conversation awareness
+        allMessages.length // Total message count for resume context
       );
 
       // Determine which model to use based on subscription tier
