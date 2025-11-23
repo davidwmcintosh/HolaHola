@@ -24,6 +24,7 @@ import CulturalTips from "@/pages/cultural-tips";
 import Vocabulary from "@/pages/vocabulary";
 import Grammar from "@/pages/grammar";
 import History from "@/pages/history";
+import CanDoProgress from "@/pages/can-do-progress";
 import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 import { BUILD_TIME } from "./buildtime";
@@ -80,6 +81,7 @@ function Router() {
         <Route path="/vocabulary" component={Vocabulary} />
         <Route path="/grammar" component={Grammar} />
         <Route path="/history" component={History} />
+        <Route path="/can-do-progress" component={CanDoProgress} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>

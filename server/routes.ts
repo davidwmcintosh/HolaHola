@@ -27,7 +27,14 @@ import { generateConversationTitle, generateConversationContextSummary } from ".
 import { extractTargetLanguageText, hasSignificantTargetLanguageContent } from "./text-utils";
 import multer from "multer";
 import { getTTSService } from "./services/tts-service";
-import { getCanDoStatements, getCanDoStatementsByLanguage, getAvailableActflLevels } from "./actfl-can-do-statements";
+import { 
+  getCanDoStatements, 
+  getCanDoStatementsByLanguage, 
+  getCanDoStatementsByCategory,
+  getAvailableActflLevels,
+  getSupportedLanguages,
+  getCanDoStatementStats
+} from "./actfl-can-do-statements";
 import { toInternalActflLevel, toExternalActflLevel } from "./actfl-utils";
 import { GoogleGenAI, Modality } from "@google/genai";
 import { createClient } from "@deepgram/sdk";
@@ -1106,7 +1113,8 @@ Return a JSON array of suggestions with this format:
       
       // Add resume metadata for Week 1 feature
       const allMessages = await storage.getMessagesByConversation(req.params.id);
-      const contextLimit = conversation.mode === 'voice' ? 100 : 150;
+      // Use 100 messages as context limit for all conversations (Gemini's 1M context window supports this)
+      const contextLimit = 100;
       const isResuming = allMessages.length > contextLimit;
       
       res.json({
@@ -1442,13 +1450,14 @@ Return a JSON array of suggestions with this format:
 
         // CRITICAL: Detect target language change BEFORE generating AI response
         // This ensures the AI knows the correct language for this response
-        let updatedConversation = conversation;
         const targetLanguageChangeRequest = await detectTargetLanguageChangeRequest(
           openai,
           messageData.content,
           conversation.language
         );
 
+        // Use updatedConversation for the rest of the request if language changed
+        let activeConversation = conversation;
         if (targetLanguageChangeRequest.wantsToChange && 
             targetLanguageChangeRequest.newTargetLanguage &&
             targetLanguageChangeRequest.confidence !== "low" &&
@@ -1456,26 +1465,27 @@ Return a JSON array of suggestions with this format:
           
           console.log('[VOICE FAST-PATH] Target language change detected:', conversation.language, '→', targetLanguageChangeRequest.newTargetLanguage);
           
-          updatedConversation = await storage.updateConversation(conversationId, userId, {
+          const updated = await storage.updateConversation(conversationId, userId, {
             language: targetLanguageChangeRequest.newTargetLanguage,
-          }) || conversation;
+          });
           
-          // Update the conversation reference for this request
-          conversation = updatedConversation;
+          if (updated) {
+            activeConversation = updated;
+          }
         }
 
         // Create minimal system prompt (skip vocabulary/conversation queries for speed)
         const systemPrompt = createSystemPrompt(
-          conversation.language,
-          conversation.difficulty,
+          activeConversation.language,
+          activeConversation.difficulty,
           userMessageCount,
           true, // IS voice mode - use voice-specific language balance
-          conversation.topic,
+          activeConversation.topic,
           [], // No previous conversations (deferred to background)
-          conversation.nativeLanguage,
+          activeConversation.nativeLanguage,
           undefined, // No due vocabulary (deferred to background)
           undefined, // No session vocabulary (deferred to background)
-          conversation.actflLevel, // ACTFL proficiency level
+          activeConversation.actflLevel, // ACTFL proficiency level
           isResumingConversation, // Week 1 Feature: Resume conversation awareness
           allMessages.length // Total message count for resume context
         );
@@ -3455,9 +3465,10 @@ Return a JSON array of suggestions with this format:
   // ACTFL Can-Do Statements API
   // Get Can-Do statements for a specific language and proficiency level
   // Accepts external format (Title Case: "Novice Low") and returns external format
+  // Query params: language (required), level (optional), category (optional: interpersonal, interpretive, presentational)
   app.get("/api/actfl/can-do-statements", isAuthenticated, async (req: any, res) => {
     try {
-      const { language, level } = req.query;
+      const { language, level, category } = req.query;
       
       if (!language) {
         return res.status(400).json({ error: "Language parameter is required" });
@@ -3465,14 +3476,29 @@ Return a JSON array of suggestions with this format:
 
       const normalizedLanguage = language.toLowerCase().trim();
       
+      // If category filter is provided, validate it
+      if (category && !['interpersonal', 'interpretive', 'presentational'].includes(category)) {
+        return res.status(400).json({ 
+          error: "Invalid category. Must be one of: interpersonal, interpretive, presentational" 
+        });
+      }
+      
       // If level is provided, filter by level; otherwise return all for the language
       let statements;
-      if (level) {
+      if (level && category) {
+        // Filter by both level AND category
+        const internalLevel = toInternalActflLevel(level);
+        statements = internalLevel ? getCanDoStatementsByCategory(normalizedLanguage, internalLevel, category as any) : [];
+      } else if (level) {
         // Convert external format (Title Case) to internal format (snake_case)
         const internalLevel = toInternalActflLevel(level);
         statements = internalLevel ? getCanDoStatements(normalizedLanguage, internalLevel) : [];
+      } else if (category) {
+        // Filter by category only, all levels
+        const allStatements = getCanDoStatementsByLanguage(normalizedLanguage);
+        statements = allStatements.filter(s => s.category === category);
       } else {
-        // No level specified - return ALL Can-Do statements for this language
+        // No level or category specified - return ALL Can-Do statements for this language
         statements = getCanDoStatementsByLanguage(normalizedLanguage);
       }
 
@@ -3485,7 +3511,9 @@ Return a JSON array of suggestions with this format:
       res.json({
         language: normalizedLanguage,
         level: level || 'all',
-        statements: externalStatements
+        category: category || 'all',
+        statements: externalStatements,
+        count: externalStatements.length
       });
     } catch (error: any) {
       console.error('Error fetching Can-Do statements:', error);
@@ -3508,6 +3536,31 @@ Return a JSON array of suggestions with this format:
       });
     } catch (error: any) {
       console.error('Error fetching ACTFL levels:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get all supported languages for Can-Do statements
+  app.get("/api/actfl/languages", isAuthenticated, async (req: any, res) => {
+    try {
+      const languages = getSupportedLanguages();
+      res.json({
+        languages,
+        count: languages.length
+      });
+    } catch (error: any) {
+      console.error('Error fetching supported languages:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get Can-Do statement statistics (coverage across languages and levels)
+  app.get("/api/actfl/stats", isAuthenticated, async (req: any, res) => {
+    try {
+      const stats = getCanDoStatementStats();
+      res.json(stats);
+    } catch (error: any) {
+      console.error('Error fetching Can-Do statement stats:', error);
       res.status(500).json({ error: error.message });
     }
   });
