@@ -1340,37 +1340,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const isEncouragement = encouragementWords.some(word => targetLower.includes(word));
           const endsWithQuestion = native.trim().endsWith('?');
           
-          // If target is encouragement word, extract teaching word and create subtitle sequence
+          // If target is encouragement word, extract ALL teaching words and create subtitle sequence
           if (isEncouragement) {
             console.log('[VOICE DUAL-SUBTITLE] Detected encouragement in target:', target);
             
-            // Extract teaching word/phrase from native field (allow multi-word phrases)
-            // Match patterns like: 'buenos días', "hola", 'adiós'
+            // Extract ALL teaching phrases from native field (allow multi-word phrases)
+            // Match patterns like: 'buenos días', "hola", 'adiós', 'buenas tardes'
             const quotedPhrases = [...native.matchAll(/['"]([a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]+?)['"]/g)];
             const englishWords = new Set(['hello', 'goodbye', 'thank', 'thanks', 'please', 'yes', 'no', 'good', 'morning', 'afternoon', 'evening', 'night']);
             
-            // Find first non-English quoted phrase (could be multi-word)
-            let teachingPhrase = quotedPhrases
+            // Find ALL non-English quoted phrases (could be multi-word)
+            const teachingPhrases = quotedPhrases
               .map(match => match[1].trim())
-              .find(phrase => {
+              .filter(phrase => {
                 const firstWord = phrase.split(/\s+/)[0].toLowerCase();
                 return !englishWords.has(firstWord);
               });
             
-            if (!teachingPhrase && quotedPhrases.length > 0) {
-              // Fallback: use last quoted phrase
-              teachingPhrase = quotedPhrases[quotedPhrases.length - 1][1].trim();
+            if (teachingPhrases.length === 0 && quotedPhrases.length > 0) {
+              // Fallback: use all quoted phrases
+              teachingPhrases.push(...quotedPhrases.map(match => match[1].trim()));
             }
             
-            if (teachingPhrase) {
-              // Create subtitle sequence: [encouragement (2s), teaching word (persist)]
-              subtitlesJson = JSON.stringify([
-                { text: target, duration: 2000 }, // Show encouragement for 2 seconds
-                { text: teachingPhrase, duration: null } // Then show teaching word
-              ]);
-              console.log('[VOICE DUAL-SUBTITLE] ✓ Created sequence:', target, '→', teachingPhrase);
+            if (teachingPhrases.length > 0) {
+              // Create subtitle sequence: [encouragement (2s), phrase1 (3s), phrase2 (3s), ..., lastPhrase (persist)]
+              const subtitleSequence: Array<{ text: string; duration: number | null }> = [
+                { text: target, duration: 2000 } // Show encouragement for 2 seconds
+              ];
+              
+              // Add all teaching phrases - intermediate ones show for 3 seconds, last one persists
+              teachingPhrases.forEach((phrase, index) => {
+                const isLastPhrase = index === teachingPhrases.length - 1;
+                subtitleSequence.push({
+                  text: phrase,
+                  duration: isLastPhrase ? null : 3000 // Last phrase persists, others show for 3s
+                });
+              });
+              
+              subtitlesJson = JSON.stringify(subtitleSequence);
+              console.log('[VOICE DUAL-SUBTITLE] ✓ Created sequence with', teachingPhrases.length, 'phrases:', teachingPhrases.join(' → '));
             } else {
-              console.warn('[VOICE DUAL-SUBTITLE] Could not extract teaching word, using single subtitle');
+              console.warn('[VOICE DUAL-SUBTITLE] Could not extract teaching phrases, using single subtitle');
             }
             
             // CRITICAL: Prepend Spanish encouragement to TTS speech so it's actually spoken
