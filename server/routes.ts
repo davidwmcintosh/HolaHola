@@ -28,7 +28,7 @@ import multer from "multer";
 import { getTTSService } from "./services/tts-service";
 import { getCanDoStatements, getCanDoStatementsByLanguage, getAvailableActflLevels } from "./actfl-can-do-statements";
 import { toInternalActflLevel, toExternalActflLevel } from "./actfl-utils";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 import { createClient } from "@deepgram/sdk";
 
 // ============================================================================
@@ -352,6 +352,51 @@ async function callGeminiWithSchema(
   // Google GenAI returns text as a property getter
   const responseText = response.text || "{}";
   return JSON.parse(responseText);
+}
+
+/**
+ * Generate image with Gemini Flash-Image
+ * Returns a data URL (base64-encoded image)
+ * 
+ * Note: Uses Gemini 2.5 Flash-Image via Replit AI Integrations
+ */
+async function generateImageWithGemini(prompt: string): Promise<string> {
+  try {
+    console.log('[GEMINI IMAGE] Generating image for prompt:', prompt.substring(0, 100) + '...');
+    
+    const response = await gemini.models.generateContent({
+      model: "gemini-2.5-flash-image",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: {
+        responseModalities: [Modality.TEXT, Modality.IMAGE],
+      },
+    });
+
+    console.log('[GEMINI IMAGE] Response received, candidates:', response.candidates?.length);
+    
+    const candidate = response.candidates?.[0];
+    if (!candidate?.content?.parts) {
+      console.error('[GEMINI IMAGE] No parts in response candidate');
+      throw new Error("No content parts in Gemini response");
+    }
+    
+    console.log('[GEMINI IMAGE] Parts count:', candidate.content.parts.length);
+    
+    const imagePart = candidate.content.parts.find((part: any) => part.inlineData);
+    
+    if (!imagePart?.inlineData?.data) {
+      console.error('[GEMINI IMAGE] No image data found. Parts:', candidate.content.parts.map((p: any) => Object.keys(p)));
+      throw new Error("No image data in Gemini response - check API configuration");
+    }
+
+    const mimeType = imagePart.inlineData.mimeType || "image/png";
+    const dataUrl = `data:${mimeType};base64,${imagePart.inlineData.data}`;
+    console.log('[GEMINI IMAGE] ✓ Successfully generated image, size:', imagePart.inlineData.data.length, 'bytes');
+    return dataUrl;
+  } catch (error) {
+    console.error('[GEMINI IMAGE] ✗ Error generating image:', error);
+    throw error;
+  }
 }
 
 // Configure multer for audio file uploads (in-memory storage)
@@ -2368,19 +2413,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   altText: item.alt || cachedImage.description || item.prompt
                 });
               } else {
-                // Cache miss - generate with DALL-E
+                // Cache miss - generate with Gemini Flash-Image
                 console.log('[CACHE MISS] Generating new AI image for prompt:', item.prompt.substring(0, 50) + '...');
                 const enhancedPrompt = `${item.prompt}. Educational illustration style, clear and engaging, suitable for language learning.`;
                 
-                const imageResponse = await openai.images.generate({
-                  model: "gpt-image-1",
-                  prompt: enhancedPrompt,
-                  n: 1,
-                  size: "1024x1024",
-                  quality: "standard"
-                });
+                const imageUrl = await generateImageWithGemini(enhancedPrompt);
                 
-                const imageUrl = imageResponse?.data?.[0]?.url;
                 if (imageUrl) {
                   processedMedia.push({
                     type: "ai_generated",
@@ -3135,7 +3173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Multimedia - Generate AI image with DALL-E
+  // Multimedia - Generate AI image with Gemini Flash-Image
   app.post("/api/media/generate-image", isAuthenticated, async (req: any, res) => {
     try {
       const { prompt, context } = req.body;
@@ -3149,16 +3187,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? `${prompt}. Educational illustration style, clear and engaging, suitable for language learning.`
         : prompt;
 
-      // Generate image with DALL-E via OpenAI integration
-      const response = await openai.images.generate({
-        model: "gpt-image-1",
-        prompt: enhancedPrompt,
-        n: 1,
-        size: "1024x1024",
-        quality: "standard"
-      });
-
-      const imageUrl = response?.data?.[0]?.url;
+      // Generate image with Gemini Flash-Image
+      const imageUrl = await generateImageWithGemini(enhancedPrompt);
+      
       if (!imageUrl) {
         return res.status(500).json({ error: "Failed to generate image" });
       }

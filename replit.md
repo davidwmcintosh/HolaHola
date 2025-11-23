@@ -35,7 +35,7 @@ Core data models include Users (with Stripe billing fields), Conversations, Mess
 -   **Deepgram API**: For voice STT using Nova-3 model with auto-detect mode - transcribes user's actual spoken language (English, Spanish, or any language).
 -   **Google Cloud Text-to-Speech**: For authentic native pronunciation using Chirp 3 HD voices (Spanish, English) and Neural2 voices (French, German, Italian, Portuguese, Japanese, Korean). TTS uses target language voice mode: when teaching Spanish, all AI responses use Spanish voice for authentic pronunciation of Spanish words, even within English explanations.
 -   **Unsplash**: Stock educational images.
--   **DALL-E**: AI-generated contextual images.
+-   **Gemini Flash-Image**: AI-generated contextual images (via Replit AI Integrations).
 
 ### Libraries & Tools
 -   **Database**: Neon PostgreSQL, Drizzle ORM, Drizzle Kit.
