@@ -3,7 +3,8 @@ import { ImmersiveTutor } from "./ImmersiveTutor";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Radio } from "lucide-react";
-import { type Message } from "@shared/schema";
+import { type Message, type Conversation } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
 
 interface VoiceChatViewManagerProps {
   conversationId: string | null;
@@ -31,6 +32,17 @@ export function VoiceChatViewManager({
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
   const touchStartY = useRef<number>(0);
+
+  // Fetch conversation metadata (includes resume info) - Week 1 Feature
+  const { data: conversationData } = useQuery<Conversation & { resumeMetadata?: { 
+    isResuming: boolean; 
+    totalMessages: number; 
+    contextLimit: number; 
+    lastActiveAt: string; 
+  } }>({
+    queryKey: ["/api/conversations", conversationId],
+    enabled: !!conversationId,
+  });
 
   // Handle swipe gestures
   const handleTouchStart = (e: TouchEvent) => {
@@ -117,6 +129,26 @@ export function VoiceChatViewManager({
             {/* History View - Simple Message List */}
             <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 custom-scrollbar pt-16">
               <div className="space-y-3 md:space-y-4 max-w-4xl mx-auto">
+                {/* Resume conversation indicator - Week 1 Feature */}
+                {conversationData?.resumeMetadata?.isResuming && (
+                  <div 
+                    className="mb-4 p-3 rounded-lg bg-muted/50 border border-border/50 flex items-center gap-2 text-sm"
+                    data-testid="resume-indicator"
+                  >
+                    <div className="flex items-center gap-2 flex-1">
+                      <MessageSquare className="h-4 w-4 text-primary" />
+                      <span className="font-medium">Resuming conversation</span>
+                      <span className="text-muted-foreground">
+                        · {conversationData.resumeMetadata.totalMessages} messages · Last active {
+                          new Date(conversationData.resumeMetadata.lastActiveAt).toLocaleDateString([], {
+                            month: 'short',
+                            day: 'numeric'
+                          })
+                        }
+                      </span>
+                    </div>
+                  </div>
+                )}
                 {messages.map((msg) => (
                   <div
                     key={msg.id}

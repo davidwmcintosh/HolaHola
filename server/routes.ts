@@ -1008,6 +1008,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Week 1 Feature: Smart search across all user conversations
+  app.get("/api/search/messages", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const query = req.query.q as string;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      
+      if (!query || query.trim().length === 0) {
+        return res.status(400).json({ error: "Search query is required" });
+      }
+      
+      const results = await storage.searchMessages(userId, query, limit);
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Week 1 Feature: AI-powered practice suggestions based on conversation history
+  app.get("/api/practice-suggestions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = req.user;
+      const userProfile = await storage.getUser(userId);
+      
+      if (!userProfile) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Get recent conversations and messages to analyze (sorted by recency)
+      const conversations = await storage.getUserConversations(userId);
+      const recentConversations = conversations
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 3); // Last 3 conversations by creation date
+      
+      // Collect recent messages from these conversations
+      const messagePromises = recentConversations.map(c => storage.getMessagesByConversation(c.id));
+      const allMessages = await Promise.all(messagePromises);
+      const flatMessages = allMessages.flat();
+      
+      // Extract recent user messages and AI responses for pattern analysis
+      const recentHistory = flatMessages.slice(-30).map(m => ({
+        role: m.role,
+        content: m.content.substring(0, 200) // Limit content to reduce token usage
+      }));
+      
+      // Use Gemini to analyze patterns and generate suggestions
+      const model = getModelForTier(user.subscriptionTier, user);
+      const analysisPrompt = `You are analyzing a language learning conversation history to provide personalized practice suggestions.
+
+STUDENT PROFILE:
+- Learning: ${userProfile.targetLanguage}
+- Native Language: ${userProfile.nativeLanguage || 'English'}
+- Difficulty: ${userProfile.difficultyLevel}
+- ACTFL Level: ${userProfile.actflLevel || 'Not assessed'}
+
+RECENT CONVERSATION HISTORY (last 30 messages):
+${recentHistory.map(m => `${m.role}: ${m.content}`).join('\n')}
+
+TASK: Analyze the conversation history and generate 3-5 personalized practice suggestions. For each suggestion, identify:
+1. A specific pattern, gap, or opportunity you noticed
+2. A clear, actionable practice recommendation
+3. Why this would benefit the student
+
+Focus on:
+- Common mistakes or confusion patterns
+- Grammar/vocabulary gaps
+- Topics not yet covered
+- Areas where student shows readiness to advance
+
+Return a JSON array of suggestions with this format:
+{
+  "suggestions": [
+    {
+      "pattern": "Student confuses ser vs estar",
+      "suggestion": "Practice using ser and estar in different contexts",
+      "reason": "Mastering this distinction will improve accuracy in describing states vs characteristics"
+    }
+  ]
+}`;
+
+      const response = await callGeminiWithSchema(
+        model,
+        [{ role: "user", content: analysisPrompt }],
+        {
+          type: "object",
+          properties: {
+            suggestions: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  pattern: { type: "string" },
+                  suggestion: { type: "string" },
+                  reason: { type: "string" }
+                },
+                required: ["pattern", "suggestion", "reason"]
+              }
+            }
+          },
+          required: ["suggestions"]
+        }
+      );
+      
+      const parsed = JSON.parse(response);
+      res.json(parsed.suggestions || []);
+    } catch (error: any) {
+      console.error('[PRACTICE SUGGESTIONS] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/conversations/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -1015,7 +1127,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!conversation) {
         return res.status(404).json({ message: "Conversation not found" });
       }
-      res.json(conversation);
+      
+      // Add resume metadata for Week 1 feature
+      const allMessages = await storage.getMessagesByConversation(req.params.id);
+      const contextLimit = conversation.mode === 'voice' ? 100 : 150;
+      const isResuming = allMessages.length > contextLimit;
+      
+      res.json({
+        ...conversation,
+        resumeMetadata: {
+          isResuming,
+          totalMessages: allMessages.length,
+          contextLimit,
+          lastActiveAt: allMessages.length > 0 
+            ? allMessages[allMessages.length - 1].createdAt 
+            : conversation.createdAt
+        }
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

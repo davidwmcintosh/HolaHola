@@ -87,6 +87,7 @@ export interface IStorage {
   getMessage(messageId: string, userId: string): Promise<Message | undefined>;
   getMessagesByConversation(conversationId: string): Promise<Message[]>;
   updateMessage(id: string, data: Partial<Message>): Promise<Message | undefined>;
+  searchMessages(userId: string, query: string, limit?: number): Promise<Array<Message & { conversationTitle: string | null }>>;
 
   // Vocabulary
   createVocabularyWord(data: InsertVocabularyWord): Promise<VocabularyWord>;
@@ -863,8 +864,11 @@ export class DatabaseStorage implements IStorage {
       id: messages.id,
       conversationId: messages.conversationId,
       role: messages.role,
+      actflLevel: messages.actflLevel,
       content: messages.content,
       targetLanguageText: messages.targetLanguageText,
+      subtitlesJson: messages.subtitlesJson,
+      wordTimingsJson: messages.wordTimingsJson,
       mediaJson: messages.mediaJson,
       performanceScore: messages.performanceScore,
       enrichmentStatus: messages.enrichmentStatus,
@@ -893,6 +897,38 @@ export class DatabaseStorage implements IStorage {
       .where(eq(messages.id, id))
       .returning();
     return updated;
+  }
+
+  async searchMessages(userId: string, query: string, limit: number = 20): Promise<Array<Message & { conversationTitle: string | null }>> {
+    // Week 1 Feature: Smart search across all user conversations
+    const results = await db
+      .select({
+        // Message fields
+        id: messages.id,
+        conversationId: messages.conversationId,
+        role: messages.role,
+        actflLevel: messages.actflLevel,
+        content: messages.content,
+        targetLanguageText: messages.targetLanguageText,
+        subtitlesJson: messages.subtitlesJson,
+        wordTimingsJson: messages.wordTimingsJson,
+        mediaJson: messages.mediaJson,
+        performanceScore: messages.performanceScore,
+        enrichmentStatus: messages.enrichmentStatus,
+        createdAt: messages.createdAt,
+        // Conversation context
+        conversationTitle: conversations.title,
+      })
+      .from(messages)
+      .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+      .where(and(
+        eq(conversations.userId, userId),
+        sql`${messages.content} ILIKE ${'%' + query + '%'}`
+      ))
+      .orderBy(desc(messages.createdAt))
+      .limit(limit);
+    
+    return results;
   }
 
   async createVocabularyWord(data: InsertVocabularyWord): Promise<VocabularyWord> {

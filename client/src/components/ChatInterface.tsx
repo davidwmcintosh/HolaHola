@@ -34,6 +34,17 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
   const { recordPractice } = useStreak();
   const { toast } = useToast();
 
+  // Fetch conversation metadata (includes resume info)
+  const { data: conversationData } = useQuery<Conversation & { resumeMetadata?: { 
+    isResuming: boolean; 
+    totalMessages: number; 
+    contextLimit: number; 
+    lastActiveAt: string; 
+  } }>({
+    queryKey: ["/api/conversations", conversationId],
+    enabled: !!conversationId,
+  });
+
   // Fetch messages for current conversation
   const { data: messages = [], isLoading } = useQuery<Message[]>({
     queryKey: ["/api/conversations", conversationId, "messages"],
@@ -226,6 +237,26 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
             </div>
           ) : (
             <>
+              {/* Resume conversation indicator - Week 1 Feature */}
+              {conversationData?.resumeMetadata?.isResuming && (
+                <div 
+                  className="mb-4 p-3 rounded-lg bg-muted/50 border border-border/50 flex items-center gap-2 text-sm"
+                  data-testid="resume-indicator"
+                >
+                  <div className="flex items-center gap-2 flex-1">
+                    <MessageSquare className="h-4 w-4 text-primary" />
+                    <span className="font-medium">Resuming conversation</span>
+                    <span className="text-muted-foreground">
+                      · {conversationData.resumeMetadata.totalMessages} messages · Last active {
+                        new Date(conversationData.resumeMetadata.lastActiveAt).toLocaleDateString([], {
+                          month: 'short',
+                          day: 'numeric'
+                        })
+                      }
+                    </span>
+                  </div>
+                </div>
+              )}
               {messages.map((message) => (
                 <div
                   key={message.id}
