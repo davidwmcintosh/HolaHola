@@ -90,30 +90,32 @@ export function VoiceChatViewManager({
       </div>
 
       {/* View Content */}
-      <div className="h-full">
+      <div className="flex flex-col h-full">
         {view === "live" ? (
           conversationId ? (
-            <ImmersiveTutor
-              conversationId={conversationId}
-              messages={messages}
-              onRecordingStart={onRecordingStart}
-              onRecordingStop={onRecordingStop}
-              isRecording={isRecording}
-              isProcessing={isProcessing}
-              isPlaying={isPlaying}
-              currentPlayingMessageId={currentPlayingMessageId}
-              onToggleView={toggleView}
-              audioElementRef={audioElementRef}
-            />
+            <div className="flex-1 min-h-0">
+              <ImmersiveTutor
+                conversationId={conversationId}
+                messages={messages}
+                onRecordingStart={onRecordingStart}
+                onRecordingStop={onRecordingStop}
+                isRecording={isRecording}
+                isProcessing={isProcessing}
+                isPlaying={isPlaying}
+                currentPlayingMessageId={currentPlayingMessageId}
+                onToggleView={toggleView}
+                audioElementRef={audioElementRef}
+              />
+            </div>
           ) : (
             <div className="flex items-center justify-center h-full">
               <p className="text-muted-foreground">Loading conversation...</p>
             </div>
           )
         ) : (
-          <div className="flex flex-col h-full">
+          <>
             {/* History View - Simple Message List */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 custom-scrollbar pt-16">
               <div className="space-y-3 md:space-y-4 max-w-4xl mx-auto">
                 {messages.map((msg) => (
                   <div
@@ -127,7 +129,7 @@ export function VoiceChatViewManager({
                 ))}
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>
