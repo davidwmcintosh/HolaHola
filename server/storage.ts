@@ -216,6 +216,7 @@ export interface IStorage {
 
   // Assignment Submissions
   createAssignmentSubmission(data: InsertAssignmentSubmission): Promise<AssignmentSubmission>;
+  getSubmissionById(id: string): Promise<AssignmentSubmission | undefined>;
   getAssignmentSubmission(assignmentId: string, studentId: string): Promise<AssignmentSubmission | undefined>;
   getStudentSubmissions(studentId: string): Promise<Array<AssignmentSubmission & { assignment: Assignment }>>;
   getAssignmentSubmissions(assignmentId: string): Promise<Array<AssignmentSubmission & { student: User }>>;
@@ -1404,6 +1405,33 @@ export class DatabaseStorage implements IStorage {
   // ===== Class Enrollments =====
   
   async enrollStudent(classId: string, studentId: string): Promise<ClassEnrollment> {
+    // Check if already enrolled to prevent duplicates
+    const existing = await db
+      .select()
+      .from(classEnrollments)
+      .where(
+        and(
+          eq(classEnrollments.classId, classId),
+          eq(classEnrollments.studentId, studentId)
+        )
+      )
+      .limit(1);
+
+    if (existing.length > 0) {
+      // If enrollment exists but was deactivated, reactivate it
+      if (!existing[0].isActive) {
+        const [updated] = await db
+          .update(classEnrollments)
+          .set({ isActive: true, enrolledAt: new Date() })
+          .where(eq(classEnrollments.id, existing[0].id))
+          .returning();
+        return updated;
+      }
+      // Already enrolled and active
+      return existing[0];
+    }
+
+    // Create new enrollment
     const [enrollment] = await db
       .insert(classEnrollments)
       .values({ classId, studentId })
@@ -1619,6 +1647,15 @@ export class DatabaseStorage implements IStorage {
       ...row.assignment_submissions,
       student: row.users!
     }));
+  }
+
+  async getSubmissionById(id: string): Promise<AssignmentSubmission | undefined> {
+    const result = await db
+      .select()
+      .from(assignmentSubmissions)
+      .where(eq(assignmentSubmissions.id, id))
+      .limit(1);
+    return result[0];
   }
 
   async updateAssignmentSubmission(id: string, data: Partial<AssignmentSubmission>): Promise<AssignmentSubmission | undefined> {

@@ -3588,6 +3588,563 @@ Return a JSON array of suggestions with this format:
     }
   });
 
+  // ========== INSTITUTIONAL FEATURES ==========
+
+  // ===== Teacher Classes =====
+  
+  // Create a new class (teachers only)
+  app.post("/api/teacher/classes", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const user = await storage.getUser(teacherId);
+      
+      if (user?.role !== 'teacher' && user?.role !== 'admin') {
+        return res.status(403).json({ error: "Only teachers can create classes" });
+      }
+
+      const { name, description, language, curriculumPathId } = req.body;
+      
+      if (!name || !language) {
+        return res.status(400).json({ error: "Name and language are required" });
+      }
+
+      // Generate 6-digit join code
+      const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+      const teacherClass = await storage.createTeacherClass({
+        teacherId,
+        name,
+        description,
+        language,
+        curriculumPathId,
+        joinCode,
+      });
+
+      res.json(teacherClass);
+    } catch (error: any) {
+      console.error('Error creating teacher class:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get all classes for a teacher (teachers only)
+  app.get("/api/teacher/classes", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const user = await storage.getUser(teacherId);
+      
+      if (user?.role !== 'teacher' && user?.role !== 'admin') {
+        return res.status(403).json({ error: "Only teachers can access this endpoint" });
+      }
+      
+      const classes = await storage.getTeacherClasses(teacherId);
+      res.json(classes);
+    } catch (error: any) {
+      console.error('Error fetching teacher classes:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get a specific class
+  app.get("/api/teacher/classes/:classId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { classId } = req.params;
+      const teacherClass = await storage.getTeacherClass(classId);
+      
+      if (!teacherClass) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      // Verify user is either the teacher who owns this class OR a student enrolled in it
+      const isTeacher = teacherClass.teacherId === userId;
+      const isEnrolled = await storage.isStudentEnrolled(classId, userId);
+      
+      if (!isTeacher && !isEnrolled) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Students should not see join code (prevent external sharing)
+      if (!isTeacher) {
+        const { joinCode, ...classWithoutJoinCode } = teacherClass;
+        return res.json(classWithoutJoinCode);
+      }
+
+      res.json(teacherClass);
+    } catch (error: any) {
+      console.error('Error fetching teacher class:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update a class
+  app.patch("/api/teacher/classes/:classId", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { classId } = req.params;
+      const teacherClass = await storage.getTeacherClass(classId);
+      
+      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      const updated = await storage.updateTeacherClass(classId, req.body);
+      res.json(updated);
+    } catch (error: any) {
+      console.error('Error updating teacher class:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete a class
+  app.delete("/api/teacher/classes/:classId", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { classId } = req.params;
+      const teacherClass = await storage.getTeacherClass(classId);
+      
+      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      await storage.deleteTeacherClass(classId);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting teacher class:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== Class Enrollments =====
+  
+  // Join a class with join code (students)
+  app.post("/api/student/enroll", isAuthenticated, async (req: any, res) => {
+    try {
+      const studentId = req.user.claims.sub;
+      const { joinCode } = req.body;
+      
+      if (!joinCode) {
+        return res.status(400).json({ error: "Join code is required" });
+      }
+
+      const teacherClass = await storage.getClassByJoinCode(joinCode);
+      
+      if (!teacherClass) {
+        return res.status(404).json({ error: "Invalid join code" });
+      }
+
+      if (!teacherClass.isActive) {
+        return res.status(400).json({ error: "This class is no longer active" });
+      }
+
+      // Check if already enrolled
+      const isEnrolled = await storage.isStudentEnrolled(teacherClass.id, studentId);
+      if (isEnrolled) {
+        return res.status(400).json({ error: "Already enrolled in this class" });
+      }
+
+      const enrollment = await storage.enrollStudent(teacherClass.id, studentId);
+      res.json({ enrollment, class: teacherClass });
+    } catch (error: any) {
+      console.error('Error enrolling student:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get class roster (teacher view)
+  app.get("/api/teacher/classes/:classId/students", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { classId } = req.params;
+      const teacherClass = await storage.getTeacherClass(classId);
+      
+      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      const enrollments = await storage.getClassEnrollments(classId);
+      res.json(enrollments);
+    } catch (error: any) {
+      console.error('Error fetching class roster:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get student's enrolled classes
+  app.get("/api/student/classes", isAuthenticated, async (req: any, res) => {
+    try {
+      const studentId = req.user.claims.sub;
+      const enrollments = await storage.getStudentEnrollments(studentId);
+      res.json(enrollments);
+    } catch (error: any) {
+      console.error('Error fetching student classes:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Remove student from class
+  app.delete("/api/teacher/classes/:classId/students/:studentId", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { classId, studentId } = req.params;
+      const teacherClass = await storage.getTeacherClass(classId);
+      
+      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      await storage.unenrollStudent(classId, studentId);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error removing student from class:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== Curriculum Paths =====
+  
+  // Get all curriculum paths
+  app.get("/api/curriculum/paths", isAuthenticated, async (req: any, res) => {
+    try {
+      const { language } = req.query;
+      const paths = await storage.getCurriculumPaths(language as string | undefined);
+      res.json(paths);
+    } catch (error: any) {
+      console.error('Error fetching curriculum paths:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get a specific curriculum path
+  app.get("/api/curriculum/paths/:pathId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { pathId } = req.params;
+      const path = await storage.getCurriculumPath(pathId);
+      
+      if (!path) {
+        return res.status(404).json({ error: "Curriculum path not found" });
+      }
+
+      res.json(path);
+    } catch (error: any) {
+      console.error('Error fetching curriculum path:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create curriculum path (teachers/admins only)
+  app.post("/api/curriculum/paths", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'teacher' && user?.role !== 'admin') {
+        return res.status(403).json({ error: "Only teachers can create curriculum paths" });
+      }
+
+      const path = await storage.createCurriculumPath({
+        ...req.body,
+        createdBy: userId,
+      });
+
+      res.json(path);
+    } catch (error: any) {
+      console.error('Error creating curriculum path:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get units for a curriculum path
+  app.get("/api/curriculum/paths/:pathId/units", isAuthenticated, async (req: any, res) => {
+    try {
+      const { pathId } = req.params;
+      const units = await storage.getCurriculumUnits(pathId);
+      res.json(units);
+    } catch (error: any) {
+      console.error('Error fetching curriculum units:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create curriculum unit
+  app.post("/api/curriculum/units", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'teacher' && user?.role !== 'admin') {
+        return res.status(403).json({ error: "Only teachers can create curriculum units" });
+      }
+
+      const unit = await storage.createCurriculumUnit(req.body);
+      res.json(unit);
+    } catch (error: any) {
+      console.error('Error creating curriculum unit:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get lessons for a unit
+  app.get("/api/curriculum/units/:unitId/lessons", isAuthenticated, async (req: any, res) => {
+    try {
+      const { unitId } = req.params;
+      const lessons = await storage.getCurriculumLessons(unitId);
+      res.json(lessons);
+    } catch (error: any) {
+      console.error('Error fetching curriculum lessons:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create curriculum lesson
+  app.post("/api/curriculum/lessons", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'teacher' && user?.role !== 'admin') {
+        return res.status(403).json({ error: "Only teachers can create curriculum lessons" });
+      }
+
+      const lesson = await storage.createCurriculumLesson(req.body);
+      res.json(lesson);
+    } catch (error: any) {
+      console.error('Error creating curriculum lesson:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== Assignments =====
+  
+  // Create assignment (teachers only)
+  app.post("/api/assignments", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const user = await storage.getUser(teacherId);
+      
+      if (user?.role !== 'teacher' && user?.role !== 'admin') {
+        return res.status(403).json({ error: "Only teachers can create assignments" });
+      }
+
+      const assignment = await storage.createAssignment({
+        ...req.body,
+        teacherId,
+      });
+
+      res.json(assignment);
+    } catch (error: any) {
+      console.error('Error creating assignment:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get assignments for a class
+  app.get("/api/classes/:classId/assignments", isAuthenticated, async (req: any, res) => {
+    try {
+      const { classId } = req.params;
+      const assignments = await storage.getClassAssignments(classId);
+      res.json(assignments);
+    } catch (error: any) {
+      console.error('Error fetching class assignments:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get all assignments for a teacher
+  app.get("/api/teacher/assignments", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const assignments = await storage.getTeacherAssignments(teacherId);
+      res.json(assignments);
+    } catch (error: any) {
+      console.error('Error fetching teacher assignments:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get a specific assignment
+  app.get("/api/assignments/:assignmentId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { assignmentId } = req.params;
+      const assignment = await storage.getAssignment(assignmentId);
+      
+      if (!assignment) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+
+      // Verify user is either the teacher who created it OR a student enrolled in the class
+      const isTeacher = assignment.teacherId === userId;
+      const isEnrolled = await storage.isStudentEnrolled(assignment.classId, userId);
+      
+      if (!isTeacher && !isEnrolled) {
+        // Return 404 instead of 403 to prevent ID enumeration
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+
+      res.json(assignment);
+    } catch (error: any) {
+      console.error('Error fetching assignment:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update assignment
+  app.patch("/api/assignments/:assignmentId", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { assignmentId } = req.params;
+      const assignment = await storage.getAssignment(assignmentId);
+      
+      if (!assignment || assignment.teacherId !== teacherId) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+
+      const updated = await storage.updateAssignment(assignmentId, req.body);
+      res.json(updated);
+    } catch (error: any) {
+      console.error('Error updating assignment:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete assignment
+  app.delete("/api/assignments/:assignmentId", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { assignmentId } = req.params;
+      const assignment = await storage.getAssignment(assignmentId);
+      
+      if (!assignment || assignment.teacherId !== teacherId) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+
+      await storage.deleteAssignment(assignmentId);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting assignment:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== Assignment Submissions =====
+  
+  // Get student's submissions
+  app.get("/api/student/submissions", isAuthenticated, async (req: any, res) => {
+    try {
+      const studentId = req.user.claims.sub;
+      const submissions = await storage.getStudentSubmissions(studentId);
+      res.json(submissions);
+    } catch (error: any) {
+      console.error('Error fetching student submissions:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get submissions for an assignment (teacher view)
+  app.get("/api/assignments/:assignmentId/submissions", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { assignmentId } = req.params;
+      
+      // Verify user is the teacher who created this assignment
+      const assignment = await storage.getAssignment(assignmentId);
+      if (!assignment) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+      
+      if (assignment.teacherId !== teacherId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const submissions = await storage.getAssignmentSubmissions(assignmentId);
+      res.json(submissions);
+    } catch (error: any) {
+      console.error('Error fetching assignment submissions:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create or update submission
+  app.post("/api/assignments/:assignmentId/submit", isAuthenticated, async (req: any, res) => {
+    try {
+      const studentId = req.user.claims.sub;
+      const { assignmentId } = req.params;
+      
+      // Verify assignment exists and student is enrolled in the class
+      const assignment = await storage.getAssignment(assignmentId);
+      if (!assignment) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+      
+      const isEnrolled = await storage.isStudentEnrolled(assignment.classId, studentId);
+      if (!isEnrolled) {
+        return res.status(403).json({ error: "You must be enrolled in the class to submit this assignment" });
+      }
+      
+      // Whitelist allowed student-controlled fields only
+      const { content, attachments } = req.body;
+      const submissionData = {
+        content,
+        attachments,
+        submittedAt: new Date(),
+        status: 'submitted' as const,
+      };
+      
+      // Check if submission already exists
+      const existing = await storage.getAssignmentSubmission(assignmentId, studentId);
+      
+      if (existing) {
+        const updated = await storage.updateAssignmentSubmission(existing.id, submissionData);
+        res.json(updated);
+      } else {
+        const submission = await storage.createAssignmentSubmission({
+          assignmentId,
+          studentId,
+          ...submissionData,
+        });
+        res.json(submission);
+      }
+    } catch (error: any) {
+      console.error('Error submitting assignment:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Grade submission (teacher only)
+  app.patch("/api/submissions/:submissionId/grade", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { submissionId } = req.params;
+      const { teacherScore, teacherFeedback } = req.body;
+      
+      // Get submission to verify ownership via assignment
+      const submission = await storage.getSubmissionById(submissionId);
+      
+      if (!submission) {
+        return res.status(404).json({ error: "Submission not found" });
+      }
+      
+      // Verify the teacher owns the assignment
+      const assignment = await storage.getAssignment(submission.assignmentId);
+      if (!assignment || assignment.teacherId !== teacherId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const updated = await storage.updateAssignmentSubmission(submissionId, {
+        teacherScore,
+        teacherFeedback,
+        gradedAt: new Date(),
+        status: 'graded',
+      });
+
+      res.json(updated);
+    } catch (error: any) {
+      console.error('Error grading submission:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket proxy for Realtime API
