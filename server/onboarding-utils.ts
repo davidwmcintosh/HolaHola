@@ -259,6 +259,90 @@ export interface NativeLanguageChangeRequest {
   confidence: "high" | "medium" | "low";
 }
 
+export interface TargetLanguageChangeRequest {
+  wantsToChange: boolean;
+  newTargetLanguage: string | null;
+  confidence: "high" | "medium" | "low";
+}
+
+/**
+ * Detect if user is requesting to change their target learning language
+ */
+export async function detectTargetLanguageChangeRequest(
+  openai: OpenAI,
+  userMessage: string,
+  currentTargetLanguage: string
+): Promise<TargetLanguageChangeRequest> {
+  const supportedTargetLanguages = [
+    "spanish", "french", "german", "italian", 
+    "portuguese", "japanese", "mandarin", "korean", "english"
+  ];
+
+  console.log('[TARGET-LANG-CHANGE] Checking message:', userMessage);
+  console.log('[TARGET-LANG-CHANGE] Current target language:', currentTargetLanguage);
+  
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5",
+    messages: [
+      {
+        role: "system",
+        content: `You detect if a user wants to CHANGE the language they're learning. Their current target language is "${currentTargetLanguage}". 
+
+Look for requests like:
+- "Can we switch to Italian?"
+- "I want to learn French instead"
+- "Let's practice German"
+- "Change to Spanish please"
+
+Supported target languages: ${supportedTargetLanguages.join(", ")}
+
+IMPORTANT: Only set wantsToChange=true if they're explicitly requesting to learn a DIFFERENT language than ${currentTargetLanguage}. Don't trigger for general conversation.`
+      },
+      {
+        role: "user",
+        content: `Does this message request to change target learning language: "${userMessage}"`
+      }
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "target_language_change_detection",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            wantsToChange: {
+              type: "boolean",
+              description: "Whether the user is requesting to change their target learning language"
+            },
+            newTargetLanguage: {
+              type: ["string", "null"],
+              description: `The new target language they want to learn (one of: ${supportedTargetLanguages.join(", ")}), in lowercase, or null if not requesting change`
+            },
+            confidence: {
+              type: "string",
+              enum: ["high", "medium", "low"],
+              description: "Confidence in the detected change request"
+            }
+          },
+          required: ["wantsToChange", "newTargetLanguage", "confidence"],
+          additionalProperties: false
+        }
+      }
+    }
+  });
+  
+  const result = JSON.parse(completion.choices[0]?.message?.content || "{}");
+  
+  // Normalize language to lowercase for consistent comparison
+  if (result.newTargetLanguage) {
+    result.newTargetLanguage = result.newTargetLanguage.toLowerCase();
+  }
+  
+  console.log('[TARGET-LANG-CHANGE] Detection result:', JSON.stringify(result));
+  return result as TargetLanguageChangeRequest;
+}
+
 /**
  * Detect if user is requesting to change their native language
  */

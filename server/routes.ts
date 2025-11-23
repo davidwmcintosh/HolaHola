@@ -18,6 +18,7 @@ import {
   extractNativeLanguageFromMessage,
   detectLanguage,
   detectNativeLanguageChangeRequest,
+  detectTargetLanguageChangeRequest,
 } from "./onboarding-utils";
 import { createSystemPrompt } from "./system-prompt";
 import { assessMessage, analyzePerformance } from "./difficulty-adjustment";
@@ -1799,6 +1800,25 @@ Return a JSON array of suggestions with this format:
               }
             }
 
+            // Detect target language change requests (deferred from fast-path)
+            const targetLanguageChangeRequest = await detectTargetLanguageChangeRequest(
+              openai,
+              messageData.content,
+              enrichmentConversation.language
+            );
+
+            if (targetLanguageChangeRequest.wantsToChange && 
+                targetLanguageChangeRequest.newTargetLanguage &&
+                targetLanguageChangeRequest.confidence !== "low" &&
+                targetLanguageChangeRequest.newTargetLanguage !== enrichmentConversation.language) {
+              
+              console.log('[VOICE BACKGROUND] Target language change detected:', enrichmentConversation.language, '→', targetLanguageChangeRequest.newTargetLanguage);
+              
+              enrichmentConversation = await storage.updateConversation(conversationId, userId, {
+                language: targetLanguageChangeRequest.newTargetLanguage,
+              }) || enrichmentConversation;
+            }
+
             // Detect native language change requests (deferred from fast-path)
             const nativeLanguageChangeRequest = await detectNativeLanguageChangeRequest(
               openai,
@@ -2052,6 +2072,28 @@ Return a JSON array of suggestions with this format:
           
           languageSwitchNote = `I notice you're practicing ${languageDetection.detectedLanguage}. I've switched our conversation to focus on that language. `;
         }
+      }
+
+      // Detect if user is requesting to change their target learning language
+      const targetLanguageChangeRequest = await detectTargetLanguageChangeRequest(
+        openai,
+        messageData.content,
+        updatedConversation.language
+      );
+
+      // Only update if actually requesting a change to a different language
+      if (targetLanguageChangeRequest.wantsToChange && 
+          targetLanguageChangeRequest.newTargetLanguage &&
+          targetLanguageChangeRequest.confidence !== "low" &&
+          targetLanguageChangeRequest.newTargetLanguage !== updatedConversation.language) {
+        
+        console.log('[TARGET-LANG-CHANGE] Changing target language from', updatedConversation.language, 'to', targetLanguageChangeRequest.newTargetLanguage);
+        
+        updatedConversation = await storage.updateConversation(conversationId, userId, {
+          language: targetLanguageChangeRequest.newTargetLanguage,
+        }) || updatedConversation;
+        
+        languageSwitchNote += `¡Perfecto! I've switched to ${targetLanguageChangeRequest.newTargetLanguage}. Let's start learning! `;
       }
 
       // Detect if user is requesting to change their native language
