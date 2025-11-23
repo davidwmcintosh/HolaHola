@@ -36,8 +36,13 @@ import { createClient } from "@deepgram/sdk";
 // ============================================================================
 
 // Gemini for text chat via Replit AI Integrations (no API key needed)
+// IMPORTANT: Must include httpOptions with baseUrl and empty apiVersion when using AI Integrations
 const gemini = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || ''
+  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || '',
+  httpOptions: {
+    apiVersion: "",
+    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
+  },
 });
 
 // Deepgram for voice STT (Speech-to-Text)
