@@ -1380,19 +1380,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 }
               }
               
+              // DIFFICULTY-BASED SUBTITLE LIMITS
+              // - Beginner: Show all phrases (optimal for vocabulary building)
+              // - Intermediate: Limit to 4 max intermediate phrases (prevent overwhelm)
+              // - Advanced: Skip intermediate phrases, only show final requested phrase (focus on practice)
+              let intermediatePhrases = teachingPhrases.filter(p => p !== finalPhrase);
+              
+              const difficulty = conversation.difficulty;
+              if (difficulty === 'intermediate' && intermediatePhrases.length > 4) {
+                // Intermediate: Keep first 4 intermediate phrases
+                intermediatePhrases = intermediatePhrases.slice(0, 4);
+                console.log('[VOICE DUAL-SUBTITLE] Intermediate mode: Limited to 4 intermediate phrases');
+              } else if (difficulty === 'advanced') {
+                // Advanced: Skip all intermediate phrases, only show final
+                intermediatePhrases = [];
+                console.log('[VOICE DUAL-SUBTITLE] Advanced mode: Skipping intermediate phrases');
+              }
+              // Beginner: Show all (no filtering)
+              
               // Create subtitle sequence: [encouragement (2s), phrase1 (3s), phrase2 (3s), ..., requestedPhrase (persist)]
               const subtitleSequence: Array<{ text: string; duration: number | null }> = [
                 { text: target, duration: 2000 } // Show encouragement for 2 seconds
               ];
               
-              // Add all teaching phrases (except the final one) - show for 3 seconds each
-              teachingPhrases.forEach((phrase) => {
-                if (phrase !== finalPhrase) {
-                  subtitleSequence.push({
-                    text: phrase,
-                    duration: 3000
-                  });
-                }
+              // Add intermediate phrases - show for 3 seconds each
+              intermediatePhrases.forEach((phrase) => {
+                subtitleSequence.push({
+                  text: phrase,
+                  duration: 3000
+                });
               });
               
               // Add the final phrase (what they're asked to repeat) - persists on screen
@@ -1402,7 +1418,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               });
               
               subtitlesJson = JSON.stringify(subtitleSequence);
-              console.log('[VOICE DUAL-SUBTITLE] ✓ Created sequence with', teachingPhrases.length, 'phrases, final:', finalPhrase);
+              console.log('[VOICE DUAL-SUBTITLE] ✓ Created sequence with', intermediatePhrases.length, 'intermediate +', '1 final phrase (difficulty:', difficulty + ')');
             } else {
               console.warn('[VOICE DUAL-SUBTITLE] Could not extract teaching phrases, using single subtitle');
             }
