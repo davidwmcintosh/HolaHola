@@ -49,20 +49,32 @@ export function ImmersiveTutor({
     if (currentPlayingMessageId && isPlaying) {
       const message = messages.find(m => m.id === currentPlayingMessageId);
       if (message && message.role === "assistant") {
-        // Handle subtitle sequence if available (encouragement + teaching word)
+        // Handle subtitle sequence if available (encouragement + ALL teaching phrases)
         if (message.subtitlesJson) {
           try {
             const subtitles = JSON.parse(message.subtitlesJson);
             if (Array.isArray(subtitles) && subtitles.length > 0) {
-              // Show first subtitle (encouragement)
+              // Show first subtitle immediately (encouragement)
               setCurrentText(subtitles[0].text);
               
-              // After duration (or 2s default), show next subtitle (teaching word)
+              // Cycle through ALL remaining subtitles sequentially
               if (subtitles.length > 1) {
-                const duration = subtitles[0].duration || 2000;
-                setTimeout(() => {
-                  setCurrentText(subtitles[1].text);
-                }, duration);
+                let currentIndex = 0;
+                let accumulatedDelay = subtitles[0].duration || 2000;
+                
+                // Schedule each subtitle to appear after previous ones
+                for (let i = 1; i < subtitles.length; i++) {
+                  const subtitle = subtitles[i];
+                  
+                  setTimeout(() => {
+                    setCurrentText(subtitle.text);
+                  }, accumulatedDelay);
+                  
+                  // Last subtitle has duration=null to persist indefinitely
+                  if (subtitle.duration) {
+                    accumulatedDelay += subtitle.duration;
+                  }
+                }
               }
               return;
             }
