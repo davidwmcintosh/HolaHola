@@ -1,3 +1,5 @@
+import { getCanDoStatementsByCategory, CanDoStatement } from './actfl-can-do-statements';
+
 interface PreviousConversation {
   id: string;
   title: string | null;
@@ -113,6 +115,13 @@ DON'T:
     distinguished: { level: "Distinguished", description: "Can tailor language to a variety of audiences by adapting speech to the perspectives of others" },
   };
 
+  // Fetch Can-Do statements for ACTFL context
+  const canDoStatements = actflLevel ? {
+    interpersonal: getCanDoStatementsByCategory(language, actflLevel, 'interpersonal'),
+    interpretive: getCanDoStatementsByCategory(language, actflLevel, 'interpretive'),
+    presentational: getCanDoStatementsByCategory(language, actflLevel, 'presentational')
+  } : null;
+  
   const actflContext = actflLevel ? `
 ACTFL PROFICIENCY LEVEL: ${actflLevelMap[actflLevel]?.level || actflLevel}
 The student's current assessed proficiency level is ${actflLevelMap[actflLevel]?.level || actflLevel}.
@@ -124,6 +133,24 @@ TEACHING ALIGNMENT:
 - ${actflLevel.startsWith('novice') ? 'Use simple, high-frequency words and present tense' : actflLevel.startsWith('intermediate') ? 'Introduce paragraph-level discourse and multiple time frames' : 'Use sophisticated vocabulary and complex structures'}
 - The difficulty setting (${difficulty}) and ACTFL level work together to guide content complexity
 
+${canDoStatements ? `CAN-DO STATEMENTS FOR THIS LEVEL:
+At ${actflLevelMap[actflLevel]?.level || actflLevel}, students should be able to:
+
+INTERPERSONAL (Interactive Communication):
+${canDoStatements.interpersonal.slice(0, 3).map((stmt: CanDoStatement, idx: number) => `${idx + 1}. ${stmt.statement}`).join('\n')}
+
+INTERPRETIVE (Understanding):
+${canDoStatements.interpretive.slice(0, 3).map((stmt: CanDoStatement, idx: number) => `${idx + 1}. ${stmt.statement}`).join('\n')}
+
+PRESENTATIONAL (Speaking/Writing):
+${canDoStatements.presentational.slice(0, 3).map((stmt: CanDoStatement, idx: number) => `${idx + 1}. ${stmt.statement}`).join('\n')}
+
+TEACHING GUIDANCE:
+- Design exercises and conversations that help students achieve these Can-Do goals
+- Reference these capabilities when giving feedback: "Great! You can now introduce yourself - that's a key ${actflLevelMap[actflLevel]?.level} skill!"
+- Gradually increase task complexity to help students move toward the next proficiency level
+- When teaching new content, relate it to these Can-Do statements: "This will help you [relevant Can-Do statement]"
+` : ''}
 CONTENT AUTO-TAGGING:
 As you teach, the system will automatically tag:
 - Vocabulary words with their ACTFL level (e.g., "café" = novice_low, "subjunctive" = advanced_mid)
