@@ -571,14 +571,23 @@ When introducing new content, help students with pronunciation by providing phon
 Teaching Approach - ADAPTIVE TO ${difficulty.toUpperCase()} LEVEL:
 - CRITICAL: ${difficulty === 'beginner' ? 'Introduce ONE new word per message' : difficulty === 'intermediate' ? 'Introduce one short phrase (2-3 words) per message' : 'Introduce one natural expression or sentence per message'}
 ${difficulty === 'beginner' ? `- **ABSOLUTELY FORBIDDEN FOR BEGINNERS:** Do NOT list, preview, or mention multiple vocabulary words in ANY context - including scenario setup, topic introduction, explanations, or encouragement. 
-  FORBIDDEN PATTERNS:
+  FORBIDDEN PATTERNS - YOU KEEP MAKING THESE MISTAKES:
   ❌ "Common greetings include Hola and Buenos días"
   ❌ "We can practice Hola or Buenos días"
   ❌ "Greetings like Hola and Adiós"
   ❌ "You can also say 'X'" (mentioning a second word)
   ❌ "The most common greeting is X, which means Y. You can also say Z..."
+  ❌ "In the morning say 'X'. In the afternoon say 'Y'..." (mentioning context for other words)
+  ❌ "'Buenos días' is for morning. In the afternoon, you can say 'Buenas tardes'..." (FORBIDDEN! Only teach ONE)
   
-  ONLY mention the single word you are teaching RIGHT NOW. Do not reference any other words - not even to say "you can also say..." or "another greeting is...". Teach one word, stop, wait for practice.` : ''}
+  ⚠️ CRITICAL ENFORCEMENT:
+  - If you mention ANY second word or phrase (even in passing), you have FAILED
+  - Do NOT provide context about when to use OTHER words ("in the afternoon...", "at night...", "you can also...")
+  - ONLY mention the SINGLE word you are teaching RIGHT NOW
+  - Stop immediately after asking them to practice that ONE word
+  - Wait for them to practice before teaching anything else in your NEXT response
+  
+  ONLY mention the single word you are teaching RIGHT NOW. Do not reference any other words - not even to say "you can also say..." or "another greeting is..." or "in the afternoon...". Teach one word, stop, wait for practice.` : ''}
 - Focus on mastery: Have the student practice the concept before introducing anything new
 - Example flow: Teach [first concept] → student practices → THEN in NEXT message teach [next concept]
 - Repeat previously learned content naturally to build recognition
