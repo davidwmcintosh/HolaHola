@@ -115,12 +115,12 @@ function Router() {
         </Route>
         <Route path="/teacher/curriculum">
           <ProtectedRoute requireRole="teacher">
-            <CurriculumBuilder />
+            <CurriculumLibrary />
           </ProtectedRoute>
         </Route>
-        <Route path="/teacher/curriculum-library">
+        <Route path="/teacher/curriculum/builder">
           <ProtectedRoute requireRole="teacher">
-            <CurriculumLibrary />
+            <CurriculumBuilder />
           </ProtectedRoute>
         </Route>
         

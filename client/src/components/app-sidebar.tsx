@@ -30,8 +30,8 @@ const menuItems = [
 
 const teacherMenuItems = [
   { title: "Teacher Dashboard", url: "/teacher/dashboard", icon: GraduationCap },
-  { title: "Curriculum Library", url: "/teacher/curriculum-library", icon: Library },
-  { title: "Curriculum Builder", url: "/teacher/curriculum", icon: BookOpenCheck },
+  { title: "Curriculum Library", url: "/teacher/curriculum", icon: Library },
+  { title: "Curriculum Builder", url: "/teacher/curriculum/builder", icon: BookOpenCheck },
 ];
 
 const studentMenuItems = [
