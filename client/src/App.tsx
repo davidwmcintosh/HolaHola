@@ -27,6 +27,12 @@ import History from "@/pages/history";
 import CanDoProgress from "@/pages/can-do-progress";
 import Settings from "@/pages/settings";
 import TeacherDashboard from "@/pages/teacher-dashboard";
+import ClassManagement from "@/pages/class-management";
+import AssignmentCreator from "@/pages/assignment-creator";
+import AssignmentGrading from "@/pages/assignment-grading";
+import StudentJoinClass from "@/pages/student-join-class";
+import StudentAssignments from "@/pages/student-assignments";
+import CurriculumBuilder from "@/pages/curriculum-builder";
 import NotFound from "@/pages/not-found";
 import { BUILD_TIME } from "./buildtime";
 
@@ -83,7 +89,18 @@ function Router() {
         <Route path="/grammar" component={Grammar} />
         <Route path="/history" component={History} />
         <Route path="/can-do-progress" component={CanDoProgress} />
+        
+        {/* Teacher Routes */}
         <Route path="/teacher/dashboard" component={TeacherDashboard} />
+        <Route path="/teacher/classes/:classId" component={ClassManagement} />
+        <Route path="/teacher/assignments/new" component={AssignmentCreator} />
+        <Route path="/teacher/assignments/:assignmentId/grade" component={AssignmentGrading} />
+        <Route path="/teacher/curriculum" component={CurriculumBuilder} />
+        
+        {/* Student Routes */}
+        <Route path="/student/join-class" component={StudentJoinClass} />
+        <Route path="/student/assignments" component={StudentAssignments} />
+        
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>

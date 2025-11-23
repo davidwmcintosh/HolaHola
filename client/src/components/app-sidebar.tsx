@@ -1,4 +1,4 @@
-import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb, LogOut, Globe, Award } from "lucide-react";
+import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { StreakIndicator } from "@/components/StreakIndicator";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/hooks/useAuth";
 
 const menuItems = [
   { title: "Dashboard", url: "/", icon: Home },
@@ -27,9 +28,20 @@ const menuItems = [
   { title: "Cultural Tips", url: "/cultural-tips", icon: Globe },
 ];
 
+const teacherMenuItems = [
+  { title: "Teacher Dashboard", url: "/teacher/dashboard", icon: GraduationCap },
+  { title: "Curriculum Builder", url: "/teacher/curriculum", icon: BookOpenCheck },
+];
+
+const studentMenuItems = [
+  { title: "Join Class", url: "/student/join-class", icon: Users },
+  { title: "My Assignments", url: "/student/assignments", icon: ClipboardList },
+];
+
 export function AppSidebar() {
   const [location] = useLocation();
   const { userName } = useLanguage();
+  const { user } = useAuth();
   
   // Hide Chat Ideas until onboarding is complete
   const isOnboardingComplete = userName && userName.trim() !== "";
@@ -39,6 +51,11 @@ export function AppSidebar() {
     }
     return true;
   });
+
+  // Check if user is a teacher (role is 'teacher' or 'admin')
+  const isTeacher = user?.role === 'teacher' || user?.role === 'admin';
+  // Show student features for all users (teachers can also be students)
+  const showStudentFeatures = true;
 
   return (
     <Sidebar>
@@ -55,12 +72,11 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel>Learning</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {visibleMenuItems.map((item) => {
                 const isActive = location === item.url;
-                // Use Link for accessible navigation while still setting force flag
                 const handleClick = (e: React.MouseEvent) => {
                   if (item.title === "Call Tutor") {
                     localStorage.setItem('forceNewConversation', 'true');
@@ -85,6 +101,60 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isTeacher && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Teaching</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {teacherMenuItems.map((item) => {
+                  const isActive = location === item.url;
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton 
+                        asChild
+                        isActive={isActive}
+                        data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        <Link href={item.url}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {showStudentFeatures && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Classes</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {studentMenuItems.map((item) => {
+                  const isActive = location === item.url;
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton 
+                        asChild
+                        isActive={isActive}
+                        data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        <Link href={item.url}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter className="p-6 space-y-4">
         <div className="px-2">
