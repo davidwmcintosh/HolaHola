@@ -148,51 +148,47 @@ export default function Chat() {
         </div>
       )}
       
-      {/* Header - hidden in text mode for immersive experience */}
-      {mode === "voice" && (
-        <>
-          <div className="flex items-center justify-between gap-2 p-4 border-b">
-            <div className="flex items-center gap-3">
-              {/* Voice button - prominent and primary */}
-              <Button
-                variant={mode === "voice" ? "default" : "outline"}
-                size="default"
-                onClick={() => setMode("voice")}
-                data-testid="button-voice-mode"
-              >
-                <Mic className="h-4 w-4 mr-2" />
-                Voice Learning
-                {mode === "voice" && (
-                  <Badge variant="secondary" className="ml-2 text-xs">
-                    Recommended
-                  </Badge>
-                )}
-              </Button>
-              
-              {/* Text button - subtle fallback option */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setMode("text")}
-                data-testid="button-text-mode"
-                className="text-muted-foreground"
-              >
-                <MessageSquare className="h-4 w-4 mr-2" />
-                Type instead
-              </Button>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleNewChat}
-              data-testid="button-new-chat"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              New Chat
-            </Button>
-          </div>
-        </>
-      )}
+      {/* Header - Mode Toggle visible in both voice and text modes */}
+      <div className="flex items-center justify-between gap-2 p-4 border-b">
+        <div className="flex items-center gap-3">
+          {/* Voice button - prominent and primary */}
+          <Button
+            variant={mode === "voice" ? "default" : "outline"}
+            size="default"
+            onClick={() => setMode("voice")}
+            data-testid="button-voice-mode"
+          >
+            <Mic className="h-4 w-4 mr-2" />
+            Voice Learning
+            {mode === "voice" && (
+              <Badge variant="secondary" className="ml-2 text-xs">
+                Recommended
+              </Badge>
+            )}
+          </Button>
+          
+          {/* Text button - subtle fallback option */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setMode("text")}
+            data-testid="button-text-mode"
+            className="text-muted-foreground"
+          >
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Type instead
+          </Button>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleNewChat}
+          data-testid="button-new-chat"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          New Chat
+        </Button>
+      </div>
       <div className="flex-1 overflow-hidden">
         {mode === "voice" ? (
           <VoiceChat 
