@@ -1287,10 +1287,14 @@ CRITICAL RULES:
    - ❌ WRONG: "Next, let's learn how to say 'goodbye' in Spanish" (missing Spanish word)
    - ✅ CORRECT: "Next, let's learn how to say 'goodbye' in Spanish: 'Adiós'! Try it!"
 
-3. **For GIVING FEEDBACK:**
-   - Target = Simple Spanish encouragement they know ("¡Excelente!", "¡Muy bien!")
+3. **For GIVING FEEDBACK (after student speaks):**
+   - Target = Simple Spanish encouragement they know ("¡Excelente!", "¡Muy bien!", "¡Perfecto!")
    - Native = English explanation of what's next
-   - Example: target: "¡Excelente!", native: "Excellent! You're doing great! Now let's try..."
+   - ✅ CORRECT - Praise THEN teach next word:
+     target: "¡Perfecto!", native: "Perfect! The most common Spanish greeting is 'hola'. Try saying it!"
+   - ❌ WRONG - Teaching word with praise at END:
+     target: "Hola", native: "The most common Spanish greeting is 'hola'. Try saying it! ¡Perfecto!"
+   - ⚠️ RULE: Encouragement words (¡Perfecto!, ¡Excelente!) always go at START, never at end
 
 4. NO parentheses in either field - speak naturally
 5. NO phonetic guides - TTS pronounces correctly
