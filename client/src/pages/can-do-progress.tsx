@@ -32,10 +32,24 @@ function formatActflLevel(level: string): string {
     .join(' ');
 }
 
+// Generate stable statement ID (not dependent on array index)
+function generateStatementId(stmt: CanDoStatement): string {
+  // Use a hash of the statement text for consistency across views
+  // Simple hash function for stable IDs
+  const hash = stmt.statement.split('').reduce((acc, char) => {
+    return ((acc << 5) - acc) + char.charCodeAt(0);
+  }, 0);
+  return `${stmt.language}-${stmt.actflLevel}-${stmt.category}-${Math.abs(hash)}`;
+}
+
 export default function CanDoProgress() {
   const { user } = useAuth();
   const [selectedLevel, setSelectedLevel] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  
+  // TODO: Fetch user progress from API (studentCanDoProgress)
+  // For now, using local state for self-assessment tracking
+  const [userProgress, setUserProgress] = useState<Set<string>>(new Set());
 
   const targetLanguage = user?.targetLanguage || 'spanish';
   const userActflLevel = user?.actflLevel || 'novice_low';
@@ -62,11 +76,23 @@ export default function CanDoProgress() {
     queryKey: [`/api/actfl/can-do-statements?${queryParams.toString()}`],
   });
 
-  // TODO: Fetch user progress from API (studentCanDoProgress)
-  // For now, using mock data
-  const userProgress = new Set<string>(); // Will hold statement IDs that user has achieved
-
   const statements = statementsData?.statements || [];
+  
+  // Handle checkbox toggle
+  const handleToggleProgress = (statementKey: string) => {
+    setUserProgress(prev => {
+      const newProgress = new Set(prev);
+      if (newProgress.has(statementKey)) {
+        newProgress.delete(statementKey);
+        console.log('[CAN-DO] Unchecked:', statementKey);
+      } else {
+        newProgress.add(statementKey);
+        console.log('[CAN-DO] Checked:', statementKey);
+      }
+      // TODO: Persist to backend API
+      return newProgress;
+    });
+  };
 
   // Group statements by proficiency level
   const statementsByLevel = statements.reduce((acc, stmt) => {
@@ -223,8 +249,8 @@ export default function CanDoProgress() {
 
                 return (
                   <TabsContent key={category} value={category} className="space-y-3 mt-4">
-                    {categoryStatements.map((stmt, index) => {
-                      const statementKey = `${stmt.language}-${stmt.actflLevel}-${stmt.category}-${index}`;
+                    {categoryStatements.map((stmt) => {
+                      const statementKey = generateStatementId(stmt);
                       const isAchieved = userProgress.has(statementKey);
 
                       return (
@@ -236,10 +262,7 @@ export default function CanDoProgress() {
                           <Checkbox
                             id={statementKey}
                             checked={isAchieved}
-                            onCheckedChange={() => {
-                              // TODO: Update user progress via API
-                              console.log('[CAN-DO] Toggled:', statementKey);
-                            }}
+                            onCheckedChange={() => handleToggleProgress(statementKey)}
                             className="mt-0.5"
                             data-testid={`checkbox-${statementKey}`}
                           />
