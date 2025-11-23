@@ -1440,6 +1440,30 @@ Return a JSON array of suggestions with this format:
           console.log(`[RESUME] Voice conversation has ${allMessages.length} total messages, resuming with last ${contextLimit}`);
         }
 
+        // CRITICAL: Detect target language change BEFORE generating AI response
+        // This ensures the AI knows the correct language for this response
+        let updatedConversation = conversation;
+        const targetLanguageChangeRequest = await detectTargetLanguageChangeRequest(
+          openai,
+          messageData.content,
+          conversation.language
+        );
+
+        if (targetLanguageChangeRequest.wantsToChange && 
+            targetLanguageChangeRequest.newTargetLanguage &&
+            targetLanguageChangeRequest.confidence !== "low" &&
+            targetLanguageChangeRequest.newTargetLanguage !== conversation.language) {
+          
+          console.log('[VOICE FAST-PATH] Target language change detected:', conversation.language, '→', targetLanguageChangeRequest.newTargetLanguage);
+          
+          updatedConversation = await storage.updateConversation(conversationId, userId, {
+            language: targetLanguageChangeRequest.newTargetLanguage,
+          }) || conversation;
+          
+          // Update the conversation reference for this request
+          conversation = updatedConversation;
+        }
+
         // Create minimal system prompt (skip vocabulary/conversation queries for speed)
         const systemPrompt = createSystemPrompt(
           conversation.language,
@@ -1773,25 +1797,6 @@ Return a JSON array of suggestions with this format:
                   language: languageDetection.detectedLanguage,
                 }) || enrichmentConversation;
               }
-            }
-
-            // Detect target language change requests (deferred from fast-path)
-            const targetLanguageChangeRequest = await detectTargetLanguageChangeRequest(
-              openai,
-              messageData.content,
-              enrichmentConversation.language
-            );
-
-            if (targetLanguageChangeRequest.wantsToChange && 
-                targetLanguageChangeRequest.newTargetLanguage &&
-                targetLanguageChangeRequest.confidence !== "low" &&
-                targetLanguageChangeRequest.newTargetLanguage !== enrichmentConversation.language) {
-              
-              console.log('[VOICE BACKGROUND] Target language change detected:', enrichmentConversation.language, '→', targetLanguageChangeRequest.newTargetLanguage);
-              
-              enrichmentConversation = await storage.updateConversation(conversationId, userId, {
-                language: targetLanguageChangeRequest.newTargetLanguage,
-              }) || enrichmentConversation;
             }
 
             // Detect native language change requests (deferred from fast-path)
