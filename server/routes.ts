@@ -1346,7 +1346,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // Extract ALL teaching phrases from native field (allow multi-word phrases)
             // Match patterns like: 'buenos días', "hola", 'adiós', 'buenas tardes'
-            const quotedPhrases = [...native.matchAll(/['"]([a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]+?)['"]/g)];
+            // Support both straight quotes ('") and smart quotes (''""‚„)
+            const quotedPhrases = [...native.matchAll(/[\'"\u2018\u2019\u201C\u201D\u201A\u201E]([a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]+?)[\'"\u2018\u2019\u201C\u201D\u201A\u201E]/g)];
             const englishWords = new Set(['hello', 'goodbye', 'thank', 'thanks', 'please', 'yes', 'no', 'good', 'morning', 'afternoon', 'evening', 'night']);
             
             // Find ALL non-English quoted phrases (could be multi-word)
@@ -1364,7 +1365,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             if (teachingPhrases.length > 0) {
               // Find the phrase the tutor is asking student to repeat (e.g., "Try saying 'Buenos días'!")
-              const trySayingMatch = native.match(/(?:try|practice|repeat)(?:ing)?\s+(?:saying|to say)?\s*['"]([^'"]+)['"]/i);
+              // Support both straight quotes ('") and smart quotes (''""‚„)
+              const trySayingMatch = native.match(/(?:try|practice|repeat)(?:ing)?\s+(?:saying|to say)?\s*[\'"\u2018\u2019\u201C\u201D\u201A\u201E]([^\'"\u2018\u2019\u201C\u201D\u201A\u201E]+)[\'"\u2018\u2019\u201C\u201D\u201A\u201E]/i);
               let finalPhrase = teachingPhrases[teachingPhrases.length - 1]; // Default to last phrase
               
               if (trySayingMatch) {
@@ -1377,7 +1379,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 if (matchedPhrase) {
                   finalPhrase = matchedPhrase;
                   console.log('[VOICE DUAL-SUBTITLE] Found "Try saying" phrase:', finalPhrase);
+                } else {
+                  console.warn('[VOICE DUAL-SUBTITLE] "Try saying" phrase not found in teaching phrases:', requestedPhrase, '| Available:', teachingPhrases);
                 }
+              } else {
+                console.warn('[VOICE DUAL-SUBTITLE] Could not extract "Try saying" phrase from native text');
               }
               
               // DIFFICULTY-BASED SUBTITLE LIMITS
