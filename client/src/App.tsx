@@ -31,8 +31,11 @@ import { BUILD_TIME } from "./buildtime";
 // Wrapper component that adds container padding for non-chat pages
 function PageWrapper({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  const fullHeightPages = ["/", "/chat"];
-  const isFullHeightPage = fullHeightPages.includes(location);
+  const { isAuthenticated, isLoading } = useAuth();
+  
+  // Only chat page is full-height for authenticated users
+  // Landing page (/) is full-height for unauthenticated users
+  const isFullHeightPage = location === "/chat" || (!isAuthenticated && !isLoading && location === "/");
 
   if (isFullHeightPage) {
     return <div className="flex flex-col h-full">{children}</div>;
