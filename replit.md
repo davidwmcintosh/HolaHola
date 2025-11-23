@@ -95,6 +95,32 @@ const mutation = useMutation({
 4. Success triggers query invalidation and form reset
 5. UI updates automatically via TanStack Query
 
+## Recent Enhancements (November 2025)
+
+### Pre-Built Curriculum Library
+- **840+ hours** of ACTFL-aligned curriculum content
+- **Spanish 1-4**: Complete high school sequence (600 hours) aligned to Novice Low → Intermediate High
+- **French 1-3**: Comprehensive sequence (240 hours) aligned to Novice Low → Intermediate Mid
+- Each path includes units (thematic organization), lessons (individual class sessions), and curriculum metadata
+- Teacher UI for browsing and assigning curriculum to classes
+- Curriculum seeding via `server/curriculum-seed.ts`
+
+### Enhanced Reporting System
+Three comprehensive report types with CSV export:
+1. **Student Progress Report**: Individual proficiency trajectory, Can-Do achievements, recent activity, personalized recommendations
+2. **Class Summary Report**: Proficiency distribution, engagement metrics, top performers, students needing support, assignment completion stats
+3. **Parent/Guardian Report**: Student-friendly overview of progress, achievements, and areas of focus
+
+Implementation:
+- `server/reporting-service.ts`: Report generation logic
+- API endpoints: `/api/reports/student/:id`, `/api/reports/class/:id`, `/api/reports/parent`
+- CSV export for all report types
+
+### Deferred Integrations (Pending External OAuth Setup)
+- **Google Classroom**: Requires OAuth 2.0 client credentials (see `GOOGLE_CLASSROOM_SETUP.md`)
+- **Canvas/Clever LMS**: Documented in `future-features.md`
+- **IPA Assessments**: Documented as planned feature in `docs/institutional-standards-integration.md`
+
 ## External Dependencies
 
 ### Third-Party Services

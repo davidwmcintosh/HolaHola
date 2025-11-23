@@ -261,9 +261,11 @@ New Routes:
 
 ### 4.2 Integrated Performance Assessments (IPA)
 
+**Status**: 🔜 Planned for future implementation
+
 **ACTFL IPA Model**: Combine all 3 communication modes around a common theme
 
-**LinguaFlow Implementation**:
+**Proposed LinguaFlow Implementation**:
 
 ```
 Example IPA: "Planning a Trip to Mexico"
@@ -282,10 +284,16 @@ Example IPA: "Planning a Trip to Mexico"
    - Write a blog post reflection on cultural research
 ```
 
-**Features**:
+**Planned Features**:
 - AI auto-scores interpretive tasks
 - Teachers manually score presentational tasks using ACTFL rubrics
 - Built-in rubric templates (customizable)
+- Integration with existing assignment system
+
+**Current Workaround**: Teachers can approximate IPA tasks using existing features:
+- **Interpersonal Mode**: Create conversation-based assignments with AI tutor
+- **Presentational Mode**: Create written submission assignments
+- **Grading**: Use ACTFL Can-Do statements as rubric guidance for manual scoring
 
 ### 4.3 Seal of Biliteracy Support
 
