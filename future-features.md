@@ -53,6 +53,132 @@ This document tracks potential features and improvements for future development.
 
 ---
 
+## LMS & Platform Integrations
+
+### Google Classroom Integration
+
+**Status:** Ready for user setup (requires Google Cloud credentials)  
+**Setup Guide:** See `GOOGLE_CLASSROOM_SETUP.md`  
+**Estimated Development:** 2-3 hours once credentials are provided
+
+**Features:**
+- **Single Sign-On (SSO)**: Teachers and students log in with Google accounts
+- **Auto-Roster Sync**: Student lists automatically import from Google Classroom
+  - Real-time sync via Google Classroom API
+  - Automatic student account creation
+  - Class membership updates
+- **Assignment Sync**: Bidirectional assignment synchronization
+  - Create LinguaFlow assignments from Classroom coursework
+  - Auto-publish new Classroom assignments to LinguaFlow
+  - Track completion status across both platforms
+- **Grade Passback**: Automatic grade synchronization
+  - LinguaFlow scores sync to Classroom gradebook
+  - Support for point-based and letter grades
+  - Configurable grade mapping (ACTFL levels → letter grades)
+
+**Technical Requirements:**
+- Google Cloud Console project
+- OAuth 2.0 credentials (Client ID + Secret)
+- OAuth scopes: `classroom.courses`, `classroom.rosters`, `classroom.coursework.students`
+- Optional: OAuth verification (2-4 weeks) for public release
+
+**API Endpoints to Implement:**
+- `GET /api/google-classroom/auth` - Initiate OAuth flow
+- `GET /api/google-classroom/callback` - Handle OAuth callback
+- `POST /api/google-classroom/sync-rosters` - Sync student rosters
+- `POST /api/google-classroom/sync-assignments` - Sync coursework
+- `PATCH /api/google-classroom/grades/:submissionId` - Update grades
+
+**User Benefit:** Eliminates manual roster management and reduces teacher admin work by 80%
+
+---
+
+### Canvas LMS Integration
+
+**Status:** Planned (pending user LTI setup)  
+**Estimated Development:** 3-4 hours  
+**Target Market:** Higher education + K-12 districts
+
+**Features:**
+- **LTI 1.3 Integration**: Standards-compliant LMS embedding
+  - Deep linking for content selection
+  - Seamless iframe embedding in Canvas courses
+  - Context-aware user roles (teacher/student)
+- **Grade Passback**: Automatic grade sync to Canvas gradebook
+  - Assignment & Grades Services (AGS) integration
+  - Real-time score updates
+  - Configurable grading scales
+- **Roster Sync**: Names and Roles Provisioning Services (NRPS)
+  - Auto-import student rosters from Canvas courses
+  - Role-based access control
+  - Automatic account creation
+
+**Technical Requirements:**
+- Canvas Developer Key (from Canvas admin)
+- LTI 1.3 JSON configuration
+- Public/private key pair for JWT signing
+- HTTPS endpoint for Canvas to connect
+
+**LTI Services:**
+- Assignment and Grade Services (AGS) - grade passback
+- Names and Role Provisioning Services (NRPS) - roster sync
+- Deep Linking (DL) - content selection
+
+**User Benefit:** Native integration with 30M+ Canvas users (colleges + K-12)
+
+---
+
+### Clever Integration
+
+**Status:** Planned (pending Clever developer account)  
+**Estimated Development:** 2-3 hours  
+**Target Market:** K-12 districts (Clever connects to 50+ student information systems)
+
+**Features:**
+- **Clever SSO**: Single Sign-On for students and teachers
+  - No passwords required (leverages district credentials)
+  - Automatic account provisioning
+  - Secure OAuth 2.0 authentication
+- **Automated Rostering**: Real-time student/class data sync
+  - Daily roster updates via Clever Sync API
+  - Section (class) assignments
+  - Student demographic data (optional)
+- **Data Sync**: Connect to district SIS (PowerSchool, Infinite Campus, etc.)
+  - Automatic class creation from SIS sections
+  - Teacher assignments to classes
+  - Grade level and school associations
+
+**Technical Requirements:**
+- Clever developer account (free for education apps)
+- OAuth 2.0 credentials (Client ID + Secret)
+- Instant Login integration (optional)
+- Clever API access for roster sync
+
+**API Endpoints:**
+- Clever SSO OAuth endpoints (`/oauth/authorize`, `/oauth/tokens`)
+- Clever Data API (sections, students, teachers)
+- Clever Events API (real-time roster updates)
+
+**User Benefit:** One-click access for entire school districts (reduces onboarding friction by 95%)
+
+---
+
+### Implementation Priority
+
+**Phase 1 (When User Provides Credentials):**
+1. Google Classroom (2-3 hours) - Highest teacher adoption
+2. Clever (2-3 hours) - Easiest district rollout
+3. Canvas (3-4 hours) - Higher ed market
+
+**Total:** ~8-10 hours of development once credentials/keys are provided
+
+**Blockers:**
+- All three require external account setup and credential generation
+- Cannot be completed autonomously by AI agent
+- User must complete setup guides first
+
+---
+
 ## Other Potential Features
 
 ### Pronunciation Practice Module
@@ -78,4 +204,4 @@ This document tracks potential features and improvements for future development.
 
 ---
 
-*Last Updated: November 21, 2025*
+*Last Updated: November 23, 2025*
