@@ -40,12 +40,17 @@ export function ImmersiveTutor({
   const [currentWordTimings, setCurrentWordTimings] = useState<WordTiming[]>([]);
   const [highlightedWordIndex, setHighlightedWordIndex] = useState<number>(-1);
   const animationFrameRef = useRef<number | null>(null);
+  const subtitleTimersRef = useRef<NodeJS.Timeout[]>([]);
 
   // Get the last assistant message for display
   const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
 
   // Update current text and timings when a new message is playing
   useEffect(() => {
+    // Clear any existing subtitle timers to prevent stale updates
+    subtitleTimersRef.current.forEach(timer => clearTimeout(timer));
+    subtitleTimersRef.current = [];
+
     if (currentPlayingMessageId && isPlaying) {
       const message = messages.find(m => m.id === currentPlayingMessageId);
       if (message && message.role === "assistant") {
@@ -66,9 +71,12 @@ export function ImmersiveTutor({
                 for (let i = 1; i < subtitles.length; i++) {
                   const subtitle = subtitles[i];
                   
-                  setTimeout(() => {
+                  const timer = setTimeout(() => {
                     setCurrentText(subtitle.text);
                   }, accumulatedDelay);
+                  
+                  // Store timer reference for cleanup
+                  subtitleTimersRef.current.push(timer);
                   
                   // Last subtitle has duration=null to persist indefinitely
                   if (subtitle.duration) {
@@ -106,6 +114,12 @@ export function ImmersiveTutor({
       setHighlightedWordIndex(-1);
       // Note: currentText is intentionally NOT cleared - the teaching word remains visible
     }
+
+    // Cleanup function: clear all subtitle timers on unmount or dependency change
+    return () => {
+      subtitleTimersRef.current.forEach(timer => clearTimeout(timer));
+      subtitleTimersRef.current = [];
+    };
   }, [currentPlayingMessageId, isPlaying, messages]);
 
   // Sync word highlighting with audio playback
