@@ -1,4 +1,4 @@
-import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck } from "lucide-react";
+import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck, Library } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -30,6 +30,7 @@ const menuItems = [
 
 const teacherMenuItems = [
   { title: "Teacher Dashboard", url: "/teacher/dashboard", icon: GraduationCap },
+  { title: "Curriculum Library", url: "/teacher/curriculum-library", icon: Library },
   { title: "Curriculum Builder", url: "/teacher/curriculum", icon: BookOpenCheck },
 ];
 

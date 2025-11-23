@@ -4145,6 +4145,84 @@ Return a JSON array of suggestions with this format:
     }
   });
 
+  // ===== Reporting =====
+  
+  // Import reporting service at top of file (handled separately)
+  const { generateStudentProgressReport, generateClassSummaryReport, generateParentReport, exportReportToCSV } = await import("./reporting-service");
+
+  // Generate student progress report (students can view their own, teachers can view any student in their class)
+  app.get("/api/reports/student/:studentId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { studentId } = req.params;
+      const { format = "json" } = req.query; // json or csv
+      
+      // Students can only view their own reports
+      if (studentId !== userId) {
+        const user = await storage.getUser(userId);
+        if (user?.role !== 'teacher' && user?.role !== 'admin') {
+          return res.status(403).json({ error: "Access denied" });
+        }
+        
+        // Verify teacher has access to this student (enrolled in one of their classes)
+        const teacherClasses = await storage.getTeacherClasses(userId);
+        let hasAccess = false;
+        
+        for (const cls of teacherClasses) {
+          const isEnrolled = await storage.isStudentEnrolled(cls.id, studentId);
+          if (isEnrolled) {
+            hasAccess = true;
+            break;
+          }
+        }
+        
+        if (!hasAccess) {
+          return res.status(403).json({ error: "You do not have access to this student's report" });
+        }
+      }
+      
+      const report = await generateStudentProgressReport(studentId);
+      
+      if (format === "csv") {
+        const csv = exportReportToCSV(report);
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="student-progress-${studentId}.csv"`);
+        return res.send(csv);
+      }
+      
+      res.json(report);
+    } catch (error: any) {
+      console.error('Error generating student progress report:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Generate class summary report (teachers only)
+  app.get("/api/reports/class/:classId", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { classId } = req.params;
+      
+      const report = await generateClassSummaryReport(classId, teacherId);
+      res.json(report);
+    } catch (error: any) {
+      console.error('Error generating class summary report:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Generate parent/guardian report (students only - for their own progress)
+  app.get("/api/reports/parent", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const report = await generateParentReport(userId);
+      res.json(report);
+    } catch (error: any) {
+      console.error('Error generating parent report:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket proxy for Realtime API

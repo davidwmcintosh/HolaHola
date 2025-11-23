@@ -33,6 +33,7 @@ import AssignmentGrading from "@/pages/assignment-grading";
 import StudentJoinClass from "@/pages/student-join-class";
 import StudentAssignments from "@/pages/student-assignments";
 import CurriculumBuilder from "@/pages/curriculum-builder";
+import CurriculumLibrary from "@/pages/curriculum-library";
 import NotFound from "@/pages/not-found";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { BUILD_TIME } from "./buildtime";
@@ -115,6 +116,11 @@ function Router() {
         <Route path="/teacher/curriculum">
           <ProtectedRoute requireRole="teacher">
             <CurriculumBuilder />
+          </ProtectedRoute>
+        </Route>
+        <Route path="/teacher/curriculum-library">
+          <ProtectedRoute requireRole="teacher">
+            <CurriculumLibrary />
           </ProtectedRoute>
         </Route>
         
