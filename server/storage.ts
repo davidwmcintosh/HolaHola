@@ -26,6 +26,20 @@ import {
   type CanDoStatement,
   type StudentCanDoProgress,
   type InsertStudentCanDoProgress,
+  type TeacherClass,
+  type InsertTeacherClass,
+  type ClassEnrollment,
+  type InsertClassEnrollment,
+  type CurriculumPath,
+  type InsertCurriculumPath,
+  type CurriculumUnit,
+  type InsertCurriculumUnit,
+  type CurriculumLesson,
+  type InsertCurriculumLesson,
+  type Assignment,
+  type InsertAssignment,
+  type AssignmentSubmission,
+  type InsertAssignmentSubmission,
   users,
   conversations,
   messages,
@@ -40,6 +54,13 @@ import {
   messageMedia,
   canDoStatements,
   studentCanDoProgress,
+  teacherClasses,
+  classEnrollments,
+  curriculumPaths,
+  curriculumUnits,
+  curriculumLessons,
+  assignments,
+  assignmentSubmissions,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -153,6 +174,52 @@ export interface IStorage {
   getUserCanDoProgress(userId: string): Promise<StudentCanDoProgress[]>;
   toggleCanDoProgress(userId: string, statementId: string): Promise<StudentCanDoProgress | null>;
   getCanDoProgressByStatement(userId: string, statementId: string): Promise<StudentCanDoProgress | undefined>;
+
+  // Teacher Classes
+  createTeacherClass(data: InsertTeacherClass): Promise<TeacherClass>;
+  getTeacherClass(id: string): Promise<TeacherClass | undefined>;
+  getTeacherClasses(teacherId: string): Promise<TeacherClass[]>;
+  updateTeacherClass(id: string, data: Partial<TeacherClass>): Promise<TeacherClass | undefined>;
+  deleteTeacherClass(id: string): Promise<boolean>;
+  getClassByJoinCode(joinCode: string): Promise<TeacherClass | undefined>;
+
+  // Class Enrollments
+  enrollStudent(classId: string, studentId: string): Promise<ClassEnrollment>;
+  getClassEnrollments(classId: string): Promise<Array<ClassEnrollment & { student: User }>>;
+  getStudentEnrollments(studentId: string): Promise<Array<ClassEnrollment & { class: TeacherClass }>>;
+  unenrollStudent(classId: string, studentId: string): Promise<boolean>;
+  isStudentEnrolled(classId: string, studentId: string): Promise<boolean>;
+
+  // Curriculum Paths
+  createCurriculumPath(data: InsertCurriculumPath): Promise<CurriculumPath>;
+  getCurriculumPath(id: string): Promise<CurriculumPath | undefined>;
+  getCurriculumPaths(language?: string): Promise<CurriculumPath[]>;
+  updateCurriculumPath(id: string, data: Partial<CurriculumPath>): Promise<CurriculumPath | undefined>;
+
+  // Curriculum Units
+  createCurriculumUnit(data: InsertCurriculumUnit): Promise<CurriculumUnit>;
+  getCurriculumUnits(curriculumPathId: string): Promise<CurriculumUnit[]>;
+  getCurriculumUnit(id: string): Promise<CurriculumUnit | undefined>;
+
+  // Curriculum Lessons
+  createCurriculumLesson(data: InsertCurriculumLesson): Promise<CurriculumLesson>;
+  getCurriculumLessons(curriculumUnitId: string): Promise<CurriculumLesson[]>;
+  getCurriculumLesson(id: string): Promise<CurriculumLesson | undefined>;
+
+  // Assignments
+  createAssignment(data: InsertAssignment): Promise<Assignment>;
+  getAssignment(id: string): Promise<Assignment | undefined>;
+  getClassAssignments(classId: string): Promise<Assignment[]>;
+  getTeacherAssignments(teacherId: string): Promise<Assignment[]>;
+  updateAssignment(id: string, data: Partial<Assignment>): Promise<Assignment | undefined>;
+  deleteAssignment(id: string): Promise<boolean>;
+
+  // Assignment Submissions
+  createAssignmentSubmission(data: InsertAssignmentSubmission): Promise<AssignmentSubmission>;
+  getAssignmentSubmission(assignmentId: string, studentId: string): Promise<AssignmentSubmission | undefined>;
+  getStudentSubmissions(studentId: string): Promise<Array<AssignmentSubmission & { assignment: Assignment }>>;
+  getAssignmentSubmissions(assignmentId: string): Promise<Array<AssignmentSubmission & { student: User }>>;
+  updateAssignmentSubmission(id: string, data: Partial<AssignmentSubmission>): Promise<AssignmentSubmission | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1297,6 +1364,270 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return result[0];
+  }
+
+  // ===== Teacher Classes =====
+  
+  async createTeacherClass(data: InsertTeacherClass): Promise<TeacherClass> {
+    const [teacherClass] = await db.insert(teacherClasses).values(data).returning();
+    return teacherClass;
+  }
+
+  async getTeacherClass(id: string): Promise<TeacherClass | undefined> {
+    const result = await db.select().from(teacherClasses).where(eq(teacherClasses.id, id));
+    return result[0];
+  }
+
+  async getTeacherClasses(teacherId: string): Promise<TeacherClass[]> {
+    return await db.select().from(teacherClasses).where(eq(teacherClasses.teacherId, teacherId));
+  }
+
+  async updateTeacherClass(id: string, data: Partial<TeacherClass>): Promise<TeacherClass | undefined> {
+    const [updated] = await db
+      .update(teacherClasses)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(teacherClasses.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteTeacherClass(id: string): Promise<boolean> {
+    const result = await db.delete(teacherClasses).where(eq(teacherClasses.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async getClassByJoinCode(joinCode: string): Promise<TeacherClass | undefined> {
+    const result = await db.select().from(teacherClasses).where(eq(teacherClasses.joinCode, joinCode));
+    return result[0];
+  }
+
+  // ===== Class Enrollments =====
+  
+  async enrollStudent(classId: string, studentId: string): Promise<ClassEnrollment> {
+    const [enrollment] = await db
+      .insert(classEnrollments)
+      .values({ classId, studentId })
+      .returning();
+    return enrollment;
+  }
+
+  async getClassEnrollments(classId: string): Promise<Array<ClassEnrollment & { student: User }>> {
+    const result = await db
+      .select()
+      .from(classEnrollments)
+      .leftJoin(users, eq(classEnrollments.studentId, users.id))
+      .where(eq(classEnrollments.classId, classId));
+    
+    return result.map(row => ({
+      ...row.class_enrollments,
+      student: row.users!
+    }));
+  }
+
+  async getStudentEnrollments(studentId: string): Promise<Array<ClassEnrollment & { class: TeacherClass }>> {
+    const result = await db
+      .select()
+      .from(classEnrollments)
+      .leftJoin(teacherClasses, eq(classEnrollments.classId, teacherClasses.id))
+      .where(eq(classEnrollments.studentId, studentId));
+    
+    return result.map(row => ({
+      ...row.class_enrollments,
+      class: row.teacher_classes!
+    }));
+  }
+
+  async unenrollStudent(classId: string, studentId: string): Promise<boolean> {
+    const result = await db
+      .delete(classEnrollments)
+      .where(
+        and(
+          eq(classEnrollments.classId, classId),
+          eq(classEnrollments.studentId, studentId)
+        )
+      );
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async isStudentEnrolled(classId: string, studentId: string): Promise<boolean> {
+    const result = await db
+      .select()
+      .from(classEnrollments)
+      .where(
+        and(
+          eq(classEnrollments.classId, classId),
+          eq(classEnrollments.studentId, studentId),
+          eq(classEnrollments.isActive, true)
+        )
+      )
+      .limit(1);
+    return result.length > 0;
+  }
+
+  // ===== Curriculum Paths =====
+  
+  async createCurriculumPath(data: InsertCurriculumPath): Promise<CurriculumPath> {
+    const [path] = await db.insert(curriculumPaths).values(data).returning();
+    return path;
+  }
+
+  async getCurriculumPath(id: string): Promise<CurriculumPath | undefined> {
+    const result = await db.select().from(curriculumPaths).where(eq(curriculumPaths.id, id));
+    return result[0];
+  }
+
+  async getCurriculumPaths(language?: string): Promise<CurriculumPath[]> {
+    if (language) {
+      return await db.select().from(curriculumPaths).where(eq(curriculumPaths.language, language));
+    }
+    return await db.select().from(curriculumPaths);
+  }
+
+  async updateCurriculumPath(id: string, data: Partial<CurriculumPath>): Promise<CurriculumPath | undefined> {
+    const [updated] = await db
+      .update(curriculumPaths)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(curriculumPaths.id, id))
+      .returning();
+    return updated;
+  }
+
+  // ===== Curriculum Units =====
+  
+  async createCurriculumUnit(data: InsertCurriculumUnit): Promise<CurriculumUnit> {
+    const [unit] = await db.insert(curriculumUnits).values(data).returning();
+    return unit;
+  }
+
+  async getCurriculumUnits(curriculumPathId: string): Promise<CurriculumUnit[]> {
+    return await db
+      .select()
+      .from(curriculumUnits)
+      .where(eq(curriculumUnits.curriculumPathId, curriculumPathId))
+      .orderBy(curriculumUnits.orderIndex);
+  }
+
+  async getCurriculumUnit(id: string): Promise<CurriculumUnit | undefined> {
+    const result = await db.select().from(curriculumUnits).where(eq(curriculumUnits.id, id));
+    return result[0];
+  }
+
+  // ===== Curriculum Lessons =====
+  
+  async createCurriculumLesson(data: InsertCurriculumLesson): Promise<CurriculumLesson> {
+    const [lesson] = await db.insert(curriculumLessons).values(data).returning();
+    return lesson;
+  }
+
+  async getCurriculumLessons(curriculumUnitId: string): Promise<CurriculumLesson[]> {
+    return await db
+      .select()
+      .from(curriculumLessons)
+      .where(eq(curriculumLessons.curriculumUnitId, curriculumUnitId))
+      .orderBy(curriculumLessons.orderIndex);
+  }
+
+  async getCurriculumLesson(id: string): Promise<CurriculumLesson | undefined> {
+    const result = await db.select().from(curriculumLessons).where(eq(curriculumLessons.id, id));
+    return result[0];
+  }
+
+  // ===== Assignments =====
+  
+  async createAssignment(data: InsertAssignment): Promise<Assignment> {
+    const [assignment] = await db.insert(assignments).values(data).returning();
+    return assignment;
+  }
+
+  async getAssignment(id: string): Promise<Assignment | undefined> {
+    const result = await db.select().from(assignments).where(eq(assignments.id, id));
+    return result[0];
+  }
+
+  async getClassAssignments(classId: string): Promise<Assignment[]> {
+    return await db
+      .select()
+      .from(assignments)
+      .where(eq(assignments.classId, classId))
+      .orderBy(desc(assignments.createdAt));
+  }
+
+  async getTeacherAssignments(teacherId: string): Promise<Assignment[]> {
+    return await db
+      .select()
+      .from(assignments)
+      .where(eq(assignments.teacherId, teacherId))
+      .orderBy(desc(assignments.createdAt));
+  }
+
+  async updateAssignment(id: string, data: Partial<Assignment>): Promise<Assignment | undefined> {
+    const [updated] = await db
+      .update(assignments)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(assignments.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAssignment(id: string): Promise<boolean> {
+    const result = await db.delete(assignments).where(eq(assignments.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // ===== Assignment Submissions =====
+  
+  async createAssignmentSubmission(data: InsertAssignmentSubmission): Promise<AssignmentSubmission> {
+    const [submission] = await db.insert(assignmentSubmissions).values(data).returning();
+    return submission;
+  }
+
+  async getAssignmentSubmission(assignmentId: string, studentId: string): Promise<AssignmentSubmission | undefined> {
+    const result = await db
+      .select()
+      .from(assignmentSubmissions)
+      .where(
+        and(
+          eq(assignmentSubmissions.assignmentId, assignmentId),
+          eq(assignmentSubmissions.studentId, studentId)
+        )
+      );
+    return result[0];
+  }
+
+  async getStudentSubmissions(studentId: string): Promise<Array<AssignmentSubmission & { assignment: Assignment }>> {
+    const result = await db
+      .select()
+      .from(assignmentSubmissions)
+      .leftJoin(assignments, eq(assignmentSubmissions.assignmentId, assignments.id))
+      .where(eq(assignmentSubmissions.studentId, studentId))
+      .orderBy(desc(assignmentSubmissions.createdAt));
+    
+    return result.map(row => ({
+      ...row.assignment_submissions,
+      assignment: row.assignments!
+    }));
+  }
+
+  async getAssignmentSubmissions(assignmentId: string): Promise<Array<AssignmentSubmission & { student: User }>> {
+    const result = await db
+      .select()
+      .from(assignmentSubmissions)
+      .leftJoin(users, eq(assignmentSubmissions.studentId, users.id))
+      .where(eq(assignmentSubmissions.assignmentId, assignmentId));
+    
+    return result.map(row => ({
+      ...row.assignment_submissions,
+      student: row.users!
+    }));
+  }
+
+  async updateAssignmentSubmission(id: string, data: Partial<AssignmentSubmission>): Promise<AssignmentSubmission | undefined> {
+    const [updated] = await db
+      .update(assignmentSubmissions)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(assignmentSubmissions.id, id))
+      .returning();
+    return updated;
   }
 }
 
