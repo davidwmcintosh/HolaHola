@@ -47,13 +47,13 @@ export interface TTSResponse {
 const GOOGLE_VOICE_MAP: Record<string, { name: string; languageCode: string }> = {
   'spanish': { name: 'es-US-Chirp-HD-O', languageCode: 'es-US' }, // US Spanish, Chirp 3 HD
   'english': { name: 'en-US-Chirp-HD-O', languageCode: 'en-US' }, // US English, Chirp 3 HD
-  'french': { name: 'fr-FR-Neural2-A', languageCode: 'fr-FR' }, // French, Neural2
-  'german': { name: 'de-DE-Neural2-A', languageCode: 'de-DE' }, // German, Neural2
-  'italian': { name: 'it-IT-Neural2-A', languageCode: 'it-IT' }, // Italian, Neural2
-  'portuguese': { name: 'pt-BR-Neural2-A', languageCode: 'pt-BR' }, // Brazilian Portuguese, Neural2
-  'japanese': { name: 'ja-JP-Neural2-B', languageCode: 'ja-JP' }, // Japanese, Neural2
-  'mandarin chinese': { name: 'cmn-CN-Wavenet-A', languageCode: 'cmn-CN' }, // Mandarin, WaveNet
-  'korean': { name: 'ko-KR-Neural2-A', languageCode: 'ko-KR' }, // Korean, Neural2
+  'french': { name: 'fr-FR-Chirp-HD-O', languageCode: 'fr-FR' }, // French, Chirp 3 HD
+  'german': { name: 'de-DE-Chirp-HD-O', languageCode: 'de-DE' }, // German, Chirp 3 HD
+  'italian': { name: 'it-IT-Chirp-HD-O', languageCode: 'it-IT' }, // Italian, Chirp 3 HD
+  'portuguese': { name: 'pt-BR-Chirp-HD-O', languageCode: 'pt-BR' }, // Brazilian Portuguese, Chirp 3 HD
+  'japanese': { name: 'ja-JP-Chirp-HD-O', languageCode: 'ja-JP' }, // Japanese, Chirp 3 HD
+  'mandarin chinese': { name: 'cmn-CN-Chirp-HD-O', languageCode: 'cmn-CN' }, // Mandarin Chinese, Chirp 3 HD
+  'korean': { name: 'ko-KR-Chirp-HD-O', languageCode: 'ko-KR' }, // Korean, Chirp 3 HD
 };
 
 /**
