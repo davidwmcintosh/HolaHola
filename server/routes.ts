@@ -28,9 +28,6 @@ import { extractTargetLanguageText, hasSignificantTargetLanguageContent } from "
 import multer from "multer";
 import { getTTSService } from "./services/tts-service";
 import { 
-  getCanDoStatements, 
-  getCanDoStatementsByLanguage, 
-  getCanDoStatementsByCategory,
   getAvailableActflLevels,
   getSupportedLanguages,
   getCanDoStatementStats
@@ -3483,24 +3480,16 @@ Return a JSON array of suggestions with this format:
         });
       }
       
-      // If level is provided, filter by level; otherwise return all for the language
-      let statements;
-      if (level && category) {
-        // Filter by both level AND category
-        const internalLevel = toInternalActflLevel(level);
-        statements = internalLevel ? getCanDoStatementsByCategory(normalizedLanguage, internalLevel, category as any) : [];
-      } else if (level) {
-        // Convert external format (Title Case) to internal format (snake_case)
-        const internalLevel = toInternalActflLevel(level);
-        statements = internalLevel ? getCanDoStatements(normalizedLanguage, internalLevel) : [];
-      } else if (category) {
-        // Filter by category only, all levels
-        const allStatements = getCanDoStatementsByLanguage(normalizedLanguage);
-        statements = allStatements.filter(s => s.category === category);
-      } else {
-        // No level or category specified - return ALL Can-Do statements for this language
-        statements = getCanDoStatementsByLanguage(normalizedLanguage);
-      }
+      // Convert external format to internal format if provided
+      const internalLevel = level ? toInternalActflLevel(level as string) : undefined;
+      const categoryFilter = category && typeof category === 'string' ? category : undefined;
+      
+      // Fetch from database with optional filters
+      const statements = await storage.getCanDoStatements(
+        normalizedLanguage,
+        internalLevel,
+        categoryFilter
+      );
 
       // Convert internal format back to external format for API response
       const externalStatements = statements.map(stmt => ({
@@ -3561,6 +3550,40 @@ Return a JSON array of suggestions with this format:
       res.json(stats);
     } catch (error: any) {
       console.error('Error fetching Can-Do statement stats:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get user's Can-Do progress
+  app.get("/api/actfl/progress", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const progress = await storage.getUserCanDoProgress(userId);
+      res.json(progress);
+    } catch (error: any) {
+      console.error('Error fetching Can-Do progress:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Toggle Can-Do progress (check/uncheck a statement)
+  app.post("/api/actfl/progress/toggle", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { statementId } = req.body;
+      
+      if (!statementId) {
+        return res.status(400).json({ error: "Statement ID is required" });
+      }
+
+      const result = await storage.toggleCanDoProgress(userId, statementId);
+      res.json({
+        success: true,
+        achieved: result !== null,
+        progress: result
+      });
+    } catch (error: any) {
+      console.error('Error toggling Can-Do progress:', error);
       res.status(500).json({ error: error.message });
     }
   });

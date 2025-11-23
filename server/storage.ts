@@ -23,6 +23,9 @@ import {
   type InsertMediaFile,
   type MessageMedia,
   type InsertMessageMedia,
+  type CanDoStatement,
+  type StudentCanDoProgress,
+  type InsertStudentCanDoProgress,
   users,
   conversations,
   messages,
@@ -35,6 +38,8 @@ import {
   culturalTips as culturalTipsTable,
   mediaFiles,
   messageMedia,
+  canDoStatements,
+  studentCanDoProgress,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -138,6 +143,16 @@ export interface IStorage {
   getCachedAIImage(promptHash: string): Promise<MediaFile | undefined>;
   cacheImage(data: InsertMediaFile): Promise<MediaFile>;
   incrementImageUsage(id: string): Promise<void>;
+
+  // ACTFL Can-Do Statements
+  getCanDoStatements(language?: string, actflLevel?: string, category?: string): Promise<CanDoStatement[]>;
+  getCanDoStatement(id: string): Promise<CanDoStatement | undefined>;
+  seedCanDoStatements(): Promise<void>;
+  
+  // Student Can-Do Progress
+  getUserCanDoProgress(userId: string): Promise<StudentCanDoProgress[]>;
+  toggleCanDoProgress(userId: string, statementId: string): Promise<StudentCanDoProgress | null>;
+  getCanDoProgressByStatement(userId: string, statementId: string): Promise<StudentCanDoProgress | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1193,6 +1208,95 @@ export class DatabaseStorage implements IStorage {
       .update(mediaFiles)
       .set({ usageCount: sql`${mediaFiles.usageCount} + 1` })
       .where(eq(mediaFiles.id, id));
+  }
+
+  // ACTFL Can-Do Statements
+  async getCanDoStatements(language?: string, actflLevel?: string, category?: string): Promise<CanDoStatement[]> {
+    let query = db.select().from(canDoStatements);
+    
+    const conditions = [];
+    if (language) {
+      conditions.push(eq(canDoStatements.language, language));
+    }
+    if (actflLevel) {
+      conditions.push(eq(canDoStatements.actflLevel, actflLevel));
+    }
+    if (category) {
+      conditions.push(eq(canDoStatements.category, category));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    return await query;
+  }
+
+  async getCanDoStatement(id: string): Promise<CanDoStatement | undefined> {
+    const result = await db.select().from(canDoStatements).where(eq(canDoStatements.id, id));
+    return result[0];
+  }
+
+  async seedCanDoStatements(): Promise<void> {
+    const { getAllCanDoStatements } = await import('./actfl-can-do-statements');
+    const allStatements = getAllCanDoStatements();
+    
+    const existing = await db.select().from(canDoStatements).limit(1);
+    if (existing.length > 0) {
+      return;
+    }
+    
+    for (const stmt of allStatements) {
+      await db.insert(canDoStatements).values(stmt);
+    }
+  }
+
+  // Student Can-Do Progress
+  async getUserCanDoProgress(userId: string): Promise<StudentCanDoProgress[]> {
+    return await db
+      .select()
+      .from(studentCanDoProgress)
+      .where(eq(studentCanDoProgress.userId, userId));
+  }
+
+  async toggleCanDoProgress(userId: string, statementId: string): Promise<StudentCanDoProgress | null> {
+    const existing = await this.getCanDoProgressByStatement(userId, statementId);
+    
+    if (existing) {
+      await db
+        .delete(studentCanDoProgress)
+        .where(
+          and(
+            eq(studentCanDoProgress.userId, userId),
+            eq(studentCanDoProgress.canDoStatementId, statementId)
+          )
+        );
+      return null;
+    } else {
+      const [progress] = await db
+        .insert(studentCanDoProgress)
+        .values({
+          userId,
+          canDoStatementId: statementId,
+          selfAssessed: true,
+          dateAchieved: new Date(),
+        })
+        .returning();
+      return progress;
+    }
+  }
+
+  async getCanDoProgressByStatement(userId: string, statementId: string): Promise<StudentCanDoProgress | undefined> {
+    const result = await db
+      .select()
+      .from(studentCanDoProgress)
+      .where(
+        and(
+          eq(studentCanDoProgress.userId, userId),
+          eq(studentCanDoProgress.canDoStatementId, statementId)
+        )
+      );
+    return result[0];
   }
 }
 

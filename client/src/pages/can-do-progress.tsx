@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
 import {
@@ -15,13 +15,23 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle2, Circle, Award, Brain, User } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 
 interface CanDoStatement {
+  id: string; // Database UUID
   language: string;
   actflLevel: string;
   category: 'interpersonal' | 'interpretive' | 'presentational';
   statement: string;
   examples?: string[];
+}
+
+interface StudentCanDoProgress {
+  id: string;
+  userId: string;
+  canDoStatementId: string;
+  selfAssessed: boolean;
+  dateAchieved: string | null;
 }
 
 // Convert internal format to display format
@@ -32,27 +42,23 @@ function formatActflLevel(level: string): string {
     .join(' ');
 }
 
-// Generate stable statement ID (not dependent on array index)
-function generateStatementId(stmt: CanDoStatement): string {
-  // Use a hash of the statement text for consistency across views
-  // Simple hash function for stable IDs
-  const hash = stmt.statement.split('').reduce((acc, char) => {
-    return ((acc << 5) - acc) + char.charCodeAt(0);
-  }, 0);
-  return `${stmt.language}-${stmt.actflLevel}-${stmt.category}-${Math.abs(hash)}`;
-}
-
 export default function CanDoProgress() {
   const { user } = useAuth();
   const [selectedLevel, setSelectedLevel] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  
-  // TODO: Fetch user progress from API (studentCanDoProgress)
-  // For now, using local state for self-assessment tracking
-  const [userProgress, setUserProgress] = useState<Set<string>>(new Set());
 
   const targetLanguage = user?.targetLanguage || 'spanish';
   const userActflLevel = user?.actflLevel || 'novice_low';
+
+  // Fetch user's Can-Do progress from backend
+  const { data: progressData } = useQuery<StudentCanDoProgress[]>({
+    queryKey: ['/api/actfl/progress'],
+  });
+
+  // Create a Set of achieved statement IDs for fast lookup
+  const achievedStatementIds = new Set(
+    (progressData || []).map(p => p.canDoStatementId)
+  );
 
   // Fetch available ACTFL levels for the target language
   const { data: levelsData } = useQuery<{ language: string; levels: string[] }>({
@@ -77,21 +83,31 @@ export default function CanDoProgress() {
   });
 
   const statements = statementsData?.statements || [];
+
+  // Mutation for toggling Can-Do progress
+  const toggleProgressMutation = useMutation({
+    mutationFn: async (statementId: string) => {
+      console.log('[CAN-DO] Mutation firing for statement:', statementId);
+      const result = await apiRequest('POST', '/api/actfl/progress/toggle', { statementId });
+      console.log('[CAN-DO] Mutation result:', result);
+      return result;
+    },
+    onSuccess: (data) => {
+      console.log('[CAN-DO] Mutation success:', data);
+      // Invalidate progress query to refresh data
+      queryClient.invalidateQueries({ queryKey: ['/api/actfl/progress'] });
+    },
+    onError: (error) => {
+      console.error('[CAN-DO] Mutation error:', error);
+    },
+  });
   
   // Handle checkbox toggle
-  const handleToggleProgress = (statementKey: string) => {
-    setUserProgress(prev => {
-      const newProgress = new Set(prev);
-      if (newProgress.has(statementKey)) {
-        newProgress.delete(statementKey);
-        console.log('[CAN-DO] Unchecked:', statementKey);
-      } else {
-        newProgress.add(statementKey);
-        console.log('[CAN-DO] Checked:', statementKey);
-      }
-      // TODO: Persist to backend API
-      return newProgress;
-    });
+  const handleToggleProgress = (statementId: string, checked: boolean | 'indeterminate') => {
+    console.log('[CAN-DO] Toggle progress for statement:', statementId);
+    console.log('[CAN-DO] New checked state:', checked);
+    console.log('[CAN-DO] Mutation pending:', toggleProgressMutation.isPending);
+    toggleProgressMutation.mutate(statementId);
   };
 
   // Group statements by proficiency level
@@ -250,25 +266,24 @@ export default function CanDoProgress() {
                 return (
                   <TabsContent key={category} value={category} className="space-y-3 mt-4">
                     {categoryStatements.map((stmt) => {
-                      const statementKey = generateStatementId(stmt);
-                      const isAchieved = userProgress.has(statementKey);
+                      const isAchieved = achievedStatementIds.has(stmt.id);
 
                       return (
                         <div
-                          key={statementKey}
+                          key={stmt.id}
                           className="flex items-start gap-3 p-3 rounded-lg border bg-card hover-elevate"
-                          data-testid={`statement-${statementKey}`}
+                          data-testid={`statement-${stmt.id}`}
                         >
                           <Checkbox
-                            id={statementKey}
+                            id={stmt.id}
                             checked={isAchieved}
-                            onCheckedChange={() => handleToggleProgress(statementKey)}
+                            onCheckedChange={(checked) => handleToggleProgress(stmt.id, checked)}
                             className="mt-0.5"
-                            data-testid={`checkbox-${statementKey}`}
+                            data-testid={`checkbox-${stmt.id}`}
                           />
                           <div className="flex-1 space-y-1">
                             <label
-                              htmlFor={statementKey}
+                              htmlFor={stmt.id}
                               className="text-sm font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                             >
                               {stmt.statement}
@@ -316,19 +331,19 @@ export default function CanDoProgress() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1">
-                <div className="text-2xl font-bold">{userProgress.size}</div>
+                <div className="text-2xl font-bold">{achievedStatementIds.size}</div>
                 <div className="text-sm text-muted-foreground">Total Achieved</div>
               </div>
               <div className="space-y-1">
                 <div className="text-2xl font-bold">
                   {statements.length > 0 
-                    ? Math.round((userProgress.size / statements.length) * 100)
+                    ? Math.round((achievedStatementIds.size / statements.length) * 100)
                     : 0}%
                 </div>
                 <div className="text-sm text-muted-foreground">Completion Rate</div>
               </div>
               <div className="space-y-1">
-                <div className="text-2xl font-bold">{statements.length - userProgress.size}</div>
+                <div className="text-2xl font-bold">{statements.length - achievedStatementIds.size}</div>
                 <div className="text-sm text-muted-foreground">Remaining</div>
               </div>
             </div>

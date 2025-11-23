@@ -275,3 +275,10 @@ export function getCanDoStatementStats() {
     languages: stats
   };
 }
+
+/**
+ * Get all Can-Do Statements (for database seeding)
+ */
+export function getAllCanDoStatements(): CanDoStatement[] {
+  return canDoStatements;
+}

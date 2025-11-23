@@ -40,6 +40,17 @@ const stripeInitPromise = (async function initStripe() {
     });
     await stripeSync.syncBackfill();
     console.log('Stripe data synced');
+    
+    // Seed Can-Do Statements (one-time)
+    try {
+      console.log('Seeding ACTFL Can-Do Statements...');
+      const { storage } = await import('./storage');
+      await storage.seedCanDoStatements();
+      console.log('Can-Do statements ready');
+    } catch (error) {
+      console.error('Failed to seed Can-Do statements:', error);
+    }
+    
     stripeReady = true;
   } catch (error) {
     console.error('Failed to initialize Stripe:', error);
