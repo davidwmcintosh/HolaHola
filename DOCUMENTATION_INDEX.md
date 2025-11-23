@@ -13,7 +13,7 @@ This document provides an overview of all documentation files in the project.
 - Architectural principles (Unified Code Principle)
 - System architecture (frontend, backend, data models)
 - Core features and functionality
-- External dependencies (dual OpenAI client architecture)
+- External dependencies (Gemini, Deepgram, Google Cloud TTS)
 - Third-party integrations
 
 **When to use**: Understanding overall project structure, architecture decisions, and key features.
@@ -25,87 +25,69 @@ This document provides an overview of all documentation files in the project.
 ⚠️ **ACTIVE SYSTEM**: RestVoiceChat.tsx (REST-based)  
 ⚠️ **DEPRECATED**: VoiceChat.tsx (WebSocket-based) - DO NOT USE
 
-### REST_VOICE_CHAT.md ⭐ ACTIVE SYSTEM
+### docs/voice-chat-setup.md ⭐ CURRENT SYSTEM
 **Complete REST voice chat architecture documentation**
 - **Component**: `RestVoiceChat.tsx` (client/src/components/RestVoiceChat.tsx)
 - **API Client**: `restVoiceApi.ts` (client/src/lib/restVoiceApi.ts)
-- Architecture overview (Browser → Whisper → GPT → TTS → Playback)
+- Architecture overview (Browser → Deepgram Nova-3 → Gemini → Google Cloud TTS → Playback)
 - API endpoints (`/api/voice/transcribe`, `/api/voice/synthesize`)
-- Dual OpenAI client architecture explained
+- AI services: Deepgram Nova-3 (STT), Gemini 2.5 Flash (Chat), Google Cloud Chirp 3 HD (TTS)
 - Usage enforcement and quota tracking
 - Audio format support (WebM, MP4, iOS/Safari compatibility)
 - Error handling strategies
 - Response parsing logic
-- Testing and verification (test-openai-key.ts)
 - Mobile support
 - Accessibility features
-- Performance characteristics (77% latency reduction vs WebSocket)
+- Performance: <300ms STT latency, 54.3% better accuracy for non-native speakers
 - Troubleshooting guide
-- Migration notes from WebSocket
+- Migration notes (OpenAI → Gemini/Deepgram, November 2025)
 
-**When to use**: Understanding voice features, debugging voice issues, implementing new voice capabilities, API key setup.
-
----
-
-### VOICE_CHAT_TROUBLESHOOTING.md ⚠️ HISTORICAL REFERENCE
-**Historical WebSocket debugging timeline**
-- **Component**: `VoiceChat.tsx` (DEPRECATED - DO NOT USE)
-- Complete investigation of failed WebSocket implementation
-- Configuration attempts and failures
-- Timeline of debugging efforts (8+ hours)
-- Root cause: OpenAI Realtime WebSocket API instability
-- Decision to pivot to REST architecture
-- Lessons learned
-
-**When to use**: Understanding why we pivoted to REST, historical context, avoiding WebSocket approach.
-
-**DO NOT USE** the WebSocket approach described in this document - it is deprecated.
+**When to use**: Understanding voice features, debugging voice issues, implementing new voice capabilities.
 
 ---
 
-## API Key Documentation
+### docs/LLM-Migration-Analysis.md ⚠️ HISTORICAL REFERENCE
+**Historical LLM migration analysis (COMPLETED November 2025)**
+- Cost-benefit analysis: OpenAI → Gemini/Deepgram
+- Voice STT comparison (Whisper → Deepgram Nova-3)
+- Text LLM comparison (GPT → Gemini)
+- Migration decision rationale
+- Expected vs actual costs ($650 estimated → $7 actual)
+- Annual savings projections (~$600/year)
 
-### test-openai-key.ts ⭐ NEW
-**API key verification script**
-- Tests Whisper (STT)
-- Tests TTS (speech synthesis)
-- Tests Chat Completions
-- Provides detailed error messages
-- Confirms USER_OPENAI_API_KEY validity
-
-**Usage**: `tsx test-openai-key.ts`
-
-**When to use**: Verifying API key before/after setup, debugging 401 errors, confirming voice features will work.
+**When to use**: Understanding migration decisions, cost analysis reference, architectural history.
 
 ---
 
-### API_KEY_VERIFICATION.md
-**API key setup instructions**
-- How to obtain OpenAI API key
-- Where to configure USER_OPENAI_API_KEY
-- Common setup issues
+## AI Integration Documentation
 
-**When to use**: Initial project setup, helping new developers configure voice features.
+⚠️ **NOTE**: All AI services now use Replit AI Integrations (no user API keys needed)
+
+### Current AI Services (November 2025)
+- **Text Chat**: Gemini 2.5 Flash (Free/Basic/Institutional), Gemini 2.5 Pro (Pro tier)
+- **Voice STT**: Deepgram Nova-3 with auto-detect mode
+- **Voice TTS**: Google Cloud Chirp 3 HD voices
+- **Image Generation**: Gemini Flash-Image
+
+### docs/Development-Cost-Projections.md ⭐ NEW
+**Development cost reference based on actual migrations**
+- $7 baseline: Complete LLM migration (November 2025)
+- Cost estimation formulas for future work
+- Small/Medium/Large task categorization
+- Examples and guidelines
+
+**When to use**: Estimating development effort, planning feature work, budget projections.
 
 ---
 
-### API_KEY_MANAGEMENT.md
-**API key management best practices**
-- Security considerations
-- Rotation procedures
-- Environment variable handling
+### Historical API Key Documentation (Pre-Migration)
 
-**When to use**: Managing API keys in production, security audits.
+The following files reference the old OpenAI-based architecture and are preserved for historical context:
 
----
-
-### API_KEY_FIX_INSTRUCTIONS.md
-**Emergency API key troubleshooting**
-- Quick fix procedures
-- Common error codes
-- Diagnostic steps
-
-**When to use**: Voice features suddenly stop working, 401/403 errors appearing.
+- **test-openai-key.ts**: OpenAI API key verification (deprecated)
+- **API_KEY_VERIFICATION.md**: OpenAI key setup (deprecated)
+- **API_KEY_MANAGEMENT.md**: OpenAI key management (deprecated)
+- **API_KEY_FIX_INSTRUCTIONS.md**: OpenAI troubleshooting (deprecated)
 
 ---
 
@@ -136,29 +118,28 @@ This document provides an overview of all documentation files in the project.
 ## Quick Reference
 
 ### Voice Features Not Working?
-1. Run `tsx test-openai-key.ts` to verify API key
-2. Check `REST_VOICE_CHAT.md` → Troubleshooting section
-3. Review `replit.md` → API Key Verification section
-4. Check workflow logs: `refresh_all_logs` tool
+1. Check browser console (F12) for frontend errors
+2. Review `docs/voice-chat-setup.md` → Troubleshooting section
+3. Check workflow logs for backend errors
+4. Verify AI integrations are configured (Deepgram, Google Cloud TTS)
 
 ### Understanding Architecture?
 1. Start with `replit.md` → System Architecture
-2. Read `REST_VOICE_CHAT.md` → Architecture Overview
-3. Review `replit.md` → Unified Code Principle
+2. Read `docs/voice-chat-setup.md` → Architecture Overview
+3. Review `docs/LLM-Migration-Analysis.md` → Migration History
+4. Check `replit.md` → Unified Code Principle
 
 ### New Developer Onboarding?
 1. Read `replit.md` (overview, architecture, features)
-2. Set up API key (follow `API_KEY_VERIFICATION.md`)
-3. Run test script: `tsx test-openai-key.ts`
-4. Review `REST_VOICE_CHAT.md` (voice features)
-5. Check `design_guidelines.md` (UI standards)
+2. Review `docs/voice-chat-setup.md` (voice features)
+3. Check `design_guidelines.md` (UI standards)
+4. Review `docs/Development-Cost-Projections.md` (cost estimates)
 
 ### Debugging Voice Issues?
-1. Run `tsx test-openai-key.ts` (verify key)
-2. Check browser console (F12)
-3. Review `REST_VOICE_CHAT.md` → Error Handling
-4. Check workflow logs for backend errors
-5. Verify USER_OPENAI_API_KEY is set
+1. Check browser console (F12) for frontend errors
+2. Review workflow logs for backend errors
+3. Check `docs/voice-chat-setup.md` → Troubleshooting
+4. Verify Deepgram and Google Cloud TTS credentials are set
 
 ---
 
@@ -166,32 +147,41 @@ This document provides an overview of all documentation files in the project.
 
 ```
 project/
-├── replit.md                         # Main documentation
-├── REST_VOICE_CHAT.md               # Voice chat architecture ⭐ NEW
-├── test-openai-key.ts               # API key test script ⭐ NEW
-├── VOICE_CHAT_TROUBLESHOOTING.md    # WebSocket failure history
-├── API_KEY_VERIFICATION.md          # Key setup guide
-├── API_KEY_MANAGEMENT.md            # Key management
-├── API_KEY_FIX_INSTRUCTIONS.md      # Emergency fixes
-├── CAPACITOR.md                     # Mobile app config
-├── design_guidelines.md             # UI/UX guidelines
-└── DOCUMENTATION_INDEX.md           # This file
+├── replit.md                                # Main documentation
+├── docs/
+│   ├── voice-chat-setup.md                 # Voice chat architecture ⭐ CURRENT
+│   ├── LLM-Migration-Analysis.md           # Migration history (Nov 2025)
+│   ├── Development-Cost-Projections.md     # Cost estimation reference
+│   └── institutional-standards-integration.md
+├── DEVELOPER_QUICK_COMMANDS.md             # Developer SQL commands
+├── DOCUMENTATION_INDEX.md                  # This file
+├── CAPACITOR.md                            # Mobile app config
+├── design_guidelines.md                    # UI/UX guidelines
+└── [deprecated]/                           # Historical files
+    ├── REST_VOICE_CHAT.md                  # Old voice docs
+    ├── VOICE_CHAT_TROUBLESHOOTING.md       # WebSocket history
+    ├── API_KEY_*.md                        # Old OpenAI key docs
+    └── test-openai-key.ts                  # Old test script
 ```
 
 ---
 
-## Recent Updates (Nov 21, 2025)
+## Recent Updates (Nov 23, 2025)
 
-### ✅ Completed
-- **REST_VOICE_CHAT.md**: Comprehensive voice architecture documentation
-- **test-openai-key.ts**: API key verification script
-- **replit.md**: Added API Key Verification section
-- **replit.md**: Enhanced External Dependencies with dual client explanation
+### ✅ LLM Migration Completed
+- **Text Chat**: OpenAI GPT-4o-mini → Gemini 2.5 Flash
+- **Voice STT**: OpenAI Whisper → Deepgram Nova-3
+- **Image Generation**: DALL-E 3 → Gemini Flash-Image
+- **TTS**: Google Cloud Chirp 3 HD (unchanged)
+- **Cost**: $7 total migration cost
+- **Savings**: ~$600/year ongoing
 
-### ✅ Verified
-- USER_OPENAI_API_KEY confirmed working (164 chars, sk-proj-* prefix)
-- All voice APIs operational (Whisper, TTS, Chat)
-- Test script successfully validates key
+### ✅ Documentation Updated
+- `docs/voice-chat-setup.md`: Updated to reflect Gemini/Deepgram architecture
+- `docs/LLM-Migration-Analysis.md`: Marked as completed with historical note
+- `DEVELOPER_QUICK_COMMANDS.md`: Updated model names to Gemini
+- `DOCUMENTATION_INDEX.md`: Reflected new AI integration architecture
+- `replit.md`: Updated in earlier migration work
 
 ---
 
@@ -214,5 +204,6 @@ project/
 
 ---
 
-**Last Updated**: November 21, 2025  
+**Last Updated**: November 23, 2025  
+**Current AI Stack**: Gemini 2.5 Flash/Pro (text), Deepgram Nova-3 (STT), Google Cloud Chirp 3 HD (TTS), Gemini Flash-Image (images)  
 **Maintainer**: LinguaFlow Development Team

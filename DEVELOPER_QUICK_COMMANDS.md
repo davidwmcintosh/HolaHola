@@ -6,14 +6,14 @@ Quick reference for developer testing commands. Copy and paste these into the da
 
 ## Model Switching
 
-### Switch to GPT-4o (Pro Quality - Best)
+### Switch to Gemini 2.5 Pro (Pro Quality - Best)
 ```sql
-UPDATE users SET developer_model = 'gpt-4o' WHERE id = '49847136';
+UPDATE users SET developer_model = 'gemini-2.5-pro' WHERE id = '49847136';
 ```
 
-### Switch to GPT-4o-mini (Free/Basic - Faster)
+### Switch to Gemini 2.5 Flash (Free/Basic - Faster)
 ```sql
-UPDATE users SET developer_model = 'gpt-4o-mini' WHERE id = '49847136';
+UPDATE users SET developer_model = 'gemini-2.5-flash' WHERE id = '49847136';
 ```
 
 ### Reset to Default (Tier-Based)
@@ -57,22 +57,22 @@ SELECT monthly_message_count, monthly_message_limit FROM users WHERE id = '49847
 
 ### Simulate Free Tier
 ```sql
-UPDATE users SET subscription_tier = 'free', developer_model = 'gpt-4o-mini' WHERE id = '49847136';
+UPDATE users SET subscription_tier = 'free', developer_model = 'gemini-2.5-flash' WHERE id = '49847136';
 ```
 
 ### Simulate Basic Tier
 ```sql
-UPDATE users SET subscription_tier = 'basic', developer_model = 'gpt-4o-mini' WHERE id = '49847136';
+UPDATE users SET subscription_tier = 'basic', developer_model = 'gemini-2.5-flash' WHERE id = '49847136';
 ```
 
 ### Simulate Pro Tier
 ```sql
-UPDATE users SET subscription_tier = 'pro', developer_model = 'gpt-4o' WHERE id = '49847136';
+UPDATE users SET subscription_tier = 'pro', developer_model = 'gemini-2.5-pro' WHERE id = '49847136';
 ```
 
 ### Reset to Developer Mode
 ```sql
-UPDATE users SET subscription_tier = 'free', role = 'developer', developer_model = 'gpt-4o' WHERE id = '49847136';
+UPDATE users SET subscription_tier = 'free', role = 'developer', developer_model = 'gemini-2.5-pro' WHERE id = '49847136';
 ```
 
 ---
@@ -81,21 +81,21 @@ UPDATE users SET subscription_tier = 'free', role = 'developer', developer_model
 
 ### Expected Log Output
 
-**When using GPT-4o:**
+**When using Gemini 2.5 Pro:**
 ```
-[DEVELOPER MODE] Using override model: gpt-4o (role: developer)
-[CHAT] Using model gpt-4o for tier: free, voiceMode: true
+[DEVELOPER MODE] Using override model: gemini-2.5-pro (role: developer)
+[CHAT] Using model gemini-2.5-pro for tier: free, voiceMode: true
 ```
 
-**When using GPT-4o-mini:**
+**When using Gemini 2.5 Flash:**
 ```
-[DEVELOPER MODE] Using override model: gpt-4o-mini (role: developer)
-[CHAT] Using model gpt-4o-mini for tier: free, voiceMode: true
+[DEVELOPER MODE] Using override model: gemini-2.5-flash (role: developer)
+[CHAT] Using model gemini-2.5-flash for tier: free, voiceMode: true
 ```
 
 ### Quality Differences to Test:
-- **GPT-4o**: Better at nuanced explanations, cultural context, complex grammar
-- **GPT-4o-mini**: Faster responses (~30% quicker), lower cost, still very capable
+- **Gemini 2.5 Pro**: Better at nuanced explanations, cultural context, complex grammar, 2M token context window
+- **Gemini 2.5 Flash**: Faster responses, 33% lower cost, 1M token context window, still very capable
 
 ---
 

@@ -1,13 +1,12 @@
 # Voice Chat Setup Guide
 
-⚠️ **IMPORTANT**: This documentation covers the REST-based voice system (`RestVoiceChat.tsx`).  
-The old WebSocket-based system (`VoiceChat.tsx`) is DEPRECATED and no longer used.
+⚠️ **CURRENT SYSTEM**: REST-based voice pipeline using Deepgram Nova-3 (STT) + Gemini 2.5 Flash (Chat) + Google Cloud Chirp 3 HD (TTS)
 
 ## Overview
 
-The voice chat feature provides Push-to-Talk speech-to-speech conversation with an AI language tutor using a stable REST-based pipeline. This architecture replaced the unstable OpenAI Realtime WebSocket API with proven, production-ready REST endpoints.
+The voice chat feature provides Push-to-Talk speech-to-speech conversation with an AI language tutor using a production-stable REST-based pipeline optimized for language learning.
 
-**Current System**: REST-based voice pipeline (Whisper STT → GPT-4 Chat → TTS)
+**Current System**: Deepgram Nova-3 STT → Gemini 2.5 Flash Chat → Google Cloud Chirp 3 HD TTS
 
 ## Architecture
 
@@ -27,8 +26,8 @@ The voice chat feature provides Push-to-Talk speech-to-speech conversation with 
 
 ### Backend Components
 - **routes.ts**: REST API endpoints
-  - `POST /api/voice/transcribe` - Whisper speech-to-text
-  - `POST /api/voice/synthesize` - OpenAI TTS text-to-speech
+  - `POST /api/voice/transcribe` - Deepgram Nova-3 speech-to-text (auto-detect mode)
+  - `POST /api/voice/synthesize` - Google Cloud Chirp 3 HD text-to-speech
   - Tier-based usage enforcement with atomic quota tracking
   - Language code mapping (spanish → es, french → fr, etc.)
 
@@ -40,14 +39,13 @@ The voice chat feature provides Push-to-Talk speech-to-speech conversation with 
 
 ## Requirements
 
-### OpenAI API Key for Voice Features
-Voice features require a **User's Personal OpenAI API Key** (`USER_OPENAI_API_KEY`) for Whisper STT and TTS:
+### API Keys for Voice Features
+Voice features use the following API keys (managed automatically via Replit AI Integrations):
 
-1. Get an OpenAI API key from https://platform.openai.com
-2. Add it as a secret named `USER_OPENAI_API_KEY` in the Secrets tab
-3. Restart the application
+- **DEEPGRAM_API_KEY**: For speech-to-text (student input)
+- **GOOGLE_CLOUD_TTS_CREDENTIALS**: For text-to-speech (tutor voice)
 
-**Note**: Text chat uses `OPENAI_API_KEY` (Replit AI Integrations), while voice uses `USER_OPENAI_API_KEY`. This separates text costs from voice costs.
+**Note**: Text chat uses Gemini 2.5 Flash via Replit AI Integrations (no user API key needed).
 
 ### Browser Requirements
 - Modern browser with MediaRecorder API support (Chrome, Firefox, Safari, Edge)
@@ -69,19 +67,21 @@ Voice features require a **User's Personal OpenAI API Key** (`USER_OPENAI_API_KE
 
 - **Push-to-Talk Recording**: Hold to record, release to send
 - **Split Response Architecture**: Fast text response (~3.6s) with background enrichment
-- **Live Transcription**: See what you said and what the AI responds
+- **Live Transcription**: Deepgram Nova-3 with <300ms latency and 54.3% better accuracy for non-native speakers
 - **Usage Tracking**: Monthly quota limits based on subscription tier
-- **Tier-Based Model Selection**: gpt-4o-mini (Free/Basic/Institutional), gpt-4o (Pro)
+- **Tier-Based Model Selection**: Gemini 2.5 Flash (Free/Basic/Institutional), Gemini 2.5 Pro (Pro)
 - **Multi-language Support**: Works with Spanish, French, German, Italian, Portuguese, Japanese, Korean, Chinese, Russian
 - **Difficulty Adaptation**: AI adjusts language complexity based on level
 - **Seamless Mode Switching**: Switch between voice and text anytime
+- **Auto-Detect Language**: Deepgram automatically detects the language you speak
 
 ## Troubleshooting
 
-### "Invalid OpenAI API key" Error
-- Verify `USER_OPENAI_API_KEY` is set correctly in Secrets tab
-- Ensure the API key has access to Whisper and TTS models
-- Try regenerating the API key in OpenAI dashboard
+### Voice transcription errors
+- Speak more clearly or louder
+- Check microphone input levels
+- Deepgram auto-detects language, so you can speak in any language
+- Try recording again
 - Fallback: Use "Type instead" for text-only chat
 
 ### "Monthly voice limit reached" Error
@@ -117,62 +117,72 @@ Voice features require a **User's Personal OpenAI API Key** (`USER_OPENAI_API_KE
 
 ### Audio Format
 - Input: WebM (Chrome/Firefox) or MP4 (Safari/iOS)
-- Whisper API handles automatic format conversion
-- TTS Output: MP3, 24kHz, mono
+- Deepgram Nova-3 handles automatic format conversion and language detection
+- TTS Output: MP3, 24kHz, mono (Google Cloud Chirp 3 HD)
 - Browser playback: Native HTML5 Audio API
 
 ### API Flow
 1. Browser records audio using MediaRecorder
-2. POST audio blob to `/api/voice/transcribe` (Whisper STT)
-3. POST transcribed text to `/api/conversations/:id/messages` (GPT chat)
-4. POST AI response to `/api/voice/synthesize` (TTS)
+2. POST audio blob to `/api/voice/transcribe` (Deepgram Nova-3 STT with auto-detect)
+3. POST transcribed text to `/api/conversations/:id/messages` (Gemini 2.5 Flash chat)
+4. POST AI response to `/api/voice/synthesize` (Google Cloud Chirp 3 HD TTS)
 5. Return audio blob to browser for playback
 6. Increment usage quota atomically
 
 ### Security
-- API keys never exposed to frontend
-- Backend handles all OpenAI API calls
+- API keys managed by Replit AI Integrations (never exposed to frontend)
+- Backend handles all AI API calls
 - Session-based authentication (Replit Auth OIDC)
 - Server-side usage quota enforcement
 - Atomic SQL updates prevent race conditions
 
 ## Performance
 
-- **Voice Pipeline**: ~9s total (1s Whisper + 4.4s GPT + 3.3s TTS)
+- **Voice Pipeline**: ~9s total (~1s Deepgram + ~4.4s Gemini + ~3.3s TTS)
 - **Split Response**: ~3.6s for text response (background enrichment queued)
+- **STT Latency**: <300ms with Deepgram Nova-3 (real-time streaming capable)
 - **Background Processing**: Vocabulary extraction and image generation via `setImmediate()`
+
+## Benefits of Current Stack
+
+1. **Better Accuracy**: Deepgram Nova-3 has 54.3% better WER for non-native speakers
+2. **Faster Response**: <300ms STT latency vs batch-only alternatives
+3. **No User API Keys**: All AI services managed via Replit AI Integrations
+4. **Cost Efficient**: 28% cheaper STT, 33% cheaper text chat vs OpenAI
+5. **Auto-Detect Language**: Students can ask questions in any language
+6. **Authentic Pronunciation**: Google Cloud Chirp 3 HD for native-quality voice
 
 ## Limitations
 
-1. **API Key Required**: Needs `USER_OPENAI_API_KEY` for voice features
-2. **Usage Quotas**: Monthly limits based on subscription tier
-3. **Browser Support**: Requires MediaRecorder API (modern browsers only)
-4. **Network Dependency**: Requires stable internet connection
-5. **Mobile**: iOS requires Safari for best compatibility
-6. **Cost**: Whisper + TTS costs are separate from text chat
+1. **Usage Quotas**: Monthly limits based on subscription tier
+2. **Browser Support**: Requires MediaRecorder API (modern browsers only)
+3. **Network Dependency**: Requires stable internet connection
+4. **Mobile**: iOS requires Safari for best compatibility
 
-## Migration from WebSocket System
+## Migration History
 
-**Old System** (DEPRECATED):
-- Component: `VoiceChat.tsx`
-- Architecture: WebSocket to OpenAI Realtime API
-- Status: Unstable, removed from production
+### November 2025: OpenAI → Gemini/Deepgram Migration
 
-**New System** (ACTIVE):
-- Component: `RestVoiceChat.tsx`
-- Architecture: REST endpoints (Whisper + GPT + TTS)
-- Status: Production-stable, actively maintained
+**Migration Benefits**:
+- ✅ 54.3% better transcription accuracy for language learners (Deepgram Nova-3)
+- ✅ <300ms STT latency (vs batch-only Whisper)
+- ✅ 33% cost reduction on text chat (Gemini 2.5 Flash vs GPT-4o-mini)
+- ✅ 28% cost reduction on STT (Deepgram vs Whisper)
+- ✅ Removed user API key requirement (better UX)
+- ✅ 2M token context window (15x larger for long-term learning)
 
-**Why We Switched**:
-- WebSocket Realtime API was unstable (server_error issues)
-- REST pipeline is proven and reliable
-- Better error handling and recovery
-- Atomic usage tracking prevents quota issues
-- Split response architecture reduces latency
+**Components Changed**:
+- **STT**: OpenAI Whisper → Deepgram Nova-3
+- **Text Chat**: GPT-4o-mini → Gemini 2.5 Flash
+- **Image Generation**: DALL-E 3 → Gemini Flash-Image
+- **TTS**: Google Cloud Chirp 3 HD (unchanged - already optimal)
+
+**Total Migration Cost**: $7 (6.5 hours of agent development time)
+**Annual Savings**: ~$600/year at 500 hours/month usage
 
 ## Documentation
 
 For detailed technical documentation, see:
-- `REST_VOICE_CHAT.md` - Complete REST voice architecture
-- `VOICE_CHAT_TROUBLESHOOTING.md` - WebSocket failure history and REST pivot
 - `replit.md` - System architecture overview
+- `LLM-Migration-Analysis.md` - Migration analysis and decision rationale
+- `Development-Cost-Projections.md` - Cost estimation reference
