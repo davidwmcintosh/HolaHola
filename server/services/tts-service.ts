@@ -374,8 +374,9 @@ export class TTSService {
       if (ipa) {
         hasPhonemes = true;
         console.log(`[SSML Phoneme] Wrapping "${quotedContent}" with IPA: ${ipa}`);
-        // Wrap with phoneme tag, preserving original capitalization and quotes
-        return `${openQuote}<phoneme alphabet="ipa" ph="${ipa}">${quotedContent}</phoneme>${closeQuote}`;
+        // IMPORTANT: Phoneme tag REPLACES the quoted word (no quotes in SSML)
+        // The quotes were just markers in the original text to identify target words
+        return `<phoneme alphabet="ipa" ph="${ipa}">${quotedContent}</phoneme>`;
       }
       
       // Keep original quoted word if no IPA mapping
