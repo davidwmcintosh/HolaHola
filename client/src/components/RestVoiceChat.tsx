@@ -97,6 +97,10 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       const greetingMessage = aiMessages[0];
       const greetingConversationId = conversationId; // Capture for closure
       
+      // IMMEDIATELY mark as played to prevent race conditions from React double-renders
+      // This prevents duplicate greeting synthesis when effects run twice
+      hasPlayedGreetingRef.current = greetingConversationId;
+      
       // Generate TTS for the greeting (but don't change state yet)
       console.log('[VOICE GREETING] Generating greeting audio for new conversation');
       
@@ -141,7 +145,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
             audioPlayerRef.current.play()
               .then(() => {
                 console.log('[VOICE GREETING] Greeting audio playing');
-                hasPlayedGreetingRef.current = greetingConversationId;
+                // Note: hasPlayedGreetingRef already set at start to prevent race conditions
               })
               .catch(err => {
                 console.error('[VOICE GREETING] Failed to play greeting:', err);
