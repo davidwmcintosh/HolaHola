@@ -1572,6 +1572,7 @@ Return a JSON array of suggestions with this format:
           
           let target = (parsed.target || '').trim();
           let native = (parsed.native || '').trim();
+          const originalTarget = target; // Save for encouragement detection
           
           // BEGINNER VALIDATION: Enforce character limits
           if (conversation.difficulty === 'beginner') {
@@ -1653,7 +1654,10 @@ Return a JSON array of suggestions with this format:
             'fantástico', 'maravilloso', 'bravo', 'muy bien',
             'estupendo', 'magnífico', 'fenomenal', 'increíble'
           ];
-          const targetLower = target.toLowerCase().replace(/[¡!¿?]/g, '').trim();
+          // CRITICAL: Check ORIGINAL target (before extraction) for encouragement
+          // The target might be "¡Excelente! Now let's learn..." which gets extracted to "Buenos días"
+          // But we need to detect the "¡Excelente!" part for prepending logic
+          const targetLower = originalTarget.toLowerCase().replace(/[¡!¿?]/g, '').trim();
           // Use Unicode-aware word boundaries for accented Spanish words
           // ASCII \b fails for accented chars, so use negative lookahead/lookbehind
           const isEncouragement = encouragementWords.some(word => {

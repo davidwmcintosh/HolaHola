@@ -189,7 +189,7 @@ export default function Chat() {
           New Chat
         </Button>
       </div>
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0">
         {mode === "voice" ? (
           <VoiceChat 
             conversationId={conversationId} 
