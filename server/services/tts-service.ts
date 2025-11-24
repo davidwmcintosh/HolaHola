@@ -349,6 +349,10 @@ export class TTSService {
     let modifiedText = text;
     let hasPhonemes = false;
 
+    // DEBUG: Log the actual text to see what quotes are being used
+    console.log(`[SSML DEBUG] Text to process: ${text.substring(0, 200)}`);
+    console.log(`[SSML DEBUG] Checking for quoted words in ${targetLanguage}`);
+
     // Find all quoted words/phrases and check if they have IPA mappings
     // Match various quote styles: 'word' "word" "word" 'word' «word» etc.
     const quotedPattern = /(['''"""«])([^'''"""«»]+)(['''"""»])/g;
