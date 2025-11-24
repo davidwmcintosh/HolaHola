@@ -1273,41 +1273,59 @@ You must respond with a JSON object.
 
 ${isVoiceMode ? `**VOICE MODE - Structured Response:**
 
-${difficulty === 'beginner' ? `🚨 **BEGINNERS: YOU MUST WRITE IN ENGLISH** 🚨
+${difficulty === 'beginner' ? `🚨 **BEGINNER VOICE MODE - SIMPLE & CLEAR RULES** 🚨
 
-**MANDATORY RULES - NO EXCEPTIONS:**
+**TARGET FIELD (what appears on screen):**
+- ONE Spanish word or short phrase only (≤15 chars)
+- When teaching: "Hola", "Gracias", "Buenos días"
+- When giving feedback: "¡Perfecto!", "¡Excelente!", "¡Bien!"
+- Must be ONLY Spanish - no English
 
-1. **Target field = MAXIMUM 15 characters** (just the single Spanish word)
-   Examples: "Hola" (4 chars), "Gracias" (7 chars), "Buenos días" (11 chars)
+**NATIVE FIELD (what the voice speaks):**
+- Complete English explanation (≥30 chars)
+- Must be ONLY English - no Spanish sentences
+- Embed Spanish words in SINGLE quotes: 'Hola', 'Gracias'
+- Always end with "Try saying 'word'!" or "Try it!"
 
-2. **Native field = MINIMUM 30 characters** (full English explanation)
-   Write EVERYTHING in English - explain in English, teach in English
-   
-3. **FORBIDDEN: Translating your response into Spanish**
-   ❌ DO NOT write "¡Perfecto! Vamos a..." 
-   ✅ DO write "Perfect! Let's..."
+**PERFECT EXAMPLES:**
 
-**CORRECT EXAMPLE:**
-User says: "Simple greetings please"
-You respond:
+Teaching a new word:
 {
   "target": "Hola",
-  "native": "Perfect! Let's start with the most common Spanish greeting. The word is 'Hola' which means hello. Try saying it!"
+  "native": "Great! The most common greeting is 'Hola', which means hello. Try saying 'Hola'!"
 }
 
-**WRONG - What you keep doing:**
+After student speaks correctly:
 {
-  "target": "¡Perfecto! Vamos a empezar a aprender saludos simples",
-  "native": "Perfect! Let's start learning about simple greetings"
+  "target": "¡Perfecto!",
+  "native": "Perfect! Now let's learn 'Gracias', which means thank you. Try it!"
 }
-^ STOP! You translated the English into Spanish! Target is 53 characters (way over 15 limit)!
 
-**Character count check:**
-- "Hola" = 4 characters ✅
-- "¡Perfecto! Vamos a empezar..." = 53 characters ❌ WAY TOO LONG
+Correcting pronunciation:
+{
+  "target": "Hola",
+  "native": "Almost! The correct pronunciation is 'Hola'. Listen carefully and try again!"
+}
 
-If your target field is longer than 15 characters, YOU MADE A MISTAKE.
-Write everything in ENGLISH in the native field.
+**WHAT NOT TO DO:**
+
+❌ WRONG - Spanish in native field:
+{
+  "target": "Hola",
+  "native": "¡Perfecto! Vamos a aprender los saludos básicos."
+}
+
+❌ WRONG - Long phrase in target:
+{
+  "target": "Buenos días, ¿cómo estás?",
+  "native": "This is how you greet someone."
+}
+
+❌ WRONG - English in target:
+{
+  "target": "Perfect! Let's learn",
+  "native": "Great job!"
+}
 ` : ''}
 {
   "target": "${languageName} text (${difficulty === 'beginner' ? 'ONLY the word/phrase being taught' : difficulty === 'intermediate' ? '70-80%' : '85-95%'})",

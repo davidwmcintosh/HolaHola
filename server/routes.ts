@@ -1572,234 +1572,48 @@ Return a JSON array of suggestions with this format:
           
           let target = (parsed.target || '').trim();
           let native = (parsed.native || '').trim();
-          const originalTarget = target; // Save for encouragement detection
           
-          // BEGINNER VALIDATION: Enforce character limits
+          // GRACEFUL FALLBACK: If AI violates rules, provide safe default instead of crashing
+          if (!target || !native) {
+            console.error('[VOICE FALLBACK] Missing target or native field, using safe default');
+            target = "Hola";
+            native = "Let's practice the most common Spanish greeting: 'Hola'. Try saying it!";
+          }
+          
+          // Beginner validation with fallback
           if (conversation.difficulty === 'beginner') {
-            const MAX_TARGET_CHARS = 15;
-            const MIN_NATIVE_CHARS = 30;
+            const MAX_TARGET = 15;
+            const MIN_NATIVE = 30;
             
-            if (target.length > MAX_TARGET_CHARS) {
-              console.warn(`[VOICE VALIDATION] Target too long (${target.length} > ${MAX_TARGET_CHARS}): "${target.substring(0, 50)}"`);
-              console.warn('[VOICE VALIDATION] AI violated beginner constraints, extracting target word');
-              
-              // Strategy: Extract NEW Spanish word from native field (usually the LAST quoted word)
-              // Context: AI often says "Good job! Now let's learn 'NEW_WORD'." or "This is 'NEW_WORD'. Try it!"
-              // Examples: 
-              //   "'Hola' is great! Now try 'Buenos días'" → Should extract "Buenos días" (last)
-              //   "Let's learn 'Gracias'" → Should extract "Gracias"
-              const quotedWords = [...native.matchAll(/['"]([a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]+)['"]/g)];
-              
-              // Filter to only Spanish words (exclude common English words)
-              const englishWords = new Set(['hello', 'goodbye', 'thank', 'thanks', 'please', 'yes', 'no', 'good', 'morning', 'day', 'night', 'evening']);
-              const spanishQuotedWords = quotedWords
-                .map(match => match[1].trim())
-                .filter(word => {
-                  const firstWord = word.split(/\s+/)[0].toLowerCase();
-                  return !englishWords.has(firstWord) && word.length <= MAX_TARGET_CHARS;
-                });
-              
-              // Use LAST Spanish quoted word (the new word being taught)
-              // NOT the first (which is often the word the student just said)
-              if (spanishQuotedWords.length > 0) {
-                target = spanishQuotedWords[spanishQuotedWords.length - 1];
-                console.log(`[VOICE VALIDATION] ✓ Extracted NEW Spanish word from quotes (last of ${spanishQuotedWords.length}): "${target}"`);
-              } else if (quotedWords.length > 0 && quotedWords[quotedWords.length - 1][1].length <= MAX_TARGET_CHARS) {
-                // Fallback: Use last quoted word regardless of language
-                target = quotedWords[quotedWords.length - 1][1].trim();
-                console.log(`[VOICE VALIDATION] ✓ Extracted last quoted word: "${target}"`);
+            if (target.length > MAX_TARGET) {
+              console.warn(`[VOICE FALLBACK] Target too long (${target.length} > ${MAX_TARGET}), using first word`);
+              // Simple extraction: Take first word from target
+              const firstWord = target.split(/\s+/)[0].replace(/[¡!¿?.,;]/g, '');
+              if (firstWord.length <= MAX_TARGET && /[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]/.test(firstWord)) {
+                target = firstWord;
               } else {
-                // Fallback: Try first word from original target
-                const firstWord = target.split(/\s+/)[0].replace(/[¡!¿?.,;]/g, '');
-                if (firstWord.length <= MAX_TARGET_CHARS && /[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]/.test(firstWord)) {
-                  target = firstWord;
-                  console.log(`[VOICE VALIDATION] ✓ Extracted first word: "${target}"`);
-                } else {
-                  // Last resort: Safe default
-                  target = "Hola";
-                  native = "Let's practice the most common Spanish greeting: 'Hola'. Try saying it!";
-                  console.log('[VOICE VALIDATION] Using safe fallback: "Hola"');
-                }
+                // Last resort: Use safe default
+                target = "Hola";
+                native = "Let's practice 'Hola'. Try saying it!";
               }
             }
             
-            if (native.length < MIN_NATIVE_CHARS) {
-              console.warn(`[VOICE VALIDATION] Native too short (${native.length} < ${MIN_NATIVE_CHARS}): "${native}"`);
-              // Use fallback
-              native = `Great! Now let's practice saying '${target}'. Try repeating after me!`;
-              console.log('[VOICE VALIDATION] Using extended native fallback');
+            if (native.length < MIN_NATIVE) {
+              console.warn(`[VOICE FALLBACK] Native too short (${native.length} < ${MIN_NATIVE}), extending`);
+              native = `Great! Now let's practice saying '${target}'. Try repeating it!`;
             }
           }
           
-          // VOICE MODE ARCHITECTURE FOR BEGINNERS:
-          // - TTS speaks: native field ONLY (English with Spanish accent, Spanish words embedded naturally)
-          //   Example: "Perfect! Let's start with greetings. The most common greeting is 'Hola'. Try saying 'Hola'!"
-          // - Subtitles show: target field ONLY (the Spanish word being taught)
-          //   Example: "Hola"
-          // This ensures beginners hear full explanations in English while seeing only the target word
+          // SIMPLE ARCHITECTURE:
+          // - Screen shows: target field (Spanish word)
+          // - Voice speaks: native field (English explanation with Spanish words embedded)
+          // - That's it!
           
-          // Sanitize native text to prevent punctuation artifacts
-          native = native.replace(/([¡!¿?])\1+/g, '$1'); // Remove repeated punctuation
-          
-          // Subtitles use ONLY target field (guarantees Spanish-only display)
           targetLanguageText = target;
           hasTargetLanguage = hasSignificantTargetLanguageContent(targetLanguageText);
+          aiResponse = native; // Voice speaks the native field
           
-          console.log('[VOICE STRUCTURED] ✓ Valid format | Target:', target.substring(0, 50), '| Native:', native.substring(0, 50));
-          
-          // SERVER-SIDE VALIDATION & DUAL-SUBTITLE CREATION
-          // Comprehensive Spanish encouragement lexicon
-          const encouragementWords = [
-            'perfecto', 'excelente', 'bien', 'bueno', 'genial', 
-            'fantástico', 'maravilloso', 'bravo', 'muy bien',
-            'estupendo', 'magnífico', 'fenomenal', 'increíble'
-          ];
-          // CRITICAL: Check ORIGINAL target (before extraction) for encouragement
-          // The target might be "¡Excelente! Now let's learn..." which gets extracted to "Buenos días"
-          // But we need to detect the "¡Excelente!" part for prepending logic
-          const targetLower = originalTarget.toLowerCase().replace(/[¡!¿?]/g, '').trim();
-          // Use Unicode-aware word boundaries for accented Spanish words
-          // ASCII \b fails for accented chars, so use negative lookahead/lookbehind
-          const isEncouragement = encouragementWords.some(word => {
-            // Match word only if not preceded/followed by letter (supports Unicode)
-            const regex = new RegExp(`(?<![a-záéíóúüñ])${word}(?![a-záéíóúüñ])`, 'iu');
-            return regex.test(targetLower);
-          });
-          const endsWithQuestion = native.trim().endsWith('?');
-          
-          // If target is encouragement word, extract ALL teaching words and create subtitle sequence
-          if (isEncouragement) {
-            console.log('[VOICE DUAL-SUBTITLE] Detected encouragement in target:', target);
-            
-            // Extract ALL teaching phrases from native field (allow multi-word phrases)
-            // Match patterns like: 'buenos días', "hola", 'adiós', 'buenas tardes'
-            // Support both straight quotes ('") and smart quotes (''""‚„)
-            const quotedPhrases = [...native.matchAll(/[\'"\u2018\u2019\u201C\u201D\u201A\u201E]([a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]+?)[\'"\u2018\u2019\u201C\u201D\u201A\u201E]/g)];
-            const englishWords = new Set(['hello', 'goodbye', 'thank', 'thanks', 'please', 'yes', 'no', 'good', 'morning', 'afternoon', 'evening', 'night']);
-            
-            // Find ALL non-English quoted phrases (could be multi-word)
-            const teachingPhrases = quotedPhrases
-              .map(match => match[1].trim())
-              .filter(phrase => {
-                const firstWord = phrase.split(/\s+/)[0].toLowerCase();
-                return !englishWords.has(firstWord);
-              });
-            
-            if (teachingPhrases.length === 0 && quotedPhrases.length > 0) {
-              // Fallback: use all quoted phrases
-              teachingPhrases.push(...quotedPhrases.map(match => match[1].trim()));
-            }
-            
-            if (teachingPhrases.length > 0) {
-              // Find the phrase the tutor is asking student to repeat (e.g., "Try saying 'Buenos días'!")
-              // Support both straight quotes ('") and smart quotes (''""‚„)
-              const trySayingMatch = native.match(/(?:try|practice|repeat)(?:ing)?\s+(?:saying|to say)?\s*[\'"\u2018\u2019\u201C\u201D\u201A\u201E]([^\'"\u2018\u2019\u201C\u201D\u201A\u201E]+)[\'"\u2018\u2019\u201C\u201D\u201A\u201E]/i);
-              let finalPhrase = teachingPhrases[teachingPhrases.length - 1]; // Default to last phrase
-              
-              if (trySayingMatch) {
-                const requestedPhrase = trySayingMatch[1].trim();
-                // Find exact match in teaching phrases (case-insensitive)
-                const matchedPhrase = teachingPhrases.find(p => 
-                  p.toLowerCase() === requestedPhrase.toLowerCase()
-                );
-                
-                if (matchedPhrase) {
-                  finalPhrase = matchedPhrase;
-                  console.log('[VOICE DUAL-SUBTITLE] Found "Try saying" phrase:', finalPhrase);
-                } else {
-                  console.warn('[VOICE DUAL-SUBTITLE] "Try saying" phrase not found in teaching phrases:', requestedPhrase, '| Available:', teachingPhrases);
-                }
-              } else {
-                console.warn('[VOICE DUAL-SUBTITLE] Could not extract "Try saying" phrase from native text');
-              }
-              
-              // DIFFICULTY-BASED SUBTITLE LIMITS
-              // - Beginner: Show all phrases (optimal for vocabulary building)
-              // - Intermediate: Limit to 4 max intermediate phrases (prevent overwhelm)
-              // - Advanced: Skip intermediate phrases, only show final requested phrase (focus on practice)
-              let intermediatePhrases = teachingPhrases.filter(p => p !== finalPhrase);
-              
-              const difficulty = conversation.difficulty;
-              if (difficulty === 'intermediate' && intermediatePhrases.length > 4) {
-                // Intermediate: Keep first 4 intermediate phrases
-                intermediatePhrases = intermediatePhrases.slice(0, 4);
-                console.log('[VOICE DUAL-SUBTITLE] Intermediate mode: Limited to 4 intermediate phrases');
-              } else if (difficulty === 'advanced') {
-                // Advanced: Skip all intermediate phrases, only show final
-                intermediatePhrases = [];
-                console.log('[VOICE DUAL-SUBTITLE] Advanced mode: Skipping intermediate phrases');
-              }
-              // Beginner: Show all (no filtering)
-              
-              // Create subtitle sequence: [encouragement (2s), phrase1 (3s), phrase2 (3s), ..., requestedPhrase (persist)]
-              const subtitleSequence: Array<{ text: string; duration: number | null }> = [
-                { text: target, duration: 2000 } // Show encouragement for 2 seconds
-              ];
-              
-              // Add intermediate phrases - show for 3 seconds each
-              intermediatePhrases.forEach((phrase) => {
-                subtitleSequence.push({
-                  text: phrase,
-                  duration: 3000
-                });
-              });
-              
-              // Add the final phrase (what they're asked to repeat) - persists on screen
-              subtitleSequence.push({
-                text: finalPhrase,
-                duration: null
-              });
-              
-              subtitlesJson = JSON.stringify(subtitleSequence);
-              console.log('[VOICE DUAL-SUBTITLE] ✓ Created sequence with', intermediatePhrases.length, 'intermediate +', '1 final phrase (difficulty:', difficulty + ')');
-            } else {
-              console.warn('[VOICE DUAL-SUBTITLE] Could not extract teaching phrases, using single subtitle');
-            }
-            
-            // CRITICAL: Prepend Spanish encouragement to TTS speech so it's actually spoken
-            // This ensures students HEAR the encouragement with authentic Spanish pronunciation
-            // Add pause only if target doesn't already end with punctuation
-            const needsPause = !/[!?.;]$/.test(target.trim());
-            native = needsPause ? `${target}. ${native}` : `${target} ${native}`;
-            console.log('[VOICE DUAL-SUBTITLE] ✓ Prepended encouragement to TTS speech:', target);
-          } else {
-            // NOT an encouragement word - DON'T prepend target to native
-            // TTS should speak ONLY the native field (English with Spanish accent)
-            // Prepending would cause Spanish TTS to mispronounce English words that immediately follow
-            console.log('[VOICE NO-PREPEND] Target is not encouragement, speaking native field only');
-          }
-          
-          // Remove questions from native field
-          if (endsWithQuestion) {
-            console.log('[VOICE VALIDATION] Removing question from native');
-            // Find last sentence before question
-            const sentences = native.split(/[.!]/);
-            if (sentences.length > 1) {
-              // Use all sentences except the last (question)
-              native = sentences.slice(0, -1).join('. ').trim();
-              // Ensure it ends with encouragement or "Try saying it!"
-              if (!native.toLowerCase().includes('try saying')) {
-                // Get the final teaching phrase from subtitle sequence (last element)
-                let teachingWord = target;
-                if (subtitlesJson) {
-                  try {
-                    const subtitleSeq = JSON.parse(subtitlesJson);
-                    // Use LAST element (the final phrase to repeat)
-                    teachingWord = subtitleSeq[subtitleSeq.length - 1].text;
-                  } catch (e) {
-                    console.warn('[VOICE VALIDATION] Could not parse subtitlesJson, using target');
-                  }
-                }
-                native += `. Try saying '${teachingWord}'!`;
-              }
-              console.log('[VOICE VALIDATION] ✓ Removed question, added "Try saying it!"');
-            }
-          }
-          
-          // CRITICAL: Assign aiResponse AFTER all validation to ensure cleaned content is used
-          aiResponse = native || target;
-          
-          console.log('[VOICE STRUCTURED] ✓ Valid format | Target:', target.substring(0, 50), '| Native:', native.substring(0, 50));
+          console.log('[VOICE SIMPLE] ✓ Target:', target.substring(0, 50), '| Native:', native.substring(0, 50));
         } catch (error) {
           // Schema enforcement should prevent this, but log if it happens
           console.error('[VOICE CRITICAL ERROR] Failed to parse structured response:', error);
@@ -1819,7 +1633,6 @@ Return a JSON array of suggestions with this format:
           role: "assistant",
           content: aiResponse,
           targetLanguageText: hasTargetLanguage ? targetLanguageText : undefined,
-          subtitlesJson: subtitlesJson || undefined, // Dual-subtitle sequence if encouragement + teaching word
           enrichmentStatus: "pending", // Mark for background enrichment
         });
 
