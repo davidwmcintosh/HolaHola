@@ -518,6 +518,8 @@ export const insertConversationSchema = createInsertSchema(conversations).omit({
 export const insertMessageSchema = createInsertSchema(messages).omit({
   id: true,
   createdAt: true,
+}).extend({
+  content: z.string().min(1, "Message content is required").max(10000, "Message must be less than 10000 characters"),
 });
 
 export const insertVocabularyWordSchema = createInsertSchema(vocabularyWords).omit({
@@ -592,20 +594,33 @@ export const insertCurriculumPathSchema = createInsertSchema(curriculumPaths).om
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Name is required").max(200, "Name must be less than 200 characters").trim(),
+  description: z.string().min(1, "Description is required").max(2000, "Description must be less than 2000 characters").trim(),
 });
 
 export const insertCurriculumUnitSchema = createInsertSchema(curriculumUnits).omit({
   id: true,
+}).extend({
+  name: z.string().min(1, "Name is required").max(200, "Name must be less than 200 characters").trim(),
+  description: z.string().min(1, "Description is required").max(2000, "Description must be less than 2000 characters").trim(),
 });
 
 export const insertCurriculumLessonSchema = createInsertSchema(curriculumLessons).omit({
   id: true,
+}).extend({
+  name: z.string().min(1, "Name is required").max(200, "Name must be less than 200 characters").trim(),
+  description: z.string().min(1, "Description is required").max(2000, "Description must be less than 2000 characters").trim(),
+  conversationPrompt: z.string().max(5000, "Prompt must be less than 5000 characters").optional(),
 });
 
 export const insertTeacherClassSchema = createInsertSchema(teacherClasses).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Class name is required").max(100, "Class name must be less than 100 characters").trim(),
+  description: z.string().max(1000, "Description must be less than 1000 characters").optional(),
 });
 
 export const insertClassEnrollmentSchema = createInsertSchema(classEnrollments).omit({
@@ -617,12 +632,18 @@ export const insertAssignmentSchema = createInsertSchema(assignments).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  title: z.string().min(1, "Title is required").max(200, "Title must be less than 200 characters").trim(),
+  description: z.string().max(5000, "Description must be less than 5000 characters").optional(),
+  conversationTopic: z.string().max(500, "Topic must be less than 500 characters").optional(),
 });
 
 export const insertAssignmentSubmissionSchema = createInsertSchema(assignmentSubmissions).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  teacherFeedback: z.string().max(5000, "Feedback must be less than 5000 characters").optional(),
 });
 
 export type InsertCanDoStatement = z.infer<typeof insertCanDoStatementSchema>;

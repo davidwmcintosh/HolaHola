@@ -14,10 +14,14 @@ const STATIC_ASSETS = [
 const CACHEABLE_API_ROUTES = [
   '/api/auth/user',
   '/api/progress/',
+  '/api/progress-history/',
   '/api/conversations',
   '/api/vocabulary',
   '/api/grammar-exercises',
   '/api/cultural-tips',
+  '/api/teacher/classes',
+  '/api/student/classes',
+  '/api/student/all-assignments',
 ];
 
 // Check if a URL should be cached

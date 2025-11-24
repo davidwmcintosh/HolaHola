@@ -46,20 +46,14 @@ interface CurriculumLesson {
   orderIndex: number;
 }
 
-const pathFormSchema = insertCurriculumPathSchema.extend({
-  description: z.string().optional(),
-});
+// Use schemas directly from shared/schema.ts - they already have proper validation
+const pathFormSchema = insertCurriculumPathSchema;
 type PathFormValues = z.infer<typeof pathFormSchema>;
 
-const unitFormSchema = insertCurriculumUnitSchema.extend({
-  description: z.string().optional(),
-});
+const unitFormSchema = insertCurriculumUnitSchema;
 type UnitFormValues = z.infer<typeof unitFormSchema>;
 
-const lessonFormSchema = insertCurriculumLessonSchema.extend({
-  description: z.string().optional(),
-  content: z.string().optional(),
-});
+const lessonFormSchema = insertCurriculumLessonSchema;
 type LessonFormValues = z.infer<typeof lessonFormSchema>;
 
 export default function CurriculumBuilder() {
@@ -99,7 +93,6 @@ export default function CurriculumBuilder() {
     defaultValues: {
       name: "",
       description: "",
-      content: "",
       curriculumUnitId: "",
       orderIndex: 0,
       lessonType: "conversation",

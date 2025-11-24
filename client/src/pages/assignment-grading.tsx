@@ -49,7 +49,7 @@ interface AssignmentSubmission {
 
 const gradeFormSchema = z.object({
   score: z.coerce.number().nonnegative("Score must be positive"),
-  feedback: z.string().optional(),
+  feedback: z.string().max(5000, "Feedback must be less than 5000 characters").optional(),
 });
 
 type GradeFormValues = z.infer<typeof gradeFormSchema>;

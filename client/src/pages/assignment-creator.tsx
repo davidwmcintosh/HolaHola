@@ -24,7 +24,7 @@ interface TeacherClass {
   language: string;
 }
 
-// Form schema matching database structure - keeps datetime-local format for UX
+// Form schema matching database structure - uses shared schema with minimal extensions for datetime handling
 const assignmentFormSchema = insertAssignmentSchema.pick({
   classId: true,
   title: true,
@@ -32,6 +32,7 @@ const assignmentFormSchema = insertAssignmentSchema.pick({
   assignmentType: true,
   isPublished: true,
 }).extend({
+  classId: z.string().min(1, "Please select a class"),
   // Keep dueDate as string for datetime-local input compatibility
   dueDate: z.string().optional(),
 });

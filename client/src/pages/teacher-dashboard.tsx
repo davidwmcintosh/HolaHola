@@ -28,12 +28,11 @@ interface TeacherClass {
   createdAt: Date;
 }
 
+// Use schema directly from shared/schema.ts - it already has proper validation
 const createClassFormSchema = insertTeacherClassSchema.pick({
   name: true,
   description: true,
   language: true,
-}).extend({
-  description: z.string().optional(),
 });
 
 type CreateClassFormValues = z.infer<typeof createClassFormSchema>;

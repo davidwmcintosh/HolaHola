@@ -52,7 +52,7 @@ interface StudentSubmission {
 }
 
 const submissionFormSchema = z.object({
-  content: z.string().min(1, "Please enter your work before submitting"),
+  content: z.string().min(1, "Please enter your work before submitting").max(10000, "Submission must be less than 10000 characters"),
 });
 
 type SubmissionFormValues = z.infer<typeof submissionFormSchema>;
