@@ -1529,29 +1529,46 @@ Return a JSON array of suggestions with this format:
           properties: {
             target: { 
               type: "string",
-              description: `STRICT: ONE ${targetLanguageName} word or short phrase ONLY (max 15 characters). MUST be in ${targetLanguageName} language ONLY - NO ${nativeLanguageName} words allowed. 
-              
-PATTERN SELECTION (CRITICAL):
-- IF student just spoke and you're giving feedback → Use ${targetLanguageName} encouragement ONLY ('¡Perfecto!', '¡Excelente!', '¡Muy bien!' for Spanish)
-- IF student hasn't spoken yet and you're teaching first word → Use the word being taught ('Hola', 'Gracias')
+              description: `CRITICAL: ALWAYS put the word/phrase being TAUGHT (max 15 characters). 
 
-NEVER use ${nativeLanguageName} words like 'Great', 'Perfect', 'Excellent' in this field.`,
+WHAT GOES HERE:
+- Extract the ${targetLanguageName} word from the quotes in "Try saying 'word'!" at the end of your native field
+- This is the NEXT word the student should learn
+- Examples: 'Hola', 'Buenos días', 'Gracias'
+
+WHAT NEVER GOES HERE:
+- NO encouragement words like '¡Excelente!', '¡Perfecto!' (those go in TTS audio, not here)
+- NO ${nativeLanguageName} words
+
+EXAMPLES:
+Native: "You just said 'Hello'! Try saying 'Buenos días'!"
+Target: "Buenos días"  ← Extract from quotes
+
+Native: "Great! Now try 'Gracias'!"
+Target: "Gracias"  ← Extract from quotes`,
               maxLength: 15
             },
             native: { 
               type: "string",
-              description: `STRICT: Brief ${nativeLanguageName} explanation (30-150 characters max). 
+              description: `STRICT: Brief ${nativeLanguageName} teaching content (30-150 characters max).
+
+STRUCTURE (IF giving feedback on student's speech):
+"¡Excelente! [feedback in ${nativeLanguageName}]. Try saying 'word'!"
+
+STRUCTURE (IF teaching first word):
+"[Teaching in ${nativeLanguageName}]. Try saying 'word'!"
 
 CRITICAL RULES:
-- Write ONLY in ${nativeLanguageName} - NO ${targetLanguageName} sentences
-- DO NOT repeat the encouragement from target field (no '¡Excelente!', '¡Perfecto!' etc. at the start)
-- Start directly with feedback or teaching content in ${nativeLanguageName}
-- Embed ${targetLanguageName} vocabulary words in SINGLE quotes 'word'
-- MUST end with "Try saying 'word'!" or "Try it!"
-- NO additional text after the encouragement
+1. OPTIONALLY start with ${targetLanguageName} encouragement word (¡Excelente!, ¡Perfecto!, etc.) when praising student
+2. Main content in ${nativeLanguageName} ONLY
+3. Embed ${targetLanguageName} vocabulary in SINGLE quotes 'word'
+4. MUST end with "Try saying 'word'!" where 'word' matches your target field exactly
+5. NO text after the "Try saying" encouragement
 
-GOOD: "You just said 'Hello' in Spanish! Try saying 'Buenos días'!"
-BAD: "¡Excelente! You just said..." (duplicates target field)`,
+EXAMPLES:
+Good: "¡Excelente! You said 'Hello'! Try saying 'Buenos días'!"  (target: "Buenos días")
+Good: "'Hola' means 'hello'. Try saying 'Hola'!"  (target: "Hola")
+Bad: "You said hello! Learn more tomorrow."  (missing "Try saying")`,
               minLength: 30,
               maxLength: 150
             }
@@ -1730,30 +1747,17 @@ BAD: "¡Excelente! You just said..." (duplicates target field)`,
           }
           
           // SIMPLE ARCHITECTURE:
-          // - Screen shows: target field (target language word)
-          // - Voice speaks: native field (native language explanation with target words embedded)
+          // - Screen shows: target field (word being taught - extracted from quotes)
+          // - Voice speaks: native field (may include encouragement at start, e.g., "¡Excelente! You said...")
           
           targetLanguageText = target;
           hasTargetLanguage = hasSignificantTargetLanguageContent(targetLanguageText);
           
-          // MINIMAL ENCOURAGEMENT HANDLING: If target is encouragement word, prepend to TTS
-          // This ensures students HEAR the encouragement with authentic pronunciation
-          const encouragementPatterns = ['perfecto', 'excelente', 'bien', 'bueno', 'genial', 'fantástico', 'bravo', 'parfait', 'すごい', 'great', 'perfect', 'excellent'];
-          const isEncouragement = encouragementPatterns.some(word => {
-            const targetLower = target.toLowerCase().replace(/[¡!¿?]/g, '');
-            return targetLower.includes(word);
-          });
+          // Voice speaks the native field directly
+          // If AI wants encouragement, it's already included at the start of native field
+          aiResponse = native;
           
-          if (isEncouragement && target.length <= 15) {
-            // Prepend encouragement to TTS so it's spoken with authentic accent
-            const needsPause = !/[!?.;]$/.test(target.trim());
-            aiResponse = needsPause ? `${target}. ${native}` : `${target} ${native}`;
-            console.log('[VOICE SIMPLE] ✓ Prepended encouragement:', target);
-          } else {
-            aiResponse = native; // Voice speaks the native field
-          }
-          
-          console.log('[VOICE SIMPLE] ✓ Target:', target.substring(0, 50), '| Native:', native.substring(0, 50));
+          console.log('[VOICE SIMPLE] ✓ Target (teaching):', target.substring(0, 50), '| Native (audio):', native.substring(0, 50));
         } catch (error) {
           // Schema enforcement should prevent this, but log if it happens
           console.error('[VOICE CRITICAL ERROR] Failed to parse structured response:', error);
