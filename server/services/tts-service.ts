@@ -334,6 +334,11 @@ export class TTSService {
    * Result: Spanish voice pronounces "Hola" correctly as 2 syllables (HO-la)
    */
   private addPhonemeTagsForTargetWords(text: string, targetLanguage?: string): { text: string; usesSSML: boolean } {
+    // TEMPORARILY DISABLED: SSML phoneme tags causing INVALID_ARGUMENT errors
+    // Need to investigate proper SSML format for Google TTS
+    console.log(`[SSML Phoneme] TEMPORARILY DISABLED - skipping phoneme tag processing`);
+    return { text, usesSSML: false };
+    
     if (!targetLanguage) {
       return { text, usesSSML: false };
     }
@@ -388,9 +393,35 @@ export class TTSService {
       return { text, usesSSML: false };
     }
 
+    // XML-escape the entire modified text (including phoneme tags) to handle special characters
+    // IMPORTANT: We need to escape text OUTSIDE phoneme tags, but NOT the tags themselves
+    // Split on phoneme tags, escape the text parts, then recombine
+    const parts: string[] = [];
+    let lastIndex = 0;
+    const phonemePattern = /<phoneme[^>]*>.*?<\/phoneme>/g;
+    
+    let match;
+    while ((match = phonemePattern.exec(modifiedText)) !== null) {
+      // Escape text before this phoneme tag
+      if (match.index > lastIndex) {
+        parts.push(this.escapeXML(modifiedText.substring(lastIndex, match.index)));
+      }
+      // Add the phoneme tag as-is (already has escaped content)
+      parts.push(match[0]);
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Escape any remaining text after the last phoneme tag
+    if (lastIndex < modifiedText.length) {
+      parts.push(this.escapeXML(modifiedText.substring(lastIndex)));
+    }
+    
+    const escapedText = parts.join('');
+
     // Wrap entire text in SSML <speak> tags
-    const ssmlText = `<speak>${modifiedText}</speak>`;
+    const ssmlText = `<speak>${escapedText}</speak>`;
     console.log(`[SSML Phoneme] Added phoneme tags for ${targetLanguage} words`);
+    console.log(`[SSML DEBUG] Generated SSML (first 300 chars): ${ssmlText.substring(0, 300)}`);
     
     return { text: ssmlText, usesSSML: true };
   }
