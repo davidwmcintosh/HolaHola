@@ -41,9 +41,9 @@ export interface TTSResponse {
  * Maps language codes to optimal voices with regional variants
  * 
  * Voice tiers:
- * - Chirp 3 HD: Latest model, highest quality (31 locales, 8 styles)
- * - Neural2: High quality WaveNet voices (40+ speakers)
- * - WaveNet: Classic premium voices
+ * - Chirp 3 HD: Latest model, highest quality (31 locales, 8 styles) - NO SSML SUPPORT
+ * - Neural2: High quality voices with SSML support (phoneme tags work)
+ * - WaveNet: Classic premium voices with SSML support
  */
 const GOOGLE_VOICE_MAP: Record<string, { name: string; languageCode: string }> = {
   'spanish': { name: 'es-US-Chirp-HD-O', languageCode: 'es-US' }, // US Spanish, Chirp 3 HD
@@ -55,6 +55,22 @@ const GOOGLE_VOICE_MAP: Record<string, { name: string; languageCode: string }> =
   'japanese': { name: 'ja-JP-Chirp-HD-O', languageCode: 'ja-JP' }, // Japanese, Chirp 3 HD
   'mandarin chinese': { name: 'cmn-CN-Chirp-HD-O', languageCode: 'cmn-CN' }, // Mandarin Chinese, Chirp 3 HD
   'korean': { name: 'ko-KR-Chirp-HD-O', languageCode: 'ko-KR' }, // Korean, Chirp 3 HD
+};
+
+/**
+ * SSML-compatible voices for when phoneme tags are needed
+ * Chirp 3 HD doesn't support SSML - must use WaveNet/Neural2 for phoneme pronunciation
+ */
+const GOOGLE_SSML_VOICE_MAP: Record<string, { name: string; languageCode: string }> = {
+  'spanish': { name: 'es-US-Neural2-A', languageCode: 'es-US' }, // Female Neural2
+  'english': { name: 'en-US-Neural2-F', languageCode: 'en-US' }, // Female Neural2
+  'french': { name: 'fr-FR-Neural2-A', languageCode: 'fr-FR' }, // Female Neural2
+  'german': { name: 'de-DE-Neural2-A', languageCode: 'de-DE' }, // Female Neural2
+  'italian': { name: 'it-IT-Neural2-A', languageCode: 'it-IT' }, // Female Neural2
+  'portuguese': { name: 'pt-BR-Neural2-A', languageCode: 'pt-BR' }, // Female Neural2
+  'japanese': { name: 'ja-JP-Neural2-B', languageCode: 'ja-JP' }, // Female Neural2
+  'mandarin chinese': { name: 'cmn-CN-Wavenet-A', languageCode: 'cmn-CN' }, // Female Wavenet
+  'korean': { name: 'ko-KR-Neural2-A', languageCode: 'ko-KR' }, // Female Neural2
 };
 
 /**
@@ -326,6 +342,20 @@ export class TTSService {
   }
 
   /**
+   * Encode non-ASCII characters as HTML entities for SSML phoneme attributes
+   * Google Cloud TTS requires all non-ASCII chars (like IPA symbols) to be entity-encoded
+   * 
+   * Example: "ola" stays as "ola", but "əˈola" becomes "&#x259;&#x2c8;ola"
+   */
+  private encodeForSSML(text: string): string {
+    return text.split('').map(char => {
+      const code = char.charCodeAt(0);
+      // Encode any non-ASCII character (code > 127) as HTML entity
+      return code > 127 ? `&#x${code.toString(16)};` : char;
+    }).join('');
+  }
+
+  /**
    * Wrap target-language words with SSML phoneme tags for correct syllable pronunciation
    * 
    * Problem: When Spanish TTS reads English text with embedded Spanish words like "Hola",
@@ -339,10 +369,6 @@ export class TTSService {
    * Result: Spanish voice pronounces "Hola" correctly as 2 syllables (HO-la)
    */
   private addPhonemeTagsForTargetWords(text: string, targetLanguage?: string): { text: string; usesSSML: boolean } {
-    // TEMPORARILY DISABLED: Google Cloud TTS rejects accented characters (like í in "días") in SSML mode
-    // Error: INVALID_ARGUMENT when SSML contains Spanish accented characters
-    return { text, usesSSML: false };
-    
     if (!targetLanguage) {
       return { text, usesSSML: false };
     }
@@ -365,35 +391,39 @@ export class TTSService {
     
     let match;
     while ((match = quotedPattern.exec(text)) !== null) {
-      // Escape the text BEFORE this quoted word
-      result += this.escapeXML(text.substring(lastIndex, match.index));
+      // Escape AND encode the text BEFORE this quoted word
+      result += this.encodeForSSML(this.escapeXML(text.substring(lastIndex, match.index)));
       
       const quotedContent = match[2];
       
-      // Normalize for lookup
+      // Normalize for lookup - remove diacritics and punctuation
       const normalized = quotedContent.toLowerCase().trim()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .replace(/[¿?¡!]/g, '');
-      const exactNormalized = quotedContent.toLowerCase().trim();
+      const exactNormalized = quotedContent.toLowerCase().trim()
+        .replace(/[¿?¡!]/g, ''); // Remove Spanish punctuation but keep diacritics
       
       // Check if this quoted word has an IPA pronunciation
       const ipa = ipaMappings[exactNormalized] || ipaMappings[normalized];
       
       if (ipa) {
         hasPhonemes = true;
-        console.log(`[SSML Phoneme] Wrapping "${quotedContent}" with IPA: ${ipa}`);
-        // Add phoneme tag as LITERAL XML (no escaping of the tags themselves)
-        result += `<phoneme alphabet="ipa" ph="${ipa}">${quotedContent}</phoneme>`;
+        // Encode both IPA and content for SSML compatibility
+        const encodedIpa = this.encodeForSSML(ipa);
+        const encodedContent = this.encodeForSSML(quotedContent);
+        console.log(`[SSML Phoneme] Wrapping "${quotedContent}" with IPA: ${ipa} (encoded: ${encodedIpa})`);
+        // Add phoneme tag with HTML-entity encoded IPA and content
+        result += `<phoneme alphabet="ipa" ph="${encodedIpa}">${encodedContent}</phoneme>`;
       } else {
-        // Keep original quoted word with XML escaping
-        result += this.escapeXML(match[0]);
+        // Keep original quoted word with XML escaping and encoding
+        result += this.encodeForSSML(this.escapeXML(match[0]));
       }
       
       lastIndex = match.index + match[0].length;
     }
     
-    // Escape any remaining text after the last match
-    result += this.escapeXML(text.substring(lastIndex));
+    // Escape AND encode any remaining text after the last match
+    result += this.encodeForSSML(this.escapeXML(text.substring(lastIndex)));
 
     // Only wrap in SSML <speak> tags if we actually added phoneme tags
     if (!hasPhonemes) {
@@ -479,6 +509,9 @@ export class TTSService {
    * Synthesize speech using Google Cloud TTS (Neural2 and Chirp 3 HD voices)
    * Uses the target language voice consistently for authentic pronunciation
    * 
+   * IMPORTANT: Chirp 3 HD voices do NOT support SSML. When phoneme tags are needed,
+   * we automatically switch to Neural2 voices which support SSML phoneme pronunciation.
+   * 
    * @param text - Text to synthesize
    * @param language - Voice language (e.g., "spanish" for Spanish accent)
    * @param targetLanguage - Target learning language for SSML phoneme tags (optional)
@@ -488,22 +521,29 @@ export class TTSService {
       throw new Error('Google Cloud TTS client not initialized');
     }
 
-    // Determine which voice to use
+    // Determine base language
     let selectedLanguage: string;
-    let voiceConfig: { name: string; languageCode: string };
-
     if (language) {
       selectedLanguage = language.toLowerCase();
-      voiceConfig = GOOGLE_VOICE_MAP[selectedLanguage] || GOOGLE_VOICE_MAP['english'];
-      console.log(`[Google TTS] Using target language voice: ${voiceConfig.name} (${selectedLanguage})`);
     } else {
       selectedLanguage = this.detectLanguage(text);
-      voiceConfig = GOOGLE_VOICE_MAP[selectedLanguage] || GOOGLE_VOICE_MAP['english'];
-      console.log(`[Google TTS] Auto-detected language: ${selectedLanguage}, using ${voiceConfig.name}`);
     }
 
     // Apply SSML phoneme tags for embedded target-language words if targetLanguage provided
     const { text: processedText, usesSSML } = this.addPhonemeTagsForTargetWords(text, targetLanguage);
+
+    // CRITICAL: Chirp 3 HD voices do NOT support SSML!
+    // If SSML is needed, switch to Neural2 voice which supports phoneme tags
+    let voiceConfig: { name: string; languageCode: string };
+    if (usesSSML) {
+      // Use Neural2 voice for SSML compatibility
+      voiceConfig = GOOGLE_SSML_VOICE_MAP[selectedLanguage] || GOOGLE_SSML_VOICE_MAP['english'];
+      console.log(`[Google TTS] Using SSML-compatible voice: ${voiceConfig.name} (${selectedLanguage}) for phoneme pronunciation`);
+    } else {
+      // Use Chirp 3 HD for best quality when no SSML needed
+      voiceConfig = GOOGLE_VOICE_MAP[selectedLanguage] || GOOGLE_VOICE_MAP['english'];
+      console.log(`[Google TTS] Using Chirp 3 HD voice: ${voiceConfig.name} (${selectedLanguage})`);
+    }
 
     console.log(`[Google TTS] Synthesizing ${text.length} chars with ${voiceConfig.name}${usesSSML ? ' (with SSML phoneme tags)' : ''}`);
 
@@ -511,11 +551,14 @@ export class TTSService {
     if (usesSSML) {
       console.log(`[SSML REQUEST DEBUG] Length: ${processedText.length} chars`);
       console.log(`[SSML REQUEST DEBUG] First 300 chars: ${processedText.substring(0, 300)}`);
-      console.log(`[SSML REQUEST DEBUG] Char codes: ${processedText.substring(0, 100).split('').map(c => c.charCodeAt(0)).join(',')}`);
+      // Only log char codes in dev for debugging
+      const hasNonAscii = processedText.split('').some(c => c.charCodeAt(0) > 127);
+      if (hasNonAscii) {
+        console.log(`[SSML REQUEST DEBUG] WARNING: Contains non-ASCII chars that should be entity-encoded`);
+      }
     }
 
     // Prepare the synthesis request using standard v1 API
-    // Note: Chirp 3 HD voices don't support enableTimePointing beta feature
     const request = {
       input: usesSSML ? { ssml: processedText } : { text: processedText },
       voice: {
