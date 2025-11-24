@@ -9,12 +9,13 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
-import { useParams, Link } from "wouter";
+import { useState, useEffect } from "react";
+import { useParams, Link, useLocation } from "wouter";
 import { ArrowLeft, CheckCircle2, Clock, FileText } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Assignment {
   id: string;
@@ -54,6 +55,8 @@ const gradeFormSchema = z.object({
 type GradeFormValues = z.infer<typeof gradeFormSchema>;
 
 export default function AssignmentGrading() {
+  const { user, isLoading: isLoadingAuth } = useAuth();
+  const [, setLocation] = useLocation();
   const { assignmentId } = useParams();
   const { toast } = useToast();
   const [gradingSubmission, setGradingSubmission] = useState<AssignmentSubmission | null>(null);
@@ -76,14 +79,22 @@ export default function AssignmentGrading() {
     enabled: !!assignmentId,
   });
 
+  // Protect teacher-only route
+  useEffect(() => {
+    if (!isLoadingAuth && (!user || (user.role !== 'teacher' && user.role !== 'admin'))) {
+      setLocation("/");
+    }
+  }, [user, isLoadingAuth, setLocation]);
+
+  if (isLoadingAuth || !user || (user.role !== 'teacher' && user.role !== 'admin')) {
+    return <div className="flex items-center justify-center h-full">Loading...</div>;
+  }
+
   const gradeSubmissionMutation = useMutation({
     mutationFn: async (data: { submissionId: string; score: number; feedback: string }) => {
-      return apiRequest(`/api/submissions/${data.submissionId}/grade`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          teacherScore: data.score,
-          teacherFeedback: data.feedback,
-        }),
+      return apiRequest("PATCH", `/api/submissions/${data.submissionId}/grade`, {
+        teacherScore: data.score,
+        teacherFeedback: data.feedback,
       });
     },
     onSuccess: () => {

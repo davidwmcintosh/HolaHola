@@ -49,10 +49,7 @@ export default function StudentJoinClass() {
 
   const joinClassMutation = useMutation({
     mutationFn: async (values: JoinClassFormValues) => {
-      return apiRequest("/api/student/enroll", {
-        method: "POST",
-        body: JSON.stringify(values),
-      });
+      return apiRequest("POST", "/api/student/enroll", values);
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/student/classes"] });

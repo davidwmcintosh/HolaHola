@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { stripeService } from "./stripeService";
+import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter } from "./middleware/rate-limiter";
 import {
   insertConversationSchema,
   insertMessageSchema,
@@ -1167,7 +1168,7 @@ Return a JSON array of suggestions with this format:
     }
   });
 
-  app.post("/api/conversations/:id/messages", isAuthenticated, async (req: any, res) => {
+  app.post("/api/conversations/:id/messages", aiLimiter, isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const conversationId = req.params.id;
@@ -2821,7 +2822,7 @@ Return a JSON array of suggestions with this format:
   // ===== NEW REST-Based Voice API (Whisper + GPT + TTS) =====
   
   // Transcribe audio using Whisper API
-  app.post("/api/voice/transcribe", isAuthenticated, upload.single('audio'), async (req: any, res) => {
+  app.post("/api/voice/transcribe", voiceLimiter, isAuthenticated, upload.single('audio'), async (req: any, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No audio file provided" });
@@ -2895,7 +2896,7 @@ Return a JSON array of suggestions with this format:
   // Synthesize speech using TTS API
   // Now uses Google Cloud WaveNet for authentic native pronunciation (with OpenAI fallback)
   // Returns both audio and word-level timing data for synchronized subtitles
-  app.post("/api/voice/synthesize", isAuthenticated, async (req: any, res) => {
+  app.post("/api/voice/synthesize", voiceLimiter, isAuthenticated, async (req: any, res) => {
     try {
       const { text, voice, language, returnTimings } = req.body;
       
@@ -3593,7 +3594,7 @@ Return a JSON array of suggestions with this format:
   // ===== Teacher Classes =====
   
   // Create a new class (teachers only)
-  app.post("/api/teacher/classes", isAuthenticated, async (req: any, res) => {
+  app.post("/api/teacher/classes", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
       const teacherId = req.user.claims.sub;
       const user = await storage.getUser(teacherId);
@@ -3917,7 +3918,7 @@ Return a JSON array of suggestions with this format:
   // ===== Assignments =====
   
   // Create assignment (teachers only)
-  app.post("/api/assignments", isAuthenticated, async (req: any, res) => {
+  app.post("/api/assignments", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
       const teacherId = req.user.claims.sub;
       const user = await storage.getUser(teacherId);
@@ -4066,7 +4067,7 @@ Return a JSON array of suggestions with this format:
   });
 
   // Create or update submission
-  app.post("/api/assignments/:assignmentId/submit", isAuthenticated, async (req: any, res) => {
+  app.post("/api/assignments/:assignmentId/submit", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
       const studentId = req.user.claims.sub;
       const { assignmentId } = req.params;

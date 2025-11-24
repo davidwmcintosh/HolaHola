@@ -67,10 +67,7 @@ export default function AssignmentCreator() {
         description: data.description || null,
         instructions: data.instructions || null,
       };
-      return apiRequest("/api/assignments", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+      return apiRequest("POST", "/api/assignments", payload);
     },
     onSuccess: (data: any) => {
       const classId = form.getValues("classId");

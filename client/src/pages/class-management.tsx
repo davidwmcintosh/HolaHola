@@ -7,9 +7,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Copy, Plus, Trash2, Users, ClipboardList, BookOpen, UserMinus } from "lucide-react";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface TeacherClass {
   id: string;
@@ -46,9 +47,22 @@ interface Assignment {
 }
 
 export default function ClassManagement() {
+  const { user, isLoading: isLoadingAuth } = useAuth();
+  const [, setLocation] = useLocation();
   const { classId } = useParams();
   const { toast } = useToast();
   const [copiedCode, setCopiedCode] = useState(false);
+
+  // Protect teacher-only route
+  useEffect(() => {
+    if (!isLoadingAuth && (!user || (user.role !== 'teacher' && user.role !== 'admin'))) {
+      setLocation("/");
+    }
+  }, [user, isLoadingAuth, setLocation]);
+
+  if (isLoadingAuth || !user || (user.role !== 'teacher' && user.role !== 'admin')) {
+    return <div className="flex items-center justify-center h-full">Loading...</div>;
+  }
 
   const { data: classData, isLoading: isLoadingClass } = useQuery<TeacherClass>({
     queryKey: ["/api/teacher/classes", classId],
@@ -67,9 +81,7 @@ export default function ClassManagement() {
 
   const removeStudentMutation = useMutation({
     mutationFn: async (studentId: string) => {
-      return apiRequest(`/api/teacher/classes/${classId}/students/${studentId}`, {
-        method: "DELETE",
-      });
+      return apiRequest("DELETE", `/api/teacher/classes/${classId}/students/${studentId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/teacher/classes", classId, "students"] });

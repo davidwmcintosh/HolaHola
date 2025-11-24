@@ -5,6 +5,7 @@ import { WebhookHandlers } from "./webhookHandlers";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { getTTSService } from "./services/tts-service";
+import { generalLimiter } from "./middleware/rate-limiter";
 
 const app = express();
 
@@ -111,6 +112,9 @@ app.use(express.json({
   }
 }));
 app.use(express.urlencoded({ extended: false }));
+
+// Apply general rate limiting to all API routes
+app.use('/api', generalLimiter);
 
 app.use((req, res, next) => {
   const start = Date.now();

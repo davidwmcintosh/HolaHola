@@ -116,10 +116,7 @@ export default function CurriculumBuilder() {
 
   const createPathMutation = useMutation({
     mutationFn: async (data: PathFormValues) => {
-      return apiRequest("/api/curriculum/paths", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", "/api/curriculum/paths", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/curriculum/paths"] });
@@ -141,10 +138,7 @@ export default function CurriculumBuilder() {
 
   const createUnitMutation = useMutation({
     mutationFn: async (data: UnitFormValues) => {
-      return apiRequest("/api/curriculum/units", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", "/api/curriculum/units", data);
     },
     onSuccess: () => {
       if (selectedPath) {
@@ -168,10 +162,7 @@ export default function CurriculumBuilder() {
 
   const createLessonMutation = useMutation({
     mutationFn: async (data: LessonFormValues) => {
-      return apiRequest("/api/curriculum/lessons", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", "/api/curriculum/lessons", data);
     },
     onSuccess: () => {
       if (selectedUnit) {

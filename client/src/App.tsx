@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -6,37 +7,52 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useLogout } from "@/hooks/useLogout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { UserCircle, Settings as SettingsIcon, LogOut } from "lucide-react";
+import { UserCircle, Settings as SettingsIcon, LogOut, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
-import Landing from "@/pages/Landing";
-import Onboarding from "@/pages/onboarding";
-import Dashboard from "@/pages/dashboard";
-import Chat from "@/pages/chat";
-import ChatIdeas from "@/pages/chat-ideas";
-import CulturalTips from "@/pages/cultural-tips";
-import Vocabulary from "@/pages/vocabulary";
-import Grammar from "@/pages/grammar";
-import History from "@/pages/history";
-import CanDoProgress from "@/pages/can-do-progress";
-import Settings from "@/pages/settings";
-import TeacherDashboard from "@/pages/teacher-dashboard";
-import ClassManagement from "@/pages/class-management";
-import AssignmentCreator from "@/pages/assignment-creator";
-import AssignmentGrading from "@/pages/assignment-grading";
-import StudentJoinClass from "@/pages/student-join-class";
-import StudentAssignments from "@/pages/student-assignments";
-import CurriculumBuilder from "@/pages/curriculum-builder";
-import CurriculumLibrary from "@/pages/curriculum-library";
-import NotFound from "@/pages/not-found";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { BUILD_TIME } from "./buildtime";
+
+// Lazy load all page components for code splitting
+const Landing = lazy(() => import("@/pages/Landing"));
+const Onboarding = lazy(() => import("@/pages/onboarding"));
+const Dashboard = lazy(() => import("@/pages/dashboard"));
+const Chat = lazy(() => import("@/pages/chat"));
+const ChatIdeas = lazy(() => import("@/pages/chat-ideas"));
+const CulturalTips = lazy(() => import("@/pages/cultural-tips"));
+const Vocabulary = lazy(() => import("@/pages/vocabulary"));
+const Grammar = lazy(() => import("@/pages/grammar"));
+const History = lazy(() => import("@/pages/history"));
+const CanDoProgress = lazy(() => import("@/pages/can-do-progress"));
+const Settings = lazy(() => import("@/pages/settings"));
+const TeacherDashboard = lazy(() => import("@/pages/teacher-dashboard"));
+const ClassManagement = lazy(() => import("@/pages/class-management"));
+const AssignmentCreator = lazy(() => import("@/pages/assignment-creator"));
+const AssignmentGrading = lazy(() => import("@/pages/assignment-grading"));
+const StudentJoinClass = lazy(() => import("@/pages/student-join-class"));
+const StudentAssignments = lazy(() => import("@/pages/student-assignments"));
+const CurriculumBuilder = lazy(() => import("@/pages/curriculum-builder"));
+const CurriculumLibrary = lazy(() => import("@/pages/curriculum-library"));
+const NotFound = lazy(() => import("@/pages/not-found"));
+
+// Loading fallback component
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  );
+}
 
 // Wrapper component that adds container padding for non-chat pages
 function PageWrapper({ children }: { children: React.ReactNode }) {
@@ -47,14 +63,20 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
   // Landing page (/) is full-height for unauthenticated users
   const isFullHeightPage = location === "/chat" || (!isAuthenticated && !isLoading && location === "/");
 
+  const content = (
+    <Suspense fallback={<PageLoader />}>
+      {children}
+    </Suspense>
+  );
+
   if (isFullHeightPage) {
-    return <div className="flex flex-col h-full">{children}</div>;
+    return <div className="flex flex-col h-full">{content}</div>;
   }
 
   return (
     <div className="h-full overflow-auto">
       <div className="container mx-auto p-8 max-w-7xl">
-        {children}
+        {content}
       </div>
     </div>
   );
@@ -93,36 +115,12 @@ function Router() {
         <Route path="/can-do-progress" component={CanDoProgress} />
         
         {/* Teacher Routes - Protected */}
-        <Route path="/teacher/dashboard">
-          <ProtectedRoute requireRole="teacher">
-            <TeacherDashboard />
-          </ProtectedRoute>
-        </Route>
-        <Route path="/teacher/classes/:classId">
-          <ProtectedRoute requireRole="teacher">
-            <ClassManagement />
-          </ProtectedRoute>
-        </Route>
-        <Route path="/teacher/assignments/new">
-          <ProtectedRoute requireRole="teacher">
-            <AssignmentCreator />
-          </ProtectedRoute>
-        </Route>
-        <Route path="/teacher/assignments/:assignmentId/grade">
-          <ProtectedRoute requireRole="teacher">
-            <AssignmentGrading />
-          </ProtectedRoute>
-        </Route>
-        <Route path="/teacher/curriculum">
-          <ProtectedRoute requireRole="teacher">
-            <CurriculumLibrary />
-          </ProtectedRoute>
-        </Route>
-        <Route path="/teacher/curriculum/builder">
-          <ProtectedRoute requireRole="teacher">
-            <CurriculumBuilder />
-          </ProtectedRoute>
-        </Route>
+        <Route path="/teacher/dashboard" component={TeacherDashboard} />
+        <Route path="/teacher/classes/:classId" component={ClassManagement} />
+        <Route path="/teacher/assignments/new" component={AssignmentCreator} />
+        <Route path="/teacher/assignments/:assignmentId/grade" component={AssignmentGrading} />
+        <Route path="/teacher/curriculum" component={CurriculumLibrary} />
+        <Route path="/teacher/curriculum/builder" component={CurriculumBuilder} />
         
         {/* Student Routes */}
         <Route path="/student/join-class" component={StudentJoinClass} />
@@ -145,12 +143,14 @@ function App() {
   console.log('[BUILD] App version:', BUILD_TIME);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthenticatedApp style={style} />
-        <Toaster />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AuthenticatedApp style={style} />
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

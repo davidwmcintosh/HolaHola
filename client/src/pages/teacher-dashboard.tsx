@@ -56,10 +56,7 @@ export default function TeacherDashboard() {
 
   const createClassMutation = useMutation({
     mutationFn: async (data: CreateClassFormValues) => {
-      return apiRequest("/api/teacher/classes", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", "/api/teacher/classes", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/teacher/classes"] });

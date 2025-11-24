@@ -96,10 +96,7 @@ export default function StudentAssignments() {
 
   const submitAssignmentMutation = useMutation({
     mutationFn: async (data: { assignmentId: string; content: string }) => {
-      return apiRequest(`/api/assignments/${data.assignmentId}/submit`, {
-        method: "POST",
-        body: JSON.stringify({ content: data.content }),
-      });
+      return apiRequest("POST", `/api/assignments/${data.assignmentId}/submit`, { content: data.content });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/student/submissions"] });

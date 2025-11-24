@@ -79,7 +79,10 @@ export const conversations = pgTable("conversations", {
   // ACTFL standards tracking
   actflLevel: text("actfl_level"), // novice_low, novice_mid, novice_high, intermediate_low, intermediate_mid, intermediate_high, advanced_low, advanced_mid, advanced_high, superior, distinguished
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => [
+  index("idx_conversations_user_id").on(table.userId),
+  index("idx_conversations_user_language").on(table.userId, table.language),
+]);
 
 export const messages = pgTable("messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -101,7 +104,9 @@ export const messages = pgTable("messages", {
   // Background enrichment status for voice chat optimization
   enrichmentStatus: text("enrichment_status"), // null (complete), "pending", "processing", "failed" - used for split response in voice chat
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => [
+  index("idx_messages_conversation_id").on(table.conversationId),
+]);
 
 export const vocabularyWords = pgTable("vocabulary_words", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
