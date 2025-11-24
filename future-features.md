@@ -204,4 +204,28 @@ This document tracks potential features and improvements for future development.
 
 ---
 
-*Last Updated: November 23, 2025*
+## Recently Completed Features (Nov 24, 2025)
+
+### ✅ Production Polish
+**Status:** Completed and deployed
+
+**Offline Support:**
+- OfflineIndicator component with automatic reconnection detection
+- Enhanced service worker with comprehensive API route caching
+- Cache-first strategy for static assets, network-first with fallback for API routes
+- Proper state cleanup to prevent UI artifacts after reconnection
+
+**Mobile Responsiveness:**
+- Responsive text sizing (text-3xl md:text-4xl) across all major pages
+- Mobile-first design approach with md breakpoint optimization
+- Verified on dashboard, teacher pages, curriculum builder, and assignment pages
+
+**Security Hardening:**
+- Unified frontend/backend validation using shared insert schemas
+- Input sanitization with .trim() on all text inputs
+- Max-length constraints: 200 chars (names/titles), 2000 (descriptions), 10000 (content), 5000 (feedback)
+- Form validation pattern: compose from shared schemas without overriding security constraints
+
+---
+
+*Last Updated: November 24, 2025*
