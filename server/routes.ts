@@ -1565,12 +1565,16 @@ CRITICAL RULES:
 4. MUST end with "Try saying word!" where word matches your target field exactly (no quotes)
 5. NO text after the "Try saying" encouragement
 6. Keep punctuation simple - avoid multiple periods, colons, semicolons
+7. NEVER include phonetic pronunciations (like boo-EHN-ahs or NO-chehs) - the voice pronounces perfectly already
+8. NO pronunciation guides, syllable breakdowns, or phonetic hints in parentheses
 
 EXAMPLES:
 Good: "¡Excelente! You said Hello! Try saying Buenos días!"  (target: "Buenos días")
 Good: "Hola means hello. Try saying Hola!"  (target: "Hola")
-Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciation artifacts)
-Bad: "You said hello! Learn more tomorrow."  (missing "Try saying")`,
+Good: "¡Buen intento! Remember the B sound and the -ches ending. Try saying Buenas noches!"
+Bad: "Hola (OH-la) means hello."  (phonetic guide - unnecessary)
+Bad: "Try Buenas noches, boo-EHN-ahs NO-chehs."  (phonetic pronunciation spoken out loud)
+Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciation artifacts)`,
               minLength: 30,
               maxLength: 150
             }
