@@ -10,12 +10,14 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BookOpen, Plus, FolderOpen, FileText } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertCurriculumPathSchema, insertCurriculumUnitSchema, insertCurriculumLessonSchema } from "@shared/schema";
 import { z } from "zod";
+import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "wouter";
 
 interface CurriculumPath {
   id: string;
@@ -61,6 +63,8 @@ const lessonFormSchema = insertCurriculumLessonSchema.extend({
 type LessonFormValues = z.infer<typeof lessonFormSchema>;
 
 export default function CurriculumBuilder() {
+  const { user, isLoading: isLoadingAuth } = useAuth();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [createPathOpen, setCreatePathOpen] = useState(false);
   const [createUnitOpen, setCreateUnitOpen] = useState(false);
@@ -115,6 +119,17 @@ export default function CurriculumBuilder() {
     queryKey: ["/api/curriculum/units", selectedUnit, "lessons"],
     enabled: !!selectedUnit,
   });
+
+  // Protect teacher-only route
+  useEffect(() => {
+    if (!isLoadingAuth && (!user || (user.role !== 'teacher' && user.role !== 'admin'))) {
+      setLocation("/");
+    }
+  }, [user, isLoadingAuth, setLocation]);
+
+  if (isLoadingAuth || !user || (user.role !== 'teacher' && user.role !== 'admin')) {
+    return <div className="flex items-center justify-center h-full">Loading...</div>;
+  }
 
   const createPathMutation = useMutation({
     mutationFn: async (data: PathFormValues) => {

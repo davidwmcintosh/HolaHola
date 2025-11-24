@@ -64,7 +64,7 @@ async function upsertUser(
   });
 }
 
-export async function setupAuth(app: Express) {
+export async function setupAuth(app: Express, authLimiter?: any) {
   app.set("trust proxy", 1);
   app.use(getSession());
   app.use(passport.initialize());
@@ -106,23 +106,31 @@ export async function setupAuth(app: Express) {
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
-  app.get("/api/login", (req, res, next) => {
+  // Apply rate limiter to login endpoint
+  const loginHandlers = authLimiter ? [authLimiter] : [];
+  loginHandlers.push((req: any, res: any, next: any) => {
     ensureStrategy(req.hostname);
     passport.authenticate(`replitauth:${req.hostname}`, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
+  app.get("/api/login", ...loginHandlers);
 
-  app.get("/api/callback", (req, res, next) => {
+  // Apply rate limiter to callback endpoint
+  const callbackHandlers = authLimiter ? [authLimiter] : [];
+  callbackHandlers.push((req: any, res: any, next: any) => {
     ensureStrategy(req.hostname);
     passport.authenticate(`replitauth:${req.hostname}`, {
       successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
     })(req, res, next);
   });
+  app.get("/api/callback", ...callbackHandlers);
 
-  app.get("/api/logout", (req, res) => {
+  // Apply rate limiter to logout endpoints
+  const logoutHandler = authLimiter ? [authLimiter] : [];
+  logoutHandler.push((req: any, res: any) => {
     req.logout(() => {
       res.redirect(
         client.buildEndSessionUrl(config, {
@@ -132,15 +140,18 @@ export async function setupAuth(app: Express) {
       );
     });
   });
+  app.get("/api/logout", ...logoutHandler);
 
-  app.post("/api/logout", (req, res) => {
-    req.logout((err) => {
+  const logoutPostHandler = authLimiter ? [authLimiter] : [];
+  logoutPostHandler.push((req: any, res: any) => {
+    req.logout((err: any) => {
       if (err) {
         return res.status(500).json({ error: "Failed to logout" });
       }
       res.status(200).json({ success: true });
     });
   });
+  app.post("/api/logout", ...logoutPostHandler);
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {

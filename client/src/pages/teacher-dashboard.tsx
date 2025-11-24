@@ -9,13 +9,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Users, BookOpen, ClipboardList } from "lucide-react";
-import { useState } from "react";
-import { Link } from "wouter";
+import { useState, useEffect } from "react";
+import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeacherClassSchema } from "@shared/schema";
 import { z } from "zod";
+import { useAuth } from "@/hooks/useAuth";
 
 interface TeacherClass {
   id: string;
@@ -38,6 +39,8 @@ const createClassFormSchema = insertTeacherClassSchema.pick({
 type CreateClassFormValues = z.infer<typeof createClassFormSchema>;
 
 export default function TeacherDashboard() {
+  const { user, isLoading: isLoadingAuth } = useAuth();
+  const [, setLocation] = useLocation();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const { toast } = useToast();
 
@@ -53,6 +56,17 @@ export default function TeacherDashboard() {
   const { data: classes, isLoading } = useQuery<TeacherClass[]>({
     queryKey: ["/api/teacher/classes"],
   });
+
+  // Protect teacher-only route
+  useEffect(() => {
+    if (!isLoadingAuth && (!user || (user.role !== 'teacher' && user.role !== 'admin'))) {
+      setLocation("/");
+    }
+  }, [user, isLoadingAuth, setLocation]);
+
+  if (isLoadingAuth || !user || (user.role !== 'teacher' && user.role !== 'admin')) {
+    return <div className="flex items-center justify-center h-full">Loading...</div>;
+  }
 
   const createClassMutation = useMutation({
     mutationFn: async (data: CreateClassFormValues) => {

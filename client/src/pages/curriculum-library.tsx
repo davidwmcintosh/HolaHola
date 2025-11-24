@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,13 +30,26 @@ import type { CurriculumPath, CurriculumUnit, CurriculumLesson } from "@shared/s
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function CurriculumLibrary() {
+  const { user, isLoading: isLoadingAuth } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [selectedLanguage, setSelectedLanguage] = useState<string>("all");
   const [selectedPath, setSelectedPath] = useState<CurriculumPath | null>(null);
   const [selectedClassId, setSelectedClassId] = useState<string>("");
+
+  // Protect teacher-only route
+  useEffect(() => {
+    if (!isLoadingAuth && (!user || (user.role !== 'teacher' && user.role !== 'admin'))) {
+      setLocation("/");
+    }
+  }, [user, isLoadingAuth, setLocation]);
+
+  if (isLoadingAuth || !user || (user.role !== 'teacher' && user.role !== 'admin')) {
+    return <div className="flex items-center justify-center h-full">Loading...</div>;
+  }
 
   // Fetch curriculum paths
   const { data: paths = [], isLoading: pathsLoading } = useQuery<CurriculumPath[]>({

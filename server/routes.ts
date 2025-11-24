@@ -434,11 +434,11 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Set up Replit Auth
-  await setupAuth(app);
+  // Set up Replit Auth with rate limiting
+  await setupAuth(app, authLimiter);
 
-  // Auth user route
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  // Auth user route (with rate limiting)
+  app.get('/api/auth/user', authLimiter, isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
@@ -3488,7 +3488,7 @@ Return a JSON array of suggestions with this format:
       // Fetch from database with optional filters
       const statements = await storage.getCanDoStatements(
         normalizedLanguage,
-        internalLevel,
+        internalLevel || undefined,
         categoryFilter
       );
 

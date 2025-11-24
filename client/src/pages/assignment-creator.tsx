@@ -15,6 +15,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertAssignmentSchema } from "@shared/schema";
 import { z } from "zod";
+import { useAuth } from "@/hooks/useAuth";
+import { useEffect } from "react";
 
 interface TeacherClass {
   id: string;
@@ -36,6 +38,7 @@ const assignmentFormSchema = insertAssignmentSchema.extend({
 type AssignmentFormValues = z.infer<typeof assignmentFormSchema>;
 
 export default function AssignmentCreator() {
+  const { user, isLoading: isLoadingAuth } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
@@ -59,6 +62,17 @@ export default function AssignmentCreator() {
   const { data: classes, isLoading: isLoadingClasses } = useQuery<TeacherClass[]>({
     queryKey: ["/api/teacher/classes"],
   });
+
+  // Protect teacher-only route
+  useEffect(() => {
+    if (!isLoadingAuth && (!user || (user.role !== 'teacher' && user.role !== 'admin'))) {
+      setLocation("/");
+    }
+  }, [user, isLoadingAuth, setLocation]);
+
+  if (isLoadingAuth || !user || (user.role !== 'teacher' && user.role !== 'admin')) {
+    return <div className="flex items-center justify-center h-full">Loading...</div>;
+  }
 
   const createAssignmentMutation = useMutation({
     mutationFn: async (data: AssignmentFormValues) => {
