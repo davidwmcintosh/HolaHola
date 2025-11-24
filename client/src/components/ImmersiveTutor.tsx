@@ -56,7 +56,8 @@ export function ImmersiveTutor({
       if (message && message.role === "assistant") {
         // PHASE 3: Fast foreign-language display
         // Show ONLY target language text immediately - fast and stable
-        const displayText = message.targetLanguageText || message.content || "";
+        // If no targetLanguageText (e.g., greetings), show nothing (immersive learning)
+        const displayText = message.targetLanguageText || "";
         setCurrentText(displayText);
         
         // Not using word timings or karaoke highlighting for speed/stability
