@@ -1,7 +1,12 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, real, index, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, real, index, jsonb, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// ===== Enums =====
+
+// User role enum for multi-role system
+export const userRoleEnum = pgEnum('user_role', ['student', 'teacher', 'developer', 'admin']);
 
 // Replit Auth Integration - Session storage table
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
@@ -23,11 +28,15 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  // User role for dual-path system
-  role: varchar("role").default("student"), // student, teacher, admin, developer
+  // User role for multi-role system
+  role: userRoleEnum("role").default("student").notNull(), // student, teacher, developer, admin
   learningPathMode: varchar("learning_path_mode").default("open"), // open, structured
   // Developer testing override
   developerModel: varchar("developer_model"), // null (use tier-based), 'gpt-4o-mini', or 'gpt-4o' for developers/admins
+  // Admin impersonation for support/debugging
+  impersonatedUserId: varchar("impersonated_user_id"), // If admin is impersonating, this is the original admin's ID
+  impersonatedBy: varchar("impersonated_by"), // The admin ID who initiated impersonation
+  impersonationExpiresAt: timestamp("impersonation_expires_at"), // Impersonation session expiry
   // Learning preferences
   targetLanguage: varchar("target_language"), // english, spanish, french, german, italian, portuguese, japanese, mandarin, korean
   nativeLanguage: varchar("native_language").default("english"), // Language for explanations
@@ -279,6 +288,7 @@ export const curriculumLessons = pgTable("curriculum_lessons", {
 export const teacherClasses = pgTable("teacher_classes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   teacherId: varchar("teacher_id").notNull().references(() => users.id),
+  createdById: varchar("created_by_id").references(() => users.id), // Track who created this (teacher or admin)
   name: text("name").notNull(), // "Spanish 1 - Period 3"
   description: text("description"),
   language: text("language").notNull(),
@@ -338,6 +348,25 @@ export const assignmentSubmissions = pgTable("assignment_submissions", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+// ===== Admin System Tables =====
+
+// Admin audit log for tracking all admin actions
+export const adminAuditLog = pgTable("admin_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  actorId: varchar("actor_id").notNull().references(() => users.id), // Admin who performed the action
+  action: text("action").notNull(), // "change_user_role", "delete_class", "impersonate_user", etc.
+  targetType: text("target_type"), // "user", "class", "assignment", "system"
+  targetId: varchar("target_id"), // ID of the affected entity
+  metadata: jsonb("metadata"), // Additional data: { from: 'student', to: 'teacher', reason: '...' }
+  ipAddress: varchar("ip_address"), // Optional: track IP for security
+  userAgent: text("user_agent"), // Optional: track browser/device
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_admin_audit_actor").on(table.actorId),
+  index("idx_admin_audit_target").on(table.targetType, table.targetId),
+  index("idx_admin_audit_created").on(table.createdAt),
+]);
 
 // ===== Join Tables for Many-to-Many Relationships =====
 
@@ -646,6 +675,15 @@ export const insertAssignmentSubmissionSchema = createInsertSchema(assignmentSub
   teacherFeedback: z.string().max(5000, "Feedback must be less than 5000 characters").optional(),
 });
 
+export const insertAdminAuditLogSchema = createInsertSchema(adminAuditLog).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  action: z.string().min(1, "Action is required").max(100, "Action must be less than 100 characters").trim(),
+  targetType: z.string().max(50, "Target type must be less than 50 characters").optional(),
+  targetId: z.string().optional(),
+});
+
 export type InsertCanDoStatement = z.infer<typeof insertCanDoStatementSchema>;
 export type CanDoStatement = typeof canDoStatements.$inferSelect;
 
@@ -672,6 +710,9 @@ export type Assignment = typeof assignments.$inferSelect;
 
 export type InsertAssignmentSubmission = z.infer<typeof insertAssignmentSubmissionSchema>;
 export type AssignmentSubmission = typeof assignmentSubmissions.$inferSelect;
+
+export type InsertAdminAuditLog = z.infer<typeof insertAdminAuditLogSchema>;
+export type AdminAuditLog = typeof adminAuditLog.$inferSelect;
 
 // ===== Join Table Types =====
 

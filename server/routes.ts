@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter } from "./middleware/rate-limiter";
+import { requireRole, allowRoles, loadAuthenticatedUser } from "./middleware/rbac";
 import {
   insertConversationSchema,
   insertMessageSchema,
@@ -4233,6 +4234,281 @@ Return a JSON array of suggestions with this format:
       res.json(report);
     } catch (error: any) {
       console.error('Error generating parent report:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ========== ADMIN-ONLY ENDPOINTS ==========
+  
+  // ===== User Management =====
+  
+  // Get all users (admin/developer only)
+  app.get("/api/admin/users", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+    try {
+      const { role, limit, offset } = req.query;
+      const result = await storage.getAllUsers({
+        role,
+        limit: limit ? parseInt(limit) : undefined,
+        offset: offset ? parseInt(offset) : undefined,
+      });
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error fetching users:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Update user role (admin only)
+  app.patch("/api/admin/users/:userId/role", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const adminId = req.user.claims.sub;
+      const { userId } = req.params;
+      const { role } = req.body;
+      
+      if (!role || !['student', 'teacher', 'developer', 'admin'].includes(role)) {
+        return res.status(400).json({ error: "Invalid role" });
+      }
+      
+      const updated = await storage.updateUserRole(userId, role);
+      
+      if (!updated) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Log the action
+      await storage.logAdminAction({
+        actorId: adminId,
+        action: 'update_user_role',
+        targetType: 'user',
+        targetId: userId,
+        metadata: { newRole: role },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error('Error updating user role:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // ===== Class Management (Platform-wide) =====
+  
+  // Get all classes (admin/developer only)
+  app.get("/api/admin/classes", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+    try {
+      const { limit, offset } = req.query;
+      const result = await storage.getAllClasses({
+        limit: limit ? parseInt(limit) : undefined,
+        offset: offset ? parseInt(offset) : undefined,
+      });
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error fetching classes:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get class details (admin/developer only)
+  app.get("/api/admin/classes/:classId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+    try {
+      const { classId } = req.params;
+      const classDetails = await storage.getClassWithDetails(classId);
+      
+      if (!classDetails) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+      
+      res.json(classDetails);
+    } catch (error: any) {
+      console.error('Error fetching class details:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // ===== Assignment Management (Platform-wide) =====
+  
+  // Get all assignments (admin/developer only)
+  app.get("/api/admin/assignments", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+    try {
+      const { limit, offset } = req.query;
+      const result = await storage.getAllAssignments({
+        limit: limit ? parseInt(limit) : undefined,
+        offset: offset ? parseInt(offset) : undefined,
+      });
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error fetching assignments:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get all submissions (admin/developer only)
+  app.get("/api/admin/submissions", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+    try {
+      const { limit, offset } = req.query;
+      const result = await storage.getAllSubmissions({
+        limit: limit ? parseInt(limit) : undefined,
+        offset: offset ? parseInt(offset) : undefined,
+      });
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error fetching submissions:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // ===== Platform Metrics =====
+  
+  // Get platform metrics (admin/developer only)
+  app.get("/api/admin/metrics", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+    try {
+      const metrics = await storage.getPlatformMetrics();
+      res.json(metrics);
+    } catch (error: any) {
+      console.error('Error fetching platform metrics:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get growth metrics (admin/developer only)
+  app.get("/api/admin/metrics/growth", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+    try {
+      const { days = 30 } = req.query;
+      const metrics = await storage.getGrowthMetrics(parseInt(days as string));
+      res.json(metrics);
+    } catch (error: any) {
+      console.error('Error fetching growth metrics:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get top teachers (admin/developer only)
+  app.get("/api/admin/top-teachers", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+    try {
+      const { limit = 10 } = req.query;
+      const teachers = await storage.getTopTeachers(parseInt(limit as string));
+      res.json(teachers);
+    } catch (error: any) {
+      console.error('Error fetching top teachers:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get top classes (admin/developer only)
+  app.get("/api/admin/top-classes", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+    try {
+      const { limit = 10 } = req.query;
+      const classes = await storage.getTopClasses(parseInt(limit as string));
+      res.json(classes);
+    } catch (error: any) {
+      console.error('Error fetching top classes:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // ===== Audit Logs =====
+  
+  // Get admin audit logs (admin only)
+  app.get("/api/admin/audit-logs", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { limit, offset, actorId } = req.query;
+      const result = await storage.getAdminAuditLogs({
+        limit: limit ? parseInt(limit as string) : undefined,
+        offset: offset ? parseInt(offset as string) : undefined,
+        actorId: actorId as string | undefined,
+      });
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error fetching audit logs:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // ===== Impersonation =====
+  
+  // Start impersonation (admin only)
+  app.post("/api/admin/impersonate", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const adminId = req.user.claims.sub;
+      const { targetUserId, durationMinutes = 60 } = req.body;
+      
+      if (!targetUserId) {
+        return res.status(400).json({ error: "Target user ID is required" });
+      }
+      
+      // Prevent impersonating other admins
+      const targetUser = await storage.getUser(targetUserId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "Target user not found" });
+      }
+      
+      if (targetUser.role === 'admin') {
+        return res.status(403).json({ error: "Cannot impersonate other admins" });
+      }
+      
+      const updated = await storage.startImpersonation(adminId, targetUserId, durationMinutes);
+      
+      // Log the action
+      await storage.logAdminAction({
+        actorId: adminId,
+        action: 'start_impersonation',
+        targetType: 'user',
+        targetId: targetUserId,
+        metadata: { durationMinutes },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      res.json({ success: true, user: updated });
+    } catch (error: any) {
+      console.error('Error starting impersonation:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // End impersonation (admin only)
+  app.post("/api/admin/end-impersonation", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const adminId = req.user.claims.sub;
+      const { targetUserId } = req.body;
+      
+      if (!targetUserId) {
+        return res.status(400).json({ error: "Target user ID is required" });
+      }
+      
+      const updated = await storage.endImpersonation(targetUserId);
+      
+      // Log the action
+      await storage.logAdminAction({
+        actorId: adminId,
+        action: 'end_impersonation',
+        targetType: 'user',
+        targetId: targetUserId,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      res.json({ success: true, user: updated });
+    } catch (error: any) {
+      console.error('Error ending impersonation:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get active impersonations (admin only)
+  app.get("/api/admin/impersonations/active", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const activeImpersonations = await storage.getActiveImpersonations();
+      res.json(activeImpersonations);
+    } catch (error: any) {
+      console.error('Error fetching active impersonations:', error);
       res.status(500).json({ error: error.message });
     }
   });

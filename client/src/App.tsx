@@ -41,6 +41,10 @@ const StudentJoinClass = lazy(() => import("@/pages/student-join-class"));
 const StudentAssignments = lazy(() => import("@/pages/student-assignments"));
 const CurriculumBuilder = lazy(() => import("@/pages/curriculum-builder"));
 const CurriculumLibrary = lazy(() => import("@/pages/curriculum-library"));
+const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
+const AdminUsers = lazy(() => import("@/pages/admin/Users"));
+const AdminClasses = lazy(() => import("@/pages/admin/Classes"));
+const AdminReports = lazy(() => import("@/pages/admin/Reports"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 // Loading fallback component
@@ -127,6 +131,12 @@ function Router() {
         {/* Student Routes */}
         <Route path="/student/join-class" component={StudentJoinClass} />
         <Route path="/student/assignments" component={StudentAssignments} />
+        
+        {/* Admin Routes - Protected */}
+        <Route path="/admin" component={AdminDashboard} />
+        <Route path="/admin/users" component={AdminUsers} />
+        <Route path="/admin/classes" component={AdminClasses} />
+        <Route path="/admin/reports" component={AdminReports} />
         
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />

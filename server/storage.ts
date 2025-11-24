@@ -40,6 +40,7 @@ import {
   type InsertAssignment,
   type AssignmentSubmission,
   type InsertAssignmentSubmission,
+  type AdminAuditLog,
   users,
   conversations,
   messages,
@@ -61,6 +62,7 @@ import {
   curriculumLessons,
   assignments,
   assignmentSubmissions,
+  adminAuditLog,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -221,6 +223,61 @@ export interface IStorage {
   getStudentSubmissions(studentId: string): Promise<Array<AssignmentSubmission & { assignment: Assignment }>>;
   getAssignmentSubmissions(assignmentId: string): Promise<Array<AssignmentSubmission & { student: User }>>;
   updateAssignmentSubmission(id: string, data: Partial<AssignmentSubmission>): Promise<AssignmentSubmission | undefined>;
+
+  // ===== Admin-Only Methods =====
+  
+  // User Management
+  getAllUsers(options?: { role?: string; limit?: number; offset?: number }): Promise<{ users: User[]; total: number }>;
+  updateUserRole(userId: string, newRole: 'student' | 'teacher' | 'developer' | 'admin'): Promise<User | undefined>;
+  
+  // Class Management (Platform-wide)
+  getAllClasses(options?: { limit?: number; offset?: number }): Promise<{ classes: Array<TeacherClass & { teacher: User; enrollmentCount: number }>; total: number }>;
+  getClassWithDetails(classId: string): Promise<(TeacherClass & { teacher: User; enrollmentCount: number; assignmentCount: number }) | undefined>;
+  
+  // Assignment Management (Platform-wide)
+  getAllAssignments(options?: { limit?: number; offset?: number }): Promise<{ assignments: Array<Assignment & { class: TeacherClass; teacher: User }>; total: number }>;
+  getAllSubmissions(options?: { limit?: number; offset?: number }): Promise<{ submissions: Array<AssignmentSubmission & { assignment: Assignment; student: User }>; total: number }>;
+  
+  // Platform Metrics
+  getPlatformMetrics(): Promise<{
+    totalUsers: number;
+    totalStudents: number;
+    totalTeachers: number;
+    totalDevelopers: number;
+    totalAdmins: number;
+    totalClasses: number;
+    totalAssignments: number;
+    totalSubmissions: number;
+    totalConversations: number;
+  }>;
+  
+  // Growth Metrics (time-series data)
+  getGrowthMetrics(days: number): Promise<{
+    newUsers: Array<{ date: string; count: number }>;
+    newClasses: Array<{ date: string; count: number }>;
+    newAssignments: Array<{ date: string; count: number }>;
+  }>;
+  
+  // Top Performers
+  getTopTeachers(limit: number): Promise<Array<User & { classCount: number; studentCount: number }>>;
+  getTopClasses(limit: number): Promise<Array<TeacherClass & { teacher: User; enrollmentCount: number }>>;
+  
+  // Audit Logging
+  logAdminAction(data: {
+    actorId: string;
+    action: string;
+    targetType?: string;
+    targetId?: string;
+    metadata?: any;
+    ipAddress?: string;
+    userAgent?: string;
+  }): Promise<void>;
+  getAdminAuditLogs(options?: { limit?: number; offset?: number; actorId?: string }): Promise<{ logs: any[]; total: number }>;
+  
+  // Impersonation
+  startImpersonation(adminId: string, targetUserId: string, durationMinutes: number): Promise<User | undefined>;
+  endImpersonation(userId: string): Promise<User | undefined>;
+  getActiveImpersonations(): Promise<Array<User & { impersonatedUserEmail?: string }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1665,6 +1722,377 @@ export class DatabaseStorage implements IStorage {
       .where(eq(assignmentSubmissions.id, id))
       .returning();
     return updated;
+  }
+
+  // ===== Admin-Only Methods =====
+  
+  // User Management
+  async getAllUsers(options?: { role?: string; limit?: number; offset?: number }): Promise<{ users: User[]; total: number }> {
+    const limit = options?.limit || 50;
+    const offset = options?.offset || 0;
+    
+    const allUsers = options?.role
+      ? await db.select().from(users).where(eq(users.role, options.role as any)).limit(limit).offset(offset).orderBy(desc(users.createdAt))
+      : await db.select().from(users).limit(limit).offset(offset).orderBy(desc(users.createdAt));
+    
+    // Get total count
+    const countResult = options?.role 
+      ? await db.select({ count: sql<number>`count(*)` }).from(users).where(eq(users.role, options.role as any))
+      : await db.select({ count: sql<number>`count(*)` }).from(users);
+    
+    return {
+      users: allUsers,
+      total: Number((countResult[0] as any).count)
+    };
+  }
+
+  async updateUserRole(userId: string, newRole: 'student' | 'teacher' | 'developer' | 'admin'): Promise<User | undefined> {
+    const [updated] = await db
+      .update(users)
+      .set({ role: newRole, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+  
+  // Class Management (Platform-wide)
+  async getAllClasses(options?: { limit?: number; offset?: number }): Promise<{ classes: Array<TeacherClass & { teacher: User; enrollmentCount: number }>; total: number }> {
+    const limit = options?.limit || 50;
+    const offset = options?.offset || 0;
+    
+    const result = await db
+      .select({
+        class: teacherClasses,
+        teacher: users,
+        enrollmentCount: sql<number>`(SELECT COUNT(*) FROM ${classEnrollments} WHERE ${classEnrollments.classId} = ${teacherClasses.id})`
+      })
+      .from(teacherClasses)
+      .leftJoin(users, eq(teacherClasses.teacherId, users.id))
+      .limit(limit)
+      .offset(offset)
+      .orderBy(desc(teacherClasses.createdAt));
+    
+    // Get total count
+    const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(teacherClasses) as any;
+    
+    return {
+      classes: result.map(row => ({
+        ...row.class,
+        teacher: row.teacher!,
+        enrollmentCount: Number(row.enrollmentCount)
+      })),
+      total: Number(count)
+    };
+  }
+
+  async getClassWithDetails(classId: string): Promise<(TeacherClass & { teacher: User; enrollmentCount: number; assignmentCount: number }) | undefined> {
+    const result = await db
+      .select({
+        class: teacherClasses,
+        teacher: users,
+        enrollmentCount: sql<number>`(SELECT COUNT(*) FROM ${classEnrollments} WHERE ${classEnrollments.classId} = ${teacherClasses.id})`,
+        assignmentCount: sql<number>`(SELECT COUNT(*) FROM ${assignments} WHERE ${assignments.classId} = ${teacherClasses.id})`
+      })
+      .from(teacherClasses)
+      .leftJoin(users, eq(teacherClasses.teacherId, users.id))
+      .where(eq(teacherClasses.id, classId))
+      .limit(1);
+    
+    if (result.length === 0) return undefined;
+    
+    const row = result[0];
+    return {
+      ...row.class,
+      teacher: row.teacher!,
+      enrollmentCount: Number(row.enrollmentCount),
+      assignmentCount: Number(row.assignmentCount)
+    };
+  }
+  
+  // Assignment Management (Platform-wide)
+  async getAllAssignments(options?: { limit?: number; offset?: number }): Promise<{ assignments: Array<Assignment & { class: TeacherClass; teacher: User }>; total: number }> {
+    const limit = options?.limit || 50;
+    const offset = options?.offset || 0;
+    
+    const result = await db
+      .select({
+        assignment: assignments,
+        class: teacherClasses,
+        teacher: users
+      })
+      .from(assignments)
+      .leftJoin(teacherClasses, eq(assignments.classId, teacherClasses.id))
+      .leftJoin(users, eq(assignments.teacherId, users.id))
+      .limit(limit)
+      .offset(offset)
+      .orderBy(desc(assignments.createdAt));
+    
+    const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(assignments) as any;
+    
+    return {
+      assignments: result.map(row => ({
+        ...row.assignment,
+        class: row.class!,
+        teacher: row.teacher!
+      })),
+      total: Number(count)
+    };
+  }
+
+  async getAllSubmissions(options?: { limit?: number; offset?: number }): Promise<{ submissions: Array<AssignmentSubmission & { assignment: Assignment; student: User }>; total: number }> {
+    const limit = options?.limit || 50;
+    const offset = options?.offset || 0;
+    
+    const result = await db
+      .select({
+        submission: assignmentSubmissions,
+        assignment: assignments,
+        student: users
+      })
+      .from(assignmentSubmissions)
+      .leftJoin(assignments, eq(assignmentSubmissions.assignmentId, assignments.id))
+      .leftJoin(users, eq(assignmentSubmissions.studentId, users.id))
+      .limit(limit)
+      .offset(offset)
+      .orderBy(desc(assignmentSubmissions.createdAt));
+    
+    const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(assignmentSubmissions) as any;
+    
+    return {
+      submissions: result.map(row => ({
+        ...row.submission,
+        assignment: row.assignment!,
+        student: row.student!
+      })),
+      total: Number(count)
+    };
+  }
+  
+  // Platform Metrics
+  async getPlatformMetrics(): Promise<{
+    totalUsers: number;
+    totalStudents: number;
+    totalTeachers: number;
+    totalDevelopers: number;
+    totalAdmins: number;
+    totalClasses: number;
+    totalAssignments: number;
+    totalSubmissions: number;
+    totalConversations: number;
+  }> {
+    const [
+      { totalUsers },
+      { totalStudents },
+      { totalTeachers },
+      { totalDevelopers },
+      { totalAdmins },
+      { totalClasses },
+      { totalAssignments },
+      { totalSubmissions },
+      { totalConversations }
+    ] = await Promise.all([
+      db.select({ totalUsers: sql<number>`count(*)` }).from(users).then(r => r[0] as any),
+      db.select({ totalStudents: sql<number>`count(*)` }).from(users).where(eq(users.role, 'student' as any)).then(r => r[0] as any),
+      db.select({ totalTeachers: sql<number>`count(*)` }).from(users).where(eq(users.role, 'teacher' as any)).then(r => r[0] as any),
+      db.select({ totalDevelopers: sql<number>`count(*)` }).from(users).where(eq(users.role, 'developer' as any)).then(r => r[0] as any),
+      db.select({ totalAdmins: sql<number>`count(*)` }).from(users).where(eq(users.role, 'admin' as any)).then(r => r[0] as any),
+      db.select({ totalClasses: sql<number>`count(*)` }).from(teacherClasses).then(r => r[0] as any),
+      db.select({ totalAssignments: sql<number>`count(*)` }).from(assignments).then(r => r[0] as any),
+      db.select({ totalSubmissions: sql<number>`count(*)` }).from(assignmentSubmissions).then(r => r[0] as any),
+      db.select({ totalConversations: sql<number>`count(*)` }).from(conversations).then(r => r[0] as any),
+    ]);
+    
+    return {
+      totalUsers: Number(totalUsers),
+      totalStudents: Number(totalStudents),
+      totalTeachers: Number(totalTeachers),
+      totalDevelopers: Number(totalDevelopers),
+      totalAdmins: Number(totalAdmins),
+      totalClasses: Number(totalClasses),
+      totalAssignments: Number(totalAssignments),
+      totalSubmissions: Number(totalSubmissions),
+      totalConversations: Number(totalConversations),
+    };
+  }
+  
+  // Growth Metrics (time-series data)
+  async getGrowthMetrics(days: number): Promise<{
+    newUsers: Array<{ date: string; count: number }>;
+    newClasses: Array<{ date: string; count: number }>;
+    newAssignments: Array<{ date: string; count: number }>;
+  }> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    
+    const [newUsers, newClasses, newAssignments] = await Promise.all([
+      db
+        .select({
+          date: sql<string>`DATE(${users.createdAt})`,
+          count: sql<number>`count(*)`
+        })
+        .from(users)
+        .where(gte(users.createdAt, startDate))
+        .groupBy(sql`DATE(${users.createdAt})`)
+        .orderBy(sql`DATE(${users.createdAt})`),
+      
+      db
+        .select({
+          date: sql<string>`DATE(${teacherClasses.createdAt})`,
+          count: sql<number>`count(*)`
+        })
+        .from(teacherClasses)
+        .where(gte(teacherClasses.createdAt, startDate))
+        .groupBy(sql`DATE(${teacherClasses.createdAt})`)
+        .orderBy(sql`DATE(${teacherClasses.createdAt})`),
+      
+      db
+        .select({
+          date: sql<string>`DATE(${assignments.createdAt})`,
+          count: sql<number>`count(*)`
+        })
+        .from(assignments)
+        .where(gte(assignments.createdAt, startDate))
+        .groupBy(sql`DATE(${assignments.createdAt})`)
+        .orderBy(sql`DATE(${assignments.createdAt})`)
+    ]) as any;
+    
+    return {
+      newUsers: newUsers.map((r: any) => ({ date: r.date, count: Number(r.count) })),
+      newClasses: newClasses.map((r: any) => ({ date: r.date, count: Number(r.count) })),
+      newAssignments: newAssignments.map((r: any) => ({ date: r.date, count: Number(r.count) })),
+    };
+  }
+  
+  // Top Performers
+  async getTopTeachers(limit: number): Promise<Array<User & { classCount: number; studentCount: number }>> {
+    const result = await db
+      .select({
+        teacher: users,
+        classCount: sql<number>`COUNT(DISTINCT ${teacherClasses.id})`,
+        studentCount: sql<number>`COUNT(DISTINCT ${classEnrollments.studentId})`
+      })
+      .from(users)
+      .leftJoin(teacherClasses, eq(users.id, teacherClasses.teacherId))
+      .leftJoin(classEnrollments, eq(teacherClasses.id, classEnrollments.classId))
+      .where(eq(users.role, 'teacher' as any))
+      .groupBy(users.id)
+      .orderBy(desc(sql`COUNT(DISTINCT ${teacherClasses.id})`))
+      .limit(limit);
+    
+    return result.map(row => ({
+      ...row.teacher,
+      classCount: Number(row.classCount),
+      studentCount: Number(row.studentCount)
+    }));
+  }
+
+  async getTopClasses(limit: number): Promise<Array<TeacherClass & { teacher: User; enrollmentCount: number }>> {
+    const result = await db
+      .select({
+        class: teacherClasses,
+        teacher: users,
+        enrollmentCount: sql<number>`COUNT(${classEnrollments.id})`
+      })
+      .from(teacherClasses)
+      .leftJoin(users, eq(teacherClasses.teacherId, users.id))
+      .leftJoin(classEnrollments, eq(teacherClasses.id, classEnrollments.classId))
+      .groupBy(teacherClasses.id, users.id)
+      .orderBy(desc(sql`COUNT(${classEnrollments.id})`))
+      .limit(limit);
+    
+    return result.map(row => ({
+      ...row.class,
+      teacher: row.teacher!,
+      enrollmentCount: Number(row.enrollmentCount)
+    }));
+  }
+  
+  // Audit Logging
+  async logAdminAction(data: {
+    actorId: string;
+    action: string;
+    targetType?: string;
+    targetId?: string;
+    metadata?: any;
+    ipAddress?: string;
+    userAgent?: string;
+  }): Promise<void> {
+    await db.insert(adminAuditLog).values(data);
+  }
+
+  async getAdminAuditLogs(options?: { limit?: number; offset?: number; actorId?: string }): Promise<{ logs: any[]; total: number }> {
+    const limit = options?.limit || 50;
+    const offset = options?.offset || 0;
+    
+    const logs = options?.actorId
+      ? await db.select().from(adminAuditLog).where(eq(adminAuditLog.actorId, options.actorId)).limit(limit).offset(offset).orderBy(desc(adminAuditLog.createdAt))
+      : await db.select().from(adminAuditLog).limit(limit).offset(offset).orderBy(desc(adminAuditLog.createdAt));
+    
+    const countResult = options?.actorId
+      ? await db.select({ count: sql<number>`count(*)` }).from(adminAuditLog).where(eq(adminAuditLog.actorId, options.actorId))
+      : await db.select({ count: sql<number>`count(*)` }).from(adminAuditLog);
+    
+    return {
+      logs,
+      total: Number((countResult[0] as any).count)
+    };
+  }
+  
+  // Impersonation
+  async startImpersonation(adminId: string, targetUserId: string, durationMinutes: number): Promise<User | undefined> {
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + durationMinutes);
+    
+    const [updated] = await db
+      .update(users)
+      .set({
+        impersonatedUserId: targetUserId,
+        impersonatedBy: adminId,
+        impersonationExpiresAt: expiresAt,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, targetUserId))
+      .returning();
+    
+    return updated;
+  }
+
+  async endImpersonation(userId: string): Promise<User | undefined> {
+    const [updated] = await db
+      .update(users)
+      .set({
+        impersonatedUserId: null,
+        impersonatedBy: null,
+        impersonationExpiresAt: null,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    return updated;
+  }
+
+  async getActiveImpersonations(): Promise<Array<User & { impersonatedUserEmail?: string }>> {
+    const now = new Date();
+    const result = await db
+      .select({
+        user: users,
+        impersonatedUser: {
+          email: users.email
+        }
+      })
+      .from(users)
+      .where(
+        and(
+          sql`${users.impersonatedBy} IS NOT NULL`,
+          gte(users.impersonationExpiresAt as any, now)
+        )
+      );
+    
+    return result.map(row => ({
+      ...row.user,
+      impersonatedUserEmail: row.impersonatedUser.email || undefined
+    }));
   }
 }
 
