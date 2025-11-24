@@ -51,3 +51,6 @@ Smart phrase detection module (`server/phrase-detection.ts`) handles multi-word 
 -   **Text Chat**: `gemini-2.5-flash`, `gemini-2.5-pro`.
 -   **Voice STT**: Deepgram `nova-3`.
 -   **Voice TTS**: Google Cloud voices (Chirp 3 HD, Neural2).
+
+## Future Enhancements
+See `FUTURE_ENHANCEMENTS.md` for deferred features and development backlog, including potential IPA phoneme mappings for German, Italian, Portuguese, and non-Latin script languages (awaiting usage metrics and user feedback).
