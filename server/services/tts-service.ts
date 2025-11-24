@@ -339,6 +339,10 @@ export class TTSService {
    * Result: Spanish voice pronounces "Hola" correctly as 2 syllables (HO-la)
    */
   private addPhonemeTagsForTargetWords(text: string, targetLanguage?: string): { text: string; usesSSML: boolean } {
+    // TEMPORARILY DISABLED: Google Cloud TTS rejects accented characters (like í in "días") in SSML mode
+    // Error: INVALID_ARGUMENT when SSML contains Spanish accented characters
+    return { text, usesSSML: false };
+    
     if (!targetLanguage) {
       return { text, usesSSML: false };
     }
