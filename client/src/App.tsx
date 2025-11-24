@@ -91,8 +91,13 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
+  // Show loading screen while checking authentication
+  if (isLoading) {
+    return <PageLoader />;
+  }
+
   // For unauthenticated users, show landing page
-  if (isLoading || !isAuthenticated) {
+  if (!isAuthenticated) {
     return (
       <PageWrapper>
         <Switch>
