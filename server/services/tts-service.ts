@@ -503,6 +503,13 @@ export class TTSService {
 
     console.log(`[Google TTS] Synthesizing ${text.length} chars with ${voiceConfig.name}${usesSSML ? ' (with SSML phoneme tags)' : ''}`);
 
+    // DEBUG: Log exact SSML being sent to Google
+    if (usesSSML) {
+      console.log(`[SSML REQUEST DEBUG] Length: ${processedText.length} chars`);
+      console.log(`[SSML REQUEST DEBUG] First 300 chars: ${processedText.substring(0, 300)}`);
+      console.log(`[SSML REQUEST DEBUG] Char codes: ${processedText.substring(0, 100).split('').map(c => c.charCodeAt(0)).join(',')}`);
+    }
+
     // Prepare the synthesis request using standard v1 API
     // Note: Chirp 3 HD voices don't support enableTimePointing beta feature
     const request = {
