@@ -1579,22 +1579,30 @@ Return a JSON array of suggestions with this format:
               console.warn(`[VOICE VALIDATION] Target too long (${target.length} > ${MAX_TARGET_CHARS}): "${target.substring(0, 50)}"`);
               console.warn('[VOICE VALIDATION] AI violated beginner constraints, extracting target word');
               
-              // Strategy: Extract Spanish word from native field (often in quotes)
-              // Examples: "Say 'Hola'!" → "Hola", "'hello' is 'hola'" → "hola" (skip English)
-              const quotedWords = [...native.matchAll(/['"]([a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]+)['"]/g)];
+              // Strategy: Extract NEW Spanish word from native field (usually the LAST quoted word)
+              // Context: AI often says "Good job! Now let's learn 'NEW_WORD'." or "This is 'NEW_WORD'. Try it!"
+              // Examples: 
+              //   "'Hola' is great! Now try 'Buenos días'" → Should extract "Buenos días" (last)
+              //   "Let's learn 'Gracias'" → Should extract "Gracias"
+              const quotedWords = [...native.matchAll(/['"]([a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]+)['"]/g)];
               
-              // Find first quoted word that's NOT common English (hello, thank you, goodbye, etc.)
-              const englishWords = new Set(['hello', 'goodbye', 'thank', 'thanks', 'please', 'yes', 'no']);
-              const spanishWord = quotedWords
-                .map(match => match[1])
-                .find(word => !englishWords.has(word.toLowerCase()) && word.length <= MAX_TARGET_CHARS);
+              // Filter to only Spanish words (exclude common English words)
+              const englishWords = new Set(['hello', 'goodbye', 'thank', 'thanks', 'please', 'yes', 'no', 'good', 'morning', 'day', 'night', 'evening']);
+              const spanishQuotedWords = quotedWords
+                .map(match => match[1].trim())
+                .filter(word => {
+                  const firstWord = word.split(/\s+/)[0].toLowerCase();
+                  return !englishWords.has(firstWord) && word.length <= MAX_TARGET_CHARS;
+                });
               
-              if (spanishWord) {
-                target = spanishWord;
-                console.log(`[VOICE VALIDATION] ✓ Extracted Spanish word from quotes: "${target}"`);
+              // Use LAST Spanish quoted word (the new word being taught)
+              // NOT the first (which is often the word the student just said)
+              if (spanishQuotedWords.length > 0) {
+                target = spanishQuotedWords[spanishQuotedWords.length - 1];
+                console.log(`[VOICE VALIDATION] ✓ Extracted NEW Spanish word from quotes (last of ${spanishQuotedWords.length}): "${target}"`);
               } else if (quotedWords.length > 0 && quotedWords[quotedWords.length - 1][1].length <= MAX_TARGET_CHARS) {
-                // Fallback: Use last quoted word (often the Spanish translation)
-                target = quotedWords[quotedWords.length - 1][1];
+                // Fallback: Use last quoted word regardless of language
+                target = quotedWords[quotedWords.length - 1][1].trim();
                 console.log(`[VOICE VALIDATION] ✓ Extracted last quoted word: "${target}"`);
               } else {
                 // Fallback: Try first word from original target
