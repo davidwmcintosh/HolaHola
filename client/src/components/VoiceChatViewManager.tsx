@@ -125,43 +125,40 @@ export function VoiceChatViewManager({
             </div>
           )
         ) : (
-          <>
-            {/* History View - Simple Message List */}
-            <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 custom-scrollbar pt-16">
-              <div className="space-y-3 md:space-y-4 max-w-4xl mx-auto">
-                {/* Resume conversation indicator - Week 1 Feature */}
-                {conversationData?.resumeMetadata?.isResuming && (
-                  <div 
-                    className="mb-4 p-3 rounded-lg bg-muted/50 border border-border/50 flex items-center gap-2 text-sm"
-                    data-testid="resume-indicator"
-                  >
-                    <div className="flex items-center gap-2 flex-1">
-                      <MessageSquare className="h-4 w-4 text-primary" />
-                      <span className="font-medium">Resuming conversation</span>
-                      <span className="text-muted-foreground">
-                        · {conversationData.resumeMetadata.totalMessages} messages · Last active {
-                          new Date(conversationData.resumeMetadata.lastActiveAt).toLocaleDateString([], {
-                            month: 'short',
-                            day: 'numeric'
-                          })
-                        }
-                      </span>
-                    </div>
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 custom-scrollbar pt-16">
+            <div className="space-y-3 md:space-y-4 max-w-4xl mx-auto">
+              {/* Resume conversation indicator - Week 1 Feature */}
+              {conversationData?.resumeMetadata?.isResuming && (
+                <div 
+                  className="mb-4 p-3 rounded-lg bg-muted/50 border border-border/50 flex items-center gap-2 text-sm"
+                  data-testid="resume-indicator"
+                >
+                  <div className="flex items-center gap-2 flex-1">
+                    <MessageSquare className="h-4 w-4 text-primary" />
+                    <span className="font-medium">Resuming conversation</span>
+                    <span className="text-muted-foreground">
+                      · {conversationData.resumeMetadata.totalMessages} messages · Last active {
+                        new Date(conversationData.resumeMetadata.lastActiveAt).toLocaleDateString([], {
+                          month: 'short',
+                          day: 'numeric'
+                        })
+                      }
+                    </span>
                   </div>
-                )}
-                {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex gap-2 md:gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <Card className={`p-3 md:p-4 max-w-[85%] md:max-w-2xl rounded-2xl ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                      <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                    </Card>
-                  </div>
-                ))}
-              </div>
+                </div>
+              )}
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex gap-2 md:gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <Card className={`p-3 md:p-4 max-w-[85%] md:max-w-2xl rounded-2xl ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                    <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                  </Card>
+                </div>
+              ))}
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>
