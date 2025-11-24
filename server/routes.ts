@@ -18,10 +18,10 @@ import {
   extractNameFromMessage,
   extractLanguageFromMessage,
   extractNativeLanguageFromMessage,
-  detectLanguage,
   detectNativeLanguageChangeRequest,
   detectTargetLanguageChangeRequest,
 } from "./onboarding-utils";
+import { franc } from "franc-min";
 import { createSystemPrompt } from "./system-prompt";
 import { assessMessage, analyzePerformance } from "./difficulty-adjustment";
 import { setupAuth, isAuthenticated } from "./replitAuth";
@@ -1647,10 +1647,10 @@ Return a JSON array of suggestions with this format:
                 isWrongLanguage = true;
               }
             } else if (target.length >= 3) {
-              // For longer strings, use franc-min
+              // For longer strings, use franc-min for universal language detection
               let detectedISO = 'und';
               try {
-                detectedISO = detectLanguage(target);
+                detectedISO = franc(target); // franc-min returns ISO 639-3 codes
               } catch (e) {
                 console.warn('[VOICE LANG GUARD] Detection failed:', e);
               }
