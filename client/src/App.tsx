@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { UserCircle, Settings as SettingsIcon, LogOut, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { BUILD_TIME } from "./buildtime";
 
@@ -185,6 +186,7 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
             </main>
           </div>
         </div>
+        <OfflineIndicator />
         <PWAInstallPrompt />
       </SidebarProvider>
     </LanguageProvider>

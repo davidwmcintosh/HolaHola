@@ -1,12 +1,29 @@
-const CACHE_NAME = 'linguaflow-v1';
-const RUNTIME_CACHE = 'linguaflow-runtime-v1';
+const CACHE_NAME = 'linguaflow-v2';
+const RUNTIME_CACHE = 'linguaflow-runtime-v2';
+const IMAGE_CACHE = 'linguaflow-images-v1';
 
+// Static assets to cache on install
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',
 ];
+
+// API routes that should be cached for offline access
+const CACHEABLE_API_ROUTES = [
+  '/api/auth/user',
+  '/api/progress/',
+  '/api/conversations',
+  '/api/vocabulary',
+  '/api/grammar-exercises',
+  '/api/cultural-tips',
+];
+
+// Check if a URL should be cached
+function shouldCacheRequest(url) {
+  return CACHEABLE_API_ROUTES.some(route => url.pathname.includes(route));
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -22,7 +39,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
-          .filter((name) => name !== CACHE_NAME && name !== RUNTIME_CACHE)
+          .filter((name) => name !== CACHE_NAME && name !== RUNTIME_CACHE && name !== IMAGE_CACHE)
           .map((name) => caches.delete(name))
       );
     })
@@ -38,11 +55,34 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Handle image requests with cache-first strategy
+  if (request.destination === 'image') {
+    event.respondWith(
+      caches.match(request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        return fetch(request).then((response) => {
+          if (response.ok) {
+            const responseClone = response.clone();
+            caches.open(IMAGE_CACHE).then((cache) => {
+              cache.put(request, responseClone);
+            });
+          }
+          return response;
+        });
+      })
+    );
+    return;
+  }
+
+  // Handle API requests with network-first, fallback to cache
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response.ok) {
+          // Only cache successful GET requests for specific routes
+          if (response.ok && shouldCacheRequest(url)) {
             const responseClone = response.clone();
             caches.open(RUNTIME_CACHE).then((cache) => {
               cache.put(request, responseClone);
@@ -51,6 +91,7 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => {
+          // Fallback to cache if offline
           return caches.match(request).then((cachedResponse) => {
             if (cachedResponse) {
               return cachedResponse;
