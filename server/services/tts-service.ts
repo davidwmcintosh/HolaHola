@@ -373,8 +373,9 @@ export class TTSService {
         hasPhonemes = true;
         console.log(`[SSML Phoneme] Wrapping "${quotedContent}" with IPA: ${ipa}`);
         // IMPORTANT: Phoneme tag REPLACES the quoted word (no quotes in SSML)
-        // The quotes were just markers in the original text to identify target words
-        return `<phoneme alphabet="ipa" ph="${ipa}">${quotedContent}</phoneme>`;
+        // XML-escape the content to handle special characters like accents (í, á, etc.)
+        const escapedContent = this.escapeXML(quotedContent);
+        return `<phoneme alphabet="ipa" ph="${ipa}">${escapedContent}</phoneme>`;
       }
       
       // Keep original quoted word if no IPA mapping
