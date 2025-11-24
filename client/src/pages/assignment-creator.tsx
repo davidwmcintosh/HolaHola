@@ -63,17 +63,6 @@ export default function AssignmentCreator() {
     queryKey: ["/api/teacher/classes"],
   });
 
-  // Protect teacher-only route
-  useEffect(() => {
-    if (!isLoadingAuth && (!user || (user.role !== 'teacher' && user.role !== 'admin'))) {
-      setLocation("/");
-    }
-  }, [user, isLoadingAuth, setLocation]);
-
-  if (isLoadingAuth || !user || (user.role !== 'teacher' && user.role !== 'admin')) {
-    return <div className="flex items-center justify-center h-full">Loading...</div>;
-  }
-
   const createAssignmentMutation = useMutation({
     mutationFn: async (data: AssignmentFormValues) => {
       const payload = {
@@ -104,8 +93,21 @@ export default function AssignmentCreator() {
   });
 
   const handleSubmit = (values: AssignmentFormValues) => {
+    console.log('[AssignmentCreator] Form values:', values);
+    console.log('[AssignmentCreator] Form errors:', form.formState.errors);
     createAssignmentMutation.mutate(values);
   };
+
+  // Protect teacher-only route
+  useEffect(() => {
+    if (!isLoadingAuth && (!user || (user.role !== 'teacher' && user.role !== 'admin'))) {
+      setLocation("/");
+    }
+  }, [user, isLoadingAuth, setLocation]);
+
+  if (isLoadingAuth || !user || (user.role !== 'teacher' && user.role !== 'admin')) {
+    return <div className="flex items-center justify-center h-full">Loading...</div>;
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
