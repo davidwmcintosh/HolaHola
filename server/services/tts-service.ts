@@ -334,6 +334,11 @@ export class TTSService {
    * Result: Spanish voice pronounces "Hola" correctly as 2 syllables (HO-la)
    */
   private addPhonemeTagsForTargetWords(text: string, targetLanguage?: string): { text: string; usesSSML: boolean } {
+    // TEMPORARILY DISABLED: SSML causing INVALID_ARGUMENT errors from Google TTS
+    // TODO: Debug why Google rejects the SSML format - may be IPA encoding issue
+    console.log(`[SSML Phoneme] DISABLED - investigating Google TTS rejection`);
+    return { text, usesSSML: false };
+    
     if (!targetLanguage) {
       return { text, usesSSML: false };
     }
