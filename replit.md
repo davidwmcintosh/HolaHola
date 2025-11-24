@@ -116,6 +116,28 @@ Implementation:
 - API endpoints: `/api/reports/student/:id`, `/api/reports/class/:id`, `/api/reports/parent`
 - CSV export for all report types
 
+### Production Polish (November 2025)
+
+**Offline Support & PWA Enhancements**:
+- **OfflineIndicator Component** (`client/src/components/OfflineIndicator.tsx`): Real-time connectivity status with automatic banner removal when connection returns
+- **Enhanced Service Worker** (`public/sw.js`): Comprehensive API route caching including `/api/progress-history/`, `/api/teacher/*`, `/api/student/*`, `/api/classes/*`, `/api/assignments/*`, `/api/curriculum/*`
+- Cache-first strategy for static assets and images, network-first with cache fallback for API routes
+- Proper state management with cleanup on reconnection to prevent UI artifacts
+
+**Mobile Responsiveness**:
+- Responsive text sizing (`text-3xl md:text-4xl`) applied across all major pages: dashboard, teacher pages, curriculum builder, assignment pages
+- Mobile-first approach ensuring optimal experience on all device sizes
+
+**Security Hardening**:
+- **Unified Frontend/Backend Validation**: All forms use shared insert schemas from `shared/schema.ts` with max-length constraints
+- **Input Sanitization**: `.trim()` applied to all text inputs to prevent whitespace abuse
+- **Max-Length Constraints**:
+  - Names/titles: 200 characters
+  - Descriptions: 2000 characters
+  - Content fields: 10000 characters
+  - Feedback fields: 5000 characters
+- **Form Validation Pattern**: Forms compose from shared schemas using `.pick()`/`.extend()` only for UI compatibility (e.g., datetime-local string handling), never overriding security constraints
+
 ### Deferred Integrations (Pending External OAuth Setup)
 - **Google Classroom**: Requires OAuth 2.0 client credentials (see `GOOGLE_CLASSROOM_SETUP.md`)
 - **Canvas/Clever LMS**: Documented in `future-features.md`
