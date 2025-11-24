@@ -1743,8 +1743,14 @@ Return a JSON array of suggestions with this format:
             
             // CRITICAL: Prepend Spanish encouragement to TTS speech so it's actually spoken
             // This ensures students HEAR the encouragement with authentic Spanish pronunciation
-            native = `${target} ${native}`;
+            // Add a natural pause with period to prevent TTS from running words together
+            native = `${target}. ${native}`;
             console.log('[VOICE DUAL-SUBTITLE] ✓ Prepended encouragement to TTS speech:', target);
+          } else {
+            // NOT an encouragement word - DON'T prepend target to native
+            // TTS should speak ONLY the native field (English with Spanish accent)
+            // Prepending would cause Spanish TTS to mispronounce English words that immediately follow
+            console.log('[VOICE NO-PREPEND] Target is not encouragement, speaking native field only');
           }
           
           // Remove questions from native field
