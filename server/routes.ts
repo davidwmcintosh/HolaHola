@@ -1529,8 +1529,7 @@ Return a JSON array of suggestions with this format:
           properties: {
             target: { 
               type: "string",
-              description: `STRICT: ONE ${targetLanguageName} word or short phrase ONLY (3-15 characters). MUST be in ${targetLanguageName} language ONLY - NO ${nativeLanguageName} words allowed. When teaching, use the word being taught (e.g., 'Hola', 'Gracias'). When giving feedback, use ${targetLanguageName} encouragement words (e.g., '¡Perfecto!', '¡Excelente!' for Spanish, 'Parfait!' for French, 'すごい!' for Japanese). NEVER use ${nativeLanguageName} words like 'Great', 'Perfect', 'Excellent', 'OK', 'Yes', 'No', 'Hi' in this field.`,
-              minLength: 3,
+              description: `STRICT: ONE ${targetLanguageName} word or short phrase ONLY (max 15 characters). MUST be in ${targetLanguageName} language ONLY - NO ${nativeLanguageName} words allowed. When teaching, use the word being taught (e.g., 'Hola', 'Gracias', 'Sí'). When giving feedback, use ${targetLanguageName} encouragement words (e.g., '¡Perfecto!', '¡Excelente!' for Spanish, 'Parfait!' for French, 'すごい!' for Japanese). NEVER use ${nativeLanguageName} words like 'Great', 'Perfect', 'Excellent', 'OK', 'Yes', 'No', 'Hi' in this field.`,
               maxLength: 15
             },
             native: { 
@@ -1620,11 +1619,34 @@ Return a JSON array of suggestions with this format:
             
             let isWrongLanguage = false;
             
-            // For short strings (<3 chars), use stoplist (franc-min doesn't work)
+            // For short strings (<3 chars), check against native language stoplist
+            // Don't block ALL short words - many valid target language words are short!
             if (target.length < 3) {
-              console.warn(`[VOICE LANG GUARD] Target too short (${target.length} < 3): "${target}"`);
-              isWrongLanguage = true; // Assume wrong, extract from quotes
-            } else {
+              // Per-language stoplists for common short native words
+              const chineseWords = ['是', '不', '我', '你', '他', '她', '的', '了', '在', '和'];
+              const shortNativeWords: Record<string, string[]> = {
+                'english': ['ok', 'hi', 'no', 'yes', 'go', 'me', 'we', 'is', 'am', 'be', 'or', 'to', 'up'],
+                'spanish': ['sí', 'no', 'yo', 'tú', 'él', 'la', 'el', 'de', 'es', 'un'],
+                'french': ['oui', 'non', 'je', 'tu', 'il', 'la', 'le', 'de', 'un', 'et'],
+                'german': ['ja', 'nein', 'ich', 'du', 'er', 'sie', 'es', 'der', 'die', 'das', 'und'],
+                'italian': ['sì', 'no', 'io', 'tu', 'lui', 'lei', 'la', 'il', 'di', 'un', 'e'],
+                'portuguese': ['sim', 'não', 'eu', 'tu', 'ele', 'ela', 'o', 'a', 'de', 'um', 'e'],
+                'russian': ['да', 'нет', 'я', 'ты', 'он', 'она', 'и', 'в', 'на', 'не'],
+                'japanese': ['はい', 'いいえ', 'ね', 'よ', 'か', 'な', 'の', 'を', 'に', 'が'],
+                'korean': ['네', '아니', '예', '나', '너', '그', '이', '의', '가', '을'],
+                'mandarin': chineseWords,
+                'mandarin chinese': chineseWords, // Support both variants
+                'chinese': chineseWords  // Support all variants
+              };
+              
+              const nativeStoplist = shortNativeWords[nativeLangName] || [];
+              const targetLower = target.toLowerCase().replace(/[¡!¿?.,;]/g, '').trim();
+              
+              if (nativeStoplist.includes(targetLower)) {
+                console.warn(`[VOICE LANG GUARD] Short native language word (${nativeLangName}) detected: "${target}"`);
+                isWrongLanguage = true;
+              }
+            } else if (target.length >= 3) {
               // For longer strings, use franc-min
               let detectedISO = 'und';
               try {
