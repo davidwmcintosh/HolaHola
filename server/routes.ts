@@ -1521,16 +1521,36 @@ Return a JSON array of suggestions with this format:
         const nativeLanguageName = activeConversation.nativeLanguage || 'english';
         const targetLanguageName = activeConversation.language;
         
-        const voiceResponseSchema = {
+        // SCHEMA-LEVEL PREVENTION: Enforce rules BEFORE AI generates response
+        // This prevents issues instead of fixing them after
+        const difficultyLevel = activeConversation.difficulty || 'beginner';
+        const voiceResponseSchema = difficultyLevel === 'beginner' ? {
           type: "object",
           properties: {
             target: { 
               type: "string",
-              description: `Target language text (${targetLanguageName}) - REQUIRED, NEVER EMPTY. Must be in ${targetLanguageName} language. Always include target language encouragement when giving feedback (e.g., ¡Perfecto!, ¡Excelente! for Spanish).`
+              description: `STRICT: ONE ${targetLanguageName} word or short phrase ONLY (3-15 characters). MUST be in ${targetLanguageName} language ONLY - NO ${nativeLanguageName} words allowed. When teaching, use the word being taught (e.g., 'Hola', 'Gracias'). When giving feedback, use ${targetLanguageName} encouragement words (e.g., '¡Perfecto!', '¡Excelente!' for Spanish, 'Parfait!' for French, 'すごい!' for Japanese). NEVER use ${nativeLanguageName} words like 'Great', 'Perfect', 'Excellent', 'OK', 'Yes', 'No', 'Hi' in this field.`,
+              minLength: 3,
+              maxLength: 15
             },
             native: { 
               type: "string",
-              description: `Student's native language (${nativeLanguageName}) explanations and teaching content. Must be in ${nativeLanguageName} language.`
+              description: `STRICT: Complete ${nativeLanguageName} explanation (minimum 30 characters). Write ONLY in ${nativeLanguageName} - NO ${targetLanguageName} sentences. Embed ${targetLanguageName} words in SINGLE quotes 'word'. Always end with "Try saying 'word'!" or "Try it!". This field will be spoken by TTS, so make it natural.`,
+              minLength: 30
+            }
+          },
+          required: ["target", "native"]
+        } : {
+          // Intermediate/Advanced: Less strict
+          type: "object",
+          properties: {
+            target: { 
+              type: "string",
+              description: `Target language text (${targetLanguageName}) - REQUIRED, NEVER EMPTY. Must be in ${targetLanguageName} language. ${difficultyLevel === 'intermediate' ? 'Use 70-80% target language.' : 'Use 85-95% target language.'}`
+            },
+            native: { 
+              type: "string",
+              description: `Student's native language (${nativeLanguageName}) explanations and teaching content. ${difficultyLevel === 'intermediate' ? 'Use 20-30% native language.' : 'Use 5-15% native language.'}`
             }
           },
           required: ["target", "native"]
@@ -1573,14 +1593,13 @@ Return a JSON array of suggestions with this format:
           let target = (parsed.target || '').trim();
           let native = (parsed.native || '').trim();
           
-          // Get language names for validation
-          const targetLangName = conversation.targetLanguage || 'spanish';
+          // SCHEMA + LIGHTWEIGHT DETECTION: Schema enforces length, we check language
+          const targetLangName = conversation.language || 'spanish';
           const nativeLangName = conversation.nativeLanguage || 'english';
           
-          // GRACEFUL FALLBACK: If AI violates rules, provide safe default instead of crashing
+          // Safety net: Empty strings (schema should prevent)
           if (!target || !native) {
-            console.error('[VOICE FALLBACK] Missing target or native field, using safe default');
-            // Use language-specific default greeting
+            console.error('[VOICE SCHEMA VIOLATION] Empty fields despite schema enforcement');
             const defaultGreetings: Record<string, string> = {
               spanish: "Hola", french: "Bonjour", german: "Hallo", italian: "Ciao",
               portuguese: "Olá", japanese: "こんにちは", korean: "안녕하세요",
@@ -1590,95 +1609,54 @@ Return a JSON array of suggestions with this format:
             native = `Let's practice the most common greeting: '${target}'. Try saying it!`;
           }
           
-          // LANGUAGE-AGNOSTIC VALIDATION: Use franc-min to detect if target is in native language
-          // Map language names to ISO-639-3 codes (what franc-min returns)
-          const langToISO: Record<string, string> = {
-            'english': 'eng', 'spanish': 'spa', 'french': 'fra', 'german': 'deu',
-            'italian': 'ita', 'portuguese': 'por', 'japanese': 'jpn', 'korean': 'kor',
-            'mandarin chinese': 'cmn', 'mandarin': 'cmn', 'russian': 'rus', 'chinese': 'cmn'
-          };
-          
-          // Detect language of target text
-          let detectedLangISO = 'und';
-          try {
-            if (target.length >= 3) { // franc-min needs at least 3 chars
-              detectedLangISO = detectLanguage(target);
-            }
-          } catch (e) {
-            console.warn('[VOICE VALIDATION] Language detection failed:', e);
-          }
-          
-          // Check if target is in native language instead of target language
-          const expectedTargetISO = langToISO[targetLangName] || 'und';
-          const expectedNativeISO = langToISO[nativeLangName] || 'eng';
-          const hasWrongLanguage = detectedLangISO === expectedNativeISO && detectedLangISO !== expectedTargetISO;
-          
-          console.log(`[VOICE VALIDATION] Target language detection: expected=${expectedTargetISO}, detected=${detectedLangISO}, isNative=${hasWrongLanguage}`);
-          
-          // Beginner validation with fallback
+          // UNIVERSAL LANGUAGE GUARD: Detect and fix wrong language in target (all native languages)
           if (conversation.difficulty === 'beginner') {
-            // Normalize text for consistent character counting (handles multi-byte chars)
-            const normalizedTarget = target.normalize('NFKC');
-            const targetLength = normalizedTarget.length;
+            // Map language names to ISO-639-3 codes for franc-min
+            const langToISO: Record<string, string> = {
+              'english': 'eng', 'spanish': 'spa', 'french': 'fra', 'german': 'deu',
+              'italian': 'ita', 'portuguese': 'por', 'japanese': 'jpn', 'korean': 'kor',
+              'mandarin chinese': 'cmn', 'mandarin': 'cmn', 'russian': 'rus', 'chinese': 'cmn'
+            };
             
-            const MAX_TARGET = 15;
-            const MIN_NATIVE = 30;
+            let isWrongLanguage = false;
             
-            // If target is in wrong language OR is too long, extract from native field
-            if (hasWrongLanguage || targetLength > MAX_TARGET) {
-              if (hasWrongLanguage) {
-                console.warn(`[VOICE FALLBACK] Target is in native language (${detectedLangISO}): "${target}"`);
-              } else {
-                console.warn(`[VOICE FALLBACK] Target too long (${targetLength} > ${MAX_TARGET}): "${target}"`);
+            // For short strings (<3 chars), use stoplist (franc-min doesn't work)
+            if (target.length < 3) {
+              console.warn(`[VOICE LANG GUARD] Target too short (${target.length} < 3): "${target}"`);
+              isWrongLanguage = true; // Assume wrong, extract from quotes
+            } else {
+              // For longer strings, use franc-min
+              let detectedISO = 'und';
+              try {
+                detectedISO = detectLanguage(target);
+              } catch (e) {
+                console.warn('[VOICE LANG GUARD] Detection failed:', e);
               }
               
-              // Extract quoted words from native field (support multiple quote styles for all languages)
-              // Latin quotes: '...' "..." 
-              // CJK quotes: 「...」『...』
-              // European quotes: «...» ‹...›
-              const quotedWords = [...native.matchAll(/['"`''"\"「」『』«»‹›]([^'"`''"\"「」『』«»‹›]+)['"`''"\"「」『』«»‹›]/g)];
+              const expectedTargetISO = langToISO[targetLangName] || 'und';
+              const expectedNativeISO = langToISO[nativeLangName] || 'eng';
+              isWrongLanguage = detectedISO === expectedNativeISO && detectedISO !== expectedTargetISO;
               
-              if (quotedWords.length > 0) {
-                // Find the LAST quoted word that's not a common English word (likely the new word being taught)
-                const targetLangWords = quotedWords
-                  .map(match => match[1].trim())
-                  .filter(word => {
-                    const firstWord = word.split(/\s+/)[0].toLowerCase();
-                    return !commonNativeWords.has(firstWord) && word.length <= MAX_TARGET;
-                  });
-                
-                if (targetLangWords.length > 0) {
-                  // Use LAST target language word (the new word being taught)
-                  target = targetLangWords[targetLangWords.length - 1];
-                  console.log(`[VOICE FALLBACK] ✓ Extracted target language word from quotes: "${target}"`);
-                } else {
-                  // Fallback: Use last quoted word
-                  target = quotedWords[quotedWords.length - 1][1].trim();
-                  console.log(`[VOICE FALLBACK] ✓ Using last quoted word: "${target}"`);
-                }
-              } else {
-                // No quoted words found - try first word from original target
-                const firstWord = target.split(/\s+/)[0].replace(/[¡!¿?.,;]/g, '');
-                if (firstWord.length <= MAX_TARGET && !commonNativeWords.has(firstWord.toLowerCase())) {
-                  target = firstWord;
-                  console.log(`[VOICE FALLBACK] ✓ Using first word: "${target}"`);
-                } else {
-                  // Last resort: Use language-specific default
-                  const defaultGreetings: Record<string, string> = {
-                    spanish: "Hola", french: "Bonjour", german: "Hallo", italian: "Ciao",
-                    portuguese: "Olá", japanese: "こんにちは", korean: "안녕하세요",
-                    mandarin: "你好", russian: "Привет"
-                  };
-                  target = defaultGreetings[targetLangName] || "Hello";
-                  native = `Let's practice '${target}'. Try saying it!`;
-                  console.log(`[VOICE FALLBACK] ✓ Using safe default: "${target}"`);
-                }
-              }
+              console.log(`[VOICE LANG GUARD] Detected=${detectedISO}, expected=${expectedTargetISO}, native=${expectedNativeISO}, wrong=${isWrongLanguage}`);
             }
             
-            if (native.length < MIN_NATIVE) {
-              console.warn(`[VOICE FALLBACK] Native too short (${native.length} < ${MIN_NATIVE}), extending`);
-              native = `Great! Now let's practice saying '${target}'. Try repeating it!`;
+            if (isWrongLanguage) {
+              console.warn(`[VOICE LANG GUARD] Target is in native language: "${target}"`);
+              // Extract target language word from quotes in native field  
+              const quotedWords = [...native.matchAll(/['"`''"\"「」『』«»‹›]([^'"`''"\"「」『』«»‹›]+)['"`''"\"「」『』«»‹›]/g)];
+              if (quotedWords.length > 0) {
+                // Use LAST quoted word (the new word being taught)
+                target = quotedWords[quotedWords.length - 1][1].trim();
+                console.log(`[VOICE LANG GUARD] ✓ Extracted from quotes: "${target}"`);
+              } else {
+                // Fallback to language-specific encouragement
+                const encouragements: Record<string, string> = {
+                  spanish: "¡Perfecto!", french: "Parfait!", german: "Gut!", italian: "Perfetto!",
+                  portuguese: "Perfeito!", japanese: "すごい!", korean: "좋아요!", mandarin: "好!", russian: "Отлично!"
+                };
+                target = encouragements[targetLangName] || "Hola";
+                console.log(`[VOICE LANG GUARD] ✓ Using encouragement fallback: "${target}"`);
+              }
             }
           }
           
