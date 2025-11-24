@@ -100,10 +100,9 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       // Generate TTS for the greeting (but don't change state yet)
       console.log('[VOICE GREETING] Generating greeting audio for new conversation');
       
-      // CRITICAL: Use NATIVE language for greeting (prevents mispronunciation)
-      // Greetings are in native language (English) - don't use Spanish voice for English text
-      // Use 'english' as language to get proper English TTS pronunciation
-      synthesizeSpeech(greetingMessage.content, 'english')
+      // Use target language voice for consistency (Spanish voice speaks English = Spanish accent)
+      // This gives immersive learning experience from the very first word
+      synthesizeSpeech(greetingMessage.content, language)
         .then(audioBlob => {
           // Use refs to check current state (not stale closure values)
           // Don't play if:
