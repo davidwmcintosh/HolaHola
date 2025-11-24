@@ -421,7 +421,7 @@ export default function StudentAssignments() {
               <p className="text-sm font-medium mb-2">Your Work:</p>
               <p className="text-sm whitespace-pre-wrap">{viewingSubmission?.content}</p>
             </div>
-            {viewingSubmission?.teacherScore !== null && (
+            {viewingSubmission?.teacherScore !== null && viewingSubmission && (
               <div className="p-4 bg-primary/10 rounded-lg">
                 <p className="text-sm font-medium mb-2">
                   Score: {viewingSubmission.teacherScore}/{viewingSubmission.assignment?.maxScore || 100}

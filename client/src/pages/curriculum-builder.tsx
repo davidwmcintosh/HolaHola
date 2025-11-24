@@ -74,7 +74,8 @@ export default function CurriculumBuilder() {
       name: "",
       description: "",
       language: "spanish",
-      targetLevel: "beginner",
+      startLevel: "novice_low",
+      endLevel: "novice_mid",
       isPublished: false,
     },
   });
@@ -84,7 +85,7 @@ export default function CurriculumBuilder() {
     defaultValues: {
       name: "",
       description: "",
-      pathId: "",
+      curriculumPathId: "",
       orderIndex: 0,
     },
   });
@@ -95,8 +96,9 @@ export default function CurriculumBuilder() {
       name: "",
       description: "",
       content: "",
-      unitId: "",
+      curriculumUnitId: "",
       orderIndex: 0,
+      lessonType: "conversation",
     },
   });
 
@@ -203,7 +205,7 @@ export default function CurriculumBuilder() {
     
     createUnitMutation.mutate({
       ...values,
-      pathId: selectedPath,
+      curriculumPathId: selectedPath,
       orderIndex: maxOrder + 1,
     });
   };
@@ -223,7 +225,7 @@ export default function CurriculumBuilder() {
     
     createLessonMutation.mutate({
       ...values,
-      unitId: selectedUnit,
+      curriculumUnitId: selectedUnit,
       orderIndex: maxOrder + 1,
     });
   };
@@ -313,20 +315,26 @@ export default function CurriculumBuilder() {
                   />
                   <FormField
                     control={pathForm.control}
-                    name="targetLevel"
+                    name="startLevel"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Target Level</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormLabel>Start Level</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
                           <FormControl>
                             <SelectTrigger data-testid="select-path-level">
                               <SelectValue />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="beginner">Beginner</SelectItem>
-                            <SelectItem value="intermediate">Intermediate</SelectItem>
-                            <SelectItem value="advanced">Advanced</SelectItem>
+                            <SelectItem value="novice_low">Novice Low</SelectItem>
+                            <SelectItem value="novice_mid">Novice Mid</SelectItem>
+                            <SelectItem value="novice_high">Novice High</SelectItem>
+                            <SelectItem value="intermediate_low">Intermediate Low</SelectItem>
+                            <SelectItem value="intermediate_mid">Intermediate Mid</SelectItem>
+                            <SelectItem value="intermediate_high">Intermediate High</SelectItem>
+                            <SelectItem value="advanced_low">Advanced Low</SelectItem>
+                            <SelectItem value="advanced_mid">Advanced Mid</SelectItem>
+                            <SelectItem value="advanced_high">Advanced High</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />

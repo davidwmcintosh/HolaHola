@@ -240,6 +240,7 @@ export default function AssignmentCreator() {
                           type="datetime-local"
                           data-testid="input-due-date"
                           {...field}
+                          value={field.value || ""}
                         />
                       </FormControl>
                       <FormMessage />
@@ -282,7 +283,7 @@ export default function AssignmentCreator() {
                     </div>
                     <FormControl>
                       <Switch
-                        checked={field.value}
+                        checked={field.value || false}
                         onCheckedChange={field.onChange}
                         data-testid="switch-published"
                       />
