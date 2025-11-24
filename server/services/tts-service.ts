@@ -356,26 +356,35 @@ export class TTSService {
     let hasPhonemes = false;
 
     // Find all quoted words/phrases and check if they have IPA mappings
-    // Match: 'word' "word" 'phrase with spaces' etc.
-    const quotedPattern = /['''"""«»]([^'''"""«»]+)['''"""«»]/g;
+    // Match various quote styles: 'word' "word" "word" 'word' «word» etc.
+    const quotedPattern = /(['''"""«])([^'''"""«»]+)(['''"""»])/g;
     
-    modifiedText = text.replace(quotedPattern, (match, quotedContent) => {
-      const normalized = quotedContent.toLowerCase().trim();
+    modifiedText = text.replace(quotedPattern, (match, openQuote, quotedContent, closeQuote) => {
+      // Normalize for lookup: lowercase, trim, remove diacritics for basic matching
+      const normalized = quotedContent.toLowerCase().trim()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+        .replace(/[¿?¡!]/g, ''); // Remove Spanish punctuation
+      
+      // Also try exact lowercase match (preserves diacritics)
+      const exactNormalized = quotedContent.toLowerCase().trim();
       
       // Check if this quoted word/phrase has an IPA pronunciation
-      if (ipaMappings[normalized]) {
-        const ipa = ipaMappings[normalized];
+      const ipa = ipaMappings[exactNormalized] || ipaMappings[normalized];
+      
+      if (ipa) {
         hasPhonemes = true;
         console.log(`[SSML Phoneme] Wrapping "${quotedContent}" with IPA: ${ipa}`);
-        // Wrap with phoneme tag, preserving original capitalization
-        return `'<phoneme alphabet="ipa" ph="${ipa}">${quotedContent}</phoneme>'`;
+        // Wrap with phoneme tag, preserving original capitalization and quotes
+        return `${openQuote}<phoneme alphabet="ipa" ph="${ipa}">${quotedContent}</phoneme>${closeQuote}`;
       }
       
       // Keep original quoted word if no IPA mapping
       return match;
     });
 
+    // Only wrap in SSML <speak> tags if we actually added phoneme tags
     if (!hasPhonemes) {
+      console.log(`[SSML Phoneme] No matching words found in text, skipping SSML`);
       return { text, usesSSML: false };
     }
 
