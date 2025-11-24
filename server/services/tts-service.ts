@@ -384,32 +384,12 @@ export class TTSService {
       return { text, usesSSML: false };
     }
 
-    // XML-escape text OUTSIDE phoneme tags to handle special characters like apostrophes
-    // Strategy: Split on phoneme tags, escape text parts, keep phoneme tags as-is
-    const parts: string[] = [];
-    let lastIndex = 0;
-    const phonemePattern = /<phoneme[^>]*>.*?<\/phoneme>/g;
+    // For SSML, we DON'T need to escape text outside phoneme tags
+    // Google TTS handles apostrophes and other characters natively
+    // Only the phoneme tags themselves need proper formatting
     
-    let match;
-    while ((match = phonemePattern.exec(modifiedText)) !== null) {
-      // Escape text before this phoneme tag
-      if (match.index > lastIndex) {
-        parts.push(this.escapeXML(modifiedText.substring(lastIndex, match.index)));
-      }
-      // Add the phoneme tag as-is (with unescaped content like "Buenos días")
-      parts.push(match[0]);
-      lastIndex = match.index + match[0].length;
-    }
-    
-    // Escape any remaining text after the last phoneme tag
-    if (lastIndex < modifiedText.length) {
-      parts.push(this.escapeXML(modifiedText.substring(lastIndex)));
-    }
-    
-    const finalText = parts.join('');
-
     // Wrap entire text in SSML <speak> tags
-    const ssmlText = `<speak>${finalText}</speak>`;
+    const ssmlText = `<speak>${modifiedText}</speak>`;
     console.log(`[SSML Phoneme] ✅ Added ${hasPhonemes ? 'phoneme tags' : 'no tags'} for ${targetLanguage}`);
     console.log(`[SSML DEBUG] Generated SSML: ${ssmlText.substring(0, 200)}...`);
     
