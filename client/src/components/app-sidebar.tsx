@@ -1,4 +1,4 @@
-import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck, Library } from "lucide-react";
+import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck, Library, Shield } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -39,6 +39,13 @@ const studentMenuItems = [
   { title: "My Assignments", url: "/student/assignments", icon: ClipboardList },
 ];
 
+const adminMenuItems = [
+  { title: "Admin Dashboard", url: "/admin", icon: Shield },
+  { title: "User Management", url: "/admin/users", icon: Users },
+  { title: "Class Management", url: "/admin/classes", icon: GraduationCap },
+  { title: "Reports & Audit", url: "/admin/reports", icon: ClipboardList },
+];
+
 export function AppSidebar() {
   const [location] = useLocation();
   const { userName } = useLanguage();
@@ -53,8 +60,10 @@ export function AppSidebar() {
     return true;
   });
 
-  // Check if user is a teacher (role is 'teacher' or 'admin')
-  const isTeacher = user?.role === 'teacher' || user?.role === 'admin';
+  // Check if user is a teacher (role is 'teacher', 'developer', or 'admin')
+  const isTeacher = user?.role === 'teacher' || user?.role === 'developer' || user?.role === 'admin';
+  // Check if user is admin or developer (for admin menu)
+  const isAdminOrDeveloper = user?.role === 'admin' || user?.role === 'developer';
   // Show student features for all users (teachers can also be students)
   const showStudentFeatures = true;
 
@@ -110,6 +119,33 @@ export function AppSidebar() {
               <SidebarMenu>
                 {teacherMenuItems.map((item) => {
                   const isActive = location === item.url;
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton 
+                        asChild
+                        isActive={isActive}
+                        data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        <Link href={item.url}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {isAdminOrDeveloper && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminMenuItems.map((item) => {
+                  const isActive = location === item.url || location.startsWith(item.url + '/');
                   return (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton 
