@@ -1647,9 +1647,13 @@ Return a JSON array of suggestions with this format:
           console.log('[VOICE STRUCTURED] ✓ Valid format | Target:', target.substring(0, 50), '| Native:', native.substring(0, 50));
           
           // SERVER-SIDE VALIDATION & DUAL-SUBTITLE CREATION
-          const encouragementWords = ['perfecto', 'excelente', 'bien', 'bueno', 'genial', 'fantástico', 'maravilloso', 'bravo'];
-          const targetLower = target.toLowerCase().replace(/[¡!¿?]/g, '');
-          const isEncouragement = encouragementWords.some(word => targetLower.includes(word));
+          const encouragementWords = ['perfecto', 'excelente', 'bien', 'bueno', 'genial', 'fantástico', 'maravilloso', 'bravo', 'muy bien'];
+          const targetLower = target.toLowerCase().replace(/[¡!¿?]/g, '').trim();
+          // Use word boundary matching to avoid false positives (e.g., "buenos días" contains "bueno" but isn't encouragement)
+          const isEncouragement = encouragementWords.some(word => {
+            const regex = new RegExp(`\\b${word}\\b`, 'i');
+            return regex.test(targetLower);
+          });
           const endsWithQuestion = native.trim().endsWith('?');
           
           // If target is encouragement word, extract ALL teaching words and create subtitle sequence
