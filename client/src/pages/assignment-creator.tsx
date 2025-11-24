@@ -24,15 +24,16 @@ interface TeacherClass {
   language: string;
 }
 
-const assignmentFormSchema = insertAssignmentSchema.extend({
-  description: z.string().optional(),
-  instructions: z.string().optional(),
-  maxScore: z.coerce.number().min(0, "Must be at least 0").max(1000, "Cannot exceed 1000"),
-  dueDate: z.string().optional().transform(val => {
-    if (!val || val.trim() === "") return null;
-    const date = new Date(val);
-    return isNaN(date.getTime()) ? null : date.toISOString();
-  }),
+// Form schema matching database structure - keeps datetime-local format for UX
+const assignmentFormSchema = insertAssignmentSchema.pick({
+  classId: true,
+  title: true,
+  description: true,
+  assignmentType: true,
+  isPublished: true,
+}).extend({
+  // Keep dueDate as string for datetime-local input compatibility
+  dueDate: z.string().optional(),
 });
 
 type AssignmentFormValues = z.infer<typeof assignmentFormSchema>;
@@ -51,9 +52,7 @@ export default function AssignmentCreator() {
       classId: preselectedClassId || "",
       title: "",
       description: "",
-      instructions: "",
       assignmentType: "practice",
-      maxScore: 100,
       isPublished: false,
       dueDate: "",
     },
@@ -65,10 +64,12 @@ export default function AssignmentCreator() {
 
   const createAssignmentMutation = useMutation({
     mutationFn: async (data: AssignmentFormValues) => {
+      // Transform datetime-local string to ISO only at submission time
       const payload = {
         ...data,
-        description: data.description || null,
-        instructions: data.instructions || null,
+        dueDate: data.dueDate && data.dueDate.trim() !== "" 
+          ? new Date(data.dueDate).toISOString() 
+          : undefined,
       };
       return apiRequest("POST", "/api/assignments", payload);
     },
@@ -93,8 +94,6 @@ export default function AssignmentCreator() {
   });
 
   const handleSubmit = (values: AssignmentFormValues) => {
-    console.log('[AssignmentCreator] Form values:', values);
-    console.log('[AssignmentCreator] Form errors:', form.formState.errors);
     createAssignmentMutation.mutate(values);
   };
 
@@ -194,24 +193,6 @@ export default function AssignmentCreator() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="instructions"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Instructions (Optional)</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Complete the exercises below. Write the correct conjugation for each verb in parentheses."
-                        data-testid="input-instructions"
-                        rows={4}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </CardContent>
           </Card>
 
@@ -244,48 +225,24 @@ export default function AssignmentCreator() {
                   </FormItem>
                 )}
               />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="dueDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Due Date (Optional)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="datetime-local"
-                          data-testid="input-due-date"
-                          {...field}
-                          value={field.value || ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="maxScore"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Maximum Score</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="1"
-                          data-testid="input-max-score"
-                          value={field.value ?? ""}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            field.onChange(val === "" ? undefined : Number(val));
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="dueDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Due Date (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="datetime-local"
+                        data-testid="input-due-date"
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="isPublished"

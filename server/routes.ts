@@ -3927,10 +3927,23 @@ Return a JSON array of suggestions with this format:
         return res.status(403).json({ error: "Only teachers can create assignments" });
       }
 
-      const assignment = await storage.createAssignment({
+      // Parse and validate dueDate if provided
+      let dueDate: Date | undefined = undefined;
+      if (req.body.dueDate) {
+        const parsedDate = new Date(req.body.dueDate);
+        if (isNaN(parsedDate.getTime())) {
+          return res.status(400).json({ error: "Invalid due date format" });
+        }
+        dueDate = parsedDate;
+      }
+
+      const assignmentData = {
         ...req.body,
         teacherId,
-      });
+        dueDate,
+      };
+
+      const assignment = await storage.createAssignment(assignmentData);
 
       res.json(assignment);
     } catch (error: any) {
