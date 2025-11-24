@@ -37,6 +37,7 @@ import {
 import { toInternalActflLevel, toExternalActflLevel } from "./actfl-utils";
 import { GoogleGenAI, Modality } from "@google/genai";
 import { createClient } from "@deepgram/sdk";
+import { validateOneUnitRule, countConceptualUnits } from "./phrase-detection";
 
 // ============================================================================
 // AI PROVIDERS: Gemini (Text) + Deepgram (Voice STT) + Google Cloud (Voice TTS)
@@ -2848,6 +2849,8 @@ Return a JSON array of suggestions with this format:
       console.log(`[DEEPGRAM] Using Nova-3 with auto-detect mode (requested: ${req.body.language})`);
 
       // Call Deepgram Nova-3 API (54% better WER than Whisper, <300ms latency)
+      // CRITICAL: Enable word-level timestamps by setting diarize: true
+      // Deepgram only returns word arrays when diarization is enabled
       const { result } = await deepgram.listen.prerecorded.transcribeFile(
         req.file.buffer,
         {
@@ -2855,7 +2858,8 @@ Return a JSON array of suggestions with this format:
           language: "multi", // Auto-detect (supports English, Spanish, French, etc.)
           smart_format: true, // Better formatting
           punctuate: true, // Add punctuation
-          diarize: false, // Single speaker
+          diarize: true, // REQUIRED for word-level timestamps and confidence scores
+          utterances: true, // Enable word-level timestamps
         }
       );
 
@@ -2863,11 +2867,44 @@ Return a JSON array of suggestions with this format:
         throw new Error("Deepgram returned null result");
       }
 
-      const transcription = {
-        text: result.results.channels[0].alternatives[0].transcript || ""
-      };
+      const alternative = result.results.channels[0].alternatives[0];
+      const text = alternative.transcript || "";
+      
+      // Extract word-level data for pronunciation analysis
+      const words = alternative.words || [];
+      const wordTimings = words.map((w: any) => ({
+        word: w.word || "",
+        start: w.start || 0,
+        end: w.end || 0,
+        confidence: w.confidence || 0
+      }));
 
-      console.log(`[DEEPGRAM] ✓ Transcription: "${transcription.text}"`);
+      console.log(`[DEEPGRAM] ✓ Transcription: "${text}" (${words.length} words, avg confidence: ${
+        words.length > 0 ? (words.reduce((sum: number, w: any) => sum + (w.confidence || 0), 0) / words.length * 100).toFixed(1) : 0
+      }%)`);
+      
+      // Get user's difficulty level for unit validation (optional query param)
+      const userLanguage = req.body.language || 'spanish';
+      const difficulty = req.body.difficulty || 'beginner';
+      
+      // Validate one-unit rule for beginners (flexible with phrase units)
+      const unitValidation = validateOneUnitRule(text, userLanguage, difficulty);
+      const conceptualUnits = countConceptualUnits(text, userLanguage);
+      
+      const transcription = {
+        text,
+        words: wordTimings,
+        wordCount: words.length,
+        conceptualUnits,
+        avgConfidence: words.length > 0 
+          ? words.reduce((sum: number, w: any) => sum + (w.confidence || 0), 0) / words.length
+          : 0,
+        unitValidation: {
+          isValid: unitValidation.isValid,
+          message: unitValidation.message,
+          matchedPhrase: unitValidation.matchedPhrase,
+        }
+      };
       
       // Only increment usage AFTER successful transcription
       // Uses conditional UPDATE to prevent race conditions
@@ -2887,7 +2924,7 @@ Return a JSON array of suggestions with this format:
         throw usageError; // Re-throw if it's not a quota error
       }
       
-      res.json({ text: transcription.text });
+      res.json(transcription);
     } catch (error: any) {
       console.error("[WHISPER] Transcription failed:", error);
       res.status(500).json({ error: error.message || "Failed to transcribe audio" });

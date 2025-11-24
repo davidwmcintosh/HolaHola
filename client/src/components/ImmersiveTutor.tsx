@@ -54,65 +54,19 @@ export function ImmersiveTutor({
     if (currentPlayingMessageId && isPlaying) {
       const message = messages.find(m => m.id === currentPlayingMessageId);
       if (message && message.role === "assistant") {
-        // Handle subtitle sequence if available (encouragement + ALL teaching phrases)
-        if (message.subtitlesJson) {
-          try {
-            const subtitles = JSON.parse(message.subtitlesJson);
-            if (Array.isArray(subtitles) && subtitles.length > 0) {
-              // Show first subtitle immediately (encouragement)
-              setCurrentText(subtitles[0].text);
-              
-              // Cycle through ALL remaining subtitles sequentially
-              if (subtitles.length > 1) {
-                let currentIndex = 0;
-                let accumulatedDelay = subtitles[0].duration || 2000;
-                
-                // Schedule each subtitle to appear after previous ones
-                for (let i = 1; i < subtitles.length; i++) {
-                  const subtitle = subtitles[i];
-                  
-                  const timer = setTimeout(() => {
-                    setCurrentText(subtitle.text);
-                  }, accumulatedDelay);
-                  
-                  // Store timer reference for cleanup
-                  subtitleTimersRef.current.push(timer);
-                  
-                  // Last subtitle has duration=null to persist indefinitely
-                  if (subtitle.duration) {
-                    accumulatedDelay += subtitle.duration;
-                  }
-                }
-              }
-              return;
-            }
-          } catch (e) {
-            console.error("Failed to parse subtitle sequence:", e);
-          }
-        }
+        // PHASE 3: Fast foreign-language display
+        // Show ONLY target language text immediately - fast and stable
+        const displayText = message.targetLanguageText || message.content || "";
+        setCurrentText(displayText);
         
-        // Fallback: Show ONLY target language text (Spanish, French, etc.)
-        setCurrentText(message.targetLanguageText || "");
-        
-        // Parse word timings if available
-        if (message.wordTimingsJson) {
-          try {
-            const timings = JSON.parse(message.wordTimingsJson);
-            setCurrentWordTimings(timings);
-          } catch (e) {
-            console.error("Failed to parse word timings:", e);
-            setCurrentWordTimings([]);
-          }
-        } else {
-          setCurrentWordTimings([]);
-        }
+        // Not using word timings or karaoke highlighting for speed/stability
+        setCurrentWordTimings([]);
+        setHighlightedWordIndex(-1);
       }
     } else if (!isPlaying && currentPlayingMessageId) {
-      // Audio finished - KEEP the teaching word visible but clear word-level highlighting
-      // This allows students to see the word they should practice saying
+      // Audio finished - Keep text visible for reading practice
       setCurrentWordTimings([]);
       setHighlightedWordIndex(-1);
-      // Note: currentText is intentionally NOT cleared - the teaching word remains visible
     }
 
     // Cleanup function: clear all subtitle timers on unmount or dependency change

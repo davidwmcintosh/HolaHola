@@ -168,6 +168,58 @@ export const userProgress = pgTable("user_progress", {
   lastActflAssessment: timestamp("last_actfl_assessment"), // When ACTFL level was last updated
 });
 
+// ACTFL FACT Criteria Progress Tracking
+// Tracks evidence-based progression aligned with ACTFL 2024 Guidelines
+export const actflProgress = pgTable("actfl_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  language: text("language").notNull(),
+  
+  // F - Functions: Communication tasks student can handle
+  tasksCompleted: text("tasks_completed").array().default(sql`ARRAY[]::text[]`), // e.g., ["greetings", "ordering_food", "describing_family"]
+  tasksTotal: integer("tasks_total").notNull().default(0), // Total unique tasks mastered
+  
+  // A - Accuracy: Linguistic control (pronunciation, grammar, vocab)
+  avgPronunciationConfidence: real("avg_pronunciation_confidence").default(0), // From Deepgram (0-1 scale)
+  totalVoiceMessages: integer("total_voice_messages").default(0),
+  grammarScore: real("grammar_score").default(0), // From AI assessment (0-1 scale)
+  vocabularyScore: real("vocabulary_score").default(0), // From AI assessment (0-1 scale)
+  
+  // C - Context: Range of situations and topics
+  topicsCovered: text("topics_covered").array().default(sql`ARRAY[]::text[]`), // e.g., ["family", "school", "hobbies", "travel"]
+  topicsTotal: integer("topics_total").notNull().default(0), // Total unique topics covered
+  
+  // T - Text Type: Discourse complexity level
+  textType: text("text_type").default('words'), // "words", "sentences", "paragraphs", "multi_paragraph"
+  avgMessageLength: real("avg_message_length").default(0), // Average words per user message
+  longestMessageLength: integer("longest_message_length").default(0), // Longest coherent message
+  
+  // Time-based progression (ACTFL requires sustained performance)
+  practiceHours: real("practice_hours").default(0), // Total practice time in hours
+  messagesAtCurrentLevel: integer("messages_at_current_level").default(0), // Messages since last level change
+  daysAtCurrentLevel: integer("days_at_current_level").default(0), // Days at current ACTFL level
+  lastAdvancement: timestamp("last_advancement"), // Last ACTFL level change
+  
+  // Overall assessment
+  currentActflLevel: text("current_actfl_level").default('novice_low'),
+  readyForAdvancement: boolean("ready_for_advancement").default(false), // AI recommendation
+  advancementReason: text("advancement_reason"), // Why student is/isn't ready
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_actfl_progress_user_language").on(table.userId, table.language),
+]);
+
+export const insertActflProgressSchema = createInsertSchema(actflProgress).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertActflProgress = z.infer<typeof insertActflProgressSchema>;
+export type ActflProgress = typeof actflProgress.$inferSelect;
+
 export const progressHistory = pgTable("progress_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
