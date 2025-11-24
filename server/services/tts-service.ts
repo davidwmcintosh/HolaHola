@@ -346,48 +346,45 @@ export class TTSService {
       return { text, usesSSML: false };
     }
 
-    let modifiedText = text;
     let hasPhonemes = false;
-
-    // CRITICAL FIX: First, escape ALL XML special characters in the text
-    // This prevents INVALID_ARGUMENT errors from apostrophes and other special chars
-    modifiedText = this.escapeXML(text);
-
-    // Find all quoted words/phrases and check if they have IPA mappings
-    // Match various quote styles after XML escaping: &apos;word&apos; etc.
-    const quotedPattern = /(&apos;|&quot;|['''"""«])([^&]+?)(&apos;|&quot;|['''"""»])/g;
     
-    modifiedText = modifiedText.replace(quotedPattern, (match, openQuote, quotedContent, closeQuote) => {
-      // Decode the content back to check against IPA mappings
-      const decoded = quotedContent
-        .replace(/&apos;/g, "'")
-        .replace(/&quot;/g, '"')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>');
+    // CRITICAL: Build SSML by processing text piece by piece
+    // Escape text AROUND phoneme tags, but keep phoneme tags as literal XML
+    const quotedPattern = /(['''"""«])([^'''"""«»]+)(['''"""»])/g;
+    let lastIndex = 0;
+    let result = '';
+    
+    let match;
+    while ((match = quotedPattern.exec(text)) !== null) {
+      // Escape the text BEFORE this quoted word
+      result += this.escapeXML(text.substring(lastIndex, match.index));
       
-      // Normalize for lookup: lowercase, trim, remove diacritics for basic matching
-      const normalized = decoded.toLowerCase().trim()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-        .replace(/[¿?¡!]/g, ''); // Remove Spanish punctuation
+      const quotedContent = match[2];
       
-      // Also try exact lowercase match (preserves diacritics)
-      const exactNormalized = decoded.toLowerCase().trim();
+      // Normalize for lookup
+      const normalized = quotedContent.toLowerCase().trim()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[¿?¡!]/g, '');
+      const exactNormalized = quotedContent.toLowerCase().trim();
       
-      // Check if this quoted word/phrase has an IPA pronunciation
+      // Check if this quoted word has an IPA pronunciation
       const ipa = ipaMappings[exactNormalized] || ipaMappings[normalized];
       
       if (ipa) {
         hasPhonemes = true;
-        console.log(`[SSML Phoneme] Wrapping "${decoded}" with IPA: ${ipa}`);
-        // IMPORTANT: Phoneme tag with original (unescaped) word inside
-        // Google TTS expects literal characters inside phoneme tags (not XML-escaped)
-        return `<phoneme alphabet="ipa" ph="${ipa}">${decoded}</phoneme>`;
+        console.log(`[SSML Phoneme] Wrapping "${quotedContent}" with IPA: ${ipa}`);
+        // Add phoneme tag as LITERAL XML (no escaping of the tags themselves)
+        result += `<phoneme alphabet="ipa" ph="${ipa}">${quotedContent}</phoneme>`;
+      } else {
+        // Keep original quoted word with XML escaping
+        result += this.escapeXML(match[0]);
       }
       
-      // Keep original quoted word if no IPA mapping (with XML escaping)
-      return match;
-    });
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Escape any remaining text after the last match
+    result += this.escapeXML(text.substring(lastIndex));
 
     // Only wrap in SSML <speak> tags if we actually added phoneme tags
     if (!hasPhonemes) {
@@ -396,7 +393,7 @@ export class TTSService {
     }
     
     // Wrap entire text in SSML <speak> tags
-    const ssmlText = `<speak>${modifiedText}</speak>`;
+    const ssmlText = `<speak>${result}</speak>`;
     console.log(`[SSML Phoneme] ✅ Added phoneme tags for ${targetLanguage}`);
     console.log(`[SSML DEBUG] Generated SSML: ${ssmlText.substring(0, 200)}...`);
     
