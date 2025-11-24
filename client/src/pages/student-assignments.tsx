@@ -157,8 +157,8 @@ export default function StudentAssignments() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-4xl font-bold">My Assignments</h1>
-        <p className="text-muted-foreground mt-2">View and submit your class assignments</p>
+        <h1 className="text-3xl md:text-4xl font-bold">My Assignments</h1>
+        <p className="text-sm md:text-base text-muted-foreground mt-2">View and submit your class assignments</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

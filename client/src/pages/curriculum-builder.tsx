@@ -249,8 +249,8 @@ export default function CurriculumBuilder() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold">Curriculum Builder</h1>
-          <p className="text-muted-foreground mt-2">Create and manage curriculum paths, units, and lessons</p>
+          <h1 className="text-3xl md:text-4xl font-bold">Curriculum Builder</h1>
+          <p className="text-sm md:text-base text-muted-foreground mt-2">Create and manage curriculum paths, units, and lessons</p>
         </div>
         <Dialog open={createPathOpen} onOpenChange={setCreatePathOpen}>
           <DialogTrigger asChild>

@@ -78,8 +78,8 @@ export default function StudentJoinClass() {
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div>
-        <h1 className="text-4xl font-bold">Join a Class</h1>
-        <p className="text-muted-foreground mt-2">
+        <h1 className="text-3xl md:text-4xl font-bold">Join a Class</h1>
+        <p className="text-sm md:text-base text-muted-foreground mt-2">
           Enter the code provided by your teacher to join their class
         </p>
       </div>

@@ -98,8 +98,8 @@ export default function TeacherDashboard() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold">Teacher Dashboard</h1>
-          <p className="text-muted-foreground mt-2">Manage your classes and track student progress</p>
+          <h1 className="text-3xl md:text-4xl font-bold">Teacher Dashboard</h1>
+          <p className="text-sm md:text-base text-muted-foreground mt-2">Manage your classes and track student progress</p>
         </div>
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogTrigger asChild>

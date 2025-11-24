@@ -188,8 +188,8 @@ export default function AssignmentGrading() {
           </Button>
         </Link>
         <div className="flex-1">
-          <h1 className="text-4xl font-bold" data-testid="text-assignment-title">{assignment.title}</h1>
-          <p className="text-muted-foreground mt-2">
+          <h1 className="text-3xl md:text-4xl font-bold" data-testid="text-assignment-title">{assignment.title}</h1>
+          <p className="text-sm md:text-base text-muted-foreground mt-2">
             {assignment.dueDate
               ? `Due: ${new Date(assignment.dueDate).toLocaleDateString()}`
               : "No due date"} • Max Score: {assignment.maxScore}

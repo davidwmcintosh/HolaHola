@@ -117,8 +117,8 @@ export default function AssignmentCreator() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-4xl font-bold">Create Assignment</h1>
-          <p className="text-muted-foreground mt-2">Create a new assignment for your students</p>
+          <h1 className="text-3xl md:text-4xl font-bold">Create Assignment</h1>
+          <p className="text-sm md:text-base text-muted-foreground mt-2">Create a new assignment for your students</p>
         </div>
       </div>
 
@@ -187,6 +187,7 @@ export default function AssignmentCreator() {
                         data-testid="input-description"
                         rows={3}
                         {...field}
+                        value={field.value || ""}
                       />
                     </FormControl>
                     <FormMessage />
