@@ -82,35 +82,35 @@ const FRANC_TO_LANGUAGE_MAP: Record<string, string> = {
  */
 const IPA_PRONUNCIATIONS: Record<string, Record<string, string>> = {
   'spanish': {
-    'hola': 'ˈola',           // HO-la (2 syllables)
-    'adiós': 'aˈðjos',        // a-DI-ós (3 syllables)
-    'adios': 'aˈðjos',        // without accent
-    'gracias': 'ˈgɾasjas',    // GRA-cias (2 syllables)
-    'por favor': 'poɾ faˈβoɾ', // por fa-VOR
+    'hola': 'ola',            // HO-la (2 syllables)
+    'adiós': 'adjos',         // a-DI-ós (3 syllables)
+    'adios': 'adjos',         // without accent
+    'gracias': 'gɾasjas',     // GRA-cias (2 syllables)
+    'por favor': 'poɾ faβoɾ', // por fa-VOR
     'sí': 'si',               // sí (1 syllable)
     'si': 'si',               // without accent
     'no': 'no',               // no (1 syllable)
-    'buenos días': 'ˈbwenos ˈdias', // BUE-nos DI-as
-    'buenos dias': 'ˈbwenos ˈdias', // without accent
-    'buenas tardes': 'ˈbwenas ˈtaɾdes', // BUE-nas TAR-des
-    'buenas noches': 'ˈbwenas ˈnotʃes', // BUE-nas NO-ches
-    'qué tal': 'ke ˈtal',     // qué TAL
-    'que tal': 'ke ˈtal',     // without accent
-    'cómo estás': 'ˈkomo esˈtas', // CÓ-mo es-TÁS
-    'como estas': 'ˈkomo esˈtas', // without accents
-    'perfecto': 'peɾˈfekto',  // per-FEC-to
-    'excelente': 'ekseˈlente', // ex-ce-LEN-te
+    'buenos días': 'bwenos dias', // BUE-nos DI-as
+    'buenos dias': 'bwenos dias', // without accent
+    'buenas tardes': 'bwenas taɾdes', // BUE-nas TAR-des
+    'buenas noches': 'bwenas notʃes', // BUE-nas NO-ches
+    'qué tal': 'ke tal',      // qué TAL
+    'que tal': 'ke tal',      // without accent
+    'cómo estás': 'komo estas', // CÓ-mo es-TÁS
+    'como estas': 'komo estas', // without accents
+    'perfecto': 'peɾfekto',   // per-FEC-to
+    'excelente': 'ekselente', // ex-ce-LEN-te
     'bien': 'bjen',           // bien (1 syllable)
-    'muy bien': 'muj ˈbjen',  // muy bien
-    'de nada': 'de ˈnaða',    // de NA-da
-    'lo siento': 'lo ˈsjento', // lo SIEN-to
+    'muy bien': 'muj bjen',   // muy bien
+    'de nada': 'de naða',     // de NA-da
+    'lo siento': 'lo sjento', // lo SIEN-to
   },
   // Add other languages as needed
   'french': {
-    'bonjour': 'bɔ̃ʒuʁ',
+    'bonjour': 'bɔʒuʁ',
     'merci': 'mɛʁsi',
     'oui': 'wi',
-    'non': 'nɔ̃',
+    'non': 'nɔ',
   },
 };
 
