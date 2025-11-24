@@ -1573,28 +1573,106 @@ Return a JSON array of suggestions with this format:
           let target = (parsed.target || '').trim();
           let native = (parsed.native || '').trim();
           
+          // Get language names for validation
+          const targetLangName = conversation.targetLanguage || 'spanish';
+          const nativeLangName = conversation.nativeLanguage || 'english';
+          
           // GRACEFUL FALLBACK: If AI violates rules, provide safe default instead of crashing
           if (!target || !native) {
             console.error('[VOICE FALLBACK] Missing target or native field, using safe default');
-            target = "Hola";
-            native = "Let's practice the most common Spanish greeting: 'Hola'. Try saying it!";
+            // Use language-specific default greeting
+            const defaultGreetings: Record<string, string> = {
+              spanish: "Hola", french: "Bonjour", german: "Hallo", italian: "Ciao",
+              portuguese: "Olá", japanese: "こんにちは", korean: "안녕하세요",
+              mandarin: "你好", russian: "Привет"
+            };
+            target = defaultGreetings[targetLangName] || "Hello";
+            native = `Let's practice the most common greeting: '${target}'. Try saying it!`;
           }
+          
+          // LANGUAGE-AGNOSTIC VALIDATION: Use franc-min to detect if target is in native language
+          // Map language names to ISO-639-3 codes (what franc-min returns)
+          const langToISO: Record<string, string> = {
+            'english': 'eng', 'spanish': 'spa', 'french': 'fra', 'german': 'deu',
+            'italian': 'ita', 'portuguese': 'por', 'japanese': 'jpn', 'korean': 'kor',
+            'mandarin chinese': 'cmn', 'mandarin': 'cmn', 'russian': 'rus', 'chinese': 'cmn'
+          };
+          
+          // Detect language of target text
+          let detectedLangISO = 'und';
+          try {
+            if (target.length >= 3) { // franc-min needs at least 3 chars
+              detectedLangISO = detectLanguage(target);
+            }
+          } catch (e) {
+            console.warn('[VOICE VALIDATION] Language detection failed:', e);
+          }
+          
+          // Check if target is in native language instead of target language
+          const expectedTargetISO = langToISO[targetLangName] || 'und';
+          const expectedNativeISO = langToISO[nativeLangName] || 'eng';
+          const hasWrongLanguage = detectedLangISO === expectedNativeISO && detectedLangISO !== expectedTargetISO;
+          
+          console.log(`[VOICE VALIDATION] Target language detection: expected=${expectedTargetISO}, detected=${detectedLangISO}, isNative=${hasWrongLanguage}`);
           
           // Beginner validation with fallback
           if (conversation.difficulty === 'beginner') {
+            // Normalize text for consistent character counting (handles multi-byte chars)
+            const normalizedTarget = target.normalize('NFKC');
+            const targetLength = normalizedTarget.length;
+            
             const MAX_TARGET = 15;
             const MIN_NATIVE = 30;
             
-            if (target.length > MAX_TARGET) {
-              console.warn(`[VOICE FALLBACK] Target too long (${target.length} > ${MAX_TARGET}), using first word`);
-              // Simple extraction: Take first word from target
-              const firstWord = target.split(/\s+/)[0].replace(/[¡!¿?.,;]/g, '');
-              if (firstWord.length <= MAX_TARGET && /[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]/.test(firstWord)) {
-                target = firstWord;
+            // If target is in wrong language OR is too long, extract from native field
+            if (hasWrongLanguage || targetLength > MAX_TARGET) {
+              if (hasWrongLanguage) {
+                console.warn(`[VOICE FALLBACK] Target is in native language (${detectedLangISO}): "${target}"`);
               } else {
-                // Last resort: Use safe default
-                target = "Hola";
-                native = "Let's practice 'Hola'. Try saying it!";
+                console.warn(`[VOICE FALLBACK] Target too long (${targetLength} > ${MAX_TARGET}): "${target}"`);
+              }
+              
+              // Extract quoted words from native field (support multiple quote styles for all languages)
+              // Latin quotes: '...' "..." 
+              // CJK quotes: 「...」『...』
+              // European quotes: «...» ‹...›
+              const quotedWords = [...native.matchAll(/['"`''"\"「」『』«»‹›]([^'"`''"\"「」『』«»‹›]+)['"`''"\"「」『』«»‹›]/g)];
+              
+              if (quotedWords.length > 0) {
+                // Find the LAST quoted word that's not a common English word (likely the new word being taught)
+                const targetLangWords = quotedWords
+                  .map(match => match[1].trim())
+                  .filter(word => {
+                    const firstWord = word.split(/\s+/)[0].toLowerCase();
+                    return !commonNativeWords.has(firstWord) && word.length <= MAX_TARGET;
+                  });
+                
+                if (targetLangWords.length > 0) {
+                  // Use LAST target language word (the new word being taught)
+                  target = targetLangWords[targetLangWords.length - 1];
+                  console.log(`[VOICE FALLBACK] ✓ Extracted target language word from quotes: "${target}"`);
+                } else {
+                  // Fallback: Use last quoted word
+                  target = quotedWords[quotedWords.length - 1][1].trim();
+                  console.log(`[VOICE FALLBACK] ✓ Using last quoted word: "${target}"`);
+                }
+              } else {
+                // No quoted words found - try first word from original target
+                const firstWord = target.split(/\s+/)[0].replace(/[¡!¿?.,;]/g, '');
+                if (firstWord.length <= MAX_TARGET && !commonNativeWords.has(firstWord.toLowerCase())) {
+                  target = firstWord;
+                  console.log(`[VOICE FALLBACK] ✓ Using first word: "${target}"`);
+                } else {
+                  // Last resort: Use language-specific default
+                  const defaultGreetings: Record<string, string> = {
+                    spanish: "Hola", french: "Bonjour", german: "Hallo", italian: "Ciao",
+                    portuguese: "Olá", japanese: "こんにちは", korean: "안녕하세요",
+                    mandarin: "你好", russian: "Привет"
+                  };
+                  target = defaultGreetings[targetLangName] || "Hello";
+                  native = `Let's practice '${target}'. Try saying it!`;
+                  console.log(`[VOICE FALLBACK] ✓ Using safe default: "${target}"`);
+                }
               }
             }
             
@@ -1605,13 +1683,28 @@ Return a JSON array of suggestions with this format:
           }
           
           // SIMPLE ARCHITECTURE:
-          // - Screen shows: target field (Spanish word)
-          // - Voice speaks: native field (English explanation with Spanish words embedded)
-          // - That's it!
+          // - Screen shows: target field (target language word)
+          // - Voice speaks: native field (native language explanation with target words embedded)
           
           targetLanguageText = target;
           hasTargetLanguage = hasSignificantTargetLanguageContent(targetLanguageText);
-          aiResponse = native; // Voice speaks the native field
+          
+          // MINIMAL ENCOURAGEMENT HANDLING: If target is encouragement word, prepend to TTS
+          // This ensures students HEAR the encouragement with authentic pronunciation
+          const encouragementPatterns = ['perfecto', 'excelente', 'bien', 'bueno', 'genial', 'fantástico', 'bravo', 'parfait', 'すごい', 'great', 'perfect', 'excellent'];
+          const isEncouragement = encouragementPatterns.some(word => {
+            const targetLower = target.toLowerCase().replace(/[¡!¿?]/g, '');
+            return targetLower.includes(word);
+          });
+          
+          if (isEncouragement && target.length <= 15) {
+            // Prepend encouragement to TTS so it's spoken with authentic accent
+            const needsPause = !/[!?.;]$/.test(target.trim());
+            aiResponse = needsPause ? `${target}. ${native}` : `${target} ${native}`;
+            console.log('[VOICE SIMPLE] ✓ Prepended encouragement:', target);
+          } else {
+            aiResponse = native; // Voice speaks the native field
+          }
           
           console.log('[VOICE SIMPLE] ✓ Target:', target.substring(0, 50), '| Native:', native.substring(0, 50));
         } catch (error) {

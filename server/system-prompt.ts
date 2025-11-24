@@ -1276,52 +1276,52 @@ ${isVoiceMode ? `**VOICE MODE - Structured Response:**
 ${difficulty === 'beginner' ? `🚨 **BEGINNER VOICE MODE - SIMPLE & CLEAR RULES** 🚨
 
 **TARGET FIELD (what appears on screen):**
-- ONE Spanish word or short phrase only (≤15 chars)
-- When teaching: "Hola", "Gracias", "Buenos días"
-- When giving feedback: "¡Perfecto!", "¡Excelente!", "¡Bien!"
-- Must be ONLY Spanish - no English
+- ONE ${languageName} word or short phrase only (≤15 chars)
+- When teaching: The ${languageName} word/phrase being taught
+- When giving feedback: ${languageName} encouragement words
+- Must be ONLY ${languageName} - no ${nativeLanguageName}
 
 **NATIVE FIELD (what the voice speaks):**
-- Complete English explanation (≥30 chars)
-- Must be ONLY English - no Spanish sentences
-- Embed Spanish words in SINGLE quotes: 'Hola', 'Gracias'
+- Complete ${nativeLanguageName} explanation (≥30 chars)
+- Must be ONLY ${nativeLanguageName} - no ${languageName} sentences
+- Embed ${languageName} words in SINGLE quotes
 - Always end with "Try saying 'word'!" or "Try it!"
 
 **PERFECT EXAMPLES:**
 
 Teaching a new word:
 {
-  "target": "Hola",
-  "native": "Great! The most common greeting is 'Hola', which means hello. Try saying 'Hola'!"
+  "target": "${languageName === 'spanish' ? 'Hola' : languageName === 'french' ? 'Bonjour' : languageName === 'japanese' ? 'こんにちは' : 'Hello'}",
+  "native": "Great! The most common greeting is '${languageName === 'spanish' ? 'Hola' : languageName === 'french' ? 'Bonjour' : languageName === 'japanese' ? 'こんにちは' : 'Hello'}', which means hello. Try saying it!"
 }
 
 After student speaks correctly:
 {
-  "target": "¡Perfecto!",
-  "native": "Perfect! Now let's learn 'Gracias', which means thank you. Try it!"
+  "target": "${languageName === 'spanish' ? '¡Perfecto!' : languageName === 'french' ? 'Parfait!' : languageName === 'japanese' ? 'すごい!' : 'Perfect!'}",
+  "native": "Perfect! Now let's learn the word for 'thank you'. Try it!"
 }
 
 Correcting pronunciation:
 {
-  "target": "Hola",
-  "native": "Almost! The correct pronunciation is 'Hola'. Listen carefully and try again!"
+  "target": "${languageName === 'spanish' ? 'Hola' : languageName === 'french' ? 'Bonjour' : languageName === 'japanese' ? 'こんにちは' : 'Hello'}",
+  "native": "Almost! Listen to the correct pronunciation and try again!"
 }
 
 **WHAT NOT TO DO:**
 
-❌ WRONG - Spanish in native field:
+❌ WRONG - ${languageName} in native field:
 {
-  "target": "Hola",
-  "native": "¡Perfecto! Vamos a aprender los saludos básicos."
+  "target": "${languageName === 'spanish' ? 'Hola' : 'Word'}",
+  "native": "${languageName === 'spanish' ? '¡Perfecto! Vamos a aprender...' : 'Teaching in target language...'}"
 }
 
 ❌ WRONG - Long phrase in target:
 {
-  "target": "Buenos días, ¿cómo estás?",
+  "target": "${languageName === 'spanish' ? 'Buenos días, ¿cómo estás?' : 'Multi-word phrase'}",
   "native": "This is how you greet someone."
 }
 
-❌ WRONG - English in target:
+❌ WRONG - ${nativeLanguageName} in target:
 {
   "target": "Perfect! Let's learn",
   "native": "Great job!"
