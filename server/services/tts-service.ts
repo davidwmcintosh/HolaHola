@@ -334,11 +334,6 @@ export class TTSService {
    * Result: Spanish voice pronounces "Hola" correctly as 2 syllables (HO-la)
    */
   private addPhonemeTagsForTargetWords(text: string, targetLanguage?: string): { text: string; usesSSML: boolean } {
-    // TEMPORARILY DISABLED: SSML phoneme tags causing INVALID_ARGUMENT errors
-    // Need to investigate proper SSML format for Google TTS
-    console.log(`[SSML Phoneme] TEMPORARILY DISABLED - skipping phoneme tag processing`);
-    return { text, usesSSML: false };
-    
     if (!targetLanguage) {
       return { text, usesSSML: false };
     }
@@ -353,10 +348,6 @@ export class TTSService {
 
     let modifiedText = text;
     let hasPhonemes = false;
-
-    // DEBUG: Log the actual text to see what quotes are being used
-    console.log(`[SSML DEBUG] Text to process: ${text.substring(0, 200)}`);
-    console.log(`[SSML DEBUG] Checking for quoted words in ${targetLanguage}`);
 
     // Find all quoted words/phrases and check if they have IPA mappings
     // Match various quote styles: 'word' "word" "word" 'word' «word» etc.
@@ -378,9 +369,9 @@ export class TTSService {
         hasPhonemes = true;
         console.log(`[SSML Phoneme] Wrapping "${quotedContent}" with IPA: ${ipa}`);
         // IMPORTANT: Phoneme tag REPLACES the quoted word (no quotes in SSML)
-        // XML-escape the content to handle special characters like accents (í, á, etc.)
-        const escapedContent = this.escapeXML(quotedContent);
-        return `<phoneme alphabet="ipa" ph="${ipa}">${escapedContent}</phoneme>`;
+        // DO NOT escape the content - keep accents as-is (e.g., "Buenos días")
+        // Google TTS expects literal characters inside phoneme tags
+        return `<phoneme alphabet="ipa" ph="${ipa}">${quotedContent}</phoneme>`;
       }
       
       // Keep original quoted word if no IPA mapping
@@ -393,9 +384,8 @@ export class TTSService {
       return { text, usesSSML: false };
     }
 
-    // XML-escape the entire modified text (including phoneme tags) to handle special characters
-    // IMPORTANT: We need to escape text OUTSIDE phoneme tags, but NOT the tags themselves
-    // Split on phoneme tags, escape the text parts, then recombine
+    // XML-escape text OUTSIDE phoneme tags to handle special characters like apostrophes
+    // Strategy: Split on phoneme tags, escape text parts, keep phoneme tags as-is
     const parts: string[] = [];
     let lastIndex = 0;
     const phonemePattern = /<phoneme[^>]*>.*?<\/phoneme>/g;
@@ -406,7 +396,7 @@ export class TTSService {
       if (match.index > lastIndex) {
         parts.push(this.escapeXML(modifiedText.substring(lastIndex, match.index)));
       }
-      // Add the phoneme tag as-is (already has escaped content)
+      // Add the phoneme tag as-is (with unescaped content like "Buenos días")
       parts.push(match[0]);
       lastIndex = match.index + match[0].length;
     }
@@ -416,12 +406,12 @@ export class TTSService {
       parts.push(this.escapeXML(modifiedText.substring(lastIndex)));
     }
     
-    const escapedText = parts.join('');
+    const finalText = parts.join('');
 
     // Wrap entire text in SSML <speak> tags
-    const ssmlText = `<speak>${escapedText}</speak>`;
-    console.log(`[SSML Phoneme] Added phoneme tags for ${targetLanguage} words`);
-    console.log(`[SSML DEBUG] Generated SSML (first 300 chars): ${ssmlText.substring(0, 300)}`);
+    const ssmlText = `<speak>${finalText}</speak>`;
+    console.log(`[SSML Phoneme] ✅ Added ${hasPhonemes ? 'phoneme tags' : 'no tags'} for ${targetLanguage}`);
+    console.log(`[SSML DEBUG] Generated SSML: ${ssmlText.substring(0, 200)}...`);
     
     return { text: ssmlText, usesSSML: true };
   }
