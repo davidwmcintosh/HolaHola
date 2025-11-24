@@ -680,6 +680,374 @@ GROUP BY a.id, a.title, a."classId";
 
 ---
 
+## Super Admin Backend (RBAC System)
+
+**Added:** November 24, 2025  
+**Version:** 1.0
+
+### Overview
+
+The Super Admin Backend implements a 4-tier role-based access control (RBAC) system with platform-wide oversight, user management, audit logging, and impersonation capabilities.
+
+### Role Hierarchy
+
+```
+admin > developer > teacher > student
+```
+
+Higher roles automatically inherit permissions from lower roles.
+
+### Role Capabilities
+
+**Student (Base)**
+- Personal learning features
+- Own assignments and progress
+- Join classes via code
+
+**Teacher (Extends Student)**
+- Create/manage classes
+- Create assignments, grade submissions
+- Access curriculum library
+- View student progress in their classes
+
+**Developer (Extends Teacher)**
+- Platform-wide read access (users, classes, assignments)
+- Platform metrics and analytics
+- View audit logs
+
+**Admin (Full Access)**
+- User role management
+- Impersonation capabilities
+- Full audit log access
+- Platform-wide administrative control
+
+### Admin UI Access
+
+**Admin Dashboard:** `/admin`  
+**User Management:** `/admin/users`  
+**Class Management:** `/admin/classes`  
+**Reports & Audit:** `/admin/reports`
+
+Only users with `role = 'developer'` or `role = 'admin'` can access these pages.
+
+### Managing User Roles
+
+**Check Current Role:**
+```sql
+SELECT id, email, "fullName", role 
+FROM users 
+WHERE email = 'user@example.com';
+```
+
+**Promote User to Teacher:**
+```sql
+UPDATE users 
+SET role = 'teacher'
+WHERE email = 'teacher@example.com';
+```
+
+**Promote User to Developer:**
+```sql
+UPDATE users 
+SET role = 'developer'
+WHERE email = 'developer@example.com';
+```
+
+**Promote User to Admin:**
+```sql
+UPDATE users 
+SET role = 'admin'
+WHERE email = 'admin@example.com';
+```
+
+**Demote User:**
+```sql
+-- Demote developer to teacher
+UPDATE users 
+SET role = 'teacher'
+WHERE email = 'user@example.com';
+```
+
+**Bulk Role Updates:**
+```sql
+-- Promote all teachers at a school to developers
+UPDATE users 
+SET role = 'developer'
+WHERE role = 'teacher' 
+AND email LIKE '%@school.edu';
+```
+
+### Admin API Endpoints
+
+All admin endpoints are protected by RBAC middleware and require proper authentication.
+
+**Get All Users** (Developer+):
+```bash
+GET /api/admin/users?role=teacher&limit=50
+```
+
+**Update User Role** (Admin only):
+```bash
+PATCH /api/admin/users/:userId/role
+Body: { "role": "teacher" }
+```
+
+**Get Platform Metrics** (Developer+):
+```bash
+GET /api/admin/metrics
+```
+
+**Get Audit Logs** (Admin only):
+```bash
+GET /api/admin/audit-logs?limit=100
+```
+
+**Start Impersonation** (Admin only):
+```bash
+POST /api/admin/impersonate
+Body: { "targetUserId": "user-123", "durationMinutes": 60 }
+```
+
+**End Impersonation** (Admin only):
+```bash
+POST /api/admin/end-impersonation
+Body: { "targetUserId": "user-123" }
+```
+
+### Impersonation System
+
+Admins can temporarily view the platform as another user to troubleshoot issues.
+
+**Safety Features:**
+- Mandatory session expiration (default 60 minutes)
+- Clear UI banner when impersonating
+- All impersonation events logged to audit trail
+- Cannot impersonate other admins
+
+**Database Fields:**
+```sql
+-- Check if user is being impersonated
+SELECT 
+  id,
+  email,
+  "impersonatedById",
+  "impersonatedAt",
+  "impersonationExpiresAt"
+FROM users
+WHERE "impersonatedById" IS NOT NULL;
+```
+
+**Manually End Impersonation:**
+```sql
+-- Emergency: End all impersonation sessions
+UPDATE users 
+SET "impersonatedById" = NULL,
+    "impersonatedAt" = NULL,
+    "impersonationExpiresAt" = NULL;
+
+-- End specific impersonation
+UPDATE users 
+SET "impersonatedById" = NULL,
+    "impersonatedAt" = NULL,
+    "impersonationExpiresAt" = NULL
+WHERE id = 'user-123';
+```
+
+**Cleanup Expired Sessions:**
+```sql
+-- Remove expired impersonation sessions
+UPDATE users 
+SET "impersonatedById" = NULL,
+    "impersonatedAt" = NULL,
+    "impersonationExpiresAt" = NULL
+WHERE "impersonationExpiresAt" < NOW();
+```
+
+### Audit Logging
+
+All administrative actions are logged to the `adminAuditLog` table:
+
+**View Recent Admin Actions:**
+```sql
+SELECT 
+  a.action,
+  a."targetType",
+  a."targetId",
+  a.metadata,
+  a."createdAt",
+  u.email as "adminEmail"
+FROM "adminAuditLog" a
+JOIN users u ON a."actorId" = u.id
+ORDER BY a."createdAt" DESC
+LIMIT 50;
+```
+
+**View Actions by Specific Admin:**
+```sql
+SELECT * FROM "adminAuditLog"
+WHERE "actorId" = 'admin-user-id'
+ORDER BY "createdAt" DESC;
+```
+
+**View Role Changes:**
+```sql
+SELECT 
+  a.*,
+  u.email as "adminEmail"
+FROM "adminAuditLog" a
+JOIN users u ON a."actorId" = u.id
+WHERE a.action = 'update_user_role'
+ORDER BY a."createdAt" DESC;
+```
+
+**View Impersonation History:**
+```sql
+SELECT 
+  a.*,
+  u.email as "adminEmail",
+  target.email as "targetEmail"
+FROM "adminAuditLog" a
+JOIN users u ON a."actorId" = u.id
+LEFT JOIN users target ON a."targetId" = target.id
+WHERE a.action IN ('start_impersonation', 'end_impersonation')
+ORDER BY a."createdAt" DESC;
+```
+
+### Platform Metrics
+
+**User Statistics:**
+```sql
+SELECT 
+  role,
+  COUNT(*) as count
+FROM users
+GROUP BY role
+ORDER BY 
+  CASE role
+    WHEN 'admin' THEN 1
+    WHEN 'developer' THEN 2
+    WHEN 'teacher' THEN 3
+    WHEN 'student' THEN 4
+  END;
+```
+
+**Class Statistics:**
+```sql
+SELECT 
+  COUNT(*) as "totalClasses",
+  AVG("enrollmentCount") as "avgEnrollment",
+  MAX("enrollmentCount") as "largestClass"
+FROM (
+  SELECT 
+    c.id,
+    COUNT(e."studentId") as "enrollmentCount"
+  FROM "teacherClasses" c
+  LEFT JOIN "classEnrollments" e ON c.id = e."classId"
+  GROUP BY c.id
+) stats;
+```
+
+**Assignment Completion Rates:**
+```sql
+SELECT 
+  a.id,
+  a.title,
+  COUNT(DISTINCT s."userId") as submissions,
+  (SELECT COUNT(*) FROM "classEnrollments" WHERE "classId" = a."classId") as students,
+  ROUND(100.0 * COUNT(DISTINCT s."userId") / 
+    NULLIF((SELECT COUNT(*) FROM "classEnrollments" WHERE "classId" = a."classId"), 0), 2) as "completionRate"
+FROM assignments a
+LEFT JOIN "assignmentSubmissions" s ON a.id = s."assignmentId"
+GROUP BY a.id, a.title, a."classId"
+ORDER BY "completionRate" DESC;
+```
+
+### Troubleshooting RBAC Issues
+
+**Issue: Admin endpoints return 500 error**
+
+**Diagnosis:**
+Check middleware ordering in `server/routes.ts`. Correct order is:
+```typescript
+app.get("/api/admin/users", 
+  isAuthenticated, 
+  loadAuthenticatedUser(storage), 
+  requireRole('developer'), 
+  handler
+);
+```
+
+**Solution:**
+Ensure `loadAuthenticatedUser(storage)` comes AFTER `isAuthenticated` and BEFORE `requireRole()`.
+
+**Issue: User can't access admin UI after role change**
+
+**Diagnosis:**
+```sql
+-- Check user's current role
+SELECT role FROM users WHERE email = 'user@example.com';
+
+-- Check if session is cached
+SELECT * FROM session WHERE sess::text LIKE '%user@example.com%';
+```
+
+**Solution:**
+User needs to log out and log back in for role change to take effect. Session data is cached.
+
+**Issue: Impersonation not ending automatically**
+
+**Diagnosis:**
+```sql
+-- Check expired sessions
+SELECT * FROM users 
+WHERE "impersonationExpiresAt" < NOW()
+AND "impersonatedById" IS NOT NULL;
+```
+
+**Solution:**
+Run cleanup query to remove expired sessions (see "Cleanup Expired Sessions" above).
+
+### Security Best Practices
+
+**Role Management:**
+- ✅ Only grant admin role to trusted users
+- ✅ Use developer role for platform monitoring
+- ✅ Audit all role changes via audit logs
+- ❌ Don't create multiple admin accounts unnecessarily
+
+**Impersonation:**
+- ✅ Use shortest duration needed
+- ✅ Always end session when done
+- ✅ Review audit logs regularly
+- ❌ Don't impersonate users for non-support reasons
+
+**Audit Logs:**
+- ✅ Review logs weekly
+- ✅ Archive old logs (>1 year)
+- ✅ Alert on sensitive actions
+- ❌ Don't delete audit logs
+
+### Migration from isTeacher to role
+
+If you have existing data using the legacy `isTeacher` boolean:
+
+```sql
+-- Migrate teachers to new role system
+UPDATE users 
+SET role = 'teacher'
+WHERE "isTeacher" = true AND role = 'student';
+
+-- Verify migration
+SELECT 
+  COUNT(*) as migrated
+FROM users
+WHERE role = 'teacher' AND "isTeacher" = true;
+```
+
+**Note:** The `isTeacher` field is now deprecated and maintained for backwards compatibility only. Use `role` field going forward.
+
+---
+
 ## Getting Support
 
 ### Documentation Resources
