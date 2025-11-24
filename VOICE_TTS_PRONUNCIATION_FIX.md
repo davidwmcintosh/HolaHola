@@ -1,5 +1,17 @@
 # Voice TTS Pronunciation Fix - SSML Phoneme Tags
 
+## Current Status: ⚠️ DISABLED
+
+**SSML phoneme tags are currently disabled** because:
+
+1. **Chirp 3 HD voices do NOT support SSML** - Google's highest quality voices reject SSML input
+2. **Neural2 voices sound less natural** - When SSML is needed, we must fall back to Neural2 voices which have noticeably inferior quality compared to Chirp 3 HD
+3. **Voice quality > pronunciation precision** - User testing confirmed Chirp 3 HD's natural voice is preferred over Neural2's more precise pronunciation
+
+**Future re-enablement**: When Google adds SSML support to Chirp 3 HD voices, remove the early return in `addPhonemeTagsForTargetWords()`.
+
+---
+
 ## Problem Statement
 
 When the Spanish Chirp 3 HD TTS voice reads English text with embedded Spanish words (for immersive beginner mode), it **mispronounces Spanish words syllabically**.
@@ -10,162 +22,110 @@ When the Spanish Chirp 3 HD TTS voice reads English text with embedded Spanish w
 - **Actual**: "Hola" = 3 syllables (sounds like "ho-li-days")
 
 **Root Cause**:  
-Google Cloud TTS Chirp 3 HD voices **mis-segment short emphasized loanwords** when reading foreign words embedded in English text, even though the Spanish accent is correct.
+Google Cloud TTS Chirp 3 HD voices **mis-segment short emphasized loanwords** when reading foreign words embedded in English text.
 
 ---
 
-## Solution Architecture
+## Attempted Solution Architecture
 
 ### Approach: SSML Phoneme Tags
 
-Use **SSML `<phoneme>` tags** with IPA (International Phonetic Alphabet) pronunciation to enforce correct syllable counts while preserving the immersive Spanish accent.
+Use **SSML `<phoneme>` tags** with IPA (International Phonetic Alphabet) pronunciation to enforce correct syllable counts.
 
 **Transformation Example**:
 ```
 Input:  "The greeting is 'Hola'..."
 Output: "The greeting is '<phoneme alphabet="ipa" ph="ˈola">Hola</phoneme>'..."
-Result: Spanish voice pronounces "Hola" correctly as 2 syllables (HO-la)
 ```
 
-### Key Benefits
-✅ **Preserves immersive accent** - Spanish voice still reads English (pedagogically sound)  
-✅ **Fixes syllable pronunciation** - "Hola" = 2 syllables, not 3  
-✅ **Fast** - Just a string preprocessing step (~1ms overhead)  
-✅ **Performance target maintained** - <6s total voice response time (currently ~4s)
+### Why It Was Disabled
+
+| Voice Type | SSML Support | Quality | Trade-off |
+|------------|--------------|---------|-----------|
+| **Chirp 3 HD** | ❌ No | ⭐⭐⭐⭐⭐ Excellent | Best quality, no pronunciation control |
+| **Neural2** | ✅ Yes | ⭐⭐⭐ Good | Supports phoneme tags, less natural |
+| **WaveNet** | ✅ Yes | ⭐⭐⭐ Good | Supports phoneme tags, less natural |
+
+**User feedback**: The Chirp 3 HD voice is "much more natural" than Neural2. The pronunciation benefits don't outweigh the voice quality loss.
 
 ---
 
-## Implementation
+## Implementation (Preserved for Future Use)
 
 ### 1. IPA Pronunciation Mappings
 
-Added comprehensive IPA mappings for common Spanish words (`server/services/tts-service.ts`):
+IPA mappings for common Spanish words are ready (`server/services/tts-service.ts`):
 
 ```typescript
 const IPA_PRONUNCIATIONS: Record<string, Record<string, string>> = {
   'spanish': {
-    'hola': 'ˈola',           // HO-la (2 syllables)
-    'adiós': 'aˈðjos',        // a-DI-ós (3 syllables)
-    'gracias': 'ˈgɾasjas',    // GRA-cias (2 syllables)
-    'por favor': 'poɾ faˈβoɾ', // por fa-VOR
-    'buenos días': 'ˈbwenos ˈdias', // BUE-nos DI-as
-    // ... 12 more common phrases
+    'hola': 'ola',              // HO-la (2 syllables)
+    'adiós': 'aðjos',           // a-DI-ós (3 syllables)
+    'gracias': 'gɾasjas',       // GRA-cias (2 syllables)
+    'por favor': 'poɾ faβoɾ',   // por fa-VOR
+    'buenos días': 'bwenos dias', // BUE-nos DI-as
+    // ... 17+ common phrases
   },
   'french': { /* ... */ },
-  // Add other languages as needed
 };
 ```
 
-### 2. SSML Phoneme Tag Processor
+### 2. SSML-Compatible Voice Map
 
-Added preprocessing function that wraps quoted target-language words with SSML phoneme tags:
+Added Neural2 voices that support SSML:
 
 ```typescript
-private addPhonemeTagsForTargetWords(text: string, targetLanguage?: string): 
-  { text: string; usesSSML: boolean } {
-  
-  if (!targetLanguage) return { text, usesSSML: false };
-  
-  const ipaMappings = IPA_PRONUNCIATIONS[targetLanguage.toLowerCase()];
-  if (!ipaMappings) return { text, usesSSML: false };
-  
-  // Find all quoted words/phrases: 'Hola' "gracias" etc.
-  const quotedPattern = /['''"""«»]([^'''"""«»]+)['''"""«»]/g;
-  
-  const modifiedText = text.replace(quotedPattern, (match, quotedContent) => {
-    const normalized = quotedContent.toLowerCase().trim();
-    
-    if (ipaMappings[normalized]) {
-      const ipa = ipaMappings[normalized];
-      return `'<phoneme alphabet="ipa" ph="${ipa}">${quotedContent}</phoneme>'`;
-    }
-    
-    return match; // Keep original if no IPA mapping
-  });
-  
-  // Wrap in SSML <speak> tags
-  return { text: `<speak>${modifiedText}</speak>`, usesSSML: true };
+const GOOGLE_SSML_VOICE_MAP = {
+  'spanish': { name: 'es-US-Neural2-A', languageCode: 'es-US' },
+  'english': { name: 'en-US-Neural2-F', languageCode: 'en-US' },
+  // ... all 9 languages
+};
+```
+
+### 3. HTML Entity Encoding
+
+Non-ASCII characters (like `í`, `é`, IPA symbols) must be HTML entity encoded for SSML:
+
+```typescript
+private encodeForSSML(text: string): string {
+  return text.split('').map(char => {
+    const code = char.charCodeAt(0);
+    return code > 127 ? `&#x${code.toString(16)};` : char;
+  }).join('');
 }
 ```
 
-### 3. Integration into TTS Pipeline
+**Example**: `días` → `d&#xed;as`
 
-**Extended API Interface** (`server/services/tts-service.ts`):
+### 4. Automatic Voice Switching
+
+The system automatically switches between voice types based on SSML need:
+
 ```typescript
-export interface TTSRequest {
-  text: string;
-  language?: string;        // Voice language (e.g., "spanish" for accent)
-  voice?: string;
-  targetLanguage?: string;  // Target learning language for phoneme tags
+if (usesSSML) {
+  // Use Neural2 voice for SSML compatibility
+  voiceConfig = GOOGLE_SSML_VOICE_MAP[selectedLanguage];
+} else {
+  // Use Chirp 3 HD for best quality
+  voiceConfig = GOOGLE_VOICE_MAP[selectedLanguage];
 }
 ```
 
-**Updated Google TTS Synthesis** (`server/services/tts-service.ts`):
-```typescript
-private async synthesizeWithGoogle(
-  text: string, 
-  language?: string, 
-  targetLanguage?: string
-): Promise<TTSResponse> {
-  // ...
-  
-  // Apply SSML phoneme tags for embedded target-language words
-  const { text: processedText, usesSSML } = 
-    this.addPhonemeTagsForTargetWords(text, targetLanguage);
-  
-  const request = {
-    input: usesSSML ? { ssml: processedText } : { text: processedText },
-    voice: { ... },
-    audioConfig: { ... },
-  };
-  
-  const [response] = await this.googleClient.synthesizeSpeech(request);
-  // ...
-}
-```
+---
 
-### 4. Client-Side Integration
+## To Re-Enable SSML Phoneme Tags
 
-**Updated synthesizeSpeech signature** (`client/src/lib/restVoiceApi.ts`):
-```typescript
-export async function synthesizeSpeech(
-  text: string, 
-  language?: string,        // Voice language
-  voice?: string, 
-  targetLanguage?: string   // For SSML phoneme tags
-): Promise<Blob>
-```
-
-**Voice chat flow** (`client/src/lib/restVoiceApi.ts`):
-```typescript
-// In beginner mode: Spanish voice reads English with Spanish words
-const targetLanguage = chatData.conversationUpdated?.language; // "spanish"
-const ttsLanguage = targetLanguage; // Use Spanish voice for accent
-
-// Pass both voice language AND target language for phoneme tags
-const ttsAudioBlob = await synthesizeSpeech(
-  aiResponse, 
-  ttsLanguage,      // Spanish voice (for accent)
-  undefined, 
-  targetLanguage    // Spanish (for IPA mappings)
-);
-```
-
-**Server endpoint** (`server/routes.ts`):
-```typescript
-app.post("/api/voice/synthesize", voiceLimiter, isAuthenticated, async (req: any, res) => {
-  const { text, voice, language, targetLanguage } = req.body;
-  
-  const ttsService = getTTSService();
-  const result = await ttsService.synthesize({
-    text: cleanText,
-    language,
-    voice,
-    targetLanguage, // Forward to TTS service
-  });
-  // ...
-});
-```
+1. Edit `server/services/tts-service.ts`
+2. Find `addPhonemeTagsForTargetWords()` function
+3. Remove the early return statement:
+   ```typescript
+   // Remove this line:
+   return { text, usesSSML: false };
+   ```
+4. The system will automatically:
+   - Detect quoted target-language words
+   - Apply IPA phoneme tags
+   - Switch to Neural2 voice for SSML compatibility
 
 ---
 
@@ -180,52 +140,17 @@ app.post("/api/voice/synthesize", voiceLimiter, isAuthenticated, async (req: any
 
 ---
 
-## Testing
+## Future Considerations
 
-### Test Case: "Hola" Pronunciation
-
-**Input**:
-```
-AI Response: "The most common Spanish greeting is 'Hola'. It means 'Hello'..."
-Voice: Spanish (es-US-Chirp-HD-O)
-Target Language: Spanish
-```
-
-**Expected SSML Output**:
-```xml
-<speak>
-The most common Spanish greeting is '<phoneme alphabet="ipa" ph="ˈola">Hola</phoneme>'. 
-It means 'Hello'...
-</speak>
-```
-
-**Expected Audio**:
-- "Hola" pronounced as **2 syllables** (HO-la)
-- Spanish accent maintained throughout
-- Natural Spanish pronunciation of Spanish words
-
-### Console Logs to Verify
-
-```
-[SSML Phoneme] Wrapping "Hola" with IPA: ˈola
-[SSML Phoneme] Added phoneme tags for spanish words
-[Google TTS] Synthesizing 120 chars with es-US-Chirp-HD-O (with SSML phoneme tags)
-```
-
----
-
-## Future Enhancements
-
-1. **Expand IPA mappings** - Add more common phrases for all 9 supported languages
-2. **Curriculum-based mappings** - Auto-generate IPA from vocabulary database
-3. **Fallback heuristics** - Use phonetic approximations for unmapped words
-4. **A/B testing** - Compare user comprehension with/without phoneme tags
+1. **Wait for Chirp 3 HD SSML support** - Google may add SSML support to Chirp voices in future updates
+2. **Hybrid approach** - Only use Neural2 for specific problematic words (rare)
+3. **Alternative pronunciation techniques** - Explore other methods like prosody/rate/pitch adjustments (these work with Chirp 3 HD)
+4. **User preference setting** - Let users choose between voice quality vs pronunciation accuracy
 
 ---
 
 ## References
 
-- **Architect Analysis**: See conversation history for root cause investigation
 - **Google Cloud TTS SSML**: https://cloud.google.com/text-to-speech/docs/ssml
 - **IPA for Spanish**: https://en.wikipedia.org/wiki/Help:IPA/Spanish
 - **Performance Metrics**: `DEVELOPMENT_METRICS.md`
@@ -235,10 +160,9 @@ It means 'Hello'...
 
 ## Summary
 
-This solution fixes syllable mispronunciation in immersive beginner mode by:
-1. ✅ Using SSML `<phoneme>` tags with IPA pronunciation  
-2. ✅ Maintaining Spanish accent for immersion (pedagogically sound)  
-3. ✅ Adding minimal overhead (~1ms)  
-4. ✅ Staying within <6s performance target  
+SSML phoneme tags are **implemented but disabled** because:
+- ❌ Chirp 3 HD (best quality) doesn't support SSML
+- ❌ Neural2 (supports SSML) sounds less natural
+- ✅ Users prefer natural voice quality over precise pronunciation
 
-**Result**: Spanish words like "Hola" are now pronounced correctly (2 syllables) with a Spanish accent, providing the intended immersive learning experience.
+**Current approach**: Use Chirp 3 HD consistently for best voice quality, accepting minor pronunciation imperfections.

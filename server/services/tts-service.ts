@@ -369,6 +369,13 @@ export class TTSService {
    * Result: Spanish voice pronounces "Hola" correctly as 2 syllables (HO-la)
    */
   private addPhonemeTagsForTargetWords(text: string, targetLanguage?: string): { text: string; usesSSML: boolean } {
+    // DISABLED: Neural2 voices (required for SSML) sound much less natural than Chirp 3 HD
+    // The pronunciation benefits don't outweigh the voice quality loss
+    // Chirp 3 HD handles most Spanish words correctly without phoneme hints
+    // 
+    // To re-enable in future: Remove this early return when Google adds SSML support to Chirp voices
+    return { text, usesSSML: false };
+    
     if (!targetLanguage) {
       return { text, usesSSML: false };
     }
