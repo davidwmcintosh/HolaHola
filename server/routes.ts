@@ -1534,7 +1534,7 @@ Return a JSON array of suggestions with this format:
             },
             native: { 
               type: "string",
-              description: `STRICT: Complete ${nativeLanguageName} explanation (minimum 30 characters). Write ONLY in ${nativeLanguageName} - NO ${targetLanguageName} sentences. Embed ${targetLanguageName} words in SINGLE quotes 'word'. Always end with "Try saying 'word'!" or "Try it!". This field will be spoken by TTS, so make it natural.`,
+              description: `STRICT: Complete ${nativeLanguageName} explanation (minimum 30 characters). Write ONLY in ${nativeLanguageName} - NO ${targetLanguageName} sentences. Embed ${targetLanguageName} words in SINGLE quotes 'word'. MUST end with "Try saying 'word'!" or "Try it!" - NO additional text after this encouragement. STOP immediately after the exclamation mark. This field will be spoken by TTS, so make it natural and concise.`,
               minLength: 30
             }
           },
@@ -1577,7 +1577,36 @@ Return a JSON array of suggestions with this format:
         let subtitlesJson: string | null = null; // For dual-subtitle sequences
         
         try {
-          const parsed = JSON.parse(responseContent);
+          let parsed = JSON.parse(responseContent);
+          
+          // SANITIZER: Trim any extra content after "Try saying" or "Try it!"
+          // This prevents AI from adding marketing-style closers after the encouragement
+          if (parsed.native && difficultyLevel === 'beginner') {
+            // Look for "Try saying 'word'!" or "Try it!" and truncate after it
+            const tryPatterns = [
+              /Try saying '[^']+!'[^!]*/i,  // Match "Try saying 'word'!" and capture excess
+              /Try it![^!]*/i                // Match "Try it!" and capture excess
+            ];
+            
+            for (const pattern of tryPatterns) {
+              const match = parsed.native.match(pattern);
+              if (match) {
+                // Find the position of the exclamation mark
+                const exclamationIndex = parsed.native.indexOf('!', match.index);
+                if (exclamationIndex !== -1) {
+                  // Truncate everything after the exclamation mark
+                  const truncated = parsed.native.substring(0, exclamationIndex + 1).trim();
+                  if (truncated !== parsed.native) {
+                    console.log(`[VOICE SANITIZER] Trimmed extra content after encouragement:`);
+                    console.log(`  Original: ${parsed.native}`);
+                    console.log(`  Trimmed: ${truncated}`);
+                    parsed.native = truncated;
+                  }
+                }
+                break;
+              }
+            }
+          }
           
           // Strict validation: Ensure both target and native fields exist
           if (typeof parsed.target !== 'string' || typeof parsed.native !== 'string') {
