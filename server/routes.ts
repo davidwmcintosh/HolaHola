@@ -1439,7 +1439,7 @@ Return a JSON array of suggestions with this format:
 
         // Fetch conversation history with Gemini's 1M context window (can handle 100+ messages)
         const allMessages = await storage.getMessagesByConversation(conversationId);
-        const contextLimit = 100; // Increased from 10 to leverage Gemini's large context window
+        const contextLimit = 10; // VOICE MODE: Keep small for fast responses (<6s target)
         const recentMessages = allMessages.slice(-contextLimit);
         const userMessageCount = recentMessages.filter(m => m.role === "user").length;
         const isResumingConversation = allMessages.length > contextLimit && userMessageCount > 0;
