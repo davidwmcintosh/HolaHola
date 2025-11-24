@@ -1647,11 +1647,18 @@ Return a JSON array of suggestions with this format:
           console.log('[VOICE STRUCTURED] ✓ Valid format | Target:', target.substring(0, 50), '| Native:', native.substring(0, 50));
           
           // SERVER-SIDE VALIDATION & DUAL-SUBTITLE CREATION
-          const encouragementWords = ['perfecto', 'excelente', 'bien', 'bueno', 'genial', 'fantástico', 'maravilloso', 'bravo', 'muy bien'];
+          // Comprehensive Spanish encouragement lexicon
+          const encouragementWords = [
+            'perfecto', 'excelente', 'bien', 'bueno', 'genial', 
+            'fantástico', 'maravilloso', 'bravo', 'muy bien',
+            'estupendo', 'magnífico', 'fenomenal', 'increíble'
+          ];
           const targetLower = target.toLowerCase().replace(/[¡!¿?]/g, '').trim();
-          // Use word boundary matching to avoid false positives (e.g., "buenos días" contains "bueno" but isn't encouragement)
+          // Use Unicode-aware word boundaries for accented Spanish words
+          // ASCII \b fails for accented chars, so use negative lookahead/lookbehind
           const isEncouragement = encouragementWords.some(word => {
-            const regex = new RegExp(`\\b${word}\\b`, 'i');
+            // Match word only if not preceded/followed by letter (supports Unicode)
+            const regex = new RegExp(`(?<![a-záéíóúüñ])${word}(?![a-záéíóúüñ])`, 'iu');
             return regex.test(targetLower);
           });
           const endsWithQuestion = native.trim().endsWith('?');
@@ -1747,9 +1754,10 @@ Return a JSON array of suggestions with this format:
             
             // CRITICAL: Prepend Spanish encouragement to TTS speech so it's actually spoken
             // This ensures students HEAR the encouragement with authentic Spanish pronunciation
-            // Add a natural pause with period to prevent TTS from running words together
-            native = `${target}. ${native}`;
-            console.log('[VOICE DUAL-SUBTITLE] ✓ Prepended encouragement to TTS speech:', target);
+            // Strip trailing punctuation from target, add pause, then prepend
+            const targetClean = target.replace(/[¡!¿?.]+$/, '').trim();
+            native = `${targetClean}. ${native}`;
+            console.log('[VOICE DUAL-SUBTITLE] ✓ Prepended encouragement to TTS speech:', targetClean);
           } else {
             // NOT an encouragement word - DON'T prepend target to native
             // TTS should speak ONLY the native field (English with Spanish accent)
@@ -1767,9 +1775,17 @@ Return a JSON array of suggestions with this format:
               native = sentences.slice(0, -1).join('. ').trim();
               // Ensure it ends with encouragement or "Try saying it!"
               if (!native.toLowerCase().includes('try saying')) {
-                const teachingWord = subtitlesJson 
-                  ? JSON.parse(subtitlesJson)[1].text 
-                  : target;
+                // Get the final teaching phrase from subtitle sequence (last element)
+                let teachingWord = target;
+                if (subtitlesJson) {
+                  try {
+                    const subtitleSeq = JSON.parse(subtitlesJson);
+                    // Use LAST element (the final phrase to repeat)
+                    teachingWord = subtitleSeq[subtitleSeq.length - 1].text;
+                  } catch (e) {
+                    console.warn('[VOICE VALIDATION] Could not parse subtitlesJson, using target');
+                  }
+                }
                 native += `. Try saying '${teachingWord}'!`;
               }
               console.log('[VOICE VALIDATION] ✓ Removed question, added "Try saying it!"');
