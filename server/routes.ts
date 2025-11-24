@@ -1448,13 +1448,32 @@ Return a JSON array of suggestions with this format:
           console.log(`[RESUME] Voice conversation has ${allMessages.length} total messages, resuming with last ${contextLimit}`);
         }
 
+        // OPTIMIZATION: Fast heuristic check for language change keywords BEFORE expensive AI call
+        // Only check for language change if message contains relevant keywords
+        const languageChangeKeywords = [
+          'switch', 'change', 'learn', 'start', 'instead', 'different',
+          'spanish', 'french', 'german', 'italian', 'portuguese', 
+          'japanese', 'mandarin', 'korean', 'english'
+        ];
+        const messageContent = messageData.content.toLowerCase();
+        const mightWantLanguageChange = languageChangeKeywords.some(keyword => 
+          messageContent.includes(keyword)
+        );
+
         // CRITICAL: Detect target language change BEFORE generating AI response
         // This ensures the AI knows the correct language for this response
-        const targetLanguageChangeRequest = await detectTargetLanguageChangeRequest(
-          openai,
-          messageData.content,
-          conversation.language
-        );
+        // ONLY run expensive AI detection if heuristic suggests possible change
+        let targetLanguageChangeRequest: any = { wantsToChange: false, newTargetLanguage: null };
+        if (mightWantLanguageChange) {
+          console.log('[VOICE OPTIMIZATION] Possible language change detected, running AI detection...');
+          targetLanguageChangeRequest = await detectTargetLanguageChangeRequest(
+            openai,
+            messageData.content,
+            conversation.language
+          );
+        } else {
+          console.log('[VOICE OPTIMIZATION] No language change keywords detected, skipping AI check');
+        }
 
         // Use updatedConversation for the rest of the request if language changed
         let activeConversation = conversation;
@@ -2064,12 +2083,30 @@ Return a JSON array of suggestions with this format:
         }
       }
 
-      // Detect if user is requesting to change their target learning language
-      const targetLanguageChangeRequest = await detectTargetLanguageChangeRequest(
-        openai,
-        messageData.content,
-        updatedConversation.language
+      // OPTIMIZATION: Fast heuristic check for language change keywords BEFORE expensive AI call
+      const languageChangeKeywords = [
+        'switch', 'change', 'learn', 'start', 'instead', 'different',
+        'spanish', 'french', 'german', 'italian', 'portuguese', 
+        'japanese', 'mandarin', 'korean', 'english'
+      ];
+      const textMessageContent = messageData.content.toLowerCase();
+      const textMightWantLanguageChange = languageChangeKeywords.some(keyword => 
+        textMessageContent.includes(keyword)
       );
+
+      // Detect if user is requesting to change their target learning language
+      // ONLY run expensive AI detection if heuristic suggests possible change
+      let targetLanguageChangeRequest: any = { wantsToChange: false, newTargetLanguage: null };
+      if (textMightWantLanguageChange) {
+        console.log('[TEXT OPTIMIZATION] Possible language change detected, running AI detection...');
+        targetLanguageChangeRequest = await detectTargetLanguageChangeRequest(
+          openai,
+          messageData.content,
+          updatedConversation.language
+        );
+      } else {
+        console.log('[TEXT OPTIMIZATION] No language change keywords detected, skipping AI check');
+      }
 
       // Only update if actually requesting a change to a different language
       if (targetLanguageChangeRequest.wantsToChange && 
