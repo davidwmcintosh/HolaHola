@@ -119,6 +119,7 @@ function Router() {
         <Route path="/teacher/dashboard" component={TeacherDashboard} />
         <Route path="/teacher/classes/:classId" component={ClassManagement} />
         <Route path="/teacher/assignments/new" component={AssignmentCreator} />
+        <Route path="/teacher/assignments/create" component={AssignmentCreator} />
         <Route path="/teacher/assignments/:assignmentId/grade" component={AssignmentGrading} />
         <Route path="/teacher/curriculum" component={CurriculumLibrary} />
         <Route path="/teacher/curriculum/builder" component={CurriculumBuilder} />
