@@ -146,69 +146,63 @@ export class TTSService {
       this.provider = 'openai';
     }
 
-    // Initialize OpenAI client for fallback (only if API key is available)
+    // OpenAI client no longer used - Google Cloud TTS is required for authentic voices
+    // Keeping initialization code for future reference, but not used in voice chat
     if (process.env.USER_OPENAI_API_KEY) {
       this.openaiClient = new OpenAI({
         apiKey: process.env.USER_OPENAI_API_KEY,
         baseURL: 'https://api.openai.com/v1',
       });
-      console.log('[TTS Service] ✓ OpenAI TTS fallback initialized');
-    } else {
-      console.warn('[TTS Service] USER_OPENAI_API_KEY not found, OpenAI TTS fallback unavailable');
-      // If neither provider is available, this is a configuration error
-      if (!this.googleClient) {
-        console.error('[TTS Service] ⚠️  No TTS provider available! Set either GOOGLE_CLOUD_TTS_CREDENTIALS or USER_OPENAI_API_KEY');
-      }
+      console.log('[TTS Service] ℹ️  OpenAI TTS available (not used for voice chat - Google Cloud required)');
+    }
+    
+    // Validate Google Cloud TTS is available
+    if (!this.googleClient) {
+      console.error('[TTS Service] ❌ CRITICAL: Google Cloud TTS not configured!');
+      console.error('[TTS Service] Voice chat will not work without GOOGLE_CLOUD_TTS_CREDENTIALS');
+      console.error('[TTS Service] Set GOOGLE_CLOUD_TTS_CREDENTIALS environment variable with service account JSON');
     }
   }
 
   /**
-   * Synthesize speech from text using the configured provider with automatic fallback
+   * Synthesize speech from text using Google Cloud TTS
+   * NO FALLBACK - fails immediately if Google TTS is unavailable
+   * This preserves authentic voice quality for language learning
    */
   async synthesize(request: TTSRequest): Promise<TTSResponse> {
     const { text, language, voice, targetLanguage } = request;
 
-    // Try Google WaveNet first (if available)
-    if (this.provider === 'google' && this.googleClient) {
-      try {
-        return await this.synthesizeWithGoogle(text, language, targetLanguage);
-      } catch (error: any) {
-        // Enhanced error logging with actionable diagnostics
-        console.error('┌─────────────────────────────────────────────────────────────┐');
-        console.error('│ ⚠️  GOOGLE CLOUD TTS FAILED - FALLING BACK TO OPENAI TTS   │');
-        console.error('└─────────────────────────────────────────────────────────────┘');
-        console.error(`Error: ${error.message}`);
-        
-        if (error.code === 7 || error.message?.includes('PERMISSION_DENIED')) {
-          console.error('\n📋 SETUP REQUIRED:');
-          console.error('1. Enable Google Cloud Text-to-Speech API:');
-          console.error('   https://console.cloud.google.com/apis/library/texttospeech.googleapis.com');
-          console.error('2. Ensure service account has roles/texttospeech.user permission');
-          console.error('3. Restart the application after enabling');
-          console.error('\n⚠️  Impact: Using OpenAI TTS with American accent instead of native WaveNet pronunciation');
-        }
-        
-        // Attempt fallback to OpenAI if available
-        if (this.openaiClient) {
-          console.warn('[TTS Service] → Switching to OpenAI TTS fallback...');
-          try {
-            const result = await this.synthesizeWithOpenAI(text, voice);
-            console.log('[TTS Service] ✓ Fallback to OpenAI TTS succeeded');
-            console.warn('[TTS Service] ⚠️  WARNING: Voice quality degraded - using OpenAI instead of authentic WaveNet pronunciation');
-            return result; // SUCCESS: Return the fallback result
-          } catch (fallbackError: any) {
-            console.error('[TTS Service] OpenAI TTS fallback also failed:', fallbackError.message);
-            throw new Error(`All TTS providers failed. Google: ${error.message}, OpenAI: ${fallbackError.message}`);
-          }
-        }
-        
-        // No fallback available, re-throw original error
-        throw new Error(`Google TTS failed and no fallback available: ${error.message}`);
-      }
+    // Google Cloud TTS is required for authentic language learning voices
+    if (!this.googleClient) {
+      throw new Error('Google Cloud TTS is not available. Voice chat requires GOOGLE_CLOUD_TTS_CREDENTIALS to be configured.');
     }
 
-    // Direct OpenAI TTS (when Google is not the primary provider)
-    return await this.synthesizeWithOpenAI(text, voice);
+    try {
+      return await this.synthesizeWithGoogle(text, language, targetLanguage);
+    } catch (error: any) {
+      // Enhanced error logging with actionable diagnostics
+      console.error('┌─────────────────────────────────────────────────────────────┐');
+      console.error('│ ❌ GOOGLE CLOUD TTS FAILED - VOICE UNAVAILABLE             │');
+      console.error('└─────────────────────────────────────────────────────────────┘');
+      console.error(`Error: ${error.message}`);
+      
+      if (error.code === 7 || error.message?.includes('PERMISSION_DENIED')) {
+        console.error('\n📋 SETUP REQUIRED:');
+        console.error('1. Enable Google Cloud Text-to-Speech API:');
+        console.error('   https://console.cloud.google.com/apis/library/texttospeech.googleapis.com');
+        console.error('2. Ensure service account has roles/texttospeech.user permission');
+        console.error('3. Restart the application after enabling');
+      }
+      
+      if (error.code === 3 || error.message?.includes('INVALID_ARGUMENT')) {
+        console.error('\n📋 LIKELY CAUSE: Invalid SSML in request');
+        console.error('Check that phoneme tags are properly formatted');
+        console.error('Text preview:', text.substring(0, 200));
+      }
+      
+      // NO FALLBACK - fail immediately to preserve learning experience
+      throw new Error(`Google Cloud TTS failed: ${error.message}. Voice chat temporarily unavailable.`);
+    }
   }
 
   /**
