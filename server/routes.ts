@@ -1553,21 +1553,23 @@ Target: "Gracias"  ← Extract from quotes`,
               description: `STRICT: Brief ${nativeLanguageName} teaching content (30-150 characters max).
 
 STRUCTURE (IF giving feedback on student's speech):
-"¡Excelente! [feedback in ${nativeLanguageName}]. Try saying 'word'!"
+"¡Excelente! [feedback in ${nativeLanguageName}]. Try saying word!"
 
 STRUCTURE (IF teaching first word):
-"[Teaching in ${nativeLanguageName}]. Try saying 'word'!"
+"[Teaching in ${nativeLanguageName}]. Try saying word!"
 
 CRITICAL RULES:
 1. OPTIONALLY start with ${targetLanguageName} encouragement word (¡Excelente!, ¡Perfecto!, etc.) when praising student
 2. Main content in ${nativeLanguageName} ONLY
-3. Embed ${targetLanguageName} vocabulary in SINGLE quotes 'word'
-4. MUST end with "Try saying 'word'!" where 'word' matches your target field exactly
+3. DO NOT use quotes or punctuation around ${targetLanguageName} words - just write them plain (NO 'word' or "word")
+4. MUST end with "Try saying word!" where word matches your target field exactly (no quotes)
 5. NO text after the "Try saying" encouragement
+6. Keep punctuation simple - avoid multiple periods, colons, semicolons
 
 EXAMPLES:
-Good: "¡Excelente! You said 'Hello'! Try saying 'Buenos días'!"  (target: "Buenos días")
-Good: "'Hola' means 'hello'. Try saying 'Hola'!"  (target: "Hola")
+Good: "¡Excelente! You said Hello! Try saying Buenos días!"  (target: "Buenos días")
+Good: "Hola means hello. Try saying Hola!"  (target: "Hola")
+Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciation artifacts)
 Bad: "You said hello! Learn more tomorrow."  (missing "Try saying")`,
               minLength: 30,
               maxLength: 150

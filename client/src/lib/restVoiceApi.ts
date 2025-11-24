@@ -170,15 +170,15 @@ export async function processVoiceMessage(
 
   // Step 3: Determine correct language for TTS
   // In beginner mode, AI responses are in native language (English) with Spanish words embedded
-  // Use NATIVE language voice for clear pronunciation - no more confusing Spanish-accented English
+  // Use TARGET language voice (Spanish) for authentic pronunciation - text simplified to avoid artifacts
   const nativeLanguage = chatData.aiMessage?.nativeLanguage || chatData.conversationUpdated?.nativeLanguage || 'english';
   const targetLanguage = chatData.conversationUpdated?.language || language;
   
-  // Use native language voice (English) for crystal clear pronunciation
-  // This prevents artifacts like "cada" sounds from Spanish voice reading English punctuation
-  const ttsLanguage = nativeLanguage;
+  // Use target language voice (Spanish) for authentic Spanish pronunciation
+  // Text has no quotes to prevent punctuation artifacts like "cada" sounds
+  const ttsLanguage = targetLanguage;
   
-  console.log('[VOICE TTS] Using', ttsLanguage, 'voice for clear native pronunciation, teaching:', targetLanguage);
+  console.log('[VOICE TTS] Using', ttsLanguage, 'voice for authentic pronunciation, teaching:', targetLanguage);
   
   const ttsAudioBlob = await synthesizeSpeech(aiResponse, ttsLanguage, undefined, targetLanguage);
 
