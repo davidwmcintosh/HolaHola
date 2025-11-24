@@ -2933,7 +2933,7 @@ Return a JSON array of suggestions with this format:
   // Returns both audio and word-level timing data for synchronized subtitles
   app.post("/api/voice/synthesize", voiceLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const { text, voice, language, returnTimings } = req.body;
+      const { text, voice, language, targetLanguage, returnTimings } = req.body;
       
       if (!text) {
         return res.status(400).json({ error: "No text provided" });
@@ -2943,7 +2943,7 @@ Return a JSON array of suggestions with this format:
       
       // Strip markdown formatting before TTS (removes **, *, parentheses, etc.)
       const cleanText = stripMarkdownForSpeech(text);
-      console.log(`[TTS] Synthesizing speech for user ${userId}, original: ${text.length} chars, cleaned: ${cleanText.length} chars, language: ${language || 'default'}`);
+      console.log(`[TTS] Synthesizing speech for user ${userId}, original: ${text.length} chars, cleaned: ${cleanText.length} chars, language: ${language || 'default'}, targetLanguage: ${targetLanguage || 'none'}`);
 
       // Use TTS service abstraction (Google WaveNet preferred, OpenAI fallback)
       const ttsService = getTTSService();
@@ -2951,6 +2951,7 @@ Return a JSON array of suggestions with this format:
         text: cleanText,
         language,
         voice,
+        targetLanguage, // Pass target language for SSML phoneme tag processing
       });
 
       console.log(`[TTS] ✓ Generated ${result.audioBuffer.length} bytes using ${ttsService.getProvider()} provider`);

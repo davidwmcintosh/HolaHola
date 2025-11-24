@@ -50,7 +50,12 @@ export async function transcribeAudio(audioBlob: Blob, language?: string): Promi
  * Returns an audio blob (MP3)
  * language: Target language for pronunciation (e.g., 'spanish', 'french')
  */
-export async function synthesizeSpeech(text: string, language?: string, voice?: string): Promise<Blob> {
+export async function synthesizeSpeech(
+  text: string, 
+  language?: string, 
+  voice?: string, 
+  targetLanguage?: string
+): Promise<Blob> {
   // Use nova voice for better multilingual pronunciation (default to nova if language specified)
   const selectedVoice = voice || (language ? 'nova' : 'alloy');
   
@@ -59,7 +64,12 @@ export async function synthesizeSpeech(text: string, language?: string, voice?: 
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ text, voice: selectedVoice, language }),
+    body: JSON.stringify({ 
+      text, 
+      voice: selectedVoice, 
+      language,
+      targetLanguage, // Pass target language for SSML phoneme tags
+    }),
     credentials: 'include', // Include auth cookies
   });
 
@@ -159,18 +169,18 @@ export async function processVoiceMessage(
   }
 
   // Step 3: Determine correct language for TTS
-  // In beginner mode, AI responses are in native language (English) with target words embedded
-  // Use native language voice so embedded target words like "Hola" are pronounced correctly
-  // (Spanish voice reading English text mispronounces "Hola" as "holidays")
+  // In beginner mode, AI responses are in native language (English) with Spanish words embedded
+  // Use Spanish voice for Spanish accent, but pass targetLanguage to add SSML phoneme tags
+  // This fixes syllable pronunciation (e.g., "Hola" = 2 syllables, not 3)
   const nativeLanguage = chatData.aiMessage?.nativeLanguage || chatData.conversationUpdated?.nativeLanguage;
   const targetLanguage = chatData.conversationUpdated?.language || language;
   
-  // Use native language voice for beginner mode explanations (English voice says "Hola" correctly)
-  const ttsLanguage = nativeLanguage || targetLanguage;
+  // Use target language voice for immersive accent (Spanish voice reading English = Spanish accent)
+  const ttsLanguage = targetLanguage;
   
-  console.log('[VOICE TTS] Synthesizing with', ttsLanguage, 'voice (native lang for proper pronunciation)');
+  console.log('[VOICE TTS] Synthesizing with', ttsLanguage, 'voice, target lang:', targetLanguage, '(for SSML phoneme tags)');
   
-  const ttsAudioBlob = await synthesizeSpeech(aiResponse, ttsLanguage);
+  const ttsAudioBlob = await synthesizeSpeech(aiResponse, ttsLanguage, undefined, targetLanguage);
 
   return {
     userTranscript,

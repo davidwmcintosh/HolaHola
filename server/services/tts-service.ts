@@ -13,8 +13,9 @@ export type TTSProvider = 'openai' | 'google';
  */
 export interface TTSRequest {
   text: string;
-  language?: string;
+  language?: string; // Voice language (e.g., "spanish" for Spanish accent)
   voice?: string;
+  targetLanguage?: string; // Target learning language for phoneme tag processing
 }
 
 /**
@@ -70,6 +71,42 @@ const FRANC_TO_LANGUAGE_MAP: Record<string, string> = {
   'jpn': 'japanese',
   'cmn': 'mandarin chinese',
   'kor': 'korean',
+};
+
+/**
+ * IPA (International Phonetic Alphabet) pronunciation mappings for common target-language words
+ * Used to fix syllable pronunciation when Spanish TTS reads English text with embedded Spanish words
+ * 
+ * Example: "Hola" in English sentence → Chirp 3 HD mis-segments to 3 syllables
+ * Solution: Wrap with <phoneme alphabet="ipa" ph="ˈola">Hola</phoneme> → Forces 2 syllables
+ */
+const IPA_PRONUNCIATIONS: Record<string, Record<string, string>> = {
+  'spanish': {
+    'hola': 'ˈola',           // HO-la (2 syllables)
+    'adiós': 'aˈðjos',        // a-DI-ós (3 syllables)
+    'gracias': 'ˈgɾasjas',    // GRA-cias (2 syllables)
+    'por favor': 'poɾ faˈβoɾ', // por fa-VOR
+    'sí': 'si',               // sí (1 syllable)
+    'no': 'no',               // no (1 syllable)
+    'buenos días': 'ˈbwenos ˈdias', // BUE-nos DI-as
+    'buenas tardes': 'ˈbwenas ˈtaɾdes', // BUE-nas TAR-des
+    'buenas noches': 'ˈbwenas ˈnotʃes', // BUE-nas NO-ches
+    'qué tal': 'ke ˈtal',     // qué TAL
+    'cómo estás': 'ˈkomo esˈtas', // CÓ-mo es-TÁS
+    'perfecto': 'peɾˈfekto',  // per-FEC-to
+    'excelente': 'ekseˈlente', // ex-ce-LEN-te
+    'bien': 'bjen',           // bien (1 syllable)
+    'muy bien': 'muj ˈbjen',  // muy bien
+    'de nada': 'de ˈnaða',    // de NA-da
+    'lo siento': 'lo ˈsjento', // lo SIEN-to
+  },
+  // Add other languages as needed
+  'french': {
+    'bonjour': 'bɔ̃ʒuʁ',
+    'merci': 'mɛʁsi',
+    'oui': 'wi',
+    'non': 'nɔ̃',
+  },
 };
 
 /**
@@ -129,12 +166,12 @@ export class TTSService {
    * Synthesize speech from text using the configured provider with automatic fallback
    */
   async synthesize(request: TTSRequest): Promise<TTSResponse> {
-    const { text, language, voice } = request;
+    const { text, language, voice, targetLanguage } = request;
 
     // Try Google WaveNet first (if available)
     if (this.provider === 'google' && this.googleClient) {
       try {
-        return await this.synthesizeWithGoogle(text, language);
+        return await this.synthesizeWithGoogle(text, language, targetLanguage);
       } catch (error: any) {
         // Enhanced error logging with actionable diagnostics
         console.error('┌─────────────────────────────────────────────────────────────┐');
@@ -290,6 +327,66 @@ export class TTSService {
   }
 
   /**
+   * Wrap target-language words with SSML phoneme tags for correct syllable pronunciation
+   * 
+   * Problem: When Spanish TTS reads English text with embedded Spanish words like "Hola",
+   * it mispronounces them (3 syllables instead of 2)
+   * 
+   * Solution: Use SSML <phoneme> tags with IPA pronunciation to enforce correct syllables
+   * 
+   * Example:
+   * Input:  "The greeting is 'Hola'..."
+   * Output: "The greeting is '<phoneme alphabet="ipa" ph="ˈola">Hola</phoneme>'..."
+   * Result: Spanish voice pronounces "Hola" correctly as 2 syllables (HO-la)
+   */
+  private addPhonemeTagsForTargetWords(text: string, targetLanguage?: string): { text: string; usesSSML: boolean } {
+    if (!targetLanguage) {
+      return { text, usesSSML: false };
+    }
+
+    const normalizedTarget = targetLanguage.toLowerCase();
+    const ipaMappings = IPA_PRONUNCIATIONS[normalizedTarget];
+    
+    if (!ipaMappings) {
+      console.log(`[SSML Phoneme] No IPA mappings for ${targetLanguage}, skipping`);
+      return { text, usesSSML: false };
+    }
+
+    let modifiedText = text;
+    let hasPhonemes = false;
+
+    // Find all quoted words/phrases and check if they have IPA mappings
+    // Match: 'word' "word" 'phrase with spaces' etc.
+    const quotedPattern = /['''"""«»]([^'''"""«»]+)['''"""«»]/g;
+    
+    modifiedText = text.replace(quotedPattern, (match, quotedContent) => {
+      const normalized = quotedContent.toLowerCase().trim();
+      
+      // Check if this quoted word/phrase has an IPA pronunciation
+      if (ipaMappings[normalized]) {
+        const ipa = ipaMappings[normalized];
+        hasPhonemes = true;
+        console.log(`[SSML Phoneme] Wrapping "${quotedContent}" with IPA: ${ipa}`);
+        // Wrap with phoneme tag, preserving original capitalization
+        return `'<phoneme alphabet="ipa" ph="${ipa}">${quotedContent}</phoneme>'`;
+      }
+      
+      // Keep original quoted word if no IPA mapping
+      return match;
+    });
+
+    if (!hasPhonemes) {
+      return { text, usesSSML: false };
+    }
+
+    // Wrap entire text in SSML <speak> tags
+    const ssmlText = `<speak>${modifiedText}</speak>`;
+    console.log(`[SSML Phoneme] Added phoneme tags for ${targetLanguage} words`);
+    
+    return { text: ssmlText, usesSSML: true };
+  }
+
+  /**
    * Convert plain text to SSML with mark tags between words for timing
    */
   private textToSSMLWithMarks(text: string): { ssml: string; words: string[] } {
@@ -358,8 +455,12 @@ export class TTSService {
   /**
    * Synthesize speech using Google Cloud TTS (Neural2 and Chirp 3 HD voices)
    * Uses the target language voice consistently for authentic pronunciation
+   * 
+   * @param text - Text to synthesize
+   * @param language - Voice language (e.g., "spanish" for Spanish accent)
+   * @param targetLanguage - Target learning language for SSML phoneme tags (optional)
    */
-  private async synthesizeWithGoogle(text: string, language?: string): Promise<TTSResponse> {
+  private async synthesizeWithGoogle(text: string, language?: string, targetLanguage?: string): Promise<TTSResponse> {
     if (!this.googleClient) {
       throw new Error('Google Cloud TTS client not initialized');
     }
@@ -378,12 +479,15 @@ export class TTSService {
       console.log(`[Google TTS] Auto-detected language: ${selectedLanguage}, using ${voiceConfig.name}`);
     }
 
-    console.log(`[Google TTS] Synthesizing ${text.length} chars with ${voiceConfig.name}`);
+    // Apply SSML phoneme tags for embedded target-language words if targetLanguage provided
+    const { text: processedText, usesSSML } = this.addPhonemeTagsForTargetWords(text, targetLanguage);
+
+    console.log(`[Google TTS] Synthesizing ${text.length} chars with ${voiceConfig.name}${usesSSML ? ' (with SSML phoneme tags)' : ''}`);
 
     // Prepare the synthesis request using standard v1 API
     // Note: Chirp 3 HD voices don't support enableTimePointing beta feature
     const request = {
-      input: { text }, // Use plain text instead of SSML
+      input: usesSSML ? { ssml: processedText } : { text: processedText },
       voice: {
         languageCode: voiceConfig.languageCode,
         name: voiceConfig.name,
