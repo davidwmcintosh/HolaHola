@@ -1534,8 +1534,9 @@ Return a JSON array of suggestions with this format:
             },
             native: { 
               type: "string",
-              description: `STRICT: Complete ${nativeLanguageName} explanation (minimum 30 characters). Write ONLY in ${nativeLanguageName} - NO ${targetLanguageName} sentences. Embed ${targetLanguageName} words in SINGLE quotes 'word'. MUST end with "Try saying 'word'!" or "Try it!" - NO additional text after this encouragement. STOP immediately after the exclamation mark. This field will be spoken by TTS, so make it natural and concise.`,
-              minLength: 30
+              description: `STRICT: Brief ${nativeLanguageName} explanation (30-150 characters max). Write ONLY in ${nativeLanguageName} - NO ${targetLanguageName} sentences. Embed ${targetLanguageName} words in SINGLE quotes 'word'. MUST end with "Try saying 'word'!" or "Try it!" - NO additional text, NO cultural commentary, NO extra sentences after this encouragement. Keep it simple and direct for voice delivery.`,
+              minLength: 30,
+              maxLength: 150
             }
           },
           required: ["target", "native"]
