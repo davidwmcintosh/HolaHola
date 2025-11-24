@@ -1754,10 +1754,10 @@ Return a JSON array of suggestions with this format:
             
             // CRITICAL: Prepend Spanish encouragement to TTS speech so it's actually spoken
             // This ensures students HEAR the encouragement with authentic Spanish pronunciation
-            // Strip trailing punctuation from target, add pause, then prepend
-            const targetClean = target.replace(/[¡!¿?.]+$/, '').trim();
-            native = `${targetClean}. ${native}`;
-            console.log('[VOICE DUAL-SUBTITLE] ✓ Prepended encouragement to TTS speech:', targetClean);
+            // Add pause only if target doesn't already end with punctuation
+            const needsPause = !/[!?.;]$/.test(target.trim());
+            native = needsPause ? `${target}. ${native}` : `${target} ${native}`;
+            console.log('[VOICE DUAL-SUBTITLE] ✓ Prepended encouragement to TTS speech:', target);
           } else {
             // NOT an encouragement word - DON'T prepend target to native
             // TTS should speak ONLY the native field (English with Spanish accent)
