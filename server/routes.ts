@@ -1733,7 +1733,14 @@ Return a JSON array of suggestions with this format:
         console.log(`[VOICE FAST-PATH] Completed in ${totalTime}ms (fetch: ${fetchTime}ms, AI: ${completionTime}ms)`);
 
         // Return response immediately for fast TTS
-        res.json({ userMessage, aiMessage });
+        // Include nativeLanguage so client uses correct TTS voice (English voice for English text)
+        res.json({ 
+          userMessage, 
+          aiMessage: {
+            ...aiMessage,
+            nativeLanguage: conversation.nativeLanguage || 'english'
+          }
+        });
 
         // Queue comprehensive background enrichment (non-blocking)
         setImmediate(async () => {
@@ -1759,21 +1766,23 @@ Return a JSON array of suggestions with this format:
             }
 
             // Detect language changes (deferred from fast-path)
-            if (userMessageCountForEnrichment >= 3 && wordCount >= 5) {
-              const languageDetection = await detectLanguage(openai, messageData.content, enrichmentConversation.language);
-              
-              if (languageDetection.shouldSwitch && 
-                  languageDetection.detectedLanguage !== enrichmentConversation.language &&
-                  languageDetection.detectedLanguage !== "english" &&
-                  languageDetection.confidence > 0.8) {
-                
-                console.log('[VOICE BACKGROUND] Auto-detected language switch:', enrichmentConversation.language, '→', languageDetection.detectedLanguage);
-                
-                enrichmentConversation = await storage.updateConversation(conversationId, userId, {
-                  language: languageDetection.detectedLanguage,
-                }) || enrichmentConversation;
-              }
-            }
+            // TODO: Re-enable language auto-detection after implementing proper language detection
+            // Currently disabled to avoid OpenAI dependency issues
+            // if (userMessageCountForEnrichment >= 3 && wordCount >= 5) {
+            //   const languageDetection = await detectLanguage(openai, messageData.content, enrichmentConversation.language);
+            //   
+            //   if (languageDetection.shouldSwitch && 
+            //       languageDetection.detectedLanguage !== enrichmentConversation.language &&
+            //       languageDetection.detectedLanguage !== "english" &&
+            //       languageDetection.confidence > 0.8) {
+            //     
+            //     console.log('[VOICE BACKGROUND] Auto-detected language switch:', enrichmentConversation.language, '→', languageDetection.detectedLanguage);
+            //     
+            //     enrichmentConversation = await storage.updateConversation(conversationId, userId, {
+            //       language: languageDetection.detectedLanguage,
+            //     }) || enrichmentConversation;
+            //   }
+            // }
 
             // Detect native language change requests (deferred from fast-path)
             const nativeLanguageChangeRequest = await detectNativeLanguageChangeRequest(
@@ -2007,14 +2016,17 @@ Return a JSON array of suggestions with this format:
       // Count actual alphabetic words (not punctuation or numbers)
       const wordCount = messageData.content.match(/[a-zA-ZÀ-ÿ]+/g)?.length || 0;
       
-      if (userMessageCount >= 3 && wordCount >= 5) {
-        const languageDetection = await detectLanguage(openai, messageData.content, conversation.language);
+      // TODO: Re-enable language auto-detection after implementing proper language detection
+      // Currently disabled to avoid OpenAI dependency issues
+      // if (userMessageCount >= 3 && wordCount >= 5) {
+        // const languageDetection = await detectLanguage(openai, messageData.content, conversation.language);
         
         // Apply strict criteria before auto-switching:
         // 1. High confidence (>0.8)
         // 2. Model recommends switching
         // 3. Different from current language and not just English
         // 4. Message has substantial content (not just a greeting)
+        /*
         if (languageDetection.shouldSwitch && 
             languageDetection.detectedLanguage !== conversation.language &&
             languageDetection.detectedLanguage !== "english" &&
@@ -2028,7 +2040,8 @@ Return a JSON array of suggestions with this format:
           
           languageSwitchNote = `I notice you're practicing ${languageDetection.detectedLanguage}. I've switched our conversation to focus on that language. `;
         }
-      }
+        */
+      // }
 
       // OPTIMIZATION: Fast heuristic check for language change keywords BEFORE expensive AI call
       const languageChangeKeywords = [

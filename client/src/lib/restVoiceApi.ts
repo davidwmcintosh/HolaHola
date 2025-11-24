@@ -159,12 +159,16 @@ export async function processVoiceMessage(
   }
 
   // Step 3: Determine correct language for TTS
-  // If conversation language changed, use the new language for TTS
-  const ttsLanguage = chatData.conversationUpdated?.language || language;
+  // In beginner mode, AI responses are in native language (English) with target words embedded
+  // Use native language voice so embedded target words like "Hola" are pronounced correctly
+  // (Spanish voice reading English text mispronounces "Hola" as "holidays")
+  const nativeLanguage = chatData.aiMessage?.nativeLanguage || chatData.conversationUpdated?.nativeLanguage;
+  const targetLanguage = chatData.conversationUpdated?.language || language;
   
-  // Use FULL content (English + target language) with target language voice
-  // This gives English explanations an authentic accent for immersion
-  console.log('[VOICE TTS] Synthesizing full content with', ttsLanguage, 'voice');
+  // Use native language voice for beginner mode explanations (English voice says "Hola" correctly)
+  const ttsLanguage = nativeLanguage || targetLanguage;
+  
+  console.log('[VOICE TTS] Synthesizing with', ttsLanguage, 'voice (native lang for proper pronunciation)');
   
   const ttsAudioBlob = await synthesizeSpeech(aiResponse, ttsLanguage);
 
