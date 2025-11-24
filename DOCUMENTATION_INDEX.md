@@ -20,6 +20,41 @@ This document provides an overview of all documentation files in the project.
 
 ---
 
+## User Guides
+
+### TEACHER_GUIDE.md ⭐ NEW
+**Complete teacher user manual**
+- Getting started and logging in
+- Step-by-step class creation process
+- Adding students (6-character code system)
+- Creating assignments (practice, homework, quiz, project)
+- Grading student submissions
+- Using the curriculum builder (paths/units/lessons)
+- Viewing student progress and analytics
+- Tips, best practices, and troubleshooting
+- Quick reference tables
+
+**When to use**: Training teachers, onboarding new educators, answering "how do I..." questions.
+
+---
+
+### ADMIN_GUIDE.md ⭐ NEW
+**Backend administrator manual**
+- Granting teacher access via SQL
+- PostgreSQL database management
+- User account administration
+- Class and enrollment management
+- Subscription/tier configuration
+- System configuration and environment variables
+- Troubleshooting common backend issues
+- Security best practices
+- SQL query reference library
+- Database schema documentation
+
+**When to use**: Backend administration, database management, troubleshooting system-level issues.
+
+---
+
 ## Voice Chat Documentation
 
 ⚠️ **ACTIVE SYSTEM**: RestVoiceChat.tsx (REST-based)  
@@ -146,6 +181,18 @@ The following files reference the old OpenAI-based architecture and are preserve
 3. Review `docs/LLM-Migration-Analysis.md` → Migration History
 4. Check `replit.md` → Unified Code Principle
 
+### New Teacher Onboarding?
+1. Read `TEACHER_GUIDE.md` (complete user manual)
+2. Review class creation workflow
+3. Learn assignment and grading processes
+4. Understand curriculum builder
+
+### New Administrator Setup?
+1. Read `ADMIN_GUIDE.md` (backend administration)
+2. Learn how to grant teacher access
+3. Review database management procedures
+4. Understand security best practices
+
 ### New Developer Onboarding?
 1. Read `replit.md` (overview, architecture, features)
 2. Review `docs/voice-chat-setup.md` (voice features)
@@ -165,6 +212,8 @@ The following files reference the old OpenAI-based architecture and are preserve
 ```
 project/
 ├── replit.md                                # Main documentation
+├── TEACHER_GUIDE.md                         # Teacher user manual ⭐ NEW
+├── ADMIN_GUIDE.md                           # Administrator backend guide ⭐ NEW
 ├── docs/
 │   ├── voice-chat-setup.md                 # Voice chat architecture ⭐ CURRENT
 │   ├── LLM-Migration-Analysis.md           # Migration history (Nov 2025)
