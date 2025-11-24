@@ -1529,7 +1529,13 @@ Return a JSON array of suggestions with this format:
           properties: {
             target: { 
               type: "string",
-              description: `STRICT: ONE ${targetLanguageName} word or short phrase ONLY (max 15 characters). MUST be in ${targetLanguageName} language ONLY - NO ${nativeLanguageName} words allowed. When teaching, use the word being taught (e.g., 'Hola', 'Gracias', 'Sí'). When giving feedback, use ${targetLanguageName} encouragement words (e.g., '¡Perfecto!', '¡Excelente!' for Spanish, 'Parfait!' for French, 'すごい!' for Japanese). NEVER use ${nativeLanguageName} words like 'Great', 'Perfect', 'Excellent', 'OK', 'Yes', 'No', 'Hi' in this field.`,
+              description: `STRICT: ONE ${targetLanguageName} word or short phrase ONLY (max 15 characters). MUST be in ${targetLanguageName} language ONLY - NO ${nativeLanguageName} words allowed. 
+              
+PATTERN SELECTION (CRITICAL):
+- IF student just spoke and you're giving feedback → Use ${targetLanguageName} encouragement ONLY ('¡Perfecto!', '¡Excelente!', '¡Muy bien!' for Spanish)
+- IF student hasn't spoken yet and you're teaching first word → Use the word being taught ('Hola', 'Gracias')
+
+NEVER use ${nativeLanguageName} words like 'Great', 'Perfect', 'Excellent' in this field.`,
               maxLength: 15
             },
             native: { 
