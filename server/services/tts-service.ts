@@ -334,11 +334,6 @@ export class TTSService {
    * Result: Spanish voice pronounces "Hola" correctly as 2 syllables (HO-la)
    */
   private addPhonemeTagsForTargetWords(text: string, targetLanguage?: string): { text: string; usesSSML: boolean } {
-    // TEMPORARILY DISABLED: SSML causing INVALID_ARGUMENT errors from Google TTS
-    // TODO: Debug why Google rejects the SSML format - may be IPA encoding issue
-    console.log(`[SSML Phoneme] DISABLED - investigating Google TTS rejection`);
-    return { text, usesSSML: false };
-    
     if (!targetLanguage) {
       return { text, usesSSML: false };
     }
@@ -354,32 +349,43 @@ export class TTSService {
     let modifiedText = text;
     let hasPhonemes = false;
 
+    // CRITICAL FIX: First, escape ALL XML special characters in the text
+    // This prevents INVALID_ARGUMENT errors from apostrophes and other special chars
+    modifiedText = this.escapeXML(text);
+
     // Find all quoted words/phrases and check if they have IPA mappings
-    // Match various quote styles: 'word' "word" "word" 'word' «word» etc.
-    const quotedPattern = /(['''"""«])([^'''"""«»]+)(['''"""»])/g;
+    // Match various quote styles after XML escaping: &apos;word&apos; etc.
+    const quotedPattern = /(&apos;|&quot;|['''"""«])([^&]+?)(&apos;|&quot;|['''"""»])/g;
     
-    modifiedText = text.replace(quotedPattern, (match, openQuote, quotedContent, closeQuote) => {
+    modifiedText = modifiedText.replace(quotedPattern, (match, openQuote, quotedContent, closeQuote) => {
+      // Decode the content back to check against IPA mappings
+      const decoded = quotedContent
+        .replace(/&apos;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>');
+      
       // Normalize for lookup: lowercase, trim, remove diacritics for basic matching
-      const normalized = quotedContent.toLowerCase().trim()
+      const normalized = decoded.toLowerCase().trim()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove diacritics
         .replace(/[¿?¡!]/g, ''); // Remove Spanish punctuation
       
       // Also try exact lowercase match (preserves diacritics)
-      const exactNormalized = quotedContent.toLowerCase().trim();
+      const exactNormalized = decoded.toLowerCase().trim();
       
       // Check if this quoted word/phrase has an IPA pronunciation
       const ipa = ipaMappings[exactNormalized] || ipaMappings[normalized];
       
       if (ipa) {
         hasPhonemes = true;
-        console.log(`[SSML Phoneme] Wrapping "${quotedContent}" with IPA: ${ipa}`);
-        // IMPORTANT: Phoneme tag REPLACES the quoted word (no quotes in SSML)
-        // DO NOT escape the content - keep accents as-is (e.g., "Buenos días")
-        // Google TTS expects literal characters inside phoneme tags
-        return `<phoneme alphabet="ipa" ph="${ipa}">${quotedContent}</phoneme>`;
+        console.log(`[SSML Phoneme] Wrapping "${decoded}" with IPA: ${ipa}`);
+        // IMPORTANT: Phoneme tag with original (unescaped) word inside
+        // Google TTS expects literal characters inside phoneme tags (not XML-escaped)
+        return `<phoneme alphabet="ipa" ph="${ipa}">${decoded}</phoneme>`;
       }
       
-      // Keep original quoted word if no IPA mapping
+      // Keep original quoted word if no IPA mapping (with XML escaping)
       return match;
     });
 
@@ -388,14 +394,10 @@ export class TTSService {
       console.log(`[SSML Phoneme] No matching words found in text, skipping SSML`);
       return { text, usesSSML: false };
     }
-
-    // For SSML, we DON'T need to escape text outside phoneme tags
-    // Google TTS handles apostrophes and other characters natively
-    // Only the phoneme tags themselves need proper formatting
     
     // Wrap entire text in SSML <speak> tags
     const ssmlText = `<speak>${modifiedText}</speak>`;
-    console.log(`[SSML Phoneme] ✅ Added ${hasPhonemes ? 'phoneme tags' : 'no tags'} for ${targetLanguage}`);
+    console.log(`[SSML Phoneme] ✅ Added phoneme tags for ${targetLanguage}`);
     console.log(`[SSML DEBUG] Generated SSML: ${ssmlText.substring(0, 200)}...`);
     
     return { text: ssmlText, usesSSML: true };
