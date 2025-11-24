@@ -1518,16 +1518,19 @@ Return a JSON array of suggestions with this format:
 
         // Quick structured completion for voice mode (enforces target/native format) - Gemini
         const completionStart = Date.now();
+        const nativeLanguageName = activeConversation.nativeLanguage || 'english';
+        const targetLanguageName = activeConversation.language;
+        
         const voiceResponseSchema = {
           type: "object",
           properties: {
             target: { 
               type: "string",
-              description: "Target language text (Spanish/French/etc.) - REQUIRED, NEVER EMPTY. Always include target language encouragement when giving feedback (¡Perfecto!, ¡Excelente!, etc.)"
+              description: `Target language text (${targetLanguageName}) - REQUIRED, NEVER EMPTY. Must be in ${targetLanguageName} language. Always include target language encouragement when giving feedback (e.g., ¡Perfecto!, ¡Excelente! for Spanish).`
             },
             native: { 
               type: "string",
-              description: "Native language (English) explanations and teaching content"
+              description: `Student's native language (${nativeLanguageName}) explanations and teaching content. Must be in ${nativeLanguageName} language.`
             }
           },
           required: ["target", "native"]
