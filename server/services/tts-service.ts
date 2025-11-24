@@ -84,15 +84,20 @@ const IPA_PRONUNCIATIONS: Record<string, Record<string, string>> = {
   'spanish': {
     'hola': 'ˈola',           // HO-la (2 syllables)
     'adiós': 'aˈðjos',        // a-DI-ós (3 syllables)
+    'adios': 'aˈðjos',        // without accent
     'gracias': 'ˈgɾasjas',    // GRA-cias (2 syllables)
     'por favor': 'poɾ faˈβoɾ', // por fa-VOR
     'sí': 'si',               // sí (1 syllable)
+    'si': 'si',               // without accent
     'no': 'no',               // no (1 syllable)
     'buenos días': 'ˈbwenos ˈdias', // BUE-nos DI-as
+    'buenos dias': 'ˈbwenos ˈdias', // without accent
     'buenas tardes': 'ˈbwenas ˈtaɾdes', // BUE-nas TAR-des
     'buenas noches': 'ˈbwenas ˈnotʃes', // BUE-nas NO-ches
     'qué tal': 'ke ˈtal',     // qué TAL
+    'que tal': 'ke ˈtal',     // without accent
     'cómo estás': 'ˈkomo esˈtas', // CÓ-mo es-TÁS
+    'como estas': 'ˈkomo esˈtas', // without accents
     'perfecto': 'peɾˈfekto',  // per-FEC-to
     'excelente': 'ekseˈlente', // ex-ce-LEN-te
     'bien': 'bjen',           // bien (1 syllable)
