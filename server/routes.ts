@@ -1540,7 +1540,18 @@ NEVER use ${nativeLanguageName} words like 'Great', 'Perfect', 'Excellent' in th
             },
             native: { 
               type: "string",
-              description: `STRICT: Brief ${nativeLanguageName} explanation (30-150 characters max). Write ONLY in ${nativeLanguageName} - NO ${targetLanguageName} sentences. Embed ${targetLanguageName} words in SINGLE quotes 'word'. MUST end with "Try saying 'word'!" or "Try it!" - NO additional text, NO cultural commentary, NO extra sentences after this encouragement. Keep it simple and direct for voice delivery.`,
+              description: `STRICT: Brief ${nativeLanguageName} explanation (30-150 characters max). 
+
+CRITICAL RULES:
+- Write ONLY in ${nativeLanguageName} - NO ${targetLanguageName} sentences
+- DO NOT repeat the encouragement from target field (no '¡Excelente!', '¡Perfecto!' etc. at the start)
+- Start directly with feedback or teaching content in ${nativeLanguageName}
+- Embed ${targetLanguageName} vocabulary words in SINGLE quotes 'word'
+- MUST end with "Try saying 'word'!" or "Try it!"
+- NO additional text after the encouragement
+
+GOOD: "You just said 'Hello' in Spanish! Try saying 'Buenos días'!"
+BAD: "¡Excelente! You just said..." (duplicates target field)`,
               minLength: 30,
               maxLength: 150
             }
@@ -2881,20 +2892,24 @@ NEVER use ${nativeLanguageName} words like 'Great', 'Perfect', 'Excellent' in th
       // Auto-detect language (like Whisper) - supports all languages
       console.log(`[DEEPGRAM] Using Nova-3 with auto-detect mode (requested: ${req.body.language})`);
 
-      // Call Deepgram Nova-3 API (54% better WER than Whisper, <300ms latency)
-      // CRITICAL: Enable word-level timestamps by setting diarize: true
-      // Deepgram only returns word arrays when diarization is enabled
+      // Call Deepgram Nova-3 API (54% better WER than Whisper)
+      // PERFORMANCE CRITICAL: Disabled heavy post-processing options to reduce latency
+      // - diarize: false (was causing 10+ second delays)
+      // - utterances: false (multi-pass alignment not needed)
+      // Word-level timestamps are included by default without these options
+      const transcribeStart = Date.now();
       const { result } = await deepgram.listen.prerecorded.transcribeFile(
         req.file.buffer,
         {
-          model: "nova-3",
+          model: "nova-2", // Use nova-2 for faster processing (nova-3 has more post-processing)
           language: "multi", // Auto-detect (supports English, Spanish, French, etc.)
           smart_format: true, // Better formatting
           punctuate: true, // Add punctuation
-          diarize: true, // REQUIRED for word-level timestamps and confidence scores
-          utterances: true, // Enable word-level timestamps
+          // DISABLED for speed: diarize, utterances cause 10+ second latency
         }
       );
+      const transcribeTime = Date.now() - transcribeStart;
+      console.log(`[DEEPGRAM] Transcription completed in ${transcribeTime}ms`);
 
       if (!result) {
         throw new Error("Deepgram returned null result");
