@@ -16,6 +16,8 @@ interface VoiceChatViewManagerProps {
   isPlaying: boolean;
   currentPlayingMessageId?: string;
   audioElementRef?: React.RefObject<HTMLAudioElement>;
+  onReplay?: () => void;
+  canReplay?: boolean;
 }
 
 export function VoiceChatViewManager({
@@ -28,6 +30,8 @@ export function VoiceChatViewManager({
   isPlaying,
   currentPlayingMessageId,
   audioElementRef,
+  onReplay,
+  canReplay,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -117,6 +121,8 @@ export function VoiceChatViewManager({
                 currentPlayingMessageId={currentPlayingMessageId}
                 onToggleView={toggleView}
                 audioElementRef={audioElementRef}
+                onReplay={onReplay}
+                canReplay={canReplay}
               />
             </div>
           ) : (

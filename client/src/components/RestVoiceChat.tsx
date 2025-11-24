@@ -27,6 +27,10 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   const [avatarState, setAvatarState] = useState<AvatarState>('idle');
   const [currentPlayingMessageId, setCurrentPlayingMessageId] = useState<string | null>(null);
   
+  // Store last audio for replay functionality
+  const [lastAudioBlob, setLastAudioBlob] = useState<Blob | null>(null);
+  const [lastMessageId, setLastMessageId] = useState<string | null>(null);
+  
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -562,6 +566,12 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         console.log('[REST VOICE] Audio blob size:', result.audioBlob.size, 'bytes');
         console.log('[REST VOICE] Audio blob type:', result.audioBlob.type);
         
+        // Store audio for replay functionality
+        setLastAudioBlob(result.audioBlob);
+        if (latestAssistantMessage) {
+          setLastMessageId(latestAssistantMessage.id);
+        }
+        
         const audioUrl = URL.createObjectURL(result.audioBlob);
         audioPlayerRef.current.src = audioUrl;
         
@@ -635,6 +645,49 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     }
   };
 
+  // Replay function for last audio
+  const replayLastAudio = () => {
+    if (!lastAudioBlob || !audioPlayerRef.current) {
+      console.log('[REPLAY] No audio available to replay');
+      return;
+    }
+    
+    // Don't replay if already playing or processing
+    if (avatarState === 'speaking' || isProcessing) {
+      console.log('[REPLAY] Skipping - already playing or processing');
+      return;
+    }
+    
+    console.log('[REPLAY] Replaying last audio');
+    setAvatarState('speaking');
+    if (lastMessageId) {
+      setCurrentPlayingMessageId(lastMessageId);
+    }
+    
+    const audioUrl = URL.createObjectURL(lastAudioBlob);
+    audioPlayerRef.current.src = audioUrl;
+    
+    audioPlayerRef.current.onended = () => {
+      URL.revokeObjectURL(audioUrl);
+      setAvatarState('idle');
+      setCurrentPlayingMessageId(null);
+    };
+    
+    audioPlayerRef.current.onerror = () => {
+      URL.revokeObjectURL(audioUrl);
+      setAvatarState('idle');
+      setCurrentPlayingMessageId(null);
+    };
+    
+    audioPlayerRef.current.play()
+      .catch(err => {
+        console.error('[REPLAY] Failed to play:', err);
+        URL.revokeObjectURL(audioUrl);
+        setAvatarState('idle');
+        setCurrentPlayingMessageId(null);
+      });
+  };
+
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-background" data-testid="rest-voice-chat">
       {/* Immersive Voice Chat with View Manager - Full Screen */}
@@ -649,6 +702,8 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           isPlaying={avatarState === 'speaking'}
           currentPlayingMessageId={currentPlayingMessageId ?? undefined}
           audioElementRef={audioPlayerRef}
+          onReplay={replayLastAudio}
+          canReplay={!!lastAudioBlob && !isProcessing && avatarState !== 'speaking'}
         />
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, MessageSquare } from "lucide-react";
+import { Mic, MicOff, MessageSquare, RotateCcw } from "lucide-react";
 import { type Message } from "@shared/schema";
 import tutorSpeakingUrl from "@assets/generated_images/Teacher_speaking_animatedly_62a6f01b.png";
 import tutorIdleUrl from "@assets/generated_images/Friendly_teacher_idle_state_fd4580c6.png";
@@ -22,6 +22,8 @@ interface ImmersiveTutorProps {
   currentPlayingMessageId?: string;
   onToggleView?: () => void; // Toggle between live and history view
   audioElementRef?: React.RefObject<HTMLAudioElement>; // Reference to the actual audio element
+  onReplay?: () => void; // Replay last audio
+  canReplay?: boolean; // Whether replay is available
 }
 
 export function ImmersiveTutor({
@@ -35,6 +37,8 @@ export function ImmersiveTutor({
   currentPlayingMessageId,
   onToggleView,
   audioElementRef,
+  onReplay,
+  canReplay,
 }: ImmersiveTutorProps) {
   const [currentText, setCurrentText] = useState<string>("");
   const [currentWordTimings, setCurrentWordTimings] = useState<WordTiming[]>([]);
@@ -190,6 +194,20 @@ export function ImmersiveTutor({
             data-testid="button-toggle-history"
           >
             <MessageSquare className="h-5 w-5 md:h-6 md:w-6" />
+          </Button>
+        )}
+
+        {/* Replay Last Audio Button */}
+        {onReplay && (
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onReplay}
+            disabled={!canReplay}
+            className="h-12 w-12 md:h-14 md:w-14"
+            data-testid="button-replay"
+          >
+            <RotateCcw className="h-5 w-5 md:h-6 md:w-6" />
           </Button>
         )}
 
