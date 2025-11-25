@@ -256,6 +256,9 @@ export function ImmersiveTutor({
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
+      {/* Top spacer for vertical centering */}
+      <div className="flex-1 min-h-4" />
+      
       {/* Fixed Tutor Visual - balanced max-h for tutor and mic controls */}
       <div className="flex-shrink-0 relative w-full aspect-square md:aspect-video max-h-[50vh] bg-gradient-to-b from-muted/30 to-background">
         <img
