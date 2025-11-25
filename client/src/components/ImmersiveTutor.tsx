@@ -356,12 +356,9 @@ export function ImmersiveTutor({
            * )}
            */
           
-          // Only show overlay if there's actual text to display
-          if (!displayText) return null;
-          
           return (
-            <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6">
-              <div className="max-w-4xl mx-auto bg-background/80 backdrop-blur-sm rounded-xl p-4">
+            <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
+              <div className="max-w-4xl mx-auto">
                 <div 
                   className="text-xl md:text-3xl font-medium text-center leading-relaxed"
                   data-testid="text-subtitle-overlay"
