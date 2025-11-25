@@ -3215,6 +3215,205 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
     }
   });
 
+  // ===== Organization System APIs (Phases 1, 2, 3) =====
+
+  // Phase 1: Toggle conversation star
+  app.patch("/api/conversations/:id/star", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const updated = await storage.toggleConversationStar(req.params.id, userId);
+      if (!updated) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Phase 1: Get filtered conversations
+  app.get("/api/conversations/filtered", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { timeFilter, starredOnly, topicId } = req.query;
+      
+      const conversations = await storage.getFilteredConversations(userId, {
+        timeFilter: timeFilter as 'today' | 'week' | 'month' | 'older' | undefined,
+        starredOnly: starredOnly === 'true',
+        topicId: topicId as string | undefined
+      });
+      
+      res.json(conversations);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Phase 1: Get filtered vocabulary
+  app.get("/api/vocabulary/filtered", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { language, timeFilter, topicId, sourceConversationId } = req.query;
+      
+      if (!language) {
+        return res.status(400).json({ error: "Language parameter is required" });
+      }
+      
+      const vocabulary = await storage.getFilteredVocabulary(userId, language as string, {
+        timeFilter: timeFilter as 'today' | 'week' | 'month' | 'older' | undefined,
+        topicId: topicId as string | undefined,
+        sourceConversationId: sourceConversationId as string | undefined
+      });
+      
+      res.json(vocabulary);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Phase 2: Get topics for a conversation
+  app.get("/api/conversations/:id/topics", isAuthenticated, async (req: any, res) => {
+    try {
+      const topics = await storage.getConversationTopics(req.params.id);
+      res.json(topics);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Phase 2: Add topic to conversation
+  app.post("/api/conversations/:id/topics", isAuthenticated, async (req: any, res) => {
+    try {
+      const { topicId, confidence } = req.body;
+      if (!topicId) {
+        return res.status(400).json({ error: "topicId is required" });
+      }
+      const created = await storage.addConversationTopic(req.params.id, topicId, confidence);
+      res.status(201).json(created);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Phase 2: Remove topic from conversation
+  app.delete("/api/conversations/:conversationId/topics/:topicId", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.removeConversationTopic(req.params.conversationId, req.params.topicId);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Phase 3: User Lessons CRUD
+  app.get("/api/lessons", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { language } = req.query;
+      const lessons = await storage.getUserLessons(userId, language as string | undefined);
+      res.json(lessons);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/lessons/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const lesson = await storage.getUserLesson(req.params.id, userId);
+      if (!lesson) {
+        return res.status(404).json({ message: "Lesson not found" });
+      }
+      res.json(lesson);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/lessons", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const lesson = await storage.createUserLesson({ ...req.body, userId });
+      res.status(201).json(lesson);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/lessons/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const updated = await storage.updateUserLesson(req.params.id, userId, req.body);
+      if (!updated) {
+        return res.status(404).json({ message: "Lesson not found" });
+      }
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/lessons/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const deleted = await storage.deleteUserLesson(req.params.id, userId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Lesson not found" });
+      }
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Phase 3: Lesson items
+  app.get("/api/lessons/:id/items", isAuthenticated, async (req: any, res) => {
+    try {
+      const items = await storage.getLessonItems(req.params.id);
+      res.json(items);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/lessons/:id/items", isAuthenticated, async (req: any, res) => {
+    try {
+      const item = await storage.addLessonItem({ ...req.body, lessonId: req.params.id });
+      res.status(201).json(item);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/lessons/:lessonId/items/:itemId", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.removeLessonItem(req.params.itemId);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Phase 3: Auto-generate weekly lesson
+  app.post("/api/lessons/generate-weekly", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { language, weekStart } = req.body;
+      
+      if (!language || !weekStart) {
+        return res.status(400).json({ error: "language and weekStart are required" });
+      }
+      
+      const lesson = await storage.generateWeeklyLesson(userId, language, new Date(weekStart));
+      if (!lesson) {
+        return res.status(404).json({ message: "No content found for this week" });
+      }
+      res.status(201).json(lesson);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Grammar
   app.get("/api/grammar", async (req, res) => {
     try {

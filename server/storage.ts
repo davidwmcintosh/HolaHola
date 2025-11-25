@@ -41,6 +41,14 @@ import {
   type AssignmentSubmission,
   type InsertAssignmentSubmission,
   type AdminAuditLog,
+  type ConversationTopic,
+  type InsertConversationTopic,
+  type VocabularyWordTopic,
+  type InsertVocabularyWordTopic,
+  type UserLesson,
+  type InsertUserLesson,
+  type UserLessonItem,
+  type InsertUserLessonItem,
   users,
   conversations,
   messages,
@@ -63,6 +71,10 @@ import {
   assignments,
   assignmentSubmissions,
   adminAuditLog,
+  conversationTopics,
+  vocabularyWordTopics,
+  userLessons,
+  userLessonItems,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -278,6 +290,51 @@ export interface IStorage {
   startImpersonation(adminId: string, targetUserId: string, durationMinutes: number): Promise<User | undefined>;
   endImpersonation(userId: string): Promise<User | undefined>;
   getActiveImpersonations(): Promise<Array<User & { impersonatedUserEmail?: string }>>;
+
+  // ===== Organization System (Phases 1, 2, 3) =====
+  
+  // Phase 1: Conversation starring and time-based filtering
+  toggleConversationStar(id: string, userId: string): Promise<Conversation | undefined>;
+  getFilteredConversations(userId: string, filter: {
+    timeFilter?: 'today' | 'week' | 'month' | 'older';
+    starredOnly?: boolean;
+    topicId?: string;
+  }): Promise<Conversation[]>;
+  
+  // Phase 1: Vocabulary time-based filtering
+  getFilteredVocabulary(userId: string, language: string, filter: {
+    timeFilter?: 'today' | 'week' | 'month' | 'older';
+    topicId?: string;
+    sourceConversationId?: string;
+  }): Promise<VocabularyWord[]>;
+
+  // Phase 2: Conversation topic tagging
+  addConversationTopic(conversationId: string, topicId: string, confidence?: number): Promise<ConversationTopic>;
+  getConversationTopics(conversationId: string): Promise<Array<ConversationTopic & { topic: Topic }>>;
+  removeConversationTopic(conversationId: string, topicId: string): Promise<boolean>;
+
+  // Phase 2: Vocabulary topic tagging
+  addVocabularyWordTopic(vocabularyWordId: string, topicId: string): Promise<VocabularyWordTopic>;
+  getVocabularyWordTopics(vocabularyWordId: string): Promise<Array<VocabularyWordTopic & { topic: Topic }>>;
+  removeVocabularyWordTopic(vocabularyWordId: string, topicId: string): Promise<boolean>;
+
+  // Phase 3: User Lessons (bundles)
+  createUserLesson(data: InsertUserLesson): Promise<UserLesson>;
+  getUserLessons(userId: string, language?: string): Promise<UserLesson[]>;
+  getUserLesson(id: string, userId: string): Promise<UserLesson | undefined>;
+  updateUserLesson(id: string, userId: string, data: Partial<UserLesson>): Promise<UserLesson | undefined>;
+  deleteUserLesson(id: string, userId: string): Promise<boolean>;
+
+  // Phase 3: Lesson Items
+  addLessonItem(data: InsertUserLessonItem): Promise<UserLessonItem>;
+  getLessonItems(lessonId: string): Promise<Array<UserLessonItem & { 
+    conversation?: Conversation; 
+    vocabularyWord?: VocabularyWord; 
+  }>>;
+  removeLessonItem(id: string): Promise<boolean>;
+  
+  // Phase 3: Auto-generate lesson from time range
+  generateWeeklyLesson(userId: string, language: string, weekStart: Date): Promise<UserLesson | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2093,6 +2150,358 @@ export class DatabaseStorage implements IStorage {
       ...row.user,
       impersonatedUserEmail: row.impersonatedUser.email || undefined
     }));
+  }
+
+  // ===== Organization System Implementation (Phases 1, 2, 3) =====
+
+  // Phase 1: Toggle star on conversation
+  async toggleConversationStar(id: string, userId: string): Promise<Conversation | undefined> {
+    const conversation = await this.getConversation(id, userId);
+    if (!conversation) return undefined;
+    
+    const [updated] = await db
+      .update(conversations)
+      .set({ isStarred: !conversation.isStarred })
+      .where(and(eq(conversations.id, id), eq(conversations.userId, userId)))
+      .returning();
+    
+    return updated;
+  }
+
+  // Phase 1: Get filtered conversations
+  async getFilteredConversations(userId: string, filter: {
+    timeFilter?: 'today' | 'week' | 'month' | 'older';
+    starredOnly?: boolean;
+    topicId?: string;
+  }): Promise<Conversation[]> {
+    const conditions: any[] = [eq(conversations.userId, userId)];
+    
+    // Time-based filtering
+    if (filter.timeFilter) {
+      const now = new Date();
+      let dateThreshold: Date;
+      
+      switch (filter.timeFilter) {
+        case 'today':
+          dateThreshold = new Date(now.setHours(0, 0, 0, 0));
+          conditions.push(gte(conversations.createdAt, dateThreshold));
+          break;
+        case 'week':
+          dateThreshold = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          conditions.push(gte(conversations.createdAt, dateThreshold));
+          break;
+        case 'month':
+          dateThreshold = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          conditions.push(gte(conversations.createdAt, dateThreshold));
+          break;
+        case 'older':
+          dateThreshold = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          conditions.push(lte(conversations.createdAt, dateThreshold));
+          break;
+      }
+    }
+    
+    // Starred filter
+    if (filter.starredOnly) {
+      conditions.push(eq(conversations.isStarred, true));
+    }
+    
+    // Topic filter (requires join)
+    if (filter.topicId) {
+      const convIds = await db
+        .select({ conversationId: conversationTopics.conversationId })
+        .from(conversationTopics)
+        .where(eq(conversationTopics.topicId, filter.topicId));
+      
+      if (convIds.length > 0) {
+        conditions.push(sql`${conversations.id} IN (${sql.join(convIds.map(c => sql`${c.conversationId}`), sql`, `)})`);
+      } else {
+        return []; // No conversations match this topic
+      }
+    }
+    
+    return await db
+      .select()
+      .from(conversations)
+      .where(and(...conditions))
+      .orderBy(desc(conversations.createdAt));
+  }
+
+  // Phase 1: Get filtered vocabulary
+  async getFilteredVocabulary(userId: string, language: string, filter: {
+    timeFilter?: 'today' | 'week' | 'month' | 'older';
+    topicId?: string;
+    sourceConversationId?: string;
+  }): Promise<VocabularyWord[]> {
+    const conditions: any[] = [
+      eq(vocabularyWords.userId, userId),
+      eq(vocabularyWords.language, language)
+    ];
+    
+    // Time-based filtering
+    if (filter.timeFilter) {
+      const now = new Date();
+      let dateThreshold: Date;
+      
+      switch (filter.timeFilter) {
+        case 'today':
+          dateThreshold = new Date(now.setHours(0, 0, 0, 0));
+          conditions.push(gte(vocabularyWords.createdAt, dateThreshold));
+          break;
+        case 'week':
+          dateThreshold = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          conditions.push(gte(vocabularyWords.createdAt, dateThreshold));
+          break;
+        case 'month':
+          dateThreshold = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          conditions.push(gte(vocabularyWords.createdAt, dateThreshold));
+          break;
+        case 'older':
+          dateThreshold = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          conditions.push(lte(vocabularyWords.createdAt, dateThreshold));
+          break;
+      }
+    }
+    
+    // Source conversation filter
+    if (filter.sourceConversationId) {
+      conditions.push(eq(vocabularyWords.sourceConversationId, filter.sourceConversationId));
+    }
+    
+    // Topic filter
+    if (filter.topicId) {
+      const wordIds = await db
+        .select({ vocabularyWordId: vocabularyWordTopics.vocabularyWordId })
+        .from(vocabularyWordTopics)
+        .where(eq(vocabularyWordTopics.topicId, filter.topicId));
+      
+      if (wordIds.length > 0) {
+        conditions.push(sql`${vocabularyWords.id} IN (${sql.join(wordIds.map(w => sql`${w.vocabularyWordId}`), sql`, `)})`);
+      } else {
+        return [];
+      }
+    }
+    
+    return await db
+      .select()
+      .from(vocabularyWords)
+      .where(and(...conditions))
+      .orderBy(desc(vocabularyWords.createdAt));
+  }
+
+  // Phase 2: Conversation topic tagging
+  async addConversationTopic(conversationId: string, topicId: string, confidence: number = 1.0): Promise<ConversationTopic> {
+    const [created] = await db
+      .insert(conversationTopics)
+      .values({ conversationId, topicId, confidence })
+      .returning();
+    return created;
+  }
+
+  async getConversationTopics(conversationId: string): Promise<Array<ConversationTopic & { topic: Topic }>> {
+    const result = await db
+      .select({
+        conversationTopic: conversationTopics,
+        topic: topicsTable
+      })
+      .from(conversationTopics)
+      .innerJoin(topicsTable, eq(conversationTopics.topicId, topicsTable.id))
+      .where(eq(conversationTopics.conversationId, conversationId));
+    
+    return result.map(r => ({ ...r.conversationTopic, topic: r.topic }));
+  }
+
+  async removeConversationTopic(conversationId: string, topicId: string): Promise<boolean> {
+    const result = await db
+      .delete(conversationTopics)
+      .where(and(
+        eq(conversationTopics.conversationId, conversationId),
+        eq(conversationTopics.topicId, topicId)
+      ));
+    return true;
+  }
+
+  // Phase 2: Vocabulary topic tagging
+  async addVocabularyWordTopic(vocabularyWordId: string, topicId: string): Promise<VocabularyWordTopic> {
+    const [created] = await db
+      .insert(vocabularyWordTopics)
+      .values({ vocabularyWordId, topicId })
+      .returning();
+    return created;
+  }
+
+  async getVocabularyWordTopics(vocabularyWordId: string): Promise<Array<VocabularyWordTopic & { topic: Topic }>> {
+    const result = await db
+      .select({
+        vocabTopic: vocabularyWordTopics,
+        topic: topicsTable
+      })
+      .from(vocabularyWordTopics)
+      .innerJoin(topicsTable, eq(vocabularyWordTopics.topicId, topicsTable.id))
+      .where(eq(vocabularyWordTopics.vocabularyWordId, vocabularyWordId));
+    
+    return result.map(r => ({ ...r.vocabTopic, topic: r.topic }));
+  }
+
+  async removeVocabularyWordTopic(vocabularyWordId: string, topicId: string): Promise<boolean> {
+    await db
+      .delete(vocabularyWordTopics)
+      .where(and(
+        eq(vocabularyWordTopics.vocabularyWordId, vocabularyWordId),
+        eq(vocabularyWordTopics.topicId, topicId)
+      ));
+    return true;
+  }
+
+  // Phase 3: User Lessons
+  async createUserLesson(data: InsertUserLesson): Promise<UserLesson> {
+    const [created] = await db.insert(userLessons).values(data).returning();
+    return created;
+  }
+
+  async getUserLessons(userId: string, language?: string): Promise<UserLesson[]> {
+    const conditions = [eq(userLessons.userId, userId), eq(userLessons.isArchived, false)];
+    if (language) {
+      conditions.push(eq(userLessons.language, language));
+    }
+    return await db
+      .select()
+      .from(userLessons)
+      .where(and(...conditions))
+      .orderBy(desc(userLessons.createdAt));
+  }
+
+  async getUserLesson(id: string, userId: string): Promise<UserLesson | undefined> {
+    const [lesson] = await db
+      .select()
+      .from(userLessons)
+      .where(and(eq(userLessons.id, id), eq(userLessons.userId, userId)));
+    return lesson;
+  }
+
+  async updateUserLesson(id: string, userId: string, data: Partial<UserLesson>): Promise<UserLesson | undefined> {
+    const [updated] = await db
+      .update(userLessons)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(userLessons.id, id), eq(userLessons.userId, userId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteUserLesson(id: string, userId: string): Promise<boolean> {
+    // Soft delete by archiving
+    const result = await this.updateUserLesson(id, userId, { isArchived: true });
+    return !!result;
+  }
+
+  // Phase 3: Lesson Items
+  async addLessonItem(data: InsertUserLessonItem): Promise<UserLessonItem> {
+    const [created] = await db.insert(userLessonItems).values(data).returning();
+    return created;
+  }
+
+  async getLessonItems(lessonId: string): Promise<Array<UserLessonItem & { conversation?: Conversation; vocabularyWord?: VocabularyWord }>> {
+    const items = await db
+      .select()
+      .from(userLessonItems)
+      .where(eq(userLessonItems.lessonId, lessonId))
+      .orderBy(userLessonItems.displayOrder);
+    
+    // Fetch related data
+    const result = await Promise.all(items.map(async (item) => {
+      let conversation: Conversation | undefined;
+      let vocabularyWord: VocabularyWord | undefined;
+      
+      if (item.conversationId) {
+        const [conv] = await db.select().from(conversations).where(eq(conversations.id, item.conversationId));
+        conversation = conv;
+      }
+      if (item.vocabularyWordId) {
+        const [word] = await db.select().from(vocabularyWords).where(eq(vocabularyWords.id, item.vocabularyWordId));
+        vocabularyWord = word;
+      }
+      
+      return { ...item, conversation, vocabularyWord };
+    }));
+    
+    return result;
+  }
+
+  async removeLessonItem(id: string): Promise<boolean> {
+    await db.delete(userLessonItems).where(eq(userLessonItems.id, id));
+    return true;
+  }
+
+  // Phase 3: Auto-generate weekly lesson
+  async generateWeeklyLesson(userId: string, language: string, weekStart: Date): Promise<UserLesson | null> {
+    const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+    
+    // Get conversations from this week
+    const weekConversations = await db
+      .select()
+      .from(conversations)
+      .where(and(
+        eq(conversations.userId, userId),
+        eq(conversations.language, language),
+        gte(conversations.createdAt, weekStart),
+        lte(conversations.createdAt, weekEnd)
+      ))
+      .orderBy(conversations.createdAt);
+    
+    // Get vocabulary from this week
+    const weekVocabulary = await db
+      .select()
+      .from(vocabularyWords)
+      .where(and(
+        eq(vocabularyWords.userId, userId),
+        eq(vocabularyWords.language, language),
+        gte(vocabularyWords.createdAt, weekStart),
+        lte(vocabularyWords.createdAt, weekEnd)
+      ));
+    
+    // Only create if there's content
+    if (weekConversations.length === 0 && weekVocabulary.length === 0) {
+      return null;
+    }
+    
+    // Calculate total minutes
+    const totalMinutes = weekConversations.reduce((sum, c) => sum + c.duration, 0);
+    
+    // Create the lesson
+    const weekLabel = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const lesson = await this.createUserLesson({
+      userId,
+      language,
+      title: `Week of ${weekLabel}`,
+      description: `${weekConversations.length} conversations, ${weekVocabulary.length} new words`,
+      startDate: weekStart,
+      endDate: weekEnd,
+      conversationCount: weekConversations.length,
+      vocabularyCount: weekVocabulary.length,
+      totalMinutes,
+      lessonType: 'weekly_auto'
+    });
+    
+    // Add items
+    let order = 0;
+    for (const conv of weekConversations) {
+      await this.addLessonItem({
+        lessonId: lesson.id,
+        itemType: 'conversation',
+        conversationId: conv.id,
+        displayOrder: order++
+      });
+    }
+    for (const word of weekVocabulary) {
+      await this.addLessonItem({
+        lessonId: lesson.id,
+        itemType: 'vocabulary',
+        vocabularyWordId: word.id,
+        displayOrder: order++
+      });
+    }
+    
+    return lesson;
   }
 }
 
