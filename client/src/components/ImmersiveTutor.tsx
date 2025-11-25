@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Mic, MicOff, MessageSquare, RotateCcw } from "lucide-react";
 import { type Message } from "@shared/schema";
 import { type SubtitleMode } from "@/contexts/LanguageContext";
-import tutorSpeakingUrl from "@assets/generated_images/Teacher_speaking_animatedly_62a6f01b.png";
+import tutorSpeakingUrl from "@assets/generated-image-2_1764099555783.png";
 import tutorIdleUrl from "@assets/generated_images/Friendly_teacher_idle_state_fd4580c6.png";
 import tutorListeningUrl from "@assets/generated-image-1_1764099524493.png";
 
