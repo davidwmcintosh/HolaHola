@@ -395,10 +395,10 @@ export function ImmersiveTutor({
         {/* Toggle to History View */}
         {onToggleView && (
           <Button
-            variant="outline"
+            variant="secondary"
             size="icon"
             onClick={onToggleView}
-            className="h-10 w-10 md:h-12 md:w-12"
+            className="h-10 w-10 md:h-12 md:w-12 bg-slate-500 hover:bg-slate-600 text-white"
             data-testid="button-toggle-history"
           >
             <MessageSquare className="h-4 w-4 md:h-5 md:w-5" />
@@ -408,11 +408,11 @@ export function ImmersiveTutor({
         {/* Replay Last Audio Button */}
         {onReplay && (
           <Button
-            variant="outline"
+            variant="secondary"
             size="icon"
             onClick={onReplay}
             disabled={!canReplay}
-            className="h-10 w-10 md:h-12 md:w-12"
+            className="h-10 w-10 md:h-12 md:w-12 bg-slate-500 hover:bg-slate-600 text-white disabled:bg-slate-300 disabled:text-slate-500"
             data-testid="button-replay"
           >
             <RotateCcw className="h-4 w-4 md:h-5 md:w-5" />
@@ -478,11 +478,11 @@ export function ImmersiveTutor({
         {/* Slow Repeat Button - Ask AI to simplify and speak slowly */}
         {onSlowRepeat && (
           <Button
-            variant="outline"
+            variant="secondary"
             size="icon"
             onClick={onSlowRepeat}
             disabled={!canReplay || isSlowRepeatLoading || isProcessing}
-            className="h-10 w-10 md:h-12 md:w-12"
+            className="h-10 w-10 md:h-12 md:w-12 bg-slate-500 hover:bg-slate-600 text-white disabled:bg-slate-300 disabled:text-slate-500"
             data-testid="button-slow-repeat"
             title="Repeat slowly and simply"
           >
