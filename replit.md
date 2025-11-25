@@ -36,6 +36,11 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 Smart phrase detection module (`server/phrase-detection.ts`) handles multi-word expressions as single conceptual units. ACTFL advancement algorithm (`server/actfl-advancement.ts`) evaluates readiness based on sustained performance across all FACT criteria. Institutional features include CanDoStatements, StudentCanDoProgress, CurriculumPaths, TeacherClasses, and Assignments tables. A PWA install prompt is displayed. The system includes an offline indicator component and an enhanced service worker for comprehensive API route caching and mobile responsiveness with adaptive text sizing. Security hardening includes unified frontend/backend validation, input sanitization, and max-length constraints across all text fields.
 
+**Three-Phase Organization System**: Comprehensive content organization for learners:
+- **Phase 1 (Starring + Time Filtering)**: Conversations have `isStarred` field for quick favorites access. Time-based filtering (All/Today/This Week/This Month/Older) on both History and Vocabulary pages. History page includes star toggle button on each conversation card.
+- **Phase 2 (AI Topic Tagging)**: Junction tables (`conversationTopics`, `vocabularyWordTopics`) for many-to-many topic relationships. `sourceConversationId` on vocabularyWords links words to originating conversations. Ready for Gemini-powered automatic topic extraction.
+- **Phase 3 (Lesson Bundles)**: `lessons` table with `lessonType` (weekly_auto/custom/topic_based), linked to items via `lessonItems` table. Lessons page (`/lessons`) allows manual lesson creation and AI-generated weekly lessons from recent activity. Collapsible lesson cards show included conversations and vocabulary.
+
 ## Branding Assets
 **Logo Files**: Located in `attached_assets/` directory
 - **Primary Logo (transparent)**: `LF_no_words_no_background_1764099068542.png` - Ribbon-style "LF" monogram icon only, transparent background, used in sidebar header
