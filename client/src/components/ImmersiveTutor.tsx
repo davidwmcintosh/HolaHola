@@ -2,8 +2,12 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, MessageSquare, RotateCcw } from "lucide-react";
 import { type Message } from "@shared/schema";
-import tutorSpeakingUrl from "@assets/generated_images/Teacher_speaking_animatedly_62a6f01b.png";
-import tutorIdleUrl from "@assets/generated_images/Friendly_teacher_idle_state_fd4580c6.png";
+import Lottie from "lottie-react";
+
+// Lottie animations for tutor states
+// Using publicly available animations from LottieFiles CDN
+const idleAnimationData = "https://lottie.host/dc9e5c53-1b4a-4d91-8e26-1c2e697e234d/nOazJz73rH.json";
+const speakingAnimationData = "https://lottie.host/7f1f4d06-1180-11ee-a95d-f72567547c7a/9vXnIhsa46.json";
 
 interface WordTiming {
   word: string;
@@ -43,8 +47,25 @@ export function ImmersiveTutor({
   const [currentText, setCurrentText] = useState<string>("");
   const [currentWordTimings, setCurrentWordTimings] = useState<WordTiming[]>([]);
   const [highlightedWordIndex, setHighlightedWordIndex] = useState<number>(-1);
+  const [idleAnimation, setIdleAnimation] = useState<any>(null);
+  const [speakingAnimation, setSpeakingAnimation] = useState<any>(null);
   const animationFrameRef = useRef<number | null>(null);
   const subtitleTimersRef = useRef<NodeJS.Timeout[]>([]);
+
+  // Load Lottie animations from URLs
+  useEffect(() => {
+    // Fetch idle animation
+    fetch(idleAnimationData)
+      .then(res => res.json())
+      .then(data => setIdleAnimation(data))
+      .catch(err => console.error("Failed to load idle animation:", err));
+
+    // Fetch speaking animation
+    fetch(speakingAnimationData)
+      .then(res => res.json())
+      .then(data => setSpeakingAnimation(data))
+      .catch(err => console.error("Failed to load speaking animation:", err));
+  }, []);
 
   // Get the last assistant message for display
   const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
@@ -111,19 +132,31 @@ export function ImmersiveTutor({
     };
   }, [isPlaying, currentWordTimings, audioElementRef]);
 
-  // Determine which tutor image to show
-  const tutorImageUrl = isPlaying ? tutorSpeakingUrl : tutorIdleUrl;
+  // Determine which animation to show
+  const currentAnimation = isPlaying ? speakingAnimation : idleAnimation;
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
       {/* Fixed Tutor Visual */}
       <div className="flex-shrink-0 relative w-full aspect-square md:aspect-video max-h-[60vh] bg-gradient-to-b from-muted/30 to-background">
-        <img
-          src={tutorImageUrl}
-          alt="Language Tutor"
-          className="w-full h-full object-contain"
+        <div
+          className="w-full h-full flex items-center justify-center"
           data-testid={isPlaying ? "avatar-state-speaking" : "avatar-state-idle"}
-        />
+        >
+          {currentAnimation ? (
+            <Lottie
+              animationData={currentAnimation}
+              loop={true}
+              autoplay={true}
+              style={{ width: "100%", height: "100%", maxWidth: "500px" }}
+              rendererSettings={{
+                preserveAspectRatio: "xMidYMid meet"
+              }}
+            />
+          ) : (
+            <div className="text-muted-foreground">Loading animation...</div>
+          )}
+        </div>
         
         {/* Recording Indicator */}
         {isRecording && (
