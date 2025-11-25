@@ -3,9 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Mic, MicOff, MessageSquare, RotateCcw } from "lucide-react";
 import { type Message } from "@shared/schema";
 import { type SubtitleMode } from "@/contexts/LanguageContext";
-import tutorSpeakingUrl from "@assets/generated-image-2_1764099555783.png";
-import tutorIdleUrl from "@assets/generated_images/Friendly_teacher_idle_state_fd4580c6.png";
-import tutorListeningUrl from "@assets/generated-image-1_1764099524493.png";
+import tutorSpeakingUrl from "@assets/tutor-speaking-No-Background_1764099971093.png";
+import tutorListeningUrl from "@assets/tutor-listening-no-background_1764099971094.png";
+const tutorIdleUrl = tutorListeningUrl;
 
 interface WordTiming {
   word: string;
