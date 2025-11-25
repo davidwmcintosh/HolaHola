@@ -201,6 +201,11 @@ export async function processVoiceMessage(
   // Step 1: Transcribe audio
   const userTranscript = await transcribeAudio(audioBlob, language);
 
+  // Handle empty transcription - no speech detected
+  if (!userTranscript || userTranscript.trim() === '') {
+    throw new Error('No speech detected. Please try speaking louder or closer to the microphone.');
+  }
+
   // Step 2: Get AI response using the same endpoint as text chat
   // Use isVoiceMode flag to trigger fast response path (text-only, no vocab/images)
   const chatResponse = await fetch(`/api/conversations/${conversationId}/messages`, {

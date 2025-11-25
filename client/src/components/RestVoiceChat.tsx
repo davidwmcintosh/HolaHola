@@ -12,9 +12,35 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { queryClient } from "@/lib/queryClient";
 import { VoiceChatViewManager } from "@/components/VoiceChatViewManager";
 
-// Module-level set to track greetings played this session
-// Persists across component unmounts/remounts (fixes double-greeting on mobile apps)
-const playedGreetingsThisSession = new Set<string>();
+// Helper to track greetings played this session using sessionStorage
+// Persists across full page reloads (fixes double-greeting on mobile apps)
+const GREETING_STORAGE_KEY = 'linguaflow_played_greetings';
+
+function hasPlayedGreeting(conversationId: string): boolean {
+  try {
+    const stored = sessionStorage.getItem(GREETING_STORAGE_KEY);
+    if (!stored) return false;
+    const played = JSON.parse(stored) as string[];
+    return played.includes(conversationId);
+  } catch {
+    return false;
+  }
+}
+
+function markGreetingPlayed(conversationId: string): void {
+  try {
+    const stored = sessionStorage.getItem(GREETING_STORAGE_KEY);
+    const played = stored ? JSON.parse(stored) as string[] : [];
+    if (!played.includes(conversationId)) {
+      played.push(conversationId);
+      // Keep only last 10 to prevent storage bloat
+      if (played.length > 10) played.shift();
+      sessionStorage.setItem(GREETING_STORAGE_KEY, JSON.stringify(played));
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
 
 interface RestVoiceChatProps {
   conversationId: string | null;
@@ -122,9 +148,9 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     // Don't play greeting if already recording or processing
     if (isRecording || isProcessing) return;
     
-    // Check if we already played this conversation's greeting (module-level check)
-    // This prevents double-greeting on mobile apps where component remounts quickly
-    if (playedGreetingsThisSession.has(conversationId)) {
+    // Check if we already played this conversation's greeting (sessionStorage check)
+    // This prevents double-greeting on mobile apps where page fully reloads
+    if (hasPlayedGreeting(conversationId)) {
       console.log('[VOICE GREETING] Already played for this conversation, skipping');
       return;
     }
@@ -137,9 +163,9 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       const greetingMessage = aiMessages[0];
       const greetingConversationId = conversationId; // Capture for closure
       
-      // IMMEDIATELY mark as played at module level to prevent race conditions
-      // This prevents duplicate greeting synthesis when component remounts (mobile apps, React Strict Mode)
-      playedGreetingsThisSession.add(greetingConversationId);
+      // IMMEDIATELY mark as played in sessionStorage to prevent race conditions
+      // This prevents duplicate greeting synthesis when page reloads (mobile apps)
+      markGreetingPlayed(greetingConversationId);
       hasPlayedGreetingRef.current = greetingConversationId;
       
       // Generate TTS for the greeting (but don't change state yet)
