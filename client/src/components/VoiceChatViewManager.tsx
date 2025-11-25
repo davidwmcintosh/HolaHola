@@ -20,6 +20,8 @@ interface VoiceChatViewManagerProps {
   audioElementRef?: React.RefObject<HTMLAudioElement>;
   onReplay?: () => void;
   canReplay?: boolean;
+  onSlowRepeat?: () => void;
+  isSlowRepeatLoading?: boolean;
   wordTimings?: WordTiming[];
 }
 
@@ -35,6 +37,8 @@ export function VoiceChatViewManager({
   audioElementRef,
   onReplay,
   canReplay,
+  onSlowRepeat,
+  isSlowRepeatLoading,
   wordTimings,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
@@ -156,6 +160,8 @@ export function VoiceChatViewManager({
                 audioElementRef={audioElementRef}
                 onReplay={onReplay}
                 canReplay={canReplay}
+                onSlowRepeat={onSlowRepeat}
+                isSlowRepeatLoading={isSlowRepeatLoading}
                 wordTimings={wordTimings}
                 subtitleMode={subtitleMode}
               />

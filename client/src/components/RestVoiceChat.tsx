@@ -5,7 +5,7 @@ import { Mic, MicOff, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery } from "@tanstack/react-query";
 import { type Message } from "@shared/schema";
-import { processVoiceMessage, synthesizeSpeech, type WordTiming } from "@/lib/restVoiceApi";
+import { processVoiceMessage, synthesizeSpeech, requestSlowRepeat, type WordTiming } from "@/lib/restVoiceApi";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 import { CompactDifficultyControl } from "@/components/CompactDifficultyControl";
 import { LanguageSelector } from "@/components/LanguageSelector";
@@ -30,6 +30,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   // Store last audio for replay functionality
   const [lastAudioBlob, setLastAudioBlob] = useState<Blob | null>(null);
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
+  const [isSlowRepeatLoading, setIsSlowRepeatLoading] = useState(false);
   
   // Word timing data for synchronized subtitles - persisted per message ID
   // Using a ref to persist across re-renders without causing re-renders
@@ -736,6 +737,55 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       });
   };
 
+  // Slow repeat: Ask AI to simplify and speak slowly
+  const handleSlowRepeat = async () => {
+    if (!conversationId || !audioPlayerRef.current) {
+      console.log('[SLOW REPEAT] No conversation or audio player');
+      return;
+    }
+    
+    // Don't start if already playing or processing
+    if (avatarState === 'speaking' || isProcessing || isSlowRepeatLoading) {
+      console.log('[SLOW REPEAT] Skipping - already busy');
+      return;
+    }
+    
+    console.log('[SLOW REPEAT] Requesting simplified slow repeat');
+    setIsSlowRepeatLoading(true);
+    setError(null);
+    
+    try {
+      const result = await requestSlowRepeat(conversationId);
+      console.log('[SLOW REPEAT] Got simplified response:', result.simplifiedText);
+      
+      // Play the slow audio
+      setAvatarState('speaking');
+      const audioUrl = URL.createObjectURL(result.audioBlob);
+      audioPlayerRef.current.src = audioUrl;
+      
+      audioPlayerRef.current.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        setAvatarState('idle');
+        setCurrentPlayingMessageId(null);
+      };
+      
+      audioPlayerRef.current.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
+        setAvatarState('idle');
+        setCurrentPlayingMessageId(null);
+        setError('Failed to play slow repeat audio');
+      };
+      
+      await audioPlayerRef.current.play();
+    } catch (err: any) {
+      console.error('[SLOW REPEAT] Error:', err);
+      setError(err.message || 'Failed to get slow repeat');
+      setAvatarState('idle');
+    } finally {
+      setIsSlowRepeatLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-background" data-testid="rest-voice-chat">
       {/* Immersive Voice Chat with View Manager - Full Screen */}
@@ -752,6 +802,8 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           audioElementRef={audioPlayerRef}
           onReplay={replayLastAudio}
           canReplay={!!lastAudioBlob && !isProcessing && avatarState !== 'speaking'}
+          onSlowRepeat={handleSlowRepeat}
+          isSlowRepeatLoading={isSlowRepeatLoading}
           wordTimings={currentPlayingMessageId ? wordTimingsMapRef.current.get(currentPlayingMessageId) : undefined}
         />
       </div>

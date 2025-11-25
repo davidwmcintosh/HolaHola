@@ -17,6 +17,7 @@ export interface TTSRequest {
   voice?: string;
   targetLanguage?: string; // Target learning language for phoneme tag processing
   returnTimings?: boolean; // Request word-level timing data for subtitle sync
+  speakingRate?: number; // Speaking rate: 0.25 to 4.0, default 0.9 (0.7 for slow mode)
 }
 
 /**
@@ -192,7 +193,7 @@ export class TTSService {
    * This preserves authentic voice quality for language learning
    */
   async synthesize(request: TTSRequest): Promise<TTSResponse> {
-    const { text, language, voice, targetLanguage, returnTimings } = request;
+    const { text, language, voice, targetLanguage, returnTimings, speakingRate } = request;
 
     // Google Cloud TTS is required for authentic language learning voices
     if (!this.googleClient) {
@@ -200,7 +201,7 @@ export class TTSService {
     }
 
     try {
-      return await this.synthesizeWithGoogle(text, language, targetLanguage, returnTimings);
+      return await this.synthesizeWithGoogle(text, language, targetLanguage, returnTimings, speakingRate);
     } catch (error: any) {
       // Enhanced error logging with actionable diagnostics
       console.error('┌─────────────────────────────────────────────────────────────┐');
@@ -581,8 +582,9 @@ export class TTSService {
    * @param language - Voice language (e.g., "spanish" for Spanish accent)
    * @param targetLanguage - Target learning language for SSML phoneme tags (optional)
    * @param returnTimings - Whether to return word-level timing data for subtitles
+   * @param speakingRate - Speaking rate: 0.25 to 4.0 (default 0.9, use 0.7 for slow mode)
    */
-  private async synthesizeWithGoogle(text: string, language?: string, targetLanguage?: string, returnTimings?: boolean): Promise<TTSResponse> {
+  private async synthesizeWithGoogle(text: string, language?: string, targetLanguage?: string, returnTimings?: boolean, speakingRate?: number): Promise<TTSResponse> {
     if (!this.googleClient) {
       throw new Error('Google Cloud TTS client not initialized');
     }
@@ -631,6 +633,10 @@ export class TTSService {
     }
 
     // Prepare the synthesis request using standard v1 API
+    // Speaking rate: 0.25-4.0, default 0.9 (normal), 0.7 for slow mode
+    const effectiveSpeakingRate = speakingRate ?? 0.9;
+    console.log(`[Google TTS] Speaking rate: ${effectiveSpeakingRate}`);
+    
     const request = {
       input: usesSSML ? { ssml: processedText } : { text: processedText },
       voice: {
@@ -639,7 +645,7 @@ export class TTSService {
       },
       audioConfig: {
         audioEncoding: 'MP3' as const,
-        speakingRate: 0.9,
+        speakingRate: effectiveSpeakingRate,
         pitch: 0,
         volumeGainDb: 0,
       },

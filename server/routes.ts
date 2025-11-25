@@ -3081,6 +3081,81 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
     }
   });
 
+  // Slow repeat: Get simplified version of last teaching and speak it slowly
+  // Used when student needs more help understanding a phrase
+  app.post("/api/voice/slow-repeat", voiceLimiter, isAuthenticated, async (req: any, res) => {
+    try {
+      const { conversationId } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!conversationId) {
+        return res.status(400).json({ error: "Conversation ID is required" });
+      }
+
+      // Get the conversation to check ownership and get language
+      const conversation = await storage.getConversation(conversationId, userId);
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+
+      // Get the last assistant message
+      const messages = await storage.getMessagesByConversation(conversationId);
+      const lastAssistantMessage = [...messages].reverse().find(m => m.role === 'assistant');
+      
+      if (!lastAssistantMessage?.content) {
+        return res.status(400).json({ error: "No assistant message to repeat" });
+      }
+
+      console.log(`[SLOW REPEAT] Original message: ${lastAssistantMessage.content.substring(0, 100)}...`);
+
+      // Ask AI to simplify the last teaching
+      const targetLanguage = conversation.language || 'spanish';
+      const nativeLanguage = conversation.nativeLanguage || 'english';
+      
+      const simplifyPrompt = `The student is having trouble understanding your last teaching. Please provide a MUCH SIMPLER version that:
+1. Uses only the most essential ${targetLanguage} word/phrase (just ONE key word or phrase)
+2. Gives a very short explanation in ${nativeLanguage}
+3. Breaks down the pronunciation simply
+
+Your last message was:
+"${lastAssistantMessage.content}"
+
+Respond with just the simplified version - nothing else. Keep it under 30 words total.`;
+
+      // Generate simplified response using Gemini
+      const response = await gemini.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: simplifyPrompt,
+      });
+      
+      const simplifiedText = response.text?.trim() || lastAssistantMessage.content;
+      
+      console.log(`[SLOW REPEAT] Simplified to: ${simplifiedText}`);
+
+      // Strip markdown and synthesize at slower speed
+      const cleanText = stripMarkdownForSpeech(simplifiedText);
+      const ttsService = getTTSService();
+      const result = await ttsService.synthesize({
+        text: cleanText,
+        language: targetLanguage,
+        targetLanguage: targetLanguage,
+        speakingRate: 0.7, // Slower speaking rate for better comprehension
+      });
+
+      console.log(`[SLOW REPEAT] ✓ Generated ${result.audioBuffer.length} bytes at 0.7x speed`);
+
+      // Return JSON with audio and the simplified text
+      res.json({
+        audio: result.audioBuffer.toString('base64'),
+        contentType: result.contentType,
+        simplifiedText,
+      });
+    } catch (error: any) {
+      console.error("[SLOW REPEAT] Failed:", error);
+      res.status(500).json({ error: error.message || "Failed to generate slow repeat" });
+    }
+  });
+
   // Vocabulary
   app.get("/api/vocabulary", isAuthenticated, async (req: any, res) => {
     try {

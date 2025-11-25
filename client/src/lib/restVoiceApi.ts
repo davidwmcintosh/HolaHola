@@ -149,6 +149,49 @@ export interface VoiceChatResult {
   };
 }
 
+/**
+ * Request a slow, simplified repeat of the last teaching
+ * AI will simplify the last message and TTS will speak it at 0.7x speed
+ */
+export interface SlowRepeatResult {
+  audioBlob: Blob;
+  simplifiedText: string;
+}
+
+export async function requestSlowRepeat(conversationId: string): Promise<SlowRepeatResult> {
+  const response = await fetch('/api/voice/slow-repeat', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ conversationId }),
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    let errorMessage = `Failed to get slow repeat (HTTP ${response.status})`;
+    try {
+      const contentType = response.headers.get('content-type');
+      if (contentType?.includes('application/json')) {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      }
+    } catch (e) {
+      console.error('[Slow Repeat] Failed to parse error response:', e);
+    }
+    throw new Error(errorMessage);
+  }
+
+  const data = await response.json();
+  const audioBuffer = Uint8Array.from(atob(data.audio), c => c.charCodeAt(0));
+  const audioBlob = new Blob([audioBuffer], { type: data.contentType || 'audio/mpeg' });
+  
+  return {
+    audioBlob,
+    simplifiedText: data.simplifiedText,
+  };
+}
+
 export async function processVoiceMessage(
   audioBlob: Blob,
   conversationId: string,

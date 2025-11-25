@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, MessageSquare, RotateCcw } from "lucide-react";
+import { Mic, MicOff, MessageSquare, RotateCcw, Turtle } from "lucide-react";
 import { type Message } from "@shared/schema";
 import { type SubtitleMode } from "@/contexts/LanguageContext";
 import tutorSpeakingUrl from "@assets/tutor-speaking-No-Background_1764099971093.png";
@@ -26,6 +26,8 @@ interface ImmersiveTutorProps {
   audioElementRef?: React.RefObject<HTMLAudioElement>; // Reference to the actual audio element
   onReplay?: () => void; // Replay last audio
   canReplay?: boolean; // Whether replay is available
+  onSlowRepeat?: () => void; // Request slow, simplified repeat
+  isSlowRepeatLoading?: boolean; // Whether slow repeat is loading
   wordTimings?: WordTiming[]; // Word-level timing data for synchronized subtitles
   subtitleMode?: SubtitleMode; // Subtitle display mode: off, target (target language only), all
 }
@@ -43,6 +45,8 @@ export function ImmersiveTutor({
   audioElementRef,
   onReplay,
   canReplay,
+  onSlowRepeat,
+  isSlowRepeatLoading = false,
   wordTimings,
   subtitleMode = "target",
 }: ImmersiveTutorProps) {
@@ -397,6 +401,21 @@ export function ImmersiveTutor({
             data-testid="button-replay"
           >
             <RotateCcw className="h-5 w-5 md:h-6 md:w-6" />
+          </Button>
+        )}
+
+        {/* Slow Repeat Button - Ask AI to simplify and speak slowly */}
+        {onSlowRepeat && (
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onSlowRepeat}
+            disabled={!canReplay || isSlowRepeatLoading || isProcessing}
+            className="h-12 w-12 md:h-14 md:w-14"
+            data-testid="button-slow-repeat"
+            title="Repeat slowly and simply"
+          >
+            <Turtle className="h-5 w-5 md:h-6 md:w-6" />
           </Button>
         )}
 
