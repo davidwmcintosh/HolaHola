@@ -53,6 +53,50 @@ export function ImmersiveTutor({
   // Get the last assistant message for display
   const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
 
+  // Helper function to filter word timings to only include target language words
+  const filterTargetLanguageTimings = (
+    allTimings: WordTiming[],
+    targetText: string
+  ): WordTiming[] => {
+    if (!targetText || !allTimings.length) return [];
+    
+    // Parse target language text into words (normalize for matching)
+    const targetWords = targetText
+      .split(/\s+/)
+      .map(w => w.toLowerCase().replace(/[¡!¿?,."']/g, ''))
+      .filter(w => w.length > 0);
+    
+    if (targetWords.length === 0) return [];
+    
+    // Find matching words in the timing array
+    // We search for consecutive matches to handle multi-word phrases
+    const filteredTimings: WordTiming[] = [];
+    let targetIndex = 0;
+    
+    for (const timing of allTimings) {
+      const normalizedWord = timing.word.toLowerCase().replace(/[¡!¿?,."']/g, '');
+      
+      if (normalizedWord === targetWords[targetIndex]) {
+        // Found a match - include this timing
+        filteredTimings.push(timing);
+        targetIndex++;
+        
+        // If we found all target words, we're done
+        if (targetIndex >= targetWords.length) break;
+      }
+    }
+    
+    // Only return if we found all target words (complete match)
+    if (filteredTimings.length === targetWords.length) {
+      console.log('[SUBTITLES] Filtered to', filteredTimings.length, 'target language words');
+      return filteredTimings;
+    }
+    
+    // Fallback: couldn't find exact match, return empty
+    console.log('[SUBTITLES] Could not match target words, showing text without timing');
+    return [];
+  };
+
   // Update current text and timings when a new message is playing
   useEffect(() => {
     // Clear any existing subtitle timers to prevent stale updates
@@ -62,15 +106,22 @@ export function ImmersiveTutor({
     if (currentPlayingMessageId && isPlaying) {
       const message = messages.find(m => m.id === currentPlayingMessageId);
       if (message && message.role === "assistant") {
-        // Show ONLY target language text immediately - fast and stable
-        // If no targetLanguageText (e.g., greetings), show the content
-        const displayText = message.targetLanguageText || message.content || "";
-        setCurrentText(displayText);
+        // Show ONLY target language text immediately - focused for learning
+        const targetText = message.targetLanguageText || "";
+        setCurrentText(targetText);
         
         // Use word timings for karaoke highlighting when subtitles are enabled
-        if (subtitlesEnabled && wordTimings && wordTimings.length > 0) {
-          console.log('[SUBTITLES] Enabling word highlighting with', wordTimings.length, 'words');
-          setCurrentWordTimings(wordTimings);
+        // Filter to only include target language words
+        if (subtitlesEnabled && wordTimings && wordTimings.length > 0 && targetText) {
+          const filteredTimings = filterTargetLanguageTimings(wordTimings, targetText);
+          if (filteredTimings.length > 0) {
+            console.log('[SUBTITLES] Enabling target language highlighting with', filteredTimings.length, 'words');
+            setCurrentWordTimings(filteredTimings);
+          } else {
+            // No timing match - show text without highlighting
+            setCurrentWordTimings([]);
+            setHighlightedWordIndex(-1);
+          }
         } else {
           setCurrentWordTimings([]);
           setHighlightedWordIndex(-1);
