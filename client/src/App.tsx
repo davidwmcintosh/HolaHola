@@ -14,7 +14,8 @@ import { useLogout } from "@/hooks/useLogout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { UserCircle, Settings as SettingsIcon, LogOut, Loader2 } from "lucide-react";
+import { UserCircle, Settings as SettingsIcon, LogOut, Loader2, Menu } from "lucide-react";
+import { useSidebar } from "@/components/ui/sidebar";
 import { Link } from "wouter";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
@@ -190,22 +191,34 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
             <AppSidebar />
           </div>
           <div className="flex flex-col flex-1">
-            <header className="flex items-center justify-between p-3 md:p-4 border-b sticky top-0 z-50 bg-background shrink-0">
-              <SidebarTrigger data-testid="button-sidebar-toggle" className="md:flex" />
-              <div className="flex items-center gap-2 md:gap-3">
-                <ThemeToggle />
-                <UserMenu />
-              </div>
-            </header>
             <main className="flex-1 overflow-hidden">
               <Router />
             </main>
           </div>
         </div>
+        {/* Floating menu button for mobile - opens sidebar */}
+        <MobileMenuButton />
         <OfflineIndicator />
         <PWAInstallPrompt />
       </SidebarProvider>
     </LanguageProvider>
+  );
+}
+
+// Floating menu button for mobile - only visible on mobile devices
+function MobileMenuButton() {
+  const { setOpenMobile } = useSidebar();
+  
+  return (
+    <Button
+      variant="outline"
+      size="icon"
+      className="fixed bottom-4 left-4 z-50 md:hidden h-12 w-12 rounded-full shadow-lg bg-background border-2"
+      onClick={() => setOpenMobile(true)}
+      data-testid="button-mobile-menu"
+    >
+      <Menu className="h-5 w-5" />
+    </Button>
   );
 }
 

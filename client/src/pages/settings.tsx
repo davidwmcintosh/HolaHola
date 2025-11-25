@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useLogout } from "@/hooks/useLogout";
@@ -6,7 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Subtitles, CaptionsOff, Languages, Captions } from "lucide-react";
+import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Subtitles, CaptionsOff, Languages, Captions, Palette, Moon, Sun, Monitor } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -51,8 +51,32 @@ export default function Settings() {
   const { user, isLoading: authLoading } = useAuth();
   const { userName, language, subtitleMode, setSubtitleMode } = useLanguage();
   const [isResetting, setIsResetting] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark" | "system">("light");
   const { toast } = useToast();
   const logoutMutation = useLogout();
+  
+  // Initialize theme from localStorage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+    } else {
+      setTheme("system");
+    }
+  }, []);
+  
+  // Handle theme change
+  const handleThemeChange = (newTheme: "light" | "dark" | "system") => {
+    setTheme(newTheme);
+    if (newTheme === "system") {
+      localStorage.removeItem("theme");
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.classList.toggle("dark", prefersDark);
+    } else {
+      localStorage.setItem("theme", newTheme);
+      document.documentElement.classList.toggle("dark", newTheme === "dark");
+    }
+  };
 
   // Fetch billing products and prices
   const { data: billingData, isLoading: billingLoading } = useQuery<BillingData>({
@@ -257,6 +281,55 @@ export default function Settings() {
                     <div className="flex items-center gap-2">
                       <Captions className="h-4 w-4" />
                       <span>All Words</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Appearance Settings */}
+        <Card data-testid="card-appearance">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Palette className="h-5 w-5" />
+              Appearance
+            </CardTitle>
+            <CardDescription>Customize the look and feel of the app</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-0.5 flex-1">
+                <Label htmlFor="theme-select" className="text-base">Theme</Label>
+                <p className="text-sm text-muted-foreground">
+                  Choose between light, dark, or system theme
+                </p>
+              </div>
+              <Select
+                value={theme}
+                onValueChange={(value) => handleThemeChange(value as "light" | "dark" | "system")}
+              >
+                <SelectTrigger className="w-40" id="theme-select" data-testid="select-theme">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="light" data-testid="select-theme-light">
+                    <div className="flex items-center gap-2">
+                      <Sun className="h-4 w-4" />
+                      <span>Light</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="dark" data-testid="select-theme-dark">
+                    <div className="flex items-center gap-2">
+                      <Moon className="h-4 w-4" />
+                      <span>Dark</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="system" data-testid="select-theme-system">
+                    <div className="flex items-center gap-2">
+                      <Monitor className="h-4 w-4" />
+                      <span>System</span>
                     </div>
                   </SelectItem>
                 </SelectContent>
