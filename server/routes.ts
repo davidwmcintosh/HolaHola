@@ -2880,6 +2880,47 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
 
   // ===== NEW REST-Based Voice API (Whisper + GPT + TTS) =====
   
+  // Pre-warm Deepgram connection to avoid cold-start latency
+  // Called when user enters voice chat mode
+  app.post("/api/voice/warm", isAuthenticated, async (req: any, res) => {
+    try {
+      const warmStart = Date.now();
+      
+      // Create minimal silent WAV (44 bytes header + minimal samples)
+      // This is the smallest valid audio that Deepgram will accept
+      const silentWav = Buffer.from([
+        0x52, 0x49, 0x46, 0x46, // "RIFF"
+        0x24, 0x00, 0x00, 0x00, // File size (36 + 0 data)
+        0x57, 0x41, 0x56, 0x45, // "WAVE"
+        0x66, 0x6D, 0x74, 0x20, // "fmt "
+        0x10, 0x00, 0x00, 0x00, // Subchunk size (16)
+        0x01, 0x00,             // Audio format (1 = PCM)
+        0x01, 0x00,             // Channels (1 = mono)
+        0x80, 0x3E, 0x00, 0x00, // Sample rate (16000)
+        0x00, 0x7D, 0x00, 0x00, // Byte rate (32000)
+        0x02, 0x00,             // Block align (2)
+        0x10, 0x00,             // Bits per sample (16)
+        0x64, 0x61, 0x74, 0x61, // "data"
+        0x00, 0x00, 0x00, 0x00, // Data size (0)
+      ]);
+      
+      // Make a quick Deepgram API call to warm the connection
+      await deepgram.listen.prerecorded.transcribeFile(silentWav, {
+        model: "nova-2",
+        language: "en",
+      });
+      
+      const warmTime = Date.now() - warmStart;
+      console.log(`[DEEPGRAM] ✓ Connection warmed in ${warmTime}ms`);
+      
+      res.json({ warmed: true, latency: warmTime });
+    } catch (error: any) {
+      // Don't fail - warming is optional optimization
+      console.log(`[DEEPGRAM] Warm-up skipped: ${error.message?.substring(0, 50)}`);
+      res.json({ warmed: false, error: "warm-up skipped" });
+    }
+  });
+  
   // Transcribe audio using Whisper API
   app.post("/api/voice/transcribe", voiceLimiter, isAuthenticated, upload.single('audio'), async (req: any, res) => {
     try {

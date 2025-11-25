@@ -70,6 +70,26 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       audioPlayerRef.current = null;
     };
   }, []);
+  
+  // Pre-warm Deepgram connection to avoid cold-start latency on first recording
+  useEffect(() => {
+    const warmDeepgram = async () => {
+      try {
+        const response = await fetch('/api/voice/warm', {
+          method: 'POST',
+          credentials: 'include',
+        });
+        const data = await response.json();
+        if (data.warmed) {
+          console.log(`[VOICE] Deepgram pre-warmed in ${data.latency}ms`);
+        }
+      } catch (error) {
+        // Warming is optional - don't block on failure
+        console.log('[VOICE] Pre-warming skipped');
+      }
+    };
+    warmDeepgram();
+  }, []);
 
   // Cleanup on unmount or conversation change
   useEffect(() => {
