@@ -405,6 +405,7 @@ export function ImmersiveTutor({
         )}
 
         {/* Main Recording Button (Push-to-Talk) */}
+        {/* Always call onRecordingStop on release - parent handles state safely */}
         <Button
           variant={isRecording ? "destructive" : "default"}
           size="icon"
@@ -416,27 +417,23 @@ export function ImmersiveTutor({
           }}
           onPointerUp={(e) => {
             e.preventDefault();
-            if (isRecording) {
-              onRecordingStop();
-            }
+            // Always call stop on release - fixes race condition with async state updates
+            onRecordingStop();
           }}
           onPointerCancel={(e) => {
             e.preventDefault();
-            if (isRecording) {
-              onRecordingStop();
-            }
+            onRecordingStop();
           }}
           onPointerLeave={(e) => {
             e.preventDefault();
+            // Only stop if we're actually recording (prevents stopping when just hovering away)
             if (isRecording) {
               onRecordingStop();
             }
           }}
           onTouchCancel={(e) => {
             e.preventDefault();
-            if (isRecording) {
-              onRecordingStop();
-            }
+            onRecordingStop();
           }}
           disabled={isProcessing}
           className="h-20 w-20 md:h-24 md:w-24 rounded-full shadow-lg"
