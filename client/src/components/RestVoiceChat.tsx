@@ -230,19 +230,23 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
             const audioUrl = URL.createObjectURL(audioBlob);
             audioPlayerRef.current.src = audioUrl;
             
-            audioPlayerRef.current.onended = () => {
+            // Track if we've already cleaned up (to prevent double cleanup)
+            let hasCleanedUp = false;
+            let fallbackTimer: NodeJS.Timeout | null = null;
+            
+            const cleanup = () => {
+              if (hasCleanedUp) return;
+              hasCleanedUp = true;
+              if (fallbackTimer) clearTimeout(fallbackTimer);
               URL.revokeObjectURL(audioUrl);
               setAvatarState('idle');
               setCurrentPlayingMessageId(null);
-              clearGreetingLock(); // Allow future greetings after this one finishes
+              clearGreetingLock();
+              console.log('[VOICE GREETING] Cleaned up and returned to idle');
             };
             
-            audioPlayerRef.current.onerror = () => {
-              URL.revokeObjectURL(audioUrl);
-              setAvatarState('idle');
-              setCurrentPlayingMessageId(null);
-              clearGreetingLock(); // Clear lock on error too
-            };
+            audioPlayerRef.current.onended = cleanup;
+            audioPlayerRef.current.onerror = cleanup;
             
             // Set speaking state and current playing message before playing
             setAvatarState('speaking');
@@ -251,13 +255,19 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
             audioPlayerRef.current.play()
               .then(() => {
                 console.log('[VOICE GREETING] Greeting audio playing');
-                // Note: hasPlayedGreetingRef already set at start to prevent race conditions
+                // MOBILE FIX: Add fallback timer in case onended doesn't fire
+                // Estimate duration from audio blob size (roughly 16KB/second for MP3)
+                const estimatedDurationMs = Math.max(5000, (audioBlob.size / 16) + 2000);
+                fallbackTimer = setTimeout(() => {
+                  if (!hasCleanedUp) {
+                    console.log('[VOICE GREETING] Fallback timer triggered - resetting avatar state');
+                    cleanup();
+                  }
+                }, estimatedDurationMs);
               })
               .catch(err => {
                 console.error('[VOICE GREETING] Failed to play greeting:', err);
-                setAvatarState('idle');
-                setCurrentPlayingMessageId(null);
-                URL.revokeObjectURL(audioUrl);
+                cleanup();
               });
           }
         })
