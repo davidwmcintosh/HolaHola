@@ -256,8 +256,8 @@ export function ImmersiveTutor({
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
-      {/* Fixed Tutor Visual */}
-      <div className="flex-shrink-0 relative w-full aspect-square md:aspect-video max-h-[60vh] bg-gradient-to-b from-muted/30 to-background">
+      {/* Fixed Tutor Visual - reduced max-h to leave room for mic controls */}
+      <div className="flex-shrink-0 relative w-full aspect-square md:aspect-video max-h-[45vh] bg-gradient-to-b from-muted/30 to-background">
         <img
           src={tutorImageUrl}
           alt="Language Tutor"
