@@ -415,7 +415,7 @@ export function ImmersiveTutor({
             className="h-10 w-10 md:h-12 md:w-12 bg-slate-500 hover:bg-slate-600 text-white disabled:bg-slate-300 disabled:text-slate-500"
             data-testid="button-replay"
           >
-            <RotateCcw className="h-4 w-4 md:h-5 md:w-5" />
+            <RotateCcw className="h-6 w-6 md:h-7 md:w-7" />
           </Button>
         )}
 
@@ -486,7 +486,7 @@ export function ImmersiveTutor({
             data-testid="button-slow-repeat"
             title="Repeat slowly and simply"
           >
-            <Turtle className="h-5 w-5 md:h-6 md:w-6" />
+            <Turtle className="h-6 w-6 md:h-7 md:w-7" />
           </Button>
         )}
         </div>
