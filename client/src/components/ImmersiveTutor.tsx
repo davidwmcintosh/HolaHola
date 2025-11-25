@@ -405,18 +405,21 @@ export function ImmersiveTutor({
           </Button>
         )}
 
-        {/* Replay Last Audio Button */}
+        {/* Replay Last Audio Button with label */}
         {onReplay && (
-          <Button
-            variant="secondary"
-            size="icon"
-            onClick={onReplay}
-            disabled={!canReplay}
-            className="h-10 w-10 md:h-12 md:w-12 bg-slate-500 hover:bg-slate-600 text-white disabled:bg-slate-300 disabled:text-slate-500"
-            data-testid="button-replay"
-          >
-            <RotateCcw style={{ width: 24, height: 24 }} />
-          </Button>
+          <div className="flex flex-col items-center gap-1">
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={onReplay}
+              disabled={!canReplay}
+              className="h-10 w-10 md:h-12 md:w-12 bg-slate-500 hover:bg-slate-600 text-white disabled:bg-slate-300 disabled:text-slate-500"
+              data-testid="button-replay"
+            >
+              <RotateCcw style={{ width: 24, height: 24 }} />
+            </Button>
+            <span className="text-[10px] text-muted-foreground">Repeat</span>
+          </div>
         )}
 
         {/* Main Recording Button (Push-to-Talk) */}
@@ -475,19 +478,22 @@ export function ImmersiveTutor({
           )}
         </Button>
 
-        {/* Slow Repeat Button - Ask AI to simplify and speak slowly */}
+        {/* Slow Repeat Button with label - Ask AI to simplify and speak slowly */}
         {onSlowRepeat && (
-          <Button
-            variant="secondary"
-            size="icon"
-            onClick={onSlowRepeat}
-            disabled={!canReplay || isSlowRepeatLoading || isProcessing}
-            className="h-10 w-10 md:h-12 md:w-12 bg-slate-500 hover:bg-slate-600 text-white disabled:bg-slate-300 disabled:text-slate-500"
-            data-testid="button-slow-repeat"
-            title="Repeat slowly and simply"
-          >
-            <Turtle style={{ width: 24, height: 24 }} />
-          </Button>
+          <div className="flex flex-col items-center gap-1">
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={onSlowRepeat}
+              disabled={!canReplay || isSlowRepeatLoading || isProcessing}
+              className="h-10 w-10 md:h-12 md:w-12 bg-slate-500 hover:bg-slate-600 text-white disabled:bg-slate-300 disabled:text-slate-500"
+              data-testid="button-slow-repeat"
+              title="Repeat slowly and simply"
+            >
+              <Turtle style={{ width: 24, height: 24 }} />
+            </Button>
+            <span className="text-[10px] text-muted-foreground">Slow</span>
+          </div>
         )}
         </div>
       </div>
