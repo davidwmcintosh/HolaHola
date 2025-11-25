@@ -186,10 +186,8 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
     <LanguageProvider>
       <SidebarProvider defaultOpen={true} style={style as React.CSSProperties}>
         <div className="flex h-screen w-full">
-          {/* Hide sidebar on mobile (< md breakpoint), show on desktop */}
-          <div className="hidden md:block">
-            <AppSidebar />
-          </div>
+          {/* Sidebar renders as Sheet overlay on mobile, regular sidebar on desktop */}
+          <AppSidebar />
           <div className="flex flex-col flex-1 relative">
             <main className="flex-1 overflow-hidden">
               <Router />
