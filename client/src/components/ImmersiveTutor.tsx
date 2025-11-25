@@ -256,8 +256,8 @@ export function ImmersiveTutor({
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
-      {/* Fixed Tutor Visual - reduced max-h to leave room for mic controls */}
-      <div className="flex-shrink-0 relative w-full aspect-square md:aspect-video max-h-[45vh] bg-gradient-to-b from-muted/30 to-background">
+      {/* Fixed Tutor Visual - balanced max-h for tutor and mic controls */}
+      <div className="flex-shrink-0 relative w-full aspect-square md:aspect-video max-h-[50vh] bg-gradient-to-b from-muted/30 to-background">
         <img
           src={tutorImageUrl}
           alt="Language Tutor"
@@ -379,24 +379,24 @@ export function ImmersiveTutor({
       {/* Spacer */}
       <div className="flex-1 min-h-0" />
 
-      {/* Floating Microphone Button - min-h with safe bottom padding for floating menu */}
-      <div className="flex-shrink-0 p-6 pb-24 flex flex-col items-center gap-3 min-h-[180px]">
+      {/* Floating Microphone Button - compact layout with safe bottom padding */}
+      <div className="flex-shrink-0 p-4 pb-20 flex flex-col items-center gap-2">
         {/* Instruction text */}
-        <p className="text-sm text-muted-foreground" data-testid="text-mic-instruction">
+        <p className="text-xs text-muted-foreground" data-testid="text-mic-instruction">
           {isRecording ? "Release to send" : isProcessing ? "Processing..." : "Hold to speak"}
         </p>
         
-        <div className="flex justify-center items-center gap-4">
+        <div className="flex justify-center items-center gap-3">
         {/* Toggle to History View */}
         {onToggleView && (
           <Button
             variant="outline"
             size="icon"
             onClick={onToggleView}
-            className="h-12 w-12 md:h-14 md:w-14"
+            className="h-10 w-10 md:h-12 md:w-12"
             data-testid="button-toggle-history"
           >
-            <MessageSquare className="h-5 w-5 md:h-6 md:w-6" />
+            <MessageSquare className="h-4 w-4 md:h-5 md:w-5" />
           </Button>
         )}
 
@@ -407,10 +407,10 @@ export function ImmersiveTutor({
             size="icon"
             onClick={onReplay}
             disabled={!canReplay}
-            className="h-12 w-12 md:h-14 md:w-14"
+            className="h-10 w-10 md:h-12 md:w-12"
             data-testid="button-replay"
           >
-            <RotateCcw className="h-5 w-5 md:h-6 md:w-6" />
+            <RotateCcw className="h-4 w-4 md:h-5 md:w-5" />
           </Button>
         )}
 
@@ -458,15 +458,15 @@ export function ImmersiveTutor({
             }
           }}
           disabled={isProcessing}
-          className="h-20 w-20 md:h-24 md:w-24 rounded-full shadow-lg touch-none"
+          className="h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg touch-none"
           data-testid={isRecording ? "button-stop-recording" : "button-start-recording"}
           aria-pressed={isRecording}
           aria-label="Press and hold to speak"
         >
           {isRecording ? (
-            <MicOff className="h-10 w-10 md:h-12 md:w-12" />
+            <MicOff className="h-7 w-7 md:h-8 md:w-8" />
           ) : (
-            <Mic className="h-10 w-10 md:h-12 md:w-12" />
+            <Mic className="h-7 w-7 md:h-8 md:w-8" />
           )}
         </Button>
 
@@ -477,11 +477,11 @@ export function ImmersiveTutor({
             size="icon"
             onClick={onSlowRepeat}
             disabled={!canReplay || isSlowRepeatLoading || isProcessing}
-            className="h-12 w-12 md:h-14 md:w-14"
+            className="h-10 w-10 md:h-12 md:w-12"
             data-testid="button-slow-repeat"
             title="Repeat slowly and simply"
           >
-            <Turtle className="h-5 w-5 md:h-6 md:w-6" />
+            <Turtle className="h-4 w-4 md:h-5 md:w-5" />
           </Button>
         )}
         </div>
