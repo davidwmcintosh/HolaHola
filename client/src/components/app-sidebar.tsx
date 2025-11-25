@@ -1,4 +1,4 @@
-import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck, Library, Shield } from "lucide-react";
+import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck, Library, Shield, X } from "lucide-react";
 import linguaflowLogo from "@assets/LF_no_words_no_background_1764099068542.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -15,6 +15,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { StreakIndicator } from "@/components/StreakIndicator";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -80,17 +81,31 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="px-4 pt-4 pb-2">
-        <div className="flex items-center gap-1">
-          <img 
-            src={linguaflowLogo} 
-            alt="LinguaFlow" 
-            className="h-20 w-20 object-contain -ml-3 -my-2"
-            data-testid="img-logo"
-          />
-          <div>
-            <h1 className="text-xl font-semibold">LinguaFlow</h1>
-            <p className="text-sm text-muted-foreground">Learn & Practice</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1">
+            <img 
+              src={linguaflowLogo} 
+              alt="LinguaFlow" 
+              className="h-20 w-20 object-contain -ml-3 -my-2"
+              data-testid="img-logo"
+            />
+            <div>
+              <h1 className="text-xl font-semibold">LinguaFlow</h1>
+              <p className="text-sm text-muted-foreground">Learn & Practice</p>
+            </div>
           </div>
+          {/* Close button - only visible on mobile */}
+          {isMobile && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setOpenMobile(false)}
+              className="h-8 w-8"
+              data-testid="button-close-sidebar"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          )}
         </div>
       </SidebarHeader>
       <SidebarContent>
