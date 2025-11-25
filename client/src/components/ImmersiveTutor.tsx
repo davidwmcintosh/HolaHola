@@ -5,6 +5,7 @@ import { type Message } from "@shared/schema";
 import { type SubtitleMode } from "@/contexts/LanguageContext";
 import tutorSpeakingUrl from "@assets/generated_images/Teacher_speaking_animatedly_62a6f01b.png";
 import tutorIdleUrl from "@assets/generated_images/Friendly_teacher_idle_state_fd4580c6.png";
+import tutorListeningUrl from "@assets/generated-image-1_1764099524493.png";
 
 interface WordTiming {
   word: string;
@@ -230,8 +231,20 @@ export function ImmersiveTutor({
     };
   }, [isPlaying, currentWordTimings, audioElementRef]);
 
-  // Determine which tutor image to show
-  const tutorImageUrl = isPlaying ? tutorSpeakingUrl : tutorIdleUrl;
+  // Determine which tutor image to show based on state
+  const getTutorImage = () => {
+    if (isPlaying) return tutorSpeakingUrl;
+    if (isRecording) return tutorListeningUrl;
+    return tutorIdleUrl;
+  };
+  const tutorImageUrl = getTutorImage();
+  
+  // Get the current avatar state for test IDs
+  const getAvatarState = () => {
+    if (isPlaying) return "speaking";
+    if (isRecording) return "listening";
+    return "idle";
+  };
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
@@ -241,7 +254,7 @@ export function ImmersiveTutor({
           src={tutorImageUrl}
           alt="Language Tutor"
           className="w-full h-full object-contain"
-          data-testid={isPlaying ? "avatar-state-speaking" : "avatar-state-idle"}
+          data-testid={`avatar-state-${getAvatarState()}`}
         />
         
         {/* Recording Indicator */}
