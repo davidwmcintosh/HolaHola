@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { VocabularyWord } from "@shared/schema";
+
+type TimeFilter = 'all' | 'today' | 'week' | 'month' | 'older';
 
 const isDue = (nextReviewDate: Date | string): boolean => {
   return new Date() >= new Date(nextReviewDate);
@@ -26,7 +28,11 @@ const getReviewStatus = (nextReviewDate: Date | string): "overdue" | "due" | "up
   return "upcoming";
 };
 
-export function VocabularyFlashcard() {
+interface VocabularyFlashcardProps {
+  timeFilter?: TimeFilter;
+}
+
+export function VocabularyFlashcard({ timeFilter = 'all' }: VocabularyFlashcardProps) {
   const { language, difficulty } = useLanguage();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -34,8 +40,22 @@ export function VocabularyFlashcard() {
   const { toast } = useToast();
 
   const { data: allWords = [], isLoading } = useQuery<VocabularyWord[]>({
-    queryKey: [`/api/vocabulary?language=${language}&difficulty=${difficulty}`],
+    queryKey: ["/api/vocabulary/filtered", { language, timeFilter }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.append('language', language);
+      if (timeFilter !== 'all') params.append('timeFilter', timeFilter);
+      const url = `/api/vocabulary/filtered?${params.toString()}`;
+      const response = await fetch(url, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch vocabulary');
+      return response.json();
+    },
   });
+
+  useEffect(() => {
+    setCurrentIndex(0);
+    setIsFlipped(false);
+  }, [timeFilter]);
 
   // Filter cards based on due status
   const vocabularyWords = useMemo(() => {
@@ -55,10 +75,9 @@ export function VocabularyFlashcard() {
       return await apiRequest("PATCH", `/api/vocabulary/${id}/review`, { isCorrect });
     },
     onSuccess: (_, variables) => {
-      // Invalidate vocabulary query to refresh data
-      queryClient.invalidateQueries({ queryKey: [`/api/vocabulary?language=${language}&difficulty=${difficulty}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/vocabulary/filtered"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/vocabulary"] });
       
-      // Show success toast
       toast({
         title: variables.isCorrect ? "Correct!" : "Keep practicing!",
         description: variables.isCorrect 

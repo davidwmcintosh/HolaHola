@@ -1,4 +1,4 @@
-import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck, Library, Shield, X } from "lucide-react";
+import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck, Library, Shield, X, FolderOpen } from "lucide-react";
 import linguaflowLogo from "@assets/LF_no_words_no_background_1764099068542.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -28,6 +28,7 @@ const menuItems = [
   { title: "Grammar", url: "/grammar", icon: Languages },
   { title: "Can-Do Progress", url: "/can-do-progress", icon: Award },
   { title: "Past Chats", url: "/history", icon: History },
+  { title: "My Lessons", url: "/lessons", icon: FolderOpen },
   { title: "Cultural Tips", url: "/cultural-tips", icon: Globe },
 ];
 
