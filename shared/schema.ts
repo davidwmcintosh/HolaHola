@@ -87,6 +87,8 @@ export const conversations = pgTable("conversations", {
   totalAssessedMessages: integer("total_assessed_messages").notNull().default(0), // Total user messages assessed
   // ACTFL standards tracking
   actflLevel: text("actfl_level"), // novice_low, novice_mid, novice_high, intermediate_low, intermediate_mid, intermediate_high, advanced_low, advanced_mid, advanced_high, superior, distinguished
+  // Organization features (Phase 1)
+  isStarred: boolean("is_starred").notNull().default(false), // User can star/favorite conversations
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_conversations_user_id").on(table.userId),
@@ -128,6 +130,9 @@ export const vocabularyWords = pgTable("vocabulary_words", {
   difficulty: text("difficulty").notNull(),
   // ACTFL standards tracking
   actflLevel: text("actfl_level"), // novice_low, novice_mid, etc.
+  // Organization features (Phase 2) - Link to source conversation
+  sourceConversationId: varchar("source_conversation_id").references(() => conversations.id), // Where this word was learned
+  sourceMessageId: varchar("source_message_id"), // Optional: specific message that introduced the word
   // Spaced repetition fields
   nextReviewDate: timestamp("next_review_date").notNull().defaultNow(),
   correctCount: integer("correct_count").notNull().default(0), // Lifetime correct reviews
@@ -136,7 +141,10 @@ export const vocabularyWords = pgTable("vocabulary_words", {
   easeFactor: real("ease_factor").notNull().default(2.5), // SM-2 algorithm default
   interval: integer("interval").notNull().default(1), // Days until next review
   createdAt: timestamp("created_at").notNull().defaultNow(), // Track when word was learned
-});
+}, (table) => [
+  index("idx_vocabulary_user_id").on(table.userId),
+  index("idx_vocabulary_source_conversation").on(table.sourceConversationId),
+]);
 
 export const grammarExercises = pgTable("grammar_exercises", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -590,6 +598,74 @@ export const culturalTipMedia = pgTable("cultural_tip_media", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// ===== Organization System (Phases 2 & 3) =====
+
+// Phase 2: AI-generated topic tags for conversations (auto-tagged by Gemini)
+export const conversationTopics = pgTable("conversation_topics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id),
+  topicId: varchar("topic_id").notNull().references(() => topics.id),
+  confidence: real("confidence").default(1.0), // AI confidence score (0-1)
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_conversation_topics_conv").on(table.conversationId),
+  index("idx_conversation_topics_topic").on(table.topicId),
+]);
+
+// Phase 2: Topic tags for vocabulary words
+export const vocabularyWordTopics = pgTable("vocabulary_word_topics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vocabularyWordId: varchar("vocabulary_word_id").notNull().references(() => vocabularyWords.id),
+  topicId: varchar("topic_id").notNull().references(() => topics.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_vocab_topics_word").on(table.vocabularyWordId),
+  index("idx_vocab_topics_topic").on(table.topicId),
+]);
+
+// Phase 3: User-created lesson bundles (grouping conversations, vocab, and grammar)
+export const userLessons = pgTable("user_lessons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  title: text("title").notNull(), // "Spanish Week 1" or AI-suggested title
+  description: text("description"), // Optional description
+  language: text("language").notNull(),
+  // Time range for auto-generated lessons
+  startDate: timestamp("start_date"), // Earliest conversation included
+  endDate: timestamp("end_date"), // Latest conversation included
+  // Summary stats (cached for quick display)
+  conversationCount: integer("conversation_count").default(0),
+  vocabularyCount: integer("vocabulary_count").default(0),
+  totalMinutes: integer("total_minutes").default(0),
+  // AI-generated summary using Gemini's 2M context window
+  aiSummary: text("ai_summary"), // What was learned, key topics covered
+  aiSuggestions: text("ai_suggestions"), // Suggested next steps
+  // Lesson type
+  lessonType: text("lesson_type").default("manual"), // "manual", "weekly_auto", "topic_auto"
+  isArchived: boolean("is_archived").default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_user_lessons_user").on(table.userId),
+  index("idx_user_lessons_date_range").on(table.userId, table.startDate, table.endDate),
+]);
+
+// Phase 3: Items within a lesson bundle
+export const userLessonItems = pgTable("user_lesson_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  lessonId: varchar("lesson_id").notNull().references(() => userLessons.id),
+  itemType: text("item_type").notNull(), // "conversation", "vocabulary", "grammar_note"
+  // Reference to the specific item (only one will be set)
+  conversationId: varchar("conversation_id").references(() => conversations.id),
+  vocabularyWordId: varchar("vocabulary_word_id").references(() => vocabularyWords.id),
+  // For grammar notes (AI-generated insights)
+  grammarNote: text("grammar_note"), // AI-generated grammar point from the lesson
+  displayOrder: integer("display_order").default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_lesson_items_lesson").on(table.lessonId),
+]);
+
 export const insertConversationSchema = createInsertSchema(conversations).omit({
   id: true,
   userId: true,
@@ -857,3 +933,41 @@ export type LessonVisualAid = typeof lessonVisualAids.$inferSelect;
 
 export type InsertCulturalTipMedia = z.infer<typeof insertCulturalTipMediaSchema>;
 export type CulturalTipMedia = typeof culturalTipMedia.$inferSelect;
+
+// ===== Organization System Types (Phases 2 & 3) =====
+
+export const insertConversationTopicSchema = createInsertSchema(conversationTopics).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertVocabularyWordTopicSchema = createInsertSchema(vocabularyWordTopics).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUserLessonSchema = createInsertSchema(userLessons).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  title: z.string().min(1, "Title is required").max(200, "Title must be less than 200 characters").trim(),
+  description: z.string().max(2000, "Description must be less than 2000 characters").optional(),
+});
+
+export const insertUserLessonItemSchema = createInsertSchema(userLessonItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertConversationTopic = z.infer<typeof insertConversationTopicSchema>;
+export type ConversationTopic = typeof conversationTopics.$inferSelect;
+
+export type InsertVocabularyWordTopic = z.infer<typeof insertVocabularyWordTopicSchema>;
+export type VocabularyWordTopic = typeof vocabularyWordTopics.$inferSelect;
+
+export type InsertUserLesson = z.infer<typeof insertUserLessonSchema>;
+export type UserLesson = typeof userLessons.$inferSelect;
+
+export type InsertUserLessonItem = z.infer<typeof insertUserLessonItemSchema>;
+export type UserLessonItem = typeof userLessonItems.$inferSelect;
