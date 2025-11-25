@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, MessageSquare, RotateCcw, Volume2 } from "lucide-react";
+import { Mic, MicOff, MessageSquare, RotateCcw } from "lucide-react";
 import { type Message } from "@shared/schema";
-import Lottie from "lottie-react";
-import idleAnimation from "@assets/lottie/teacher_idle.json";
-import speakingAnimation from "@assets/lottie/teacher_speaking.json";
+import tutorSpeakingUrl from "@assets/generated_images/Teacher_speaking_animatedly_62a6f01b.png";
+import tutorIdleUrl from "@assets/generated_images/Friendly_teacher_idle_state_fd4580c6.png";
 
 interface WordTiming {
   word: string;
@@ -112,80 +111,19 @@ export function ImmersiveTutor({
     };
   }, [isPlaying, currentWordTimings, audioElementRef]);
 
-  // Determine avatar state and select animation
-  const avatarState = isRecording ? "listening" : isPlaying ? "speaking" : "idle";
-  
-  // Select animation: speaking animation for speaking, idle for both idle and listening
-  // (listening differentiated by pulse animation and icon)
-  const currentAnimation = isPlaying ? speakingAnimation : idleAnimation;
-
-  // Get state configuration with icon and styles
-  const getStateConfig = () => {
-    if (isRecording) {
-      return {
-        label: "Listening to you...",
-        icon: <Mic className="w-16 h-16 md:w-20 md:h-20 text-primary" />,
-        opacity: 0.9,
-        pulse: true,
-      };
-    }
-    if (isPlaying) {
-      return {
-        label: "Teaching",
-        icon: <Volume2 className="w-16 h-16 md:w-20 md:h-20 text-primary" />,
-        opacity: 0.95,
-        pulse: false,
-      };
-    }
-    return {
-      label: "Ready to help",
-      icon: null,
-      opacity: 0.7,
-      pulse: false,
-    };
-  };
-
-  const stateConfig = getStateConfig();
+  // Determine which tutor image to show
+  const tutorImageUrl = isPlaying ? tutorSpeakingUrl : tutorIdleUrl;
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
-      {/* Subtle Animation with State Icons - 3 distinct states */}
+      {/* Fixed Tutor Visual */}
       <div className="flex-shrink-0 relative w-full aspect-square md:aspect-video max-h-[60vh] bg-gradient-to-b from-muted/30 to-background">
-        <div
-          className="w-full h-full flex flex-col items-center justify-center p-8 gap-4"
-          data-testid={`avatar-state-${avatarState}`}
-        >
-          {/* Lottie animation with icon overlay */}
-          <div className="relative w-48 h-48 md:w-64 md:h-64">
-            {/* Lottie animation with pulse effect for listening */}
-            <div className={stateConfig.pulse ? "animate-pulse" : ""}>
-              <Lottie
-                animationData={currentAnimation}
-                loop={true}
-                autoplay={true}
-                style={{ width: "100%", height: "100%", opacity: stateConfig.opacity }}
-                rendererSettings={{
-                  preserveAspectRatio: "xMidYMid meet"
-                }}
-              />
-            </div>
-            
-            {/* State icon overlay - centered on animation */}
-            {stateConfig.icon && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                {stateConfig.icon}
-              </div>
-            )}
-          </div>
-          
-          {/* Clear state label */}
-          <p 
-            className="text-base md:text-lg text-muted-foreground font-medium"
-            aria-live="polite"
-          >
-            {stateConfig.label}
-          </p>
-        </div>
+        <img
+          src={tutorImageUrl}
+          alt="Language Tutor"
+          className="w-full h-full object-contain"
+          data-testid={isPlaying ? "avatar-state-speaking" : "avatar-state-idle"}
+        />
         
         {/* Recording Indicator */}
         {isRecording && (
