@@ -423,36 +423,23 @@ export function ImmersiveTutor({
         )}
 
         {/* Main Recording Button (Push-to-Talk) */}
-        {/* Uses local ref to track recording state for reliable push-to-talk */}
+        {/* Uses explicit touch AND pointer events for reliable mobile support */}
         <Button
           variant={isRecording ? "destructive" : "default"}
           size="icon"
-          onPointerDown={(e) => {
+          onTouchStart={(e) => {
             e.preventDefault();
-            // Only start if not already recording and not processing
+            e.stopPropagation();
+            console.log('[MIC BUTTON] Touch start');
             if (!isRecording && !isProcessing && !isPointerRecordingRef.current) {
               isPointerRecordingRef.current = true;
               onRecordingStart();
             }
           }}
-          onPointerUp={(e) => {
+          onTouchEnd={(e) => {
             e.preventDefault();
-            // Stop if we started recording via pointer down
-            if (isPointerRecordingRef.current) {
-              isPointerRecordingRef.current = false;
-              onRecordingStop();
-            }
-          }}
-          onPointerCancel={(e) => {
-            e.preventDefault();
-            if (isPointerRecordingRef.current) {
-              isPointerRecordingRef.current = false;
-              onRecordingStop();
-            }
-          }}
-          onPointerLeave={(e) => {
-            e.preventDefault();
-            // Stop if pointer leaves while we're recording
+            e.stopPropagation();
+            console.log('[MIC BUTTON] Touch end');
             if (isPointerRecordingRef.current) {
               isPointerRecordingRef.current = false;
               onRecordingStop();
@@ -460,13 +447,38 @@ export function ImmersiveTutor({
           }}
           onTouchCancel={(e) => {
             e.preventDefault();
+            console.log('[MIC BUTTON] Touch cancel');
             if (isPointerRecordingRef.current) {
               isPointerRecordingRef.current = false;
               onRecordingStop();
             }
           }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            console.log('[MIC BUTTON] Mouse down');
+            if (!isRecording && !isProcessing && !isPointerRecordingRef.current) {
+              isPointerRecordingRef.current = true;
+              onRecordingStart();
+            }
+          }}
+          onMouseUp={(e) => {
+            e.preventDefault();
+            console.log('[MIC BUTTON] Mouse up');
+            if (isPointerRecordingRef.current) {
+              isPointerRecordingRef.current = false;
+              onRecordingStop();
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (isPointerRecordingRef.current) {
+              console.log('[MIC BUTTON] Mouse leave while recording');
+              isPointerRecordingRef.current = false;
+              onRecordingStop();
+            }
+          }}
           disabled={isProcessing}
-          className="h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg touch-none"
+          className="h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none"
+          style={{ touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
           data-testid={isRecording ? "button-stop-recording" : "button-start-recording"}
           aria-pressed={isRecording}
           aria-label="Press and hold to speak"
