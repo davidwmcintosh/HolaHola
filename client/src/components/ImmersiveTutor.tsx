@@ -404,21 +404,6 @@ export function ImmersiveTutor({
           </Button>
         )}
 
-        {/* Slow Repeat Button - Ask AI to simplify and speak slowly */}
-        {onSlowRepeat && (
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onSlowRepeat}
-            disabled={!canReplay || isSlowRepeatLoading || isProcessing}
-            className="h-12 w-12 md:h-14 md:w-14"
-            data-testid="button-slow-repeat"
-            title="Repeat slowly and simply"
-          >
-            <Turtle className="h-5 w-5 md:h-6 md:w-6" />
-          </Button>
-        )}
-
         {/* Main Recording Button (Push-to-Talk) */}
         <Button
           variant={isRecording ? "destructive" : "default"}
@@ -465,6 +450,21 @@ export function ImmersiveTutor({
             <Mic className="h-10 w-10 md:h-12 md:w-12" />
           )}
         </Button>
+
+        {/* Slow Repeat Button - Ask AI to simplify and speak slowly */}
+        {onSlowRepeat && (
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onSlowRepeat}
+            disabled={!canReplay || isSlowRepeatLoading || isProcessing}
+            className="h-12 w-12 md:h-14 md:w-14"
+            data-testid="button-slow-repeat"
+            title="Repeat slowly and simply"
+          >
+            <Turtle className="h-5 w-5 md:h-6 md:w-6" />
+          </Button>
+        )}
       </div>
     </div>
   );

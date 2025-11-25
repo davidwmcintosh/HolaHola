@@ -3124,7 +3124,7 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
 
       // Generate simplified response using Gemini
       const response = await gemini.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: simplifyPrompt,
       });
       
