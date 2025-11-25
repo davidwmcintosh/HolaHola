@@ -49,7 +49,7 @@ export function ConversationHistory() {
 
   const toggleStarMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest(`/api/conversations/${id}/star`, { method: 'PATCH' });
+      return apiRequest('PATCH', `/api/conversations/${id}/star`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/conversations/filtered"] });
