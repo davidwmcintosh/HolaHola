@@ -1,4 +1,5 @@
 import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck, Library, Shield } from "lucide-react";
+import linguaflowLogo from "@assets/linguaflow_monogram_ribbon_logo_1764097955181.png";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -70,10 +71,13 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-6">
-        <div className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Languages className="h-6 w-6" />
-          </div>
+        <div className="flex items-center gap-3">
+          <img 
+            src={linguaflowLogo} 
+            alt="LinguaFlow" 
+            className="h-10 w-10 object-contain"
+            data-testid="img-logo"
+          />
           <div>
             <h1 className="text-xl font-semibold">LinguaFlow</h1>
             <p className="text-sm text-muted-foreground">Learn & Practice</p>

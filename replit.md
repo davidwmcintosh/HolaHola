@@ -34,6 +34,11 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 Smart phrase detection module (`server/phrase-detection.ts`) handles multi-word expressions as single conceptual units. ACTFL advancement algorithm (`server/actfl-advancement.ts`) evaluates readiness based on sustained performance across all FACT criteria. Institutional features include CanDoStatements, StudentCanDoProgress, CurriculumPaths, TeacherClasses, and Assignments tables. A PWA install prompt is displayed. The system includes an offline indicator component and an enhanced service worker for comprehensive API route caching and mobile responsiveness with adaptive text sizing. Security hardening includes unified frontend/backend validation, input sanitization, and max-length constraints across all text fields.
 
+## Branding Assets
+**Logo Files**: Located in `attached_assets/` directory
+- **Primary Logo**: `linguaflow_monogram_ribbon_logo_1764097955181.png` - Ribbon-style "LF" monogram used in sidebar header
+- When updating logos/images, check `attached_assets/` for the latest versions
+
 ## External Dependencies
 
 ### Third-Party Services
