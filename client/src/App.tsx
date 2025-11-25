@@ -188,13 +188,11 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
           {/* Sidebar renders as Sheet overlay on mobile, regular sidebar on desktop */}
           <AppSidebar />
           <div className="flex flex-col flex-1 relative">
-            {/* Desktop header with sidebar toggle */}
-            <DesktopHeader />
             <main className="flex-1 overflow-hidden">
               <Router />
             </main>
-            {/* Floating menu button for mobile - inside main content area */}
-            <MobileMenuButton />
+            {/* Floating menu button - works on all screen sizes */}
+            <FloatingMenuButton />
           </div>
         </div>
         <OfflineIndicator />
@@ -204,30 +202,17 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
   );
 }
 
-// Desktop header with sidebar toggle button - only visible on desktop
-function DesktopHeader() {
-  return (
-    <header className="hidden md:flex items-center justify-between px-4 py-2 border-b bg-background">
-      <SidebarTrigger data-testid="button-toggle-sidebar" />
-      <div className="flex items-center gap-2">
-        <ThemeToggle />
-        <UserMenu />
-      </div>
-    </header>
-  );
-}
-
-// Floating menu button for mobile - only visible on mobile devices
-function MobileMenuButton() {
-  const { setOpenMobile } = useSidebar();
+// Floating menu button - works on all screen sizes
+function FloatingMenuButton() {
+  const { toggleSidebar } = useSidebar();
   
   return (
     <Button
       variant="outline"
       size="icon"
-      className="absolute bottom-4 left-4 z-40 md:hidden h-12 w-12 rounded-full shadow-lg bg-background border-2"
-      onClick={() => setOpenMobile(true)}
-      data-testid="button-mobile-menu"
+      className="absolute bottom-4 left-4 z-40 h-12 w-12 rounded-full shadow-lg bg-background border-2"
+      onClick={toggleSidebar}
+      data-testid="button-toggle-sidebar"
     >
       <Menu className="h-5 w-5" />
     </Button>
