@@ -32,6 +32,9 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
   const [isSlowRepeatLoading, setIsSlowRepeatLoading] = useState(false);
   
+  // Cache for slow repeat audio - so subsequent presses just replay
+  const slowRepeatCacheRef = useRef<{ messageId: string; audioBlob: Blob } | null>(null);
+  
   // Word timing data for synchronized subtitles - persisted per message ID
   // Using a ref to persist across re-renders without causing re-renders
   const wordTimingsMapRef = useRef<Map<string, WordTiming[]>>(new Map());
@@ -738,6 +741,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   };
 
   // Slow repeat: Ask AI to simplify and speak slowly
+  // Caches the audio so subsequent presses just replay
   const handleSlowRepeat = async () => {
     if (!conversationId || !audioPlayerRef.current) {
       console.log('[SLOW REPEAT] No conversation or audio player');
@@ -750,13 +754,54 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       return;
     }
     
+    setError(null);
+    
+    // Check if we have a cached slow repeat for the current message
+    if (slowRepeatCacheRef.current && slowRepeatCacheRef.current.messageId === lastMessageId) {
+      console.log('[SLOW REPEAT] Using cached audio (replay)');
+      
+      // Play cached audio
+      setAvatarState('speaking');
+      const audioUrl = URL.createObjectURL(slowRepeatCacheRef.current.audioBlob);
+      audioPlayerRef.current.src = audioUrl;
+      
+      audioPlayerRef.current.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        setAvatarState('idle');
+        setCurrentPlayingMessageId(null);
+      };
+      
+      audioPlayerRef.current.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
+        setAvatarState('idle');
+        setCurrentPlayingMessageId(null);
+      };
+      
+      try {
+        await audioPlayerRef.current.play();
+      } catch (err) {
+        console.error('[SLOW REPEAT] Failed to play cached audio:', err);
+        setAvatarState('idle');
+      }
+      return;
+    }
+    
+    // No cache - fetch from API
     console.log('[SLOW REPEAT] Requesting simplified slow repeat');
     setIsSlowRepeatLoading(true);
-    setError(null);
     
     try {
       const result = await requestSlowRepeat(conversationId);
       console.log('[SLOW REPEAT] Got simplified response:', result.simplifiedText);
+      
+      // Cache the audio for subsequent presses
+      if (lastMessageId) {
+        slowRepeatCacheRef.current = {
+          messageId: lastMessageId,
+          audioBlob: result.audioBlob,
+        };
+        console.log('[SLOW REPEAT] Cached audio for message:', lastMessageId);
+      }
       
       // Play the slow audio
       setAvatarState('speaking');
