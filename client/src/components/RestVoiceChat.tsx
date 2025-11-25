@@ -12,31 +12,30 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { queryClient } from "@/lib/queryClient";
 import { VoiceChatViewManager } from "@/components/VoiceChatViewManager";
 
-// Helper to track greetings played this session using sessionStorage
-// Persists across full page reloads (fixes double-greeting on mobile apps)
-const GREETING_STORAGE_KEY = 'linguaflow_played_greetings';
+// Helper to prevent double-greetings on mobile app reloads
+// Tracks WHEN last greeting played, not which conversation (since new conversations are created on reload)
+const GREETING_TIMESTAMP_KEY = 'linguaflow_last_greeting_time';
+const GREETING_COOLDOWN_MS = 30000; // 30 seconds - prevent greeting if one played recently
 
-function hasPlayedGreeting(conversationId: string): boolean {
+function canPlayGreeting(): boolean {
   try {
-    const stored = sessionStorage.getItem(GREETING_STORAGE_KEY);
-    if (!stored) return false;
-    const played = JSON.parse(stored) as string[];
-    return played.includes(conversationId);
+    const stored = sessionStorage.getItem(GREETING_TIMESTAMP_KEY);
+    if (!stored) return true;
+    const lastTime = parseInt(stored, 10);
+    const elapsed = Date.now() - lastTime;
+    if (elapsed < GREETING_COOLDOWN_MS) {
+      console.log('[VOICE GREETING] Cooldown active - last greeting was', Math.round(elapsed / 1000), 'seconds ago');
+      return false;
+    }
+    return true;
   } catch {
-    return false;
+    return true;
   }
 }
 
-function markGreetingPlayed(conversationId: string): void {
+function markGreetingPlayed(): void {
   try {
-    const stored = sessionStorage.getItem(GREETING_STORAGE_KEY);
-    const played = stored ? JSON.parse(stored) as string[] : [];
-    if (!played.includes(conversationId)) {
-      played.push(conversationId);
-      // Keep only last 10 to prevent storage bloat
-      if (played.length > 10) played.shift();
-      sessionStorage.setItem(GREETING_STORAGE_KEY, JSON.stringify(played));
-    }
+    sessionStorage.setItem(GREETING_TIMESTAMP_KEY, Date.now().toString());
   } catch {
     // Ignore storage errors
   }
@@ -148,10 +147,10 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     // Don't play greeting if already recording or processing
     if (isRecording || isProcessing) return;
     
-    // Check if we already played this conversation's greeting (sessionStorage check)
-    // This prevents double-greeting on mobile apps where page fully reloads
-    if (hasPlayedGreeting(conversationId)) {
-      console.log('[VOICE GREETING] Already played for this conversation, skipping');
+    // Check if a greeting was played recently (time-based cooldown)
+    // This prevents double-greeting on mobile apps where page reloads create new conversations
+    if (!canPlayGreeting()) {
+      console.log('[VOICE GREETING] Skipping - cooldown active from recent greeting');
       return;
     }
     
@@ -163,9 +162,9 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       const greetingMessage = aiMessages[0];
       const greetingConversationId = conversationId; // Capture for closure
       
-      // IMMEDIATELY mark as played in sessionStorage to prevent race conditions
+      // IMMEDIATELY mark greeting time to prevent race conditions
       // This prevents duplicate greeting synthesis when page reloads (mobile apps)
-      markGreetingPlayed(greetingConversationId);
+      markGreetingPlayed();
       hasPlayedGreetingRef.current = greetingConversationId;
       
       // Generate TTS for the greeting (but don't change state yet)
