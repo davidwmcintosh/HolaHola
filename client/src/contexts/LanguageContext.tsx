@@ -11,8 +11,8 @@ interface LanguageContextType {
   setDifficulty: (diff: DifficultyLevel) => void;
   userName: string;
   setUserName: (name: string) => void;
-  wordHighlightEnabled: boolean;
-  setWordHighlightEnabled: (enabled: boolean) => void;
+  subtitlesEnabled: boolean;
+  setSubtitlesEnabled: (enabled: boolean) => void;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -32,6 +32,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     const savedName = localStorage.getItem("userName") || "";
     console.log('[LanguageContext] Initializing with userName:', savedName || '(empty)', '(from localStorage)');
     return savedName;
+  });
+  const [subtitlesEnabled, setSubtitlesEnabledState] = useState(() => {
+    const saved = localStorage.getItem("subtitlesEnabled");
+    const enabled = saved === null ? true : saved === "true";
+    console.log('[LanguageContext] Initializing with subtitlesEnabled:', enabled, '(from localStorage)');
+    return enabled;
   });
 
   // Fetch user preferences from database and sync with context
@@ -106,8 +112,14 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     setUserNameState(name);
   };
 
+  const setSubtitlesEnabled = (enabled: boolean) => {
+    console.log('[LanguageContext] Setting subtitlesEnabled:', enabled);
+    localStorage.setItem("subtitlesEnabled", String(enabled));
+    setSubtitlesEnabledState(enabled);
+  };
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, difficulty, setDifficulty, userName, setUserName }}>
+    <LanguageContext.Provider value={{ language, setLanguage, difficulty, setDifficulty, userName, setUserName, subtitlesEnabled, setSubtitlesEnabled }}>
       {children}
     </LanguageContext.Provider>
   );

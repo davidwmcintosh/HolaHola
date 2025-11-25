@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Radio } from "lucide-react";
 import { type Message, type Conversation } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
+import { type WordTiming } from "@/lib/restVoiceApi";
 
 interface VoiceChatViewManagerProps {
   conversationId: string | null;
@@ -18,6 +19,8 @@ interface VoiceChatViewManagerProps {
   audioElementRef?: React.RefObject<HTMLAudioElement>;
   onReplay?: () => void;
   canReplay?: boolean;
+  wordTimings?: WordTiming[];
+  subtitlesEnabled?: boolean;
 }
 
 export function VoiceChatViewManager({
@@ -32,6 +35,8 @@ export function VoiceChatViewManager({
   audioElementRef,
   onReplay,
   canReplay,
+  wordTimings,
+  subtitlesEnabled,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -123,6 +128,8 @@ export function VoiceChatViewManager({
                 audioElementRef={audioElementRef}
                 onReplay={onReplay}
                 canReplay={canReplay}
+                wordTimings={wordTimings}
+                subtitlesEnabled={subtitlesEnabled}
               />
             </div>
           ) : (

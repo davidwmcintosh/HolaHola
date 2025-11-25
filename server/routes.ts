@@ -3013,6 +3013,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
         language,
         voice,
         targetLanguage, // Pass target language for SSML phoneme tag processing
+        returnTimings, // Request word-level timing data for subtitle sync
       });
 
       console.log(`[TTS] ✓ Generated ${result.audioBuffer.length} bytes using ${ttsService.getProvider()} provider`);

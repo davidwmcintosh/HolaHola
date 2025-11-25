@@ -6,7 +6,9 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut } from "lucide-react";
+import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Subtitles } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -47,7 +49,7 @@ interface SubscriptionResponse {
 
 export default function Settings() {
   const { user, isLoading: authLoading } = useAuth();
-  const { userName, language } = useLanguage();
+  const { userName, language, subtitlesEnabled, setSubtitlesEnabled } = useLanguage();
   const [isResetting, setIsResetting] = useState(false);
   const { toast } = useToast();
   const logoutMutation = useLogout();
@@ -212,6 +214,33 @@ export default function Settings() {
               {logoutMutation.isPending ? "Signing out..." : "Sign Out"}
             </Button>
           </CardFooter>
+        </Card>
+
+        {/* Voice Settings */}
+        <Card data-testid="card-voice-settings">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Subtitles className="h-5 w-5" />
+              Voice Settings
+            </CardTitle>
+            <CardDescription>Customize your voice learning experience</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="subtitles-toggle" className="text-base">Subtitles</Label>
+                <p className="text-sm text-muted-foreground">
+                  Highlight words as they are spoken to help you follow along
+                </p>
+              </div>
+              <Switch
+                id="subtitles-toggle"
+                checked={subtitlesEnabled}
+                onCheckedChange={setSubtitlesEnabled}
+                data-testid="switch-subtitles"
+              />
+            </div>
+          </CardContent>
         </Card>
 
         {/* Subscription Status */}

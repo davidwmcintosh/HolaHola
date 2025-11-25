@@ -16,6 +16,7 @@ export interface TTSRequest {
   language?: string; // Voice language (e.g., "spanish" for Spanish accent)
   voice?: string;
   targetLanguage?: string; // Target learning language for phoneme tag processing
+  returnTimings?: boolean; // Request word-level timing data for subtitle sync
 }
 
 /**
@@ -191,7 +192,7 @@ export class TTSService {
    * This preserves authentic voice quality for language learning
    */
   async synthesize(request: TTSRequest): Promise<TTSResponse> {
-    const { text, language, voice, targetLanguage } = request;
+    const { text, language, voice, targetLanguage, returnTimings } = request;
 
     // Google Cloud TTS is required for authentic language learning voices
     if (!this.googleClient) {
@@ -199,7 +200,7 @@ export class TTSService {
     }
 
     try {
-      return await this.synthesizeWithGoogle(text, language, targetLanguage);
+      return await this.synthesizeWithGoogle(text, language, targetLanguage, returnTimings);
     } catch (error: any) {
       // Enhanced error logging with actionable diagnostics
       console.error('┌─────────────────────────────────────────────────────────────┐');
@@ -513,6 +514,63 @@ export class TTSService {
   }
 
   /**
+   * Synthesize speech with word-level timing data using v1beta1 API
+   * Uses SSML with <mark> tags to get precise word boundaries
+   * Always uses Neural2 voices since Chirp doesn't support SSML
+   */
+  private async synthesizeWithTimings(text: string, language: string): Promise<TTSResponse> {
+    if (!this.googleBetaClient) {
+      throw new Error('Google Cloud TTS Beta client not initialized');
+    }
+
+    // Use Neural2 voice for SSML compatibility (Chirp doesn't support SSML)
+    const voiceConfig = GOOGLE_SSML_VOICE_MAP[language] || GOOGLE_SSML_VOICE_MAP['english'];
+    console.log(`[Google TTS Timing] Using Neural2 voice: ${voiceConfig.name} for word timing`);
+
+    // Convert text to SSML with mark tags between words
+    const { ssml, words } = this.textToSSMLWithMarks(text);
+    console.log(`[Google TTS Timing] SSML with ${words.length} words`);
+
+    // Use v1beta1 API with enableTimePointing to get word boundaries
+    // TimepointType enum: 0 = TIMEPOINT_TYPE_UNSPECIFIED, 1 = SSML_MARK
+    const request = {
+      input: { ssml },
+      voice: {
+        languageCode: voiceConfig.languageCode,
+        name: voiceConfig.name,
+      },
+      audioConfig: {
+        audioEncoding: 'MP3' as const,
+        speakingRate: 0.9,
+        pitch: 0,
+        volumeGainDb: 0,
+      },
+      enableTimePointing: [1], // 1 = SSML_MARK
+    };
+
+    // Cast to any to work around strict typing with v1beta1 specific fields
+    const [response] = await (this.googleBetaClient.synthesizeSpeech(request as any) as Promise<any[]>);
+
+    if (!response.audioContent) {
+      throw new Error('Google TTS returned no audio content');
+    }
+
+    const audioBuffer = Buffer.from(response.audioContent as Uint8Array);
+    
+    // Parse timepoints into word timing array
+    const timepoints = response.timepoints || [];
+    const wordTimings = this.parseWordTimings(timepoints, words);
+    
+    console.log(`[Google TTS Timing] ✓ Generated ${audioBuffer.length} bytes with ${wordTimings.length} word timings`);
+
+    return {
+      audioBuffer,
+      contentType: 'audio/mpeg',
+      wordTimings,
+    };
+  }
+
+  /**
    * Synthesize speech using Google Cloud TTS (Neural2 and Chirp 3 HD voices)
    * Uses the target language voice consistently for authentic pronunciation
    * 
@@ -522,8 +580,9 @@ export class TTSService {
    * @param text - Text to synthesize
    * @param language - Voice language (e.g., "spanish" for Spanish accent)
    * @param targetLanguage - Target learning language for SSML phoneme tags (optional)
+   * @param returnTimings - Whether to return word-level timing data for subtitles
    */
-  private async synthesizeWithGoogle(text: string, language?: string, targetLanguage?: string): Promise<TTSResponse> {
+  private async synthesizeWithGoogle(text: string, language?: string, targetLanguage?: string, returnTimings?: boolean): Promise<TTSResponse> {
     if (!this.googleClient) {
       throw new Error('Google Cloud TTS client not initialized');
     }
@@ -534,6 +593,12 @@ export class TTSService {
       selectedLanguage = language.toLowerCase();
     } else {
       selectedLanguage = this.detectLanguage(text);
+    }
+
+    // If word timings are requested, use SSML with marks and Neural2 voice (Chirp doesn't support SSML)
+    if (returnTimings && this.googleBetaClient) {
+      console.log(`[Google TTS] Word timings requested - using SSML with marks`);
+      return this.synthesizeWithTimings(text, selectedLanguage);
     }
 
     // Apply SSML phoneme tags for embedded target-language words if targetLanguage provided

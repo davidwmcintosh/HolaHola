@@ -6,6 +6,23 @@ import { apiRequest } from './queryClient';
  */
 
 /**
+ * Word-level timing for synchronized subtitles
+ */
+export interface WordTiming {
+  word: string;
+  startTime: number;
+  endTime: number;
+}
+
+/**
+ * Result of speech synthesis with optional word timings
+ */
+export interface SynthesisResult {
+  audioBlob: Blob;
+  wordTimings?: WordTiming[];
+}
+
+/**
  * Upload audio and get transcription from Whisper
  */
 export async function transcribeAudio(audioBlob: Blob, language?: string): Promise<string> {
@@ -47,15 +64,17 @@ export async function transcribeAudio(audioBlob: Blob, language?: string): Promi
 
 /**
  * Synthesize speech from text using TTS
- * Returns an audio blob (MP3)
+ * Returns an audio blob (MP3) and optionally word timings for subtitle sync
  * language: Target language for pronunciation (e.g., 'spanish', 'french')
+ * returnTimings: If true, requests word-level timing data for synchronized subtitles
  */
 export async function synthesizeSpeech(
   text: string, 
   language?: string, 
   voice?: string, 
-  targetLanguage?: string
-): Promise<Blob> {
+  targetLanguage?: string,
+  returnTimings?: boolean
+): Promise<SynthesisResult> {
   // Use nova voice for better multilingual pronunciation (default to nova if language specified)
   const selectedVoice = voice || (language ? 'nova' : 'alloy');
   
@@ -69,6 +88,7 @@ export async function synthesizeSpeech(
       voice: selectedVoice, 
       language,
       targetLanguage, // Pass target language for SSML phoneme tags
+      returnTimings, // Request word-level timing data
     }),
     credentials: 'include', // Include auth cookies
   });
@@ -93,8 +113,24 @@ export async function synthesizeSpeech(
     throw new Error(errorMessage);
   }
 
-  // Response is MP3 audio blob
-  return await response.blob();
+  // Check if response is JSON (with timings) or binary audio
+  const contentType = response.headers.get('content-type');
+  
+  if (contentType?.includes('application/json')) {
+    // Response includes word timings
+    const data = await response.json();
+    const audioBuffer = Uint8Array.from(atob(data.audio), c => c.charCodeAt(0));
+    const audioBlob = new Blob([audioBuffer], { type: data.contentType || 'audio/mpeg' });
+    return {
+      audioBlob,
+      wordTimings: data.wordTimings,
+    };
+  }
+
+  // Response is MP3 audio blob only
+  return {
+    audioBlob: await response.blob(),
+  };
 }
 
 /**
@@ -104,6 +140,7 @@ export interface VoiceChatResult {
   userTranscript: string;
   aiResponse: string;
   audioBlob: Blob;
+  wordTimings?: WordTiming[];
   conversationUpdated?: {
     id: string;
     language?: string;
@@ -115,7 +152,8 @@ export interface VoiceChatResult {
 export async function processVoiceMessage(
   audioBlob: Blob,
   conversationId: string,
-  language?: string
+  language?: string,
+  returnTimings?: boolean
 ): Promise<VoiceChatResult> {
   // Step 1: Transcribe audio
   const userTranscript = await transcribeAudio(audioBlob, language);
@@ -178,14 +216,15 @@ export async function processVoiceMessage(
   // Text has no quotes to prevent punctuation artifacts like "cada" sounds
   const ttsLanguage = targetLanguage;
   
-  console.log('[VOICE TTS] Using', ttsLanguage, 'voice for authentic pronunciation, teaching:', targetLanguage);
+  console.log('[VOICE TTS] Using', ttsLanguage, 'voice for authentic pronunciation, teaching:', targetLanguage, 'returnTimings:', returnTimings);
   
-  const ttsAudioBlob = await synthesizeSpeech(aiResponse, ttsLanguage, undefined, targetLanguage);
+  const ttsResult = await synthesizeSpeech(aiResponse, ttsLanguage, undefined, targetLanguage, returnTimings);
 
   return {
     userTranscript,
     aiResponse,
-    audioBlob: ttsAudioBlob,
+    audioBlob: ttsResult.audioBlob,
+    wordTimings: ttsResult.wordTimings,
     conversationUpdated: chatData.conversationUpdated,
   };
 }

@@ -24,6 +24,8 @@ interface ImmersiveTutorProps {
   audioElementRef?: React.RefObject<HTMLAudioElement>; // Reference to the actual audio element
   onReplay?: () => void; // Replay last audio
   canReplay?: boolean; // Whether replay is available
+  wordTimings?: WordTiming[]; // Word-level timing data for synchronized subtitles
+  subtitlesEnabled?: boolean; // Whether subtitle highlighting is enabled
 }
 
 export function ImmersiveTutor({
@@ -39,6 +41,8 @@ export function ImmersiveTutor({
   audioElementRef,
   onReplay,
   canReplay,
+  wordTimings,
+  subtitlesEnabled = false,
 }: ImmersiveTutorProps) {
   const [currentText, setCurrentText] = useState<string>("");
   const [currentWordTimings, setCurrentWordTimings] = useState<WordTiming[]>([]);
@@ -58,15 +62,19 @@ export function ImmersiveTutor({
     if (currentPlayingMessageId && isPlaying) {
       const message = messages.find(m => m.id === currentPlayingMessageId);
       if (message && message.role === "assistant") {
-        // PHASE 3: Fast foreign-language display
         // Show ONLY target language text immediately - fast and stable
-        // If no targetLanguageText (e.g., greetings), show nothing (immersive learning)
-        const displayText = message.targetLanguageText || "";
+        // If no targetLanguageText (e.g., greetings), show the content
+        const displayText = message.targetLanguageText || message.content || "";
         setCurrentText(displayText);
         
-        // Not using word timings or karaoke highlighting for speed/stability
-        setCurrentWordTimings([]);
-        setHighlightedWordIndex(-1);
+        // Use word timings for karaoke highlighting when subtitles are enabled
+        if (subtitlesEnabled && wordTimings && wordTimings.length > 0) {
+          console.log('[SUBTITLES] Enabling word highlighting with', wordTimings.length, 'words');
+          setCurrentWordTimings(wordTimings);
+        } else {
+          setCurrentWordTimings([]);
+          setHighlightedWordIndex(-1);
+        }
       }
     } else if (!isPlaying && currentPlayingMessageId) {
       // Audio finished - Keep text visible for reading practice
@@ -79,7 +87,7 @@ export function ImmersiveTutor({
       subtitleTimersRef.current.forEach(timer => clearTimeout(timer));
       subtitleTimersRef.current = [];
     };
-  }, [currentPlayingMessageId, isPlaying, messages]);
+  }, [currentPlayingMessageId, isPlaying, messages, subtitlesEnabled, wordTimings]);
 
   // Sync word highlighting with audio playback
   useEffect(() => {

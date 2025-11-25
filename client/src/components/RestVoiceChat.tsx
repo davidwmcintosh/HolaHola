@@ -5,7 +5,7 @@ import { Mic, MicOff, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery } from "@tanstack/react-query";
 import { type Message } from "@shared/schema";
-import { processVoiceMessage, synthesizeSpeech } from "@/lib/restVoiceApi";
+import { processVoiceMessage, synthesizeSpeech, type WordTiming } from "@/lib/restVoiceApi";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 import { CompactDifficultyControl } from "@/components/CompactDifficultyControl";
 import { LanguageSelector } from "@/components/LanguageSelector";
@@ -19,7 +19,7 @@ interface RestVoiceChatProps {
 }
 
 export function RestVoiceChat({ conversationId, setConversationId, setCurrentConversationOnboarding }: RestVoiceChatProps) {
-  const { language, difficulty, setLanguage } = useLanguage();
+  const { language, difficulty, setLanguage, subtitlesEnabled } = useLanguage();
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStage, setProcessingStage] = useState<string | null>(null);
@@ -30,6 +30,10 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   // Store last audio for replay functionality
   const [lastAudioBlob, setLastAudioBlob] = useState<Blob | null>(null);
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
+  
+  // Word timing data for synchronized subtitles - persisted per message ID
+  // Using a ref to persist across re-renders without causing re-renders
+  const wordTimingsMapRef = useRef<Map<string, WordTiming[]>>(new Map());
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
@@ -106,12 +110,14 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       hasPlayedGreetingRef.current = greetingConversationId;
       
       // Generate TTS for the greeting (but don't change state yet)
-      console.log('[VOICE GREETING] Generating greeting audio for new conversation');
+      // Request word timings when subtitles are enabled for karaoke highlighting
+      console.log('[VOICE GREETING] Generating greeting audio for new conversation (subtitles:', subtitlesEnabled, ')');
       
       // Use target language voice for consistency (Spanish voice speaks English = Spanish accent)
       // This gives immersive learning experience from the very first word
-      synthesizeSpeech(greetingMessage.content, language)
-        .then(audioBlob => {
+      synthesizeSpeech(greetingMessage.content, language, undefined, undefined, subtitlesEnabled)
+        .then(result => {
+          const audioBlob = result.audioBlob;
           // Use refs to check current state (not stale closure values)
           // Don't play if:
           // 1. User started recording or processing
@@ -124,6 +130,12 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           if (currentConversationRef.current !== greetingConversationId) {
             console.log('[VOICE GREETING] Skipping playback - conversation changed');
             return;
+          }
+          
+          // Store word timings for karaoke highlighting if received
+          if (result.wordTimings && result.wordTimings.length > 0) {
+            wordTimingsMapRef.current.set(greetingMessage.id, result.wordTimings);
+            console.log('[VOICE GREETING] Stored word timings for greeting:', greetingMessage.id, result.wordTimings.length, 'words');
           }
           
           if (audioPlayerRef.current) {
@@ -163,7 +175,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           console.error('[VOICE GREETING] Failed to generate greeting audio:', err);
         });
     }
-  }, [messages, conversationId, language, isProcessing, isRecording]);
+  }, [messages, conversationId, language, isProcessing, isRecording, subtitlesEnabled]);
 
   // Enter key keyboard shortcut for mic button
   useEffect(() => {
@@ -521,14 +533,17 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       setProcessingStage('Getting response...');
       console.log('[REST VOICE] Sending to GPT...');
       
-      // Step 3: Synthesize speech
+      // Step 3: Synthesize speech (with word timings if subtitles enabled)
       setProcessingStage('Synthesizing speech...');
-      console.log('[REST VOICE] Generating speech...');
+      console.log('[REST VOICE] Generating speech... (subtitles:', subtitlesEnabled, ')');
       
-      const result = await processVoiceMessage(audioBlob, targetConversationId, language);
+      const result = await processVoiceMessage(audioBlob, targetConversationId, language, subtitlesEnabled);
       
       console.log('[REST VOICE] ✓ Transcript:', result.userTranscript);
       console.log('[REST VOICE] ✓ Response:', result.aiResponse);
+      if (result.wordTimings) {
+        console.log('[REST VOICE] ✓ Word timings received:', result.wordTimings.length, 'words');
+      }
       
       // Handle conversation updates (language switch, onboarding, etc.)
       if (result.conversationUpdated) {
@@ -570,6 +585,12 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         setLastAudioBlob(result.audioBlob);
         if (latestAssistantMessage) {
           setLastMessageId(latestAssistantMessage.id);
+        }
+        
+        // Store word timings for subtitle synchronization - persist by message ID
+        if (result.wordTimings && subtitlesEnabled && latestAssistantMessage) {
+          wordTimingsMapRef.current.set(latestAssistantMessage.id, result.wordTimings);
+          console.log('[SUBTITLES] Stored word timings for message:', latestAssistantMessage.id);
         }
         
         const audioUrl = URL.createObjectURL(result.audioBlob);
@@ -704,6 +725,8 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           audioElementRef={audioPlayerRef}
           onReplay={replayLastAudio}
           canReplay={!!lastAudioBlob && !isProcessing && avatarState !== 'speaking'}
+          wordTimings={currentPlayingMessageId ? wordTimingsMapRef.current.get(currentPlayingMessageId) : undefined}
+          subtitlesEnabled={subtitlesEnabled}
         />
       </div>
     </div>
