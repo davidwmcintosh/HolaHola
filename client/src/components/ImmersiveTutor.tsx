@@ -1,10 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, MessageSquare, RotateCcw } from "lucide-react";
+import { Mic, MicOff, MessageSquare, RotateCcw, Volume2 } from "lucide-react";
 import { type Message } from "@shared/schema";
-import Lottie from "lottie-react";
-import tutorIdleAnimation from "@assets/lottie/teacher_idle.json";
-import tutorSpeakingAnimation from "@assets/lottie/teacher_speaking.json";
 
 interface WordTiming {
   word: string;
@@ -112,26 +109,85 @@ export function ImmersiveTutor({
     };
   }, [isPlaying, currentWordTimings, audioElementRef]);
 
-  // Determine which animation to show
-  const currentAnimation = isPlaying ? tutorSpeakingAnimation : tutorIdleAnimation;
+  // Determine avatar state
+  const avatarState = isRecording ? "listening" : isPlaying ? "speaking" : "idle";
+
+  // Get state styles and content
+  const getStateConfig = () => {
+    if (isRecording) {
+      return {
+        bg: "bg-destructive/15",
+        border: "border-destructive",
+        glow: "shadow-2xl shadow-destructive/40",
+        animation: "animate-pulse",
+        icon: <Mic className="w-16 h-16 md:w-20 md:w-20 text-destructive" />,
+        label: "Listening to you...",
+        showPing: false,
+      };
+    }
+    if (isPlaying) {
+      return {
+        bg: "bg-primary/20",
+        border: "border-primary",
+        glow: "shadow-2xl shadow-primary/50",
+        animation: "",
+        icon: <Volume2 className="w-16 h-16 md:w-20 md:w-20 text-primary" />,
+        label: "Teaching",
+        showPing: true, // Distinct animation for speaking
+      };
+    }
+    return {
+      bg: "bg-muted/30",
+      border: "border-muted-foreground/30",
+      glow: "",
+      animation: "",
+      icon: null,
+      label: "Ready to help",
+      showPing: false,
+    };
+  };
+
+  const stateConfig = getStateConfig();
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
-      {/* Fixed Tutor Visual */}
+      {/* Minimal Visual Indicator with clear state */}
       <div className="flex-shrink-0 relative w-full aspect-square md:aspect-video max-h-[60vh] bg-gradient-to-b from-muted/30 to-background">
         <div
-          className="w-full h-full flex items-center justify-center transition-opacity duration-300"
-          data-testid={isPlaying ? "avatar-state-speaking" : "avatar-state-idle"}
+          className="w-full h-full flex flex-col items-center justify-center p-8 gap-6"
+          data-testid={avatarState === "speaking" ? "avatar-state-speaking" : "avatar-state-idle"}
         >
-          <Lottie
-            animationData={currentAnimation}
-            loop={true}
-            autoplay={true}
-            style={{ width: "100%", height: "100%", maxWidth: "600px" }}
-            rendererSettings={{
-              preserveAspectRatio: "xMidYMid meet"
-            }}
-          />
+          {/* Simple clean circle with icon - minimal but clear */}
+          <div className="relative">
+            <div
+              className={`
+                w-48 h-48 md:w-64 md:h-64 rounded-full
+                ${stateConfig.bg} ${stateConfig.border} ${stateConfig.glow} ${stateConfig.animation}
+                border-8
+                transition-all duration-500
+                flex items-center justify-center relative
+              `}
+              aria-label={`Tutor: ${stateConfig.label}`}
+            >
+              {/* Ping animation for speaking only - distinct from listening */}
+              {stateConfig.showPing && (
+                <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-75 animate-ping" />
+              )}
+              
+              {/* Icon indicator */}
+              {stateConfig.icon && (
+                <span className="relative z-10">{stateConfig.icon}</span>
+              )}
+            </div>
+          </div>
+          
+          {/* Clear state label */}
+          <p 
+            className="text-lg md:text-xl text-muted-foreground font-medium"
+            aria-live="polite"
+          >
+            {stateConfig.label}
+          </p>
         </div>
         
         {/* Recording Indicator */}

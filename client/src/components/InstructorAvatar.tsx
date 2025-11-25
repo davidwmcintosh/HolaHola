@@ -1,7 +1,4 @@
-import { useState, useEffect } from "react";
-import idleImage from "@assets/generated_images/Friendly_teacher_idle_state_fd4580c6.png";
-import listeningImage from "@assets/generated_images/Teacher_listening_attentively_f9f6c37e.png";
-import speakingImage from "@assets/generated_images/Teacher_speaking_animatedly_62a6f01b.png";
+import { Mic, Volume2 } from "lucide-react";
 
 export type AvatarState = "idle" | "listening" | "speaking";
 
@@ -11,95 +8,72 @@ interface InstructorAvatarProps {
 }
 
 export function InstructorAvatar({ state, className = "" }: InstructorAvatarProps) {
-  const [currentImage, setCurrentImage] = useState(idleImage);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-
-  // Update image when state changes
-  useEffect(() => {
-    let newImage = idleImage;
-    
-    switch (state) {
-      case "idle":
-        newImage = idleImage;
-        break;
-      case "listening":
-        newImage = listeningImage;
-        break;
-      case "speaking":
-        newImage = speakingImage;
-        break;
-    }
-
-    if (newImage !== currentImage) {
-      setIsTransitioning(true);
-      setTimeout(() => {
-        setCurrentImage(newImage);
-        setIsTransitioning(false);
-      }, 150);
-    }
-  }, [state, currentImage]);
-
-  // Get animation classes based on state
-  const getAnimationClass = () => {
+  // Get colors and animation based on state - different animations for clarity
+  const getStateStyles = () => {
     switch (state) {
       case "listening":
-        return "animate-pulse";
+        return {
+          bg: "bg-primary/15",
+          border: "border-primary",
+          glow: "shadow-lg shadow-primary/30",
+          pulse: "animate-pulse", // Slow pulse for listening
+          icon: <Mic className="w-6 h-6 text-primary" />,
+          label: "Listening",
+        };
       case "speaking":
-        return "animate-bounce-subtle";
+        return {
+          bg: "bg-primary/25",
+          border: "border-primary",
+          glow: "shadow-xl shadow-primary/50",
+          pulse: "", // No pulse - use ping animation instead
+          icon: <Volume2 className="w-6 h-6 text-primary" />,
+          label: "Teaching",
+        };
       default:
-        return "";
+        return {
+          bg: "bg-muted/50",
+          border: "border-muted-foreground/20",
+          glow: "",
+          pulse: "",
+          icon: null,
+          label: "Ready",
+        };
     }
   };
 
+  const styles = getStateStyles();
+
   return (
     <div className={`relative ${className}`} data-testid="instructor-avatar">
-      <div
-        className={`relative transition-all duration-300 ${
-          isTransitioning ? "opacity-50 scale-95" : "opacity-100 scale-100"
-        }`}
-      >
-        {/* Glow effect for speaking state */}
-        {state === "speaking" && (
-          <div className="absolute inset-0 -z-10 animate-pulse">
-            <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl" />
-          </div>
-        )}
-
-        {/* Listening indicator */}
-        {state === "listening" && (
-          <div className="absolute -top-2 -right-2 z-10">
-            <div className="bg-primary text-primary-foreground rounded-full px-3 py-1 text-xs font-medium flex items-center gap-1 animate-pulse">
-              <div className="w-2 h-2 bg-primary-foreground rounded-full animate-pulse" />
-              Listening
-            </div>
-          </div>
-        )}
-
-        {/* Main avatar image */}
-        <div
-          className={`relative overflow-hidden rounded-2xl bg-card border-2 ${
-            state === "speaking"
-              ? "border-primary shadow-lg shadow-primary/20"
-              : state === "listening"
-              ? "border-primary/50"
-              : "border-border"
-          } ${getAnimationClass()}`}
-        >
-          <img
-            src={currentImage}
-            alt={`Language instructor - ${state}`}
-            className="w-full h-full object-cover"
+      <div className="flex flex-col items-center gap-2">
+        {/* Minimal circular avatar with icon */}
+        <div className="relative">
+          <div
+            className={`
+              aspect-square rounded-full
+              ${styles.bg} ${styles.border} ${styles.glow} ${styles.pulse}
+              border-4
+              transition-all duration-500
+              flex items-center justify-center
+            `}
+            aria-label={`Tutor status: ${styles.label}`}
             data-testid={`avatar-state-${state}`}
-          />
+          >
+            {/* Ping animation ring for speaking state only */}
+            {state === "speaking" && (
+              <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-75 animate-ping" />
+            )}
+            
+            {/* Icon indicator */}
+            {styles.icon && (
+              <span className="relative z-10">{styles.icon}</span>
+            )}
+          </div>
         </div>
-      </div>
-
-      {/* State label */}
-      <div className="mt-2 text-center">
-        <p className="text-sm text-muted-foreground font-medium">
-          {state === "idle" && "Ready to help"}
-          {state === "listening" && "Listening carefully..."}
-          {state === "speaking" && "Teaching"}
+        
+        {/* State label - always visible for clarity */}
+        <p className="text-xs text-muted-foreground font-medium" aria-live="polite">
+          {styles.label}
         </p>
       </div>
     </div>
