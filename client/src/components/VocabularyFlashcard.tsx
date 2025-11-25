@@ -235,27 +235,15 @@ export function VocabularyFlashcard() {
           <ChevronLeft className="h-4 w-4" />
         </Button>
 
-        <div className="flex gap-2 items-center">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleFlip}
-            data-testid="button-flashcard-flip"
-          >
-            <RotateCw className="h-4 w-4 mr-2" />
-            Flip Card
-          </Button>
-          <div className="flex gap-2">
-            {vocabularyWords.map((_, index) => (
-              <div
-                key={index}
-                className={`h-2 w-2 rounded-full ${
-                  index === currentIndex ? "bg-primary" : "bg-muted"
-                }`}
-              />
-            ))}
-          </div>
-        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleFlip}
+          data-testid="button-flashcard-flip"
+        >
+          <RotateCw className="h-4 w-4 mr-2" />
+          Flip
+        </Button>
 
         <Button
           variant="outline"
