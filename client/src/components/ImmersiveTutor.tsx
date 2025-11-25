@@ -486,7 +486,7 @@ export function ImmersiveTutor({
             data-testid="button-slow-repeat"
             title="Repeat slowly and simply"
           >
-            <Turtle className="h-4 w-4 md:h-5 md:w-5" />
+            <Turtle className="h-5 w-5 md:h-6 md:w-6" />
           </Button>
         )}
         </div>
