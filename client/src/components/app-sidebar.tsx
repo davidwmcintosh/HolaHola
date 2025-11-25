@@ -70,12 +70,12 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="p-6">
+      <SidebarHeader className="px-6 pt-6 pb-3">
         <div className="flex items-center gap-2">
           <img 
             src={linguaflowLogo} 
             alt="LinguaFlow" 
-            className="h-16 w-16 object-contain -ml-1"
+            className="h-20 w-20 object-contain -ml-2"
             data-testid="img-logo"
           />
           <div>
