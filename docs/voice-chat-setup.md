@@ -63,9 +63,26 @@ Voice features use the following API keys (managed automatically via Replit AI I
 7. AI tutor will respond with voice and text
 8. Click "Type instead" to switch to text mode
 
+### Controls
+
+**Top Navigation Badges** (tap to toggle):
+- **Live/History**: Switch between live conversation view and message history
+- **Subtitles**: Cycle through subtitle modes:
+  - **Off**: No subtitles (pure audio immersion)
+  - **Target**: Shows only target language words (e.g., Spanish words only)
+  - **All**: Shows full transcript of what the tutor says
+
+**Bottom Buttons**:
+- **History** (left): Toggle to view conversation history
+- **Replay** (center-left): Replay the last tutor audio response
+- **Microphone** (center): Press and hold to record your voice
+- **Settings**: Access subtitle preferences in Settings > Voice Settings
+
 ## Features
 
 - **Push-to-Talk Recording**: Hold to record, release to send
+- **3-Mode Subtitle System**: Off (pure immersion), Target (target language only), All (full transcript)
+- **Replay Button**: Re-listen to the last tutor response for pronunciation practice
 - **Split Response Architecture**: Fast text response (~3.6s) with background enrichment
 - **Live Transcription**: Deepgram Nova-3 with <300ms latency and 54.3% better accuracy for non-native speakers
 - **Usage Tracking**: Monthly quota limits based on subscription tier
@@ -74,6 +91,7 @@ Voice features use the following API keys (managed automatically via Replit AI I
 - **Difficulty Adaptation**: AI adjusts language complexity based on level
 - **Seamless Mode Switching**: Switch between voice and text anytime
 - **Auto-Detect Language**: Deepgram automatically detects the language you speak
+- **Cold-Start Optimization**: Deepgram pre-warming reduces first response from ~20s to ~3s
 
 ## Troubleshooting
 
