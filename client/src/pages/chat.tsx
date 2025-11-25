@@ -32,10 +32,15 @@ export default function Chat() {
   const creationInProgressRef = useRef(false); // Prevent duplicate conversation creation
 
   // Auto-close sidebar when entering voice chat area
-  // This runs once on mount - works for Call Tutor, New Chat, and Start Practicing
+  // This runs ONLY ONCE on initial mount - works for Call Tutor, New Chat, and Start Practicing
+  // Empty dependency array ensures user can reopen sidebar after initial close
+  const hasClosedSidebarRef = useRef(false);
   useEffect(() => {
-    setOpen(false);      // Close desktop sidebar
-    setOpenMobile(false); // Close mobile sidebar
+    if (!hasClosedSidebarRef.current) {
+      hasClosedSidebarRef.current = true;
+      setOpen(false);      // Close desktop sidebar
+      setOpenMobile(false); // Close mobile sidebar
+    }
   }, [setOpen, setOpenMobile]);
 
   // Reset conversationId when language changes to trigger new conversation creation

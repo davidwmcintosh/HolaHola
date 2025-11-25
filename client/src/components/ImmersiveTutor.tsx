@@ -379,8 +379,8 @@ export function ImmersiveTutor({
       {/* Spacer */}
       <div className="flex-1 min-h-0" />
 
-      {/* Floating Microphone Button */}
-      <div className="flex-shrink-0 p-6 flex flex-col items-center gap-3">
+      {/* Floating Microphone Button - pb-20 accounts for floating menu button */}
+      <div className="flex-shrink-0 p-6 pb-20 flex flex-col items-center gap-3">
         {/* Instruction text */}
         <p className="text-sm text-muted-foreground" data-testid="text-mic-instruction">
           {isRecording ? "Release to send" : isProcessing ? "Processing..." : "Hold to speak"}
