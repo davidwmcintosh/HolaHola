@@ -19,7 +19,7 @@ interface RestVoiceChatProps {
 }
 
 export function RestVoiceChat({ conversationId, setConversationId, setCurrentConversationOnboarding }: RestVoiceChatProps) {
-  const { language, difficulty, setLanguage, subtitlesEnabled } = useLanguage();
+  const { language, difficulty, setLanguage, subtitleMode } = useLanguage();
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStage, setProcessingStage] = useState<string | null>(null);
@@ -111,11 +111,12 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       
       // Generate TTS for the greeting (but don't change state yet)
       // Request word timings when subtitles are enabled for karaoke highlighting
-      console.log('[VOICE GREETING] Generating greeting audio for new conversation (subtitles:', subtitlesEnabled, ')');
+      const needTimings = subtitleMode !== "off";
+      console.log('[VOICE GREETING] Generating greeting audio for new conversation (subtitleMode:', subtitleMode, ')');
       
       // Use target language voice for consistency (Spanish voice speaks English = Spanish accent)
       // This gives immersive learning experience from the very first word
-      synthesizeSpeech(greetingMessage.content, language, undefined, undefined, subtitlesEnabled)
+      synthesizeSpeech(greetingMessage.content, language, undefined, undefined, needTimings)
         .then(result => {
           const audioBlob = result.audioBlob;
           // Use refs to check current state (not stale closure values)
@@ -175,7 +176,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           console.error('[VOICE GREETING] Failed to generate greeting audio:', err);
         });
     }
-  }, [messages, conversationId, language, isProcessing, isRecording, subtitlesEnabled]);
+  }, [messages, conversationId, language, isProcessing, isRecording, subtitleMode]);
 
   // Enter key keyboard shortcut for mic button
   useEffect(() => {
@@ -535,9 +536,10 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       
       // Step 3: Synthesize speech (with word timings if subtitles enabled)
       setProcessingStage('Synthesizing speech...');
-      console.log('[REST VOICE] Generating speech... (subtitles:', subtitlesEnabled, ')');
+      const needTimings = subtitleMode !== "off";
+      console.log('[REST VOICE] Generating speech... (subtitleMode:', subtitleMode, ')');
       
-      const result = await processVoiceMessage(audioBlob, targetConversationId, language, subtitlesEnabled);
+      const result = await processVoiceMessage(audioBlob, targetConversationId, language, needTimings);
       
       console.log('[REST VOICE] ✓ Transcript:', result.userTranscript);
       console.log('[REST VOICE] ✓ Response:', result.aiResponse);
@@ -588,7 +590,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         }
         
         // Store word timings for subtitle synchronization - persist by message ID
-        if (result.wordTimings && subtitlesEnabled && latestAssistantMessage) {
+        if (result.wordTimings && subtitleMode !== "off" && latestAssistantMessage) {
           wordTimingsMapRef.current.set(latestAssistantMessage.id, result.wordTimings);
           console.log('[SUBTITLES] Stored word timings for message:', latestAssistantMessage.id);
         }
@@ -726,7 +728,6 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           onReplay={replayLastAudio}
           canReplay={!!lastAudioBlob && !isProcessing && avatarState !== 'speaking'}
           wordTimings={currentPlayingMessageId ? wordTimingsMapRef.current.get(currentPlayingMessageId) : undefined}
-          subtitlesEnabled={subtitlesEnabled}
         />
       </div>
     </div>

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
 
 type DifficultyLevel = "beginner" | "intermediate" | "advanced";
+export type SubtitleMode = "off" | "target" | "all";
 
 interface LanguageContextType {
   language: string;
@@ -11,8 +12,8 @@ interface LanguageContextType {
   setDifficulty: (diff: DifficultyLevel) => void;
   userName: string;
   setUserName: (name: string) => void;
-  subtitlesEnabled: boolean;
-  setSubtitlesEnabled: (enabled: boolean) => void;
+  subtitleMode: SubtitleMode;
+  setSubtitleMode: (mode: SubtitleMode) => void;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -33,11 +34,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     console.log('[LanguageContext] Initializing with userName:', savedName || '(empty)', '(from localStorage)');
     return savedName;
   });
-  const [subtitlesEnabled, setSubtitlesEnabledState] = useState(() => {
-    const saved = localStorage.getItem("subtitlesEnabled");
-    const enabled = saved === null ? true : saved === "true";
-    console.log('[LanguageContext] Initializing with subtitlesEnabled:', enabled, '(from localStorage)');
-    return enabled;
+  const [subtitleMode, setSubtitleModeState] = useState<SubtitleMode>(() => {
+    const saved = localStorage.getItem("subtitleMode") as SubtitleMode;
+    const mode = saved && ["off", "target", "all"].includes(saved) ? saved : "target";
+    console.log('[LanguageContext] Initializing with subtitleMode:', mode, '(from localStorage)');
+    return mode;
   });
 
   // Fetch user preferences from database and sync with context
@@ -112,14 +113,14 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     setUserNameState(name);
   };
 
-  const setSubtitlesEnabled = (enabled: boolean) => {
-    console.log('[LanguageContext] Setting subtitlesEnabled:', enabled);
-    localStorage.setItem("subtitlesEnabled", String(enabled));
-    setSubtitlesEnabledState(enabled);
+  const setSubtitleMode = (mode: SubtitleMode) => {
+    console.log('[LanguageContext] Setting subtitleMode:', mode);
+    localStorage.setItem("subtitleMode", mode);
+    setSubtitleModeState(mode);
   };
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, difficulty, setDifficulty, userName, setUserName, subtitlesEnabled, setSubtitlesEnabled }}>
+    <LanguageContext.Provider value={{ language, setLanguage, difficulty, setDifficulty, userName, setUserName, subtitleMode, setSubtitleMode }}>
       {children}
     </LanguageContext.Provider>
   );

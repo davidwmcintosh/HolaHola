@@ -6,8 +6,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Subtitles } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
+import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Subtitles, CaptionsOff, Languages, Captions } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -49,7 +49,7 @@ interface SubscriptionResponse {
 
 export default function Settings() {
   const { user, isLoading: authLoading } = useAuth();
-  const { userName, language, subtitlesEnabled, setSubtitlesEnabled } = useLanguage();
+  const { userName, language, subtitleMode, setSubtitleMode } = useLanguage();
   const [isResetting, setIsResetting] = useState(false);
   const { toast } = useToast();
   const logoutMutation = useLogout();
@@ -226,19 +226,41 @@ export default function Settings() {
             <CardDescription>Customize your voice learning experience</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="subtitles-toggle" className="text-base">Subtitles</Label>
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-0.5 flex-1">
+                <Label htmlFor="subtitles-select" className="text-base">Subtitles</Label>
                 <p className="text-sm text-muted-foreground">
-                  Highlight words as they are spoken to help you follow along
+                  Show text as the tutor speaks to help you follow along
                 </p>
               </div>
-              <Switch
-                id="subtitles-toggle"
-                checked={subtitlesEnabled}
-                onCheckedChange={setSubtitlesEnabled}
-                data-testid="switch-subtitles"
-              />
+              <Select
+                value={subtitleMode}
+                onValueChange={(value) => setSubtitleMode(value as "off" | "target" | "all")}
+              >
+                <SelectTrigger className="w-40" id="subtitles-select" data-testid="select-subtitles">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="off" data-testid="select-subtitles-off">
+                    <div className="flex items-center gap-2">
+                      <CaptionsOff className="h-4 w-4" />
+                      <span>Off</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="target" data-testid="select-subtitles-target">
+                    <div className="flex items-center gap-2">
+                      <Languages className="h-4 w-4" />
+                      <span>Target Only</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="all" data-testid="select-subtitles-all">
+                    <div className="flex items-center gap-2">
+                      <Captions className="h-4 w-4" />
+                      <span>All Words</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>

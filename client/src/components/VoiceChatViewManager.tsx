@@ -2,11 +2,11 @@ import { useState, useRef, TouchEvent } from "react";
 import { ImmersiveTutor } from "./ImmersiveTutor";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Radio, Captions, CaptionsOff } from "lucide-react";
+import { MessageSquare, Radio, Captions, CaptionsOff, Languages } from "lucide-react";
 import { type Message, type Conversation } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { type WordTiming } from "@/lib/restVoiceApi";
-import { useLanguage } from "@/contexts/LanguageContext";
+import { useLanguage, type SubtitleMode } from "@/contexts/LanguageContext";
 
 interface VoiceChatViewManagerProps {
   conversationId: string | null;
@@ -21,7 +21,6 @@ interface VoiceChatViewManagerProps {
   onReplay?: () => void;
   canReplay?: boolean;
   wordTimings?: WordTiming[];
-  subtitlesEnabled?: boolean;
 }
 
 export function VoiceChatViewManager({
@@ -37,14 +36,31 @@ export function VoiceChatViewManager({
   onReplay,
   canReplay,
   wordTimings,
-  subtitlesEnabled,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
   const touchStartY = useRef<number>(0);
   
-  // Get subtitles toggle from context
-  const { subtitlesEnabled: contextSubtitlesEnabled, setSubtitlesEnabled } = useLanguage();
+  // Get subtitles toggle from context (3 states: off, target, all)
+  const { subtitleMode, setSubtitleMode } = useLanguage();
+  
+  // Cycle through subtitle modes: off → target → all → off
+  const cycleSubtitleMode = () => {
+    const modes: SubtitleMode[] = ["off", "target", "all"];
+    const currentIndex = modes.indexOf(subtitleMode);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    setSubtitleMode(modes[nextIndex]);
+  };
+  
+  // Get display text and icon for current mode
+  const getSubtitleModeDisplay = () => {
+    switch (subtitleMode) {
+      case "off": return { label: "Off", Icon: CaptionsOff };
+      case "target": return { label: "Target", Icon: Languages };
+      case "all": return { label: "All", Icon: Captions };
+    }
+  };
+  const { label: subtitleLabel, Icon: SubtitleIcon } = getSubtitleModeDisplay();
 
   // Fetch conversation metadata (includes resume info) - Week 1 Feature
   const { data: conversationData } = useQuery<Conversation & { resumeMetadata?: { 
@@ -113,17 +129,13 @@ export function VoiceChatViewManager({
           History
         </Badge>
         <Badge
-          variant={contextSubtitlesEnabled ? "default" : "outline"}
+          variant={subtitleMode !== "off" ? "default" : "outline"}
           className="cursor-pointer"
-          onClick={() => setSubtitlesEnabled(!contextSubtitlesEnabled)}
+          onClick={cycleSubtitleMode}
           data-testid="badge-subtitles-toggle"
         >
-          {contextSubtitlesEnabled ? (
-            <Captions className="h-3 w-3 mr-1" />
-          ) : (
-            <CaptionsOff className="h-3 w-3 mr-1" />
-          )}
-          Subtitles
+          <SubtitleIcon className="h-3 w-3 mr-1" />
+          {subtitleLabel}
         </Badge>
       </div>
 
@@ -146,7 +158,7 @@ export function VoiceChatViewManager({
                 onReplay={onReplay}
                 canReplay={canReplay}
                 wordTimings={wordTimings}
-                subtitlesEnabled={subtitlesEnabled}
+                subtitleMode={subtitleMode}
               />
             </div>
           ) : (

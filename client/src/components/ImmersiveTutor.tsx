@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, MessageSquare, RotateCcw } from "lucide-react";
 import { type Message } from "@shared/schema";
+import { type SubtitleMode } from "@/contexts/LanguageContext";
 import tutorSpeakingUrl from "@assets/generated_images/Teacher_speaking_animatedly_62a6f01b.png";
 import tutorIdleUrl from "@assets/generated_images/Friendly_teacher_idle_state_fd4580c6.png";
 
@@ -25,7 +26,7 @@ interface ImmersiveTutorProps {
   onReplay?: () => void; // Replay last audio
   canReplay?: boolean; // Whether replay is available
   wordTimings?: WordTiming[]; // Word-level timing data for synchronized subtitles
-  subtitlesEnabled?: boolean; // Whether subtitle highlighting is enabled
+  subtitleMode?: SubtitleMode; // Subtitle display mode: off, target (target language only), all
 }
 
 export function ImmersiveTutor({
@@ -42,11 +43,11 @@ export function ImmersiveTutor({
   onReplay,
   canReplay,
   wordTimings,
-  subtitlesEnabled = false,
+  subtitleMode = "target",
 }: ImmersiveTutorProps) {
-  const [currentText, setCurrentText] = useState<string>("");
   const [currentWordTimings, setCurrentWordTimings] = useState<WordTiming[]>([]);
   const [highlightedWordIndex, setHighlightedWordIndex] = useState<number>(-1);
+  const [visibleWordCount, setVisibleWordCount] = useState<number>(0);
   const animationFrameRef = useRef<number | null>(null);
   const subtitleTimersRef = useRef<NodeJS.Timeout[]>([]);
 
@@ -134,39 +135,48 @@ export function ImmersiveTutor({
     return [];
   };
 
-  // Update current text and timings when a new message is playing
+  // Update word timings when a new message is playing
   useEffect(() => {
     // Clear any existing subtitle timers to prevent stale updates
     subtitleTimersRef.current.forEach(timer => clearTimeout(timer));
     subtitleTimersRef.current = [];
+    setVisibleWordCount(0);
+    setHighlightedWordIndex(-1);
+
+    if (subtitleMode === "off") {
+      setCurrentWordTimings([]);
+      return;
+    }
 
     if (currentPlayingMessageId && isPlaying) {
       const message = messages.find(m => m.id === currentPlayingMessageId);
-      if (message && message.role === "assistant") {
-        // Show ONLY target language text immediately - focused for learning
-        const targetText = message.targetLanguageText || "";
-        setCurrentText(targetText);
+      if (message && message.role === "assistant" && wordTimings && wordTimings.length > 0) {
         
-        // Use word timings for karaoke highlighting when subtitles are enabled
-        // Filter to only include target language words
-        if (subtitlesEnabled && wordTimings && wordTimings.length > 0 && targetText) {
-          const filteredTimings = filterTargetLanguageTimings(wordTimings, targetText);
-          if (filteredTimings.length > 0) {
-            console.log('[SUBTITLES] Enabling target language highlighting with', filteredTimings.length, 'words');
-            setCurrentWordTimings(filteredTimings);
+        if (subtitleMode === "target") {
+          // Target mode: show only target language words with progressive reveal
+          const targetText = message.targetLanguageText || "";
+          if (targetText) {
+            const filteredTimings = filterTargetLanguageTimings(wordTimings, targetText);
+            if (filteredTimings.length > 0) {
+              console.log('[SUBTITLES] Target mode: progressive reveal with', filteredTimings.length, 'words');
+              setCurrentWordTimings(filteredTimings);
+            } else {
+              setCurrentWordTimings([]);
+            }
           } else {
-            // No timing match - show text without highlighting
             setCurrentWordTimings([]);
-            setHighlightedWordIndex(-1);
           }
-        } else {
-          setCurrentWordTimings([]);
-          setHighlightedWordIndex(-1);
+        } else if (subtitleMode === "all") {
+          // All mode: show all words with progressive reveal
+          console.log('[SUBTITLES] All mode: showing all', wordTimings.length, 'words');
+          setCurrentWordTimings(wordTimings);
         }
+      } else {
+        setCurrentWordTimings([]);
       }
     } else if (!isPlaying && currentPlayingMessageId) {
-      // Audio finished - Keep text visible for reading practice
-      setCurrentWordTimings([]);
+      // Audio finished - Show all words for reading practice
+      setVisibleWordCount(currentWordTimings.length);
       setHighlightedWordIndex(-1);
     }
 
@@ -175,9 +185,9 @@ export function ImmersiveTutor({
       subtitleTimersRef.current.forEach(timer => clearTimeout(timer));
       subtitleTimersRef.current = [];
     };
-  }, [currentPlayingMessageId, isPlaying, messages, subtitlesEnabled, wordTimings]);
+  }, [currentPlayingMessageId, isPlaying, messages, subtitleMode, wordTimings]);
 
-  // Sync word highlighting with audio playback
+  // Sync word highlighting with audio playback - progressive reveal
   useEffect(() => {
     if (!isPlaying || currentWordTimings.length === 0 || !audioElementRef?.current) {
       setHighlightedWordIndex(-1);
@@ -189,11 +199,24 @@ export function ImmersiveTutor({
         const currentTime = audioElementRef.current.currentTime;
         
         // Find which word should be highlighted based on current time
-        const wordIndex = currentWordTimings.findIndex(
-          timing => currentTime >= timing.startTime && currentTime < timing.endTime
-        );
+        let currentWordIndex = -1;
+        let maxVisibleIndex = -1;
         
-        setHighlightedWordIndex(wordIndex);
+        for (let i = 0; i < currentWordTimings.length; i++) {
+          const timing = currentWordTimings[i];
+          // Word is visible if we've reached its start time
+          if (currentTime >= timing.startTime) {
+            maxVisibleIndex = i;
+          }
+          // Word is highlighted if we're within its time range
+          if (currentTime >= timing.startTime && currentTime < timing.endTime) {
+            currentWordIndex = i;
+          }
+        }
+        
+        // Progressive reveal: show words up to and including the current one
+        setVisibleWordCount(maxVisibleIndex + 1);
+        setHighlightedWordIndex(currentWordIndex);
       }
       animationFrameRef.current = requestAnimationFrame(updateHighlight);
     };
@@ -244,35 +267,72 @@ export function ImmersiveTutor({
         )}
         
         {/* Subtitle Overlay */}
-        {currentText && (
-          <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
-            <div className="max-w-4xl mx-auto">
-              <div 
-                className="text-xl md:text-3xl font-medium text-center leading-relaxed"
-                data-testid="text-subtitle-overlay"
-              >
-                {currentWordTimings.length > 0 ? (
-                  // Word-by-word highlighting
-                  currentWordTimings.map((timing, index) => (
-                    <span
-                      key={index}
-                      className={`inline-block mx-1 transition-all duration-150 ${
-                        index === highlightedWordIndex
-                          ? "text-primary scale-110 font-bold"
-                          : "text-foreground"
-                      }`}
-                    >
-                      {timing.word}
-                    </span>
-                  ))
-                ) : (
-                  // Fallback: show full text without highlighting
-                  <span className="text-foreground">{currentText}</span>
-                )}
+        {(() => {
+          // When subtitleMode is "off", don't show any overlay
+          if (subtitleMode === "off") return null;
+          
+          // Get text from the current playing or last played message
+          // Show subtitles during playback AND after playback for reading practice
+          const currentMessage = currentPlayingMessageId 
+            ? messages.find(m => m.id === currentPlayingMessageId) 
+            : lastAssistantMessage;
+          
+          if (!currentMessage) return null;
+          
+          // Determine fallback text based on mode:
+          // - "target" mode: prefer targetLanguageText, fallback to content if missing
+          // - "all" mode: use full content
+          const targetText = currentMessage.targetLanguageText || "";
+          const fullContent = currentMessage.content || "";
+          const fallbackText = subtitleMode === "all" 
+            ? fullContent 
+            : (targetText || fullContent); // Graceful degradation for target mode
+          
+          // If no text at all, don't show overlay
+          if (!fallbackText) return null;
+          
+          // Determine render mode:
+          // - Progressive mode: during playback with timings (words appear as spoken)
+          // - Static mode: after playback or during playback without timings
+          const hasTimings = currentWordTimings.length > 0;
+          const useProgressiveMode = isPlaying && hasTimings;
+          
+          // During progressive mode with 0 visible words, show nothing (wait for first word)
+          // This prevents flashing the full text before timings kick in
+          if (useProgressiveMode && visibleWordCount === 0) {
+            return null;
+          }
+          
+          return (
+            <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
+              <div className="max-w-4xl mx-auto">
+                <div 
+                  className="text-xl md:text-3xl font-medium text-center leading-relaxed"
+                  data-testid="text-subtitle-overlay"
+                >
+                  {useProgressiveMode ? (
+                    // Progressive word-by-word reveal with highlighting (only during playback)
+                    currentWordTimings.slice(0, visibleWordCount).map((timing, index) => (
+                      <span
+                        key={index}
+                        className={`inline-block mx-1 transition-all duration-150 ${
+                          index === highlightedWordIndex
+                            ? "text-primary scale-110 font-bold"
+                            : "text-foreground"
+                        }`}
+                      >
+                        {timing.word}
+                      </span>
+                    ))
+                  ) : (
+                    // Static text: shown when no timings available or after playback
+                    <span className="text-foreground">{fallbackText}</span>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* Spacer */}
