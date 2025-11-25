@@ -2,8 +2,9 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, MessageSquare, RotateCcw } from "lucide-react";
 import { type Message } from "@shared/schema";
-import tutorIdleUrl from "@assets/stock_images/friendly_professiona_94b04dc8.jpg";
-import tutorSpeakingUrl from "@assets/stock_images/teacher_speaking_ges_345043c1.jpg";
+import Lottie from "lottie-react";
+import tutorIdleAnimation from "@assets/lottie/teacher_idle.json";
+import tutorSpeakingAnimation from "@assets/lottie/teacher_speaking.json";
 
 interface WordTiming {
   word: string;
@@ -111,21 +112,27 @@ export function ImmersiveTutor({
     };
   }, [isPlaying, currentWordTimings, audioElementRef]);
 
-  // Determine which tutor image to show
-  const tutorImageUrl = isPlaying ? tutorSpeakingUrl : tutorIdleUrl;
+  // Determine which animation to show
+  const currentAnimation = isPlaying ? tutorSpeakingAnimation : tutorIdleAnimation;
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
       {/* Fixed Tutor Visual */}
       <div className="flex-shrink-0 relative w-full aspect-square md:aspect-video max-h-[60vh] bg-gradient-to-b from-muted/30 to-background">
-        <img
-          src={tutorImageUrl}
-          alt="Language Tutor"
-          className={`w-full h-full object-contain transition-all duration-300 ${
-            isPlaying ? "animate-bounce-subtle" : ""
-          }`}
+        <div
+          className="w-full h-full flex items-center justify-center transition-opacity duration-300"
           data-testid={isPlaying ? "avatar-state-speaking" : "avatar-state-idle"}
-        />
+        >
+          <Lottie
+            animationData={currentAnimation}
+            loop={true}
+            autoplay={true}
+            style={{ width: "100%", height: "100%", maxWidth: "600px" }}
+            rendererSettings={{
+              preserveAspectRatio: "xMidYMid meet"
+            }}
+          />
+        </div>
         
         {/* Recording Indicator */}
         {isRecording && (
