@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, MessageSquare, RotateCcw } from "lucide-react";
+import { Mic, MicOff, MessageSquare, RotateCcw, Volume2 } from "lucide-react";
 import { type Message } from "@shared/schema";
 import Lottie from "lottie-react";
 import idleBreathingAnimation from "@assets/lottie/tutor_idle_breathing.json";
+import listeningPulseAnimation from "@assets/lottie/tutor_listening_pulse.json";
 import speakingBreathingAnimation from "@assets/lottie/tutor_speaking_breathing.json";
 
 interface WordTiming {
@@ -112,36 +113,70 @@ export function ImmersiveTutor({
     };
   }, [isPlaying, currentWordTimings, audioElementRef]);
 
-  // Determine avatar state and animation
+  // Determine avatar state and select corresponding animation (3 distinct animations)
   const avatarState = isRecording ? "listening" : isPlaying ? "speaking" : "idle";
-  const currentAnimation = isPlaying ? speakingBreathingAnimation : idleBreathingAnimation;
-
-  // Get state label
-  const getStateLabel = () => {
-    if (isRecording) return "Listening to you...";
-    if (isPlaying) return "Teaching";
-    return "Ready to help";
+  
+  // Select unique animation for each state
+  const getCurrentAnimation = () => {
+    if (isRecording) return listeningPulseAnimation;
+    if (isPlaying) return speakingBreathingAnimation;
+    return idleBreathingAnimation;
   };
+  
+  const currentAnimation = getCurrentAnimation();
+
+  // Get state configuration with icon and styles
+  const getStateConfig = () => {
+    if (isRecording) {
+      return {
+        label: "Listening to you...",
+        icon: <Mic className="w-16 h-16 md:w-20 md:h-20 text-primary" />,
+        opacity: 0.9,
+      };
+    }
+    if (isPlaying) {
+      return {
+        label: "Teaching",
+        icon: <Volume2 className="w-16 h-16 md:w-20 md:h-20 text-primary" />,
+        opacity: 0.95,
+      };
+    }
+    return {
+      label: "Ready to help",
+      icon: null,
+      opacity: 0.7,
+    };
+  };
+
+  const stateConfig = getStateConfig();
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
-      {/* Subtle Breathing Animation */}
+      {/* Subtle Animation with State Icons - 3 distinct states */}
       <div className="flex-shrink-0 relative w-full aspect-square md:aspect-video max-h-[60vh] bg-gradient-to-b from-muted/30 to-background">
         <div
           className="w-full h-full flex flex-col items-center justify-center p-8 gap-4"
-          data-testid={avatarState === "speaking" ? "avatar-state-speaking" : "avatar-state-idle"}
+          data-testid={`avatar-state-${avatarState}`}
         >
-          {/* Subtle Lottie breathing animation - minimal and calming */}
-          <div className="w-48 h-48 md:w-64 md:h-64">
+          {/* Lottie animation with icon overlay - unique animation per state */}
+          <div className="relative w-48 h-48 md:w-64 md:h-64">
+            {/* Lottie animation (idle/listening/speaking) */}
             <Lottie
               animationData={currentAnimation}
               loop={true}
               autoplay={true}
-              style={{ width: "100%", height: "100%", opacity: 0.8 }}
+              style={{ width: "100%", height: "100%", opacity: stateConfig.opacity }}
               rendererSettings={{
                 preserveAspectRatio: "xMidYMid meet"
               }}
             />
+            
+            {/* State icon overlay - centered on animation */}
+            {stateConfig.icon && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                {stateConfig.icon}
+              </div>
+            )}
           </div>
           
           {/* Clear state label */}
@@ -149,7 +184,7 @@ export function ImmersiveTutor({
             className="text-base md:text-lg text-muted-foreground font-medium"
             aria-live="polite"
           >
-            {getStateLabel()}
+            {stateConfig.label}
           </p>
         </div>
         
