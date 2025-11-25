@@ -255,7 +255,7 @@ export function ImmersiveTutor({
   };
 
   return (
-    <div className="flex flex-col h-full bg-background overflow-hidden">
+    <div className="flex flex-col h-full bg-background overflow-y-auto">
       {/* Fixed Tutor Visual */}
       <div className="flex-shrink-0 relative w-full aspect-square md:aspect-video max-h-[60vh] bg-gradient-to-b from-muted/30 to-background">
         <img
@@ -379,8 +379,8 @@ export function ImmersiveTutor({
       {/* Spacer */}
       <div className="flex-1 min-h-0" />
 
-      {/* Floating Microphone Button - pb-20 accounts for floating menu button */}
-      <div className="flex-shrink-0 p-6 pb-20 flex flex-col items-center gap-3">
+      {/* Floating Microphone Button - min-h with safe bottom padding for floating menu */}
+      <div className="flex-shrink-0 p-6 pb-24 flex flex-col items-center gap-3 min-h-[180px]">
         {/* Instruction text */}
         <p className="text-sm text-muted-foreground" data-testid="text-mic-instruction">
           {isRecording ? "Release to send" : isProcessing ? "Processing..." : "Hold to speak"}
