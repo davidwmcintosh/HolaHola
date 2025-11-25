@@ -17,7 +17,17 @@ import { VoiceChatViewManager } from "@/components/VoiceChatViewManager";
 const GREETING_TIMESTAMP_KEY = 'linguaflow_last_greeting_time';
 const GREETING_COOLDOWN_MS = 30000; // 30 seconds - prevent greeting if one played recently
 
+// Module-level lock to prevent race conditions when multiple components mount simultaneously
+// This is checked synchronously BEFORE the async greeting synthesis
+let greetingInProgress = false;
+
 function canPlayGreeting(): boolean {
+  // Fast synchronous lock check - prevents race conditions on double-mount
+  if (greetingInProgress) {
+    console.log('[VOICE GREETING] Already in progress (sync lock)');
+    return false;
+  }
+  
   try {
     const stored = sessionStorage.getItem(GREETING_TIMESTAMP_KEY);
     if (!stored) return true;
@@ -34,11 +44,16 @@ function canPlayGreeting(): boolean {
 }
 
 function markGreetingPlayed(): void {
+  greetingInProgress = true; // Synchronous lock
   try {
     sessionStorage.setItem(GREETING_TIMESTAMP_KEY, Date.now().toString());
   } catch {
     // Ignore storage errors
   }
+}
+
+function clearGreetingLock(): void {
+  greetingInProgress = false;
 }
 
 interface RestVoiceChatProps {
@@ -219,12 +234,14 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
               URL.revokeObjectURL(audioUrl);
               setAvatarState('idle');
               setCurrentPlayingMessageId(null);
+              clearGreetingLock(); // Allow future greetings after this one finishes
             };
             
             audioPlayerRef.current.onerror = () => {
               URL.revokeObjectURL(audioUrl);
               setAvatarState('idle');
               setCurrentPlayingMessageId(null);
+              clearGreetingLock(); // Clear lock on error too
             };
             
             // Set speaking state and current playing message before playing
@@ -246,6 +263,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         })
         .catch(err => {
           console.error('[VOICE GREETING] Failed to generate greeting audio:', err);
+          clearGreetingLock(); // Clear lock on synthesis failure
         });
     }
   }, [messages, conversationId, language, isProcessing, isRecording, subtitleMode]);

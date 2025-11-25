@@ -2932,7 +2932,10 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
       
       // Synthesize a tiny phrase to wake up Google Cloud TTS
       // Using a short Spanish word since that's likely to be used
-      await ttsService.synthesizeSpeech("Hola", "spanish", {
+      const ttsService = getTTSService();
+      await ttsService.synthesize({
+        text: "Hola",
+        language: "spanish",
         speakingRate: 0.9,
       });
       
