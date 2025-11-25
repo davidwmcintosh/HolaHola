@@ -49,22 +49,38 @@ export function ImmersiveTutor({
   const [highlightedWordIndex, setHighlightedWordIndex] = useState<number>(-1);
   const [idleAnimation, setIdleAnimation] = useState<any>(null);
   const [speakingAnimation, setSpeakingAnimation] = useState<any>(null);
+  const [animationLoadError, setAnimationLoadError] = useState(false);
   const animationFrameRef = useRef<number | null>(null);
   const subtitleTimersRef = useRef<NodeJS.Timeout[]>([]);
 
-  // Load Lottie animations from URLs
+  // Load Lottie animations from URLs with error handling
   useEffect(() => {
-    // Fetch idle animation
-    fetch(idleAnimationData)
-      .then(res => res.json())
-      .then(data => setIdleAnimation(data))
-      .catch(err => console.error("Failed to load idle animation:", err));
+    const loadAnimations = async () => {
+      try {
+        // Fetch both animations in parallel
+        const [idleRes, speakingRes] = await Promise.all([
+          fetch(idleAnimationData),
+          fetch(speakingAnimationData)
+        ]);
 
-    // Fetch speaking animation
-    fetch(speakingAnimationData)
-      .then(res => res.json())
-      .then(data => setSpeakingAnimation(data))
-      .catch(err => console.error("Failed to load speaking animation:", err));
+        if (!idleRes.ok || !speakingRes.ok) {
+          throw new Error("Failed to fetch animations");
+        }
+
+        const [idleData, speakingData] = await Promise.all([
+          idleRes.json(),
+          speakingRes.json()
+        ]);
+
+        setIdleAnimation(idleData);
+        setSpeakingAnimation(speakingData);
+      } catch (err) {
+        console.error("Failed to load Lottie animations:", err);
+        setAnimationLoadError(true);
+      }
+    };
+
+    loadAnimations();
   }, []);
 
   // Get the last assistant message for display
@@ -143,7 +159,12 @@ export function ImmersiveTutor({
           className="w-full h-full flex items-center justify-center"
           data-testid={isPlaying ? "avatar-state-speaking" : "avatar-state-idle"}
         >
-          {currentAnimation ? (
+          {animationLoadError ? (
+            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+              <div className="text-6xl">🎓</div>
+              <div className="text-sm">Tutor {isPlaying ? "speaking" : "ready"}</div>
+            </div>
+          ) : currentAnimation ? (
             <Lottie
               animationData={currentAnimation}
               loop={true}
@@ -154,7 +175,10 @@ export function ImmersiveTutor({
               }}
             />
           ) : (
-            <div className="text-muted-foreground">Loading animation...</div>
+            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+              <div className="w-8 h-8 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
+              <div className="text-sm">Loading tutor...</div>
+            </div>
           )}
         </div>
         
