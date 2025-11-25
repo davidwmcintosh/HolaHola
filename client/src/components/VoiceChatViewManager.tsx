@@ -153,7 +153,6 @@ export function VoiceChatViewManager({
                 isProcessing={isProcessing}
                 isPlaying={isPlaying}
                 currentPlayingMessageId={currentPlayingMessageId}
-                onToggleView={toggleView}
                 audioElementRef={audioElementRef}
                 onReplay={onReplay}
                 canReplay={canReplay}
