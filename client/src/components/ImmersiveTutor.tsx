@@ -2,12 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, MessageSquare, RotateCcw } from "lucide-react";
 import { type Message } from "@shared/schema";
-import Lottie from "lottie-react";
-
-// Lottie animations for tutor states
-// Using publicly available animations from LottieFiles CDN
-const idleAnimationData = "https://lottie.host/dc9e5c53-1b4a-4d91-8e26-1c2e697e234d/nOazJz73rH.json";
-const speakingAnimationData = "https://lottie.host/7f1f4d06-1180-11ee-a95d-f72567547c7a/9vXnIhsa46.json";
+import tutorSpeakingUrl from "@assets/generated_images/Teacher_speaking_animatedly_62a6f01b.png";
+import tutorIdleUrl from "@assets/generated_images/Friendly_teacher_idle_state_fd4580c6.png";
 
 interface WordTiming {
   word: string;
@@ -47,41 +43,8 @@ export function ImmersiveTutor({
   const [currentText, setCurrentText] = useState<string>("");
   const [currentWordTimings, setCurrentWordTimings] = useState<WordTiming[]>([]);
   const [highlightedWordIndex, setHighlightedWordIndex] = useState<number>(-1);
-  const [idleAnimation, setIdleAnimation] = useState<any>(null);
-  const [speakingAnimation, setSpeakingAnimation] = useState<any>(null);
-  const [animationLoadError, setAnimationLoadError] = useState(false);
   const animationFrameRef = useRef<number | null>(null);
   const subtitleTimersRef = useRef<NodeJS.Timeout[]>([]);
-
-  // Load Lottie animations from URLs with error handling
-  useEffect(() => {
-    const loadAnimations = async () => {
-      try {
-        // Fetch both animations in parallel
-        const [idleRes, speakingRes] = await Promise.all([
-          fetch(idleAnimationData),
-          fetch(speakingAnimationData)
-        ]);
-
-        if (!idleRes.ok || !speakingRes.ok) {
-          throw new Error("Failed to fetch animations");
-        }
-
-        const [idleData, speakingData] = await Promise.all([
-          idleRes.json(),
-          speakingRes.json()
-        ]);
-
-        setIdleAnimation(idleData);
-        setSpeakingAnimation(speakingData);
-      } catch (err) {
-        console.error("Failed to load Lottie animations:", err);
-        setAnimationLoadError(true);
-      }
-    };
-
-    loadAnimations();
-  }, []);
 
   // Get the last assistant message for display
   const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
@@ -148,39 +111,21 @@ export function ImmersiveTutor({
     };
   }, [isPlaying, currentWordTimings, audioElementRef]);
 
-  // Determine which animation to show
-  const currentAnimation = isPlaying ? speakingAnimation : idleAnimation;
+  // Determine which tutor image to show
+  const tutorImageUrl = isPlaying ? tutorSpeakingUrl : tutorIdleUrl;
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
       {/* Fixed Tutor Visual */}
       <div className="flex-shrink-0 relative w-full aspect-square md:aspect-video max-h-[60vh] bg-gradient-to-b from-muted/30 to-background">
-        <div
-          className="w-full h-full flex items-center justify-center"
+        <img
+          src={tutorImageUrl}
+          alt="Language Tutor"
+          className={`w-full h-full object-contain transition-all duration-300 ${
+            isPlaying ? "animate-bounce-subtle" : ""
+          }`}
           data-testid={isPlaying ? "avatar-state-speaking" : "avatar-state-idle"}
-        >
-          {animationLoadError ? (
-            <div className="flex flex-col items-center gap-2 text-muted-foreground">
-              <div className="text-6xl">🎓</div>
-              <div className="text-sm">Tutor {isPlaying ? "speaking" : "ready"}</div>
-            </div>
-          ) : currentAnimation ? (
-            <Lottie
-              animationData={currentAnimation}
-              loop={true}
-              autoplay={true}
-              style={{ width: "100%", height: "100%", maxWidth: "500px" }}
-              rendererSettings={{
-                preserveAspectRatio: "xMidYMid meet"
-              }}
-            />
-          ) : (
-            <div className="flex flex-col items-center gap-2 text-muted-foreground">
-              <div className="w-8 h-8 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
-              <div className="text-sm">Loading tutor...</div>
-            </div>
-          )}
-        </div>
+        />
         
         {/* Recording Indicator */}
         {isRecording && (
