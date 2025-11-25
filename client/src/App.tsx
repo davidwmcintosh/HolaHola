@@ -203,6 +203,7 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
 }
 
 // Floating menu button - works on all screen sizes
+// Uses fixed positioning to stay in viewport corner regardless of sidebar state
 function FloatingMenuButton() {
   const { toggleSidebar } = useSidebar();
   
@@ -210,7 +211,7 @@ function FloatingMenuButton() {
     <Button
       variant="outline"
       size="icon"
-      className="absolute bottom-4 left-4 z-40 h-12 w-12 rounded-full shadow-lg bg-background border-2"
+      className="fixed bottom-4 left-4 z-50 h-12 w-12 rounded-full shadow-lg bg-background border-2"
       onClick={toggleSidebar}
       data-testid="button-toggle-sidebar"
     >
