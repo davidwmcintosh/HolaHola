@@ -65,26 +65,26 @@ export default function ChatIdeas() {
                 const IconComponent = (LucideIcons as any)[topic.icon] || Lightbulb;
                 
                 return (
-                  <Card key={topic.id} data-testid={`topic-card-${topic.id}`}>
+                  <Card key={topic.id} className="overflow-hidden" data-testid={`topic-card-${topic.id}`}>
                     <CardHeader>
                       <div className="flex items-start gap-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                           <IconComponent className="h-5 w-5" />
                         </div>
-                        <div className="flex-1 space-y-1">
-                          <CardTitle className="text-lg">{topic.name}</CardTitle>
-                          <CardDescription>{topic.description}</CardDescription>
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <CardTitle className="text-lg truncate">{topic.name}</CardTitle>
+                          <CardDescription className="line-clamp-2">{topic.description}</CardDescription>
                         </div>
                       </div>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        <div>
+                        <div className="min-w-0">
                           <p className="text-sm font-medium mb-2">Sample phrases to practice:</p>
                           <div className="flex flex-wrap gap-2">
                             {topic.samplePhrases.map((phrase, idx) => (
-                              <Badge key={idx} variant="secondary" className="text-xs">
-                                {phrase}
+                              <Badge key={idx} variant="secondary" className="text-xs max-w-full">
+                                <span className="truncate">{phrase}</span>
                               </Badge>
                             ))}
                           </div>
