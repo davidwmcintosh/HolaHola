@@ -147,7 +147,7 @@ export function VoiceChatViewManager({
       <div className="flex flex-col h-full">
         {view === "live" ? (
           conversationId ? (
-            <div className="flex-1 min-h-0">
+            <div className="flex-1 min-h-0 overflow-y-auto">
               <ImmersiveTutor
                 conversationId={conversationId}
                 messages={messages}
