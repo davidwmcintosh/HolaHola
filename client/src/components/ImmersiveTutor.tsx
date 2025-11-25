@@ -53,7 +53,19 @@ export function ImmersiveTutor({
   // Get the last assistant message for display
   const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
 
+  // Helper function to normalize words for matching (strip punctuation, quotes, accents for comparison)
+  const normalizeWord = (word: string): string => {
+    return word
+      .toLowerCase()
+      // Remove all types of quotes and apostrophes (straight, curly, smart, unicode)
+      .replace(/[\u0027\u0060\u00B4\u2018\u2019\u201A\u201B\u201C\u201D\u201E\u201F\u2032\u2033\u2035\u2036\u0022''""„‟`´]/g, '')
+      // Remove all common punctuation
+      .replace(/[¡!¿?,.:;()[\]{}<>]/g, '')
+      .trim();
+  };
+
   // Helper function to filter word timings to only include target language words
+  // Finds ALL occurrences of the target phrase (e.g., "Buenas noches" said twice)
   const filterTargetLanguageTimings = (
     allTimings: WordTiming[],
     targetText: string
@@ -63,33 +75,58 @@ export function ImmersiveTutor({
     // Parse target language text into words (normalize for matching)
     const targetWords = targetText
       .split(/\s+/)
-      .map(w => w.toLowerCase().replace(/[¡!¿?,."']/g, ''))
+      .map(normalizeWord)
       .filter(w => w.length > 0);
     
     if (targetWords.length === 0) return [];
     
-    // Find matching words in the timing array
-    // We search for consecutive matches to handle multi-word phrases
-    const filteredTimings: WordTiming[] = [];
-    let targetIndex = 0;
+    console.log('[SUBTITLES] Looking for target phrase:', targetWords.join(' '));
+    console.log('[SUBTITLES] All timing words:', allTimings.map(t => `"${t.word}"`).join(', '));
     
-    for (const timing of allTimings) {
-      const normalizedWord = timing.word.toLowerCase().replace(/[¡!¿?,."']/g, '');
+    // Find ALL occurrences of the target phrase in the timing array
+    // This handles cases where the tutor says "Buenas noches" multiple times
+    const allOccurrences: WordTiming[] = [];
+    let i = 0;
+    
+    while (i < allTimings.length) {
+      const normalizedWord = normalizeWord(allTimings[i].word);
       
-      if (normalizedWord === targetWords[targetIndex]) {
-        // Found a match - include this timing
-        filteredTimings.push(timing);
-        targetIndex++;
+      // Check if this could be the start of a target phrase match
+      if (normalizedWord === targetWords[0]) {
+        // Try to match the full phrase starting here
+        let matchedTimings: WordTiming[] = [allTimings[i]];
+        let matched = true;
         
-        // If we found all target words, we're done
-        if (targetIndex >= targetWords.length) break;
+        for (let j = 1; j < targetWords.length; j++) {
+          const nextIndex = i + j;
+          if (nextIndex >= allTimings.length) {
+            matched = false;
+            break;
+          }
+          const nextNormalized = normalizeWord(allTimings[nextIndex].word);
+          if (nextNormalized !== targetWords[j]) {
+            matched = false;
+            break;
+          }
+          matchedTimings.push(allTimings[nextIndex]);
+        }
+        
+        if (matched && matchedTimings.length === targetWords.length) {
+          // Found a complete match - add all words from this occurrence
+          allOccurrences.push(...matchedTimings);
+          console.log('[SUBTITLES] Found occurrence at index', i, ':', matchedTimings.map(t => t.word).join(' '));
+          // Skip past this match to find the next occurrence
+          i += targetWords.length;
+          continue;
+        }
       }
+      i++;
     }
     
-    // Only return if we found all target words (complete match)
-    if (filteredTimings.length === targetWords.length) {
-      console.log('[SUBTITLES] Filtered to', filteredTimings.length, 'target language words');
-      return filteredTimings;
+    if (allOccurrences.length > 0) {
+      const occurrenceCount = allOccurrences.length / targetWords.length;
+      console.log('[SUBTITLES] Found', occurrenceCount, 'occurrence(s) of target phrase,', allOccurrences.length, 'total words');
+      return allOccurrences;
     }
     
     // Fallback: couldn't find exact match, return empty
