@@ -202,7 +202,7 @@ function cleanSentence(sentence: string): string {
     return delimiter + cleaned;
   });
   
-  // Remove markdown
+  // Remove markdown and quotes
   text = text
     .replace(/\*\*(.+?)\*\*/g, '$1')
     .replace(/\*(.+?)\*/g, '$1')
@@ -213,6 +213,9 @@ function cleanSentence(sentence: string): string {
     .replace(/^[\s]*[-*]\s+/gm, '')
     .replace(/^[\s]*\d+\.\s+/gm, '')
     .replace(/^>\s+/gm, '')
+    // Remove quotes around words (prevents TTS from pronouncing "apostrophe" or "quote")
+    // Matches: 'word', "word", 'word', 'word', "word", "word", «word», »word«
+    .replace(/['''"""«»]+([^'''"""«»]+)['''"""«»]+/g, '$1')
     // Clean whitespace
     .replace(/\s+/g, ' ')
     .trim();

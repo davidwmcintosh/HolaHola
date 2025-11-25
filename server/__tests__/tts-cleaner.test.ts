@@ -90,6 +90,26 @@ describe('TTS Text Cleaning Pipeline', () => {
     });
   });
 
+  describe('Quote removal', () => {
+    it('should remove single quotes around words', () => {
+      expect(stripMarkdownForSpeech("Spanish greeting for 'hello'")).toBe('Spanish greeting for hello');
+    });
+
+    it('should remove double quotes around words', () => {
+      expect(stripMarkdownForSpeech('Spanish greeting for "hello"')).toBe('Spanish greeting for hello');
+    });
+
+    it('should remove curly quotes around words', () => {
+      expect(stripMarkdownForSpeech('Try saying 'Hola'')).toBe('Try saying Hola');
+      expect(stripMarkdownForSpeech('Try saying "Hola"')).toBe('Try saying Hola');
+    });
+
+    it('should remove mixed quotes in a sentence', () => {
+      expect(stripMarkdownForSpeech("Hola is the most common Spanish greeting for 'hello'. Try saying Hola!"))
+        .toBe('Hola is the most common Spanish greeting for hello. Try saying Hola!');
+    });
+  });
+
   describe('Edge cases', () => {
     it('should handle empty string', () => {
       expect(stripMarkdownForSpeech('')).toBe('');
