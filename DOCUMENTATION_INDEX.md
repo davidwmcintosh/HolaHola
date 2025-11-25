@@ -4,6 +4,22 @@ This document provides an overview of all documentation files in the project.
 
 ---
 
+## Sales & Marketing
+
+### FEATURES.md
+**Complete product features document for marketing**
+- Platform overview and value proposition
+- Key features (voice learning, 9 languages, adaptive difficulty)
+- Smart learning features (vocabulary extraction, flashcards, organization)
+- Institutional features (teacher tools, assignments, curriculum)
+- Subscription tiers (Free, Basic, Pro, Institutional)
+- Competitive positioning (vs Duolingo, tutors, other AI apps)
+- Getting started guides for learners and institutions
+
+**When to use**: Sales presentations, marketing materials, investor decks, website content.
+
+---
+
 ## Core Documentation
 
 ### replit.md
