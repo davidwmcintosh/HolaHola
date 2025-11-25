@@ -12,6 +12,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { StreakIndicator } from "@/components/StreakIndicator";
@@ -51,6 +52,14 @@ export function AppSidebar() {
   const [location] = useLocation();
   const { userName } = useLanguage();
   const { user } = useAuth();
+  const { setOpenMobile, isMobile } = useSidebar();
+  
+  // Auto-close sidebar on mobile when a menu item is clicked
+  const closeSidebarOnMobile = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
   
   // Hide Chat Ideas until onboarding is complete
   const isOnboardingComplete = userName && userName.trim() !== "";
@@ -95,6 +104,7 @@ export function AppSidebar() {
                   if (item.title === "Call Tutor") {
                     localStorage.setItem('forceNewConversation', 'true');
                   }
+                  closeSidebarOnMobile();
                 };
                 
                 return (
@@ -130,7 +140,7 @@ export function AppSidebar() {
                         isActive={isActive}
                         data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                       >
-                        <Link href={item.url}>
+                        <Link href={item.url} onClick={closeSidebarOnMobile}>
                           <item.icon className="h-4 w-4" />
                           <span>{item.title}</span>
                         </Link>
@@ -157,7 +167,7 @@ export function AppSidebar() {
                         isActive={isActive}
                         data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                       >
-                        <Link href={item.url}>
+                        <Link href={item.url} onClick={closeSidebarOnMobile}>
                           <item.icon className="h-4 w-4" />
                           <span>{item.title}</span>
                         </Link>
@@ -184,7 +194,7 @@ export function AppSidebar() {
                         isActive={isActive}
                         data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                       >
-                        <Link href={item.url}>
+                        <Link href={item.url} onClick={closeSidebarOnMobile}>
                           <item.icon className="h-4 w-4" />
                           <span>{item.title}</span>
                         </Link>
@@ -204,7 +214,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild data-testid="link-settings">
-              <Link href="/settings">
+              <Link href="/settings" onClick={closeSidebarOnMobile}>
                 <Settings className="h-4 w-4" />
                 <span>Settings</span>
               </Link>
@@ -212,7 +222,10 @@ export function AppSidebar() {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              onClick={() => window.location.href = '/api/logout'}
+              onClick={() => {
+                closeSidebarOnMobile();
+                window.location.href = '/api/logout';
+              }}
               data-testid="button-logout"
             >
               <LogOut className="h-4 w-4" />

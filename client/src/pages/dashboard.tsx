@@ -8,14 +8,23 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useLocation } from "wouter";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSidebar } from "@/components/ui/sidebar";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
   const { userName, setUserName } = useLanguage();
+  const { setOpenMobile, isMobile } = useSidebar();
+  
+  const handleStartPractice = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+    setLocation("/chat");
+  };
 
   return (
     <div className="space-y-8">
-      <WelcomeHero onStartPractice={() => setLocation("/chat")} />
+      <WelcomeHero onStartPractice={handleStartPractice} />
       
       <div className="space-y-4">
         <h2 className="text-3xl font-semibold">Your Progress</h2>
