@@ -55,6 +55,10 @@ export function ImmersiveTutor({
   const [visibleWordCount, setVisibleWordCount] = useState<number>(0);
   const animationFrameRef = useRef<number | null>(null);
   const subtitleTimersRef = useRef<NodeJS.Timeout[]>([]);
+  
+  // Local ref to track if WE started recording via pointer down
+  // This ensures pointer up always stops recording regardless of React state timing
+  const isPointerRecordingRef = useRef<boolean>(false);
 
   // Get the last assistant message for display
   const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
@@ -405,38 +409,50 @@ export function ImmersiveTutor({
         )}
 
         {/* Main Recording Button (Push-to-Talk) */}
-        {/* Always call onRecordingStop on release - parent handles state safely */}
+        {/* Uses local ref to track recording state for reliable push-to-talk */}
         <Button
           variant={isRecording ? "destructive" : "default"}
           size="icon"
           onPointerDown={(e) => {
             e.preventDefault();
-            if (!isRecording && !isProcessing) {
+            // Only start if not already recording and not processing
+            if (!isRecording && !isProcessing && !isPointerRecordingRef.current) {
+              isPointerRecordingRef.current = true;
               onRecordingStart();
             }
           }}
           onPointerUp={(e) => {
             e.preventDefault();
-            // Always call stop on release - fixes race condition with async state updates
-            onRecordingStop();
+            // Stop if we started recording via pointer down
+            if (isPointerRecordingRef.current) {
+              isPointerRecordingRef.current = false;
+              onRecordingStop();
+            }
           }}
           onPointerCancel={(e) => {
             e.preventDefault();
-            onRecordingStop();
+            if (isPointerRecordingRef.current) {
+              isPointerRecordingRef.current = false;
+              onRecordingStop();
+            }
           }}
           onPointerLeave={(e) => {
             e.preventDefault();
-            // Only stop if we're actually recording (prevents stopping when just hovering away)
-            if (isRecording) {
+            // Stop if pointer leaves while we're recording
+            if (isPointerRecordingRef.current) {
+              isPointerRecordingRef.current = false;
               onRecordingStop();
             }
           }}
           onTouchCancel={(e) => {
             e.preventDefault();
-            onRecordingStop();
+            if (isPointerRecordingRef.current) {
+              isPointerRecordingRef.current = false;
+              onRecordingStop();
+            }
           }}
           disabled={isProcessing}
-          className="h-20 w-20 md:h-24 md:w-24 rounded-full shadow-lg"
+          className="h-20 w-20 md:h-24 md:w-24 rounded-full shadow-lg touch-none"
           data-testid={isRecording ? "button-stop-recording" : "button-start-recording"}
           aria-pressed={isRecording}
           aria-label="Press and hold to speak"
