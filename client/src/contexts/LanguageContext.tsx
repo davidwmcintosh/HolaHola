@@ -11,6 +11,8 @@ interface LanguageContextType {
   setDifficulty: (diff: DifficultyLevel) => void;
   userName: string;
   setUserName: (name: string) => void;
+  wordHighlightEnabled: boolean;
+  setWordHighlightEnabled: (enabled: boolean) => void;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
