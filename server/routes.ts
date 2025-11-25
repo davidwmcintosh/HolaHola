@@ -2017,7 +2017,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
               }
             }
 
-            // Save vocabulary to database
+            // Save vocabulary to database with source conversation link
             if (Array.isArray(enrichmentData.vocabulary) && enrichmentData.vocabulary.length > 0) {
               for (const vocab of enrichmentData.vocabulary) {
                 try {
@@ -2029,6 +2029,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
                     example: vocab.example,
                     pronunciation: vocab.pronunciation,
                     difficulty: enrichmentConversation.difficulty,
+                    sourceConversationId: conversationId,
                   });
                 } catch (vocabError) {
                   console.error('[VOICE BACKGROUND] Failed to save vocabulary:', vocabError);
@@ -2380,7 +2381,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
               }
             }
 
-            // Save vocabulary to database
+            // Save vocabulary to database with source conversation link
             if (Array.isArray(enrichmentData.vocabulary) && enrichmentData.vocabulary.length > 0) {
               for (const vocab of enrichmentData.vocabulary) {
                 try {
@@ -2392,6 +2393,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
                     example: vocab.example,
                     pronunciation: vocab.pronunciation,
                     difficulty: updatedConversation.difficulty,
+                    sourceConversationId: conversationId,
                   });
                 } catch (vocabError) {
                   console.error('[BACKGROUND ENRICHMENT] Failed to save vocabulary:', vocabError);
@@ -2829,7 +2831,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
         });
       }
 
-      // Save vocabulary items from conversation (only if we have valid data)
+      // Save vocabulary items from conversation with source link
       const vocabulary = Array.isArray(parsedResponse.vocabulary) ? parsedResponse.vocabulary : [];
       console.log('[TEXT MODE] Processing vocabulary - count:', vocabulary.length);
       
@@ -2843,6 +2845,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
             translation: vocab.translation,
             example: vocab.example,
             pronunciation: vocab.pronunciation || "",
+            sourceConversationId: conversationId,
           });
           console.log('[TEXT MODE] ✓ Saved vocabulary:', vocab.word);
         } else {

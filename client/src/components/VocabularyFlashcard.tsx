@@ -2,7 +2,8 @@ import { useState, useMemo, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, RotateCw, Loader2, Check, X, Filter, Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCw, Loader2, Check, X, Filter, Calendar, MessageSquare } from "lucide-react";
+import { Link } from "wouter";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -212,6 +213,17 @@ export function VocabularyFlashcard({ timeFilter = 'all' }: VocabularyFlashcardP
                   <span className="text-muted-foreground">Ex: </span>
                   {currentCard.example}
                 </p>
+                {currentCard.sourceConversationId && (
+                  <Link 
+                    href={`/history?conversation=${currentCard.sourceConversationId}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-2"
+                    data-testid={`link-source-conversation-${currentCard.id}`}
+                  >
+                    <MessageSquare className="h-3 w-3" />
+                    View in conversation
+                  </Link>
+                )}
               </div>
             </div>
           )}
