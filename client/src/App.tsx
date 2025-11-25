@@ -190,14 +190,14 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
           <div className="hidden md:block">
             <AppSidebar />
           </div>
-          <div className="flex flex-col flex-1">
+          <div className="flex flex-col flex-1 relative">
             <main className="flex-1 overflow-hidden">
               <Router />
             </main>
+            {/* Floating menu button for mobile - inside main content area */}
+            <MobileMenuButton />
           </div>
         </div>
-        {/* Floating menu button for mobile - opens sidebar */}
-        <MobileMenuButton />
         <OfflineIndicator />
         <PWAInstallPrompt />
       </SidebarProvider>
@@ -213,7 +213,7 @@ function MobileMenuButton() {
     <Button
       variant="outline"
       size="icon"
-      className="fixed bottom-4 left-4 z-50 md:hidden h-12 w-12 rounded-full shadow-lg bg-background border-2"
+      className="absolute bottom-4 left-4 z-40 md:hidden h-12 w-12 rounded-full shadow-lg bg-background border-2"
       onClick={() => setOpenMobile(true)}
       data-testid="button-mobile-menu"
     >
