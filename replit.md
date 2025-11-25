@@ -36,7 +36,8 @@ Smart phrase detection module (`server/phrase-detection.ts`) handles multi-word 
 
 ## Branding Assets
 **Logo Files**: Located in `attached_assets/` directory
-- **Primary Logo**: `linguaflow_monogram_ribbon_logo_1764097955181.png` - Ribbon-style "LF" monogram used in sidebar header
+- **Primary Logo (transparent)**: `linguaflow_monogram_ribbon_logo_nobackground_1764098307883.png` - Ribbon-style "LF" monogram with transparent background, used in sidebar header
+- **Logo with background**: `linguaflow_monogram_ribbon_logo_1764097955181.png` - Same logo with white background
 - When updating logos/images, check `attached_assets/` for the latest versions
 
 ## External Dependencies
