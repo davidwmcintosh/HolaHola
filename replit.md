@@ -41,6 +41,8 @@ Smart phrase detection module (`server/phrase-detection.ts`) handles multi-word 
 - **Phase 2 (AI Topic Tagging)**: Junction tables (`conversationTopics`, `vocabularyWordTopics`) for many-to-many topic relationships. `sourceConversationId` on vocabularyWords links words to originating conversations. Ready for Gemini-powered automatic topic extraction.
 - **Phase 3 (Lesson Bundles)**: `lessons` table with `lessonType` (weekly_auto/custom/topic_based), linked to items via `lessonItems` table. Lessons page (`/lessons`) allows manual lesson creation and AI-generated weekly lessons from recent activity. Collapsible lesson cards show included conversations and vocabulary.
 
+**Vocabulary-Conversation Linking**: All vocabulary words extracted from conversations (voice or text mode) are automatically linked to their source conversation via `sourceConversationId`. The VocabularyFlashcard component displays a "View in conversation" link when flipped, allowing users to navigate back to the original conversation context where they learned the word. This creates a bidirectional learning experience connecting flashcard review with conversation practice.
+
 ## Branding Assets
 **Logo Files**: Located in `attached_assets/` directory
 - **Primary Logo (transparent)**: `LF_no_words_no_background_1764099068542.png` - Ribbon-style "LF" monogram icon only, transparent background, used in sidebar header
