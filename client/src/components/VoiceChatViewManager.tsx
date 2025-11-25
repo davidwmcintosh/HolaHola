@@ -2,10 +2,11 @@ import { useState, useRef, TouchEvent } from "react";
 import { ImmersiveTutor } from "./ImmersiveTutor";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Radio } from "lucide-react";
+import { MessageSquare, Radio, Captions, CaptionsOff } from "lucide-react";
 import { type Message, type Conversation } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { type WordTiming } from "@/lib/restVoiceApi";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface VoiceChatViewManagerProps {
   conversationId: string | null;
@@ -41,6 +42,9 @@ export function VoiceChatViewManager({
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
   const touchStartY = useRef<number>(0);
+  
+  // Get subtitles toggle from context
+  const { subtitlesEnabled: contextSubtitlesEnabled, setSubtitlesEnabled } = useLanguage();
 
   // Fetch conversation metadata (includes resume info) - Week 1 Feature
   const { data: conversationData } = useQuery<Conversation & { resumeMetadata?: { 
@@ -107,6 +111,19 @@ export function VoiceChatViewManager({
         >
           <MessageSquare className="h-3 w-3 mr-1" />
           History
+        </Badge>
+        <Badge
+          variant={contextSubtitlesEnabled ? "default" : "outline"}
+          className="cursor-pointer"
+          onClick={() => setSubtitlesEnabled(!contextSubtitlesEnabled)}
+          data-testid="badge-subtitles-toggle"
+        >
+          {contextSubtitlesEnabled ? (
+            <Captions className="h-3 w-3 mr-1" />
+          ) : (
+            <CaptionsOff className="h-3 w-3 mr-1" />
+          )}
+          Subtitles
         </Badge>
       </div>
 
