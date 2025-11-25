@@ -104,24 +104,36 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     };
   }, []);
   
-  // Pre-warm Deepgram connection to avoid cold-start latency on first recording
+  // Pre-warm Deepgram and TTS connections to avoid cold-start latency
   useEffect(() => {
-    const warmDeepgram = async () => {
-      try {
-        const response = await fetch('/api/voice/warm', {
-          method: 'POST',
-          credentials: 'include',
-        });
-        const data = await response.json();
+    const warmServices = async () => {
+      // Warm both services in parallel for faster startup
+      const warmDeepgram = fetch('/api/voice/warm', {
+        method: 'POST',
+        credentials: 'include',
+      }).then(res => res.json()).then(data => {
         if (data.warmed) {
           console.log(`[VOICE] Deepgram pre-warmed in ${data.latency}ms`);
         }
-      } catch (error) {
-        // Warming is optional - don't block on failure
-        console.log('[VOICE] Pre-warming skipped');
-      }
+      }).catch(() => {
+        console.log('[VOICE] Deepgram pre-warming skipped');
+      });
+      
+      const warmTts = fetch('/api/voice/warm-tts', {
+        method: 'POST',
+        credentials: 'include',
+      }).then(res => res.json()).then(data => {
+        if (data.warmed) {
+          console.log(`[VOICE] TTS pre-warmed in ${data.latency}ms`);
+        }
+      }).catch(() => {
+        console.log('[VOICE] TTS pre-warming skipped');
+      });
+      
+      // Wait for both in parallel
+      await Promise.all([warmDeepgram, warmTts]);
     };
-    warmDeepgram();
+    warmServices();
   }, []);
 
   // Cleanup on unmount or conversation change

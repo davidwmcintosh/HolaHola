@@ -2924,6 +2924,29 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
     }
   });
   
+  // Pre-warm Google Cloud TTS connection to avoid cold-start latency
+  // Called when user enters voice chat mode
+  app.post("/api/voice/warm-tts", isAuthenticated, async (req: any, res) => {
+    try {
+      const warmStart = Date.now();
+      
+      // Synthesize a tiny phrase to wake up Google Cloud TTS
+      // Using a short Spanish word since that's likely to be used
+      await ttsService.synthesizeSpeech("Hola", "spanish", {
+        speakingRate: 0.9,
+      });
+      
+      const warmTime = Date.now() - warmStart;
+      console.log(`[TTS] ✓ Connection warmed in ${warmTime}ms`);
+      
+      res.json({ warmed: true, latency: warmTime });
+    } catch (error: any) {
+      // Don't fail - warming is optional optimization
+      console.log(`[TTS] Warm-up skipped: ${error.message?.substring(0, 50)}`);
+      res.json({ warmed: false, error: "warm-up skipped" });
+    }
+  });
+  
   // Transcribe audio using Whisper API
   app.post("/api/voice/transcribe", voiceLimiter, isAuthenticated, upload.single('audio'), async (req: any, res) => {
     try {
