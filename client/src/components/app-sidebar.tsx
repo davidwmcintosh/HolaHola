@@ -1,5 +1,5 @@
 import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck, Library, Shield } from "lucide-react";
-import linguaflowLogo from "@assets/linguaflow_monogram_ribbon_logo_nobackground_1764098307883.png";
+import linguaflowLogo from "@assets/LF_no_words_no_background_1764099068542.png";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
