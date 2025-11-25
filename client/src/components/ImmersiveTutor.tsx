@@ -380,7 +380,13 @@ export function ImmersiveTutor({
       <div className="flex-1 min-h-0" />
 
       {/* Floating Microphone Button */}
-      <div className="flex-shrink-0 p-6 flex justify-center items-center gap-4">
+      <div className="flex-shrink-0 p-6 flex flex-col items-center gap-3">
+        {/* Instruction text */}
+        <p className="text-sm text-muted-foreground" data-testid="text-mic-instruction">
+          {isRecording ? "Release to send" : isProcessing ? "Processing..." : "Hold to speak"}
+        </p>
+        
+        <div className="flex justify-center items-center gap-4">
         {/* Toggle to History View */}
         {onToggleView && (
           <Button
@@ -478,6 +484,7 @@ export function ImmersiveTutor({
             <Turtle className="h-5 w-5 md:h-6 md:w-6" />
           </Button>
         )}
+        </div>
       </div>
     </div>
   );
