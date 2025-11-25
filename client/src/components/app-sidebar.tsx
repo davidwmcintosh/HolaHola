@@ -71,11 +71,11 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-6">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <img 
             src={linguaflowLogo} 
             alt="LinguaFlow" 
-            className="h-14 w-14 object-contain"
+            className="h-16 w-16 object-contain -ml-1"
             data-testid="img-logo"
           />
           <div>
