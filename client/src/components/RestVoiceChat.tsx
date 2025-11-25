@@ -12,6 +12,10 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { queryClient } from "@/lib/queryClient";
 import { VoiceChatViewManager } from "@/components/VoiceChatViewManager";
 
+// Module-level set to track greetings played this session
+// Persists across component unmounts/remounts (fixes double-greeting on mobile apps)
+const playedGreetingsThisSession = new Set<string>();
+
 interface RestVoiceChatProps {
   conversationId: string | null;
   setConversationId: (id: string | null) => void;
@@ -118,8 +122,12 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     // Don't play greeting if already recording or processing
     if (isRecording || isProcessing) return;
     
-    // Check if we already played this conversation's greeting
-    if (hasPlayedGreetingRef.current === conversationId) return;
+    // Check if we already played this conversation's greeting (module-level check)
+    // This prevents double-greeting on mobile apps where component remounts quickly
+    if (playedGreetingsThisSession.has(conversationId)) {
+      console.log('[VOICE GREETING] Already played for this conversation, skipping');
+      return;
+    }
     
     // Check if this is a new conversation with just a greeting (1 AI message, no user messages)
     const aiMessages = messages.filter(m => m.role === 'assistant');
@@ -129,8 +137,9 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       const greetingMessage = aiMessages[0];
       const greetingConversationId = conversationId; // Capture for closure
       
-      // IMMEDIATELY mark as played to prevent race conditions from React double-renders
-      // This prevents duplicate greeting synthesis when effects run twice
+      // IMMEDIATELY mark as played at module level to prevent race conditions
+      // This prevents duplicate greeting synthesis when component remounts (mobile apps, React Strict Mode)
+      playedGreetingsThisSession.add(greetingConversationId);
       hasPlayedGreetingRef.current = greetingConversationId;
       
       // Generate TTS for the greeting (but don't change state yet)
