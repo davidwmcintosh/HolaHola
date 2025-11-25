@@ -168,29 +168,29 @@ export function VocabularyFlashcard() {
       </div>
 
       <Card 
-        className="min-h-64 aspect-[3/2] p-8 flex flex-col items-center justify-center cursor-pointer hover-elevate active-elevate-2"
+        className="min-h-32 max-w-md mx-auto p-4 flex flex-col items-center justify-center cursor-pointer hover-elevate active-elevate-2"
         onClick={!isFlipped ? handleFlip : undefined}
         data-testid="card-flashcard"
       >
-        <div className="text-center space-y-4 flex-1 flex items-center">
+        <div className="text-center space-y-2 flex-1 flex items-center">
           {!isFlipped ? (
             <div>
-              <h3 className="text-2xl font-bold" data-testid="text-flashcard-word">
+              <h3 className="text-xl font-bold" data-testid="text-flashcard-word">
                 {currentCard.word}
               </h3>
-              <p className="text-sm text-muted-foreground mt-2">Click to reveal</p>
+              <p className="text-xs text-muted-foreground mt-1">Click to reveal</p>
             </div>
           ) : (
             <div>
-              <h3 className="text-2xl font-bold text-primary" data-testid="text-flashcard-translation">
+              <h3 className="text-xl font-bold text-primary" data-testid="text-flashcard-translation">
                 {currentCard.translation}
               </h3>
-              <div className="space-y-2 mt-4">
-                <p className="text-sm text-muted-foreground italic">
-                  Pronunciation: {currentCard.pronunciation}
+              <div className="space-y-1 mt-2">
+                <p className="text-xs text-muted-foreground italic">
+                  {currentCard.pronunciation}
                 </p>
-                <p className="text-base">
-                  <span className="text-muted-foreground">Example: </span>
+                <p className="text-sm">
+                  <span className="text-muted-foreground">Ex: </span>
                   {currentCard.example}
                 </p>
               </div>
@@ -199,26 +199,26 @@ export function VocabularyFlashcard() {
         </div>
         
         {isFlipped && (
-          <div className="flex gap-3 mt-4" onClick={(e) => e.stopPropagation()}>
+          <div className="flex gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
             <Button
               variant="destructive"
-              size="default"
+              size="sm"
               onClick={() => handleReview(false)}
               disabled={reviewMutation.isPending}
               data-testid="button-flashcard-incorrect"
             >
-              <X className="h-4 w-4 mr-2" />
-              Incorrect
+              <X className="h-3 w-3 mr-1" />
+              Wrong
             </Button>
             <Button
               variant="default"
-              size="default"
+              size="sm"
               onClick={() => handleReview(true)}
               disabled={reviewMutation.isPending}
               data-testid="button-flashcard-correct"
             >
-              <Check className="h-4 w-4 mr-2" />
-              Correct
+              <Check className="h-3 w-3 mr-1" />
+              Got it
             </Button>
           </div>
         )}
