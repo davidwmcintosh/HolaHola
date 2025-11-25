@@ -6,10 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Mic, Plus } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useSidebar } from "@/components/ui/sidebar";
 
 export default function Chat() {
   const [mode, setMode] = useState<"text" | "voice">("voice");
   const { language, difficulty, userName } = useLanguage();
+  const { setOpen, setOpenMobile } = useSidebar();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [currentConversationOnboarding, setCurrentConversationOnboarding] = useState<boolean | null>(null);
@@ -28,6 +30,13 @@ export default function Chat() {
   const [isReloading, setIsReloading] = useState(false); // Smooth transition for page reload
   const previousLanguageRef = useRef(language);
   const creationInProgressRef = useRef(false); // Prevent duplicate conversation creation
+
+  // Auto-close sidebar when entering voice chat area
+  // This runs once on mount - works for Call Tutor, New Chat, and Start Practicing
+  useEffect(() => {
+    setOpen(false);      // Close desktop sidebar
+    setOpenMobile(false); // Close mobile sidebar
+  }, [setOpen, setOpenMobile]);
 
   // Reset conversationId when language changes to trigger new conversation creation
   // BUT NOT if we're currently in onboarding (to prevent race condition)
