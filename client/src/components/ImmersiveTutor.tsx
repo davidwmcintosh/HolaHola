@@ -366,8 +366,13 @@ export function ImmersiveTutor({
           return (
             <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
               <div className="max-w-4xl mx-auto">
+                {/* Max height with mask fade for long text - prevents overflow while staying readable */}
                 <div 
-                  className="text-xl md:text-3xl font-medium text-center leading-relaxed"
+                  className="text-xl md:text-3xl font-medium text-center leading-relaxed max-h-32 md:max-h-40 overflow-hidden"
+                  style={{
+                    maskImage: 'linear-gradient(to bottom, transparent 0%, black 20%, black 100%)',
+                    WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 20%, black 100%)'
+                  }}
                   data-testid="text-subtitle-overlay"
                 >
                   {/* Static subtitle text - Chirp HD voice quality prioritized over karaoke */}
