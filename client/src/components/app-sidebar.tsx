@@ -53,12 +53,14 @@ export function AppSidebar() {
   const [location] = useLocation();
   const { userName } = useLanguage();
   const { user } = useAuth();
-  const { setOpenMobile, isMobile } = useSidebar();
+  const { setOpenMobile, setOpen, isMobile } = useSidebar();
   
-  // Auto-close sidebar on mobile when a menu item is clicked
-  const closeSidebarOnMobile = () => {
+  // Auto-close sidebar when a menu item is clicked (both mobile and desktop)
+  const closeSidebar = () => {
     if (isMobile) {
       setOpenMobile(false);
+    } else {
+      setOpen(false);
     }
   };
   
@@ -119,7 +121,7 @@ export function AppSidebar() {
                   if (item.title === "Call Tutor") {
                     localStorage.setItem('forceNewConversation', 'true');
                   }
-                  closeSidebarOnMobile();
+                  closeSidebar();
                 };
                 
                 return (
@@ -155,7 +157,7 @@ export function AppSidebar() {
                         isActive={isActive}
                         data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                       >
-                        <Link href={item.url} onClick={closeSidebarOnMobile}>
+                        <Link href={item.url} onClick={closeSidebar}>
                           <item.icon className="h-4 w-4" />
                           <span>{item.title}</span>
                         </Link>
@@ -182,7 +184,7 @@ export function AppSidebar() {
                         isActive={isActive}
                         data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                       >
-                        <Link href={item.url} onClick={closeSidebarOnMobile}>
+                        <Link href={item.url} onClick={closeSidebar}>
                           <item.icon className="h-4 w-4" />
                           <span>{item.title}</span>
                         </Link>
@@ -209,7 +211,7 @@ export function AppSidebar() {
                         isActive={isActive}
                         data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                       >
-                        <Link href={item.url} onClick={closeSidebarOnMobile}>
+                        <Link href={item.url} onClick={closeSidebar}>
                           <item.icon className="h-4 w-4" />
                           <span>{item.title}</span>
                         </Link>
@@ -229,7 +231,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild data-testid="link-settings">
-              <Link href="/settings" onClick={closeSidebarOnMobile}>
+              <Link href="/settings" onClick={closeSidebar}>
                 <Settings className="h-4 w-4" />
                 <span>Settings</span>
               </Link>
@@ -238,7 +240,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={() => {
-                closeSidebarOnMobile();
+                closeSidebar();
                 window.location.href = '/api/logout';
               }}
               data-testid="button-logout"
