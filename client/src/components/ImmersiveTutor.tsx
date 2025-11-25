@@ -3,9 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Mic, MicOff, MessageSquare, RotateCcw, Volume2 } from "lucide-react";
 import { type Message } from "@shared/schema";
 import Lottie from "lottie-react";
-import idleBreathingAnimation from "@assets/lottie/tutor_idle_breathing.json";
-import listeningPulseAnimation from "@assets/lottie/tutor_listening_pulse.json";
-import speakingBreathingAnimation from "@assets/lottie/tutor_speaking_breathing.json";
+import idleAnimation from "@assets/lottie/teacher_idle.json";
+import speakingAnimation from "@assets/lottie/teacher_speaking.json";
 
 interface WordTiming {
   word: string;
@@ -113,17 +112,12 @@ export function ImmersiveTutor({
     };
   }, [isPlaying, currentWordTimings, audioElementRef]);
 
-  // Determine avatar state and select corresponding animation (3 distinct animations)
+  // Determine avatar state and select animation
   const avatarState = isRecording ? "listening" : isPlaying ? "speaking" : "idle";
   
-  // Select unique animation for each state
-  const getCurrentAnimation = () => {
-    if (isRecording) return listeningPulseAnimation;
-    if (isPlaying) return speakingBreathingAnimation;
-    return idleBreathingAnimation;
-  };
-  
-  const currentAnimation = getCurrentAnimation();
+  // Select animation: speaking animation for speaking, idle for both idle and listening
+  // (listening differentiated by pulse animation and icon)
+  const currentAnimation = isPlaying ? speakingAnimation : idleAnimation;
 
   // Get state configuration with icon and styles
   const getStateConfig = () => {
@@ -132,6 +126,7 @@ export function ImmersiveTutor({
         label: "Listening to you...",
         icon: <Mic className="w-16 h-16 md:w-20 md:h-20 text-primary" />,
         opacity: 0.9,
+        pulse: true,
       };
     }
     if (isPlaying) {
@@ -139,12 +134,14 @@ export function ImmersiveTutor({
         label: "Teaching",
         icon: <Volume2 className="w-16 h-16 md:w-20 md:h-20 text-primary" />,
         opacity: 0.95,
+        pulse: false,
       };
     }
     return {
       label: "Ready to help",
       icon: null,
       opacity: 0.7,
+      pulse: false,
     };
   };
 
@@ -158,18 +155,20 @@ export function ImmersiveTutor({
           className="w-full h-full flex flex-col items-center justify-center p-8 gap-4"
           data-testid={`avatar-state-${avatarState}`}
         >
-          {/* Lottie animation with icon overlay - unique animation per state */}
+          {/* Lottie animation with icon overlay */}
           <div className="relative w-48 h-48 md:w-64 md:h-64">
-            {/* Lottie animation (idle/listening/speaking) */}
-            <Lottie
-              animationData={currentAnimation}
-              loop={true}
-              autoplay={true}
-              style={{ width: "100%", height: "100%", opacity: stateConfig.opacity }}
-              rendererSettings={{
-                preserveAspectRatio: "xMidYMid meet"
-              }}
-            />
+            {/* Lottie animation with pulse effect for listening */}
+            <div className={stateConfig.pulse ? "animate-pulse" : ""}>
+              <Lottie
+                animationData={currentAnimation}
+                loop={true}
+                autoplay={true}
+                style={{ width: "100%", height: "100%", opacity: stateConfig.opacity }}
+                rendererSettings={{
+                  preserveAspectRatio: "xMidYMid meet"
+                }}
+              />
+            </div>
             
             {/* State icon overlay - centered on animation */}
             {stateConfig.icon && (
