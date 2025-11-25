@@ -2,8 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, MessageSquare, RotateCcw } from "lucide-react";
 import { type Message } from "@shared/schema";
-import tutorSpeakingUrl from "@assets/generated_images/Teacher_speaking_animatedly_62a6f01b.png";
-import tutorIdleUrl from "@assets/generated_images/Friendly_teacher_idle_state_fd4580c6.png";
+import tutorIdleUrl from "@assets/stock_images/friendly_professiona_94b04dc8.jpg";
+import tutorSpeakingUrl from "@assets/stock_images/teacher_speaking_ges_345043c1.jpg";
 
 interface WordTiming {
   word: string;
