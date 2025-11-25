@@ -17,6 +17,17 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 - Slow repeat button for difficult phrases - AI simplifies and speaks slower
 - Replay button to hear the last response again
 
+### Pronunciation Feedback
+**Real-Time Pronunciation Checking**
+- Advanced speech recognition with word-level confidence scoring
+- AI tutor provides gentle corrections when pronunciation needs work
+- Hear the correct pronunciation immediately with native speaker audio
+- Slow repeat mode breaks down difficult words at 0.7x speed
+- IPA phonetic guidance for precise syllable pronunciation
+- Smart phrase detection recognizes multi-word expressions (e.g., "buenos dias" as one unit)
+- Compare your speech to native pronunciation models
+- Practice difficult sounds with targeted feedback
+
 ### 9 Languages Supported
 - Spanish, French, German, Italian, Portuguese
 - Japanese, Chinese, Korean, Russian
