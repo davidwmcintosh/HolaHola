@@ -292,13 +292,18 @@ export function ImmersiveTutor({
           if (!currentMessage) return null;
           
           // Determine text based on mode:
-          // - "target" mode: prefer targetLanguageText, fallback to content if missing
-          // - "all" mode: use full content
+          // - "target" mode: ONLY show targetLanguageText (no fallback - hides when no target text)
+          // - "all" mode: show full content
           const targetText = currentMessage.targetLanguageText || "";
           const fullContent = currentMessage.content || "";
-          const displayText = subtitleMode === "all" 
-            ? fullContent 
-            : (targetText || fullContent); // Graceful degradation for target mode
+          
+          // For "target" mode, only show if there's actual target language text
+          // This prevents showing English content (like greetings) in target-only mode
+          if (subtitleMode === "target" && !targetText) {
+            return null;
+          }
+          
+          const displayText = subtitleMode === "all" ? fullContent : targetText;
           
           // If no text at all, don't show overlay
           if (!displayText) return null;
