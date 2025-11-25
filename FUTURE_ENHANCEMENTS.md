@@ -80,6 +80,40 @@ Implement analytics to track:
 
 ---
 
+## Karaoke-Style Word Highlighting
+
+### Re-enable when Chirp HD supports SSML marks
+**Status**: Waiting on Google Cloud TTS feature  
+**Priority**: Medium  
+**Date Added**: November 25, 2024
+
+**Context**:
+Karaoke-style word-by-word highlighting was implemented but disabled because:
+- Chirp HD voices provide superior voice quality for language learning
+- Chirp HD does NOT support SSML `<mark>` tags needed for word-level timing
+- Neural2 voices support SSML marks but have inferior voice quality
+
+**Decision**: Prioritize Chirp HD voice quality over karaoke highlighting.
+
+**Implementation Status**:
+The karaoke code is fully implemented and preserved as comments in:
+- `client/src/components/ImmersiveTutor.tsx` - Progressive reveal with highlighting
+- `client/src/components/RestVoiceChat.tsx` - Word timing request toggles
+
+**Periodic Check Required**:
+Monitor Google Cloud TTS documentation for Chirp HD SSML mark support:
+- Documentation URL: https://cloud.google.com/text-to-speech/docs/ssml
+- Check the "Supported SSML elements" section for Chirp HD voices
+- Look for `<mark>` element support in Chirp 3 HD voice family
+
+**Re-enablement Steps** (when Chirp HD supports SSML marks):
+1. In `RestVoiceChat.tsx`: Change `const needTimings = false;` to `const needTimings = subtitleMode !== "off";`
+2. In `ImmersiveTutor.tsx`: Uncomment the progressive reveal code block
+3. Test word timing synchronization with Chirp HD
+4. Update `replit.md` to reflect the change
+
+---
+
 ## Notes
 - This document should be reviewed quarterly
 - Add items when features are deferred or new ideas emerge

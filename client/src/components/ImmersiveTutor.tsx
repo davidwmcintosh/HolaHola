@@ -266,7 +266,19 @@ export function ImmersiveTutor({
           </div>
         )}
         
-        {/* Subtitle Overlay */}
+        {/* Subtitle Overlay - Static text display (karaoke highlighting disabled) */}
+        {/* 
+          KARAOKE FEATURE DISABLED: Word-by-word highlighting requires Neural2 voices with SSML marks,
+          but Chirp HD provides superior voice quality for language learning. Karaoke code is preserved
+          below for when Chirp HD adds SSML mark support.
+          
+          TODO: Periodically check Google Cloud TTS documentation for Chirp HD SSML mark support:
+          https://cloud.google.com/text-to-speech/docs/ssml
+          
+          When available, restore karaoke by:
+          1. In RestVoiceChat.tsx: Change needTimings to: subtitleMode !== "off"
+          2. Uncomment the progressive reveal code below
+        */}
         {(() => {
           // When subtitleMode is "off", don't show any overlay
           if (subtitleMode === "off") return null;
@@ -279,29 +291,48 @@ export function ImmersiveTutor({
           
           if (!currentMessage) return null;
           
-          // Determine fallback text based on mode:
+          // Determine text based on mode:
           // - "target" mode: prefer targetLanguageText, fallback to content if missing
           // - "all" mode: use full content
           const targetText = currentMessage.targetLanguageText || "";
           const fullContent = currentMessage.content || "";
-          const fallbackText = subtitleMode === "all" 
+          const displayText = subtitleMode === "all" 
             ? fullContent 
             : (targetText || fullContent); // Graceful degradation for target mode
           
           // If no text at all, don't show overlay
-          if (!fallbackText) return null;
+          if (!displayText) return null;
           
-          // Determine render mode:
-          // - Progressive mode: during playback with timings (words appear as spoken)
-          // - Static mode: after playback or during playback without timings
-          const hasTimings = currentWordTimings.length > 0;
-          const useProgressiveMode = isPlaying && hasTimings;
-          
-          // During progressive mode with 0 visible words, show nothing (wait for first word)
-          // This prevents flashing the full text before timings kick in
-          if (useProgressiveMode && visibleWordCount === 0) {
-            return null;
-          }
+          /* 
+           * KARAOKE CODE - PRESERVED FOR FUTURE USE
+           * Uncomment when Chirp HD supports SSML marks:
+           *
+           * const hasTimings = currentWordTimings.length > 0;
+           * const useProgressiveMode = isPlaying && hasTimings;
+           * 
+           * // During progressive mode with 0 visible words, show nothing (wait for first word)
+           * if (useProgressiveMode && visibleWordCount === 0) {
+           *   return null;
+           * }
+           * 
+           * // In the render, replace static text with:
+           * {useProgressiveMode ? (
+           *   currentWordTimings.slice(0, visibleWordCount).map((timing, index) => (
+           *     <span
+           *       key={index}
+           *       className={`inline-block mx-1 transition-all duration-150 ${
+           *         index === highlightedWordIndex
+           *           ? "text-primary scale-110 font-bold"
+           *           : "text-foreground"
+           *       }`}
+           *     >
+           *       {timing.word}
+           *     </span>
+           *   ))
+           * ) : (
+           *   <span className="text-foreground">{displayText}</span>
+           * )}
+           */
           
           return (
             <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
@@ -310,24 +341,8 @@ export function ImmersiveTutor({
                   className="text-xl md:text-3xl font-medium text-center leading-relaxed"
                   data-testid="text-subtitle-overlay"
                 >
-                  {useProgressiveMode ? (
-                    // Progressive word-by-word reveal with highlighting (only during playback)
-                    currentWordTimings.slice(0, visibleWordCount).map((timing, index) => (
-                      <span
-                        key={index}
-                        className={`inline-block mx-1 transition-all duration-150 ${
-                          index === highlightedWordIndex
-                            ? "text-primary scale-110 font-bold"
-                            : "text-foreground"
-                        }`}
-                      >
-                        {timing.word}
-                      </span>
-                    ))
-                  ) : (
-                    // Static text: shown when no timings available or after playback
-                    <span className="text-foreground">{fallbackText}</span>
-                  )}
+                  {/* Static subtitle text - Chirp HD voice quality prioritized over karaoke */}
+                  <span className="text-foreground">{displayText}</span>
                 </div>
               </div>
             </div>

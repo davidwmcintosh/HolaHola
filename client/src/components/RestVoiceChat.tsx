@@ -110,9 +110,11 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       hasPlayedGreetingRef.current = greetingConversationId;
       
       // Generate TTS for the greeting (but don't change state yet)
-      // Request word timings when subtitles are enabled for karaoke highlighting
-      const needTimings = subtitleMode !== "off";
-      console.log('[VOICE GREETING] Generating greeting audio for new conversation (subtitleMode:', subtitleMode, ')');
+      // KARAOKE DISABLED: Always use Chirp HD for best voice quality
+      // TODO: Re-enable when Chirp HD supports SSML mark tags for word-level timing
+      // Original code: const needTimings = subtitleMode !== "off";
+      const needTimings = false; // Always Chirp HD - karaoke disabled until Chirp supports SSML marks
+      console.log('[VOICE GREETING] Generating greeting audio for new conversation (using Chirp HD)');
       
       // Use target language voice for consistency (Spanish voice speaks English = Spanish accent)
       // This gives immersive learning experience from the very first word
@@ -534,10 +536,13 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       setProcessingStage('Getting response...');
       console.log('[REST VOICE] Sending to GPT...');
       
-      // Step 3: Synthesize speech (with word timings if subtitles enabled)
+      // Step 3: Synthesize speech
       setProcessingStage('Synthesizing speech...');
-      const needTimings = subtitleMode !== "off";
-      console.log('[REST VOICE] Generating speech... (subtitleMode:', subtitleMode, ')');
+      // KARAOKE DISABLED: Always use Chirp HD for best voice quality
+      // TODO: Re-enable when Chirp HD supports SSML mark tags for word-level timing
+      // Original code: const needTimings = subtitleMode !== "off";
+      const needTimings = false; // Always Chirp HD - karaoke disabled until Chirp supports SSML marks
+      console.log('[REST VOICE] Generating speech... (using Chirp HD)');
       
       const result = await processVoiceMessage(audioBlob, targetConversationId, language, needTimings);
       
