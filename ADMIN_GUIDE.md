@@ -1,6 +1,6 @@
 # LinguaFlow Administrator Backend Guide
 
-**Last Updated:** November 24, 2025  
+**Last Updated:** November 26, 2025  
 **For:** System Administrators and Backend Database Managers
 
 ---
@@ -726,7 +726,8 @@ Higher roles automatically inherit permissions from lower roles.
 **Admin Dashboard:** `/admin`  
 **User Management:** `/admin/users`  
 **Class Management:** `/admin/classes`  
-**Reports & Audit:** `/admin/reports`
+**Reports & Audit:** `/admin/reports`  
+**Voice Console:** `/admin/voices`
 
 Only users with `role = 'developer'` or `role = 'admin'` can access these pages.
 
@@ -912,6 +913,152 @@ LEFT JOIN users target ON a."targetId" = target.id
 WHERE a.action IN ('start_impersonation', 'end_impersonation')
 ORDER BY a."createdAt" DESC;
 ```
+
+---
+
+## Voice Console (TTS Management)
+
+**Added:** November 26, 2025  
+**Access:** `/admin/voices`  
+**Required Role:** Developer or Admin
+
+### Overview
+
+The Voice Console allows administrators and developers to preview, test, and configure tutor voices across all supported languages. It integrates with the 3-layer emotion control system for testing emotionally expressive AI tutors.
+
+### Features
+
+**Voice Preview**
+- Select any supported language (Spanish, French, German, Italian, Portuguese, Japanese, Korean, Chinese, Russian)
+- Preview target language and native language (English) voice samples
+- Test sample phrases in each language
+
+**Emotion Audition Controls**
+- **Personality Presets**: Test warm, calm, energetic, or professional personalities
+- **Expressiveness Slider (1-5)**: Test different emotional ranges
+- **Emotion Selection**: Select specific emotions allowed for the personality/expressiveness combination
+
+**Voice Comparison**
+- Play target language samples to hear foreign pronunciation
+- Play native language samples to hear English explanations
+- Compare different voice configurations side-by-side
+
+### How to Use
+
+1. Navigate to `/admin/voices` (requires developer or admin role)
+2. Select a language from the dropdown
+3. Choose emotion settings:
+   - Select personality preset (warm, calm, energetic, professional)
+   - Adjust expressiveness slider (1-5)
+   - Select an emotion from the available options
+4. Click "Play Target" to hear the voice in the target language
+5. Click "Play English" to hear the voice in English
+
+### Emotion Control Configuration
+
+**Personality Presets:**
+| Preset | Baseline Emotion | Description |
+|--------|------------------|-------------|
+| warm | friendly | Encouraging and supportive teaching style |
+| calm | calm | Patient and measured teaching approach |
+| energetic | enthusiastic | Excited and engaging teaching style |
+| professional | neutral | Formal and focused teaching style |
+
+**Expressiveness Levels:**
+| Level | Behavior |
+|-------|----------|
+| 1-2 | Baseline emotion only, minimal deviation |
+| 3 | Core emotions for the personality |
+| 4 | Extended emotion set |
+| 5 | Full spontaneous emotions including surprised/excited |
+
+### API Endpoints
+
+**Get TTS Metadata** (Developer+):
+```bash
+GET /api/admin/tts-meta
+```
+Returns: personalities, expressiveness levels, emotion mappings
+
+**Preview Voice** (Developer+):
+```bash
+POST /api/admin/tutor-voices/preview
+Body: {
+  "voiceId": "voice-id",
+  "text": "Hello, how are you?",
+  "language": "en",
+  "speakingRate": 0.9,
+  "emotion": "friendly"
+}
+```
+Returns: Audio blob (MP3)
+
+### Managing User Voice Settings
+
+**Check User's Voice Settings:**
+```sql
+SELECT 
+  id, 
+  email, 
+  "tutorPersonality", 
+  "tutorExpressiveness",
+  "tutorVoiceId"
+FROM users
+WHERE email = 'user@example.com';
+```
+
+**Update User Voice Settings:**
+```sql
+UPDATE users 
+SET 
+  "tutorPersonality" = 'warm',
+  "tutorExpressiveness" = 3
+WHERE email = 'user@example.com';
+```
+
+**Reset Voice Settings to Default:**
+```sql
+UPDATE users 
+SET 
+  "tutorPersonality" = 'warm',
+  "tutorExpressiveness" = 3,
+  "tutorVoiceId" = NULL
+WHERE id = 123;
+```
+
+### Troubleshooting Voice Issues
+
+**Issue: Voice preview not playing**
+
+**Diagnosis:**
+- Check browser console for audio errors
+- Verify CARTESIA_API_KEY is set in environment secrets
+
+**Solution:**
+```bash
+# Check if Cartesia API key is set
+echo $CARTESIA_API_KEY | head -c 10
+```
+
+**Issue: Emotion not changing in voice output**
+
+**Diagnosis:**
+- Check if emotion is in the allowed list for the personality/expressiveness
+- Check TTS service logs for validation warnings
+
+**Solution:**
+Ensure the selected emotion is valid for the personality/expressiveness combination. The Voice Console automatically filters to show only valid emotions.
+
+**Issue: Fallback to Google Cloud TTS**
+
+**Diagnosis:**
+- Cartesia API may be unavailable or rate limited
+- Check workflow logs for TTS provider selection
+
+**Solution:**
+The system automatically falls back to Google Cloud Chirp HD if Cartesia is unavailable. This is expected behavior and ensures voice features continue working.
+
+---
 
 ### Platform Metrics
 
