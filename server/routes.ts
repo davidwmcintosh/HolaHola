@@ -5187,15 +5187,34 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
         
         const data = await response.json();
         
-        // Handle different response structures (API may return data or items)
-        const voices = data.data || data.items || [];
-        if (!Array.isArray(voices)) {
+        // Handle different response structures:
+        // - API may return { data: [...], has_more: boolean } (paginated)
+        // - Or API may return [...] directly (array)
+        let voices: any[];
+        let hasMoreFlag = false;
+        
+        if (Array.isArray(data)) {
+          // Direct array response
+          voices = data;
+          hasMoreFlag = false; // No pagination info available
+          console.log(`[Cartesia API] Direct array response with ${voices.length} voices`);
+        } else if (data.data && Array.isArray(data.data)) {
+          // Paginated response with data property
+          voices = data.data;
+          hasMoreFlag = data.has_more === true;
+          console.log(`[Cartesia API] Paginated response with ${voices.length} voices, has_more: ${hasMoreFlag}`);
+        } else if (data.items && Array.isArray(data.items)) {
+          // Alternative paginated response with items property
+          voices = data.items;
+          hasMoreFlag = data.has_more === true;
+          console.log(`[Cartesia API] Paginated response (items) with ${voices.length} voices, has_more: ${hasMoreFlag}`);
+        } else {
           console.error('[Cartesia Voices] Unexpected response structure:', JSON.stringify(data).substring(0, 500));
           break;
         }
         
         allVoices.push(...voices);
-        hasMore = data.has_more === true;
+        hasMore = hasMoreFlag;
         if (hasMore && voices.length > 0) {
           cursor = voices[voices.length - 1].id;
         }
