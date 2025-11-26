@@ -67,13 +67,15 @@ export async function transcribeAudio(audioBlob: Blob, language?: string): Promi
  * Returns an audio blob (MP3) and optionally word timings for subtitle sync
  * language: Target language for pronunciation (e.g., 'spanish', 'french')
  * returnTimings: If true, requests word-level timing data for synchronized subtitles
+ * emotion: Optional AI-selected emotion for expressive TTS (e.g., 'friendly', 'encouraging', 'curious')
  */
 export async function synthesizeSpeech(
   text: string, 
   language?: string, 
   voice?: string, 
   targetLanguage?: string,
-  returnTimings?: boolean
+  returnTimings?: boolean,
+  emotion?: string
 ): Promise<SynthesisResult> {
   // Use nova voice for better multilingual pronunciation (default to nova if language specified)
   const selectedVoice = voice || (language ? 'nova' : 'alloy');
@@ -89,6 +91,7 @@ export async function synthesizeSpeech(
       language,
       targetLanguage, // Pass target language for SSML phoneme tags
       returnTimings, // Request word-level timing data
+      emotion, // AI-selected emotion for expressive TTS
     }),
     credentials: 'include', // Include auth cookies
   });
@@ -260,13 +263,16 @@ export async function processVoiceMessage(
   const nativeLanguage = chatData.aiMessage?.nativeLanguage || chatData.conversationUpdated?.nativeLanguage || 'english';
   const targetLanguage = chatData.conversationUpdated?.language || language;
   
+  // Extract AI-selected emotion for expressive TTS (3-layer emotion system)
+  const aiEmotion = chatData.aiMessage?.emotion;
+  
   // Use target language voice (Spanish) for authentic Spanish pronunciation
   // Text has no quotes to prevent punctuation artifacts like "cada" sounds
   const ttsLanguage = targetLanguage;
   
-  console.log('[VOICE TTS] Using', ttsLanguage, 'voice for authentic pronunciation, teaching:', targetLanguage, 'returnTimings:', returnTimings);
+  console.log('[VOICE TTS] Using', ttsLanguage, 'voice for authentic pronunciation, teaching:', targetLanguage, 'returnTimings:', returnTimings, 'emotion:', aiEmotion || 'default');
   
-  const ttsResult = await synthesizeSpeech(aiResponse, ttsLanguage, undefined, targetLanguage, returnTimings);
+  const ttsResult = await synthesizeSpeech(aiResponse, ttsLanguage, undefined, targetLanguage, returnTimings, aiEmotion);
 
   return {
     userTranscript,

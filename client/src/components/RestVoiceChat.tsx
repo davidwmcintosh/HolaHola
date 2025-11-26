@@ -238,7 +238,8 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       
       // Use target language voice for consistency (Spanish voice speaks English = Spanish accent)
       // This gives immersive learning experience from the very first word
-      synthesizeSpeech(greetingMessage.content, language, undefined, undefined, needTimings)
+      // Use friendly emotion for warm greeting (no AI-selected emotion available for initial greeting)
+      synthesizeSpeech(greetingMessage.content, language, undefined, undefined, needTimings, 'friendly')
         .then(result => {
           const audioBlob = result.audioBlob;
           // Use refs to check current state (not stale closure values)

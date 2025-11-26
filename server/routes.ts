@@ -1642,9 +1642,13 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
         let targetLanguageText = '';
         let hasTargetLanguage = false;
         let subtitlesJson: string | null = null; // For dual-subtitle sequences
+        let aiSelectedEmotion: string | undefined; // AI-selected emotion for TTS
         
         try {
           let parsed = JSON.parse(responseContent);
+          
+          // Extract AI-selected emotion for TTS expressiveness
+          aiSelectedEmotion = parsed.emotion;
           
           // SANITIZER: Trim any extra content after "Try saying" or "Try it!"
           // This prevents AI from adding marketing-style closers after the encouragement
@@ -1817,13 +1821,17 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
 
         // Return response immediately for fast TTS
         // Include nativeLanguage so client uses correct TTS voice (English voice for English text)
+        // Include emotion for expressive TTS with 3-layer emotion system
         res.json({ 
           userMessage, 
           aiMessage: {
             ...aiMessage,
-            nativeLanguage: conversation.nativeLanguage || 'english'
+            nativeLanguage: conversation.nativeLanguage || 'english',
+            emotion: aiSelectedEmotion || 'friendly' // AI-selected emotion for TTS
           }
         });
+        
+        console.log(`[VOICE EMOTION] AI selected emotion: ${aiSelectedEmotion || 'friendly (default)'} for TTS`);
 
         // Queue comprehensive background enrichment (non-blocking)
         setImmediate(async () => {
@@ -3083,7 +3091,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
   // Returns both audio and word-level timing data for synchronized subtitles
   app.post("/api/voice/synthesize", voiceLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const { text, voice, language, targetLanguage, returnTimings } = req.body;
+      const { text, voice, language, targetLanguage, returnTimings, emotion } = req.body;
       
       if (!text) {
         return res.status(400).json({ error: "No text provided" });
@@ -3094,6 +3102,13 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
       // Get user's tutor gender preference for voice selection
       const user = await storage.getUser(userId);
       const tutorGender = user?.tutorGender || 'female';
+      
+      // Get user's personality for default emotion if none provided
+      const tutorPersonality = (user?.tutorPersonality as 'warm' | 'calm' | 'energetic' | 'professional') || 'warm';
+      
+      // Import emotion utilities
+      const { getDefaultEmotion } = await import('./services/tts-service');
+      const effectiveEmotion = emotion || getDefaultEmotion(tutorPersonality);
       
       // Try to get admin-configured voice from database for this language and gender
       let voiceId: string | undefined;
@@ -3135,8 +3150,11 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
         targetLanguage, // Pass target language for SSML phoneme tag processing
         returnTimings, // Request word-level timing data for subtitle sync
         speakingRate: configuredSpeakingRate, // Use admin-configured speed
-        emotion: 'friendly', // Warm tutor voice
+        emotion: effectiveEmotion, // Dynamic emotion from AI or personality default
       });
+      
+      console.log(`[TTS] Using emotion: ${effectiveEmotion} (from: ${emotion ? 'AI response' : 'personality default'})`);
+
 
       console.log(`[TTS] ✓ Generated ${result.audioBuffer.length} bytes using ${ttsService.getProvider()} provider`);
 
