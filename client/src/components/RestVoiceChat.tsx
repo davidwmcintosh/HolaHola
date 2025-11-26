@@ -91,6 +91,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   const hasPlayedGreetingRef = useRef<string | null>(null); // Track which conversation's greeting was played
   const isRecordingRef = useRef<boolean>(false);
   const isProcessingRef = useRef<boolean>(false);
+  const recordingRequestedRef = useRef<boolean>(false); // Track if recording was requested (for race condition prevention)
   
   // Silence detection refs (only for auto-stop mode)
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -532,11 +533,21 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     try {
       setError(null);
       
+      // Mark that recording was requested - for race condition prevention
+      recordingRequestedRef.current = true;
       
       // Capture conversation ID for this session
       const recordingConversationId = conversationId;
       
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Check if user released the button while we were waiting for microphone
+      if (!recordingRequestedRef.current) {
+        console.log('[PUSH-TO-TALK] Button released before mic ready - aborting');
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
+      
       streamRef.current = stream;
       
       const mediaRecorder = new MediaRecorder(stream, {
@@ -606,11 +617,14 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
 
   const stopPushToTalkRecording = () => {
     console.log('[PUSH-TO-TALK] Releasing button, stopping recording...');
+    
+    // Cancel any pending recording start (for race condition prevention)
+    recordingRequestedRef.current = false;
+    
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     } else {
       cleanupRecording();
-      
     }
   };
 
