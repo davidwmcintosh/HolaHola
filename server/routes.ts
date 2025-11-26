@@ -3087,7 +3087,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
       const effectiveLanguage = language || targetLanguage || user?.targetLanguage || 'spanish';
       
       try {
-        const tutorVoices = await storage.getTutorVoices();
+        const tutorVoices = await storage.getAllTutorVoices();
         const matchingVoice = tutorVoices.find(
           v => v.language.toLowerCase() === effectiveLanguage.toLowerCase() && 
                v.gender === tutorGender &&
@@ -3097,10 +3097,13 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
           voiceId = matchingVoice.voiceId;
           configuredSpeakingRate = matchingVoice.speakingRate || 0.9;
           console.log(`[TTS] Using admin-configured ${tutorGender} voice for ${effectiveLanguage}: ${matchingVoice.voiceName} (speed: ${configuredSpeakingRate})`);
+        } else {
+          console.log(`[TTS] No matching voice found for ${effectiveLanguage}/${tutorGender}, using default`);
         }
       } catch (err: any) {
-        // If no admin voice configured, fall back to default
-        console.log(`[TTS] No admin voice configured, using default for ${effectiveLanguage}`);
+        // If database error, fall back to default
+        console.error(`[TTS] Error fetching tutor voices:`, err.message);
+        console.log(`[TTS] Using default voice for ${effectiveLanguage}`);
       }
       
       // Strip markdown formatting before TTS (removes **, *, parentheses, etc.)
@@ -3200,7 +3203,7 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
       // Try to get admin-configured voice from database
       let voiceId: string | undefined;
       try {
-        const tutorVoices = await storage.getTutorVoices();
+        const tutorVoices = await storage.getAllTutorVoices();
         const matchingVoice = tutorVoices.find(
           v => v.language.toLowerCase() === targetLanguage.toLowerCase() && 
                v.gender === tutorGender &&
@@ -3208,7 +3211,7 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
         );
         if (matchingVoice?.voiceId) {
           voiceId = matchingVoice.voiceId;
-          console.log(`[SLOW REPEAT] Using ${tutorGender} voice: ${matchingVoice.displayName}`);
+          console.log(`[SLOW REPEAT] Using ${tutorGender} voice: ${matchingVoice.voiceName}`);
         }
       } catch (err: any) {
         console.log(`[SLOW REPEAT] Using default voice for ${targetLanguage}`);
