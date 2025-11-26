@@ -52,40 +52,40 @@ const SUPPORTED_LANGUAGES = [
 
 const SAMPLE_PHRASES: Record<string, { target: string; native: string }> = {
   english: { 
-    target: "Hello! I'm your language tutor. Let's practice together!",
-    native: "Hello! I'm your language tutor. Let's practice together!"
+    target: "Hello! I'm excited to help you learn English. What would you like to practice today?",
+    native: "Hello! I'm excited to help you learn English. What would you like to practice today?"
   },
   spanish: { 
-    target: "¡Hola! Soy tu tutor de idiomas. ¡Vamos a practicar juntos!",
-    native: "Hello, I am your Spanish tutor. Let's learn Spanish together!"
+    target: "¡Hola! Estoy emocionado de ayudarte a aprender español. ¿Qué te gustaría practicar hoy?",
+    native: "Hello! I'm excited to help you learn Spanish. What would you like to practice today?"
   },
   french: { 
-    target: "Bonjour! Je suis votre tuteur de langues. Pratiquons ensemble!",
-    native: "Hello, I am your French tutor. Let's learn French together!"
+    target: "Bonjour! Je suis ravi de vous aider à apprendre le français. Que souhaitez-vous pratiquer aujourd'hui?",
+    native: "Hello! I'm excited to help you learn French. What would you like to practice today?"
   },
   german: { 
-    target: "Hallo! Ich bin dein Sprachlehrer. Lass uns zusammen üben!",
-    native: "Hello, I am your German tutor. Let's learn German together!"
+    target: "Hallo! Ich freue mich, dir beim Deutsch lernen zu helfen. Was möchtest du heute üben?",
+    native: "Hello! I'm excited to help you learn German. What would you like to practice today?"
   },
   italian: { 
-    target: "Ciao! Sono il tuo tutor di lingue. Esercitiamoci insieme!",
-    native: "Hello, I am your Italian tutor. Let's learn Italian together!"
+    target: "Ciao! Sono entusiasta di aiutarti a imparare l'italiano. Cosa vorresti praticare oggi?",
+    native: "Hello! I'm excited to help you learn Italian. What would you like to practice today?"
   },
   portuguese: { 
-    target: "Olá! Sou seu tutor de idiomas. Vamos praticar juntos!",
-    native: "Hello, I am your Portuguese tutor. Let's learn Portuguese together!"
+    target: "Olá! Estou animado para ajudá-lo a aprender português. O que você gostaria de praticar hoje?",
+    native: "Hello! I'm excited to help you learn Portuguese. What would you like to practice today?"
   },
   japanese: { 
-    target: "こんにちは！私はあなたの語学チューターです。一緒に練習しましょう！",
-    native: "Hello, I am your Japanese tutor. Let's learn Japanese together!"
+    target: "こんにちは！日本語を学ぶお手伝いができて嬉しいです。今日は何を練習したいですか？",
+    native: "Hello! I'm excited to help you learn Japanese. What would you like to practice today?"
   },
   'mandarin chinese': { 
-    target: "你好！我是你的语言导师。让我们一起练习吧！",
-    native: "Hello, I am your Mandarin Chinese tutor. Let's learn Chinese together!"
+    target: "你好！很高兴能帮助你学习中文。你今天想练习什么？",
+    native: "Hello! I'm excited to help you learn Mandarin Chinese. What would you like to practice today?"
   },
   korean: { 
-    target: "안녕하세요! 저는 당신의 언어 튜터입니다. 함께 연습해봐요!",
-    native: "Hello, I am your Korean tutor. Let's learn Korean together!"
+    target: "안녕하세요! 한국어를 배우는 것을 도와드리게 되어 기쁩니다. 오늘 무엇을 연습하고 싶으세요?",
+    native: "Hello! I'm excited to help you learn Korean. What would you like to practice today?"
   },
 };
 
