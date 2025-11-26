@@ -80,6 +80,64 @@ const GOOGLE_SSML_VOICE_MAP: Record<string, { name: string; languageCode: string
 };
 
 /**
+ * Cartesia Sonic Voice Mapping
+ * Maps language names to Cartesia voice IDs and language codes
+ * 
+ * Voice tiers:
+ * - sonic-3: Latest model, 42 languages, emotion/laughter support, ~90ms latency
+ * - sonic-turbo: Older model, 15 languages, 40ms latency (half of sonic-2)
+ * 
+ * Selected voices optimized for language tutoring (conversational, clear pronunciation)
+ */
+const CARTESIA_VOICE_MAP: Record<string, { voiceId: string; languageCode: string; name: string }> = {
+  'english': { 
+    voiceId: '573e3144-a684-4e72-ac2b-9b2063a50b53', // Teacher Lady - perfect for teaching!
+    languageCode: 'en',
+    name: 'Teacher Lady'
+  },
+  'spanish': { 
+    voiceId: '5c5ad5e7-1020-476b-8b91-fdcbe9cc313c', // Mexican Woman - natural Spanish
+    languageCode: 'es',
+    name: 'Mexican Woman'
+  },
+  'french': { 
+    voiceId: 'a249eaff-1e96-4d2c-b23b-12efa4f66f41', // French Conversational Lady
+    languageCode: 'fr',
+    name: 'French Conversational Lady'
+  },
+  'german': { 
+    voiceId: '3f4ade23-6eb4-4279-ab05-6a144947c4d5', // German Conversational Woman
+    languageCode: 'de',
+    name: 'German Conversational Woman'
+  },
+  'italian': { 
+    voiceId: '0e21713a-5e9a-428a-bed4-90d410b87f13', // Italian Narrator Woman
+    languageCode: 'it',
+    name: 'Italian Narrator Woman'
+  },
+  'portuguese': { 
+    voiceId: '700d1ee3-a641-4018-ba6e-899dcadc9e2b', // Pleasant Brazilian Lady
+    languageCode: 'pt',
+    name: 'Pleasant Brazilian Lady'
+  },
+  'japanese': { 
+    voiceId: '2b568345-1d48-4047-b25f-7baccf842eb0', // Japanese Woman Conversational
+    languageCode: 'ja',
+    name: 'Japanese Woman Conversational'
+  },
+  'mandarin chinese': { 
+    voiceId: 'e90c6678-f0d3-4767-9883-5d0ecf5894a8', // Chinese Female Conversational
+    languageCode: 'zh',
+    name: 'Chinese Female Conversational'
+  },
+  'korean': { 
+    voiceId: '29e5f8b4-b953-4160-848f-40fae182235b', // Korean Calm Woman
+    languageCode: 'ko',
+    name: 'Korean Calm Woman'
+  },
+};
+
+/**
  * Language code mapping for franc-min detection
  * Maps franc's ISO 639-3 codes to our language names
  */
@@ -140,17 +198,42 @@ const IPA_PRONUNCIATIONS: Record<string, Record<string, string>> = {
  * TTS Service - Abstraction layer supporting multiple TTS providers
  * 
  * Supports:
- * - OpenAI TTS (tts-1, tts-1-hd) - Fast but limited control
- * - Google Cloud WaveNet - Authentic pronunciation, SSML support
+ * - Cartesia Sonic-3/Turbo - Ultra-low latency (40-90ms), full SSML, emotion tags
+ * - Google Cloud Chirp HD - High quality but slower (500-1500ms)
+ * - OpenAI TTS (tts-1, tts-1-hd) - Fast but limited control (not used)
+ * 
+ * Provider selection via TTS_PRIMARY_PROVIDER env var:
+ * - 'cartesia': Use Cartesia as primary (default if CARTESIA_API_KEY set)
+ * - 'google': Use Google Cloud as primary (fallback if Cartesia unavailable)
+ * 
+ * Model selection via TTS_CARTESIA_MODEL env var:
+ * - 'sonic-3': Latest model, 42 languages, emotion/laughter (~90ms latency)
+ * - 'sonic-turbo': Ultra-fast mode (40ms latency), 15 languages
  */
 export class TTSService {
   private googleClient: TextToSpeechClient | null = null;
   private googleBetaClient: ttsV1Beta1.TextToSpeechClient | null = null;
   private openaiClient: OpenAI | null = null;
+  private cartesiaClient: Cartesia | null = null;
   private provider: TTSProvider;
+  private cartesiaModel: string;
+  private fallbackEnabled: boolean = true;
 
-  constructor(provider: TTSProvider = 'google') {
-    this.provider = provider;
+  constructor(provider?: TTSProvider) {
+    // Determine Cartesia model (sonic-3 is default, sonic-turbo for ultra-low latency)
+    this.cartesiaModel = process.env.TTS_CARTESIA_MODEL || 'sonic-3';
+    
+    // Initialize Cartesia client if API key is available
+    if (process.env.CARTESIA_API_KEY) {
+      try {
+        this.cartesiaClient = new Cartesia({
+          apiKey: process.env.CARTESIA_API_KEY,
+        });
+        console.log(`[TTS Service] ✓ Cartesia initialized (model: ${this.cartesiaModel})`);
+      } catch (error) {
+        console.error('[TTS Service] Failed to initialize Cartesia:', error);
+      }
+    }
 
     // Initialize Google Cloud TTS client if credentials are available
     if (process.env.GOOGLE_CLOUD_TTS_CREDENTIALS) {
@@ -162,73 +245,178 @@ export class TTSService {
         this.googleBetaClient = new ttsV1Beta1.TextToSpeechClient({
           credentials,
         });
-        console.log('[TTS Service] ✓ Google Cloud WaveNet initialized (v1 + v1beta1)');
+        console.log('[TTS Service] ✓ Google Cloud TTS initialized (fallback ready)');
       } catch (error) {
         console.error('[TTS Service] Failed to initialize Google Cloud TTS:', error);
-        // Fall back to OpenAI if Google credentials are invalid
-        this.provider = 'openai';
       }
-    } else {
-      console.warn('[TTS Service] GOOGLE_CLOUD_TTS_CREDENTIALS not found, falling back to OpenAI TTS');
-      this.provider = 'openai';
     }
 
-    // OpenAI client no longer used - Google Cloud TTS is required for authentic voices
-    // Keeping initialization code for future reference, but not used in voice chat
+    // OpenAI client (legacy, not used for voice chat)
     if (process.env.USER_OPENAI_API_KEY) {
       this.openaiClient = new OpenAI({
         apiKey: process.env.USER_OPENAI_API_KEY,
         baseURL: 'https://api.openai.com/v1',
       });
-      console.log('[TTS Service] ℹ️  OpenAI TTS available (not used for voice chat - Google Cloud required)');
+    }
+
+    // Determine primary provider based on env var or availability
+    const envProvider = process.env.TTS_PRIMARY_PROVIDER as TTSProvider | undefined;
+    if (envProvider && ['cartesia', 'google', 'openai'].includes(envProvider)) {
+      this.provider = envProvider;
+    } else if (provider) {
+      this.provider = provider;
+    } else if (this.cartesiaClient) {
+      this.provider = 'cartesia';
+    } else if (this.googleClient) {
+      this.provider = 'google';
+    } else {
+      this.provider = 'openai';
     }
     
-    // Validate Google Cloud TTS is available
-    if (!this.googleClient) {
-      console.error('[TTS Service] ❌ CRITICAL: Google Cloud TTS not configured!');
-      console.error('[TTS Service] Voice chat will not work without GOOGLE_CLOUD_TTS_CREDENTIALS');
-      console.error('[TTS Service] Set GOOGLE_CLOUD_TTS_CREDENTIALS environment variable with service account JSON');
+    // Log provider status
+    console.log(`[TTS Service] Primary provider: ${this.provider.toUpperCase()}`);
+    if (this.cartesiaClient) {
+      console.log(`[TTS Service] ├─ Cartesia: ✓ Ready (${this.cartesiaModel})`);
+    } else {
+      console.log('[TTS Service] ├─ Cartesia: ✗ Not configured (set CARTESIA_API_KEY)');
+    }
+    if (this.googleClient) {
+      console.log('[TTS Service] └─ Google: ✓ Fallback ready');
+    } else {
+      console.log('[TTS Service] └─ Google: ✗ Not configured');
+    }
+    
+    // Validate at least one provider is available
+    if (!this.cartesiaClient && !this.googleClient) {
+      console.error('[TTS Service] ❌ CRITICAL: No TTS provider configured!');
+      console.error('[TTS Service] Set CARTESIA_API_KEY or GOOGLE_CLOUD_TTS_CREDENTIALS');
     }
   }
 
   /**
-   * Synthesize speech from text using Google Cloud TTS
-   * NO FALLBACK - fails immediately if Google TTS is unavailable
-   * This preserves authentic voice quality for language learning
+   * Synthesize speech from text using the configured primary provider
+   * Falls back to Google Cloud TTS if primary fails and fallback is enabled
    */
   async synthesize(request: TTSRequest): Promise<TTSResponse> {
     const { text, language, voice, targetLanguage, returnTimings, speakingRate } = request;
+    const startTime = Date.now();
 
-    // Google Cloud TTS is required for authentic language learning voices
-    if (!this.googleClient) {
-      throw new Error('Google Cloud TTS is not available. Voice chat requires GOOGLE_CLOUD_TTS_CREDENTIALS to be configured.');
+    // Try Cartesia first if it's the primary provider
+    if (this.provider === 'cartesia' && this.cartesiaClient) {
+      try {
+        const result = await this.synthesizeWithCartesia(text, language, speakingRate);
+        const elapsed = Date.now() - startTime;
+        console.log(`[TTS] ✓ Cartesia completed in ${elapsed}ms`);
+        return result;
+      } catch (error: any) {
+        console.error(`[TTS] ⚠ Cartesia failed: ${error.message}`);
+        
+        // Try fallback to Google if enabled
+        if (this.fallbackEnabled && this.googleClient) {
+          console.log('[TTS] Falling back to Google Cloud TTS...');
+          try {
+            const result = await this.synthesizeWithGoogle(text, language, targetLanguage, returnTimings, speakingRate);
+            const elapsed = Date.now() - startTime;
+            console.log(`[TTS] ✓ Google fallback completed in ${elapsed}ms`);
+            return result;
+          } catch (googleError: any) {
+            console.error(`[TTS] ❌ Google fallback also failed: ${googleError.message}`);
+            throw new Error(`All TTS providers failed. Cartesia: ${error.message}. Google: ${googleError.message}`);
+          }
+        }
+        throw new Error(`Cartesia TTS failed: ${error.message}. No fallback configured.`);
+      }
+    }
+
+    // Use Google as primary
+    if (this.provider === 'google' || this.googleClient) {
+      if (!this.googleClient) {
+        throw new Error('Google Cloud TTS is not available. Set GOOGLE_CLOUD_TTS_CREDENTIALS or CARTESIA_API_KEY.');
+      }
+
+      try {
+        const result = await this.synthesizeWithGoogle(text, language, targetLanguage, returnTimings, speakingRate);
+        const elapsed = Date.now() - startTime;
+        console.log(`[TTS] ✓ Google completed in ${elapsed}ms`);
+        return result;
+      } catch (error: any) {
+        console.error('┌─────────────────────────────────────────────────────────────┐');
+        console.error('│ ❌ GOOGLE CLOUD TTS FAILED                                 │');
+        console.error('└─────────────────────────────────────────────────────────────┘');
+        console.error(`Error: ${error.message}`);
+        
+        if (error.code === 7 || error.message?.includes('PERMISSION_DENIED')) {
+          console.error('\n📋 SETUP REQUIRED:');
+          console.error('1. Enable Google Cloud Text-to-Speech API:');
+          console.error('   https://console.cloud.google.com/apis/library/texttospeech.googleapis.com');
+          console.error('2. Ensure service account has roles/texttospeech.user permission');
+        }
+        
+        throw new Error(`Google Cloud TTS failed: ${error.message}. Voice chat temporarily unavailable.`);
+      }
+    }
+
+    throw new Error('No TTS provider available. Set CARTESIA_API_KEY or GOOGLE_CLOUD_TTS_CREDENTIALS.');
+  }
+
+  /**
+   * Synthesize speech using Cartesia Sonic-3 or Sonic-Turbo
+   * Ultra-low latency (40-90ms), full SSML support, emotion tags
+   */
+  private async synthesizeWithCartesia(text: string, language?: string, speakingRate?: number): Promise<TTSResponse> {
+    if (!this.cartesiaClient) {
+      throw new Error('Cartesia client not initialized');
+    }
+
+    // Detect language if not provided
+    const selectedLanguage = language ? language.toLowerCase() : this.detectLanguage(text);
+    
+    // Get voice config for language
+    const voiceConfig = CARTESIA_VOICE_MAP[selectedLanguage] || CARTESIA_VOICE_MAP['english'];
+    
+    console.log(`[Cartesia] Synthesizing ${text.length} chars with ${voiceConfig.name} (${this.cartesiaModel})`);
+
+    // Clean text: remove quotes that might be pronounced
+    const cleanedText = text.replace(/["'"]/g, '');
+
+    // Prepare speed control (Cartesia uses different scale)
+    // Normal: 0 (neutral), Slow: negative values, Fast: positive values
+    // Google 0.9 → Cartesia normal, Google 0.7 → Cartesia -0.15
+    let speedControl = 'normal';
+    if (speakingRate && speakingRate < 0.8) {
+      speedControl = 'slow';
     }
 
     try {
-      return await this.synthesizeWithGoogle(text, language, targetLanguage, returnTimings, speakingRate);
+      // Use Cartesia bytes API for synchronous response
+      const response = await this.cartesiaClient.tts.bytes({
+        modelId: this.cartesiaModel,
+        transcript: cleanedText,
+        voice: {
+          mode: 'id',
+          id: voiceConfig.voiceId,
+        },
+        language: voiceConfig.languageCode,
+        outputFormat: {
+          container: 'mp3',
+          sampleRate: 44100,
+          bitRate: 128000,
+        },
+      });
+
+      // Convert response to Buffer
+      const audioBuffer = Buffer.from(response);
+      
+      console.log(`[Cartesia] ✓ Generated ${audioBuffer.length} bytes`);
+
+      return {
+        audioBuffer,
+        contentType: 'audio/mpeg',
+        wordTimings: undefined, // Cartesia has timing support but not implemented yet
+      };
     } catch (error: any) {
-      // Enhanced error logging with actionable diagnostics
-      console.error('┌─────────────────────────────────────────────────────────────┐');
-      console.error('│ ❌ GOOGLE CLOUD TTS FAILED - VOICE UNAVAILABLE             │');
-      console.error('└─────────────────────────────────────────────────────────────┘');
-      console.error(`Error: ${error.message}`);
-      
-      if (error.code === 7 || error.message?.includes('PERMISSION_DENIED')) {
-        console.error('\n📋 SETUP REQUIRED:');
-        console.error('1. Enable Google Cloud Text-to-Speech API:');
-        console.error('   https://console.cloud.google.com/apis/library/texttospeech.googleapis.com');
-        console.error('2. Ensure service account has roles/texttospeech.user permission');
-        console.error('3. Restart the application after enabling');
-      }
-      
-      if (error.code === 3 || error.message?.includes('INVALID_ARGUMENT')) {
-        console.error('\n📋 LIKELY CAUSE: Invalid SSML in request');
-        console.error('Check that phoneme tags are properly formatted');
-        console.error('Text preview:', text.substring(0, 200));
-      }
-      
-      // NO FALLBACK - fail immediately to preserve learning experience
-      throw new Error(`Google Cloud TTS failed: ${error.message}. Voice chat temporarily unavailable.`);
+      console.error(`[Cartesia] Error: ${error.message}`);
+      throw error;
     }
   }
 
@@ -712,10 +900,28 @@ export class TTSService {
    * Check if a specific provider is available
    */
   isProviderAvailable(provider: TTSProvider): boolean {
+    if (provider === 'cartesia') {
+      return this.cartesiaClient !== null;
+    }
     if (provider === 'google') {
       return this.googleClient !== null;
     }
     return this.openaiClient !== null;
+  }
+
+  /**
+   * Get the current Cartesia model being used
+   */
+  getCartesiaModel(): string {
+    return this.cartesiaModel;
+  }
+
+  /**
+   * Set whether fallback to Google is enabled
+   */
+  setFallbackEnabled(enabled: boolean): void {
+    this.fallbackEnabled = enabled;
+    console.log(`[TTS Service] Fallback ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   /**
@@ -780,12 +986,15 @@ export class TTSService {
    */
   async getStatus(): Promise<{
     currentProvider: TTSProvider;
+    cartesiaAvailable: boolean;
+    cartesiaModel: string;
     googleAvailable: boolean;
     openaiAvailable: boolean;
     googleHealthy?: boolean;
     healthMessage?: string;
-    fallbackActive: boolean;
+    fallbackEnabled: boolean;
   }> {
+    const cartesiaAvailable = this.isProviderAvailable('cartesia');
     const googleAvailable = this.isProviderAvailable('google');
     const openaiAvailable = this.isProviderAvailable('openai');
 
@@ -798,15 +1007,15 @@ export class TTSService {
       healthMessage = healthCheck.message || healthCheck.error || '';
     }
 
-    const fallbackActive = this.provider === 'google' && !googleHealthy && openaiAvailable;
-
     return {
       currentProvider: this.provider,
+      cartesiaAvailable,
+      cartesiaModel: this.cartesiaModel,
       googleAvailable,
       openaiAvailable,
       googleHealthy,
       healthMessage,
-      fallbackActive
+      fallbackEnabled: this.fallbackEnabled
     };
   }
 }
