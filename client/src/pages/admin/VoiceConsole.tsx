@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { RoleGuard } from "@/components/admin/RoleGuard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -13,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Play, Pause, Plus, Edit2, Trash2, Database, Volume2, User } from "lucide-react";
+import { Play, Pause, Plus, Edit2, Trash2, Volume2, User, Languages, Loader2 } from "lucide-react";
 
 interface TutorVoice {
   id: string;
@@ -28,6 +27,15 @@ interface TutorVoice {
   updatedAt: string;
 }
 
+interface CartesiaVoice {
+  id: string;
+  name: string;
+  description: string;
+  language: string;
+  gender: 'male' | 'female' | string;
+  isPublic: boolean;
+}
+
 const SUPPORTED_LANGUAGES = [
   { value: 'english', label: 'English', code: 'en' },
   { value: 'spanish', label: 'Spanish', code: 'es' },
@@ -40,21 +48,49 @@ const SUPPORTED_LANGUAGES = [
   { value: 'korean', label: 'Korean', code: 'ko' },
 ];
 
-const SAMPLE_PHRASES: Record<string, string> = {
-  english: "Hello! I'm your language tutor. Let's practice together!",
-  spanish: "¡Hola! Soy tu tutor de idiomas. ¡Vamos a practicar juntos!",
-  french: "Bonjour! Je suis votre tuteur de langues. Pratiquons ensemble!",
-  german: "Hallo! Ich bin dein Sprachlehrer. Lass uns zusammen üben!",
-  italian: "Ciao! Sono il tuo tutor di lingue. Esercitiamoci insieme!",
-  portuguese: "Olá! Sou seu tutor de idiomas. Vamos praticar juntos!",
-  japanese: "こんにちは！私はあなたの語学チューターです。一緒に練習しましょう！",
-  'mandarin chinese': "你好！我是你的语言导师。让我们一起练习吧！",
-  korean: "안녕하세요! 저는 당신의 언어 튜터입니다. 함께 연습해봐요!",
+const SAMPLE_PHRASES: Record<string, { target: string; native: string }> = {
+  english: { 
+    target: "Hello! I'm your language tutor. Let's practice together!",
+    native: "Hello! I'm your language tutor. Let's practice together!"
+  },
+  spanish: { 
+    target: "¡Hola! Soy tu tutor de idiomas. ¡Vamos a practicar juntos!",
+    native: "Hello, I am your Spanish tutor. Let's learn Spanish together!"
+  },
+  french: { 
+    target: "Bonjour! Je suis votre tuteur de langues. Pratiquons ensemble!",
+    native: "Hello, I am your French tutor. Let's learn French together!"
+  },
+  german: { 
+    target: "Hallo! Ich bin dein Sprachlehrer. Lass uns zusammen üben!",
+    native: "Hello, I am your German tutor. Let's learn German together!"
+  },
+  italian: { 
+    target: "Ciao! Sono il tuo tutor di lingue. Esercitiamoci insieme!",
+    native: "Hello, I am your Italian tutor. Let's learn Italian together!"
+  },
+  portuguese: { 
+    target: "Olá! Sou seu tutor de idiomas. Vamos praticar juntos!",
+    native: "Hello, I am your Portuguese tutor. Let's learn Portuguese together!"
+  },
+  japanese: { 
+    target: "こんにちは！私はあなたの語学チューターです。一緒に練習しましょう！",
+    native: "Hello, I am your Japanese tutor. Let's learn Japanese together!"
+  },
+  'mandarin chinese': { 
+    target: "你好！我是你的语言导师。让我们一起练习吧！",
+    native: "Hello, I am your Mandarin Chinese tutor. Let's learn Chinese together!"
+  },
+  korean: { 
+    target: "안녕하세요! 저는 당신의 언어 튜터입니다. 함께 연습해봐요!",
+    native: "Hello, I am your Korean tutor. Let's learn Korean together!"
+  },
 };
 
 export default function VoiceConsole() {
   const { toast } = useToast();
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+  const [auditionPhase, setAuditionPhase] = useState<'idle' | 'target' | 'native'>('idle');
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const [editingVoice, setEditingVoice] = useState<TutorVoice | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -69,22 +105,18 @@ export default function VoiceConsole() {
     isActive: true,
   });
 
+  // Fetch configured voices
   const { data: voices, isLoading } = useQuery<TutorVoice[]>({
     queryKey: ["/api/admin/tutor-voices"],
   });
 
-  const seedMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("POST", "/api/admin/tutor-voices/seed");
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/tutor-voices"] });
-      toast({ title: "Success", description: "Default voices seeded successfully" });
-    },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
+  // Fetch available Cartesia voices based on selected language and gender
+  const { data: cartesiaVoicesData, isLoading: isLoadingCartesiaVoices } = useQuery<{ voices: CartesiaVoice[]; total: number }>({
+    queryKey: ["/api/admin/cartesia-voices", formData.language, formData.gender],
+    enabled: isAddDialogOpen && !!formData.language,
   });
+
+  const cartesiaVoices = cartesiaVoicesData?.voices || [];
 
   const upsertMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -127,10 +159,12 @@ export default function VoiceConsole() {
     });
   };
 
-  const handlePreview = async (voice: TutorVoice) => {
-    if (playingVoiceId === voice.id && audioElement) {
+  // Bilingual audition: plays voice in target language, then native (English)
+  const handleAudition = async (voiceId: string, voiceName: string, language: string, languageCode: string) => {
+    if (playingVoiceId === voiceId && audioElement) {
       audioElement.pause();
       setPlayingVoiceId(null);
+      setAuditionPhase('idle');
       setAudioElement(null);
       return;
     }
@@ -139,47 +173,92 @@ export default function VoiceConsole() {
       audioElement.pause();
     }
 
-    setPlayingVoiceId(voice.id);
+    setPlayingVoiceId(voiceId);
+    setAuditionPhase('target');
+    
+    const phrases = SAMPLE_PHRASES[language] || SAMPLE_PHRASES.english;
     
     try {
-      const sampleText = SAMPLE_PHRASES[voice.language] || SAMPLE_PHRASES.english;
+      // First play in target language
+      const targetAudio = await playVoiceSample(voiceId, phrases.target, languageCode);
       
-      const response = await fetch("/api/admin/tutor-voices/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          voiceId: voice.voiceId,
-          text: sampleText,
-          language: voice.languageCode,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to preview voice");
-      }
-
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      
-      audio.onended = () => {
-        setPlayingVoiceId(null);
-        setAudioElement(null);
-        URL.revokeObjectURL(audioUrl);
+      targetAudio.onended = async () => {
+        // If language is not English, play English sample too
+        if (language !== 'english') {
+          setAuditionPhase('native');
+          try {
+            const nativeAudio = await playVoiceSample(voiceId, phrases.native, 'en');
+            nativeAudio.onended = () => {
+              setPlayingVoiceId(null);
+              setAuditionPhase('idle');
+              setAudioElement(null);
+            };
+            nativeAudio.onerror = () => {
+              setPlayingVoiceId(null);
+              setAuditionPhase('idle');
+              setAudioElement(null);
+            };
+            setAudioElement(nativeAudio);
+            nativeAudio.play();
+          } catch {
+            setPlayingVoiceId(null);
+            setAuditionPhase('idle');
+          }
+        } else {
+          setPlayingVoiceId(null);
+          setAuditionPhase('idle');
+          setAudioElement(null);
+        }
       };
       
-      audio.onerror = () => {
+      targetAudio.onerror = () => {
         setPlayingVoiceId(null);
+        setAuditionPhase('idle');
         setAudioElement(null);
         toast({ title: "Error", description: "Failed to play audio", variant: "destructive" });
       };
 
-      setAudioElement(audio);
-      audio.play();
+      setAudioElement(targetAudio);
+      targetAudio.play();
     } catch (error) {
       setPlayingVoiceId(null);
+      setAuditionPhase('idle');
       toast({ title: "Error", description: "Failed to preview voice", variant: "destructive" });
     }
+  };
+
+  const playVoiceSample = async (voiceId: string, text: string, languageCode: string): Promise<HTMLAudioElement> => {
+    const response = await fetch("/api/admin/tutor-voices/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        voiceId,
+        text,
+        language: languageCode,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to preview voice");
+    }
+
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+    
+    const originalOnEnded = audio.onended;
+    audio.onended = (e) => {
+      URL.revokeObjectURL(audioUrl);
+      if (originalOnEnded) {
+        (originalOnEnded as (ev: Event) => void)(e);
+      }
+    };
+    
+    return audio;
+  };
+
+  const handlePreview = async (voice: TutorVoice) => {
+    await handleAudition(voice.voiceId, voice.voiceName, voice.language, voice.languageCode);
   };
 
   const handleEdit = (voice: TutorVoice) => {
@@ -202,12 +281,34 @@ export default function VoiceConsole() {
       ...prev,
       language: value,
       languageCode: lang?.code || '',
+      voiceId: '', // Reset voice selection when language changes
+      voiceName: '',
     }));
+  };
+
+  const handleGenderChange = (value: 'male' | 'female') => {
+    setFormData(prev => ({
+      ...prev,
+      gender: value,
+      voiceId: '', // Reset voice selection when gender changes
+      voiceName: '',
+    }));
+  };
+
+  const handleVoiceSelect = (voiceId: string) => {
+    const selectedVoice = cartesiaVoices.find(v => v.id === voiceId);
+    if (selectedVoice) {
+      setFormData(prev => ({
+        ...prev,
+        voiceId: selectedVoice.id,
+        voiceName: selectedVoice.name,
+      }));
+    }
   };
 
   const handleSubmit = () => {
     if (!formData.language || !formData.voiceId || !formData.voiceName) {
-      toast({ title: "Error", description: "Please fill all required fields", variant: "destructive" });
+      toast({ title: "Error", description: "Please select a language and voice", variant: "destructive" });
       return;
     }
     upsertMutation.mutate(formData);
@@ -233,15 +334,6 @@ export default function VoiceConsole() {
               </p>
             </div>
             <div className="flex gap-2 flex-wrap">
-              <Button 
-                variant="outline" 
-                onClick={() => seedMutation.mutate()}
-                disabled={seedMutation.isPending}
-                data-testid="button-seed-voices"
-              >
-                <Database className="h-4 w-4 mr-2" />
-                {seedMutation.isPending ? "Seeding..." : "Seed Defaults"}
-              </Button>
               <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
                 setIsAddDialogOpen(open);
                 if (!open) {
@@ -255,11 +347,11 @@ export default function VoiceConsole() {
                     Add Voice
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="sm:max-w-lg">
                   <DialogHeader>
                     <DialogTitle>{editingVoice ? "Edit Voice" : "Add Voice Configuration"}</DialogTitle>
                     <DialogDescription>
-                      Configure a tutor voice for a specific language and gender.
+                      Select a language, gender, and Cartesia Sonic-3 voice for the tutor.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
@@ -279,7 +371,7 @@ export default function VoiceConsole() {
                       </div>
                       <div className="space-y-2">
                         <Label>Gender</Label>
-                        <Select value={formData.gender} onValueChange={(v) => setFormData(prev => ({ ...prev, gender: v as 'male' | 'female' }))}>
+                        <Select value={formData.gender} onValueChange={(v) => handleGenderChange(v as 'male' | 'female')}>
                           <SelectTrigger data-testid="select-gender">
                             <SelectValue />
                           </SelectTrigger>
@@ -290,24 +382,89 @@ export default function VoiceConsole() {
                         </Select>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Voice Name</Label>
-                      <Input 
-                        value={formData.voiceName} 
-                        onChange={(e) => setFormData(prev => ({ ...prev, voiceName: e.target.value }))}
-                        placeholder="e.g., Teacher Lady"
-                        data-testid="input-voice-name"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Voice ID (Cartesia)</Label>
-                      <Input 
-                        value={formData.voiceId} 
-                        onChange={(e) => setFormData(prev => ({ ...prev, voiceId: e.target.value }))}
-                        placeholder="e.g., 573e3144-a684-4e72-ac2b-9b2063a50b53"
-                        data-testid="input-voice-id"
-                      />
-                    </div>
+                    
+                    {/* Voice Selection Dropdown */}
+                    {formData.language && (
+                      <div className="space-y-2">
+                        <Label>Voice</Label>
+                        {isLoadingCartesiaVoices ? (
+                          <div className="flex items-center gap-2 p-3 border rounded-md">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-sm text-muted-foreground">Loading available voices...</span>
+                          </div>
+                        ) : cartesiaVoices.length === 0 ? (
+                          <div className="p-3 border rounded-md border-dashed">
+                            <p className="text-sm text-muted-foreground">
+                              No {formData.gender} voices found for {SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label}.
+                            </p>
+                          </div>
+                        ) : (
+                          <Select value={formData.voiceId} onValueChange={handleVoiceSelect}>
+                            <SelectTrigger data-testid="select-voice">
+                              <SelectValue placeholder="Select a voice" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {cartesiaVoices.map(voice => (
+                                <SelectItem key={voice.id} value={voice.id}>
+                                  <div className="flex flex-col">
+                                    <span>{voice.name}</span>
+                                    {voice.description && (
+                                      <span className="text-xs text-muted-foreground truncate max-w-[250px]">
+                                        {voice.description}
+                                      </span>
+                                    )}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Audition Button */}
+                    {formData.voiceId && (
+                      <div className="space-y-2">
+                        <Label>Audition</Label>
+                        <div className="flex items-center gap-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => handleAudition(
+                              formData.voiceId,
+                              formData.voiceName,
+                              formData.language,
+                              formData.languageCode
+                            )}
+                            data-testid="button-audition"
+                            className="flex-1"
+                          >
+                            {playingVoiceId === formData.voiceId ? (
+                              <>
+                                <Pause className="h-4 w-4 mr-2" />
+                                {auditionPhase === 'target' ? 'Playing Target Language...' : 'Playing English...'}
+                              </>
+                            ) : (
+                              <>
+                                <Languages className="h-4 w-4 mr-2" />
+                                Audition Voice
+                              </>
+                            )}
+                          </Button>
+                          {playingVoiceId === formData.voiceId && (
+                            <Badge variant="secondary">
+                              {auditionPhase === 'target' 
+                                ? SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label 
+                                : 'English'}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Plays a sample in {SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label || 'the target language'}{formData.language !== 'english' && ', then in English'}
+                        </p>
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-2">
                       <Switch 
                         checked={formData.isActive}
@@ -319,7 +476,7 @@ export default function VoiceConsole() {
                   </div>
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-                    <Button onClick={handleSubmit} disabled={upsertMutation.isPending} data-testid="button-save-voice">
+                    <Button onClick={handleSubmit} disabled={upsertMutation.isPending || !formData.voiceId} data-testid="button-save-voice">
                       {upsertMutation.isPending ? "Saving..." : "Save"}
                     </Button>
                   </DialogFooter>
@@ -340,12 +497,8 @@ export default function VoiceConsole() {
                 <Volume2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No Voices Configured</h3>
                 <p className="text-muted-foreground mb-4">
-                  Click "Seed Defaults" to populate with Cartesia Sonic-3 voices for all languages.
+                  Click "Add Voice" to configure Cartesia Sonic-3 voices for each language.
                 </p>
-                <Button onClick={() => seedMutation.mutate()} disabled={seedMutation.isPending}>
-                  <Database className="h-4 w-4 mr-2" />
-                  Seed Default Voices
-                </Button>
               </CardContent>
             </Card>
           ) : (
@@ -417,8 +570,9 @@ export default function VoiceConsole() {
                                 variant="ghost"
                                 onClick={() => handlePreview(voice)}
                                 data-testid={`button-preview-${voice.id}`}
+                                title={`Audition in ${lang.label}${lang.value !== 'english' ? ' + English' : ''}`}
                               >
-                                {playingVoiceId === voice.id ? (
+                                {playingVoiceId === voice.voiceId ? (
                                   <Pause className="h-4 w-4" />
                                 ) : (
                                   <Play className="h-4 w-4" />

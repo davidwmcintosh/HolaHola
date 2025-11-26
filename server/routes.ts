@@ -5125,6 +5125,100 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
     }
   });
   
+  // Fetch available Cartesia voices from their API (admin/developer only)
+  app.get("/api/admin/cartesia-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+    try {
+      const apiKey = process.env.CARTESIA_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: "Cartesia API key not configured" });
+      }
+
+      // Query params for filtering
+      const { language, gender } = req.query;
+      
+      // Fetch voices from Cartesia API with pagination
+      const allVoices: any[] = [];
+      let cursor: string | undefined;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const url = new URL('https://api.cartesia.ai/voices');
+        url.searchParams.set('limit', '100');
+        if (cursor) {
+          url.searchParams.set('starting_after', cursor);
+        }
+        
+        const response = await fetch(url.toString(), {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Cartesia-Version': '2024-06-10',
+          },
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Cartesia API error:', errorText);
+          return res.status(response.status).json({ error: `Cartesia API error: ${response.statusText}` });
+        }
+        
+        const data = await response.json();
+        allVoices.push(...data.data);
+        hasMore = data.has_more;
+        if (hasMore && data.data.length > 0) {
+          cursor = data.data[data.data.length - 1].id;
+        }
+      }
+      
+      // Filter by language and gender if provided
+      let filteredVoices = allVoices.filter((v: any) => v.is_public);
+      
+      if (language) {
+        // Map our language names to Cartesia language codes
+        const langCodeMap: Record<string, string> = {
+          'english': 'en',
+          'spanish': 'es',
+          'french': 'fr',
+          'german': 'de',
+          'italian': 'it',
+          'portuguese': 'pt',
+          'japanese': 'ja',
+          'mandarin chinese': 'zh',
+          'korean': 'ko',
+        };
+        const langCode = langCodeMap[language.toLowerCase()] || language;
+        filteredVoices = filteredVoices.filter((v: any) => v.language === langCode);
+      }
+      
+      if (gender) {
+        // Map our gender to Cartesia gender presentation
+        const genderMap: Record<string, string> = {
+          'male': 'masculine',
+          'female': 'feminine',
+        };
+        const cartesiaGender = genderMap[gender.toLowerCase()] || gender;
+        filteredVoices = filteredVoices.filter((v: any) => v.gender === cartesiaGender);
+      }
+      
+      // Sort by name for easier browsing
+      filteredVoices.sort((a: any, b: any) => a.name.localeCompare(b.name));
+      
+      // Transform to our format
+      const voices = filteredVoices.map((v: any) => ({
+        id: v.id,
+        name: v.name,
+        description: v.description || '',
+        language: v.language,
+        gender: v.gender === 'masculine' ? 'male' : v.gender === 'feminine' ? 'female' : v.gender,
+        isPublic: v.is_public,
+      }));
+      
+      res.json({ voices, total: voices.length });
+    } catch (error: any) {
+      console.error('Error fetching Cartesia voices:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Preview TTS for admin voice testing (admin/developer only)
   app.post("/api/admin/tutor-voices/preview", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
     try {
