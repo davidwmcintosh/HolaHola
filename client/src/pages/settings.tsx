@@ -6,7 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Subtitles, CaptionsOff, Languages, Captions, Palette, Moon, Sun, Monitor } from "lucide-react";
+import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Subtitles, CaptionsOff, Languages, Captions, Palette, Moon, Sun, Monitor, User as UserIcon } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -52,8 +52,42 @@ export default function Settings() {
   const { userName, language, subtitleMode, setSubtitleMode } = useLanguage();
   const [isResetting, setIsResetting] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark" | "system">("light");
+  const [tutorGender, setTutorGender] = useState<"male" | "female">((user?.tutorGender as "male" | "female") || "female");
   const { toast } = useToast();
   const logoutMutation = useLogout();
+
+  // Initialize tutor gender from user when loaded
+  useEffect(() => {
+    if (user?.tutorGender) {
+      setTutorGender(user.tutorGender as "male" | "female");
+    }
+  }, [user?.tutorGender]);
+
+  // Tutor gender update mutation
+  const tutorGenderMutation = useMutation({
+    mutationFn: async (gender: "male" | "female") => {
+      return apiRequest("PUT", "/api/user/preferences", { tutorGender: gender });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast({
+        title: "Tutor preference updated",
+        description: `Your tutor will now use a ${tutorGender} voice`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update tutor preference",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleTutorGenderChange = (gender: "male" | "female") => {
+    setTutorGender(gender);
+    tutorGenderMutation.mutate(gender);
+  };
   
   // Initialize theme from localStorage
   useEffect(() => {
@@ -249,7 +283,7 @@ export default function Settings() {
             </CardTitle>
             <CardDescription>Customize your voice learning experience</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             <div className="flex items-center justify-between gap-4">
               <div className="space-y-0.5 flex-1">
                 <Label htmlFor="subtitles-select" className="text-base">Subtitles</Label>
@@ -281,6 +315,38 @@ export default function Settings() {
                     <div className="flex items-center gap-2">
                       <Captions className="h-4 w-4" />
                       <span>All Words</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-0.5 flex-1">
+                <Label htmlFor="tutor-gender-select" className="text-base">Tutor Voice</Label>
+                <p className="text-sm text-muted-foreground">
+                  Choose a male or female tutor voice for your conversations
+                </p>
+              </div>
+              <Select
+                value={tutorGender}
+                onValueChange={(value) => handleTutorGenderChange(value as "male" | "female")}
+                disabled={tutorGenderMutation.isPending}
+              >
+                <SelectTrigger className="w-40" id="tutor-gender-select" data-testid="select-tutor-gender">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="female" data-testid="select-tutor-female">
+                    <div className="flex items-center gap-2">
+                      <UserIcon className="h-4 w-4" />
+                      <span>Female</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="male" data-testid="select-tutor-male">
+                    <div className="flex items-center gap-2">
+                      <UserIcon className="h-4 w-4" />
+                      <span>Male</span>
                     </div>
                   </SelectItem>
                 </SelectContent>

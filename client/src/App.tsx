@@ -45,6 +45,7 @@ const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
 const AdminUsers = lazy(() => import("@/pages/admin/Users"));
 const AdminClasses = lazy(() => import("@/pages/admin/Classes"));
 const AdminReports = lazy(() => import("@/pages/admin/Reports"));
+const AdminVoiceConsole = lazy(() => import("@/pages/admin/VoiceConsole"));
 const Lessons = lazy(() => import("@/pages/lessons"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
@@ -144,6 +145,7 @@ function Router() {
         <Route path="/admin/users" component={AdminUsers} />
         <Route path="/admin/classes" component={AdminClasses} />
         <Route path="/admin/reports" component={AdminReports} />
+        <Route path="/admin/voices" component={AdminVoiceConsole} />
         
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />

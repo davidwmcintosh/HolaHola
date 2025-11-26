@@ -729,6 +729,7 @@ export class DatabaseStorage implements IStorage {
     nativeLanguage?: string;
     difficultyLevel?: string;
     onboardingCompleted?: boolean;
+    tutorGender?: 'male' | 'female';
   }): Promise<User | undefined> {
     const [updated] = await db
       .update(users)

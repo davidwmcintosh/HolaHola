@@ -468,13 +468,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      const { targetLanguage, nativeLanguage, difficultyLevel, onboardingCompleted } = validationResult.data;
+      const { targetLanguage, nativeLanguage, difficultyLevel, onboardingCompleted, tutorGender } = validationResult.data;
       
       const updated = await storage.updateUserPreferences(userId, {
         targetLanguage,
         nativeLanguage,
         difficultyLevel,
         onboardingCompleted,
+        tutorGender,
       });
       
       if (!updated) {
@@ -4954,6 +4955,154 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
       res.json(activeImpersonations);
     } catch (error: any) {
       console.error('Error fetching active impersonations:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== Tutor Voice Management (Admin Console) =====
+  
+  // Get all configured voices (admin/developer only)
+  app.get("/api/admin/tutor-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+    try {
+      const voices = await storage.getAllTutorVoices();
+      res.json(voices);
+    } catch (error: any) {
+      console.error('Error fetching tutor voices:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Create or update a voice configuration (admin only)
+  app.post("/api/admin/tutor-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { language, gender, provider, voiceId, voiceName, languageCode, isActive } = req.body;
+      
+      if (!language || !gender || !provider || !voiceId || !voiceName || !languageCode) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      
+      const voice = await storage.upsertTutorVoice({
+        language,
+        gender,
+        provider,
+        voiceId,
+        voiceName,
+        languageCode,
+        isActive: isActive !== false, // default to true
+      });
+      
+      // Log the action
+      await storage.logAdminAction({
+        actorId: req.user.id,
+        action: 'upsert_tutor_voice',
+        targetType: 'tutor_voice',
+        targetId: voice.id,
+        metadata: { language, gender, voiceId, voiceName },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      res.json(voice);
+    } catch (error: any) {
+      console.error('Error upserting tutor voice:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Delete a voice configuration (admin only)
+  app.delete("/api/admin/tutor-voices/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteTutorVoice(id);
+      
+      if (success) {
+        await storage.logAdminAction({
+          actorId: req.user.id,
+          action: 'delete_tutor_voice',
+          targetType: 'tutor_voice',
+          targetId: id,
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
+        });
+      }
+      
+      res.json({ success });
+    } catch (error: any) {
+      console.error('Error deleting tutor voice:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Seed default voices (admin only - one-time setup)
+  app.post("/api/admin/tutor-voices/seed", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      await storage.seedDefaultTutorVoices();
+      
+      await storage.logAdminAction({
+        actorId: req.user.id,
+        action: 'seed_tutor_voices',
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      const voices = await storage.getAllTutorVoices();
+      res.json({ success: true, voiceCount: voices.length, voices });
+    } catch (error: any) {
+      console.error('Error seeding tutor voices:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get voice for current user's language and preferred gender (for TTS)
+  app.get("/api/tutor-voice", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
+    try {
+      const user = req.user;
+      const language = user.targetLanguage || 'spanish';
+      const gender = user.tutorGender || 'female';
+      
+      const voice = await storage.getTutorVoice(language, gender);
+      
+      if (!voice) {
+        // Fallback to female if preferred gender not available
+        const fallbackVoice = await storage.getTutorVoice(language, 'female');
+        if (!fallbackVoice) {
+          return res.status(404).json({ error: "No voice configured for this language" });
+        }
+        return res.json(fallbackVoice);
+      }
+      
+      res.json(voice);
+    } catch (error: any) {
+      console.error('Error fetching tutor voice:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Preview TTS for admin voice testing (admin/developer only)
+  app.post("/api/admin/tutor-voices/preview", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+    try {
+      const { voiceId, text, language } = req.body;
+      
+      if (!voiceId || !text) {
+        return res.status(400).json({ error: "voiceId and text are required" });
+      }
+      
+      // Use Cartesia TTS service directly for preview
+      const { cartesiaTTS } = await import('./services/tts-service');
+      const audioBuffer = await cartesiaTTS(text, {
+        voiceId,
+        language: language || 'en',
+        emotion: 'friendly',
+        speed: 0.95,
+      });
+      
+      res.set({
+        'Content-Type': 'audio/wav',
+        'Content-Length': audioBuffer.length,
+      });
+      res.send(Buffer.from(audioBuffer));
+    } catch (error: any) {
+      console.error('Error previewing voice:', error);
       res.status(500).json({ error: error.message });
     }
   });
