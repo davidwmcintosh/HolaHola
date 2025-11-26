@@ -5137,26 +5137,39 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
   });
   
   // Fetch available Cartesia voices from their API (admin/developer only)
-  app.get("/api/admin/cartesia-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  // Route accepts optional path params: /api/admin/cartesia-voices/:language?/:gender?
+  app.get("/api/admin/cartesia-voices/:language?/:gender?", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
     try {
       const apiKey = process.env.CARTESIA_API_KEY;
       if (!apiKey) {
         return res.status(500).json({ error: "Cartesia API key not configured" });
       }
 
-      // Query params for filtering
-      const { language, gender } = req.query;
+      // Path or query params for filtering
+      const language = req.params.language || req.query.language;
+      const gender = req.params.gender || req.query.gender;
       
       // Fetch voices from Cartesia API with pagination
       const allVoices: any[] = [];
       let cursor: string | undefined;
       let hasMore = true;
       
+      // Map gender for Cartesia API filtering
+      const genderMap: Record<string, string> = {
+        'male': 'masculine',
+        'female': 'feminine',
+      };
+      const cartesiaGender = gender ? (genderMap[gender.toLowerCase()] || gender) : undefined;
+      
       while (hasMore) {
         const url = new URL('https://api.cartesia.ai/voices');
         url.searchParams.set('limit', '100');
         if (cursor) {
           url.searchParams.set('starting_after', cursor);
+        }
+        // Use Cartesia's built-in gender filtering for efficiency
+        if (cartesiaGender) {
+          url.searchParams.set('gender', cartesiaGender);
         }
         
         const response = await fetch(url.toString(), {
@@ -5180,8 +5193,19 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
         }
       }
       
-      // Filter by language and gender if provided
+      console.log(`[Cartesia Voices] Total fetched: ${allVoices.length}, filtering by language: ${language}, gender: ${gender}`);
+      
+      // Log first few voices to understand structure
+      if (allVoices.length > 0) {
+        console.log(`[Cartesia Voices] Sample voice structure:`, JSON.stringify(allVoices[0], null, 2));
+        // Log unique language values for debugging
+        const uniqueLanguages = [...new Set(allVoices.map((v: any) => v.language).filter(Boolean))];
+        console.log(`[Cartesia Voices] Unique languages found:`, uniqueLanguages.slice(0, 20));
+      }
+      
+      // Filter by is_public first
       let filteredVoices = allVoices.filter((v: any) => v.is_public);
+      console.log(`[Cartesia Voices] Public voices: ${filteredVoices.length}`);
       
       if (language) {
         // Map our language names to Cartesia language codes
@@ -5192,23 +5216,46 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
           'german': 'de',
           'italian': 'it',
           'portuguese': 'pt',
+          'portuguese (brazilian)': 'pt-br',
           'japanese': 'ja',
           'mandarin chinese': 'zh',
           'korean': 'ko',
         };
-        const langCode = langCodeMap[language.toLowerCase()] || language;
-        filteredVoices = filteredVoices.filter((v: any) => v.language === langCode);
+        const langCode = langCodeMap[language.toLowerCase()] || language.toLowerCase();
+        
+        // Cartesia Sonic-3 is multilingual - each voice can speak any of 42+ languages
+        // The `language` field indicates the voice's native/primary training language
+        // For best accent authenticity, we filter by native language
+        // But we also support showing ALL voices as a fallback
+        
+        const nativeVoices = filteredVoices.filter((v: any) => {
+          // Check language field
+          if (v.language && v.language.toLowerCase().startsWith(langCode)) {
+            return true;
+          }
+          // Check languages array if present
+          if (v.languages && Array.isArray(v.languages)) {
+            return v.languages.some((l: string) => l.toLowerCase().startsWith(langCode));
+          }
+          return false;
+        });
+        
+        console.log(`[Cartesia Voices] Native voices for ${langCode}: ${nativeVoices.length}`);
+        
+        // If no native voices found, return ALL public voices (since they're all multilingual)
+        // Admin can choose any voice - it will work for the target language
+        if (nativeVoices.length === 0) {
+          console.log(`[Cartesia Voices] No native ${langCode} voices - returning all ${filteredVoices.length} multilingual voices`);
+        } else {
+          filteredVoices = nativeVoices;
+        }
+        
+        console.log(`[Cartesia Voices] After language filter (${langCode}): ${filteredVoices.length}`);
       }
       
-      if (gender) {
-        // Map our gender to Cartesia gender presentation
-        const genderMap: Record<string, string> = {
-          'male': 'masculine',
-          'female': 'feminine',
-        };
-        const cartesiaGender = genderMap[gender.toLowerCase()] || gender;
-        filteredVoices = filteredVoices.filter((v: any) => v.gender === cartesiaGender);
-      }
+      // Note: Gender filtering is done at the API level for efficiency (see Cartesia API call above)
+      // No need to filter again here
+      console.log(`[Cartesia Voices] Final count after all filters: ${filteredVoices.length}`);
       
       // Sort by name for easier browsing
       filteredVoices.sort((a: any, b: any) => a.name.localeCompare(b.name));
