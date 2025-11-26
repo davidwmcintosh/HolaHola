@@ -5280,8 +5280,18 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
         console.log(`[Cartesia Voices] After language filter (${langCode}): ${filteredVoices.length}`);
       }
       
-      // Note: Gender filtering is done at the API level for efficiency (see Cartesia API call above)
-      // No need to filter again here
+      // Apply gender filter (Cartesia API gender param doesn't reliably filter, so do it server-side)
+      if (gender) {
+        const targetGender = gender.toLowerCase() === 'male' ? 'masculine' : 
+                             gender.toLowerCase() === 'female' ? 'feminine' : gender.toLowerCase();
+        const beforeGenderFilter = filteredVoices.length;
+        filteredVoices = filteredVoices.filter((v: any) => {
+          const voiceGender = v.gender?.toLowerCase();
+          return voiceGender === targetGender;
+        });
+        console.log(`[Cartesia Voices] After gender filter (${targetGender}): ${filteredVoices.length} (was ${beforeGenderFilter})`);
+      }
+      
       console.log(`[Cartesia Voices] Final count after all filters: ${filteredVoices.length}`);
       
       // Sort by name for easier browsing
