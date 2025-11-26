@@ -523,48 +523,45 @@ export default function VoiceConsole() {
           </div>
 
           {isLoading ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {[...Array(6)].map((_, i) => (
-                <Skeleton key={i} className="h-48" />
+            <div className="space-y-2">
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-12" />
               ))}
             </div>
-          ) : !voices || voices.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <Volume2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Voices Configured</h3>
-                <p className="text-muted-foreground mb-4">
-                  Click "Add Voice" to configure Cartesia Sonic-3 voices for each language.
-                </p>
-              </CardContent>
-            </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="border rounded-md divide-y">
               {SUPPORTED_LANGUAGES.map(lang => {
                 const voicesForLang = groupedVoices?.[lang.value];
                 const maleVoice = voicesForLang?.male;
                 const femaleVoice = voicesForLang?.female;
+                const configuredCount = (femaleVoice ? 1 : 0) + (maleVoice ? 1 : 0);
                 
                 return (
-                  <Card key={lang.value} data-testid={`card-voice-${lang.value}`}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg flex items-center justify-between gap-2">
-                        <span>{lang.label}</span>
-                        <Badge variant="outline">{lang.code}</Badge>
-                      </CardTitle>
-                      <CardDescription>
-                        {voicesForLang ? `${femaleVoice ? 1 : 0} + ${maleVoice ? 1 : 0} voices configured` : "No voices configured"}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {[femaleVoice, maleVoice].map((voice, idx) => {
-                        const gender = idx === 0 ? 'female' : 'male';
+                  <div key={lang.value} data-testid={`list-voice-${lang.value}`}>
+                    {/* Language Header */}
+                    <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
+                      <div className="flex items-center gap-3">
+                        <Languages className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{lang.label}</span>
+                        <Badge variant="outline" className="text-xs">{lang.code}</Badge>
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {configuredCount}/2 voices
+                      </span>
+                    </div>
+                    
+                    {/* Voice Rows */}
+                    <div className="divide-y">
+                      {(['female', 'male'] as const).map(gender => {
+                        const voice = gender === 'female' ? femaleVoice : maleVoice;
+                        
                         if (!voice) {
                           return (
-                            <div key={gender} className="p-3 border rounded-md border-dashed flex items-center justify-between">
+                            <div key={gender} className="flex items-center justify-between px-4 py-2 pl-12 bg-background">
                               <div className="flex items-center gap-2 text-muted-foreground">
                                 <User className="h-4 w-4" />
-                                <span className="text-sm capitalize">{gender} voice</span>
+                                <span className="text-sm capitalize">{gender}</span>
+                                <span className="text-xs">— Not configured</span>
                               </div>
                               <Button 
                                 size="sm" 
@@ -574,8 +571,10 @@ export default function VoiceConsole() {
                                   setFormData(prev => ({ ...prev, gender }));
                                   setIsAddDialogOpen(true);
                                 }}
+                                data-testid={`button-add-${lang.value}-${gender}`}
                               >
-                                <Plus className="h-4 w-4" />
+                                <Plus className="h-4 w-4 mr-1" />
+                                Add
                               </Button>
                             </div>
                           );
@@ -584,31 +583,25 @@ export default function VoiceConsole() {
                         return (
                           <div 
                             key={voice.id} 
-                            className="p-3 border rounded-md flex items-center justify-between gap-2"
+                            className="flex items-center justify-between px-4 py-2 pl-12 bg-background"
                             data-testid={`voice-item-${voice.id}`}
                           >
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-medium text-sm truncate">{voice.voiceName}</span>
-                                <Badge variant={voice.isActive ? "default" : "secondary"} className="text-xs">
-                                  {voice.gender}
-                                </Badge>
-                                <Badge variant="outline" className="text-xs">
-                                  {voice.speakingRate === 0.7 ? 'Slow' : 
-                                   voice.speakingRate === 0.9 ? 'Natural' : 
-                                   voice.speakingRate === 1.0 ? 'Normal' :
-                                   voice.speakingRate >= 1.2 ? 'Fast' : 
-                                   `${voice.speakingRate}x`}
-                                </Badge>
-                                {!voice.isActive && (
-                                  <Badge variant="outline" className="text-xs">Inactive</Badge>
-                                )}
-                              </div>
-                              <p className="text-xs text-muted-foreground mt-1 truncate">
-                                {voice.voiceId.slice(0, 20)}...
-                              </p>
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                              <span className="text-sm capitalize w-14 flex-shrink-0">{gender}</span>
+                              <span className="font-medium text-sm truncate">{voice.voiceName}</span>
+                              <Badge variant="outline" className="text-xs flex-shrink-0">
+                                {voice.speakingRate === 0.7 ? 'Slow' : 
+                                 voice.speakingRate === 0.9 ? 'Natural' : 
+                                 voice.speakingRate === 1.0 ? 'Normal' :
+                                 voice.speakingRate >= 1.2 ? 'Fast' : 
+                                 `${voice.speakingRate}x`}
+                              </Badge>
+                              {!voice.isActive && (
+                                <Badge variant="secondary" className="text-xs flex-shrink-0">Inactive</Badge>
+                              )}
                             </div>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 flex-shrink-0">
                               <Button 
                                 size="icon" 
                                 variant="ghost"
@@ -646,8 +639,8 @@ export default function VoiceConsole() {
                           </div>
                         );
                       })}
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 );
               })}
             </div>
