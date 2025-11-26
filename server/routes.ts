@@ -1512,12 +1512,13 @@ Return a JSON array of suggestions with this format:
           allMessages.length // Total message count for resume context
         );
 
-        // Determine which model to use based on subscription tier
+        // VOICE MODE: Always use Gemini 2.5 Flash for speed (same 1M context as Pro)
+        // Pro model testing can be enabled later via user preference
         const user = req.user;
-        const model = getModelForTier(user.subscriptionTier, user);
+        const model = 'gemini-2.5-flash'; // Force Flash for voice (~200ms TTFT vs ~500ms+ for Pro)
         
         const fetchTime = Date.now() - startTime;
-        console.log(`[VOICE FAST-PATH] Context fetched in ${fetchTime}ms, starting AI completion`);
+        console.log(`[VOICE FAST-PATH] Using ${model} for speed, context fetched in ${fetchTime}ms`);
 
         // Quick structured completion for voice mode (enforces target/native format) - Gemini
         const completionStart = Date.now();

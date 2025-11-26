@@ -65,7 +65,11 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 -   **Utilities**: `date-fns`, Embla Carousel, `franc-min`.
 
 ### AI Models
--   **Text Chat**: `gemini-2.5-flash`, `gemini-2.5-pro`.
+-   **Text Chat**: `gemini-2.5-flash` (free/basic tiers), `gemini-2.5-pro` (pro tier).
+-   **Voice Chat LLM**: `gemini-2.5-flash` (forced for all tiers - optimized for ~200ms TTFT speed).
 -   **Voice STT**: Deepgram `nova-3`.
--   **Voice TTS (Primary)**: Cartesia Sonic-3 (multiple languages).
+-   **Voice TTS (Primary)**: Cartesia Sonic-3 (multiple languages, 40-90ms latency).
 -   **Voice TTS (Fallback)**: Google Cloud Chirp 3 HD, Neural2.
+
+### Future Backlog
+-   **Voice Mode Pro Testing**: Test Gemini 2.5 Pro for voice mode as optional setting for users who prefer quality over speed.
