@@ -3093,7 +3093,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
   // Returns both audio and word-level timing data for synchronized subtitles
   app.post("/api/voice/synthesize", voiceLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const { text, voice, language, targetLanguage, returnTimings, emotion } = req.body;
+      const { text, voice, language, targetLanguage, returnTimings, emotion, preview } = req.body;
       
       if (!text) {
         return res.status(400).json({ error: "No text provided" });
@@ -3104,27 +3104,54 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
       // Get user's tutor gender preference for voice selection
       const user = await storage.getUser(userId);
       const tutorGender = user?.tutorGender || 'female';
-      
-      // Get user's personality and expressiveness for emotion enforcement
-      const tutorPersonality = (user?.tutorPersonality as 'warm' | 'calm' | 'energetic' | 'professional') || 'warm';
-      const tutorExpressiveness = Math.max(1, Math.min(5, user?.tutorExpressiveness ?? 3)); // Clamp to 1-5
+      const userRole = user?.role || 'student';
       
       // Import emotion utilities
       const { getDefaultEmotion, getAllowedEmotions } = await import('./services/tts-service');
       
-      // Enforce allowed emotions based on personality and expressiveness level
-      const allowedEmotions = getAllowedEmotions(tutorPersonality, tutorExpressiveness);
-      const defaultEmotion = getDefaultEmotion(tutorPersonality);
+      // Check if this is an admin preview request (admin/developer only)
+      const isAdminPreview = preview && (userRole === 'admin' || userRole === 'developer');
       
-      // Use AI emotion if provided and allowed, otherwise fall back to default
+      // Use preview overrides for admin audition, otherwise use user preferences
+      let tutorPersonality: 'warm' | 'calm' | 'energetic' | 'professional';
+      let tutorExpressiveness: number;
       let effectiveEmotion: string;
-      if (emotion && allowedEmotions.includes(emotion)) {
-        effectiveEmotion = emotion;
-      } else if (emotion) {
-        console.log(`[TTS] AI emotion '${emotion}' not allowed at expressiveness ${tutorExpressiveness}, using default '${defaultEmotion}'`);
-        effectiveEmotion = defaultEmotion;
+      
+      if (isAdminPreview) {
+        // Admin preview mode: use provided preview settings
+        tutorPersonality = preview.personality || 'warm';
+        tutorExpressiveness = Math.max(1, Math.min(5, preview.expressiveness ?? 3));
+        
+        // Get allowed emotions for preview settings
+        const allowedEmotions = getAllowedEmotions(tutorPersonality, tutorExpressiveness);
+        const defaultEmotion = getDefaultEmotion(tutorPersonality);
+        
+        // Use preview emotion if provided and allowed
+        if (preview.emotion && allowedEmotions.includes(preview.emotion)) {
+          effectiveEmotion = preview.emotion;
+        } else {
+          effectiveEmotion = defaultEmotion;
+        }
+        
+        console.log(`[TTS] Admin preview mode: personality=${tutorPersonality}, expressiveness=${tutorExpressiveness}, emotion=${effectiveEmotion}`);
       } else {
-        effectiveEmotion = defaultEmotion;
+        // Normal mode: use user preferences
+        tutorPersonality = (user?.tutorPersonality as 'warm' | 'calm' | 'energetic' | 'professional') || 'warm';
+        tutorExpressiveness = Math.max(1, Math.min(5, user?.tutorExpressiveness ?? 3));
+        
+        // Enforce allowed emotions based on personality and expressiveness level
+        const allowedEmotions = getAllowedEmotions(tutorPersonality, tutorExpressiveness);
+        const defaultEmotion = getDefaultEmotion(tutorPersonality);
+        
+        // Use AI emotion if provided and allowed, otherwise fall back to default
+        if (emotion && allowedEmotions.includes(emotion)) {
+          effectiveEmotion = emotion;
+        } else if (emotion) {
+          console.log(`[TTS] AI emotion '${emotion}' not allowed at expressiveness ${tutorExpressiveness}, using default '${defaultEmotion}'`);
+          effectiveEmotion = defaultEmotion;
+        } else {
+          effectiveEmotion = defaultEmotion;
+        }
       }
       
       // Try to get admin-configured voice from database for this language and gender
@@ -5362,6 +5389,37 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
       res.json({ voices, total: voices.length });
     } catch (error: any) {
       console.error('Error fetching Cartesia voices:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get TTS emotion metadata for admin voice console (admin/developer only)
+  // Returns personality presets, expressiveness levels, and allowed emotions
+  app.get("/api/admin/tts-meta", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+    try {
+      const { PERSONALITY_PRESETS, EXPRESSIVENESS_LEVELS, getAllowedEmotions, getDefaultEmotion } = await import('./services/tts-service');
+      
+      // Build allowed emotions map for each personality at each expressiveness level
+      const emotionsMap: Record<string, Record<number, string[]>> = {};
+      const personalities = ['warm', 'calm', 'energetic', 'professional'] as const;
+      
+      for (const personality of personalities) {
+        emotionsMap[personality] = {};
+        for (let level = 1; level <= 5; level++) {
+          emotionsMap[personality][level] = getAllowedEmotions(personality, level);
+        }
+      }
+      
+      res.json({
+        personalities: PERSONALITY_PRESETS,
+        expressivenessLevels: EXPRESSIVENESS_LEVELS,
+        emotionsMap,
+        getDefaultEmotion: Object.fromEntries(
+          personalities.map(p => [p, getDefaultEmotion(p)])
+        ),
+      });
+    } catch (error: any) {
+      console.error('Error fetching TTS metadata:', error);
       res.status(500).json({ error: error.message });
     }
   });

@@ -13,7 +13,25 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Play, Pause, Plus, Edit2, Trash2, Volume2, User, Languages, Loader2 } from "lucide-react";
+import { Play, Pause, Plus, Edit2, Trash2, Volume2, User, Languages, Loader2, Sparkles, Heart } from "lucide-react";
+
+// Personality preset types matching backend
+type PersonalityType = 'warm' | 'calm' | 'energetic' | 'professional';
+
+interface TTSMetadata {
+  personalities: Record<PersonalityType, {
+    name: string;
+    description: string;
+    baseline: string;
+    emotions: string[];
+  }>;
+  expressivenessLevels: Record<number, {
+    label: string;
+    description: string;
+  }>;
+  emotionsMap: Record<PersonalityType, Record<number, string[]>>;
+  getDefaultEmotion: Record<PersonalityType, string>;
+}
 
 interface TutorVoice {
   id: string;
@@ -97,6 +115,11 @@ export default function VoiceConsole() {
   const [editingVoice, setEditingVoice] = useState<TutorVoice | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   
+  // Emotion audition state
+  const [auditionPersonality, setAuditionPersonality] = useState<PersonalityType>('warm');
+  const [auditionExpressiveness, setAuditionExpressiveness] = useState(3);
+  const [auditionEmotion, setAuditionEmotion] = useState('friendly');
+  
   const [formData, setFormData] = useState({
     language: '',
     gender: 'female' as 'male' | 'female',
@@ -111,6 +134,11 @@ export default function VoiceConsole() {
   // Fetch configured voices
   const { data: voices, isLoading } = useQuery<TutorVoice[]>({
     queryKey: ["/api/admin/tutor-voices"],
+  });
+  
+  // Fetch TTS emotion metadata
+  const { data: ttsMetadata } = useQuery<TTSMetadata>({
+    queryKey: ["/api/admin/tts-meta"],
   });
 
   // Fetch available Cartesia voices based on selected language and gender
@@ -161,9 +189,29 @@ export default function VoiceConsole() {
       speakingRate: 0.9,
       isActive: true,
     });
+    // Reset emotion audition to defaults
+    setAuditionPersonality('warm');
+    setAuditionExpressiveness(3);
+    setAuditionEmotion('friendly');
   };
+  
+  // Get available emotions based on personality and expressiveness
+  const availableEmotions = ttsMetadata?.emotionsMap?.[auditionPersonality]?.[auditionExpressiveness] || ['friendly'];
+  
+  // Update emotion when personality/expressiveness changes
+  useEffect(() => {
+    if (ttsMetadata) {
+      const defaultEmotion = ttsMetadata.getDefaultEmotion[auditionPersonality];
+      const allowed = ttsMetadata.emotionsMap[auditionPersonality]?.[auditionExpressiveness] || [];
+      // If current emotion is not in allowed list, reset to default
+      if (!allowed.includes(auditionEmotion)) {
+        setAuditionEmotion(defaultEmotion || 'friendly');
+      }
+    }
+  }, [auditionPersonality, auditionExpressiveness, ttsMetadata]);
 
   // Bilingual audition: plays voice in target language, then native (English)
+  // Uses the selected auditionEmotion for previewing different emotional tones
   const handleAudition = async (voiceId: string, voiceName: string, language: string, languageCode: string, speakingRate: number = 0.9) => {
     if (playingVoiceId === voiceId && audioElement) {
       audioElement.pause();
@@ -183,15 +231,15 @@ export default function VoiceConsole() {
     const phrases = SAMPLE_PHRASES[language] || SAMPLE_PHRASES.english;
     
     try {
-      // First play in target language
-      const targetAudio = await playVoiceSample(voiceId, phrases.target, languageCode, speakingRate);
+      // First play in target language with selected emotion
+      const targetAudio = await playVoiceSample(voiceId, phrases.target, languageCode, speakingRate, auditionEmotion);
       
       targetAudio.onended = async () => {
         // If language is not English, play English sample too
         if (language !== 'english') {
           setAuditionPhase('native');
           try {
-            const nativeAudio = await playVoiceSample(voiceId, phrases.native, 'en', speakingRate);
+            const nativeAudio = await playVoiceSample(voiceId, phrases.native, 'en', speakingRate, auditionEmotion);
             nativeAudio.onended = () => {
               setPlayingVoiceId(null);
               setAuditionPhase('idle');
@@ -231,7 +279,13 @@ export default function VoiceConsole() {
     }
   };
 
-  const playVoiceSample = async (voiceId: string, text: string, languageCode: string, speakingRate: number = 0.9): Promise<HTMLAudioElement> => {
+  const playVoiceSample = async (
+    voiceId: string, 
+    text: string, 
+    languageCode: string, 
+    speakingRate: number = 0.9,
+    emotion?: string
+  ): Promise<HTMLAudioElement> => {
     const response = await fetch("/api/admin/tutor-voices/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -240,6 +294,7 @@ export default function VoiceConsole() {
         text,
         language: languageCode,
         speakingRate,
+        emotion: emotion || auditionEmotion,
       }),
     });
 
@@ -458,11 +513,89 @@ export default function VoiceConsole() {
                       </div>
                     )}
 
+                    {/* Emotion Controls for Audition */}
+                    {formData.voiceId && ttsMetadata && (
+                      <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-primary" />
+                          <Label className="text-sm font-medium">Emotion Audition</Label>
+                        </div>
+                        
+                        {/* Personality Selector */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Personality</Label>
+                            <Select 
+                              value={auditionPersonality} 
+                              onValueChange={(v) => setAuditionPersonality(v as PersonalityType)}
+                            >
+                              <SelectTrigger data-testid="select-personality">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(ttsMetadata.personalities).map(([key, preset]) => (
+                                  <SelectItem key={key} value={key}>
+                                    <div className="flex flex-col">
+                                      <span>{preset.name}</span>
+                                      <span className="text-xs text-muted-foreground">{preset.description}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          {/* Emotion Selector */}
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Emotion</Label>
+                            <Select value={auditionEmotion} onValueChange={setAuditionEmotion}>
+                              <SelectTrigger data-testid="select-emotion">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableEmotions.map(emotion => (
+                                  <SelectItem key={emotion} value={emotion}>
+                                    <span className="capitalize">{emotion}</span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        
+                        {/* Expressiveness Slider */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs text-muted-foreground">Expressiveness</Label>
+                            <span className="text-sm font-medium">
+                              {ttsMetadata.expressivenessLevels[auditionExpressiveness]?.label || `Level ${auditionExpressiveness}`}
+                            </span>
+                          </div>
+                          <Slider
+                            value={[auditionExpressiveness]}
+                            onValueChange={([value]) => setAuditionExpressiveness(value)}
+                            min={1}
+                            max={5}
+                            step={1}
+                            className="w-full"
+                            data-testid="slider-expressiveness"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            {ttsMetadata.expressivenessLevels[auditionExpressiveness]?.description || ''}
+                          </p>
+                        </div>
+                        
+                        <p className="text-xs text-muted-foreground border-t pt-2">
+                          Preview how different emotions sound with this voice
+                        </p>
+                      </div>
+                    )}
+
                     {/* Audition Button */}
                     {formData.voiceId && (
                       <div className="space-y-2">
                         <Label>Audition</Label>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap">
                           <Button
                             type="button"
                             variant="outline"
@@ -495,6 +628,10 @@ export default function VoiceConsole() {
                                 : 'English'}
                             </Badge>
                           )}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Heart className="h-3 w-3" />
+                          <span>Using <strong className="capitalize">{auditionEmotion}</strong> emotion ({auditionPersonality} personality)</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
                           Plays a sample in {SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label || 'the target language'}{formData.language !== 'english' && ', then in English'} at selected speed
