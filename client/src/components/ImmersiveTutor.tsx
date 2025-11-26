@@ -30,8 +30,9 @@ interface ImmersiveTutorProps {
   onToggleView?: () => void; // Toggle between live and history view
   audioElementRef?: React.RefObject<HTMLAudioElement>; // Reference to the actual audio element
   onReplay?: () => void; // Replay last audio
-  canReplay?: boolean; // Whether replay is available
+  canReplay?: boolean; // Whether replay is available (requires stored audio blob)
   onSlowRepeat?: () => void; // Request slow, simplified repeat
+  canSlowRepeat?: boolean; // Whether slow repeat is available (requires assistant message)
   isSlowRepeatLoading?: boolean; // Whether slow repeat is loading
   wordTimings?: WordTiming[]; // Word-level timing data for synchronized subtitles
   subtitleMode?: SubtitleMode; // Subtitle display mode: off, target (target language only), all
@@ -52,6 +53,7 @@ export function ImmersiveTutor({
   onReplay,
   canReplay,
   onSlowRepeat,
+  canSlowRepeat,
   isSlowRepeatLoading = false,
   wordTimings,
   subtitleMode = "target",
@@ -509,7 +511,7 @@ export function ImmersiveTutor({
               variant="secondary"
               size="icon"
               onClick={onSlowRepeat}
-              disabled={!canReplay || isSlowRepeatLoading || isProcessing}
+              disabled={!canSlowRepeat || isSlowRepeatLoading || isProcessing}
               className="h-10 w-10 md:h-12 md:w-12 bg-slate-500 hover:bg-slate-600 text-white disabled:bg-slate-300 disabled:text-slate-500"
               data-testid="button-slow-repeat"
               title="Repeat slowly and simply"

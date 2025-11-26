@@ -21,6 +21,7 @@ interface VoiceChatViewManagerProps {
   onReplay?: () => void;
   canReplay?: boolean;
   onSlowRepeat?: () => void;
+  canSlowRepeat?: boolean;
   isSlowRepeatLoading?: boolean;
   wordTimings?: WordTiming[];
   tutorGender?: 'male' | 'female';
@@ -39,6 +40,7 @@ export function VoiceChatViewManager({
   onReplay,
   canReplay,
   onSlowRepeat,
+  canSlowRepeat,
   isSlowRepeatLoading,
   wordTimings,
   tutorGender = "female",
@@ -163,6 +165,7 @@ export function VoiceChatViewManager({
                 onReplay={onReplay}
                 canReplay={canReplay}
                 onSlowRepeat={onSlowRepeat}
+                canSlowRepeat={canSlowRepeat}
                 isSlowRepeatLoading={isSlowRepeatLoading}
                 wordTimings={wordTimings}
                 subtitleMode={subtitleMode}

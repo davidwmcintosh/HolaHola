@@ -975,6 +975,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           onReplay={replayLastAudio}
           canReplay={!!lastAudioBlob && !isProcessing && avatarState !== 'speaking'}
           onSlowRepeat={handleSlowRepeat}
+          canSlowRepeat={messages.some(m => m.role === 'assistant') && !isProcessing && avatarState !== 'speaking'}
           isSlowRepeatLoading={isSlowRepeatLoading}
           wordTimings={currentPlayingMessageId ? wordTimingsMapRef.current.get(currentPlayingMessageId) : undefined}
           tutorGender={user?.tutorGender as 'male' | 'female' || 'female'}
