@@ -63,6 +63,10 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - **Settings UI**: Users configure personality and expressiveness on Settings page
   - Personality selector dropdown (4 presets)
   - Expressiveness slider (1-5 with descriptive labels)
+- **Voice Console Admin**: Developer/admin tool at `/admin/voices` for voice audition
+  - Preview voices with different emotion settings
+  - Test target and native language samples
+  - Validate voice configurations before deployment
 
 **Three-Phase Organization System**:
 -   **Phase 1 (Starring + Time Filtering)**: `isStarred` field for conversations, time-based filtering (All/Today/This Week/This Month/Older) on History and Vocabulary pages.
