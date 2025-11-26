@@ -80,20 +80,31 @@ This document provides an overview of all documentation files in the project.
 **Complete REST voice chat architecture documentation**
 - **Component**: `RestVoiceChat.tsx` (client/src/components/RestVoiceChat.tsx)
 - **API Client**: `restVoiceApi.ts` (client/src/lib/restVoiceApi.ts)
-- Architecture overview (Browser → Deepgram Nova-3 → Gemini → Google Cloud TTS → Playback)
-- API endpoints (`/api/voice/transcribe`, `/api/voice/synthesize`)
-- AI services: Deepgram Nova-3 (STT), Gemini 2.5 Flash (Chat), Google Cloud Chirp 3 HD (TTS)
+- Architecture overview (Browser → Deepgram Nova-3 → Gemini → Cartesia Sonic-3 TTS → Playback)
+- API endpoints (`/api/voice/transcribe`, `/api/voice/synthesize`, `/api/admin/tts-meta`)
+- AI services: Deepgram Nova-3 (STT), Gemini 2.5 Flash (Chat), Cartesia Sonic-3 (Primary TTS), Google Cloud Chirp HD (Fallback TTS)
+- **3-Layer Emotion Control System**: Personality presets, expressiveness slider, AI-driven emotion selection
 - Usage enforcement and quota tracking
 - Audio format support (WebM, MP4, iOS/Safari compatibility)
 - Error handling strategies
 - Response parsing logic
 - Mobile support
 - Accessibility features
-- Performance: <300ms STT latency, 54.3% better accuracy for non-native speakers
+- Performance: <300ms STT latency, 40-90ms TTS latency, 54.3% better accuracy for non-native speakers
 - Troubleshooting guide
-- Migration notes (OpenAI → Gemini/Deepgram, November 2025)
+- Migration notes (OpenAI → Gemini/Deepgram, November 2025; Google Cloud → Cartesia TTS, November 2025)
 
 **When to use**: Understanding voice features, debugging voice issues, implementing new voice capabilities.
+
+### Voice Console (Admin Feature) ⭐ NEW
+**Admin/Developer voice management tool** (`/admin/voices`)
+- Preview all available tutor voices across 9 languages
+- Audition voices with different emotion settings (personality, expressiveness, emotion)
+- Test voice samples before deploying to users
+- Compare target language and native language voice samples
+- Access via: Admin Dashboard → Voice Console
+
+**When to use**: Configuring tutor voices, testing emotion settings, quality assurance for voice features.
 
 ---
 
@@ -117,7 +128,8 @@ This document provides an overview of all documentation files in the project.
 ### Current AI Services (November 2025)
 - **Text Chat**: Gemini 2.5 Flash (Free/Basic/Institutional), Gemini 2.5 Pro (Pro tier)
 - **Voice STT**: Deepgram Nova-3 with auto-detect mode
-- **Voice TTS**: Google Cloud Chirp 3 HD voices
+- **Voice TTS (Primary)**: Cartesia Sonic-3 with 40-90ms latency and 3-layer emotion control
+- **Voice TTS (Fallback)**: Google Cloud Chirp 3 HD voices (automatic failover)
 - **Image Generation**: Gemini Flash-Image
 
 ### docs/Development-Cost-Projections.md ⭐ NEW
@@ -228,10 +240,11 @@ The following files reference the old OpenAI-based architecture and are preserve
 ```
 project/
 ├── replit.md                                # Main documentation
-├── TEACHER_GUIDE.md                         # Teacher user manual ⭐ NEW
-├── ADMIN_GUIDE.md                           # Administrator backend guide ⭐ NEW
+├── FEATURES.md                              # Sales/marketing features doc
+├── TEACHER_GUIDE.md                         # Teacher user manual
+├── ADMIN_GUIDE.md                           # Administrator backend guide
 ├── docs/
-│   ├── voice-chat-setup.md                 # Voice chat architecture ⭐ CURRENT
+│   ├── voice-chat-setup.md                 # Voice chat architecture ⭐ UPDATED
 │   ├── LLM-Migration-Analysis.md           # Migration history (Nov 2025)
 │   ├── Development-Cost-Projections.md     # Cost estimation reference
 │   └── institutional-standards-integration.md
@@ -239,6 +252,10 @@ project/
 ├── DOCUMENTATION_INDEX.md                  # This file
 ├── CAPACITOR.md                            # Mobile app config
 ├── design_guidelines.md                    # UI/UX guidelines
+├── client/src/pages/admin/
+│   └── VoiceConsole.tsx                    # Voice Console admin page ⭐ NEW
+├── server/services/
+│   └── tts-service.ts                      # Dual TTS provider architecture
 └── [deprecated]/                           # Historical files
     ├── REST_VOICE_CHAT.md                  # Old voice docs
     ├── VOICE_CHAT_TROUBLESHOOTING.md       # WebSocket history
@@ -248,13 +265,21 @@ project/
 
 ---
 
-## Recent Updates (Nov 24, 2025)
+## Recent Updates (Nov 26, 2025)
+
+### ✅ Cartesia Sonic-3 TTS Integration (Nov 26)
+- **Primary TTS**: Google Cloud Chirp HD → Cartesia Sonic-3 (40-90ms latency)
+- **3-Layer Emotion Control**: Personality presets, expressiveness slider (1-5), AI-driven emotion selection
+- **Personality Presets**: warm, calm, energetic, professional
+- **Voice Console**: Admin/developer tool for voice audition and testing
+- **Automatic Failover**: Seamless fallback to Google Cloud if Cartesia unavailable
+- **Phoneme Pronunciation**: IPA-based pronunciation for foreign words in English responses
 
 ### ✅ LLM Migration Completed (Nov 23)
 - **Text Chat**: OpenAI GPT-4o-mini → Gemini 2.5 Flash
 - **Voice STT**: OpenAI Whisper → Deepgram Nova-3
 - **Image Generation**: DALL-E 3 → Gemini Flash-Image
-- **TTS**: Google Cloud Chirp 3 HD (unchanged)
+- **TTS**: Google Cloud Chirp 3 HD (at that time, now Cartesia Sonic-3)
 - **Cost**: $7 total migration cost
 - **Savings**: ~$600/year ongoing
 
@@ -274,13 +299,12 @@ project/
 - **Input Sanitization**: .trim() on all inputs, form composition from shared schemas
 - **PWA Enhancement**: Comprehensive API route caching including /api/teacher/*, /api/student/*, /api/curriculum/*
 
-### ✅ Documentation Updated
-- `replit.md`: Added Production Polish section with offline/mobile/security details
-- `docs/institutional-standards-integration.md`: Marked Milestones 1-3.5 as completed
-- `DOCUMENTATION_INDEX.md`: Updated with production polish features
-- `docs/voice-chat-setup.md`: Updated to reflect Gemini/Deepgram architecture
-- `docs/LLM-Migration-Analysis.md`: Marked as completed with historical note
-- `DEVELOPER_QUICK_COMMANDS.md`: Updated model names to Gemini
+### ✅ Documentation Updated (Nov 26)
+- `FEATURES.md`: Added emotion control system, Cartesia TTS, personality presets
+- `docs/voice-chat-setup.md`: Updated to reflect Cartesia Sonic-3 architecture and emotion system
+- `DOCUMENTATION_INDEX.md`: Added Voice Console admin feature, updated TTS references
+- `ADMIN_GUIDE.md`: Added Voice Console section for tutor voice management
+- `replit.md`: Updated with Voice Console admin feature reference
 
 ---
 
@@ -303,7 +327,7 @@ project/
 
 ---
 
-**Last Updated**: November 24, 2025  
-**Current AI Stack**: Gemini 2.5 Flash/Pro (text), Deepgram Nova-3 (STT), Google Cloud Chirp 3 HD (TTS), Gemini Flash-Image (images)  
-**Production Status**: Production-ready with offline support, mobile responsiveness, and security hardening  
+**Last Updated**: November 26, 2025  
+**Current AI Stack**: Gemini 2.5 Flash/Pro (text), Deepgram Nova-3 (STT), Cartesia Sonic-3 (Primary TTS), Google Cloud Chirp HD (Fallback TTS), Gemini Flash-Image (images)  
+**Production Status**: Production-ready with offline support, mobile responsiveness, security hardening, and emotionally expressive AI tutors  
 **Maintainer**: LinguaFlow Development Team
