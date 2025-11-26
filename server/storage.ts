@@ -95,6 +95,8 @@ export interface IStorage {
     difficultyLevel?: string;
     onboardingCompleted?: boolean;
     tutorGender?: 'male' | 'female';
+    tutorPersonality?: 'warm' | 'calm' | 'energetic' | 'professional';
+    tutorExpressiveness?: number;
   }): Promise<User | undefined>;
   updateUserStripeInfo(userId: string, stripeInfo: {
     stripeCustomerId?: string;
@@ -730,6 +732,8 @@ export class DatabaseStorage implements IStorage {
     difficultyLevel?: string;
     onboardingCompleted?: boolean;
     tutorGender?: 'male' | 'female';
+    tutorPersonality?: 'warm' | 'calm' | 'energetic' | 'professional';
+    tutorExpressiveness?: number;
   }): Promise<User | undefined> {
     const [updated] = await db
       .update(users)

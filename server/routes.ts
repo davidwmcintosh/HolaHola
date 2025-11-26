@@ -468,7 +468,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      const { targetLanguage, nativeLanguage, difficultyLevel, onboardingCompleted, tutorGender } = validationResult.data;
+      const { targetLanguage, nativeLanguage, difficultyLevel, onboardingCompleted, tutorGender, tutorPersonality, tutorExpressiveness } = validationResult.data;
       
       const updated = await storage.updateUserPreferences(userId, {
         targetLanguage,
@@ -476,6 +476,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         difficultyLevel,
         onboardingCompleted,
         tutorGender,
+        tutorPersonality,
+        tutorExpressiveness,
       });
       
       if (!updated) {
