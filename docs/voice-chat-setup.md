@@ -1,12 +1,12 @@
 # Voice Chat Setup Guide
 
-⚠️ **CURRENT SYSTEM**: REST-based voice pipeline using Deepgram Nova-3 (STT) + Gemini 2.5 Flash (Chat) + Google Cloud Chirp 3 HD (TTS)
+⚠️ **CURRENT SYSTEM**: REST-based voice pipeline using Deepgram Nova-3 (STT) + Gemini 2.5 Flash (Chat) + Cartesia Sonic-3 (Primary TTS) / Google Cloud Chirp HD (Fallback TTS)
 
 ## Overview
 
-The voice chat feature provides Push-to-Talk speech-to-speech conversation with an AI language tutor using a production-stable REST-based pipeline optimized for language learning.
+The voice chat feature provides Push-to-Talk speech-to-speech conversation with an AI language tutor using a production-stable REST-based pipeline optimized for language learning with emotionally expressive voices.
 
-**Current System**: Deepgram Nova-3 STT → Gemini 2.5 Flash Chat → Google Cloud Chirp 3 HD TTS
+**Current System**: Deepgram Nova-3 STT → Gemini 2.5 Flash Chat → Cartesia Sonic-3 TTS (with Google Cloud fallback)
 
 ## Architecture
 
@@ -27,9 +27,18 @@ The voice chat feature provides Push-to-Talk speech-to-speech conversation with 
 ### Backend Components
 - **routes.ts**: REST API endpoints
   - `POST /api/voice/transcribe` - Deepgram Nova-3 speech-to-text (auto-detect mode)
-  - `POST /api/voice/synthesize` - Google Cloud Chirp 3 HD text-to-speech
+  - `POST /api/voice/synthesize` - Cartesia Sonic-3 TTS (primary) with Google Cloud fallback
+  - `GET /api/admin/tts-meta` - TTS metadata for voice configuration (admin/developer)
+  - `POST /api/admin/tutor-voices/preview` - Voice audition endpoint (admin/developer)
   - Tier-based usage enforcement with atomic quota tracking
   - Language code mapping (spanish → es, french → fr, etc.)
+
+- **tts-service.ts**: Dual-provider TTS architecture
+  - Cartesia Sonic-3 as primary provider (40-90ms latency)
+  - Google Cloud Chirp HD as automatic fallback
+  - 3-layer emotion control system integration
+  - Phoneme-based pronunciation for foreign words in English responses
+  - Per-language voice mappings (CARTESIA_VOICE_MAP, VOICE_MAP)
 
 - **storage.ts**: Usage tracking
   - `checkVoiceUsage()` - Verify user has remaining quota
@@ -43,7 +52,12 @@ The voice chat feature provides Push-to-Talk speech-to-speech conversation with 
 Voice features use the following API keys (managed automatically via Replit AI Integrations):
 
 - **DEEPGRAM_API_KEY**: For speech-to-text (student input)
-- **GOOGLE_CLOUD_TTS_CREDENTIALS**: For text-to-speech (tutor voice)
+- **CARTESIA_API_KEY**: For primary text-to-speech (tutor voice, Sonic-3)
+- **GOOGLE_CLOUD_TTS_CREDENTIALS**: For fallback text-to-speech (Chirp HD)
+
+**Environment Variables for TTS Configuration:**
+- `TTS_PRIMARY_PROVIDER`: Set to "cartesia" (default) or "google" to switch providers
+- `TTS_CARTESIA_MODEL`: Set to "sonic-3" (default, 42 languages) or "sonic-turbo" (40ms, 15 languages)
 
 **Note**: Text chat uses Gemini 2.5 Flash via Replit AI Integrations (no user API key needed).
 
@@ -85,6 +99,8 @@ Voice features use the following API keys (managed automatically via Replit AI I
 - **Replay Button**: Re-listen to the last tutor response for pronunciation practice
 - **Split Response Architecture**: Fast text response (~3.6s) with background enrichment
 - **Live Transcription**: Deepgram Nova-3 with <300ms latency and 54.3% better accuracy for non-native speakers
+- **Ultra-Low Latency TTS**: Cartesia Sonic-3 with 40-90ms latency
+- **3-Layer Emotion Control**: Personality presets, expressiveness slider, AI-driven dynamic selection
 - **Usage Tracking**: Monthly quota limits based on subscription tier
 - **Tier-Based Model Selection**: Gemini 2.5 Flash (Free/Basic/Institutional), Gemini 2.5 Pro (Pro)
 - **Multi-language Support**: Works with Spanish, French, German, Italian, Portuguese, Japanese, Korean, Chinese, Russian
@@ -92,6 +108,42 @@ Voice features use the following API keys (managed automatically via Replit AI I
 - **Seamless Mode Switching**: Switch between voice and text anytime
 - **Auto-Detect Language**: Deepgram automatically detects the language you speak
 - **Cold-Start Optimization**: Deepgram pre-warming reduces first response from ~20s to ~3s
+- **Automatic TTS Failover**: Seamless switch to Google Cloud if Cartesia unavailable
+
+## Emotion Control System
+
+### 3-Layer Architecture
+
+**Layer 1: Personality Presets** (stored in `users.tutorPersonality`)
+| Preset | Baseline Emotion | Core Emotions |
+|--------|------------------|---------------|
+| warm | friendly | friendly, encouraging, happy, patient |
+| calm | calm | neutral, calm, patient, curious |
+| energetic | enthusiastic | excited, enthusiastic, happy, surprised, encouraging |
+| professional | neutral | neutral, calm, curious, patient |
+
+**Layer 2: Expressiveness Slider** (stored in `users.tutorExpressiveness`, 1-5)
+| Level | Behavior |
+|-------|----------|
+| 1-2 | Baseline only, minimal emotional deviation |
+| 3 | Core emotions for personality |
+| 4 | Extended emotion set |
+| 5 | Full spontaneous emotions including surprised/excited |
+
+**Layer 3: AI-Driven Dynamic Selection**
+- AI selects appropriate emotion based on conversation context
+- Returns `emotion` field in structured JSON response
+- TTS endpoint validates against allowed emotions and falls back to baseline if disallowed
+
+### Speed Control
+- 0.7x for slow pronunciation practice
+- 0.9x for normal teaching pace
+- 1.3x for faster advanced conversations
+
+### Natural Laughter
+- AI can include `[laughter]` tags for authentic bonding
+- Used sparingly (1-2 times per conversation max)
+- Example: "I made that same mistake when I was learning! [laughter]"
 
 ## Troubleshooting
 
@@ -136,14 +188,14 @@ Voice features use the following API keys (managed automatically via Replit AI I
 ### Audio Format
 - Input: WebM (Chrome/Firefox) or MP4 (Safari/iOS)
 - Deepgram Nova-3 handles automatic format conversion and language detection
-- TTS Output: MP3, 24kHz, mono (Google Cloud Chirp 3 HD)
+- TTS Output: MP3 (Cartesia Sonic-3 primary, Google Cloud Chirp HD fallback)
 - Browser playback: Native HTML5 Audio API
 
 ### API Flow
 1. Browser records audio using MediaRecorder
 2. POST audio blob to `/api/voice/transcribe` (Deepgram Nova-3 STT with auto-detect)
-3. POST transcribed text to `/api/conversations/:id/messages` (Gemini 2.5 Flash chat)
-4. POST AI response to `/api/voice/synthesize` (Google Cloud Chirp 3 HD TTS)
+3. POST transcribed text to `/api/conversations/:id/messages` (Gemini 2.5 Flash chat with emotion)
+4. POST AI response to `/api/voice/synthesize` (Cartesia Sonic-3 TTS with emotion, auto-fallback to Google)
 5. Return audio blob to browser for playback
 6. Increment usage quota atomically
 
@@ -156,19 +208,22 @@ Voice features use the following API keys (managed automatically via Replit AI I
 
 ## Performance
 
-- **Voice Pipeline**: ~9s total (~1s Deepgram + ~4.4s Gemini + ~3.3s TTS)
+- **Voice Pipeline**: ~6s total (~1s Deepgram + ~4.4s Gemini + ~0.1s Cartesia TTS)
 - **Split Response**: ~3.6s for text response (background enrichment queued)
 - **STT Latency**: <300ms with Deepgram Nova-3 (real-time streaming capable)
+- **TTS Latency**: 40-90ms with Cartesia Sonic-3 (vs ~3s with Google Cloud)
 - **Background Processing**: Vocabulary extraction and image generation via `setImmediate()`
 
 ## Benefits of Current Stack
 
 1. **Better Accuracy**: Deepgram Nova-3 has 54.3% better WER for non-native speakers
-2. **Faster Response**: <300ms STT latency vs batch-only alternatives
-3. **No User API Keys**: All AI services managed via Replit AI Integrations
-4. **Cost Efficient**: 28% cheaper STT, 33% cheaper text chat vs OpenAI
-5. **Auto-Detect Language**: Students can ask questions in any language
-6. **Authentic Pronunciation**: Google Cloud Chirp 3 HD for native-quality voice
+2. **Ultra-Fast TTS**: Cartesia Sonic-3 with 40-90ms latency (30-50x faster than alternatives)
+3. **Emotionally Expressive**: 3-layer emotion control with personality presets
+4. **Automatic Failover**: Seamless switch to Google Cloud if Cartesia unavailable
+5. **No User API Keys**: All AI services managed via Replit AI Integrations
+6. **Cost Efficient**: 28% cheaper STT, 33% cheaper text chat vs OpenAI
+7. **Auto-Detect Language**: Students can ask questions in any language
+8. **Authentic Pronunciation**: Phoneme-based pronunciation for foreign words
 
 ## Limitations
 
@@ -193,10 +248,40 @@ Voice features use the following API keys (managed automatically via Replit AI I
 - **STT**: OpenAI Whisper → Deepgram Nova-3
 - **Text Chat**: GPT-4o-mini → Gemini 2.5 Flash
 - **Image Generation**: DALL-E 3 → Gemini Flash-Image
-- **TTS**: Google Cloud Chirp 3 HD (unchanged - already optimal)
+- **TTS**: Google Cloud Chirp 3 HD (unchanged at that time)
 
 **Total Migration Cost**: $7 (6.5 hours of agent development time)
 **Annual Savings**: ~$600/year at 500 hours/month usage
+
+### November 2025: Cartesia Sonic-3 TTS Integration
+
+**TTS Upgrade Benefits**:
+- ✅ 40-90ms TTS latency (vs ~3s with Google Cloud)
+- ✅ 3-layer emotion control system for expressive tutor personalities
+- ✅ Phoneme-based pronunciation for accurate foreign word pronunciation
+- ✅ Automatic fallback to Google Cloud if Cartesia unavailable
+- ✅ User-configurable personality presets and expressiveness levels
+
+**Components Changed**:
+- **TTS (Primary)**: Google Cloud Chirp HD → Cartesia Sonic-3
+- **TTS (Fallback)**: Cartesia → Google Cloud Chirp HD
+- **Emotion System**: Added 3-layer emotion control with AI-driven selection
+
+## Admin Features
+
+### Voice Console (/admin/voices)
+Admin and developer users can access the Voice Console to:
+- Preview all available tutor voices across languages
+- Test voices with different emotion settings (personality, expressiveness, emotion)
+- Audition voices before deployment to users
+- Compare target language and native language voice samples
+
+### TTS Metadata Endpoint
+`GET /api/admin/tts-meta` returns:
+- Available personality presets with descriptions
+- Expressiveness levels (1-5) with behavior descriptions
+- Emotion mappings per personality/expressiveness combination
+- Default emotions for each personality
 
 ## Documentation
 
@@ -204,3 +289,4 @@ For detailed technical documentation, see:
 - `replit.md` - System architecture overview
 - `LLM-Migration-Analysis.md` - Migration analysis and decision rationale
 - `Development-Cost-Projections.md` - Cost estimation reference
+- `ADMIN_GUIDE.md` - Voice Console admin features

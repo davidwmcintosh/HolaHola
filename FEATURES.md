@@ -12,10 +12,25 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 **Natural Conversations with AI Tutors**
 - Talk naturally in your target language with AI tutors that respond in real-time
 - Push-to-talk voice recording with instant transcription
-- Native pronunciation using Google Cloud's premium Chirp 3 HD voices
+- Ultra-low latency TTS using Cartesia Sonic-3 (40-90ms response time)
 - 3-mode subtitle system: Off (full immersion), Target Language Only, or Full Transcript
 - Slow repeat button for difficult phrases - AI simplifies and speaks slower
 - Replay button to hear the last response again
+
+### Emotionally Expressive AI Tutor
+**3-Layer Emotion Control System**
+- **Personality Presets**: Choose your tutor's base personality
+  - Warm: Friendly, encouraging, patient
+  - Calm: Neutral, patient, curious
+  - Energetic: Excited, enthusiastic, happy
+  - Professional: Neutral, calm, focused
+- **Expressiveness Slider (1-5)**: Control emotional range
+  - Level 1-2: Minimal emotion, baseline only
+  - Level 3: Core emotions for personality
+  - Level 4: Extended emotion set
+  - Level 5: Full spontaneous emotions
+- **AI-Driven Dynamic Selection**: AI chooses the right emotion for each response
+- **Natural Laughter**: Authentic bonding moments with the tutor
 
 ### Pronunciation Feedback
 **Real-Time Pronunciation Checking**
@@ -140,13 +155,15 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 ### AI-Powered by the Best
 - **Text Chat**: Google Gemini 2.5 Flash/Pro for intelligent responses
 - **Speech-to-Text**: Deepgram Nova-3 with 54% better accuracy for non-native speakers
-- **Text-to-Speech**: Google Cloud Chirp 3 HD for authentic pronunciation
+- **Text-to-Speech (Primary)**: Cartesia Sonic-3 with 40-90ms latency and emotion control
+- **Text-to-Speech (Fallback)**: Google Cloud Chirp 3 HD for reliable backup
 - **Image Generation**: Gemini Flash-Image for contextual visuals
 
 ### Fast & Reliable
 - Sub-300ms speech recognition latency
-- Real-time voice responses under 6 seconds
+- Ultra-fast voice responses with Cartesia Sonic-3 (40-90ms TTS latency)
 - Deepgram pre-warming eliminates cold start delays
+- Dual TTS provider architecture with automatic failover
 
 ### Works Everywhere
 - Progressive Web App (PWA) - install on any device
@@ -208,7 +225,8 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 - **No judgment** - make mistakes freely
 
 ### vs. Other AI Apps
-- **Premium voice quality** - authentic native pronunciation
+- **Premium voice quality** - ultra-low latency Cartesia Sonic-3 with emotion control
+- **Expressive AI tutors** - configurable personality and emotional range
 - **Educational standards** - ACTFL alignment for institutions
 - **Complete platform** - vocabulary, flashcards, organization built-in
 - **Institutional ready** - full teacher tools and class management
@@ -242,4 +260,4 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 
 *LinguaFlow - Where AI Meets Language Learning*
 
-*Last Updated: November 25, 2025*
+*Last Updated: November 26, 2025*
