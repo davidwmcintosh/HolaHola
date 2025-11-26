@@ -1497,6 +1497,14 @@ Return a JSON array of suggestions with this format:
           }
         }
 
+        // VOICE MODE: Always use Gemini 2.5 Flash for speed (same 1M context as Pro)
+        // Pro model testing can be enabled later via user preference
+        const user = req.user;
+        
+        // Get user's personality and expressiveness preferences for system prompt
+        const tutorPersonality = (user?.tutorPersonality as 'warm' | 'calm' | 'energetic' | 'professional') || 'warm';
+        const tutorExpressiveness = user?.tutorExpressiveness || 3;
+
         // Create minimal system prompt (skip vocabulary/conversation queries for speed)
         const systemPrompt = createSystemPrompt(
           activeConversation.language,
@@ -1510,12 +1518,10 @@ Return a JSON array of suggestions with this format:
           undefined, // No session vocabulary (deferred to background)
           activeConversation.actflLevel, // ACTFL proficiency level
           isResumingConversation, // Week 1 Feature: Resume conversation awareness
-          allMessages.length // Total message count for resume context
+          allMessages.length, // Total message count for resume context
+          tutorPersonality, // Tutor personality style
+          tutorExpressiveness // Expressiveness level (1-5)
         );
-
-        // VOICE MODE: Always use Gemini 2.5 Flash for speed (same 1M context as Pro)
-        // Pro model testing can be enabled later via user preference
-        const user = req.user;
         const model = 'gemini-2.5-flash'; // Force Flash for voice (~200ms TTFT vs ~500ms+ for Pro)
         
         const fetchTime = Date.now() - startTime;
@@ -1529,6 +1535,11 @@ Return a JSON array of suggestions with this format:
         // SCHEMA-LEVEL PREVENTION: Enforce rules BEFORE AI generates response
         // This prevents issues instead of fixing them after
         const difficultyLevel = activeConversation.difficulty || 'beginner';
+        
+        // Import emotion types for schema (tutorPersonality/tutorExpressiveness defined above)
+        const { getAllowedEmotions } = await import('./services/tts-service');
+        const allowedEmotions = getAllowedEmotions(tutorPersonality, tutorExpressiveness);
+        
         const voiceResponseSchema = difficultyLevel === 'beginner' ? {
           type: "object",
           properties: {
@@ -1582,9 +1593,14 @@ Bad: "Try Buenas noches, boo-EHN-ahs NO-chehs."  (phonetic pronunciation spoken 
 Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciation artifacts)`,
               minLength: 30,
               maxLength: 150
+            },
+            emotion: {
+              type: "string",
+              enum: allowedEmotions,
+              description: `Select the emotion that best matches this response's tone. Choose from: ${allowedEmotions.join(', ')}. This controls the TTS voice expressiveness.`
             }
           },
-          required: ["target", "native"]
+          required: ["target", "native", "emotion"]
         } : {
           // Intermediate/Advanced: Less strict
           type: "object",
@@ -1596,9 +1612,14 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
             native: { 
               type: "string",
               description: `Student's native language (${nativeLanguageName}) explanations and teaching content. ${difficultyLevel === 'intermediate' ? 'Use 20-30% native language.' : 'Use 5-15% native language.'}`
+            },
+            emotion: {
+              type: "string",
+              enum: allowedEmotions,
+              description: `Select the emotion that best matches this response's tone. Choose from: ${allowedEmotions.join(', ')}. This controls the TTS voice expressiveness.`
             }
           },
-          required: ["target", "native"]
+          required: ["target", "native", "emotion"]
         };
         
         const parsed = await callGeminiWithSchema(
@@ -1908,6 +1929,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
             );
 
             // Generate enriched completion with structured output
+            // Use default personality for background enrichment (not TTS-related)
             const enrichedSystemPrompt = createSystemPrompt(
               enrichmentConversation.language,
               enrichmentConversation.difficulty,
@@ -1925,7 +1947,9 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
               sessionVocabulary.length > 0 ? sessionVocabulary : undefined,
               enrichmentConversation.actflLevel, // ACTFL proficiency level
               false, // Background enrichment doesn't need resume context
-              0 // Background enrichment doesn't need total message count
+              0, // Background enrichment doesn't need total message count
+              'warm', // Default personality for background enrichment
+              3 // Default expressiveness for background enrichment
             );
 
             const enrichmentSchema = {
@@ -2216,6 +2240,13 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
         5 // Limit to 5 most overdue words
       );
 
+      // Determine which model to use based on subscription tier
+      const user = req.user;
+      
+      // Get user's personality and expressiveness preferences
+      const textTutorPersonality = (user?.tutorPersonality as 'warm' | 'calm' | 'energetic' | 'professional') || 'warm';
+      const textTutorExpressiveness = user?.tutorExpressiveness || 3;
+      
       // Create adaptive system prompt based on language, difficulty, and conversation progress
       // Use userMessageCount (already calculated above) instead of total message count
       // This ensures phases align with actual conversation turns
@@ -2236,11 +2267,10 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
         sessionVocabulary.length > 0 ? sessionVocabulary : undefined,
         updatedConversation.actflLevel, // ACTFL proficiency level
         isResumingConversation, // Week 1 Feature: Resume conversation awareness
-        allMessages.length // Total message count for resume context
+        allMessages.length, // Total message count for resume context
+        textTutorPersonality, // Tutor personality style
+        textTutorExpressiveness // Expressiveness level (1-5)
       );
-
-      // Determine which model to use based on subscription tier
-      const user = req.user;
       const model = getModelForTier(user.subscriptionTier, user);
       
       console.log(`[CHAT] Using model ${model} for tier: ${user.subscriptionTier || 'free'}, voiceMode: ${isVoiceMode}`);

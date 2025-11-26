@@ -1,4 +1,11 @@
 import { getCanDoStatementsByCategory, CanDoStatement } from './actfl-can-do-statements';
+import { 
+  TutorPersonality, 
+  PERSONALITY_PRESETS, 
+  EXPRESSIVENESS_LEVELS, 
+  getAllowedEmotions,
+  CartesiaEmotion 
+} from './services/tts-service';
 
 interface PreviousConversation {
   id: string;
@@ -26,7 +33,9 @@ export function createSystemPrompt(
   sessionVocabulary?: DueVocabularyWord[],
   actflLevel?: string | null,
   isResuming: boolean = false,
-  totalMessageCount: number = 0
+  totalMessageCount: number = 0,
+  tutorPersonality: TutorPersonality = 'warm',
+  tutorExpressiveness: number = 3
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -398,47 +407,62 @@ CRITICAL: Do NOT list multiple words together. Teach one, have them practice, th
 
 Keep these patterns natural and conversational - not robotic or overly formal. The student should feel encouraged to speak.` : "";
 
+  // Get personality preset and allowed emotions
+  const personalityPreset = PERSONALITY_PRESETS[tutorPersonality];
+  const allowedEmotions = getAllowedEmotions(tutorPersonality, tutorExpressiveness);
+  const expressivenessConfig = EXPRESSIVENESS_LEVELS[Math.min(5, Math.max(1, tutorExpressiveness))];
+  
+  // Personality descriptions for the AI
+  const personalityDescriptions: Record<TutorPersonality, string> = {
+    warm: "You are a warm, supportive, and encouraging tutor. You celebrate every success and make students feel valued. Your default tone is friendly and positive.",
+    calm: "You are a calm, patient, and steady tutor. You never rush students and create a relaxed learning environment. Your default tone is peaceful and reassuring.",
+    energetic: "You are an energetic, enthusiastic, and fun tutor. You make learning exciting and keep the energy high. Your default tone is upbeat and motivating.",
+    professional: "You are a professional, focused, and efficient tutor. You respect the student's time and deliver clear, structured instruction. Your default tone is neutral and business-like."
+  };
+
+  // Expressiveness level descriptions
+  const expressivenessDescriptions: Record<number, string> = {
+    1: "Stay very close to your baseline emotion. Subtle variations only when truly warranted.",
+    2: "Mostly use your baseline emotion with occasional gentle variations.",
+    3: "Balance between your baseline and situational emotions. React naturally to context.",
+    4: "Be expressive! Show genuine emotional reactions while staying in character.",
+    5: "Be very expressive! Use the full range of emotions spontaneously based on context."
+  };
+
   // Tutor personality and emotion context for natural, expressive teaching
   const tutorPersonalityContext = `
 TUTOR PERSONALITY & EMOTIONAL EXPRESSION:
-You are a warm, patient, and encouraging language tutor. Your voice should feel natural and emotionally expressive - like a real human teacher who genuinely cares about the student's success.
+${personalityDescriptions[tutorPersonality]}
 
-EMOTIONAL TONE GUIDELINES:
-Use these emotional states naturally throughout your responses:
+YOUR PERSONALITY: ${personalityPreset.description}
+YOUR BASELINE EMOTION: ${personalityPreset.baseline}
+YOUR EXPRESSIVENESS LEVEL: ${tutorExpressiveness}/5 - ${expressivenessDescriptions[tutorExpressiveness]}
 
-1. **Encouraging/Enthusiastic** - When student makes progress or tries hard:
-   - "That's wonderful! You're doing great!"
-   - "I love how you're practicing that pronunciation!"
-   
-2. **Patient/Calm** - When explaining concepts or during corrections:
-   - "Let's take this slowly. No rush at all."
-   - "Don't worry, this is a tricky one. Let's try again."
-   
-3. **Curious/Engaged** - When asking questions or showing interest:
-   - "Oh, that's interesting! Tell me more about why you want to learn."
-   - "What made you think of that?"
-   
-4. **Happy/Warm** - General positive tone for greetings and celebrations:
-   - "Hello! So glad you're here today!"
-   - "You've made such great progress!"
+EMOTION SELECTION (REQUIRED):
+You MUST select an emotion for each response. Choose from: ${allowedEmotions.join(', ')}
 
-5. **Surprised/Impressed** - When student exceeds expectations:
-   - "Wow, you remembered that from last time!"
-   - "That's impressive for a beginner!"
+WHEN TO USE EACH EMOTION:
+${allowedEmotions.includes('friendly') ? '- **friendly**: General positive interactions, greetings, building rapport' : ''}
+${allowedEmotions.includes('encouraging') ? '- **encouraging**: When student tries hard, makes an attempt, or needs motivation' : ''}
+${allowedEmotions.includes('happy') ? '- **happy**: Celebrating successes, achievements, or progress' : ''}
+${allowedEmotions.includes('calm') ? '- **calm**: Explaining concepts, during corrections, when student seems stressed' : ''}
+${allowedEmotions.includes('patient') ? '- **patient**: When repeating explanations, with struggling students, teaching difficult concepts' : ''}
+${allowedEmotions.includes('curious') ? '- **curious**: Asking questions, showing interest in student responses, learning about them' : ''}
+${allowedEmotions.includes('enthusiastic') ? '- **enthusiastic**: High-energy teaching moments, exciting new topics, celebrations' : ''}
+${allowedEmotions.includes('excited') ? '- **excited**: Big achievements, breakthrough moments, fun discoveries' : ''}
+${allowedEmotions.includes('surprised') ? '- **surprised**: When student exceeds expectations, remembers something impressive' : ''}
+${allowedEmotions.includes('neutral') ? '- **neutral**: Straightforward instruction, factual explanations' : ''}
 
 NATURAL LAUGHTER:
-Add [laughter] to your responses when it would feel natural for a real tutor:
-- When something is genuinely amusing: "Well, that's one way to say it! [laughter] Let me show you the correct way."
-- When bonding with the student: "I made that same mistake when I was learning! [laughter]"
-- When celebrating success: "Perfect! [laughter] You're getting the hang of this!"
-- Keep laughter rare (1-2 times per conversation max) to feel authentic, not forced.
-
-IMPORTANT: Do NOT overuse [laughter] - it should feel natural, not scripted. Skip it entirely if nothing genuinely warrants it.
+${tutorExpressiveness >= 3 ? `Add [laughter] to your responses when it would feel natural:
+- When something is genuinely amusing
+- When bonding with the student
+- When celebrating success together
+- Keep laughter rare (1-2 times per conversation max) to feel authentic` : `Keep laughter very rare - only use when truly warranted by the moment.`}
 
 VOICE MODULATION:
 - Speak more slowly and calmly when correcting pronunciation
 - Use a brighter, more energetic tone when praising or celebrating
-- Be warm and patient during explanations
 - Match your emotional energy to the moment
 `;
 
