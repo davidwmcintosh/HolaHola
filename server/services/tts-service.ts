@@ -480,6 +480,14 @@ export class TTSService {
     const voiceConfig = CARTESIA_VOICE_MAP[selectedLanguage] || CARTESIA_VOICE_MAP['english'];
     const effectiveVoiceId = voiceId || voiceConfig.voiceId;
     
+    // CRITICAL: When a custom voice is used, use targetLanguage for Cartesia's language parameter
+    // This ensures Spanish voices pronounce Spanish words correctly even when the text is in English
+    // Example: If Elena (Spanish voice) says "Hello, let's learn 'Hola'", the 'Hola' should be pronounced
+    // with Spanish phonetics (silent H), not English phonetics
+    const cartesiaLanguageConfig = voiceId && targetLanguage 
+      ? (CARTESIA_VOICE_MAP[targetLanguage.toLowerCase()] || voiceConfig)
+      : voiceConfig;
+    
     // Map speaking rate to Cartesia's 0.6-1.5 range
     // Google uses 0.25-4.0 with default 1.0
     // Our slow mode uses 0.7, normal is 0.9
@@ -501,6 +509,7 @@ export class TTSService {
     const voiceName = voiceId ? `custom voice (${voiceId.substring(0, 8)}...)` : voiceConfig.name;
     console.log(`[Cartesia] Synthesizing ${text.length} chars with ${voiceName} (${this.cartesiaModel})`);
     console.log(`[Cartesia] Emotion: ${cartesiaEmotion}, Speed: ${cartesiaSpeed}`);
+    console.log(`[Cartesia] Language: ${cartesiaLanguageConfig.languageCode} (target: ${targetLanguage || 'none'}, text: ${selectedLanguage})`);
 
     // Apply Cartesia phoneme tags for quoted foreign words
     // This uses <<phoneme1|phoneme2>> syntax for correct pronunciation
@@ -519,7 +528,7 @@ export class TTSService {
           mode: 'id',
           id: effectiveVoiceId,
         },
-        language: voiceConfig.languageCode as 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ja' | 'zh' | 'ko',
+        language: cartesiaLanguageConfig.languageCode as 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ja' | 'zh' | 'ko',
         outputFormat: {
           container: 'mp3',
           sampleRate: 44100,
