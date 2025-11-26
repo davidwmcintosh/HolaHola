@@ -100,15 +100,24 @@ export default function Chat() {
   // Auto-create shared conversation
   useEffect(() => {
     const isOnboardingComplete = userName && userName.trim() !== "";
-    const needsConversation = !conversationId && !isCreatingConversation && !creationInProgressRef.current;
     const isCurrentlyOnboarding = currentConversationOnboarding === true;
     
-    console.log('[SHARED CHAT] Auto-create check - userName:', userName, 'conversationId:', conversationId, 'isCreating:', isCreatingConversation, 'inProgress:', creationInProgressRef.current, 'mode:', mode);
+    // ATOMIC check-and-set: We must set the ref BEFORE checking other conditions
+    // to prevent race conditions when React batches multiple useEffect calls
+    if (creationInProgressRef.current) {
+      console.log('[SHARED CHAT] Auto-create check - skipped (already in progress)');
+      return;
+    }
+    
+    const needsConversation = !conversationId && !isCreatingConversation;
+    
+    console.log('[SHARED CHAT] Auto-create check - userName:', userName, 'conversationId:', conversationId, 'isCreating:', isCreatingConversation, 'mode:', mode);
     
     if (needsConversation && !isCurrentlyOnboarding) {
+      // Set ref FIRST before any async work to prevent race conditions
+      creationInProgressRef.current = true;
       console.log('[SHARED CHAT] Creating shared conversation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)', 'forceNew:', forceNewConversation, 'mode:', mode);
       setIsCreatingConversation(true);
-      creationInProgressRef.current = true; // Set flag to prevent duplicate creation
       
       apiRequest("POST", "/api/conversations", {
         language,
