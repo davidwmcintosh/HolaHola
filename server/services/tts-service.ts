@@ -707,12 +707,14 @@ export class TTSService {
       return text;
     }
 
-    // Find quoted words (single, double, smart quotes)
+    let hasReplacements = false;
+    let processedText = text;
+
+    // PASS 1: Process quoted words (single, double, smart quotes)
     // Matches: "Hola", 'Hola', "Hola", 'Hola'
     const quotedWordPattern = /["""''']([^"""''']+)["""''']/g;
     
-    let hasReplacements = false;
-    const processedText = text.replace(quotedWordPattern, (match, word) => {
+    processedText = processedText.replace(quotedWordPattern, (match, word) => {
       // Normalize the word (lowercase, trim)
       const normalizedWord = word.toLowerCase().trim();
       
@@ -721,27 +723,47 @@ export class TTSService {
       if (phonemes) {
         hasReplacements = true;
         // Return Cartesia phoneme syntax: <<phoneme1|phoneme2|...>>
-        console.log(`[Cartesia Phonemes] "${word}" → <<${phonemes}>>`);
+        console.log(`[Cartesia Phonemes] Quoted "${word}" → <<${phonemes}>>`);
         return `<<${phonemes}>>`;
-      }
-      
-      // Also check if the original casing exists
-      const originalPhonemes = pronunciations[word.trim()];
-      if (originalPhonemes) {
-        hasReplacements = true;
-        console.log(`[Cartesia Phonemes] "${word}" → <<${originalPhonemes}>>`);
-        return `<<${originalPhonemes}>>`;
       }
       
       // No pronunciation found, keep original with quotes stripped
       return word;
     });
 
+    // PASS 2: Process UNQUOTED common foreign words
+    // This catches cases like "Hola means hello" where Hola is not in quotes
+    // Only process words that are word-bounded (not part of larger words)
+    for (const [word, phonemes] of Object.entries(pronunciations)) {
+      // Skip multi-word phrases for unquoted matching (too risky for false matches)
+      if (word.includes(' ')) continue;
+      
+      // Create a regex that matches the word with word boundaries
+      // Case-insensitive to catch "Hola", "hola", "HOLA"
+      // Negative lookbehind/ahead for angle brackets to avoid double-processing
+      const wordRegex = new RegExp(
+        `(?<!<)\\b(${this.escapeRegex(word)})\\b(?![^<]*>>)`,
+        'gi'
+      );
+      
+      const before = processedText;
+      processedText = processedText.replace(wordRegex, (match) => {
+        hasReplacements = true;
+        console.log(`[Cartesia Phonemes] Unquoted "${match}" → <<${phonemes}>>`);
+        return `<<${phonemes}>>`;
+      });
+    }
+
     if (hasReplacements) {
-      console.log(`[Cartesia Phonemes] Processed text: "${processedText.substring(0, 100)}..."`);
+      console.log(`[Cartesia Phonemes] Processed text: "${processedText.substring(0, 150)}..."`);
     }
     
     return processedText;
+  }
+  
+  // Helper to escape special regex characters
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   /**
