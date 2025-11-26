@@ -3077,16 +3077,41 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
 
       const userId = req.user.claims.sub;
       
+      // Get user's tutor gender preference for voice selection
+      const user = await storage.getUser(userId);
+      const tutorGender = user?.tutorGender || 'female';
+      
+      // Try to get admin-configured voice from database for this language and gender
+      let voiceId: string | undefined;
+      const effectiveLanguage = language || targetLanguage || user?.targetLanguage || 'spanish';
+      
+      try {
+        const tutorVoices = await storage.getTutorVoices();
+        const matchingVoice = tutorVoices.find(
+          v => v.language.toLowerCase() === effectiveLanguage.toLowerCase() && 
+               v.gender === tutorGender &&
+               v.isActive
+        );
+        if (matchingVoice?.voiceId) {
+          voiceId = matchingVoice.voiceId;
+          console.log(`[TTS] Using admin-configured ${tutorGender} voice for ${effectiveLanguage}: ${matchingVoice.displayName}`);
+        }
+      } catch (err: any) {
+        // If no admin voice configured, fall back to default
+        console.log(`[TTS] No admin voice configured, using default for ${effectiveLanguage}`);
+      }
+      
       // Strip markdown formatting before TTS (removes **, *, parentheses, etc.)
       const cleanText = stripMarkdownForSpeech(text);
-      console.log(`[TTS] Synthesizing speech for user ${userId}, original: ${text.length} chars, cleaned: ${cleanText.length} chars, language: ${language || 'default'}, targetLanguage: ${targetLanguage || 'none'}`);
+      console.log(`[TTS] Synthesizing speech for user ${userId}, original: ${text.length} chars, cleaned: ${cleanText.length} chars, language: ${effectiveLanguage}, gender: ${tutorGender}`);
 
       // Use TTS service abstraction (Google WaveNet preferred, OpenAI fallback)
       const ttsService = getTTSService();
       const result = await ttsService.synthesize({
         text: cleanText,
-        language,
+        language: effectiveLanguage,
         voice,
+        voiceId, // Pass admin-configured voice ID if available
         targetLanguage, // Pass target language for SSML phoneme tag processing
         returnTimings, // Request word-level timing data for subtitle sync
       });
@@ -3163,12 +3188,34 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
       
       console.log(`[SLOW REPEAT] Simplified to: ${simplifiedText}`);
 
+      // Get user's tutor gender preference for voice selection
+      const user = await storage.getUser(userId);
+      const tutorGender = user?.tutorGender || 'female';
+      
+      // Try to get admin-configured voice from database
+      let voiceId: string | undefined;
+      try {
+        const tutorVoices = await storage.getTutorVoices();
+        const matchingVoice = tutorVoices.find(
+          v => v.language.toLowerCase() === targetLanguage.toLowerCase() && 
+               v.gender === tutorGender &&
+               v.isActive
+        );
+        if (matchingVoice?.voiceId) {
+          voiceId = matchingVoice.voiceId;
+          console.log(`[SLOW REPEAT] Using ${tutorGender} voice: ${matchingVoice.displayName}`);
+        }
+      } catch (err: any) {
+        console.log(`[SLOW REPEAT] Using default voice for ${targetLanguage}`);
+      }
+
       // Strip markdown and synthesize at slower speed
       const cleanText = stripMarkdownForSpeech(simplifiedText);
       const ttsService = getTTSService();
       const result = await ttsService.synthesize({
         text: cleanText,
         language: targetLanguage,
+        voiceId, // Pass admin-configured voice ID
         targetLanguage: targetLanguage,
         speakingRate: 0.7, // Slower speaking rate for better comprehension
       });

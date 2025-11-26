@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery } from "@tanstack/react-query";
-import { type Message } from "@shared/schema";
+import { type Message, type User } from "@shared/schema";
 import { processVoiceMessage, synthesizeSpeech, requestSlowRepeat, type WordTiming } from "@/lib/restVoiceApi";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 import { CompactDifficultyControl } from "@/components/CompactDifficultyControl";
@@ -109,6 +109,11 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   const { data: messages = [] } = useQuery<Message[]>({
     queryKey: ["/api/conversations", conversationId, "messages"],
     enabled: !!conversationId,
+  });
+  
+  // Fetch user to get tutor gender preference
+  const { data: user } = useQuery<User>({
+    queryKey: ["/api/auth/user"],
   });
 
   // Initialize audio player
@@ -938,6 +943,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           onSlowRepeat={handleSlowRepeat}
           isSlowRepeatLoading={isSlowRepeatLoading}
           wordTimings={currentPlayingMessageId ? wordTimingsMapRef.current.get(currentPlayingMessageId) : undefined}
+          tutorGender={user?.tutorGender as 'male' | 'female' || 'female'}
         />
       </div>
     </div>

@@ -23,6 +23,7 @@ interface VoiceChatViewManagerProps {
   onSlowRepeat?: () => void;
   isSlowRepeatLoading?: boolean;
   wordTimings?: WordTiming[];
+  tutorGender?: 'male' | 'female';
 }
 
 export function VoiceChatViewManager({
@@ -40,6 +41,7 @@ export function VoiceChatViewManager({
   onSlowRepeat,
   isSlowRepeatLoading,
   wordTimings,
+  tutorGender = "female",
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -164,6 +166,7 @@ export function VoiceChatViewManager({
                 isSlowRepeatLoading={isSlowRepeatLoading}
                 wordTimings={wordTimings}
                 subtitleMode={subtitleMode}
+                tutorGender={tutorGender}
               />
             </div>
           ) : (

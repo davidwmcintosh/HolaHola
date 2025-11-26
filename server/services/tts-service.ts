@@ -36,6 +36,7 @@ export interface TTSRequest {
   text: string;
   language?: string; // Voice language (e.g., "spanish" for Spanish accent)
   voice?: string;
+  voiceId?: string; // Explicit Cartesia voice ID (from database config)
   targetLanguage?: string; // Target learning language for phoneme tag processing
   returnTimings?: boolean; // Request word-level timing data for subtitle sync
   speakingRate?: number; // Speaking rate: 0.25 to 4.0, default 0.9 (0.7 for slow mode)
@@ -316,13 +317,13 @@ export class TTSService {
    * Falls back to Google Cloud TTS if primary fails and fallback is enabled
    */
   async synthesize(request: TTSRequest): Promise<TTSResponse> {
-    const { text, language, voice, targetLanguage, returnTimings, speakingRate, emotion } = request;
+    const { text, language, voice, voiceId, targetLanguage, returnTimings, speakingRate, emotion } = request;
     const startTime = Date.now();
 
     // Try Cartesia first if it's the primary provider
     if (this.provider === 'cartesia' && this.cartesiaClient) {
       try {
-        const result = await this.synthesizeWithCartesia(text, language, speakingRate, emotion);
+        const result = await this.synthesizeWithCartesia(text, language, speakingRate, emotion, voiceId);
         const elapsed = Date.now() - startTime;
         console.log(`[TTS] ✓ Cartesia completed in ${elapsed}ms (emotion: ${emotion || 'default'})`);
         return result;
@@ -390,7 +391,8 @@ export class TTSService {
     text: string, 
     language?: string, 
     speakingRate?: number,
-    emotion?: CartesiaEmotion
+    emotion?: CartesiaEmotion,
+    voiceId?: string
   ): Promise<TTSResponse> {
     if (!this.cartesiaClient) {
       throw new Error('Cartesia client not initialized');
@@ -399,8 +401,9 @@ export class TTSService {
     // Detect language if not provided
     const selectedLanguage = language ? language.toLowerCase() : this.detectLanguage(text);
     
-    // Get voice config for language
+    // Get voice config for language (or use explicit voiceId if provided from database)
     const voiceConfig = CARTESIA_VOICE_MAP[selectedLanguage] || CARTESIA_VOICE_MAP['english'];
+    const effectiveVoiceId = voiceId || voiceConfig.voiceId;
     
     // Map speaking rate to Cartesia's 0.6-1.5 range
     // Google uses 0.25-4.0 with default 1.0
@@ -420,7 +423,8 @@ export class TTSService {
     // Default to 'friendly' for a warm tutor voice
     const cartesiaEmotion = emotion || 'friendly';
     
-    console.log(`[Cartesia] Synthesizing ${text.length} chars with ${voiceConfig.name} (${this.cartesiaModel})`);
+    const voiceName = voiceId ? `custom voice (${voiceId.substring(0, 8)}...)` : voiceConfig.name;
+    console.log(`[Cartesia] Synthesizing ${text.length} chars with ${voiceName} (${this.cartesiaModel})`);
     console.log(`[Cartesia] Emotion: ${cartesiaEmotion}, Speed: ${cartesiaSpeed}`);
 
     // Clean text: remove quotes that might be pronounced (but keep [laughter] tags!)
@@ -433,7 +437,7 @@ export class TTSService {
         transcript: cleanedText,
         voice: {
           mode: 'id',
-          id: voiceConfig.voiceId,
+          id: effectiveVoiceId,
         },
         language: voiceConfig.languageCode as 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ja' | 'zh' | 'ko',
         outputFormat: {

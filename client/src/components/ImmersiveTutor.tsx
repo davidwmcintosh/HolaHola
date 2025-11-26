@@ -3,9 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Mic, MicOff, MessageSquare, RotateCcw, Turtle } from "lucide-react";
 import { type Message } from "@shared/schema";
 import { type SubtitleMode } from "@/contexts/LanguageContext";
-import tutorSpeakingUrl from "@assets/tutor-speaking-No-Background_1764099971093.png";
-import tutorListeningUrl from "@assets/tutor-listening-no-background_1764099971094.png";
-const tutorIdleUrl = tutorListeningUrl;
+
+// Female tutor avatars (default)
+import femaleTutorSpeakingUrl from "@assets/tutor-speaking-No-Background_1764099971093.png";
+import femaleTutorListeningUrl from "@assets/tutor-listening-no-background_1764099971094.png";
+
+// Male tutor avatars
+import maleTutorSpeakingUrl from "@assets/Boy-tutor-speaking-No-Background_1764186322050.png";
+import maleTutorListeningUrl from "@assets/Boy-tutor-waiting-No-Background_1764186322051.png";
 
 interface WordTiming {
   word: string;
@@ -30,6 +35,7 @@ interface ImmersiveTutorProps {
   isSlowRepeatLoading?: boolean; // Whether slow repeat is loading
   wordTimings?: WordTiming[]; // Word-level timing data for synchronized subtitles
   subtitleMode?: SubtitleMode; // Subtitle display mode: off, target (target language only), all
+  tutorGender?: 'male' | 'female'; // Tutor avatar gender preference
 }
 
 export function ImmersiveTutor({
@@ -49,6 +55,7 @@ export function ImmersiveTutor({
   isSlowRepeatLoading = false,
   wordTimings,
   subtitleMode = "target",
+  tutorGender = "female",
 }: ImmersiveTutorProps) {
   const [currentWordTimings, setCurrentWordTimings] = useState<WordTiming[]>([]);
   const [highlightedWordIndex, setHighlightedWordIndex] = useState<number>(-1);
@@ -239,11 +246,16 @@ export function ImmersiveTutor({
     };
   }, [isPlaying, currentWordTimings, audioElementRef]);
 
-  // Determine which tutor image to show based on state
+  // Determine which tutor image to show based on state and gender preference
   const getTutorImage = () => {
-    if (isPlaying) return tutorSpeakingUrl;
-    if (isRecording) return tutorListeningUrl;
-    return tutorIdleUrl;
+    // Select avatar set based on gender preference
+    const speakingUrl = tutorGender === 'male' ? maleTutorSpeakingUrl : femaleTutorSpeakingUrl;
+    const listeningUrl = tutorGender === 'male' ? maleTutorListeningUrl : femaleTutorListeningUrl;
+    const idleUrl = listeningUrl; // Idle uses listening pose
+    
+    if (isPlaying) return speakingUrl;
+    if (isRecording) return listeningUrl;
+    return idleUrl;
   };
   const tutorImageUrl = getTutorImage();
   
