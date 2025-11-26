@@ -3105,7 +3105,8 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
       const cleanText = stripMarkdownForSpeech(text);
       console.log(`[TTS] Synthesizing speech for user ${userId}, original: ${text.length} chars, cleaned: ${cleanText.length} chars, language: ${effectiveLanguage}, gender: ${tutorGender}`);
 
-      // Use TTS service abstraction (Google WaveNet preferred, OpenAI fallback)
+      // Use TTS service abstraction (Cartesia Sonic-3 primary, Google fallback)
+      // Speaking rate 0.9 = natural conversational speed (not too fast, not too slow)
       const ttsService = getTTSService();
       const result = await ttsService.synthesize({
         text: cleanText,
@@ -3114,6 +3115,8 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
         voiceId, // Pass admin-configured voice ID if available
         targetLanguage, // Pass target language for SSML phoneme tag processing
         returnTimings, // Request word-level timing data for subtitle sync
+        speakingRate: 0.9, // Natural conversational speed
+        emotion: 'friendly', // Warm tutor voice
       });
 
       console.log(`[TTS] ✓ Generated ${result.audioBuffer.length} bytes using ${ttsService.getProvider()} provider`);
@@ -5228,20 +5231,23 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
         return res.status(400).json({ error: "voiceId and text are required" });
       }
       
-      // Use Cartesia TTS service directly for preview
-      const { cartesiaTTS } = await import('./services/tts-service');
-      const audioBuffer = await cartesiaTTS(text, {
+      // Use TTS service with proper speaking rate for natural preview
+      // Speaking rate 0.9 maps to natural conversational speed in Cartesia
+      const { getTTSService } = await import('./services/tts-service');
+      const ttsService = getTTSService();
+      const result = await ttsService.synthesize({
+        text,
         voiceId,
         language: language || 'en',
         emotion: 'friendly',
-        speed: 0.95,
+        speakingRate: 0.9, // Natural conversational speed
       });
       
       res.set({
-        'Content-Type': 'audio/wav',
-        'Content-Length': audioBuffer.length,
+        'Content-Type': result.contentType,
+        'Content-Length': result.audioBuffer.length,
       });
-      res.send(Buffer.from(audioBuffer));
+      res.send(result.audioBuffer);
     } catch (error: any) {
       console.error('Error previewing voice:', error);
       res.status(500).json({ error: error.message });
