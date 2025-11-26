@@ -37,6 +37,23 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - Automatic fallback to Google if Cartesia is unavailable or fails
 - Voice mappings in `server/services/tts-service.ts` (CARTESIA_VOICE_MAP, VOICE_MAP for Google)
 
+**Cartesia Sonic-3 Emotion & Expression Features**:
+- **Emotion Control**: Uses `generation_config.emotion` for natural tutor personality
+  - Supported emotions: neutral, happy, excited, curious, calm, encouraging, friendly, enthusiastic, patient, surprised
+  - Default emotion: "friendly" for warm tutor voice
+- **Speed Control**: Uses `generation_config.speed` (0.6-1.5 range)
+  - 0.7 for slow pronunciation practice
+  - 0.9 for normal teaching pace
+  - 1.3 for faster advanced conversations
+- **Natural Laughter**: AI prompts include guidance for `[laughter]` tags
+  - Used sparingly (1-2 times per conversation max) for authentic bonding
+  - Examples: "I made that same mistake when I was learning! [laughter]"
+- **Tutor Personality System**: System prompts guide emotional expressiveness
+  - Encouraging/enthusiastic for correct answers
+  - Patient/calm for explanations and corrections
+  - Curious/engaged for asking questions
+  - Surprised/impressed when student exceeds expectations
+
 **Three-Phase Organization System**:
 -   **Phase 1 (Starring + Time Filtering)**: `isStarred` field for conversations, time-based filtering (All/Today/This Week/This Month/Older) on History and Vocabulary pages.
 -   **Phase 2 (AI Topic Tagging)**: Junction tables (`conversationTopics`, `vocabularyWordTopics`) for many-to-many relationships, `sourceConversationId` links vocabulary to conversations.
