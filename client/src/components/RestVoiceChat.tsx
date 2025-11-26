@@ -18,38 +18,43 @@ const GREETING_TIMESTAMP_KEY = 'linguaflow_last_greeting_time';
 const GREETING_COOLDOWN_MS = 30000; // 30 seconds - prevent greeting if one played recently
 
 // Module-level lock to prevent race conditions when multiple components mount simultaneously
-// This is checked synchronously BEFORE the async greeting synthesis
+// This uses a compare-and-swap pattern: check and set atomically
 let greetingInProgress = false;
 
-function canPlayGreeting(): boolean {
+// Atomically try to acquire the greeting lock
+// Returns true if lock acquired, false if already locked
+function tryAcquireGreetingLock(): boolean {
   // Fast synchronous lock check - prevents race conditions on double-mount
   if (greetingInProgress) {
     console.log('[VOICE GREETING] Already in progress (sync lock)');
     return false;
   }
   
+  // Check cooldown timer
   try {
     const stored = sessionStorage.getItem(GREETING_TIMESTAMP_KEY);
-    if (!stored) return true;
-    const lastTime = parseInt(stored, 10);
-    const elapsed = Date.now() - lastTime;
-    if (elapsed < GREETING_COOLDOWN_MS) {
-      console.log('[VOICE GREETING] Cooldown active - last greeting was', Math.round(elapsed / 1000), 'seconds ago');
-      return false;
+    if (stored) {
+      const lastTime = parseInt(stored, 10);
+      const elapsed = Date.now() - lastTime;
+      if (elapsed < GREETING_COOLDOWN_MS) {
+        console.log('[VOICE GREETING] Cooldown active - last greeting was', Math.round(elapsed / 1000), 'seconds ago');
+        return false;
+      }
     }
-    return true;
   } catch {
-    return true;
+    // Ignore storage errors
   }
-}
-
-function markGreetingPlayed(): void {
-  greetingInProgress = true; // Synchronous lock
+  
+  // ATOMICALLY acquire lock and set timestamp together
+  greetingInProgress = true;
   try {
     sessionStorage.setItem(GREETING_TIMESTAMP_KEY, Date.now().toString());
   } catch {
     // Ignore storage errors
   }
+  
+  console.log('[VOICE GREETING] Lock acquired');
+  return true;
 }
 
 function clearGreetingLock(): void {
@@ -180,13 +185,6 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     // Don't play greeting if already recording or processing
     if (isRecording || isProcessing) return;
     
-    // Check if a greeting was played recently (time-based cooldown)
-    // This prevents double-greeting on mobile apps where page reloads create new conversations
-    if (!canPlayGreeting()) {
-      console.log('[VOICE GREETING] Skipping - cooldown active from recent greeting');
-      return;
-    }
-    
     // Check if this is a new conversation with just a greeting (1 AI message, no user messages)
     const aiMessages = messages.filter(m => m.role === 'assistant');
     const userMessages = messages.filter(m => m.role === 'user');
@@ -195,9 +193,13 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       const greetingMessage = aiMessages[0];
       const greetingConversationId = conversationId; // Capture for closure
       
-      // IMMEDIATELY mark greeting time to prevent race conditions
-      // This prevents duplicate greeting synthesis when page reloads (mobile apps)
-      markGreetingPlayed();
+      // ATOMICALLY try to acquire lock - prevents race conditions from React StrictMode double-mount
+      // This single call checks cooldown AND acquires lock together
+      if (!tryAcquireGreetingLock()) {
+        console.log('[VOICE GREETING] Skipping - lock not acquired');
+        return;
+      }
+      
       hasPlayedGreetingRef.current = greetingConversationId;
       
       // Generate TTS for the greeting (but don't change state yet)
