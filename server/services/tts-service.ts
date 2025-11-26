@@ -30,6 +30,124 @@ export type CartesiaEmotion =
   | 'surprised';        // Amazed, impressed
 
 /**
+ * Tutor Personality Types
+ * Each personality has a baseline emotion and allowed emotion range
+ */
+export type TutorPersonality = 'warm' | 'calm' | 'energetic' | 'professional';
+
+/**
+ * Personality Preset Configuration
+ * Defines baseline emotion and allowed emotions for each personality type
+ */
+export interface PersonalityPreset {
+  baseline: CartesiaEmotion;      // Default emotion when AI doesn't specify
+  primary: CartesiaEmotion[];     // Preferred emotions for this personality
+  allowed: CartesiaEmotion[];     // All allowed emotions (includes primary + extended)
+  description: string;            // Human-readable description
+}
+
+/**
+ * Personality Presets
+ * Maps personality types to their emotion configurations
+ */
+export const PERSONALITY_PRESETS: Record<TutorPersonality, PersonalityPreset> = {
+  warm: {
+    baseline: 'friendly',
+    primary: ['friendly', 'encouraging', 'happy'],
+    allowed: ['friendly', 'encouraging', 'happy', 'curious', 'patient', 'surprised'],
+    description: 'Warm & Encouraging - Supportive and positive, celebrates successes'
+  },
+  calm: {
+    baseline: 'calm',
+    primary: ['calm', 'patient', 'neutral'],
+    allowed: ['calm', 'patient', 'neutral', 'friendly', 'curious', 'encouraging'],
+    description: 'Calm & Patient - Relaxed and steady, never rushed'
+  },
+  energetic: {
+    baseline: 'enthusiastic',
+    primary: ['enthusiastic', 'excited', 'happy'],
+    allowed: ['enthusiastic', 'excited', 'happy', 'curious', 'surprised', 'encouraging', 'friendly'],
+    description: 'Energetic & Fun - High energy, makes learning exciting'
+  },
+  professional: {
+    baseline: 'neutral',
+    primary: ['neutral', 'calm', 'curious'],
+    allowed: ['neutral', 'calm', 'curious', 'patient', 'encouraging'],
+    description: 'Professional - Business-like, focused on efficiency'
+  }
+};
+
+/**
+ * Expressiveness Level Configuration
+ * Maps expressiveness levels (1-5) to emotion selection behavior
+ */
+export interface ExpressivenessConfig {
+  useBaseline: number;      // % chance to use baseline emotion
+  usePrimary: number;       // % chance to use primary emotions
+  useAllowed: number;       // % chance to use any allowed emotion
+  allowSpontaneous: boolean; // Whether AI can suggest emotions outside the allowed list
+}
+
+export const EXPRESSIVENESS_LEVELS: Record<number, ExpressivenessConfig> = {
+  1: { useBaseline: 80, usePrimary: 20, useAllowed: 0, allowSpontaneous: false },  // Very subtle
+  2: { useBaseline: 60, usePrimary: 35, useAllowed: 5, allowSpontaneous: false },  // Subtle
+  3: { useBaseline: 40, usePrimary: 45, useAllowed: 15, allowSpontaneous: false }, // Balanced (default)
+  4: { useBaseline: 20, usePrimary: 50, useAllowed: 30, allowSpontaneous: true },  // Expressive
+  5: { useBaseline: 10, usePrimary: 40, useAllowed: 50, allowSpontaneous: true },  // Very expressive
+};
+
+/**
+ * Get allowed emotions for a personality and expressiveness level
+ * Returns the emotions the AI should choose from
+ */
+export function getAllowedEmotions(
+  personality: TutorPersonality = 'warm',
+  expressiveness: number = 3
+): CartesiaEmotion[] {
+  const preset = PERSONALITY_PRESETS[personality];
+  const config = EXPRESSIVENESS_LEVELS[Math.min(5, Math.max(1, expressiveness))];
+  
+  if (config.useAllowed > 0) {
+    return preset.allowed;
+  } else if (config.usePrimary > 0) {
+    return preset.primary;
+  }
+  return [preset.baseline];
+}
+
+/**
+ * Validate and constrain an AI-selected emotion to personality bounds
+ * If the AI selects an emotion outside the allowed range, falls back to baseline
+ */
+export function constrainEmotion(
+  aiSelectedEmotion: CartesiaEmotion | undefined,
+  personality: TutorPersonality = 'warm',
+  expressiveness: number = 3
+): CartesiaEmotion {
+  const preset = PERSONALITY_PRESETS[personality];
+  const config = EXPRESSIVENESS_LEVELS[Math.min(5, Math.max(1, expressiveness))];
+  
+  // If no emotion provided, use baseline
+  if (!aiSelectedEmotion) {
+    return preset.baseline;
+  }
+  
+  // If spontaneous is allowed (high expressiveness), accept any valid CartesiaEmotion
+  if (config.allowSpontaneous) {
+    return aiSelectedEmotion;
+  }
+  
+  // Check if the emotion is in the allowed list
+  if (preset.allowed.includes(aiSelectedEmotion)) {
+    return aiSelectedEmotion;
+  }
+  
+  // Fall back to baseline if emotion is not allowed
+  console.log(`[Emotion] AI selected '${aiSelectedEmotion}' not in allowed list for ${personality}, using baseline '${preset.baseline}'`);
+  return preset.baseline;
+}
+
+/**
  * Common TTS Request Interface
  */
 export interface TTSRequest {
