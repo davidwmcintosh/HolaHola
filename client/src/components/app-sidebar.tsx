@@ -45,10 +45,10 @@ const studentMenuItems = [
 
 const adminMenuItems = [
   { title: "Admin Dashboard", url: "/admin", icon: Shield },
-  { title: "Voice Console", url: "/admin/voices", icon: Volume2 },
   { title: "User Management", url: "/admin/users", icon: Users },
   { title: "Class Management", url: "/admin/classes", icon: GraduationCap },
   { title: "Reports & Audit", url: "/admin/reports", icon: ClipboardList },
+  { title: "Voice Console", url: "/admin/voices", icon: Volume2 },
 ];
 
 export function AppSidebar() {
