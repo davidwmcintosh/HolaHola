@@ -193,6 +193,13 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       const greetingMessage = aiMessages[0];
       const greetingConversationId = conversationId; // Capture for closure
       
+      // Skip if we've already played THIS specific greeting message
+      // This prevents double-synthesis when React re-renders or query refetches
+      if (hasPlayedGreetingRef.current === greetingMessage.id) {
+        console.log('[VOICE GREETING] Skipping - already played message:', greetingMessage.id);
+        return;
+      }
+      
       // ATOMICALLY try to acquire lock - prevents race conditions from React StrictMode double-mount
       // This single call checks cooldown AND acquires lock together
       if (!tryAcquireGreetingLock()) {
@@ -200,7 +207,8 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         return;
       }
       
-      hasPlayedGreetingRef.current = greetingConversationId;
+      // Mark this specific message as being played (not just conversation)
+      hasPlayedGreetingRef.current = greetingMessage.id;
       
       // Generate TTS for the greeting (but don't change state yet)
       // KARAOKE DISABLED: Always use Chirp HD for best voice quality
@@ -235,6 +243,11 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           }
           
           if (audioPlayerRef.current) {
+            // CRITICAL: Stop any existing audio playback first
+            // This prevents two voices playing simultaneously
+            audioPlayerRef.current.pause();
+            audioPlayerRef.current.currentTime = 0;
+            
             const audioUrl = URL.createObjectURL(audioBlob);
             audioPlayerRef.current.src = audioUrl;
             
