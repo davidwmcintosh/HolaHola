@@ -134,18 +134,23 @@ export default function Chat() {
           console.log('[SHARED CHAT] Shared conversation created:', data.id, 'mode:', mode);
           setConversationId(data.id);
           setIsCreatingConversation(false);
-          creationInProgressRef.current = false; // Clear flag on success
+          // NOTE: We intentionally do NOT reset creationInProgressRef here
+          // This ensures only ONE conversation is created per page load
+          // The ref will reset on page navigation or reload
           setForceNewConversation(false); // Reset forceNew flag after creating conversation
           queryClient.invalidateQueries({ queryKey: ["/api/conversations", data.id, "messages"] });
         })
         .catch(err => {
           console.error("[SHARED CHAT] Failed to create conversation:", err);
           setIsCreatingConversation(false);
-          creationInProgressRef.current = false; // Clear flag on error
+          creationInProgressRef.current = false; // Only clear on error to allow retry
           setForceNewConversation(false); // Reset forceNew flag on error
         });
     }
-  }, [language, difficulty, userName, conversationId, isCreatingConversation, currentConversationOnboarding, forceNewConversation, mode]);
+    // NOTE: forceNewConversation is intentionally NOT in dependencies
+    // We only read its current value when creating, we don't need to re-run when it changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language, difficulty, userName, conversationId, isCreatingConversation, currentConversationOnboarding, mode]);
 
   const handleNewChat = () => {
     console.log('[SHARED CHAT] User requested new chat - forcing new conversation');
