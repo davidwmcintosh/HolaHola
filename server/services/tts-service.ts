@@ -1,12 +1,16 @@
 import { TextToSpeechClient, protos } from '@google-cloud/text-to-speech';
 import { v1beta1 as ttsV1Beta1 } from '@google-cloud/text-to-speech';
 import OpenAI from 'openai';
+import Cartesia from '@cartesia/cartesia-js';
 import { franc } from 'franc-min';
 
 /**
  * TTS Provider Interface
+ * - cartesia: Cartesia Sonic-3 (40ms latency, full SSML support, emotion tags)
+ * - google: Google Cloud Chirp HD (500-1500ms latency, limited SSML)
+ * - openai: OpenAI TTS (fallback, not used for language learning)
  */
-export type TTSProvider = 'openai' | 'google';
+export type TTSProvider = 'cartesia' | 'google' | 'openai';
 
 /**
  * Common TTS Request Interface
