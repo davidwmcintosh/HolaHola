@@ -5305,9 +5305,10 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
   });
   
   // Preview TTS for admin voice testing (admin/developer only)
+  // This endpoint fully simulates production TTS with phoneme processing and emotion control
   app.post("/api/admin/tutor-voices/preview", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
     try {
-      const { voiceId, text, language, speakingRate } = req.body;
+      const { voiceId, text, language, speakingRate, emotion } = req.body;
       
       if (!voiceId || !text) {
         return res.status(400).json({ error: "voiceId and text are required" });
@@ -5325,7 +5326,8 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
         text,
         voiceId,
         language: language || 'en',
-        emotion: 'friendly',
+        targetLanguage: language || 'en', // Enable phoneme processing for accurate pronunciation
+        emotion: emotion || 'friendly',
         speakingRate: validatedRate,
       });
       
