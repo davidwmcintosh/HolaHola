@@ -5186,10 +5186,18 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
         }
         
         const data = await response.json();
-        allVoices.push(...data.data);
-        hasMore = data.has_more;
-        if (hasMore && data.data.length > 0) {
-          cursor = data.data[data.data.length - 1].id;
+        
+        // Handle different response structures (API may return data or items)
+        const voices = data.data || data.items || [];
+        if (!Array.isArray(voices)) {
+          console.error('[Cartesia Voices] Unexpected response structure:', JSON.stringify(data).substring(0, 500));
+          break;
+        }
+        
+        allVoices.push(...voices);
+        hasMore = data.has_more === true;
+        if (hasMore && voices.length > 0) {
+          cursor = voices[voices.length - 1].id;
         }
       }
       

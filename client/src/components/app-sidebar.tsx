@@ -1,4 +1,4 @@
-import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck, Library, Shield, X, FolderOpen } from "lucide-react";
+import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck, Library, Shield, X, FolderOpen, Volume2 } from "lucide-react";
 import linguaflowLogo from "@assets/LF_no_words_no_background_1764099068542.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -45,6 +45,7 @@ const studentMenuItems = [
 
 const adminMenuItems = [
   { title: "Admin Dashboard", url: "/admin", icon: Shield },
+  { title: "Voice Console", url: "/admin/voices", icon: Volume2 },
   { title: "User Management", url: "/admin/users", icon: Users },
   { title: "Class Management", url: "/admin/classes", icon: GraduationCap },
   { title: "Reports & Audit", url: "/admin/reports", icon: ClipboardList },
