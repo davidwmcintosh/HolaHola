@@ -2926,30 +2926,14 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
     }
   });
   
-  // Pre-warm Google Cloud TTS connection to avoid cold-start latency
-  // Called when user enters voice chat mode
+  // Pre-warm TTS connection - now just a no-op since greeting synthesis
+  // happens immediately and serves as the warm-up
+  // Keeping endpoint for backward compatibility but not doing actual synthesis
   app.post("/api/voice/warm-tts", isAuthenticated, async (req: any, res) => {
-    try {
-      const warmStart = Date.now();
-      
-      // Synthesize a tiny phrase to wake up Google Cloud TTS
-      // Using a short Spanish word since that's likely to be used
-      const ttsService = getTTSService();
-      await ttsService.synthesize({
-        text: "Hola",
-        language: "spanish",
-        speakingRate: 0.9,
-      });
-      
-      const warmTime = Date.now() - warmStart;
-      console.log(`[TTS] ✓ Connection warmed in ${warmTime}ms`);
-      
-      res.json({ warmed: true, latency: warmTime });
-    } catch (error: any) {
-      // Don't fail - warming is optional optimization
-      console.log(`[TTS] Warm-up skipped: ${error.message?.substring(0, 50)}`);
-      res.json({ warmed: false, error: "warm-up skipped" });
-    }
+    // No longer synthesizing here - the greeting TTS serves as warm-up
+    // This avoids unnecessary API calls and potential voice mismatch issues
+    console.log(`[TTS] Warm-up skipped (greeting serves as warm-up)`);
+    res.json({ warmed: true, latency: 0 });
   });
   
   // Transcribe audio using Whisper API
