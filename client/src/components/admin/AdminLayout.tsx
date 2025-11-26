@@ -42,19 +42,19 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               const isActive = location === item.href || (item.href !== "/admin" && location.startsWith(item.href));
               
               return (
-                <Link key={item.href} href={item.href}>
-                  <a
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                      isActive 
-                        ? "bg-primary text-primary-foreground" 
-                        : "hover-elevate active-elevate-2"
-                    )}
-                    data-testid={`link-admin-${item.label.toLowerCase()}`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {item.label}
-                  </a>
+                <Link 
+                  key={item.href} 
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                    isActive 
+                      ? "bg-primary text-primary-foreground" 
+                      : "hover-elevate active-elevate-2"
+                  )}
+                  data-testid={`link-admin-${item.label.toLowerCase()}`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
                 </Link>
               );
             })}
