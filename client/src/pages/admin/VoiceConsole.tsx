@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -22,6 +23,7 @@ interface TutorVoice {
   voiceId: string;
   voiceName: string;
   languageCode: string;
+  speakingRate: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -102,6 +104,7 @@ export default function VoiceConsole() {
     voiceId: '',
     voiceName: '',
     languageCode: '',
+    speakingRate: 0.9,
     isActive: true,
   });
 
@@ -155,12 +158,13 @@ export default function VoiceConsole() {
       voiceId: '',
       voiceName: '',
       languageCode: '',
+      speakingRate: 0.9,
       isActive: true,
     });
   };
 
   // Bilingual audition: plays voice in target language, then native (English)
-  const handleAudition = async (voiceId: string, voiceName: string, language: string, languageCode: string) => {
+  const handleAudition = async (voiceId: string, voiceName: string, language: string, languageCode: string, speakingRate: number = 0.9) => {
     if (playingVoiceId === voiceId && audioElement) {
       audioElement.pause();
       setPlayingVoiceId(null);
@@ -180,14 +184,14 @@ export default function VoiceConsole() {
     
     try {
       // First play in target language
-      const targetAudio = await playVoiceSample(voiceId, phrases.target, languageCode);
+      const targetAudio = await playVoiceSample(voiceId, phrases.target, languageCode, speakingRate);
       
       targetAudio.onended = async () => {
         // If language is not English, play English sample too
         if (language !== 'english') {
           setAuditionPhase('native');
           try {
-            const nativeAudio = await playVoiceSample(voiceId, phrases.native, 'en');
+            const nativeAudio = await playVoiceSample(voiceId, phrases.native, 'en', speakingRate);
             nativeAudio.onended = () => {
               setPlayingVoiceId(null);
               setAuditionPhase('idle');
@@ -227,7 +231,7 @@ export default function VoiceConsole() {
     }
   };
 
-  const playVoiceSample = async (voiceId: string, text: string, languageCode: string): Promise<HTMLAudioElement> => {
+  const playVoiceSample = async (voiceId: string, text: string, languageCode: string, speakingRate: number = 0.9): Promise<HTMLAudioElement> => {
     const response = await fetch("/api/admin/tutor-voices/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -235,6 +239,7 @@ export default function VoiceConsole() {
         voiceId,
         text,
         language: languageCode,
+        speakingRate,
       }),
     });
 
@@ -258,7 +263,7 @@ export default function VoiceConsole() {
   };
 
   const handlePreview = async (voice: TutorVoice) => {
-    await handleAudition(voice.voiceId, voice.voiceName, voice.language, voice.languageCode);
+    await handleAudition(voice.voiceId, voice.voiceName, voice.language, voice.languageCode, voice.speakingRate);
   };
 
   const handleEdit = (voice: TutorVoice) => {
@@ -270,6 +275,7 @@ export default function VoiceConsole() {
       voiceId: voice.voiceId,
       voiceName: voice.voiceName,
       languageCode: voice.languageCode,
+      speakingRate: voice.speakingRate || 0.9,
       isActive: voice.isActive,
     });
     setIsAddDialogOpen(true);
@@ -422,6 +428,36 @@ export default function VoiceConsole() {
                       </div>
                     )}
 
+                    {/* Speed Control */}
+                    {formData.voiceId && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label>Speaking Speed</Label>
+                          <span className="text-sm font-medium">
+                            {formData.speakingRate === 0.7 ? 'Slow' : 
+                             formData.speakingRate === 0.9 ? 'Natural' : 
+                             formData.speakingRate === 1.0 ? 'Normal' :
+                             formData.speakingRate >= 1.2 ? 'Fast' : 
+                             formData.speakingRate.toFixed(2)}
+                          </span>
+                        </div>
+                        <Slider
+                          value={[formData.speakingRate]}
+                          onValueChange={([value]) => setFormData(prev => ({ ...prev, speakingRate: value }))}
+                          min={0.7}
+                          max={1.3}
+                          step={0.1}
+                          className="w-full"
+                          data-testid="slider-speed"
+                        />
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Slow (0.7)</span>
+                          <span>Natural (0.9)</span>
+                          <span>Fast (1.3)</span>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Audition Button */}
                     {formData.voiceId && (
                       <div className="space-y-2">
@@ -434,7 +470,8 @@ export default function VoiceConsole() {
                               formData.voiceId,
                               formData.voiceName,
                               formData.language,
-                              formData.languageCode
+                              formData.languageCode,
+                              formData.speakingRate
                             )}
                             data-testid="button-audition"
                             className="flex-1"
@@ -460,7 +497,7 @@ export default function VoiceConsole() {
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Plays a sample in {SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label || 'the target language'}{formData.language !== 'english' && ', then in English'}
+                          Plays a sample in {SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label || 'the target language'}{formData.language !== 'english' && ', then in English'} at selected speed
                         </p>
                       </div>
                     )}
@@ -555,6 +592,13 @@ export default function VoiceConsole() {
                                 <span className="font-medium text-sm truncate">{voice.voiceName}</span>
                                 <Badge variant={voice.isActive ? "default" : "secondary"} className="text-xs">
                                   {voice.gender}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs">
+                                  {voice.speakingRate === 0.7 ? 'Slow' : 
+                                   voice.speakingRate === 0.9 ? 'Natural' : 
+                                   voice.speakingRate === 1.0 ? 'Normal' :
+                                   voice.speakingRate >= 1.2 ? 'Fast' : 
+                                   `${voice.speakingRate}x`}
                                 </Badge>
                                 {!voice.isActive && (
                                   <Badge variant="outline" className="text-xs">Inactive</Badge>

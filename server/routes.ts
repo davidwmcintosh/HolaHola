@@ -3083,6 +3083,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
       
       // Try to get admin-configured voice from database for this language and gender
       let voiceId: string | undefined;
+      let configuredSpeakingRate = 0.9; // Default natural speed
       const effectiveLanguage = language || targetLanguage || user?.targetLanguage || 'spanish';
       
       try {
@@ -3094,7 +3095,8 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
         );
         if (matchingVoice?.voiceId) {
           voiceId = matchingVoice.voiceId;
-          console.log(`[TTS] Using admin-configured ${tutorGender} voice for ${effectiveLanguage}: ${matchingVoice.displayName}`);
+          configuredSpeakingRate = matchingVoice.speakingRate || 0.9;
+          console.log(`[TTS] Using admin-configured ${tutorGender} voice for ${effectiveLanguage}: ${matchingVoice.voiceName} (speed: ${configuredSpeakingRate})`);
         }
       } catch (err: any) {
         // If no admin voice configured, fall back to default
@@ -3106,7 +3108,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
       console.log(`[TTS] Synthesizing speech for user ${userId}, original: ${text.length} chars, cleaned: ${cleanText.length} chars, language: ${effectiveLanguage}, gender: ${tutorGender}`);
 
       // Use TTS service abstraction (Cartesia Sonic-3 primary, Google fallback)
-      // Speaking rate 0.9 = natural conversational speed (not too fast, not too slow)
+      // Use admin-configured speaking rate, or default to 0.9 (natural conversational speed)
       const ttsService = getTTSService();
       const result = await ttsService.synthesize({
         text: cleanText,
@@ -3115,7 +3117,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
         voiceId, // Pass admin-configured voice ID if available
         targetLanguage, // Pass target language for SSML phoneme tag processing
         returnTimings, // Request word-level timing data for subtitle sync
-        speakingRate: 0.9, // Natural conversational speed
+        speakingRate: configuredSpeakingRate, // Use admin-configured speed
         emotion: 'friendly', // Warm tutor voice
       });
 
@@ -5025,11 +5027,16 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
   // Create or update a voice configuration (admin only)
   app.post("/api/admin/tutor-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { language, gender, provider, voiceId, voiceName, languageCode, isActive } = req.body;
+      const { language, gender, provider, voiceId, voiceName, languageCode, speakingRate, isActive } = req.body;
       
       if (!language || !gender || !provider || !voiceId || !voiceName || !languageCode) {
         return res.status(400).json({ error: "Missing required fields" });
       }
+      
+      // Validate speakingRate if provided (0.7 to 1.3 range)
+      const validatedSpeakingRate = speakingRate !== undefined 
+        ? Math.max(0.7, Math.min(1.3, parseFloat(speakingRate))) 
+        : 0.9; // Default to natural speed
       
       const voice = await storage.upsertTutorVoice({
         language,
@@ -5038,6 +5045,7 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
         voiceId,
         voiceName,
         languageCode,
+        speakingRate: validatedSpeakingRate,
         isActive: isActive !== false, // default to true
       });
       
@@ -5047,7 +5055,7 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
         action: 'upsert_tutor_voice',
         targetType: 'tutor_voice',
         targetId: voice.id,
-        metadata: { language, gender, voiceId, voiceName },
+        metadata: { language, gender, voiceId, voiceName, speakingRate: validatedSpeakingRate },
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
       });
@@ -5225,14 +5233,18 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
   // Preview TTS for admin voice testing (admin/developer only)
   app.post("/api/admin/tutor-voices/preview", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
     try {
-      const { voiceId, text, language } = req.body;
+      const { voiceId, text, language, speakingRate } = req.body;
       
       if (!voiceId || !text) {
         return res.status(400).json({ error: "voiceId and text are required" });
       }
       
-      // Use TTS service with proper speaking rate for natural preview
-      // Speaking rate 0.9 maps to natural conversational speed in Cartesia
+      // Use TTS service with configurable speaking rate
+      // Validate speakingRate (0.7 to 1.3 range), default to 0.9
+      const validatedRate = speakingRate !== undefined
+        ? Math.max(0.7, Math.min(1.3, parseFloat(speakingRate)))
+        : 0.9;
+      
       const { getTTSService } = await import('./services/tts-service');
       const ttsService = getTTSService();
       const result = await ttsService.synthesize({
@@ -5240,7 +5252,7 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
         voiceId,
         language: language || 'en',
         emotion: 'friendly',
-        speakingRate: 0.9, // Natural conversational speed
+        speakingRate: validatedRate,
       });
       
       res.set({
