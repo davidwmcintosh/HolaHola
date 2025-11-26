@@ -75,6 +75,9 @@ import {
   vocabularyWordTopics,
   userLessons,
   userLessonItems,
+  tutorVoices,
+  type TutorVoice,
+  type InsertTutorVoice,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -91,6 +94,7 @@ export interface IStorage {
     nativeLanguage?: string;
     difficultyLevel?: string;
     onboardingCompleted?: boolean;
+    tutorGender?: 'male' | 'female';
   }): Promise<User | undefined>;
   updateUserStripeInfo(userId: string, stripeInfo: {
     stripeCustomerId?: string;
@@ -335,6 +339,23 @@ export interface IStorage {
   
   // Phase 3: Auto-generate lesson from time range
   generateWeeklyLesson(userId: string, language: string, weekStart: Date): Promise<UserLesson | null>;
+
+  // ===== Tutor Voice Management (Admin Console) =====
+  
+  // Get voice for a specific language and gender
+  getTutorVoice(language: string, gender: 'male' | 'female'): Promise<TutorVoice | undefined>;
+  
+  // Get all configured voices
+  getAllTutorVoices(): Promise<TutorVoice[]>;
+  
+  // Create or update a voice configuration
+  upsertTutorVoice(data: InsertTutorVoice): Promise<TutorVoice>;
+  
+  // Delete a voice configuration
+  deleteTutorVoice(id: string): Promise<boolean>;
+  
+  // Seed default voices (for initial setup)
+  seedDefaultTutorVoices(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2502,6 +2523,99 @@ export class DatabaseStorage implements IStorage {
     }
     
     return lesson;
+  }
+
+  // ===== Tutor Voice Management =====
+
+  async getTutorVoice(language: string, gender: 'male' | 'female'): Promise<TutorVoice | undefined> {
+    const result = await db.select().from(tutorVoices).where(
+      and(
+        eq(tutorVoices.language, language),
+        eq(tutorVoices.gender, gender),
+        eq(tutorVoices.isActive, true)
+      )
+    ).limit(1);
+    return result[0];
+  }
+
+  async getAllTutorVoices(): Promise<TutorVoice[]> {
+    return db.select().from(tutorVoices).orderBy(tutorVoices.language, tutorVoices.gender);
+  }
+
+  async upsertTutorVoice(data: InsertTutorVoice): Promise<TutorVoice> {
+    // Check if voice already exists for this language and gender
+    const existing = await db.select().from(tutorVoices).where(
+      and(
+        eq(tutorVoices.language, data.language),
+        eq(tutorVoices.gender, data.gender)
+      )
+    ).limit(1);
+
+    if (existing[0]) {
+      // Update existing
+      const updated = await db.update(tutorVoices)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(tutorVoices.id, existing[0].id))
+        .returning();
+      return updated[0];
+    } else {
+      // Create new
+      const created = await db.insert(tutorVoices).values(data).returning();
+      return created[0];
+    }
+  }
+
+  async deleteTutorVoice(id: string): Promise<boolean> {
+    const result = await db.delete(tutorVoices).where(eq(tutorVoices.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async seedDefaultTutorVoices(): Promise<void> {
+    // Check if voices already exist
+    const existing = await db.select().from(tutorVoices).limit(1);
+    if (existing.length > 0) {
+      console.log('[Voice Seed] Voices already exist, skipping seed');
+      return;
+    }
+
+    console.log('[Voice Seed] Seeding default tutor voices...');
+
+    // Default voices from Cartesia - includes both male and female for each language
+    const defaultVoices: InsertTutorVoice[] = [
+      // English
+      { language: 'english', gender: 'female', provider: 'cartesia', voiceId: '573e3144-a684-4e72-ac2b-9b2063a50b53', voiceName: 'Teacher Lady', languageCode: 'en' },
+      { language: 'english', gender: 'male', provider: 'cartesia', voiceId: '638efaaa-4d0c-442e-b701-3fae16aad012', voiceName: 'Friendly Australian Man', languageCode: 'en' },
+      // Spanish
+      { language: 'spanish', gender: 'female', provider: 'cartesia', voiceId: '5c5ad5e7-1020-476b-8b91-fdcbe9cc313c', voiceName: 'Mexican Woman', languageCode: 'es' },
+      { language: 'spanish', gender: 'male', provider: 'cartesia', voiceId: 'ee7ea9f8-c0c1-498c-9f64-1571fc4b6a32', voiceName: 'Spanish Male Narrator', languageCode: 'es' },
+      // French
+      { language: 'french', gender: 'female', provider: 'cartesia', voiceId: 'a249eaff-1e96-4d2c-b23b-12efa4f66f41', voiceName: 'French Conversational Lady', languageCode: 'fr' },
+      { language: 'french', gender: 'male', provider: 'cartesia', voiceId: 'ab7c61f5-3daa-47dd-a23b-4ac0aac5f5c3', voiceName: 'French Narrator Man', languageCode: 'fr' },
+      // German
+      { language: 'german', gender: 'female', provider: 'cartesia', voiceId: '3f4ade23-6eb4-4279-ab05-6a144947c4d5', voiceName: 'German Conversational Woman', languageCode: 'de' },
+      { language: 'german', gender: 'male', provider: 'cartesia', voiceId: 'fb26447f-308b-471e-8b00-8c6697283ca1', voiceName: 'German Narrator Man', languageCode: 'de' },
+      // Italian
+      { language: 'italian', gender: 'female', provider: 'cartesia', voiceId: '0e21713a-5e9a-428a-bed4-90d410b87f13', voiceName: 'Italian Narrator Woman', languageCode: 'it' },
+      { language: 'italian', gender: 'male', provider: 'cartesia', voiceId: 'b9de4a89-2257-424b-94c2-db18ba68c81a', voiceName: 'Italian Male', languageCode: 'it' },
+      // Portuguese
+      { language: 'portuguese', gender: 'female', provider: 'cartesia', voiceId: '700d1ee3-a641-4018-ba6e-899dcadc9e2b', voiceName: 'Pleasant Brazilian Lady', languageCode: 'pt' },
+      { language: 'portuguese', gender: 'male', provider: 'cartesia', voiceId: 'a3520a8f-226a-428d-9fcd-b0a4711a6829', voiceName: 'Brazilian Male', languageCode: 'pt' },
+      // Japanese
+      { language: 'japanese', gender: 'female', provider: 'cartesia', voiceId: '2b568345-1d48-4047-b25f-7baccf842eb0', voiceName: 'Japanese Woman Conversational', languageCode: 'ja' },
+      { language: 'japanese', gender: 'male', provider: 'cartesia', voiceId: '8f091740-3df1-4795-8bd9-dc62d88e5131', voiceName: 'Japanese Male Calm', languageCode: 'ja' },
+      // Mandarin Chinese
+      { language: 'mandarin chinese', gender: 'female', provider: 'cartesia', voiceId: 'b991c420-1ad1-401b-bee0-34a16f76aa71', voiceName: 'Chinese Woman Narrator', languageCode: 'zh' },
+      { language: 'mandarin chinese', gender: 'male', provider: 'cartesia', voiceId: '5619d38c-cf51-4d8e-9575-48f61a280413', voiceName: 'Chinese Commercial Man', languageCode: 'zh' },
+      // Korean
+      { language: 'korean', gender: 'female', provider: 'cartesia', voiceId: 'b5d7b5e0-c94d-47f8-8df5-b124cf8c8b8c', voiceName: 'Korean Woman', languageCode: 'ko' },
+      { language: 'korean', gender: 'male', provider: 'cartesia', voiceId: '63ff761f-c1e8-414b-b969-d1833d1c870c', voiceName: 'Korean Male', languageCode: 'ko' },
+    ];
+
+    for (const voice of defaultVoices) {
+      await db.insert(tutorVoices).values(voice);
+    }
+
+    console.log(`[Voice Seed] ✓ Seeded ${defaultVoices.length} default tutor voices`);
   }
 }
 

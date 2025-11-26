@@ -42,6 +42,8 @@ export const users = pgTable("users", {
   nativeLanguage: varchar("native_language").default("english"), // Language for explanations
   difficultyLevel: varchar("difficulty_level"), // beginner, intermediate, advanced
   onboardingCompleted: boolean("onboarding_completed").default(false),
+  // Tutor preference - allows students to choose male or female tutor voice/avatar
+  tutorGender: varchar("tutor_gender").default("female"), // male, female - matches voice and avatar
   // ACTFL proficiency tracking
   actflLevel: varchar("actfl_level"), // novice_low, novice_mid, novice_high, intermediate_low, intermediate_mid, intermediate_high, advanced_low, advanced_mid, advanced_high, superior, distinguished
   // Stripe billing integration
@@ -63,11 +65,33 @@ export const updateUserPreferencesSchema = z.object({
   nativeLanguage: z.string().optional(),
   difficultyLevel: z.string().optional(),
   onboardingCompleted: z.boolean().optional(),
+  tutorGender: z.enum(['male', 'female']).optional(),
 });
 
 export type UpdateUserPreferences = z.infer<typeof updateUserPreferencesSchema>;
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+
+// Tutor Voices - Admin-configurable voices per language with male/female options
+// This replaces hardcoded voice mappings and allows admin voice audition/assignment
+export const tutorVoices = pgTable("tutor_voices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  language: varchar("language").notNull(), // spanish, french, german, etc.
+  gender: varchar("gender").notNull(), // male, female
+  provider: varchar("provider").notNull().default("cartesia"), // cartesia, google
+  voiceId: varchar("voice_id").notNull(), // Cartesia voice ID or Google voice name
+  voiceName: varchar("voice_name").notNull(), // Display name for admin UI (e.g., "Mexican Woman")
+  languageCode: varchar("language_code").notNull(), // Language code for TTS (e.g., "es", "en")
+  isActive: boolean("is_active").notNull().default(true), // Enable/disable voice without deleting
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_tutor_voices_language_gender").on(table.language, table.gender),
+]);
+
+export const insertTutorVoiceSchema = createInsertSchema(tutorVoices).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertTutorVoice = z.infer<typeof insertTutorVoiceSchema>;
+export type TutorVoice = typeof tutorVoices.$inferSelect;
 
 export const conversations = pgTable("conversations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
