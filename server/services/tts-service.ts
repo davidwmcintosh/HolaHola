@@ -1,7 +1,7 @@
 import { TextToSpeechClient, protos } from '@google-cloud/text-to-speech';
 import { v1beta1 as ttsV1Beta1 } from '@google-cloud/text-to-speech';
 import OpenAI from 'openai';
-import Cartesia from '@cartesia/cartesia-js';
+import { CartesiaClient } from '@cartesia/cartesia-js';
 import { franc } from 'franc-min';
 
 /**
@@ -214,7 +214,7 @@ export class TTSService {
   private googleClient: TextToSpeechClient | null = null;
   private googleBetaClient: ttsV1Beta1.TextToSpeechClient | null = null;
   private openaiClient: OpenAI | null = null;
-  private cartesiaClient: Cartesia | null = null;
+  private cartesiaClient: CartesiaClient | null = null;
   private provider: TTSProvider;
   private cartesiaModel: string;
   private fallbackEnabled: boolean = true;
@@ -226,7 +226,7 @@ export class TTSService {
     // Initialize Cartesia client if API key is available
     if (process.env.CARTESIA_API_KEY) {
       try {
-        this.cartesiaClient = new Cartesia({
+        this.cartesiaClient = new CartesiaClient({
           apiKey: process.env.CARTESIA_API_KEY,
         });
         console.log(`[TTS Service] ✓ Cartesia initialized (model: ${this.cartesiaModel})`);
@@ -379,33 +379,38 @@ export class TTSService {
     // Clean text: remove quotes that might be pronounced
     const cleanedText = text.replace(/["'"]/g, '');
 
-    // Prepare speed control (Cartesia uses different scale)
-    // Normal: 0 (neutral), Slow: negative values, Fast: positive values
-    // Google 0.9 → Cartesia normal, Google 0.7 → Cartesia -0.15
-    let speedControl = 'normal';
+    // Prepare speed control (Cartesia uses 'slow', 'normal', 'fast')
+    // Google 0.9 → Cartesia normal, Google 0.7 → Cartesia slow
+    type CartesiaSpeed = 'slow' | 'normal' | 'fast';
+    let speed: CartesiaSpeed = 'normal';
     if (speakingRate && speakingRate < 0.8) {
-      speedControl = 'slow';
+      speed = 'slow';
     }
 
     try {
-      // Use Cartesia bytes API for synchronous response
-      const response = await this.cartesiaClient.tts.bytes({
+      // Use Cartesia bytes API - returns a Readable stream
+      const stream = await this.cartesiaClient.tts.bytes({
         modelId: this.cartesiaModel,
         transcript: cleanedText,
         voice: {
           mode: 'id',
           id: voiceConfig.voiceId,
         },
-        language: voiceConfig.languageCode,
+        language: voiceConfig.languageCode as 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ja' | 'zh' | 'ko',
         outputFormat: {
           container: 'mp3',
           sampleRate: 44100,
           bitRate: 128000,
         },
+        speed,
       });
 
-      // Convert response to Buffer
-      const audioBuffer = Buffer.from(response);
+      // Collect stream chunks into a buffer
+      const chunks: Buffer[] = [];
+      for await (const chunk of stream) {
+        chunks.push(Buffer.from(chunk));
+      }
+      const audioBuffer = Buffer.concat(chunks);
       
       console.log(`[Cartesia] ✓ Generated ${audioBuffer.length} bytes`);
 
@@ -566,78 +571,11 @@ export class TTSService {
     // DISABLED: Neural2 voices (required for SSML) sound much less natural than Chirp 3 HD
     // The pronunciation benefits don't outweigh the voice quality loss
     // Chirp 3 HD handles most Spanish words correctly without phoneme hints
+    // Cartesia Sonic-3 also handles pronunciation well without phoneme hints
     // 
     // To re-enable in future: Remove this early return when Google adds SSML support to Chirp voices
+    // See VOICE_TTS_PRONUNCIATION_FIX.md for implementation details if re-enabling
     return { text, usesSSML: false };
-    
-    if (!targetLanguage) {
-      return { text, usesSSML: false };
-    }
-
-    const normalizedTarget = targetLanguage.toLowerCase();
-    const ipaMappings = IPA_PRONUNCIATIONS[normalizedTarget];
-    
-    if (!ipaMappings) {
-      console.log(`[SSML Phoneme] No IPA mappings for ${targetLanguage}, skipping`);
-      return { text, usesSSML: false };
-    }
-
-    let hasPhonemes = false;
-    
-    // CRITICAL: Build SSML by processing text piece by piece
-    // Escape text AROUND phoneme tags, but keep phoneme tags as literal XML
-    const quotedPattern = /(['''"""«])([^'''"""«»]+)(['''"""»])/g;
-    let lastIndex = 0;
-    let result = '';
-    
-    let match;
-    while ((match = quotedPattern.exec(text)) !== null) {
-      // Escape AND encode the text BEFORE this quoted word
-      result += this.encodeForSSML(this.escapeXML(text.substring(lastIndex, match.index)));
-      
-      const quotedContent = match[2];
-      
-      // Normalize for lookup - remove diacritics and punctuation
-      const normalized = quotedContent.toLowerCase().trim()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[¿?¡!]/g, '');
-      const exactNormalized = quotedContent.toLowerCase().trim()
-        .replace(/[¿?¡!]/g, ''); // Remove Spanish punctuation but keep diacritics
-      
-      // Check if this quoted word has an IPA pronunciation
-      const ipa = ipaMappings[exactNormalized] || ipaMappings[normalized];
-      
-      if (ipa) {
-        hasPhonemes = true;
-        // Encode both IPA and content for SSML compatibility
-        const encodedIpa = this.encodeForSSML(ipa);
-        const encodedContent = this.encodeForSSML(quotedContent);
-        console.log(`[SSML Phoneme] Wrapping "${quotedContent}" with IPA: ${ipa} (encoded: ${encodedIpa})`);
-        // Add phoneme tag with HTML-entity encoded IPA and content
-        result += `<phoneme alphabet="ipa" ph="${encodedIpa}">${encodedContent}</phoneme>`;
-      } else {
-        // Keep original quoted word with XML escaping and encoding
-        result += this.encodeForSSML(this.escapeXML(match[0]));
-      }
-      
-      lastIndex = match.index + match[0].length;
-    }
-    
-    // Escape AND encode any remaining text after the last match
-    result += this.encodeForSSML(this.escapeXML(text.substring(lastIndex)));
-
-    // Only wrap in SSML <speak> tags if we actually added phoneme tags
-    if (!hasPhonemes) {
-      console.log(`[SSML Phoneme] No matching words found in text, skipping SSML`);
-      return { text, usesSSML: false };
-    }
-    
-    // Wrap entire text in SSML <speak> tags
-    const ssmlText = `<speak>${result}</speak>`;
-    console.log(`[SSML Phoneme] ✅ Added phoneme tags for ${targetLanguage}`);
-    console.log(`[SSML DEBUG] Generated SSML: ${ssmlText.substring(0, 200)}...`);
-    
-    return { text: ssmlText, usesSSML: true };
   }
 
   /**
