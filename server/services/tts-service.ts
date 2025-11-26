@@ -148,6 +148,14 @@ export function constrainEmotion(
 }
 
 /**
+ * Get the default (baseline) emotion for a personality type
+ * Used for UI initialization and fallback scenarios
+ */
+export function getDefaultEmotion(personality: TutorPersonality = 'warm'): CartesiaEmotion {
+  return PERSONALITY_PRESETS[personality]?.baseline || 'friendly';
+}
+
+/**
  * Common TTS Request Interface
  */
 export interface TTSRequest {
