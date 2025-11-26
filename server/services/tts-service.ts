@@ -173,43 +173,116 @@ const FRANC_TO_LANGUAGE_MAP: Record<string, string> = {
 };
 
 /**
- * IPA (International Phonetic Alphabet) pronunciation mappings for common target-language words
- * Used to fix syllable pronunciation when Spanish TTS reads English text with embedded Spanish words
+ * MFA-style IPA (Montreal Forced Aligner) pronunciation mappings for common target-language words
+ * Used for Cartesia Sonic-3 custom pronunciation with <<phoneme|phoneme>> syntax
  * 
- * Example: "Hola" in English sentence → Chirp 3 HD mis-segments to 3 syllables
- * Solution: Wrap with <phoneme alphabet="ipa" ph="ˈola">Hola</phoneme> → Forces 2 syllables
+ * Format: Pipe-separated IPA phonemes using MFA phoneset
+ * Example: "Cartesia" → <<kʰ|ɑ|ɹ|tʲ|i|ʒ|ɐ>>
+ * 
+ * Cartesia Sonic-3 uses MFA-style IPA (no stress markers needed)
+ * See: https://docs.cartesia.ai/build-with-cartesia/capability-guides/specify-custom-pronunciations
+ * MFA dictionary reference: https://mfa-models.readthedocs.io/en/latest/dictionary/index.html
  */
-const IPA_PRONUNCIATIONS: Record<string, Record<string, string>> = {
+const MFA_IPA_PRONUNCIATIONS: Record<string, Record<string, string>> = {
   'spanish': {
-    'hola': 'ola',            // HO-la (2 syllables)
-    'adiós': 'adjos',         // a-DI-ós (3 syllables)
-    'adios': 'adjos',         // without accent
-    'gracias': 'gɾasjas',     // GRA-cias (2 syllables)
-    'por favor': 'poɾ faβoɾ', // por fa-VOR
-    'sí': 'si',               // sí (1 syllable)
-    'si': 'si',               // without accent
-    'no': 'no',               // no (1 syllable)
-    'buenos días': 'bwenos dias', // BUE-nos DI-as
-    'buenos dias': 'bwenos dias', // without accent
-    'buenas tardes': 'bwenas taɾdes', // BUE-nas TAR-des
-    'buenas noches': 'bwenas notʃes', // BUE-nas NO-ches
-    'qué tal': 'ke tal',      // qué TAL
-    'que tal': 'ke tal',      // without accent
-    'cómo estás': 'komo estas', // CÓ-mo es-TÁS
-    'como estas': 'komo estas', // without accents
-    'perfecto': 'peɾfekto',   // per-FEC-to
-    'excelente': 'ekselente', // ex-ce-LEN-te
-    'bien': 'bjen',           // bien (1 syllable)
-    'muy bien': 'muj bjen',   // muy bien
-    'de nada': 'de naða',     // de NA-da
-    'lo siento': 'lo sjento', // lo SIEN-to
+    // Common greetings - Spanish MFA phonemes
+    'hola': 'o|l|a',                    // HO-la (2 syllables)
+    'adiós': 'a|ð|j|o|s',               // a-DIOS
+    'adios': 'a|ð|j|o|s',               // without accent
+    'gracias': 'ɡ|ɾ|a|s|j|a|s',         // GRA-cias
+    'por favor': 'p|o|ɾ|f|a|β|o|ɾ',     // por fa-VOR
+    'sí': 's|i',                         // sí (1 syllable)
+    'si': 's|i',                         // without accent
+    'no': 'n|o',                         // no (1 syllable)
+    'buenos días': 'b|w|e|n|o|s|ð|i|a|s', // BUE-nos DI-as
+    'buenos dias': 'b|w|e|n|o|s|ð|i|a|s', // without accent
+    'buenas tardes': 'b|w|e|n|a|s|t|a|ɾ|ð|e|s', // BUE-nas TAR-des
+    'buenas noches': 'b|w|e|n|a|s|n|o|tʃ|e|s',  // BUE-nas NO-ches
+    'qué tal': 'k|e|t|a|l',             // qué TAL
+    'que tal': 'k|e|t|a|l',             // without accent
+    'cómo estás': 'k|o|m|o|e|s|t|a|s',  // CÓ-mo es-TÁS
+    'como estas': 'k|o|m|o|e|s|t|a|s',  // without accents
+    'perfecto': 'p|e|ɾ|f|e|k|t|o',      // per-FEC-to
+    'excelente': 'e|k|s|e|l|e|n|t|e',   // ex-ce-LEN-te
+    'bien': 'b|j|e|n',                  // bien
+    'muy bien': 'm|u|i|b|j|e|n',        // muy bien
+    'de nada': 'd|e|n|a|ð|a',           // de NA-da
+    'lo siento': 'l|o|s|j|e|n|t|o',     // lo SIEN-to
+    'amigo': 'a|m|i|ɣ|o',               // friend
+    'amiga': 'a|m|i|ɣ|a',               // friend (f)
+    'español': 'e|s|p|a|ɲ|o|l',         // Spanish
+    'inglés': 'i|n|ɡ|l|e|s',            // English
+    'por qué': 'p|o|ɾ|k|e',             // why
+    'porque': 'p|o|ɾ|k|e',              // because
+    'mucho': 'm|u|tʃ|o',                // much/many
+    'también': 't|a|m|b|j|e|n',         // also
+    'siempre': 's|j|e|m|p|ɾ|e',         // always
+    'ahora': 'a|o|ɾ|a',                 // now
   },
-  // Add other languages as needed
   'french': {
-    'bonjour': 'bɔʒuʁ',
-    'merci': 'mɛʁsi',
-    'oui': 'wi',
-    'non': 'nɔ',
+    'bonjour': 'b|ɔ̃|ʒ|u|ʁ',            // hello
+    'merci': 'm|ɛ|ʁ|s|i',              // thank you
+    'oui': 'w|i',                       // yes
+    'non': 'n|ɔ̃',                       // no
+    's\'il vous plaît': 's|i|l|v|u|p|l|ɛ', // please
+    'au revoir': 'o|ʁ|ə|v|w|a|ʁ',       // goodbye
+    'comment': 'k|ɔ|m|ɑ̃',               // how
+    'très bien': 't|ʁ|ɛ|b|j|ɛ̃',         // very good
+    'excusez-moi': 'ɛ|k|s|k|y|z|e|m|w|a', // excuse me
+    'je suis': 'ʒ|ə|s|ɥ|i',             // I am
+  },
+  'german': {
+    'hallo': 'h|a|l|o',                 // hello
+    'guten tag': 'ɡ|u|t|ə|n|t|a|k',     // good day
+    'danke': 'd|a|ŋ|k|ə',               // thank you
+    'bitte': 'b|ɪ|t|ə',                 // please
+    'ja': 'j|a',                        // yes
+    'nein': 'n|aɪ|n',                   // no
+    'auf wiedersehen': 'a|ʊ|f|v|i|d|ɐ|z|e|ə|n', // goodbye
+    'ich': 'ɪ|ç',                       // I
+    'spreche': 'ʃ|p|ʁ|ɛ|ç|ə',           // speak
+  },
+  'italian': {
+    'ciao': 'tʃ|a|o',                   // hello/goodbye
+    'buongiorno': 'b|w|ɔ|n|dʒ|ɔ|r|n|o', // good morning
+    'grazie': 'ɡ|r|a|t|s|j|e',          // thank you
+    'prego': 'p|r|e|ɡ|o',               // you're welcome
+    'sì': 's|i',                        // yes
+    'no': 'n|o',                        // no
+    'arrivederci': 'a|r|i|v|e|d|e|r|tʃ|i', // goodbye
+    'per favore': 'p|e|r|f|a|v|o|r|e',  // please
+  },
+  'portuguese': {
+    'olá': 'o|l|a',                     // hello
+    'bom dia': 'b|õ|dʒ|i|ɐ',            // good morning
+    'obrigado': 'o|b|ɾ|i|ɡ|a|d|u',      // thank you (m)
+    'obrigada': 'o|b|ɾ|i|ɡ|a|d|ɐ',      // thank you (f)
+    'sim': 's|ĩ',                       // yes
+    'não': 'n|ɐ̃|w̃',                    // no
+    'por favor': 'p|o|ɾ|f|a|v|o|ɾ',     // please
+    'tchau': 'tʃ|a|w',                  // bye
+  },
+  'japanese': {
+    'konnichiwa': 'k|o|n|i|tʃ|i|w|a',   // hello
+    'arigatou': 'a|ɾ|i|ɡ|a|t|o|ɯ',      // thank you
+    'hai': 'h|a|i',                     // yes
+    'iie': 'i|i|e',                     // no
+    'sumimasen': 's|ɯ|m|i|m|a|s|e|n',   // excuse me
+    'ohayou': 'o|h|a|j|o|ɯ',            // good morning
+    'sayounara': 's|a|j|o|ɯ|n|a|ɾ|a',   // goodbye
+  },
+  'mandarin chinese': {
+    'nǐ hǎo': 'n|i|x|a|o',              // hello
+    'xièxie': 'ɕ|j|e|ɕ|j|e',            // thank you
+    'shì': 'ʂ|ɨ',                       // yes/is
+    'bù': 'p|u',                        // no/not
+    'zàijiàn': 't|s|a|i|tɕ|j|e|n',      // goodbye
+  },
+  'korean': {
+    'annyeonghaseyo': 'a|n|j|ʌ|ŋ|h|a|s|e|j|o', // hello
+    'kamsahamnida': 'k|a|m|s|a|h|a|m|n|i|d|a', // thank you
+    'ne': 'n|e',                        // yes
+    'aniyo': 'a|n|i|j|o',               // no
   },
 };
 
@@ -323,7 +396,7 @@ export class TTSService {
     // Try Cartesia first if it's the primary provider
     if (this.provider === 'cartesia' && this.cartesiaClient) {
       try {
-        const result = await this.synthesizeWithCartesia(text, language, speakingRate, emotion, voiceId);
+        const result = await this.synthesizeWithCartesia(text, language, speakingRate, emotion, voiceId, targetLanguage);
         const elapsed = Date.now() - startTime;
         console.log(`[TTS] ✓ Cartesia completed in ${elapsed}ms (emotion: ${emotion || 'default'})`);
         return result;
@@ -380,19 +453,21 @@ export class TTSService {
 
   /**
    * Synthesize speech using Cartesia Sonic-3 or Sonic-Turbo
-   * Ultra-low latency (40-90ms), full SSML support, emotion tags, [laughter] support
+   * Ultra-low latency (40-90ms), custom phoneme support, emotion tags, [laughter] support
    * 
    * Sonic-3 Features:
    * - generation_config.speed: 0.6 (slow) to 1.5 (fast), default 1.0
    * - generation_config.emotion: happy, excited, curious, calm, etc.
    * - [laughter] tags in transcript for natural laughing
+   * - Custom pronunciation via <<phoneme1|phoneme2>> syntax (MFA-style IPA)
    */
   private async synthesizeWithCartesia(
     text: string, 
     language?: string, 
     speakingRate?: number,
     emotion?: CartesiaEmotion,
-    voiceId?: string
+    voiceId?: string,
+    targetLanguage?: string
   ): Promise<TTSResponse> {
     if (!this.cartesiaClient) {
       throw new Error('Cartesia client not initialized');
@@ -427,8 +502,13 @@ export class TTSService {
     console.log(`[Cartesia] Synthesizing ${text.length} chars with ${voiceName} (${this.cartesiaModel})`);
     console.log(`[Cartesia] Emotion: ${cartesiaEmotion}, Speed: ${cartesiaSpeed}`);
 
-    // Clean text: remove quotes that might be pronounced (but keep [laughter] tags!)
-    const cleanedText = text.replace(/["'"]/g, '');
+    // Apply Cartesia phoneme tags for quoted foreign words
+    // This uses <<phoneme1|phoneme2>> syntax for correct pronunciation
+    const phonemedText = this.addCartesiaPhonemes(text, targetLanguage);
+    
+    // Clean text: remove remaining quotes that might be pronounced (but keep [laughter] tags and <<phonemes>>!)
+    // Don't remove angle brackets since those are used for phoneme syntax
+    const cleanedText = phonemedText.replace(/["'"]/g, '');
 
     try {
       // Use Cartesia bytes API with Sonic-3 generation_config
@@ -586,6 +666,73 @@ export class TTSService {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&apos;');
+  }
+
+  /**
+   * Add Cartesia Sonic-3 phoneme tags for correct pronunciation of foreign words
+   * 
+   * Cartesia uses a custom syntax: <<phoneme1|phoneme2|phoneme3>>
+   * This is different from SSML - no XML tags, just double angle brackets with pipe-separated IPA
+   * 
+   * Use case: When the AI's English response contains quoted foreign words like "Hola",
+   * the phoneme tags ensure correct native pronunciation
+   * 
+   * Example:
+   * Input:  "The greeting is 'Hola'"
+   * Output: "The greeting is <<o|l|a>>"
+   * 
+   * @param text - Text to process (typically AI response in English with foreign words)
+   * @param targetLanguage - The language being learned (e.g., 'spanish')
+   * @returns Text with phoneme tags for quoted words
+   */
+  private addCartesiaPhonemes(text: string, targetLanguage?: string): string {
+    if (!targetLanguage) {
+      return text;
+    }
+
+    const languageKey = targetLanguage.toLowerCase();
+    const pronunciations = MFA_IPA_PRONUNCIATIONS[languageKey];
+    
+    if (!pronunciations) {
+      console.log(`[Cartesia Phonemes] No pronunciation map for ${targetLanguage}`);
+      return text;
+    }
+
+    // Find quoted words (single, double, smart quotes)
+    // Matches: "Hola", 'Hola', "Hola", 'Hola'
+    const quotedWordPattern = /["""''']([^"""''']+)["""''']/g;
+    
+    let hasReplacements = false;
+    const processedText = text.replace(quotedWordPattern, (match, word) => {
+      // Normalize the word (lowercase, trim)
+      const normalizedWord = word.toLowerCase().trim();
+      
+      // Check if we have a pronunciation for this word
+      const phonemes = pronunciations[normalizedWord];
+      if (phonemes) {
+        hasReplacements = true;
+        // Return Cartesia phoneme syntax: <<phoneme1|phoneme2|...>>
+        console.log(`[Cartesia Phonemes] "${word}" → <<${phonemes}>>`);
+        return `<<${phonemes}>>`;
+      }
+      
+      // Also check if the original casing exists
+      const originalPhonemes = pronunciations[word.trim()];
+      if (originalPhonemes) {
+        hasReplacements = true;
+        console.log(`[Cartesia Phonemes] "${word}" → <<${originalPhonemes}>>`);
+        return `<<${originalPhonemes}>>`;
+      }
+      
+      // No pronunciation found, keep original with quotes stripped
+      return word;
+    });
+
+    if (hasReplacements) {
+      console.log(`[Cartesia Phonemes] Processed text: "${processedText.substring(0, 100)}..."`);
+    }
+    
+    return processedText;
   }
 
   /**

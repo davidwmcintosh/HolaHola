@@ -22,7 +22,7 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Voice Validation Architecture**: Utilizes a two-tier prevention approach with Gemini structured output (strict JSON schema) and a safety net using `franc-min` language detection and per-language stoplists.
 
-**Voice TTS Pronunciation Architecture**: Employs SSML `<phoneme>` tags with IPA to correct syllable mispronunciation in mixed-language text (e.g., Spanish Chirp 3 HD voice reading English text with embedded Spanish words), ensuring correct syllable counts while preserving accent.
+**Voice TTS Pronunciation Architecture**: Uses Cartesia Sonic-3's custom phoneme syntax `<<phoneme1|phoneme2>>` with MFA-style IPA to correct pronunciation of foreign words in English responses. When the tutor says something like "The greeting is 'Hola'", the word Hola is automatically converted to `<<o|l|a>>` for correct native pronunciation. Phoneme mappings in `MFA_IPA_PRONUNCIATIONS` cover common words in all 9 supported languages.
 
 **Subtitle System Architecture**: A 3-state subtitle system (`subtitleMode`: Off, Target, All) prioritizes Chirp HD voice quality over real-time karaoke highlighting.
 
