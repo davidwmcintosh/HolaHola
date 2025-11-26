@@ -13,17 +13,37 @@ import { queryClient } from "@/lib/queryClient";
 import { VoiceChatViewManager } from "@/components/VoiceChatViewManager";
 
 // Helper to prevent double-greetings on mobile app reloads
-// Tracks WHEN last greeting played, not which conversation (since new conversations are created on reload)
+// Tracks WHEN last greeting played AND which message ID was synthesized
 const GREETING_TIMESTAMP_KEY = 'linguaflow_last_greeting_time';
+const GREETING_MESSAGE_KEY = 'linguaflow_last_greeting_message';
 const GREETING_COOLDOWN_MS = 30000; // 30 seconds - prevent greeting if one played recently
 
 // Module-level lock to prevent race conditions when multiple components mount simultaneously
 // This uses a compare-and-swap pattern: check and set atomically
 let greetingInProgress = false;
+let synthesizedMessageId: string | null = null; // Track which message was already synthesized
 
 // Atomically try to acquire the greeting lock
 // Returns true if lock acquired, false if already locked
-function tryAcquireGreetingLock(): boolean {
+function tryAcquireGreetingLock(messageId: string): boolean {
+  // Check if we already synthesized this specific message
+  // This persists across React remounts
+  if (synthesizedMessageId === messageId) {
+    console.log('[VOICE GREETING] Already synthesized message:', messageId);
+    return false;
+  }
+  
+  // Also check sessionStorage for persistence across HMR
+  try {
+    const storedMessageId = sessionStorage.getItem(GREETING_MESSAGE_KEY);
+    if (storedMessageId === messageId) {
+      console.log('[VOICE GREETING] Already synthesized (from storage):', messageId);
+      return false;
+    }
+  } catch {
+    // Ignore storage errors
+  }
+  
   // Fast synchronous lock check - prevents race conditions on double-mount
   if (greetingInProgress) {
     console.log('[VOICE GREETING] Already in progress (sync lock)');
@@ -45,20 +65,24 @@ function tryAcquireGreetingLock(): boolean {
     // Ignore storage errors
   }
   
-  // ATOMICALLY acquire lock and set timestamp together
+  // ATOMICALLY acquire lock, set message ID, and set timestamp together
   greetingInProgress = true;
+  synthesizedMessageId = messageId;
   try {
     sessionStorage.setItem(GREETING_TIMESTAMP_KEY, Date.now().toString());
+    sessionStorage.setItem(GREETING_MESSAGE_KEY, messageId);
   } catch {
     // Ignore storage errors
   }
   
-  console.log('[VOICE GREETING] Lock acquired');
+  console.log('[VOICE GREETING] Lock acquired for message:', messageId);
   return true;
 }
 
 function clearGreetingLock(): void {
   greetingInProgress = false;
+  // Note: We don't clear synthesizedMessageId or sessionStorage
+  // This ensures the same greeting is never re-synthesized
 }
 
 interface RestVoiceChatProps {
@@ -193,21 +217,16 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       const greetingMessage = aiMessages[0];
       const greetingConversationId = conversationId; // Capture for closure
       
-      // Skip if we've already played THIS specific greeting message
-      // This prevents double-synthesis when React re-renders or query refetches
-      if (hasPlayedGreetingRef.current === greetingMessage.id) {
-        console.log('[VOICE GREETING] Skipping - already played message:', greetingMessage.id);
-        return;
-      }
-      
-      // ATOMICALLY try to acquire lock - prevents race conditions from React StrictMode double-mount
-      // This single call checks cooldown AND acquires lock together
-      if (!tryAcquireGreetingLock()) {
+      // ATOMICALLY try to acquire lock - this checks:
+      // 1. If we already synthesized this exact message ID (module-level + sessionStorage)
+      // 2. If another synthesis is in progress (sync lock)
+      // 3. If cooldown is active (30 second timer)
+      if (!tryAcquireGreetingLock(greetingMessage.id)) {
         console.log('[VOICE GREETING] Skipping - lock not acquired');
         return;
       }
       
-      // Mark this specific message as being played (not just conversation)
+      // Also mark in ref for same-instance checks
       hasPlayedGreetingRef.current = greetingMessage.id;
       
       // Generate TTS for the greeting (but don't change state yet)
