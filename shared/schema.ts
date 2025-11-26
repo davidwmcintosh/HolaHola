@@ -44,6 +44,10 @@ export const users = pgTable("users", {
   onboardingCompleted: boolean("onboarding_completed").default(false),
   // Tutor preference - allows students to choose male or female tutor voice/avatar
   tutorGender: varchar("tutor_gender").default("female"), // male, female - matches voice and avatar
+  // Tutor personality - baseline emotion style for the AI tutor
+  tutorPersonality: varchar("tutor_personality").default("warm"), // warm, calm, energetic, professional
+  // Tutor expressiveness - how much the AI deviates from baseline (1=subtle, 5=very expressive)
+  tutorExpressiveness: integer("tutor_expressiveness").default(3), // 1-5 scale
   // ACTFL proficiency tracking
   actflLevel: varchar("actfl_level"), // novice_low, novice_mid, novice_high, intermediate_low, intermediate_mid, intermediate_high, advanced_low, advanced_mid, advanced_high, superior, distinguished
   // Stripe billing integration
@@ -66,6 +70,8 @@ export const updateUserPreferencesSchema = z.object({
   difficultyLevel: z.string().optional(),
   onboardingCompleted: z.boolean().optional(),
   tutorGender: z.enum(['male', 'female']).optional(),
+  tutorPersonality: z.enum(['warm', 'calm', 'energetic', 'professional']).optional(),
+  tutorExpressiveness: z.number().min(1).max(5).optional(),
 });
 
 export type UpdateUserPreferences = z.infer<typeof updateUserPreferencesSchema>;
