@@ -13,6 +13,23 @@ import { franc } from 'franc-min';
 export type TTSProvider = 'cartesia' | 'google' | 'openai';
 
 /**
+ * Cartesia Sonic-3 Emotion Types
+ * Used to add personality and warmth to tutor responses
+ * See: https://docs.cartesia.ai/build-with-cartesia/sonic-3/volume-speed-emotion
+ */
+export type CartesiaEmotion = 
+  | 'neutral'           // Default, calm delivery
+  | 'happy'             // Warm, positive
+  | 'excited'           // Enthusiastic, high energy
+  | 'curious'           // Inquisitive, engaged
+  | 'calm'              // Relaxed, patient
+  | 'encouraging'       // Supportive, motivating
+  | 'friendly'          // Warm, approachable
+  | 'enthusiastic'      // Very positive, energetic
+  | 'patient'           // Slow, understanding
+  | 'surprised';        // Amazed, impressed
+
+/**
  * Common TTS Request Interface
  */
 export interface TTSRequest {
@@ -22,6 +39,7 @@ export interface TTSRequest {
   targetLanguage?: string; // Target learning language for phoneme tag processing
   returnTimings?: boolean; // Request word-level timing data for subtitle sync
   speakingRate?: number; // Speaking rate: 0.25 to 4.0, default 0.9 (0.7 for slow mode)
+  emotion?: CartesiaEmotion; // Cartesia Sonic-3 emotion control for natural tutoring
 }
 
 /**
@@ -298,15 +316,15 @@ export class TTSService {
    * Falls back to Google Cloud TTS if primary fails and fallback is enabled
    */
   async synthesize(request: TTSRequest): Promise<TTSResponse> {
-    const { text, language, voice, targetLanguage, returnTimings, speakingRate } = request;
+    const { text, language, voice, targetLanguage, returnTimings, speakingRate, emotion } = request;
     const startTime = Date.now();
 
     // Try Cartesia first if it's the primary provider
     if (this.provider === 'cartesia' && this.cartesiaClient) {
       try {
-        const result = await this.synthesizeWithCartesia(text, language, speakingRate);
+        const result = await this.synthesizeWithCartesia(text, language, speakingRate, emotion);
         const elapsed = Date.now() - startTime;
-        console.log(`[TTS] ✓ Cartesia completed in ${elapsed}ms`);
+        console.log(`[TTS] ✓ Cartesia completed in ${elapsed}ms (emotion: ${emotion || 'default'})`);
         return result;
       } catch (error: any) {
         console.error(`[TTS] ⚠ Cartesia failed: ${error.message}`);
@@ -361,9 +379,19 @@ export class TTSService {
 
   /**
    * Synthesize speech using Cartesia Sonic-3 or Sonic-Turbo
-   * Ultra-low latency (40-90ms), full SSML support, emotion tags
+   * Ultra-low latency (40-90ms), full SSML support, emotion tags, [laughter] support
+   * 
+   * Sonic-3 Features:
+   * - generation_config.speed: 0.6 (slow) to 1.5 (fast), default 1.0
+   * - generation_config.emotion: happy, excited, curious, calm, etc.
+   * - [laughter] tags in transcript for natural laughing
    */
-  private async synthesizeWithCartesia(text: string, language?: string, speakingRate?: number): Promise<TTSResponse> {
+  private async synthesizeWithCartesia(
+    text: string, 
+    language?: string, 
+    speakingRate?: number,
+    emotion?: CartesiaEmotion
+  ): Promise<TTSResponse> {
     if (!this.cartesiaClient) {
       throw new Error('Cartesia client not initialized');
     }
@@ -374,21 +402,32 @@ export class TTSService {
     // Get voice config for language
     const voiceConfig = CARTESIA_VOICE_MAP[selectedLanguage] || CARTESIA_VOICE_MAP['english'];
     
-    console.log(`[Cartesia] Synthesizing ${text.length} chars with ${voiceConfig.name} (${this.cartesiaModel})`);
-
-    // Clean text: remove quotes that might be pronounced
-    const cleanedText = text.replace(/["'"]/g, '');
-
-    // Prepare speed control (Cartesia uses 'slow', 'normal', 'fast')
-    // Google 0.9 → Cartesia normal, Google 0.7 → Cartesia slow
-    type CartesiaSpeed = 'slow' | 'normal' | 'fast';
-    let speed: CartesiaSpeed = 'normal';
-    if (speakingRate && speakingRate < 0.8) {
-      speed = 'slow';
+    // Map speaking rate to Cartesia's 0.6-1.5 range
+    // Google uses 0.25-4.0 with default 1.0
+    // Our slow mode uses 0.7, normal is 0.9
+    let cartesiaSpeed = 1.0; // Default speed
+    if (speakingRate !== undefined) {
+      if (speakingRate <= 0.7) {
+        cartesiaSpeed = 0.7; // Slow for pronunciation practice
+      } else if (speakingRate <= 0.9) {
+        cartesiaSpeed = 0.9; // Slightly slower than normal
+      } else if (speakingRate >= 1.2) {
+        cartesiaSpeed = 1.3; // Fast
+      }
     }
 
+    // Map our emotion types to Cartesia's supported emotions
+    // Default to 'friendly' for a warm tutor voice
+    const cartesiaEmotion = emotion || 'friendly';
+    
+    console.log(`[Cartesia] Synthesizing ${text.length} chars with ${voiceConfig.name} (${this.cartesiaModel})`);
+    console.log(`[Cartesia] Emotion: ${cartesiaEmotion}, Speed: ${cartesiaSpeed}`);
+
+    // Clean text: remove quotes that might be pronounced (but keep [laughter] tags!)
+    const cleanedText = text.replace(/["'"]/g, '');
+
     try {
-      // Use Cartesia bytes API - returns a Readable stream
+      // Use Cartesia bytes API with Sonic-3 generation_config
       const stream = await this.cartesiaClient.tts.bytes({
         modelId: this.cartesiaModel,
         transcript: cleanedText,
@@ -402,7 +441,12 @@ export class TTSService {
           sampleRate: 44100,
           bitRate: 128000,
         },
-        speed,
+        // Sonic-3 generation config for emotion and precise speed control
+        // @ts-ignore - generation_config is valid for Sonic-3 but may not be in older types
+        generation_config: {
+          speed: cartesiaSpeed,
+          emotion: cartesiaEmotion,
+        },
       });
 
       // Collect stream chunks into a buffer
