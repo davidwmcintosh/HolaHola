@@ -3105,12 +3105,27 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
       const user = await storage.getUser(userId);
       const tutorGender = user?.tutorGender || 'female';
       
-      // Get user's personality for default emotion if none provided
+      // Get user's personality and expressiveness for emotion enforcement
       const tutorPersonality = (user?.tutorPersonality as 'warm' | 'calm' | 'energetic' | 'professional') || 'warm';
+      const tutorExpressiveness = Math.max(1, Math.min(5, user?.tutorExpressiveness ?? 3)); // Clamp to 1-5
       
       // Import emotion utilities
-      const { getDefaultEmotion } = await import('./services/tts-service');
-      const effectiveEmotion = emotion || getDefaultEmotion(tutorPersonality);
+      const { getDefaultEmotion, getAllowedEmotions } = await import('./services/tts-service');
+      
+      // Enforce allowed emotions based on personality and expressiveness level
+      const allowedEmotions = getAllowedEmotions(tutorPersonality, tutorExpressiveness);
+      const defaultEmotion = getDefaultEmotion(tutorPersonality);
+      
+      // Use AI emotion if provided and allowed, otherwise fall back to default
+      let effectiveEmotion: string;
+      if (emotion && allowedEmotions.includes(emotion)) {
+        effectiveEmotion = emotion;
+      } else if (emotion) {
+        console.log(`[TTS] AI emotion '${emotion}' not allowed at expressiveness ${tutorExpressiveness}, using default '${defaultEmotion}'`);
+        effectiveEmotion = defaultEmotion;
+      } else {
+        effectiveEmotion = defaultEmotion;
+      }
       
       // Try to get admin-configured voice from database for this language and gender
       let voiceId: string | undefined;

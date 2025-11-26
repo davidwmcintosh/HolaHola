@@ -38,9 +38,21 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - Voice mappings in `server/services/tts-service.ts` (CARTESIA_VOICE_MAP, VOICE_MAP for Google)
 
 **Cartesia Sonic-3 Emotion & Expression Features**:
-- **Emotion Control**: Uses `generation_config.emotion` for natural tutor personality
-  - Supported emotions: neutral, happy, excited, curious, calm, encouraging, friendly, enthusiastic, patient, surprised
-  - Default emotion: "friendly" for warm tutor voice
+- **3-Layer Emotion Control System**:
+  - **Layer 1: Personality Presets** (`tutorPersonality` in users table)
+    - `warm`: friendly, encouraging, happy, patient (baseline: friendly)
+    - `calm`: neutral, calm, patient, curious (baseline: calm)
+    - `energetic`: excited, enthusiastic, happy, surprised, encouraging (baseline: enthusiastic)
+    - `professional`: neutral, calm, curious, patient (baseline: neutral)
+  - **Layer 2: Expressiveness Slider** (`tutorExpressiveness` 1-5 in users table)
+    - Level 1-2: Baseline only, minimal deviation
+    - Level 3: Core emotions for personality
+    - Level 4: Extended emotion set
+    - Level 5: Full spontaneous emotions including surprised/excited
+  - **Layer 3: AI-Driven Dynamic Selection**
+    - AI selects appropriate emotion based on context within allowed set
+    - Returns `emotion` field in structured JSON response
+    - TTS endpoint validates emotion against allowed list and falls back to baseline if disallowed
 - **Speed Control**: Uses `generation_config.speed` (0.6-1.5 range)
   - 0.7 for slow pronunciation practice
   - 0.9 for normal teaching pace
@@ -48,11 +60,9 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - **Natural Laughter**: AI prompts include guidance for `[laughter]` tags
   - Used sparingly (1-2 times per conversation max) for authentic bonding
   - Examples: "I made that same mistake when I was learning! [laughter]"
-- **Tutor Personality System**: System prompts guide emotional expressiveness
-  - Encouraging/enthusiastic for correct answers
-  - Patient/calm for explanations and corrections
-  - Curious/engaged for asking questions
-  - Surprised/impressed when student exceeds expectations
+- **Settings UI**: Users configure personality and expressiveness on Settings page
+  - Personality selector dropdown (4 presets)
+  - Expressiveness slider (1-5 with descriptive labels)
 
 **Three-Phase Organization System**:
 -   **Phase 1 (Starring + Time Filtering)**: `isStarred` field for conversations, time-based filtering (All/Today/This Week/This Month/Older) on History and Vocabulary pages.
