@@ -5051,7 +5051,7 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
       
       // Log the action
       await storage.logAdminAction({
-        actorId: req.user.id,
+        actorId: req.user.claims.sub,
         action: 'upsert_tutor_voice',
         targetType: 'tutor_voice',
         targetId: voice.id,
@@ -5075,7 +5075,7 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
       
       if (success) {
         await storage.logAdminAction({
-          actorId: req.user.id,
+          actorId: req.user.claims.sub,
           action: 'delete_tutor_voice',
           targetType: 'tutor_voice',
           targetId: id,
@@ -5097,7 +5097,7 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
       await storage.seedDefaultTutorVoices();
       
       await storage.logAdminAction({
-        actorId: req.user.id,
+        actorId: req.user.claims.sub,
         action: 'seed_tutor_voices',
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
