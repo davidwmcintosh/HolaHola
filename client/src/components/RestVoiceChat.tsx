@@ -230,11 +230,9 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       hasPlayedGreetingRef.current = greetingMessage.id;
       
       // Generate TTS for the greeting (but don't change state yet)
-      // KARAOKE DISABLED: Always use Chirp HD for best voice quality
-      // TODO: Re-enable when Chirp HD supports SSML mark tags for word-level timing
-      // Original code: const needTimings = subtitleMode !== "off";
-      const needTimings = false; // Always Chirp HD - karaoke disabled until Chirp supports SSML marks
-      console.log('[VOICE GREETING] Generating greeting audio for new conversation (using Chirp HD)');
+      // KARAOKE ENABLED: Cartesia Sonic-3 provides estimated word timings for highlighting
+      const needTimings = subtitleMode !== "off";
+      console.log(`[VOICE GREETING] Generating greeting audio for new conversation (karaoke: ${needTimings})`);
       
       // Use target language voice for consistency (Spanish voice speaks English = Spanish accent)
       // This gives immersive learning experience from the very first word
@@ -690,11 +688,9 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       
       // Step 3: Synthesize speech
       setProcessingStage('Synthesizing speech...');
-      // KARAOKE DISABLED: Always use Chirp HD for best voice quality
-      // TODO: Re-enable when Chirp HD supports SSML mark tags for word-level timing
-      // Original code: const needTimings = subtitleMode !== "off";
-      const needTimings = false; // Always Chirp HD - karaoke disabled until Chirp supports SSML marks
-      console.log('[REST VOICE] Generating speech... (using Chirp HD)');
+      // KARAOKE ENABLED: Cartesia Sonic-3 provides estimated word timings for highlighting
+      const needTimings = subtitleMode !== "off";
+      console.log(`[REST VOICE] Generating speech... (karaoke: ${needTimings})`);
       
       const result = await processVoiceMessage(audioBlob, targetConversationId, language, needTimings);
       

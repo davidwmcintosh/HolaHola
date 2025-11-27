@@ -156,6 +156,75 @@ export function getDefaultEmotion(personality: TutorPersonality = 'warm'): Carte
 }
 
 /**
+ * Estimate word-level timings based on text and audio duration
+ * Uses word length weighting for more natural timing distribution
+ * 
+ * @param text - The spoken text
+ * @param audioDurationSeconds - Estimated audio duration in seconds
+ * @returns Array of word timings with start/end times
+ */
+export function estimateWordTimings(text: string, audioDurationSeconds: number): WordTiming[] {
+  // Clean text and split into words, preserving phoneme syntax
+  const cleanedText = text
+    .replace(/<<[^>]+>>/g, match => match.replace(/\|/g, '')) // Keep phonemes as single "word"
+    .replace(/\[laughter\]/gi, ''); // Remove laughter tags
+  
+  const words = cleanedText
+    .split(/\s+/)
+    .map(w => w.trim())
+    .filter(w => w.length > 0);
+  
+  if (words.length === 0) return [];
+  
+  // Calculate total "weight" based on word character counts
+  // Longer words take proportionally more time to speak
+  const totalWeight = words.reduce((sum, word) => sum + Math.max(1, word.length), 0);
+  
+  const timings: WordTiming[] = [];
+  let currentTime = 0;
+  
+  // Small pause at start for natural pacing
+  const startPause = 0.1;
+  currentTime = startPause;
+  
+  // Distribute time proportionally by word length
+  const speakingDuration = audioDurationSeconds - startPause - 0.1; // Leave small buffer at end
+  
+  for (const word of words) {
+    const wordWeight = Math.max(1, word.length);
+    const wordDuration = (wordWeight / totalWeight) * speakingDuration;
+    
+    // Minimum duration of 0.1s per word
+    const actualDuration = Math.max(0.1, wordDuration);
+    
+    timings.push({
+      word,
+      startTime: currentTime,
+      endTime: currentTime + actualDuration,
+    });
+    
+    currentTime += actualDuration;
+  }
+  
+  console.log(`[Word Timing] Estimated ${timings.length} words over ${audioDurationSeconds.toFixed(2)}s`);
+  return timings;
+}
+
+/**
+ * Estimate audio duration from MP3 buffer size
+ * MP3 at 128kbps ≈ 16KB per second
+ * 
+ * @param bufferSize - Size of MP3 buffer in bytes
+ * @param bitrateKbps - Bitrate in kilobits per second (default 128)
+ * @returns Estimated duration in seconds
+ */
+function estimateAudioDuration(bufferSize: number, bitrateKbps: number = 128): number {
+  // Convert bitrate to bytes per second: kbps * 1000 / 8
+  const bytesPerSecond = (bitrateKbps * 1000) / 8;
+  return bufferSize / bytesPerSecond;
+}
+
+/**
  * Common TTS Request Interface
  */
 export interface TTSRequest {
@@ -677,10 +746,15 @@ export class TTSService {
       
       console.log(`[Cartesia] ✓ Generated ${audioBuffer.length} bytes`);
 
+      // Estimate word timings from audio duration and text
+      // MP3 at 128kbps: 16KB ≈ 1 second
+      const estimatedDuration = estimateAudioDuration(audioBuffer.length, 128);
+      const wordTimings = estimateWordTimings(cleanedText, estimatedDuration);
+
       return {
         audioBuffer,
         contentType: 'audio/mpeg',
-        wordTimings: undefined, // Cartesia has timing support but not implemented yet
+        wordTimings, // Estimated timings for karaoke highlighting
       };
     } catch (error: any) {
       console.error(`[Cartesia] Error: ${error.message}`);
