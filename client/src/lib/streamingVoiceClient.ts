@@ -377,7 +377,8 @@ export class StreamingVoiceClient {
   
   private handleResponseComplete(message: StreamingResponseCompleteMessage): void {
     console.log(`[StreamingVoiceClient] Response complete: ${message.totalSentences} sentences in ${message.totalDurationMs}ms`);
-    this.setState('connected');
+    // Transition back to 'ready' so client can send more audio
+    this.setState('ready');
     this.callbacks.onResponseComplete?.(message.fullText, message.totalSentences);
     this.emit('responseComplete', message);
   }
