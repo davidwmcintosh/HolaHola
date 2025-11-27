@@ -93,11 +93,26 @@ async function getUserIdFromSession(req: IncomingMessage): Promise<string | null
  * Setup streaming voice WebSocket server
  */
 export function setupStreamingVoiceProxy(server: Server) {
-  // Use the built-in { server, path } pattern which registers the upgrade handler
-  // immediately when the WebSocketServer is created, before Vite's HMR can intercept
-  const wss = new WebSocketServer({ 
-    server,
-    path: '/api/voice/stream/ws'
+  // Use noServer mode and manually handle the upgrade event
+  // This ensures we handle the upgrade before any Express middleware can interfere
+  const wss = new WebSocketServer({ noServer: true });
+  
+  const STREAMING_WS_PATH = '/api/voice/stream/ws';
+  
+  // Add debug logging for all upgrade attempts
+  server.on('upgrade', (req, socket, head) => {
+    const pathname = new URL(req.url!, `http://${req.headers.host}`).pathname;
+    
+    console.log(`[Streaming Voice] Upgrade request received for: ${pathname}`);
+    
+    if (pathname === STREAMING_WS_PATH || pathname.startsWith(STREAMING_WS_PATH + '?')) {
+      console.log('[Streaming Voice] Handling WebSocket upgrade...');
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        console.log('[Streaming Voice] Upgrade successful, emitting connection');
+        wss.emit('connection', ws, req);
+      });
+    }
+    // If not our path, let other handlers (like Vite HMR) handle it
   });
 
   const orchestrator = getStreamingVoiceOrchestrator();
