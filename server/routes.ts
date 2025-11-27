@@ -5465,30 +5465,11 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
 
   const httpServer = createServer(app);
   
-  // Set up WebSocket proxies first (they use noServer: true)
-  setupStreamingVoiceProxy(httpServer);
+  // Set up WebSocket proxy for Realtime API
   setupRealtimeProxy(httpServer);
   
-  // Import the WebSocket servers for unified upgrade handling
-  const { streamingWss } = await import('./streaming-voice-proxy');
-  const { realtimeWss } = await import('./realtime-proxy');
-  
-  // Unified upgrade handler for all WebSocket connections
-  // This is required because multiple WebSocketServers with { server, path } conflict with each other
-  httpServer.on('upgrade', (request, socket, head) => {
-    const pathname = new URL(request.url!, `http://${request.headers.host}`).pathname;
-    
-    if (pathname === '/api/streaming/ws' && streamingWss) {
-      streamingWss.handleUpgrade(request, socket, head, (ws) => {
-        streamingWss.emit('connection', ws, request);
-      });
-    } else if (pathname === '/api/realtime/ws' && realtimeWss) {
-      realtimeWss.handleUpgrade(request, socket, head, (ws) => {
-        realtimeWss.emit('connection', ws, request);
-      });
-    }
-    // For other paths (like Vite HMR "/"), let Vite's handler deal with it (registered later)
-  });
+  // Set up WebSocket proxy for Streaming Voice Mode (Gemini + Cartesia)
+  setupStreamingVoiceProxy(httpServer);
   
   return httpServer;
 }

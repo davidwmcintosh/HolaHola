@@ -34,7 +34,6 @@ export interface StreamingMetrics {
 export type StreamingVoiceMessageType = 
   | 'connected'           // WebSocket connected successfully
   | 'processing'          // STT received, AI processing started
-  | 'interim_transcript'  // Real-time transcript during speech
   | 'sentence_start'      // New sentence chunk starting
   | 'audio_chunk'         // Audio data for current sentence
   | 'word_timing'         // Word-level timing for subtitle sync
@@ -158,7 +157,6 @@ export type StreamingErrorCode =
 export type StreamingMessage = 
   | StreamingConnectedMessage
   | StreamingProcessingMessage
-  | StreamingInterimTranscriptMessage
   | StreamingSentenceStartMessage
   | StreamingAudioChunkMessage
   | StreamingWordTimingMessage
@@ -171,9 +169,7 @@ export type StreamingMessage =
  */
 export type ClientVoiceMessageType = 
   | 'start_session'       // Initialize streaming session
-  | 'audio_data'          // User's full audio recording (legacy batch mode)
-  | 'audio_chunk'         // Real-time audio chunk during recording (streaming mode)
-  | 'audio_end'           // Signal recording has ended (streaming mode)
+  | 'audio_data'          // User's audio recording
   | 'interrupt'           // User interrupted (started speaking)
   | 'end_session';        // Close session
 
@@ -192,30 +188,12 @@ export interface ClientStartSessionMessage {
 }
 
 /**
- * Client message with audio data (legacy batch mode)
+ * Client message with audio data
  */
 export interface ClientAudioDataMessage {
   type: 'audio_data';
   audio: ArrayBuffer;     // Raw audio data (will be transcribed)
   format: 'webm' | 'wav' | 'mp3';
-}
-
-/**
- * Client message with streaming audio chunk (real-time mode)
- */
-export interface ClientAudioChunkMessage {
-  type: 'audio_chunk';
-  audio: string;          // Base64-encoded PCM audio chunk
-  chunkIndex: number;     // Sequence number for ordering
-  sampleRate: number;     // Sample rate of the audio (typically 16000)
-}
-
-/**
- * Client message signaling end of audio recording
- */
-export interface ClientAudioEndMessage {
-  type: 'audio_end';
-  totalChunks: number;    // Total chunks sent for validation
 }
 
 /**
@@ -226,24 +204,14 @@ export interface ClientInterruptMessage {
 }
 
 /**
- * Server message with interim transcript (real-time feedback)
- */
-export interface StreamingInterimTranscriptMessage extends StreamingVoiceMessage {
-  type: 'interim_transcript';
-  transcript: string;
-  confidence: number;
-  isFinal: boolean;
-}
-
-/**
  * Sentence chunking configuration
  */
 export const SENTENCE_CHUNKING_CONFIG = {
-  /** Minimum characters before considering a sentence break (optimized for low latency) */
-  MIN_SENTENCE_LENGTH: 12,
+  /** Minimum characters before considering a sentence break */
+  MIN_SENTENCE_LENGTH: 20,
   
   /** Maximum characters before forcing a chunk (prevents long waits) */
-  MAX_SENTENCE_LENGTH: 150,
+  MAX_SENTENCE_LENGTH: 200,
   
   /** Punctuation that marks sentence boundaries */
   SENTENCE_ENDINGS: ['.', '!', '?', '。', '！', '？'],
@@ -251,8 +219,8 @@ export const SENTENCE_CHUNKING_CONFIG = {
   /** Punctuation that can break long sentences */
   CLAUSE_BREAKS: [',', ';', ':', '—', '–', '、', '，'],
   
-  /** Maximum time to wait for more tokens before forcing chunk (ms) - reduced for faster first audio */
-  CHUNK_TIMEOUT_MS: 300,
+  /** Maximum time to wait for more tokens before forcing chunk (ms) */
+  CHUNK_TIMEOUT_MS: 500,
   
   /** Heartbeat interval to keep connection alive (ms) */
   HEARTBEAT_INTERVAL_MS: 30000,
@@ -316,7 +284,4 @@ export const STREAMING_FEATURE_FLAGS = {
   
   /** Enable sentence-level chunking (vs full response) */
   ENABLE_SENTENCE_CHUNKING: true,
-  
-  /** Use sonic-turbo for ultra-low latency (40ms vs 90ms) at slight quality cost - disabled by default for better voice quality */
-  USE_ULTRA_LOW_LATENCY_TTS: false,
 } as const;

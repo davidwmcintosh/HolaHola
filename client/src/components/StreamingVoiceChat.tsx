@@ -146,7 +146,6 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
   // Streaming voice mode for low-latency responses
   const streamingVoice = useStreamingVoice();
   const streamingConnectedRef = useRef(false);
-  const wasEverConnectedRef = useRef(false); // Track if we've ever successfully connected (prevents auto-reconnect on mount)
   const useStreamingMode = ENABLE_STREAMING_MODE && streamingVoice.isSupported();
   
   // Mic warm-up: cache stream for instant recording start
@@ -235,7 +234,6 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
             tutorExpressiveness: user.tutorExpressiveness || 3,
           });
           streamingConnectedRef.current = true;
-          wasEverConnectedRef.current = true; // Mark that we've successfully connected at least once
           console.log('[STREAMING] Connected successfully');
           setError(null); // Clear any previous connection errors
           return; // Success - exit retry loop
@@ -297,10 +295,9 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
     }
     
     // Handle mid-stream disconnection (WebSocket dropped unexpectedly)
-    // Only auto-reconnect if we were previously connected (not on initial mount)
+    // Automatically attempt to reconnect so next mic tap works
     if ((connectionState === 'disconnected' || connectionState === 'error') && 
         streamingConnectedRef.current === false && 
-        wasEverConnectedRef.current === true && // Only if we've connected before
         conversationId && user) {
       console.log('[STREAMING] Connection lost, attempting automatic reconnect...');
       
@@ -325,7 +322,6 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
             tutorExpressiveness: user.tutorExpressiveness || 3,
           });
           streamingConnectedRef.current = true;
-          wasEverConnectedRef.current = true;
           console.log('[STREAMING] Auto-reconnected successfully');
           setError(null);
         } catch (err) {
@@ -336,10 +332,9 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
       reconnect();
     }
     
-    // Clear error when connection recovers (state becomes 'ready' after session established)
-    if ((connectionState === 'connected' || connectionState === 'ready') && streamingConnectedRef.current === false) {
+    // Clear error when connection recovers
+    if (connectionState === 'connected' && streamingConnectedRef.current === false) {
       streamingConnectedRef.current = true;
-      wasEverConnectedRef.current = true;
       setError(null);
     }
   }, [streamingVoice.state, useStreamingMode, conversationId, language, difficulty, subtitleMode, user]);

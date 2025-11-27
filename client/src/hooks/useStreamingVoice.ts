@@ -10,7 +10,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { getStreamingVoiceClient, StreamingVoiceClient } from '../lib/streamingVoiceClient';
 import { StreamingAudioPlayer, StreamingAudioChunk, StreamingPlaybackState } from '../lib/audioUtils';
-import { StreamingAudioCapture } from '../lib/streamingAudioCapture';
 import { useStreamingSubtitles, UseStreamingSubtitlesReturn } from './useStreamingSubtitles';
 import type { 
   StreamingClientState,
@@ -19,7 +18,6 @@ import type {
   StreamingAudioChunkMessage,
   StreamingWordTimingMessage,
   StreamingResponseCompleteMessage,
-  StreamingInterimTranscriptMessage,
 } from '../../../shared/streaming-voice-types';
 
 /**
@@ -31,11 +29,9 @@ export interface StreamingVoiceState {
   isConnecting: boolean;
   isProcessing: boolean;
   isPlaying: boolean;
-  isRecordingStreaming: boolean;
   currentText: string;
   currentWordIndex: number;
   visibleWordCount: number;
-  interimTranscript: string;
   error: string | null;
   metrics: StreamingMetrics | null;
 }
@@ -74,8 +70,6 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const [connectionState, setConnectionState] = useState<StreamingClientState>('disconnected');
   const [playbackState, setPlaybackState] = useState<StreamingPlaybackState>('idle');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isRecordingStreaming, setIsRecordingStreaming] = useState(false);
-  const [interimTranscript, setInterimTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<StreamingMetrics | null>(null);
   
@@ -83,7 +77,6 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const clientRef = useRef<StreamingVoiceClient | null>(null);
   const playerRef = useRef<StreamingAudioPlayer | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
-  const audioCaptureRef = useRef<StreamingAudioCapture | null>(null);
   
   // Subtitle management
   const subtitles = useStreamingSubtitles();
@@ -181,19 +174,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    */
   const handleResponseComplete = useCallback((msg: StreamingResponseCompleteMessage) => {
     console.log('[StreamingVoice] Response complete (audio may still be buffering)');
-    // Tell player how many sentences to expect so it knows when all are done
-    playerRef.current?.markComplete(msg.totalSentences);
+    // Don't set isProcessing(false) here - the player state change callback will do it
+    // when audio actually starts playing
     setMetrics(msg.metrics || null);
-  }, []);
-  
-  /**
-   * Handle interim transcript message (real-time STT)
-   */
-  const handleInterimTranscript = useCallback((msg: StreamingInterimTranscriptMessage) => {
-    setInterimTranscript(msg.transcript);
-    if (msg.isFinal) {
-      console.log(`[StreamingVoice] Final transcript: "${msg.transcript}"`);
-    }
   }, []);
   
   /**
@@ -203,7 +186,6 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     console.error('[StreamingVoice] Error:', err);
     setError(err.message);
     setIsProcessing(false);
-    setIsRecordingStreaming(false);
   }, []);
   
   /**
@@ -218,7 +200,6 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       
       // Set up callbacks
       clientRef.current.on('stateChange', setConnectionState);
-      clientRef.current.on('interimTranscript', handleInterimTranscript);
       clientRef.current.on('sentenceStart', handleSentenceStart);
       clientRef.current.on('audioChunk', handleAudioChunk);
       clientRef.current.on('wordTiming', handleWordTiming);
@@ -248,7 +229,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleInterimTranscript, handleSentenceStart, handleAudioChunk, handleWordTiming, handleResponseComplete, handleError]);
+  }, [handleSentenceStart, handleAudioChunk, handleWordTiming, handleResponseComplete, handleError]);
   
   /**
    * Disconnect from streaming voice service
@@ -256,13 +237,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const disconnect = useCallback(() => {
     console.log('[StreamingVoice] Disconnecting');
     
-    if (audioCaptureRef.current?.isActive()) {
-      audioCaptureRef.current.stop();
-    }
-    
     if (clientRef.current) {
       clientRef.current.off('stateChange', setConnectionState);
-      clientRef.current.off('interimTranscript', handleInterimTranscript);
       clientRef.current.off('sentenceStart', handleSentenceStart);
       clientRef.current.off('audioChunk', handleAudioChunk);
       clientRef.current.off('wordTiming', handleWordTiming);
@@ -278,9 +254,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     setConnectionState('disconnected');
     setIsProcessing(false);
-    setIsRecordingStreaming(false);
-    setInterimTranscript('');
-  }, [handleInterimTranscript, handleSentenceStart, handleAudioChunk, handleWordTiming, handleResponseComplete, handleError, subtitles]);
+  }, [handleSentenceStart, handleAudioChunk, handleWordTiming, handleResponseComplete, handleError, subtitles]);
   
   /**
    * Send audio for processing
@@ -295,9 +269,6 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     setIsProcessing(true);
     setError(null);
     subtitles.reset();
-    
-    // Reset audio player for new response
-    playerRef.current?.reset();
     
     await clientRef.current.sendAudio(audioData);
   }, [connectionState, subtitles]);
@@ -338,11 +309,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       isConnecting: connectionState === 'connecting',
       isProcessing,
       isPlaying: playbackState === 'playing',
-      isRecordingStreaming,
       currentText: subtitles.state.fullText,
       currentWordIndex: subtitles.state.currentWordIndex,
       visibleWordCount: subtitles.state.visibleWordCount,
-      interimTranscript,
       error,
       metrics,
     },

@@ -16,11 +16,8 @@ import {
   StreamingWordTimingMessage,
   StreamingSentenceEndMessage,
   StreamingResponseCompleteMessage,
-  StreamingInterimTranscriptMessage,
   StreamingErrorMessage,
   ClientStartSessionMessage,
-  ClientAudioChunkMessage,
-  ClientAudioEndMessage,
   WordTiming,
   AUDIO_STREAMING_CONFIG,
 } from '../../../shared/streaming-voice-types';
@@ -43,7 +40,6 @@ export type StreamingConnectionState =
 export interface StreamingVoiceCallbacks {
   onConnectionStateChange: (state: StreamingConnectionState) => void;
   onSessionStart: (sessionId: string) => void;
-  onInterimTranscript: (transcript: string, confidence: number, isFinal: boolean) => void;
   onProcessing: (transcript: string) => void;
   onSentenceStart: (index: number, text: string) => void;
   onAudioReady: (sentenceIndex: number, audio: ArrayBuffer, duration: number) => void;
@@ -77,7 +73,6 @@ type EventListener<T = any> = (data: T) => void;
 type StreamingEventType = 
   | 'stateChange'
   | 'sessionStart'
-  | 'interimTranscript'
   | 'processing'
   | 'sentenceStart'
   | 'audioChunk'
@@ -100,8 +95,6 @@ export class StreamingVoiceClient {
   private pendingBinaryData: ArrayBuffer | null = null;
   private currentSentenceIndex = -1;
   private eventListeners: Map<StreamingEventType, Set<EventListener>> = new Map();
-  private isStreamingAudio = false;
-  private audioChunkCount = 0;
   
   constructor() {
     console.log('[StreamingVoiceClient] Initialized');
@@ -158,11 +151,10 @@ export class StreamingVoiceClient {
   }
   
   /**
-   * Check if connected and ready to send audio
+   * Check if connected and ready
    */
   isReady(): boolean {
-    // State is 'connected' after WebSocket opens, 'ready' after session is established
-    return (this.state === 'connected' || this.state === 'ready') && this.ws?.readyState === WebSocket.OPEN;
+    return this.state === 'connected' && this.ws?.readyState === WebSocket.OPEN;
   }
   
   /**
@@ -178,7 +170,7 @@ export class StreamingVoiceClient {
     
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/api/streaming/ws?conversationId=${conversationId}`;
+      const wsUrl = `${protocol}//${window.location.host}/api/voice/stream/ws?conversationId=${conversationId}`;
       
       console.log('[StreamingVoiceClient] Connecting to:', wsUrl);
       
@@ -234,7 +226,7 @@ export class StreamingVoiceClient {
   }
   
   /**
-   * Send recorded audio for processing (legacy batch mode)
+   * Send recorded audio for processing
    */
   sendAudio(audioData: ArrayBuffer, format: 'webm' | 'wav' | 'mp3' = 'webm'): void {
     if (!this.isReady()) {
@@ -246,95 +238,6 @@ export class StreamingVoiceClient {
     
     // Send binary audio data directly
     this.ws!.send(audioData);
-  }
-  
-  /**
-   * Start streaming audio recording
-   * Call this when the user starts speaking to initialize real-time STT
-   */
-  startStreamingAudio(): void {
-    if (!this.isReady()) {
-      throw new Error('WebSocket not connected');
-    }
-    
-    if (this.isStreamingAudio) {
-      console.warn('[StreamingVoiceClient] Already streaming audio');
-      return;
-    }
-    
-    console.log('[StreamingVoiceClient] Starting streaming audio');
-    this.isStreamingAudio = true;
-    this.audioChunkCount = 0;
-    
-    this.ws!.send(JSON.stringify({ type: 'start_recording' }));
-  }
-  
-  /**
-   * Send audio chunk during recording
-   * PCM16 audio data encoded as base64
-   */
-  sendAudioChunk(audioData: ArrayBuffer): void {
-    if (!this.isReady() || !this.isStreamingAudio) {
-      return;
-    }
-    
-    this.audioChunkCount++;
-    
-    const base64Audio = this.arrayBufferToBase64(audioData);
-    
-    const message: ClientAudioChunkMessage = {
-      type: 'audio_chunk',
-      audio: base64Audio,
-      chunkIndex: this.audioChunkCount,
-      format: 'pcm16',
-    };
-    
-    this.ws!.send(JSON.stringify(message));
-  }
-  
-  /**
-   * End streaming audio recording
-   * Call this when the user stops speaking
-   */
-  endStreamingAudio(): void {
-    if (!this.isReady()) {
-      return;
-    }
-    
-    if (!this.isStreamingAudio) {
-      console.warn('[StreamingVoiceClient] Not streaming audio');
-      return;
-    }
-    
-    console.log(`[StreamingVoiceClient] Ending streaming audio (${this.audioChunkCount} chunks)`);
-    this.setState('processing');
-    
-    const message: ClientAudioEndMessage = {
-      type: 'audio_end',
-      totalChunks: this.audioChunkCount,
-    };
-    
-    this.ws!.send(JSON.stringify(message));
-    this.isStreamingAudio = false;
-  }
-  
-  /**
-   * Check if currently streaming audio
-   */
-  isStreamingRecording(): boolean {
-    return this.isStreamingAudio;
-  }
-  
-  /**
-   * Convert ArrayBuffer to base64 string
-   */
-  private arrayBufferToBase64(buffer: ArrayBuffer): string {
-    const bytes = new Uint8Array(buffer);
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
   }
   
   /**
@@ -387,10 +290,6 @@ export class StreamingVoiceClient {
           this.handleConnected(message as StreamingConnectedMessage);
           break;
           
-        case 'interim_transcript':
-          this.handleInterimTranscript(message as StreamingInterimTranscriptMessage);
-          break;
-          
         case 'processing':
           this.handleProcessing(message as StreamingProcessingMessage);
           break;
@@ -434,13 +333,6 @@ export class StreamingVoiceClient {
     this.setState('ready');
     this.callbacks.onSessionStart?.(message.sessionId);
     this.emit('sessionStart', message.sessionId);
-  }
-  
-  private handleInterimTranscript(message: StreamingInterimTranscriptMessage): void {
-    const prefix = message.isFinal ? '[Final]' : '[Interim]';
-    console.log(`${prefix} ${message.transcript} (${Math.round(message.confidence * 100)}%)`);
-    this.callbacks.onInterimTranscript?.(message.transcript, message.confidence, message.isFinal);
-    this.emit('interimTranscript', message);
   }
   
   private handleProcessing(message: StreamingProcessingMessage): void {

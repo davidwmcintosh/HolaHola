@@ -43,16 +43,7 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Vocabulary-Conversation Linking**: Extracted vocabulary words are linked to their source conversation via `sourceConversationId`, enabling navigation from flashcards back to the original context.
 
-**Streaming Voice Mode Architecture**: A WebSocket-based progressive audio delivery system aims to reduce Time To First Byte (TTFB) to under 3 seconds. The pipeline involves Deepgram STT, Gemini streaming, sentence chunking, Cartesia WebSocket TTS, and progressive audio playback. The server streams `connected`, `processing`, `sentence_start`, `audio_chunk`, `word_timing`, `sentence_end`, and `response_complete` messages to the client. **Streaming-only mode**: No REST fallback is allowed; the system uses retry/reconnect with exponential backoff (up to 3 attempts on initial connect, 2 attempts during processing) and displays user-friendly error messages if connection fails. Initial connection uses exponential backoff (500ms × attempt#). **WebSocket path**: `/api/streaming/ws`.
-
-**Multiple WebSocket Server Architecture**: Both the streaming voice proxy (`/api/streaming/ws`) and the realtime voice proxy (`/api/realtime/ws`) use `noServer: true` mode with a unified upgrade handler in `server/routes.ts`. This is required because multiple `WebSocketServer` instances with `{ server, path }` mode conflict with each other in Node.js - only the first one would work. The unified handler routes upgrade requests to the correct WebSocket server based on the request pathname, allowing both to coexist on the same HTTP server alongside Vite HMR.
-
-**Real-Time Streaming STT Architecture**: Implements Deepgram Live WebSocket API for real-time transcription as the user speaks, reducing STT latency from 400-800ms (batch mode) to near-zero. Key components:
--   **DeepgramStreamingService** (`server/services/deepgram-streaming.ts`): Manages live WebSocket connections to Deepgram, emitting `interim`, `final`, `speech_started`, `speech_ended` events. Uses Nova-3 model with smart format, punctuation, and 1000ms utterance end detection.
--   **AudioWorklet Processor** (`client/public/audio-stream-processor.js`): Captures microphone audio at browser rate (44.1/48kHz), resamples to 16kHz, converts to PCM16 format, and streams chunks to main thread. Includes buffer flush on stop to capture trailing samples.
--   **StreamingAudioCapture** (`client/src/lib/streamingAudioCapture.ts`): Manages AudioWorklet lifecycle, microphone permissions, and audio chunk callbacks.
--   **WebSocket Protocol**: Client sends `start_recording` when user starts speaking, `audio_chunk` (base64 PCM16) during recording, `audio_end` when finished. Server responds with `interim_transcript` for real-time display.
--   **Session Lifecycle**: STT session created on `start_recording`, audio chunks forwarded to Deepgram in real-time, session closed on `audio_end` or error. Event listeners properly cleaned up to prevent memory leaks.
+**Streaming Voice Mode Architecture**: A WebSocket-based progressive audio delivery system (enabled in production) aims to reduce Time To First Byte (TTFB) to under 3 seconds. The pipeline involves Deepgram STT, Gemini streaming, sentence chunking, Cartesia WebSocket TTS, and progressive audio playback. The server streams `connected`, `processing`, `sentence_start`, `audio_chunk`, `word_timing`, `sentence_end`, and `response_complete` messages to the client. **Streaming-only mode**: No REST fallback is allowed; the system uses retry/reconnect with exponential backoff (up to 3 attempts on initial connect, 2 attempts during processing) and displays user-friendly error messages if connection fails. Initial connection uses exponential backoff (500ms × attempt#).
 
 **TTS Text Sanitization**: A `removeConsecutiveDuplicates()` function sanitizes text before TTS to remove consecutive duplicate words (e.g., "días días" → "días"), catching both AI-generated duplications and potential phoneme injection artifacts. This runs before phoneme replacement in `addCartesiaPhonemesToText()`.
 
@@ -80,5 +71,5 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 -   **Text Chat**: `gemini-2.5-flash` (free/basic tiers), `gemini-2.5-pro` (pro tier).
 -   **Voice Chat LLM**: `gemini-2.5-flash` (forced for all tiers - synchronous mode, ~1-2s response time).
 -   **Voice STT**: Deepgram `nova-3` (~400-800ms).
--   **Voice TTS (Primary)**: Cartesia Sonic-3 (multiple languages, ~90ms latency). Optional sonic-turbo mode (40ms) available via `STREAMING_FEATURE_FLAGS.USE_ULTRA_LOW_LATENCY_TTS` but disabled by default for better voice quality.
+-   **Voice TTS (Primary)**: Cartesia Sonic-3 (multiple languages, 40-90ms latency).
 -   **Voice TTS (Fallback)**: Google Cloud Chirp 3 HD, Neural2.

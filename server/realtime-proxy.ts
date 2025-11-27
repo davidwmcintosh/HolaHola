@@ -68,13 +68,11 @@ async function getUserIdFromSession(req: IncomingMessage): Promise<string | null
   }
 }
 
-// Export the WebSocket server for unified upgrade handling
-export let realtimeWss: WS.Server | null = null;
-
 export function setupRealtimeProxy(server: Server) {
-  // Use noServer: true for coordinated upgrade handling with other WebSocket servers
-  const wss = new WebSocketServer({ noServer: true });
-  realtimeWss = wss;
+  const wss = new WebSocketServer({ 
+    server,
+    path: '/api/realtime/ws'
+  });
 
   wss.on('connection', async (clientWs: WS, req) => {
     console.log('Client connected to Realtime proxy');

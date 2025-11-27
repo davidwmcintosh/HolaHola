@@ -180,16 +180,13 @@ export interface StreamingPlaybackCallbacks {
 }
 
 export class StreamingAudioPlayer {
-  private pendingChunks: Map<number, StreamingAudioChunk> = new Map();
-  private nextExpectedIndex = 0;
+  private queue: StreamingAudioChunk[] = [];
   private currentAudio: HTMLAudioElement | null = null;
   private currentSentenceIndex = -1;
   private state: StreamingPlaybackState = 'idle';
   private callbacks: StreamingPlaybackCallbacks = {};
   private objectUrls: string[] = [];
   private isPlaying = false;
-  private responseComplete = false;
-  private totalSentences = -1;
   
   constructor() {
     console.log('[StreamingAudioPlayer] Initialized');
@@ -210,120 +207,17 @@ export class StreamingAudioPlayer {
   }
   
   /**
-   * Reset state for new response
-   */
-  reset(): void {
-    this.pendingChunks.clear();
-    this.nextExpectedIndex = 0;
-    this.responseComplete = false;
-    this.totalSentences = -1;
-  }
-  
-  /**
-   * Mark response as complete with total sentence count
-   */
-  markComplete(totalSentences: number): void {
-    this.responseComplete = true;
-    this.totalSentences = totalSentences;
-  }
-  
-  /**
    * Enqueue an audio chunk for playback
-   * Buffers out-of-order chunks and plays in correct sequence
+   * Will start playing immediately if not already playing
    */
   enqueue(chunk: StreamingAudioChunk): void {
     console.log(`[StreamingAudioPlayer] Enqueue sentence ${chunk.sentenceIndex} (${chunk.audio.byteLength} bytes)`);
     
-    // Store chunk by its index
-    this.pendingChunks.set(chunk.sentenceIndex, chunk);
+    this.queue.push(chunk);
     
-    // Try to play next in sequence
+    // Start playback if not already playing
     if (!this.isPlaying) {
-      this.playNextInOrder();
-    }
-  }
-  
-  /**
-   * Play the next sentence in order (0, 1, 2, ...)
-   */
-  private async playNextInOrder(): Promise<void> {
-    // Check if we have the next expected sentence
-    const chunk = this.pendingChunks.get(this.nextExpectedIndex);
-    
-    if (!chunk) {
-      // Don't have next sentence yet - wait for it
-      if (this.responseComplete && this.nextExpectedIndex >= this.totalSentences) {
-        // All sentences played
-        console.log('[StreamingAudioPlayer] All sentences complete');
-        this.isPlaying = false;
-        this.setState('idle');
-        this.callbacks.onComplete?.();
-      }
-      return;
-    }
-    
-    // Remove from pending and play
-    this.pendingChunks.delete(this.nextExpectedIndex);
-    this.isPlaying = true;
-    
-    await this.playSentence(chunk);
-  }
-  
-  /**
-   * Play a single sentence
-   */
-  private async playSentence(chunk: StreamingAudioChunk): Promise<void> {
-    this.currentSentenceIndex = chunk.sentenceIndex;
-    
-    console.log(`[StreamingAudioPlayer] Playing sentence ${chunk.sentenceIndex}`);
-    this.callbacks.onSentenceStart?.(chunk.sentenceIndex);
-    
-    try {
-      const blob = new Blob([chunk.audio], { type: 'audio/mpeg' });
-      const url = URL.createObjectURL(blob);
-      this.objectUrls.push(url);
-      
-      this.currentAudio = new Audio(url);
-      
-      this.currentAudio.onloadedmetadata = () => {
-        console.log(`[StreamingAudioPlayer] Audio loaded: ${this.currentAudio?.duration}s`);
-      };
-      
-      this.currentAudio.oncanplaythrough = () => {
-        this.setState('playing');
-      };
-      
-      this.currentAudio.ontimeupdate = () => {
-        if (this.currentAudio) {
-          this.callbacks.onProgress?.(
-            this.currentAudio.currentTime,
-            this.currentAudio.duration
-          );
-        }
-      };
-      
-      this.currentAudio.onended = () => {
-        console.log(`[StreamingAudioPlayer] Sentence ${chunk.sentenceIndex} ended`);
-        this.callbacks.onSentenceEnd?.(chunk.sentenceIndex);
-        this.nextExpectedIndex++;
-        this.playNextInOrder();
-      };
-      
-      this.currentAudio.onerror = (e) => {
-        console.error(`[StreamingAudioPlayer] Error playing sentence ${chunk.sentenceIndex}:`, e);
-        this.callbacks.onError?.(new Error('Audio playback failed'));
-        this.nextExpectedIndex++;
-        this.playNextInOrder();
-      };
-      
-      this.setState('buffering');
-      await this.currentAudio.play();
-      
-    } catch (error) {
-      console.error(`[StreamingAudioPlayer] Error:`, error);
-      this.callbacks.onError?.(error as Error);
-      this.nextExpectedIndex++;
-      this.playNextInOrder();
+      this.playNext();
     }
   }
   
@@ -340,12 +234,9 @@ export class StreamingAudioPlayer {
       this.currentAudio = null;
     }
     
-    // Clear pending chunks
-    this.pendingChunks.clear();
+    // Clear queue
+    this.queue = [];
     this.isPlaying = false;
-    this.nextExpectedIndex = 0;
-    this.responseComplete = false;
-    this.totalSentences = -1;
     
     // Cleanup object URLs
     this.cleanupUrls();
@@ -370,6 +261,85 @@ export class StreamingAudioPlayer {
     if (this.currentAudio && this.state === 'paused') {
       this.currentAudio.play().catch(console.error);
       this.setState('playing');
+    }
+  }
+  
+  /**
+   * Play the next chunk in the queue
+   */
+  private async playNext(): Promise<void> {
+    // Get next chunk from queue
+    const chunk = this.queue.shift();
+    
+    if (!chunk) {
+      console.log('[StreamingAudioPlayer] Queue empty');
+      this.isPlaying = false;
+      this.setState('idle');
+      this.callbacks.onComplete?.();
+      return;
+    }
+    
+    this.isPlaying = true;
+    this.currentSentenceIndex = chunk.sentenceIndex;
+    
+    console.log(`[StreamingAudioPlayer] Playing sentence ${chunk.sentenceIndex}`);
+    this.callbacks.onSentenceStart?.(chunk.sentenceIndex);
+    
+    try {
+      // Create blob URL for the audio
+      const blob = new Blob([chunk.audio], { type: 'audio/mpeg' });
+      const url = URL.createObjectURL(blob);
+      this.objectUrls.push(url);
+      
+      // Create audio element
+      this.currentAudio = new Audio(url);
+      
+      // Handle audio events
+      this.currentAudio.onloadedmetadata = () => {
+        console.log(`[StreamingAudioPlayer] Audio loaded: ${this.currentAudio?.duration}s`);
+      };
+      
+      this.currentAudio.oncanplaythrough = () => {
+        this.setState('playing');
+      };
+      
+      this.currentAudio.ontimeupdate = () => {
+        if (this.currentAudio) {
+          this.callbacks.onProgress?.(
+            this.currentAudio.currentTime,
+            this.currentAudio.duration
+          );
+        }
+      };
+      
+      this.currentAudio.onended = () => {
+        console.log(`[StreamingAudioPlayer] Sentence ${chunk.sentenceIndex} ended`);
+        this.callbacks.onSentenceEnd?.(chunk.sentenceIndex);
+        
+        // Play next chunk
+        this.playNext();
+      };
+      
+      this.currentAudio.onerror = (event) => {
+        console.error('[StreamingAudioPlayer] Audio error:', event);
+        this.callbacks.onError?.(new Error('Audio playback failed'));
+        
+        // Try next chunk
+        this.playNext();
+      };
+      
+      // Start buffering
+      this.setState('buffering');
+      
+      // Start playback
+      await this.currentAudio.play();
+      
+    } catch (error: any) {
+      console.error('[StreamingAudioPlayer] Error playing chunk:', error);
+      this.callbacks.onError?.(error);
+      
+      // Try next chunk
+      this.playNext();
     }
   }
   

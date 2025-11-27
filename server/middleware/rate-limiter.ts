@@ -26,22 +26,6 @@ function rateLimitHandler(req: Request, res: Response) {
 }
 
 /**
- * WebSocket paths that should always be skipped by rate limiters
- * These endpoints use the 'upgrade' HTTP mechanism which doesn't play well with rate limiting
- */
-const WEBSOCKET_PATHS = [
-  '/api/streaming/ws',
-  '/api/realtime/ws'
-];
-
-/**
- * Check if the request is for a WebSocket endpoint
- */
-function isWebSocketPath(req: Request): boolean {
-  return WEBSOCKET_PATHS.some(path => req.path === path || req.path.startsWith(path));
-}
-
-/**
  * General API rate limiter
  * Applied to all API routes as a baseline
  */
@@ -52,8 +36,8 @@ export const generalLimiter = rateLimit({
   standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
   legacyHeaders: false, // Disable `X-RateLimit-*` headers
   handler: rateLimitHandler,
-  // Skip rate limiting in development AND for WebSocket paths
-  skip: (req) => process.env.NODE_ENV === 'development' || isWebSocketPath(req),
+  // Skip rate limiting in development
+  skip: () => process.env.NODE_ENV === 'development',
 });
 
 /**
