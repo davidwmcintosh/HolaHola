@@ -29,6 +29,15 @@ const GREETING_COOLDOWN_MS = 30000; // 30 seconds - prevent greeting if one play
 let greetingInProgress = false;
 let synthesizedMessageId: string | null = null; // Track which message was already synthesized
 
+// Module-level audio cache for replay functionality
+// Persists across component mounts so replay works after navigation
+interface AudioCache {
+  messageId: string;
+  audioBlob: Blob;
+  wordTimings?: WordTiming[];
+}
+let lastPlayedAudioCache: AudioCache | null = null;
+
 // Atomically try to acquire the greeting lock
 // Returns true if lock acquired, false if already locked
 function tryAcquireGreetingLock(messageId: string): boolean {
@@ -180,6 +189,19 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       }
     };
   }, []);
+
+  // Restore audio from module-level cache on mount (enables replay after navigation)
+  useEffect(() => {
+    if (lastPlayedAudioCache && !lastAudioBlob) {
+      console.log('[AUDIO CACHE] Restoring audio from cache for message:', lastPlayedAudioCache.messageId);
+      setLastAudioBlob(lastPlayedAudioCache.audioBlob);
+      setLastMessageId(lastPlayedAudioCache.messageId);
+      // Also restore word timings if available
+      if (lastPlayedAudioCache.wordTimings) {
+        wordTimingsMapRef.current.set(lastPlayedAudioCache.messageId, lastPlayedAudioCache.wordTimings);
+      }
+    }
+  }, []); // Only run on mount
 
   // Fetch existing messages
   const { data: messages = [] } = useQuery<Message[]>({
@@ -958,10 +980,17 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         console.log('[REST VOICE] Audio blob size:', result.audioBlob.size, 'bytes');
         console.log('[REST VOICE] Audio blob type:', result.audioBlob.type);
         
-        // Store audio for replay functionality
+        // Store audio for replay functionality (both in state and module-level cache)
         setLastAudioBlob(result.audioBlob);
         if (latestAssistantMessage) {
           setLastMessageId(latestAssistantMessage.id);
+          // Also store in module-level cache for persistence across navigation
+          lastPlayedAudioCache = {
+            messageId: latestAssistantMessage.id,
+            audioBlob: result.audioBlob,
+            wordTimings: result.wordTimings,
+          };
+          console.log('[AUDIO CACHE] Stored audio for message:', latestAssistantMessage.id);
         }
         
         const audioUrl = URL.createObjectURL(result.audioBlob);
@@ -982,6 +1011,11 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
                 endTime: Math.min(timing.endTime * scale, actualDuration),
               }));
               wordTimingsMapRef.current.set(latestAssistantMessage.id, rescaledTimings);
+              // Also update module-level cache with rescaled timings for accurate replay after navigation
+              if (lastPlayedAudioCache && lastPlayedAudioCache.messageId === latestAssistantMessage.id) {
+                lastPlayedAudioCache.wordTimings = rescaledTimings;
+                console.log('[AUDIO CACHE] Updated with rescaled timings');
+              }
               console.log(`[SUBTITLES] Rescaled timings: ${estimatedDuration.toFixed(2)}s → ${actualDuration.toFixed(2)}s (scale: ${scale.toFixed(3)})`);
             } else if (subtitleMode !== "off") {
               // No rescaling needed, store as-is

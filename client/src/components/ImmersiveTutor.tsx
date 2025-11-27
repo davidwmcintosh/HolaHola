@@ -102,74 +102,110 @@ export function ImmersiveTutor({
       return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
     });
   };
+  
+  // Helper function to detect if a word is likely a foreign language word
+  // Checks for Spanish/foreign diacritics, special punctuation, or common Spanish words
+  const isForeignWord = (word: string): boolean => {
+    // Check for Spanish/foreign characters (diacritics, ñ, special punctuation)
+    const foreignCharPattern = /[áéíóúüñÁÉÍÓÚÜÑ¡¿]/;
+    if (foreignCharPattern.test(word)) {
+      return true;
+    }
+    
+    // Common Spanish encouragement/exclamation words (case-insensitive)
+    const commonSpanishWords = [
+      'excelente', 'perfecto', 'muy', 'bien', 'bueno', 'buena', 'buenos', 'buenas',
+      'hola', 'gracias', 'por', 'favor', 'adios', 'si', 'no', 'buen', 'intento',
+      'fantastico', 'maravilloso', 'increible', 'genial', 'bravo', 'ole'
+    ];
+    
+    const normalized = normalizeWord(word);
+    return commonSpanishWords.includes(normalized);
+  };
 
   // Helper function to filter word timings to only include target language words
-  // Finds ALL occurrences of the target phrase (e.g., "Buenas noches" said twice)
+  // Now includes BOTH the target phrase AND any other foreign language words (like encouragement)
   const filterTargetLanguageTimings = (
     allTimings: WordTiming[],
     targetText: string
   ): WordTiming[] => {
-    if (!targetText || !allTimings.length) return [];
+    if (!allTimings.length) return [];
     
-    // Parse target language text into words (normalize for matching)
-    const targetWords = targetText
-      .split(/\s+/)
-      .map(normalizeWord)
-      .filter(w => w.length > 0);
+    // Collect all foreign words (including target phrase and encouragement words)
+    const foreignWordTimings: WordTiming[] = [];
+    const addedIndices = new Set<number>();
     
-    if (targetWords.length === 0) return [];
-    
-    console.log('[SUBTITLES] Looking for target phrase:', targetWords.join(' '));
-    console.log('[SUBTITLES] All timing words:', allTimings.map(t => `"${t.word}"`).join(', '));
-    
-    // Find ALL occurrences of the target phrase in the timing array
-    // This handles cases where the tutor says "Buenas noches" multiple times
-    const allOccurrences: WordTiming[] = [];
-    let i = 0;
-    
-    while (i < allTimings.length) {
-      const normalizedWord = normalizeWord(allTimings[i].word);
+    // First, find target phrase occurrences if targetText is provided
+    if (targetText) {
+      const targetWords = targetText
+        .split(/\s+/)
+        .map(normalizeWord)
+        .filter(w => w.length > 0);
       
-      // Check if this could be the start of a target phrase match
-      if (normalizedWord === targetWords[0]) {
-        // Try to match the full phrase starting here
-        let matchedTimings: WordTiming[] = [allTimings[i]];
-        let matched = true;
+      if (targetWords.length > 0) {
+        console.log('[SUBTITLES] Looking for target phrase:', targetWords.join(' '));
         
-        for (let j = 1; j < targetWords.length; j++) {
-          const nextIndex = i + j;
-          if (nextIndex >= allTimings.length) {
-            matched = false;
-            break;
+        let i = 0;
+        while (i < allTimings.length) {
+          const normalizedWord = normalizeWord(allTimings[i].word);
+          
+          // Check if this could be the start of a target phrase match
+          if (normalizedWord === targetWords[0]) {
+            let matchedTimings: WordTiming[] = [allTimings[i]];
+            let matchedIndices: number[] = [i];
+            let matched = true;
+            
+            for (let j = 1; j < targetWords.length; j++) {
+              const nextIndex = i + j;
+              if (nextIndex >= allTimings.length) {
+                matched = false;
+                break;
+              }
+              const nextNormalized = normalizeWord(allTimings[nextIndex].word);
+              if (nextNormalized !== targetWords[j]) {
+                matched = false;
+                break;
+              }
+              matchedTimings.push(allTimings[nextIndex]);
+              matchedIndices.push(nextIndex);
+            }
+            
+            if (matched && matchedTimings.length === targetWords.length) {
+              // Found a complete match - add all words
+              matchedTimings.forEach((t, idx) => {
+                if (!addedIndices.has(matchedIndices[idx])) {
+                  foreignWordTimings.push(t);
+                  addedIndices.add(matchedIndices[idx]);
+                }
+              });
+              console.log('[SUBTITLES] Found target occurrence at index', i, ':', matchedTimings.map(t => t.word).join(' '));
+              i += targetWords.length;
+              continue;
+            }
           }
-          const nextNormalized = normalizeWord(allTimings[nextIndex].word);
-          if (nextNormalized !== targetWords[j]) {
-            matched = false;
-            break;
-          }
-          matchedTimings.push(allTimings[nextIndex]);
-        }
-        
-        if (matched && matchedTimings.length === targetWords.length) {
-          // Found a complete match - add all words from this occurrence
-          allOccurrences.push(...matchedTimings);
-          console.log('[SUBTITLES] Found occurrence at index', i, ':', matchedTimings.map(t => t.word).join(' '));
-          // Skip past this match to find the next occurrence
-          i += targetWords.length;
-          continue;
+          i++;
         }
       }
-      i++;
     }
     
-    if (allOccurrences.length > 0) {
-      const occurrenceCount = allOccurrences.length / targetWords.length;
-      console.log('[SUBTITLES] Found', occurrenceCount, 'occurrence(s) of target phrase,', allOccurrences.length, 'total words');
-      return allOccurrences;
+    // Second, find any other foreign words (encouragement like "¡Excelente!")
+    for (let i = 0; i < allTimings.length; i++) {
+      if (!addedIndices.has(i) && isForeignWord(allTimings[i].word)) {
+        foreignWordTimings.push(allTimings[i]);
+        addedIndices.add(i);
+        console.log('[SUBTITLES] Found foreign word:', allTimings[i].word);
+      }
     }
     
-    // Fallback: couldn't find exact match, return empty
-    console.log('[SUBTITLES] Could not match target words, showing text without timing');
+    // Sort by start time to maintain chronological order
+    foreignWordTimings.sort((a, b) => a.startTime - b.startTime);
+    
+    if (foreignWordTimings.length > 0) {
+      console.log('[SUBTITLES] Total foreign words to display:', foreignWordTimings.length);
+      return foreignWordTimings;
+    }
+    
+    console.log('[SUBTITLES] No foreign words found');
     return [];
   };
 
