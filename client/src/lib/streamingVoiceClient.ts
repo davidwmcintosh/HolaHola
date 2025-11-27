@@ -29,6 +29,7 @@ export type StreamingConnectionState =
   | 'disconnected'
   | 'connecting'
   | 'connected'
+  | 'ready'       // Session established, ready to send audio
   | 'processing'
   | 'streaming'
   | 'error';
@@ -52,7 +53,7 @@ export interface StreamingVoiceCallbacks {
  * Session configuration
  */
 export interface StreamingSessionConfig {
-  conversationId: number;
+  conversationId: string;  // UUID string
   targetLanguage: string;
   nativeLanguage: string;
   difficultyLevel: string;
@@ -159,7 +160,7 @@ export class StreamingVoiceClient {
   /**
    * Connect to streaming voice WebSocket
    */
-  async connect(conversationId: string | number): Promise<void> {
+  async connect(conversationId: string): Promise<void> {
     if (this.ws?.readyState === WebSocket.OPEN) {
       console.log('[StreamingVoiceClient] Already connected');
       return;
@@ -328,6 +329,8 @@ export class StreamingVoiceClient {
   private handleConnected(message: StreamingConnectedMessage): void {
     this.sessionId = message.sessionId;
     console.log('[StreamingVoiceClient] Session started:', this.sessionId);
+    // Transition to 'ready' state - now client can send audio
+    this.setState('ready');
     this.callbacks.onSessionStart?.(message.sessionId);
     this.emit('sessionStart', message.sessionId);
   }

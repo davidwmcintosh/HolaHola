@@ -144,15 +144,34 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     isRecordingRef.current = isRecording;
     isProcessingRef.current = isProcessing;
   }, [conversationId, isRecording, isProcessing]);
+
+  // Fetch existing messages
+  const { data: messages = [] } = useQuery<Message[]>({
+    queryKey: ["/api/conversations", conversationId, "messages"],
+    enabled: !!conversationId,
+  });
   
-  // Connect streaming voice when conversation is available
+  // Fetch user to get tutor gender preference
+  const { data: user } = useQuery<User>({
+    queryKey: ["/api/auth/user"],
+  });
+  
+  // Connect streaming voice when conversation and user data are available
   useEffect(() => {
-    if (!useStreamingMode || !conversationId) return;
+    if (!useStreamingMode || !conversationId || !user) return;
     
     const connectStreaming = async () => {
       try {
         console.log('[STREAMING] Connecting to streaming voice...');
-        await streamingVoice.connect(conversationId);
+        await streamingVoice.connect({
+          conversationId,
+          targetLanguage: language,
+          nativeLanguage: user.nativeLanguage || 'english',
+          difficultyLevel: difficulty,
+          subtitleMode,
+          tutorPersonality: user.tutorPersonality || 'warm',
+          tutorExpressiveness: user.tutorExpressiveness || 3,
+        });
         streamingConnectedRef.current = true;
         console.log('[STREAMING] Connected successfully');
       } catch (err: any) {
@@ -170,7 +189,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         streamingConnectedRef.current = false;
       }
     };
-  }, [conversationId, useStreamingMode]);
+  }, [conversationId, useStreamingMode, user, language, difficulty, subtitleMode]);
   
   // Sync streaming voice state with component state
   useEffect(() => {
@@ -206,17 +225,6 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       setError(null);
     }
   }, [streamingVoice.state, useStreamingMode]);
-
-  // Fetch existing messages
-  const { data: messages = [] } = useQuery<Message[]>({
-    queryKey: ["/api/conversations", conversationId, "messages"],
-    enabled: !!conversationId,
-  });
-  
-  // Fetch user to get tutor gender preference
-  const { data: user } = useQuery<User>({
-    queryKey: ["/api/auth/user"],
-  });
 
   // Initialize audio player
   useEffect(() => {

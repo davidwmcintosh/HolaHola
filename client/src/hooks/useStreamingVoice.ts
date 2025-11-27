@@ -37,12 +37,25 @@ export interface StreamingVoiceState {
 }
 
 /**
+ * Session configuration for streaming voice
+ */
+export interface StreamingSessionConfig {
+  conversationId: string;
+  targetLanguage: string;
+  nativeLanguage: string;
+  difficultyLevel: string;
+  subtitleMode: 'off' | 'target' | 'all';
+  tutorPersonality?: string;
+  tutorExpressiveness?: number;
+}
+
+/**
  * Return type for the hook
  */
 export interface UseStreamingVoiceReturn {
   state: StreamingVoiceState;
   subtitles: UseStreamingSubtitlesReturn;
-  connect: (conversationId: string) => Promise<void>;
+  connect: (config: StreamingSessionConfig) => Promise<void>;
   disconnect: () => void;
   sendAudio: (audioData: ArrayBuffer) => Promise<void>;
   stop: () => void;
@@ -176,10 +189,10 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   /**
-   * Connect to streaming voice service
+   * Connect to streaming voice service and start a session
    */
-  const connect = useCallback(async (conversationId: string | number) => {
-    console.log(`[StreamingVoice] Connecting for conversation ${conversationId}`);
+  const connect = useCallback(async (config: StreamingSessionConfig) => {
+    console.log(`[StreamingVoice] Connecting for conversation ${config.conversationId}`);
     
     try {
       // Get or create client
@@ -193,11 +206,23 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('responseComplete', handleResponseComplete);
       clientRef.current.on('error', handleError);
       
-      // Connect (convert to number if needed)
-      const convId = typeof conversationId === 'string' ? parseInt(conversationId, 10) : conversationId;
-      await clientRef.current.connect(convId);
+      // Connect WebSocket
+      await clientRef.current.connect(config.conversationId);
+      console.log('[StreamingVoice] WebSocket connected, starting session...');
       
-      console.log('[StreamingVoice] Connected');
+      // Start session with config - this triggers server to send 'connected' message
+      // which will transition state to 'ready'
+      clientRef.current.startSession({
+        conversationId: config.conversationId,
+        targetLanguage: config.targetLanguage,
+        nativeLanguage: config.nativeLanguage,
+        difficultyLevel: config.difficultyLevel,
+        subtitleMode: config.subtitleMode,
+        tutorPersonality: config.tutorPersonality,
+        tutorExpressiveness: config.tutorExpressiveness,
+      });
+      
+      console.log('[StreamingVoice] Session started, waiting for ready state...');
       
     } catch (err: any) {
       console.error('[StreamingVoice] Connection failed:', err);

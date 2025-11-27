@@ -178,7 +178,7 @@ export type ClientVoiceMessageType =
  */
 export interface ClientStartSessionMessage {
   type: 'start_session';
-  conversationId: number;
+  conversationId: string;  // UUID string
   targetLanguage: string;
   nativeLanguage: string;
   difficultyLevel: string;

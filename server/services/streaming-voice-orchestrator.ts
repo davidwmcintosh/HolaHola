@@ -34,7 +34,7 @@ import { constrainEmotion, TutorPersonality, CartesiaEmotion } from "./tts-servi
 export interface StreamingSession {
   id: string;
   userId: number;
-  conversationId: number;
+  conversationId: string;  // UUID string
   targetLanguage: string;
   nativeLanguage: string;
   difficultyLevel: string;
