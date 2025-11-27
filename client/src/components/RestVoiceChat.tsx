@@ -254,10 +254,20 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     }
     
     // Handle streaming errors - show them since we don't have REST fallback
-    if (streamError && connectionState === 'error') {
-      console.error('[STREAMING] Connection error:', streamError);
-      streamingConnectedRef.current = false;
-      setError(`Streaming error: ${streamError}`);
+    if (streamError) {
+      console.error('[STREAMING] Error:', streamError);
+      // Reset processing state and avatar
+      if (isProcessingRef.current) {
+        setIsProcessing(false);
+        isProcessingRef.current = false;
+        setProcessingStage(null);
+      }
+      setAvatarState('idle');
+      setError(streamError);
+      
+      if (connectionState === 'error') {
+        streamingConnectedRef.current = false;
+      }
     }
     
     // Clear error when connection recovers
