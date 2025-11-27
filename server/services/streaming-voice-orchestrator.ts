@@ -280,8 +280,8 @@ export class StreamingVoiceOrchestrator {
   }
   
   /**
-   * Stream audio for a single sentence progressively
-   * Uses async generator to stream chunks as they arrive
+   * Stream audio for a single sentence
+   * Buffers complete sentence audio before sending (MP3 requires complete frames)
    */
   private async streamSentenceAudio(
     session: StreamingSession,
@@ -293,15 +293,13 @@ export class StreamingVoiceOrchestrator {
     // Determine emotion based on context
     const emotion = this.selectEmotionForContext(text, session);
     
-    let chunkIndex = 0;
     let totalDurationMs = 0;
     
-    // Note: We intentionally DON'T use Cartesia's word timestamps
-    // because they're for phoneme-processed text (e.g., "<<o|l|a>>")
-    // We always estimate timings using the original display text
+    // Buffer all audio chunks for this sentence (MP3 needs complete frames to play correctly)
+    const audioBuffers: Buffer[] = [];
     
     try {
-      // Stream audio chunks progressively as they arrive from Cartesia
+      // Collect all audio chunks from Cartesia
       for await (const audioChunk of this.cartesiaService.streamSynthesize({
         text,
         language: session.targetLanguage,
@@ -311,29 +309,34 @@ export class StreamingVoiceOrchestrator {
         expressiveness: session.tutorExpressiveness,
       })) {
         if (audioChunk.audio.length > 0) {
+          audioBuffers.push(audioChunk.audio);
           metrics.audioBytes += audioChunk.audio.length;
           totalDurationMs += audioChunk.durationMs;
-          
-          // Send audio chunk with base64-encoded data for progressive playback
-          const audioBase64 = audioChunk.audio.toString('base64');
-          this.sendMessage(session.ws, {
-            type: 'audio_chunk',
-            timestamp: Date.now(),
-            sentenceIndex: index,
-            chunkIndex: chunkIndex++,
-            isLast: audioChunk.isLast,
-            durationMs: audioChunk.durationMs,
-            audio: audioBase64,
-          } as StreamingAudioChunkMessage);
         }
         
-        // If this is the last chunk, end the sentence
         if (audioChunk.isLast) {
           break;
         }
       }
       
-      // Always estimate word timings using the original display text
+      // Combine all chunks into one complete MP3 buffer
+      const completeAudio = Buffer.concat(audioBuffers);
+      
+      if (completeAudio.length > 0) {
+        // Send complete sentence audio as a single chunk
+        const audioBase64 = completeAudio.toString('base64');
+        this.sendMessage(session.ws, {
+          type: 'audio_chunk',
+          timestamp: Date.now(),
+          sentenceIndex: index,
+          chunkIndex: 0,
+          isLast: true,
+          durationMs: totalDurationMs,
+          audio: audioBase64,
+        } as StreamingAudioChunkMessage);
+      }
+      
+      // Send word timings for subtitle sync
       if (session.subtitleMode !== 'off') {
         const estimatedTimings = this.estimateWordTimings(text, totalDurationMs / 1000);
         this.sendMessage(session.ws, {
