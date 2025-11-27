@@ -91,10 +91,20 @@ async function getUserIdFromSession(req: IncomingMessage): Promise<string | null
  * Setup streaming voice WebSocket server
  */
 export function setupStreamingVoiceProxy(server: Server) {
-  const wss = new WebSocketServer({ 
-    server,
-    path: '/api/voice/stream/ws'
+  const wss = new WebSocketServer({ noServer: true });
+
+  // Handle upgrade requests routed from routes.ts
+  server.on('upgrade', (request, socket, head) => {
+    const { pathname } = new URL(request.url!, `http://${request.headers.host}`);
+    
+    if (pathname === '/api/voice/stream/ws') {
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+      });
+    }
   });
+  
+  console.log('[Streaming Voice] WebSocket server initialized on /api/voice/stream/ws');
 
   const orchestrator = getStreamingVoiceOrchestrator();
 
@@ -306,7 +316,6 @@ export function setupStreamingVoiceProxy(server: Server) {
     }
   });
 
-  console.log('[Streaming Voice] WebSocket server initialized on /api/voice/stream/ws');
   return wss;
 }
 

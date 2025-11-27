@@ -69,9 +69,17 @@ async function getUserIdFromSession(req: IncomingMessage): Promise<string | null
 }
 
 export function setupRealtimeProxy(server: Server) {
-  const wss = new WebSocketServer({ 
-    server,
-    path: '/api/realtime/ws'
+  const wss = new WebSocketServer({ noServer: true });
+
+  // Handle upgrade requests routed from routes.ts
+  server.on('upgrade', (request, socket, head) => {
+    const { pathname } = new URL(request.url!, `http://${request.headers.host}`);
+    
+    if (pathname === '/api/realtime/ws') {
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+      });
+    }
   });
 
   wss.on('connection', async (clientWs: WS, req) => {
