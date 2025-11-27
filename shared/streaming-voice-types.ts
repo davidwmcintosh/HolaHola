@@ -207,11 +207,11 @@ export interface ClientInterruptMessage {
  * Sentence chunking configuration
  */
 export const SENTENCE_CHUNKING_CONFIG = {
-  /** Minimum characters before considering a sentence break */
-  MIN_SENTENCE_LENGTH: 20,
+  /** Minimum characters before considering a sentence break (optimized for low latency) */
+  MIN_SENTENCE_LENGTH: 12,
   
   /** Maximum characters before forcing a chunk (prevents long waits) */
-  MAX_SENTENCE_LENGTH: 200,
+  MAX_SENTENCE_LENGTH: 150,
   
   /** Punctuation that marks sentence boundaries */
   SENTENCE_ENDINGS: ['.', '!', '?', '。', '！', '？'],
@@ -219,8 +219,8 @@ export const SENTENCE_CHUNKING_CONFIG = {
   /** Punctuation that can break long sentences */
   CLAUSE_BREAKS: [',', ';', ':', '—', '–', '、', '，'],
   
-  /** Maximum time to wait for more tokens before forcing chunk (ms) */
-  CHUNK_TIMEOUT_MS: 500,
+  /** Maximum time to wait for more tokens before forcing chunk (ms) - reduced for faster first audio */
+  CHUNK_TIMEOUT_MS: 300,
   
   /** Heartbeat interval to keep connection alive (ms) */
   HEARTBEAT_INTERVAL_MS: 30000,
@@ -284,4 +284,7 @@ export const STREAMING_FEATURE_FLAGS = {
   
   /** Enable sentence-level chunking (vs full response) */
   ENABLE_SENTENCE_CHUNKING: true,
+  
+  /** Use sonic-turbo for ultra-low latency (40ms vs 90ms) at slight quality cost */
+  USE_ULTRA_LOW_LATENCY_TTS: true,
 } as const;

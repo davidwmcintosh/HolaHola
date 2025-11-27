@@ -15,6 +15,7 @@ import { EventEmitter } from 'events';
 import {
   AUDIO_STREAMING_CONFIG,
   WordTiming,
+  STREAMING_FEATURE_FLAGS,
 } from '@shared/streaming-voice-types';
 import {
   CartesiaEmotion,
@@ -120,13 +121,16 @@ export class CartesiaStreamingService extends EventEmitter {
   
   constructor() {
     super();
-    this.model = process.env.TTS_CARTESIA_MODEL || 'sonic-3';
+    // Use sonic-turbo for ultra-low latency (40ms vs 90ms) if enabled
+    const defaultModel = STREAMING_FEATURE_FLAGS.USE_ULTRA_LOW_LATENCY_TTS ? 'sonic-turbo' : 'sonic-3';
+    this.model = process.env.TTS_CARTESIA_MODEL || defaultModel;
     
     if (process.env.CARTESIA_API_KEY) {
       this.client = new CartesiaClient({
         apiKey: process.env.CARTESIA_API_KEY,
       });
-      console.log(`[Cartesia Streaming] ✓ Initialized (model: ${this.model})`);
+      const latencyInfo = this.model === 'sonic-turbo' ? '~40ms' : '~90ms';
+      console.log(`[Cartesia Streaming] ✓ Initialized (model: ${this.model}, latency: ${latencyInfo})`);
     } else {
       console.warn('[Cartesia Streaming] ⚠ No API key configured');
     }
