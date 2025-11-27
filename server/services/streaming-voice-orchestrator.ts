@@ -27,6 +27,7 @@ import {
   LATENCY_TARGETS,
 } from "@shared/streaming-voice-types";
 import { constrainEmotion, TutorPersonality, CartesiaEmotion } from "./tts-service";
+import { extractTargetLanguageText } from "../text-utils";
 
 /**
  * Clean text for display by removing markdown, emotion tags, and other formatting
@@ -231,12 +232,16 @@ export class StreamingVoiceOrchestrator {
             return;
           }
           
+          // Extract target language only text (removes parenthetical translations)
+          const targetLanguageText = extractTargetLanguageText(displayText);
+          
           // Notify client of new sentence with cleaned text
           this.sendMessage(session.ws, {
             type: 'sentence_start',
             timestamp: Date.now(),
             sentenceIndex: chunk.index,
             text: displayText,
+            targetLanguageText: targetLanguageText || undefined,
           } as StreamingSentenceStartMessage);
           
           // Synthesize and stream audio for this sentence (pass cleaned text for timing)

@@ -41,7 +41,7 @@ export interface StreamingVoiceCallbacks {
   onConnectionStateChange: (state: StreamingConnectionState) => void;
   onSessionStart: (sessionId: string) => void;
   onProcessing: (transcript: string) => void;
-  onSentenceStart: (index: number, text: string) => void;
+  onSentenceStart: (index: number, text: string, targetLanguageText?: string) => void;
   onAudioReady: (sentenceIndex: number, audio: ArrayBuffer, duration: number) => void;
   onWordTimings: (sentenceIndex: number, timings: WordTiming[]) => void;
   onSentenceEnd: (index: number, duration: number) => void;
@@ -353,7 +353,7 @@ export class StreamingVoiceClient {
     console.log(`[StreamingVoiceClient] Sentence ${message.sentenceIndex}: "${message.text.substring(0, 50)}..."`);
     this.currentSentenceIndex = message.sentenceIndex;
     this.setState('streaming');
-    this.callbacks.onSentenceStart?.(message.sentenceIndex, message.text);
+    this.callbacks.onSentenceStart?.(message.sentenceIndex, message.text, message.targetLanguageText);
     this.emit('sentenceStart', message);
   }
   

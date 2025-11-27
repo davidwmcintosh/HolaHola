@@ -60,6 +60,7 @@ export interface UseStreamingVoiceReturn {
   sendAudio: (audioData: ArrayBuffer) => Promise<void>;
   stop: () => void;
   isSupported: () => boolean;
+  isReady: () => boolean;
 }
 
 /**
@@ -78,6 +79,30 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const playerRef = useRef<StreamingAudioPlayer | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   
+  // Track orchestrator response completion and pending audio
+  // isProcessing should only be cleared when BOTH:
+  // 1. Server has sent response_complete (responseCompleteRef = true)
+  // 2. No pending audio chunks (pendingAudioCount = 0)
+  const responseCompleteRef = useRef(false);
+  const pendingAudioCountRef = useRef(0);
+  const setIsProcessingRef = useRef(setIsProcessing);
+  setIsProcessingRef.current = setIsProcessing;
+  
+  // Helper to check if we can clear isProcessing
+  // Note: Does NOT reset responseCompleteRef - that's done when new request starts
+  const checkAndClearProcessing = useCallback(() => {
+    const isComplete = responseCompleteRef.current;
+    const noPendingAudio = pendingAudioCountRef.current === 0;
+    
+    if (isComplete && noPendingAudio) {
+      console.log('[StreamingVoice] Response complete AND no pending audio - clearing isProcessing');
+      setIsProcessingRef.current(false);
+      // Don't reset responseCompleteRef here - let sendAudio do it
+    } else {
+      console.log(`[StreamingVoice] Not clearing: complete=${isComplete}, pending=${pendingAudioCountRef.current}`);
+    }
+  }, []);
+  
   // Subtitle management
   const subtitles = useStreamingSubtitles();
   
@@ -88,16 +113,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     playerRef.current = new StreamingAudioPlayer();
     
     // Set up player callbacks
+    // NOTE: isProcessing is only cleared when BOTH:
+    // 1. Server has sent response_complete (responseCompleteRef = true)
+    // 2. No pending audio chunks (pendingAudioCountRef = 0)
     playerRef.current.setCallbacks({
       onStateChange: (state) => {
         console.log(`[StreamingVoice] Playback state: ${state}`);
         setPlaybackState(state);
-        
-        // Clear processing state when audio actually starts playing
-        // This ensures the "processing" indicator doesn't disappear until audio begins
-        if (state === 'playing') {
-          setIsProcessing(false);
-        }
       },
       onProgress: (currentTime, duration) => {
         // Update subtitle highlighting
@@ -106,22 +128,35 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       onSentenceStart: (sentenceIndex) => {
         console.log(`[StreamingVoice] Sentence ${sentenceIndex} started`);
         subtitles.startPlayback(sentenceIndex);
-        // Also clear processing when first sentence starts (audio is ready)
-        setIsProcessing(false);
       },
       onSentenceEnd: (sentenceIndex) => {
         console.log(`[StreamingVoice] Sentence ${sentenceIndex} ended`);
         subtitles.completeSentence(sentenceIndex);
       },
       onComplete: () => {
-        console.log('[StreamingVoice] Playback complete');
-        subtitles.stopPlayback();
-        setIsProcessing(false); // Ensure processing is cleared on completion
+        console.log('[StreamingVoice] Playback queue empty');
+        // Only stop subtitles when response is truly complete
+        // Don't stop during buffer gaps between sentences
+        if (responseCompleteRef.current && pendingAudioCountRef.current === 0) {
+          subtitles.stopPlayback();
+        }
+        // Check if we can clear isProcessing
+        checkAndClearProcessing();
       },
       onError: (err) => {
         console.error('[StreamingVoice] Playback error:', err);
         setError(err.message);
-        setIsProcessing(false); // Clear processing on error too
+        // On error, clear everything immediately
+        setIsProcessingRef.current(false);
+        // Note: Don't reset refs here - player.stop() will handle that
+      },
+      onPendingAudioChange: (count) => {
+        console.log(`[StreamingVoice] Pending audio: ${count}`);
+        pendingAudioCountRef.current = count;
+        // If no pending audio and response complete, clear isProcessing
+        if (count === 0) {
+          checkAndClearProcessing();
+        }
       },
     });
     
@@ -134,8 +169,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * Handle sentence start message
    */
   const handleSentenceStart = useCallback((msg: StreamingSentenceStartMessage) => {
-    console.log(`[StreamingVoice] Sentence ${msg.sentenceIndex}: "${msg.text.substring(0, 50)}..."`);
-    subtitles.addSentence(msg.sentenceIndex, msg.text);
+    console.log(`[StreamingVoice] Sentence ${msg.sentenceIndex}: "${msg.text.substring(0, 50)}..." (target: ${msg.targetLanguageText?.substring(0, 30) || 'none'})`);
+    subtitles.addSentence(msg.sentenceIndex, msg.text, msg.targetLanguageText);
   }, [subtitles]);
   
   /**
@@ -170,14 +205,19 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   
   /**
    * Handle response complete message
-   * Note: Don't clear isProcessing here - wait for audio to actually start playing
+   * The server has finished streaming all audio chunks.
+   * Check if we can clear isProcessing (no pending audio remaining).
    */
   const handleResponseComplete = useCallback((msg: StreamingResponseCompleteMessage) => {
-    console.log('[StreamingVoice] Response complete (audio may still be buffering)');
-    // Don't set isProcessing(false) here - the player state change callback will do it
-    // when audio actually starts playing
+    console.log('[StreamingVoice] Server signaled response complete');
     setMetrics(msg.metrics || null);
-  }, []);
+    
+    // Mark response as complete
+    responseCompleteRef.current = true;
+    
+    // Check if we can clear isProcessing (no pending audio)
+    checkAndClearProcessing();
+  }, [checkAndClearProcessing]);
   
   /**
    * Handle errors
@@ -252,6 +292,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     playerRef.current?.stop();
     subtitles.reset();
     
+    // Reset state
+    responseCompleteRef.current = false;
+    pendingAudioCountRef.current = 0;
     setConnectionState('disconnected');
     setIsProcessing(false);
   }, [handleSentenceStart, handleAudioChunk, handleWordTiming, handleResponseComplete, handleError, subtitles]);
@@ -269,6 +312,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     console.log(`[StreamingVoice] Sending ${audioData.byteLength} bytes of audio`);
     
+    // Reset state for new request
+    responseCompleteRef.current = false;
+    pendingAudioCountRef.current = 0;
     setIsProcessing(true);
     setError(null);
     subtitles.reset();
@@ -284,6 +330,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     playerRef.current?.stop();
     subtitles.stopPlayback();
+    responseCompleteRef.current = false;
+    pendingAudioCountRef.current = 0;
     setIsProcessing(false);
   }, [subtitles]);
   

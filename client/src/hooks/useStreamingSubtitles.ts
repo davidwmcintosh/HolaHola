@@ -14,6 +14,7 @@ import { WordTiming } from '../../../shared/streaming-voice-types';
 export interface SubtitleSentence {
   index: number;
   text: string;
+  targetLanguageText?: string;  // Target language only (for subtitle filtering)
   wordTimings: WordTiming[];
   isComplete: boolean;
 }
@@ -28,6 +29,7 @@ export interface StreamingSubtitleState {
   visibleWordCount: number;
   isPlaying: boolean;
   fullText: string;
+  targetFullText: string;  // Target language only (for subtitle mode filtering)
 }
 
 /**
@@ -35,7 +37,7 @@ export interface StreamingSubtitleState {
  */
 export interface UseStreamingSubtitlesReturn {
   state: StreamingSubtitleState;
-  addSentence: (index: number, text: string) => void;
+  addSentence: (index: number, text: string, targetLanguageText?: string) => void;
   setWordTimings: (sentenceIndex: number, timings: WordTiming[]) => void;
   startPlayback: (sentenceIndex: number) => void;
   updatePlaybackTime: (currentTime: number) => void;
@@ -64,8 +66,8 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   /**
    * Add a new sentence (called when server sends sentence_start)
    */
-  const addSentence = useCallback((index: number, text: string) => {
-    console.log(`[StreamingSubtitles] Add sentence ${index}: "${text.substring(0, 50)}..."`);
+  const addSentence = useCallback((index: number, text: string, targetLanguageText?: string) => {
+    console.log(`[StreamingSubtitles] Add sentence ${index}: "${text.substring(0, 50)}..." (target: ${targetLanguageText?.substring(0, 30) || 'none'})`);
     
     setSentences(prev => {
       // Check if sentence already exists
@@ -77,6 +79,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       return [...prev, {
         index,
         text,
+        targetLanguageText,
         wordTimings: [],
         isComplete: false,
       }];
@@ -215,6 +218,16 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     [sentences]
   );
   
+  // Compute target-language-only full text (for subtitle mode filtering)
+  const targetFullText = useMemo(() => 
+    sentences
+      .sort((a, b) => a.index - b.index)
+      .map(s => s.targetLanguageText || '')
+      .filter(t => t.length > 0)
+      .join(' '),
+    [sentences]
+  );
+  
   // Memoize the return value to prevent infinite re-render loops
   // when this hook's return value is used as a dependency in other hooks
   return useMemo(() => ({
@@ -225,6 +238,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       visibleWordCount,
       isPlaying,
       fullText,
+      targetFullText,
     },
     addSentence,
     setWordTimings,
@@ -241,6 +255,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     visibleWordCount,
     isPlaying,
     fullText,
+    targetFullText,
     addSentence,
     setWordTimings,
     startPlayback,

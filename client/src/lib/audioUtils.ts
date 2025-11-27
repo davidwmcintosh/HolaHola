@@ -177,6 +177,7 @@ export interface StreamingPlaybackCallbacks {
   onSentenceEnd?: (sentenceIndex: number) => void;
   onComplete?: () => void;
   onError?: (error: Error) => void;
+  onPendingAudioChange?: (count: number) => void;
 }
 
 export class StreamingAudioPlayer {
@@ -187,9 +188,23 @@ export class StreamingAudioPlayer {
   private callbacks: StreamingPlaybackCallbacks = {};
   private objectUrls: string[] = [];
   private isPlaying = false;
+  private pendingAudioCount = 0;
   
   constructor() {
     console.log('[StreamingAudioPlayer] Initialized');
+  }
+  
+  /**
+   * Get the number of pending audio chunks (queued + currently playing)
+   */
+  getPendingAudioCount(): number {
+    return this.pendingAudioCount;
+  }
+  
+  private updatePendingCount(count: number): void {
+    this.pendingAudioCount = count;
+    console.log(`[StreamingAudioPlayer] Pending audio count: ${count}`);
+    this.callbacks.onPendingAudioChange?.(count);
   }
   
   /**
@@ -214,6 +229,7 @@ export class StreamingAudioPlayer {
     console.log(`[StreamingAudioPlayer] Enqueue sentence ${chunk.sentenceIndex} (${chunk.audio.byteLength} bytes)`);
     
     this.queue.push(chunk);
+    this.updatePendingCount(this.pendingAudioCount + 1);
     
     // Start playback if not already playing
     if (!this.isPlaying) {
@@ -234,9 +250,10 @@ export class StreamingAudioPlayer {
       this.currentAudio = null;
     }
     
-    // Clear queue
+    // Clear queue and pending count
     this.queue = [];
     this.isPlaying = false;
+    this.updatePendingCount(0);
     
     // Cleanup object URLs
     this.cleanupUrls();
@@ -282,6 +299,10 @@ export class StreamingAudioPlayer {
     this.isPlaying = true;
     this.currentSentenceIndex = chunk.sentenceIndex;
     
+    // Set state to buffering BEFORE firing callbacks
+    // This prevents race condition where isProcessing=false but playbackState still 'idle'
+    this.setState('buffering');
+    
     console.log(`[StreamingAudioPlayer] Playing sentence ${chunk.sentenceIndex}`);
     this.callbacks.onSentenceStart?.(chunk.sentenceIndex);
     
@@ -316,6 +337,9 @@ export class StreamingAudioPlayer {
         console.log(`[StreamingAudioPlayer] Sentence ${chunk.sentenceIndex} ended`);
         this.callbacks.onSentenceEnd?.(chunk.sentenceIndex);
         
+        // Decrement pending count after chunk finishes
+        this.updatePendingCount(Math.max(0, this.pendingAudioCount - 1));
+        
         // Play next chunk
         this.playNext();
       };
@@ -324,12 +348,12 @@ export class StreamingAudioPlayer {
         console.error('[StreamingAudioPlayer] Audio error:', event);
         this.callbacks.onError?.(new Error('Audio playback failed'));
         
+        // Decrement pending count on error too
+        this.updatePendingCount(Math.max(0, this.pendingAudioCount - 1));
+        
         // Try next chunk
         this.playNext();
       };
-      
-      // Start buffering
-      this.setState('buffering');
       
       // Start playback
       await this.currentAudio.play();

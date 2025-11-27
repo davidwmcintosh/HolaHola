@@ -27,6 +27,7 @@ interface VoiceChatViewManagerProps {
   wordTimings?: WordTiming[];
   tutorGender?: 'male' | 'female';
   streamingText?: string;
+  streamingTargetText?: string;
   streamingWordIndex?: number;
 }
 
@@ -49,6 +50,7 @@ export function VoiceChatViewManager({
   wordTimings,
   tutorGender = "female",
   streamingText,
+  streamingTargetText,
   streamingWordIndex,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
@@ -178,6 +180,7 @@ export function VoiceChatViewManager({
                 subtitleMode={subtitleMode}
                 tutorGender={tutorGender}
                 streamingText={streamingText}
+                streamingTargetText={streamingTargetText}
                 streamingWordIndex={streamingWordIndex}
               />
             </div>

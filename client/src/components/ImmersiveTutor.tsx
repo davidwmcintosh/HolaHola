@@ -39,6 +39,7 @@ interface ImmersiveTutorProps {
   subtitleMode?: SubtitleMode; // Subtitle display mode: off, target (target language only), all
   tutorGender?: 'male' | 'female'; // Tutor avatar gender preference
   streamingText?: string; // Text from streaming voice mode
+  streamingTargetText?: string; // Target language only text from streaming mode
   streamingWordIndex?: number; // Current word index for streaming subtitles
 }
 
@@ -63,6 +64,7 @@ export function ImmersiveTutor({
   subtitleMode = "target",
   tutorGender = "female",
   streamingText,
+  streamingTargetText,
   streamingWordIndex = -1,
 }: ImmersiveTutorProps) {
   const [currentWordTimings, setCurrentWordTimings] = useState<WordTiming[]>([]);
@@ -367,7 +369,18 @@ export function ImmersiveTutor({
           
           // STREAMING MODE: Use streaming text if available
           if (streamingText && isPlaying) {
-            const words = streamingText.split(/\s+/).filter(w => w.length > 0);
+            // For "target" mode, use streamingTargetText if available
+            const displayTextForStreaming = subtitleMode === "target" 
+              ? (streamingTargetText || streamingText) 
+              : streamingText;
+            
+            // For "target" mode with no target text available, don't show subtitles
+            if (subtitleMode === "target" && !streamingTargetText) {
+              // No target language content in streaming - skip display
+              return null;
+            }
+            
+            const words = displayTextForStreaming.split(/\s+/).filter(w => w.length > 0);
             
             return (
               <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">

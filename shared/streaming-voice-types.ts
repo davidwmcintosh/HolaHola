@@ -81,6 +81,7 @@ export interface StreamingSentenceStartMessage extends StreamingVoiceMessage {
   type: 'sentence_start';
   sentenceIndex: number;
   text: string;           // The sentence text (for display)
+  targetLanguageText?: string;  // Target language only (parenthetical translations removed)
 }
 
 /**

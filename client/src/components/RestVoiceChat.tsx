@@ -237,20 +237,22 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     
     const { isProcessing: streamProcessing, playbackState, error: streamError, connectionState } = streamingVoice.state;
     
-    // Update avatar state based on streaming playback
-    if (playbackState === 'playing') {
+    // Update avatar state based on streaming state
+    // Keep avatar speaking whenever we're processing OR audio is playing/buffering
+    // Only go to idle when BOTH are false - this prevents flashing during buffer gaps
+    const isActive = streamProcessing || playbackState === 'playing' || playbackState === 'buffering';
+    
+    if (isActive) {
+      // Audio is active (processing, playing, or buffering) - show speaking state
       setAvatarState('speaking');
-    } else if (playbackState === 'idle' && !streamProcessing) {
-      // Reset to idle when playback finishes and not processing
+    } else {
+      // Both processing finished AND playback is idle - reset to idle
       setAvatarState('idle');
       if (isProcessingRef.current) {
         setIsProcessing(false);
         isProcessingRef.current = false;
         setProcessingStage(null);
       }
-    } else if (playbackState === 'buffering') {
-      // Keep speaking state during buffering between sentences
-      setAvatarState('speaking');
     }
     
     // Handle streaming errors - show them since we don't have REST fallback
@@ -1318,6 +1320,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           wordTimings={currentPlayingMessageId ? wordTimingsMapRef.current.get(currentPlayingMessageId) : undefined}
           tutorGender={user?.tutorGender as 'male' | 'female' || 'female'}
           streamingText={useStreamingMode ? streamingVoice.subtitles.state.fullText : undefined}
+          streamingTargetText={useStreamingMode ? streamingVoice.subtitles.state.targetFullText : undefined}
           streamingWordIndex={useStreamingMode ? streamingVoice.subtitles.state.currentWordIndex : undefined}
         />
       </div>
