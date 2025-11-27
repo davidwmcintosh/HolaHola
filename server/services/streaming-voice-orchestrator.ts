@@ -159,7 +159,16 @@ export class StreamingVoiceOrchestrator {
       console.log(`[Streaming Orchestrator] STT: "${transcript}" (${metrics.sttLatencyMs}ms)`);
       
       if (!transcript.trim()) {
-        throw new Error('Empty transcript from audio');
+        // Empty transcript - gracefully notify client and return
+        console.log('[Streaming Orchestrator] Empty transcript - audio too short or unclear');
+        this.sendMessage(session.ws, {
+          type: 'error',
+          timestamp: Date.now(),
+          code: 'EMPTY_TRANSCRIPT',
+          message: 'Could not understand audio. Please try speaking again.',
+          recoverable: true,
+        });
+        return metrics;
       }
       
       // Notify client that processing has started
