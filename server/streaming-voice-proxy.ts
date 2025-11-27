@@ -104,9 +104,27 @@ export function setupStreamingVoiceProxy(server: Server) {
     
     if (pathname === '/api/voice/stream/ws') {
       console.log('[Streaming Voice] Handling WebSocket upgrade');
-      wss.handleUpgrade(request, socket, head, (ws) => {
-        wss.emit('connection', ws, request);
-      });
+      
+      // Check socket state before upgrade
+      console.log(`[Streaming Voice] Socket state before upgrade - destroyed: ${socket.destroyed}, writable: ${socket.writable}`);
+      
+      try {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+          console.log('[Streaming Voice] handleUpgrade callback fired');
+          console.log(`[Streaming Voice] WebSocket readyState: ${ws.readyState}`);
+          
+          if (ws.readyState !== 1) { // 1 = OPEN
+            console.error(`[Streaming Voice] WebSocket not open after upgrade, state: ${ws.readyState}`);
+            return;
+          }
+          
+          console.log('[Streaming Voice] Emitting connection event');
+          wss.emit('connection', ws, request);
+        });
+      } catch (err) {
+        console.error('[Streaming Voice] handleUpgrade threw error:', err);
+        socket.destroy();
+      }
     }
     // Let other upgrade requests (like Vite HMR) pass through
   });

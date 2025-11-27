@@ -43,7 +43,49 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Vocabulary-Conversation Linking**: Extracted vocabulary words are linked to their source conversation via `sourceConversationId`, enabling navigation from flashcards back to the original context.
 
-**Streaming Voice Mode Architecture**: A WebSocket-based progressive audio delivery system (currently enabled for testing) aims to reduce Time To First Byte (TTFB) to under 1 second. The pipeline involves Deepgram STT, Gemini streaming, sentence chunking, Cartesia WebSocket TTS, and progressive audio playback. The server streams `connected`, `processing`, `sentence_start`, `audio_chunk`, `word_timing`, `sentence_end`, and `response_complete` messages to the client. Error recovery includes automatic fallback to REST mode and reconnection attempts.
+**Streaming Voice Mode Architecture**: A WebSocket-based progressive audio delivery system aims to reduce Time To First Byte (TTFB) to under 1 second. The pipeline involves Deepgram STT, Gemini streaming, sentence chunking, Cartesia WebSocket TTS, and progressive audio playback. The server streams `connected`, `processing`, `sentence_start`, `audio_chunk`, `word_timing`, `sentence_end`, and `response_complete` messages to the client.
+
+## ACTIVE DEBUGGING: Streaming Voice WebSocket Failure
+
+**Status**: BROKEN - WebSocket connections fail immediately after upgrade with code 1006
+
+**Requirement**: Streaming mode ONLY - no REST fallback allowed
+
+**Key Files to Debug**:
+- `server/streaming-voice-proxy.ts` - WebSocket server setup and connection handler
+- `client/src/lib/streamingVoiceClient.ts` - Client-side WebSocket connection
+- `client/src/hooks/useStreamingVoice.ts` - React hook for streaming voice
+- `server/services/streaming-voice-orchestrator.ts` - Server-side orchestration
+- `client/src/components/RestVoiceChat.tsx` - Voice chat UI (now streaming-only)
+
+**Observed Behavior**:
+1. Server receives upgrade request: `[Streaming Voice] Upgrade request for path: /api/voice/stream/ws`
+2. Server handles upgrade: `[Streaming Voice] Handling WebSocket upgrade`
+3. Client immediately fails: `[StreamingVoiceClient] WebSocket closed: 1006 - `
+4. Server NEVER logs: `[Streaming Voice] Client connected` (connection handler not reached)
+
+**Root Cause Hypothesis**:
+The `wss.handleUpgrade()` succeeds but something fails between the upgrade and the `connection` event:
+- Auth check throwing exception?
+- Socket being closed before connection event fires?
+- Missing await or async issue in upgrade handler?
+
+**Current WebSocket Setup** (using noServer mode):
+```javascript
+server.on('upgrade', (request, socket, head) => {
+  if (pathname === '/api/voice/stream/ws') {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
+  }
+});
+```
+
+**Next Debug Steps**:
+1. Add try-catch and logging inside handleUpgrade callback
+2. Log before and after wss.emit('connection')
+3. Check if socket is already closed when callback fires
+4. Verify auth function doesn't throw before connection event
 
 ## External Dependencies
 
