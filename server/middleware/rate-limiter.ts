@@ -30,7 +30,7 @@ function rateLimitHandler(req: Request, res: Response) {
  * These endpoints use the 'upgrade' HTTP mechanism which doesn't play well with rate limiting
  */
 const WEBSOCKET_PATHS = [
-  '/api/voice/stream/ws',
+  '/api/streaming/ws',
   '/api/realtime/ws'
 ];
 

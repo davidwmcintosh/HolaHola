@@ -92,47 +92,17 @@ async function getUserIdFromSession(req: IncomingMessage): Promise<string | null
 /**
  * Setup streaming voice WebSocket server
  */
+// Export the WebSocket server for unified upgrade handling
+export let streamingWss: WS.Server | null = null;
+
 export function setupStreamingVoiceProxy(server: Server) {
-  // Use noServer mode and manually handle the upgrade event
-  // This ensures we handle the upgrade before any Express middleware can interfere
+  console.log('[Streaming Voice] Setting up WebSocket server...');
+  
+  // Use noServer: true for coordinated upgrade handling with other WebSocket servers
   const wss = new WebSocketServer({ noServer: true });
+  streamingWss = wss;
   
-  const STREAMING_WS_PATH = '/api/voice/stream/ws';
-  
-  // Add debug logging for all upgrade attempts
-  server.on('upgrade', (req, socket, head) => {
-    const pathname = new URL(req.url!, `http://${req.headers.host}`).pathname;
-    
-    console.log(`[Streaming Voice] Upgrade request received for: ${pathname}`);
-    
-    if (pathname === STREAMING_WS_PATH || pathname.startsWith(STREAMING_WS_PATH + '?')) {
-      console.log('[Streaming Voice] Handling WebSocket upgrade...');
-      console.log('[Streaming Voice] Socket destroyed?', socket.destroyed);
-      console.log('[Streaming Voice] Socket writable?', socket.writable);
-      
-      // Check if socket is still valid
-      if (socket.destroyed) {
-        console.error('[Streaming Voice] Socket already destroyed before upgrade');
-        return;
-      }
-      
-      // Add error handler for socket
-      socket.on('error', (err) => {
-        console.error('[Streaming Voice] Socket error during upgrade:', err);
-      });
-      
-      try {
-        wss.handleUpgrade(req, socket, head, (ws) => {
-          console.log('[Streaming Voice] Upgrade successful, emitting connection');
-          wss.emit('connection', ws, req);
-        });
-      } catch (error) {
-        console.error('[Streaming Voice] Error in handleUpgrade:', error);
-        socket.destroy();
-      }
-    }
-    // If not our path, let other handlers (like Vite HMR) handle it
-  });
+  console.log('[Streaming Voice] WebSocket server created (noServer mode)');
 
   const orchestrator = getStreamingVoiceOrchestrator();
 
@@ -381,7 +351,7 @@ export function setupStreamingVoiceProxy(server: Server) {
     }
   });
 
-  console.log('[Streaming Voice] WebSocket server initialized on /api/voice/stream/ws');
+  console.log('[Streaming Voice] WebSocket server initialized on /api/streaming/ws');
   return wss;
 }
 

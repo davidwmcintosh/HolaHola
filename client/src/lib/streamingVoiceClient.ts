@@ -177,7 +177,7 @@ export class StreamingVoiceClient {
     
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/api/voice/stream/ws?conversationId=${conversationId}`;
+      const wsUrl = `${protocol}//${window.location.host}/api/streaming/ws?conversationId=${conversationId}`;
       
       console.log('[StreamingVoiceClient] Connecting to:', wsUrl);
       
