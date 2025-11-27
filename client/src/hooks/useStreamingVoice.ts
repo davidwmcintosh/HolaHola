@@ -260,7 +260,10 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * Send audio for processing
    */
   const sendAudio = useCallback(async (audioData: ArrayBuffer) => {
-    if (!clientRef.current || connectionState !== 'ready') {
+    // Check client's actual state, not React state (avoid stale closure)
+    const actualState = clientRef.current?.getState();
+    if (!clientRef.current || !clientRef.current.isReady()) {
+      console.error('[StreamingVoice] Cannot send audio - not ready. Client state:', actualState);
       throw new Error('Not connected to streaming voice service');
     }
     
@@ -289,6 +292,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    */
   const isSupported = useCallback(() => {
     return 'WebSocket' in window;
+  }, []);
+  
+  /**
+   * Check if client is ready to send audio (checks actual client state, not React state)
+   */
+  const isReady = useCallback(() => {
+    return clientRef.current?.isReady() ?? false;
   }, []);
   
   // Store disconnect in a ref so cleanup can use latest version without dependency
@@ -321,5 +331,6 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     sendAudio,
     stop,
     isSupported,
+    isReady,
   };
 }
