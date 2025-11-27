@@ -93,6 +93,8 @@ async function getUserIdFromSession(req: IncomingMessage): Promise<string | null
  * Setup streaming voice WebSocket server
  */
 export function setupStreamingVoiceProxy(server: Server) {
+  // Use the built-in { server, path } pattern which registers the upgrade handler
+  // immediately when the WebSocketServer is created, before Vite's HMR can intercept
   const wss = new WebSocketServer({ 
     server,
     path: '/api/voice/stream/ws'
