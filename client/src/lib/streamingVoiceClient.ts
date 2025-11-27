@@ -158,10 +158,11 @@ export class StreamingVoiceClient {
   }
   
   /**
-   * Check if connected and ready
+   * Check if connected and ready to send audio
    */
   isReady(): boolean {
-    return this.state === 'connected' && this.ws?.readyState === WebSocket.OPEN;
+    // State is 'connected' after WebSocket opens, 'ready' after session is established
+    return (this.state === 'connected' || this.state === 'ready') && this.ws?.readyState === WebSocket.OPEN;
   }
   
   /**
