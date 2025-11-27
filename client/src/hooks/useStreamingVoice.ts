@@ -79,6 +79,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       onStateChange: (state) => {
         console.log(`[StreamingVoice] Playback state: ${state}`);
         setPlaybackState(state);
+        
+        // Clear processing state when audio actually starts playing
+        // This ensures the "processing" indicator doesn't disappear until audio begins
+        if (state === 'playing') {
+          setIsProcessing(false);
+        }
       },
       onProgress: (currentTime, duration) => {
         // Update subtitle highlighting
@@ -87,6 +93,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       onSentenceStart: (sentenceIndex) => {
         console.log(`[StreamingVoice] Sentence ${sentenceIndex} started`);
         subtitles.startPlayback(sentenceIndex);
+        // Also clear processing when first sentence starts (audio is ready)
+        setIsProcessing(false);
       },
       onSentenceEnd: (sentenceIndex) => {
         console.log(`[StreamingVoice] Sentence ${sentenceIndex} ended`);
@@ -95,10 +103,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       onComplete: () => {
         console.log('[StreamingVoice] Playback complete');
         subtitles.stopPlayback();
+        setIsProcessing(false); // Ensure processing is cleared on completion
       },
       onError: (err) => {
         console.error('[StreamingVoice] Playback error:', err);
         setError(err.message);
+        setIsProcessing(false); // Clear processing on error too
       },
     });
     
@@ -147,10 +157,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   
   /**
    * Handle response complete message
+   * Note: Don't clear isProcessing here - wait for audio to actually start playing
    */
   const handleResponseComplete = useCallback((msg: StreamingResponseCompleteMessage) => {
-    console.log('[StreamingVoice] Response complete');
-    setIsProcessing(false);
+    console.log('[StreamingVoice] Response complete (audio may still be buffering)');
+    // Don't set isProcessing(false) here - the player state change callback will do it
+    // when audio actually starts playing
     setMetrics(msg.metrics || null);
   }, []);
   

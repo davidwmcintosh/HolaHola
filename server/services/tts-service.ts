@@ -159,15 +159,14 @@ export function getDefaultEmotion(personality: TutorPersonality = 'warm'): Carte
  * Estimate word-level timings based on text and audio duration
  * Uses word length weighting with punctuation-aware pauses for natural prosody
  * 
- * @param text - The spoken text
+ * @param text - The original display text (should not contain phoneme tags)
  * @param audioDurationSeconds - Estimated audio duration in seconds
  * @returns Array of word timings with start/end times
  */
 export function estimateWordTimings(text: string, audioDurationSeconds: number): WordTiming[] {
-  // Clean text and split into words, preserving phoneme syntax
-  const cleanedText = text
-    .replace(/<<[^>]+>>/g, match => match.replace(/\|/g, '')) // Keep phonemes as single "word"
-    .replace(/\[laughter\]/gi, ''); // Remove laughter tags
+  // Replace laughter tags with space to preserve word count alignment
+  // Phonemes should only be added when sending to TTS, not passed here
+  const cleanedText = text.replace(/\[laughter\]/gi, ' ');
   
   const words = cleanedText
     .split(/\s+/)
@@ -819,10 +818,11 @@ export class TTSService {
       
       console.log(`[Cartesia] ✓ Generated ${audioBuffer.length} bytes`);
 
-      // Estimate word timings from audio duration and text
+      // Estimate word timings from audio duration and ORIGINAL text (not phonemedText)
+      // The display subtitles should show the original text without phoneme tags
       // MP3 at 128kbps: 16KB ≈ 1 second
       const estimatedDuration = estimateAudioDuration(audioBuffer.length, 128);
-      const wordTimings = estimateWordTimings(cleanedText, estimatedDuration);
+      const wordTimings = estimateWordTimings(text, estimatedDuration);
 
       return {
         audioBuffer,

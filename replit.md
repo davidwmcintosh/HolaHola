@@ -30,6 +30,7 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - **Client-side Rescaling**: Frontend rescales estimated timings to actual audio duration using `loadedmetadata` event for precise synchronization
 - **Progressive Reveal**: Words appear one-by-one as the tutor speaks, with the current word highlighted in primary color
 - **Target Mode**: In "Target" subtitle mode, only foreign language phrases are displayed with karaoke timing
+- **Phoneme/Display Separation**: TTS receives phoneme-tagged text (e.g., `<<o|l|a>>` for "Hola") for correct pronunciation, but word timings always use the ORIGINAL display text. Cartesia WebSocket timestamps are intentionally ignored because they reference phoneme-processed text. This preserves Spanish punctuation (¡¿) and ensures karaoke subtitles show readable text.
 
 **Deepgram Pre-Warming**: The Deepgram connection is pre-warmed on voice chat entry by sending a minimal silent WAV to reduce cold-start latency.
 

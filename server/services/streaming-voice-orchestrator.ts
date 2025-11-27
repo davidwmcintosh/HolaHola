@@ -282,24 +282,10 @@ export class StreamingVoiceOrchestrator {
     
     let chunkIndex = 0;
     let totalDurationMs = 0;
-    let wordTimingsSent = false;
     
-    // Set up per-session timestamp listener
-    const timestampHandler = (timings: WordTiming[]) => {
-      if (!wordTimingsSent && session.subtitleMode !== 'off' && timings.length > 0) {
-        wordTimingsSent = true;
-        this.sendMessage(session.ws, {
-          type: 'word_timing',
-          timestamp: Date.now(),
-          sentenceIndex: index,
-          words: timings,
-          timings: timings,
-        } as StreamingWordTimingMessage);
-      }
-    };
-    
-    // Register listener for this sentence's timestamps
-    this.cartesiaService.on('timestamps', timestampHandler);
+    // Note: We intentionally DON'T use Cartesia's word timestamps
+    // because they're for phoneme-processed text (e.g., "<<o|l|a>>")
+    // We always estimate timings using the original display text
     
     try {
       // Stream audio chunks progressively as they arrive from Cartesia
@@ -334,8 +320,8 @@ export class StreamingVoiceOrchestrator {
         }
       }
       
-      // If word timings weren't provided by Cartesia, estimate them
-      if (!wordTimingsSent && session.subtitleMode !== 'off') {
+      // Always estimate word timings using the original display text
+      if (session.subtitleMode !== 'off') {
         const estimatedTimings = this.estimateWordTimings(text, totalDurationMs / 1000);
         this.sendMessage(session.ws, {
           type: 'word_timing',
@@ -354,17 +340,22 @@ export class StreamingVoiceOrchestrator {
         totalDurationMs,
       } as StreamingSentenceEndMessage);
       
-    } finally {
-      // Always remove the listener to prevent memory leaks
-      this.cartesiaService.off('timestamps', timestampHandler);
+    } catch (error: any) {
+      console.error(`[Streaming] TTS error for sentence ${index}:`, error.message);
+      throw error;
     }
   }
   
   /**
    * Estimate word timings when not provided by TTS
+   * Uses the original display text for word timings (phonemes are only added inside Cartesia)
    */
   private estimateWordTimings(text: string, durationSeconds: number): WordTiming[] {
-    const words = text.split(/\s+/).filter(w => w.length > 0);
+    // Replace [laughter] tags with a space to preserve word count alignment
+    // Phoneme tags are only added inside Cartesia, so `text` here is the clean display text
+    const cleanedText = text.replace(/\[laughter\]/gi, ' ');
+    
+    const words = cleanedText.split(/\s+/).filter(w => w.length > 0);
     if (words.length === 0) return [];
     
     const wordWeights = words.map(word => {

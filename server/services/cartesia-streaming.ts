@@ -264,10 +264,13 @@ export class CartesiaStreamingService extends EventEmitter {
           },
         });
         
-        // Emit word timestamps if available
+        // Note: We intentionally DON'T use Cartesia's word timestamps here
+        // because they're for the phoneme-processed text (e.g., "<<o|l|a>>")
+        // not the original display text (e.g., "Hola")
+        // The orchestrator will use its own estimation with the original display text
         result.on('timestamps', (timestamps: any) => {
-          const wordTimings = this.convertTimestamps(timestamps);
-          this.emit('timestamps', wordTimings);
+          // Log but don't emit - let orchestrator use original text for timing
+          console.log(`[Cartesia Streaming] Received ${timestamps?.words?.length || 0} word timestamps (not using - phoneme mismatch)`);
         });
         
         // Stream audio chunks from the source
@@ -418,9 +421,13 @@ export class CartesiaStreamingService extends EventEmitter {
   /**
    * Estimate word timings from text and duration
    * Falls back to this when WebSocket doesn't provide timestamps
+   * Note: `text` here is the original display text before phoneme conversion
    */
   private estimateWordTimings(text: string, durationSeconds: number): WordTiming[] {
-    const words = text.split(/\s+/).filter(w => w.length > 0);
+    // Replace [laughter] tags with a space to preserve word alignment
+    const cleanedText = text.replace(/\[laughter\]/gi, ' ');
+    
+    const words = cleanedText.split(/\s+/).filter(w => w.length > 0);
     if (words.length === 0) return [];
     
     const wordWeights = words.map(word => {
@@ -433,7 +440,7 @@ export class CartesiaStreamingService extends EventEmitter {
     const totalWeight = wordWeights.reduce((sum, w) => sum + w, 0);
     const timings: WordTiming[] = [];
     let currentTime = 0.1; // Small pause at start
-    const speakingDuration = durationSeconds - 0.2;
+    const speakingDuration = Math.max(0.1, durationSeconds - 0.2);
     
     for (let i = 0; i < words.length; i++) {
       const wordDuration = (wordWeights[i] / totalWeight) * speakingDuration;
