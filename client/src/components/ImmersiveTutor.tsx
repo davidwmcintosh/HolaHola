@@ -62,6 +62,9 @@ export function ImmersiveTutor({
   const [currentWordTimings, setCurrentWordTimings] = useState<WordTiming[]>([]);
   const [highlightedWordIndex, setHighlightedWordIndex] = useState<number>(-1);
   const [visibleWordCount, setVisibleWordCount] = useState<number>(0);
+  // For target mode: track which specific word indices are visible (handles non-contiguous visibility)
+  const [visibleWordIndices, setVisibleWordIndices] = useState<Set<number>>(new Set());
+  const visibleWordIndicesRef = useRef<Set<number>>(new Set()); // Ref to compare against for diff-aware updates
   const animationFrameRef = useRef<number | null>(null);
   const subtitleTimersRef = useRef<NodeJS.Timeout[]>([]);
   
@@ -224,6 +227,10 @@ export function ImmersiveTutor({
   useEffect(() => {
     if (!isPlaying || currentWordTimings.length === 0 || !audioElementRef?.current) {
       setHighlightedWordIndex(-1);
+      if (visibleWordIndicesRef.current.size > 0) {
+        visibleWordIndicesRef.current = new Set();
+        setVisibleWordIndices(new Set());
+      }
       return;
     }
 
@@ -235,20 +242,48 @@ export function ImmersiveTutor({
         let currentWordIndex = -1;
         let maxVisibleIndex = -1;
         
+        // For target mode: track specific visible indices (handles non-contiguous visibility)
+        // This ensures repeated words (like "Hola" twice) appear and disappear independently
+        const isTargetMode = subtitleMode === "target";
+        const lingerTime = 0.5; // Words stay visible 0.5s after their end time
+        const newVisibleIndices = new Set<number>();
+        
         for (let i = 0; i < currentWordTimings.length; i++) {
           const timing = currentWordTimings[i];
-          // Word is visible if we've reached its start time
-          if (currentTime >= timing.startTime) {
-            maxVisibleIndex = i;
+          
+          if (isTargetMode) {
+            // Target mode: word is visible during its window + brief linger
+            if (currentTime >= timing.startTime && currentTime < timing.endTime + lingerTime) {
+              newVisibleIndices.add(i);
+            }
+          } else {
+            // All mode: progressive reveal (words stay visible once reached)
+            if (currentTime >= timing.startTime) {
+              maxVisibleIndex = i;
+            }
           }
+          
           // Word is highlighted if we're within its time range
           if (currentTime >= timing.startTime && currentTime < timing.endTime) {
             currentWordIndex = i;
           }
         }
         
-        // Progressive reveal: show words up to and including the current one
-        setVisibleWordCount(maxVisibleIndex + 1);
+        if (isTargetMode) {
+          // Diff-aware update: only update state if membership actually changed
+          // This avoids re-rendering every animation frame
+          const oldSet = visibleWordIndicesRef.current;
+          const setsAreDifferent = newVisibleIndices.size !== oldSet.size ||
+            Array.from(newVisibleIndices).some(i => !oldSet.has(i));
+          
+          if (setsAreDifferent) {
+            visibleWordIndicesRef.current = newVisibleIndices;
+            setVisibleWordIndices(newVisibleIndices);
+            setVisibleWordCount(newVisibleIndices.size);
+          }
+        } else {
+          setVisibleWordCount(maxVisibleIndex + 1);
+        }
         setHighlightedWordIndex(currentWordIndex);
       }
       animationFrameRef.current = requestAnimationFrame(updateHighlight);
@@ -261,7 +296,7 @@ export function ImmersiveTutor({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [isPlaying, currentWordTimings, audioElementRef]);
+  }, [isPlaying, currentWordTimings, audioElementRef, subtitleMode]);
 
   // Determine which tutor image to show based on state and gender preference
   const getTutorImage = () => {
@@ -372,19 +407,40 @@ export function ImmersiveTutor({
                 >
                   {/* Karaoke-style word highlighting when playing with timings */}
                   {useProgressiveMode ? (
-                    currentWordTimings.slice(0, visibleWordCount).map((timing, index) => (
-                      <span
-                        key={index}
-                        className={`inline-block mx-0.5 transition-all duration-150 ${
-                          index === highlightedWordIndex
-                            ? "text-primary scale-105 font-semibold"
-                            : "text-foreground"
-                        }`}
-                        data-testid={`word-${index}-${index === highlightedWordIndex ? 'active' : 'visible'}`}
-                      >
-                        {cleanForDisplay(timing.word)}
-                      </span>
-                    ))
+                    subtitleMode === "target" ? (
+                      // Target mode: only render words in visibleWordIndices (handles non-contiguous visibility)
+                      // This ensures repeated words like "Hola" appear and disappear independently
+                      currentWordTimings.map((timing, index) => (
+                        visibleWordIndices.has(index) && (
+                          <span
+                            key={index}
+                            className={`inline-block mx-0.5 transition-all duration-150 ${
+                              index === highlightedWordIndex
+                                ? "text-primary scale-105 font-semibold"
+                                : "text-foreground"
+                            }`}
+                            data-testid={`word-${index}-${index === highlightedWordIndex ? 'active' : 'visible'}`}
+                          >
+                            {cleanForDisplay(timing.word)}
+                          </span>
+                        )
+                      ))
+                    ) : (
+                      // All mode: progressive reveal (words stay visible once reached)
+                      currentWordTimings.slice(0, visibleWordCount).map((timing, index) => (
+                        <span
+                          key={index}
+                          className={`inline-block mx-0.5 transition-all duration-150 ${
+                            index === highlightedWordIndex
+                              ? "text-primary scale-105 font-semibold"
+                              : "text-foreground"
+                          }`}
+                          data-testid={`word-${index}-${index === highlightedWordIndex ? 'active' : 'visible'}`}
+                        >
+                          {cleanForDisplay(timing.word)}
+                        </span>
+                      ))
+                    )
                   ) : (
                     // Static display when not playing or no timings available
                     <span className="text-foreground">{displayText}</span>
