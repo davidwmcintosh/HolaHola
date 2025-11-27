@@ -1,0 +1,102 @@
+Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+main.tsx:29 [APP] Screen orientation lock not available
+App.tsx:164 [BUILD] App version: 1763747293
+LanguageContext.tsx:24 [LanguageContext] Initializing with language: spanish (from localStorage)
+LanguageContext.tsx:29 [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+LanguageContext.tsx:34 [LanguageContext] Initializing with userName: David (from localStorage)
+LanguageContext.tsx:40 [LanguageContext] Initializing with subtitleMode: target (from localStorage)
+LanguageContext.tsx:52 [LanguageContext] Hydrating from user preferences: {targetLanguage: 'spanish', difficultyLevel: 'beginner', firstName: 'David'}
+main.tsx:10 [PWA] Service Worker registered: https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/
+audioUtils.ts:192 [StreamingAudioPlayer] Initialized
+chat.tsx:114 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false mode: voice
+chat.tsx:119 [SHARED CHAT] Creating shared conversation... (post-onboarding) forceNew: true mode: voice
+chat.tsx:108 [SHARED CHAT] Auto-create check - skipped (already in progress)
+RestVoiceChat.tsx:296 [VOICE] TTS pre-warmed in 0ms
+chat.tsx:134 [SHARED CHAT] Shared conversation created: 7dfe4a74-b6ee-4210-b1f7-afca06a2a118 mode: voice
+RestVoiceChat.tsx:311 [CLEANUP] Cleaning up voice recording resources...
+RestVoiceChat.tsx:496 [CLEANUP] Cleaning up recording resources...
+RestVoiceChat.tsx:203 [STREAMING] Connecting to streaming voice...
+useStreamingVoice.ts:195 [StreamingVoice] Connecting for conversation 7dfe4a74-b6ee-4210-b1f7-afca06a2a118
+streamingVoiceClient.ts:100 [StreamingVoiceClient] Initialized
+streamingVoiceClient.ts:394 [StreamingVoiceClient] State: disconnected → connecting
+streamingVoiceClient.ts:175 [StreamingVoiceClient] Connecting to: wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/api/voice/stream/ws?conversationId=7dfe4a74-b6ee-4210-b1f7-afca06a2a118
+chat.tsx:108 [SHARED CHAT] Auto-create check - skipped (already in progress)
+RestVoiceChat.tsx:161 [MIC WARMUP] Pre-warming microphone (500ms after mount)...
+RestVoiceChat.tsx:84 [VOICE GREETING] Lock acquired for message: cdb22794-4eac-4997-b887-049c950b7e9a
+RestVoiceChat.tsx:354 [VOICE GREETING] Generating greeting audio for new conversation (karaoke: true)
+streamingVoiceClient.ts:182 [StreamingVoiceClient] ✓ WebSocket connected
+streamingVoiceClient.ts:394 [StreamingVoiceClient] State: connecting → connected
+useStreamingVoice.ts:211 [StreamingVoice] WebSocket connected, starting session...
+streamingVoiceClient.ts:224 [StreamingVoiceClient] Starting session: {conversationId: '7dfe4a74-b6ee-4210-b1f7-afca06a2a118', targetLanguage: 'spanish', nativeLanguage: 'english', difficultyLevel: 'beginner', subtitleMode: 'target', …}
+useStreamingVoice.ts:225 [StreamingVoice] Session started, waiting for ready state...
+RestVoiceChat.tsx:214 [STREAMING] Connected successfully
+streamingVoiceClient.ts:291 [StreamingVoiceClient] ✓ Connection confirmed by server
+RestVoiceChat.tsx:285 [VOICE] Deepgram pre-warmed in 489ms
+chat.tsx:108 [SHARED CHAT] Auto-create check - skipped (already in progress)
+RestVoiceChat.tsx:166 [MIC WARMUP] SUCCESS! Microphone ready for instant recording (took 287 ms)
+streamingVoiceClient.ts:291 [StreamingVoiceClient] ✓ Connection confirmed by server
+streamingVoiceClient.ts:336 [StreamingVoiceClient] Session started: stream_1764279482381_z55n1kgxa
+streamingVoiceClient.ts:394 [StreamingVoiceClient] State: connected → ready
+RestVoiceChat.tsx:402 [VOICE GREETING] Stored word timings: cdb22794-4eac-4997-b887-049c950b7e9a 16 words
+RestVoiceChat.tsx:431 [VOICE GREETING] Greeting audio playing
+RestVoiceChat.tsx:419 [VOICE GREETING] Cleaned up and returned to idle
+ImmersiveTutor.tsx:501 Unable to preventDefault inside passive event listener invocation.
+preventDefault @ chunk-RPCDYKBN.js?v=359c67df:5760
+onTouchStart @ ImmersiveTutor.tsx:501
+callCallback2 @ chunk-RPCDYKBN.js?v=359c67df:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=359c67df:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=359c67df:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=359c67df:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=359c67df:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=359c67df:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=359c67df:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=359c67df:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=359c67df:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=359c67df:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=359c67df:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=359c67df:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=359c67df:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=359c67df:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=359c67df:5449
+Show 16 more frames
+Show less
+ImmersiveTutor.tsx:503 [MIC BUTTON] Touch start
+RestVoiceChat.tsx:705 [PUSH-TO-TALK] Button pressed at 14898 ms
+RestVoiceChat.tsx:724 [PUSH-TO-TALK] Cached stream status: exists active
+RestVoiceChat.tsx:727 [PUSH-TO-TALK] Using cached stream - INSTANT start! (+1ms)
+RestVoiceChat.tsx:825 [PUSH-TO-TALK] Recording started - release to stop
+ImmersiveTutor.tsx:512 [MIC BUTTON] Touch end
+RestVoiceChat.tsx:835 [PUSH-TO-TALK] Releasing button, stopping recording...
+RestVoiceChat.tsx:769 [PUSH-TO-TALK] Stopped, processing audio...
+RestVoiceChat.tsx:808 [PUSH-TO-TALK] Processing audio for conversation: 7dfe4a74-b6ee-4210-b1f7-afca06a2a118
+RestVoiceChat.tsx:867 [STREAMING] Using streaming mode for low-latency response
+useStreamingVoice.ts:267 [StreamingVoice] Sending 23493 bytes of audio
+useStreamingSubtitles.ts:188 [StreamingSubtitles] Reset
+RestVoiceChat.tsx:897 [STREAMING] Streaming failed: WebSocket not connected
+processRecording @ RestVoiceChat.tsx:897
+await in processRecording (async)
+mediaRecorder.onstop @ RestVoiceChat.tsx:809
+RestVoiceChat.tsx:38 [VOICE GREETING] Already synthesized message: cdb22794-4eac-4997-b887-049c950b7e9a
+RestVoiceChat.tsx:344 [VOICE GREETING] Skipping - lock not acquired
+RestVoiceChat.tsx:794 [MIC WARMUP] Re-warmed for next recording
+RestVoiceChat.tsx:909 [STREAMING] Attempting to reconnect...
+useStreamingVoice.ts:195 [StreamingVoice] Connecting for conversation 7dfe4a74-b6ee-4210-b1f7-afca06a2a118
+streamingVoiceClient.ts:165 [StreamingVoiceClient] Already connected
+useStreamingVoice.ts:211 [StreamingVoice] WebSocket connected, starting session...
+useStreamingVoice.ts:228 [StreamingVoice] Connection failed: Error: WebSocket not connected
+    at StreamingVoiceClient.startSession (streamingVoiceClient.ts:216:13)
+    at Object.connect (useStreamingVoice.ts:215:25)
+    at async RestVoiceChat.tsx:910:13
+(anonymous) @ useStreamingVoice.ts:228
+await in (anonymous) (async)
+(anonymous) @ RestVoiceChat.tsx:910
+setTimeout (async)
+processRecording @ RestVoiceChat.tsx:907
+await in processRecording (async)
+mediaRecorder.onstop @ RestVoiceChat.tsx:809
+RestVoiceChat.tsx:923 [STREAMING] Reconnection failed: WebSocket not connected
+(anonymous) @ RestVoiceChat.tsx:923
+setTimeout (async)
+processRecording @ RestVoiceChat.tsx:907
+await in processRecording (async)
+mediaRecorder.onstop @ RestVoiceChat.tsx:809
