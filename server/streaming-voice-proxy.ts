@@ -120,19 +120,34 @@ export function setupStreamingVoiceProxy(server: Server) {
     // Message processing function
     const processMessage = async (data: Buffer | string) => {
       try {
-        // Check if binary (audio data)
-        if (Buffer.isBuffer(data)) {
+        // Convert to string if Buffer (WebSocket may send text as Buffer)
+        const dataStr = Buffer.isBuffer(data) ? data.toString('utf8') : data;
+        
+        // Try to parse as JSON first - control messages are JSON
+        let message: any = null;
+        try {
+          // Check if it looks like JSON (starts with '{')
+          const trimmed = dataStr.trim();
+          if (trimmed.startsWith('{')) {
+            message = JSON.parse(trimmed);
+          }
+        } catch {
+          // Not valid JSON - treat as binary audio
+        }
+        
+        // If not JSON, treat as binary audio data
+        if (!message) {
+          const audioBuffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
           if (session) {
-            console.log(`[Streaming Voice] Received ${data.length} bytes of audio`);
-            await orchestrator.processUserAudio(session.id, data, 'webm');
+            console.log(`[Streaming Voice] Received ${audioBuffer.length} bytes of audio`);
+            await orchestrator.processUserAudio(session.id, audioBuffer, 'webm');
           } else {
             console.warn('[Streaming Voice] Audio received but no session');
           }
           return;
         }
 
-        // Parse JSON message
-        const message = JSON.parse(data.toString());
+        // Handle JSON message
         console.log(`[Streaming Voice] Received message type: ${message.type}`);
         
         switch (message.type) {
