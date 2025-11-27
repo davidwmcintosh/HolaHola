@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Loader2 } from "lucide-react";
@@ -11,6 +11,12 @@ import { CompactDifficultyControl } from "@/components/CompactDifficultyControl"
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { queryClient } from "@/lib/queryClient";
 import { VoiceChatViewManager } from "@/components/VoiceChatViewManager";
+import { useStreamingVoice } from "@/hooks/useStreamingVoice";
+
+// Feature flag for streaming mode - disabled until fully tested
+// Set to true to enable low-latency WebSocket streaming (target: <1s TTFB)
+// When false, uses reliable REST mode (~4-5s response time)
+const ENABLE_STREAMING_MODE = false;
 
 // Helper to prevent double-greetings on mobile app reloads
 // Tracks WHEN last greeting played AND which message ID was synthesized
@@ -127,12 +133,79 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   const analyserRef = useRef<AnalyserNode | null>(null);
   const silenceCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
+  // Streaming voice mode for low-latency responses
+  const streamingVoice = useStreamingVoice();
+  const streamingConnectedRef = useRef(false);
+  const useStreamingMode = ENABLE_STREAMING_MODE && streamingVoice.isSupported();
+  
   // Keep refs updated with current state
   useEffect(() => {
     currentConversationRef.current = conversationId;
     isRecordingRef.current = isRecording;
     isProcessingRef.current = isProcessing;
   }, [conversationId, isRecording, isProcessing]);
+  
+  // Connect streaming voice when conversation is available
+  useEffect(() => {
+    if (!useStreamingMode || !conversationId) return;
+    
+    const connectStreaming = async () => {
+      try {
+        console.log('[STREAMING] Connecting to streaming voice...');
+        await streamingVoice.connect(conversationId);
+        streamingConnectedRef.current = true;
+        console.log('[STREAMING] Connected successfully');
+      } catch (err: any) {
+        console.warn('[STREAMING] Failed to connect, will use REST fallback:', err.message);
+        streamingConnectedRef.current = false;
+      }
+    };
+    
+    connectStreaming();
+    
+    return () => {
+      if (streamingConnectedRef.current) {
+        console.log('[STREAMING] Disconnecting...');
+        streamingVoice.disconnect();
+        streamingConnectedRef.current = false;
+      }
+    };
+  }, [conversationId, useStreamingMode]);
+  
+  // Sync streaming voice state with component state
+  useEffect(() => {
+    if (!useStreamingMode) return;
+    
+    const { isProcessing: streamProcessing, playbackState, error: streamError, connectionState } = streamingVoice.state;
+    
+    // Update avatar state based on streaming playback
+    if (playbackState === 'playing') {
+      setAvatarState('speaking');
+    } else if (!streamProcessing && playbackState === 'idle') {
+      // Only reset if we're not still processing
+      if (isProcessingRef.current && !streamProcessing) {
+        setIsProcessing(false);
+        isProcessingRef.current = false;
+        setProcessingStage(null);
+        setAvatarState('idle');
+      }
+    }
+    
+    // Handle streaming errors - only show non-recoverable errors
+    // Transient connection errors should not block REST fallback
+    if (streamError && connectionState === 'error') {
+      console.warn('[STREAMING] Non-recoverable error:', streamError);
+      // Mark streaming as unavailable so REST fallback is used
+      streamingConnectedRef.current = false;
+      // Don't set error state - let REST try first
+    }
+    
+    // Clear error when connection recovers
+    if (connectionState === 'connected' && streamingConnectedRef.current === false) {
+      streamingConnectedRef.current = true;
+      setError(null);
+    }
+  }, [streamingVoice.state, useStreamingMode]);
 
   // Fetch existing messages
   const { data: messages = [] } = useQuery<Message[]>({
@@ -693,7 +766,60 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     isProcessingRef.current = true; // Update ref immediately
     setAvatarState('idle');
 
+    // Try streaming mode first for low-latency responses
+    const isStreamingReady = streamingConnectedRef.current && 
+      (streamingVoice.state.connectionState === 'connected' || streamingVoice.state.connectionState === 'ready');
+    
+    if (isStreamingReady) {
+      try {
+        console.log('[STREAMING] Using streaming mode for low-latency response');
+        setProcessingStage('Processing...');
+        setAvatarState('speaking');
+        setError(null); // Clear any previous errors
+        
+        // Convert blob to ArrayBuffer
+        const audioData = await audioBlob.arrayBuffer();
+        
+        // Send audio via streaming WebSocket
+        await streamingVoice.sendAudio(audioData);
+        
+        // Streaming audio playback is handled by useStreamingVoice hook
+        // The hook handles:
+        // - Progressive audio playback
+        // - Subtitle word timing
+        // - State management
+        
+        // Wait for response to complete
+        // The hook will update state as audio plays
+        console.log('[STREAMING] Audio sent, awaiting progressive response...');
+        
+        // Refetch messages after response completes (messages are saved server-side)
+        setTimeout(async () => {
+          await queryClient.refetchQueries({
+            queryKey: ["/api/conversations", targetConversationId, "messages"],
+          });
+        }, 500);
+        
+        return; // Exit early - streaming mode handles everything
+      } catch (streamErr: any) {
+        console.warn('[STREAMING] Streaming failed, falling back to REST:', streamErr.message);
+        streamingConnectedRef.current = false;
+        // Reset state before falling through to REST mode
+        setIsProcessing(false);
+        isProcessingRef.current = false;
+        setAvatarState('idle');
+        setProcessingStage(null);
+        setError(null); // Clear streaming error, let REST try
+        
+        // Re-enable processing for REST fallback
+        setIsProcessing(true);
+        isProcessingRef.current = true;
+        // Fall through to REST mode
+      }
+    }
+
     try {
+      // REST mode fallback
       // Step 1: Transcribe
       setProcessingStage('Transcribing...');
       console.log('[REST VOICE] Transcribing audio...');

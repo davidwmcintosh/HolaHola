@@ -159,7 +159,7 @@ export class StreamingVoiceClient {
   /**
    * Connect to streaming voice WebSocket
    */
-  async connect(conversationId: number): Promise<void> {
+  async connect(conversationId: string | number): Promise<void> {
     if (this.ws?.readyState === WebSocket.OPEN) {
       console.log('[StreamingVoiceClient] Already connected');
       return;
