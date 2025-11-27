@@ -105,14 +105,22 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
 
   // Send connected confirmation immediately
   if (ws.readyState === WS.OPEN) {
-    ws.send(JSON.stringify({
-      type: 'connected',
-      timestamp: Date.now(),
-    }));
+    try {
+      const connectedMsg = JSON.stringify({
+        type: 'connected',
+        timestamp: Date.now(),
+      });
+      console.log('[Streaming Voice] Sending connected message:', connectedMsg);
+      ws.send(connectedMsg);
+      console.log('[Streaming Voice] Connected message sent successfully');
+    } catch (err) {
+      console.error('[Streaming Voice] Error sending connected message:', err);
+    }
   }
 
   // Handle incoming messages
   ws.on('message', async (data: Buffer | string) => {
+    console.log('[Streaming Voice] Received message, type:', typeof data, 'isBuffer:', Buffer.isBuffer(data), 'length:', Buffer.isBuffer(data) ? data.length : (data as string).length);
     try {
       if (Buffer.isBuffer(data)) {
         if (!isAuthenticated) {
@@ -127,9 +135,11 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
       }
 
       const message = JSON.parse(data.toString());
+      console.log('[Streaming Voice] Parsed message type:', message.type);
       
       switch (message.type) {
         case 'start_session': {
+          console.log('[Streaming Voice] Processing start_session...');
           const config = message as ClientStartSessionMessage;
           
           if (!isAuthenticated) {
@@ -219,11 +229,18 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           console.log(`[Streaming Voice] Session started: ${session.id}`);
           
           if (ws.readyState === WS.OPEN) {
-            ws.send(JSON.stringify({
-              type: 'session_started',
-              timestamp: Date.now(),
-              sessionId: session.id,
-            }));
+            try {
+              const sessionMsg = JSON.stringify({
+                type: 'session_started',
+                timestamp: Date.now(),
+                sessionId: session.id,
+              });
+              console.log('[Streaming Voice] Sending session_started:', sessionMsg);
+              ws.send(sessionMsg);
+              console.log('[Streaming Voice] session_started sent successfully');
+            } catch (err) {
+              console.error('[Streaming Voice] Error sending session_started:', err);
+            }
           }
           break;
         }
