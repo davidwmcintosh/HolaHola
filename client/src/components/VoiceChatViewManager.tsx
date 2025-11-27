@@ -26,6 +26,8 @@ interface VoiceChatViewManagerProps {
   isSlowRepeatLoading?: boolean;
   wordTimings?: WordTiming[];
   tutorGender?: 'male' | 'female';
+  streamingText?: string;
+  streamingWordIndex?: number;
 }
 
 export function VoiceChatViewManager({
@@ -46,6 +48,8 @@ export function VoiceChatViewManager({
   isSlowRepeatLoading,
   wordTimings,
   tutorGender = "female",
+  streamingText,
+  streamingWordIndex,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -173,6 +177,8 @@ export function VoiceChatViewManager({
                 wordTimings={wordTimings}
                 subtitleMode={subtitleMode}
                 tutorGender={tutorGender}
+                streamingText={streamingText}
+                streamingWordIndex={streamingWordIndex}
               />
             </div>
           ) : (

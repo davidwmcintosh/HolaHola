@@ -240,14 +240,17 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     // Update avatar state based on streaming playback
     if (playbackState === 'playing') {
       setAvatarState('speaking');
-    } else if (!streamProcessing && playbackState === 'idle') {
-      // Only reset if we're not still processing
-      if (isProcessingRef.current && !streamProcessing) {
+    } else if (playbackState === 'idle' && !streamProcessing) {
+      // Reset to idle when playback finishes and not processing
+      setAvatarState('idle');
+      if (isProcessingRef.current) {
         setIsProcessing(false);
         isProcessingRef.current = false;
         setProcessingStage(null);
-        setAvatarState('idle');
       }
+    } else if (playbackState === 'buffering') {
+      // Keep speaking state during buffering between sentences
+      setAvatarState('speaking');
     }
     
     // Handle streaming errors - show them since we don't have REST fallback
@@ -1298,6 +1301,8 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           isSlowRepeatLoading={isSlowRepeatLoading}
           wordTimings={currentPlayingMessageId ? wordTimingsMapRef.current.get(currentPlayingMessageId) : undefined}
           tutorGender={user?.tutorGender as 'male' | 'female' || 'female'}
+          streamingText={useStreamingMode ? streamingVoice.subtitles.state.fullText : undefined}
+          streamingWordIndex={useStreamingMode ? streamingVoice.subtitles.state.currentWordIndex : undefined}
         />
       </div>
     </div>

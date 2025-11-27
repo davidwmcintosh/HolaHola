@@ -38,6 +38,8 @@ interface ImmersiveTutorProps {
   wordTimings?: WordTiming[]; // Word-level timing data for synchronized subtitles
   subtitleMode?: SubtitleMode; // Subtitle display mode: off, target (target language only), all
   tutorGender?: 'male' | 'female'; // Tutor avatar gender preference
+  streamingText?: string; // Text from streaming voice mode
+  streamingWordIndex?: number; // Current word index for streaming subtitles
 }
 
 export function ImmersiveTutor({
@@ -60,6 +62,8 @@ export function ImmersiveTutor({
   wordTimings,
   subtitleMode = "target",
   tutorGender = "female",
+  streamingText,
+  streamingWordIndex = -1,
 }: ImmersiveTutorProps) {
   const [currentWordTimings, setCurrentWordTimings] = useState<WordTiming[]>([]);
   const [highlightedWordIndex, setHighlightedWordIndex] = useState<number>(-1);
@@ -360,6 +364,42 @@ export function ImmersiveTutor({
         {(() => {
           // When subtitleMode is "off", don't show any overlay
           if (subtitleMode === "off") return null;
+          
+          // STREAMING MODE: Use streaming text if available
+          if (streamingText && isPlaying) {
+            const words = streamingText.split(/\s+/).filter(w => w.length > 0);
+            
+            return (
+              <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
+                <div className="max-w-4xl mx-auto">
+                  <div 
+                    className="text-xl md:text-3xl font-medium text-center leading-relaxed max-h-32 md:max-h-40 overflow-hidden"
+                    style={{
+                      maskImage: 'linear-gradient(to bottom, transparent 0%, black 20%, black 100%)',
+                      WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 20%, black 100%)'
+                    }}
+                    data-testid="text-subtitle-overlay-streaming"
+                  >
+                    {words.map((word, index) => (
+                      <span
+                        key={index}
+                        className={`inline-block mx-0.5 transition-all duration-150 ${
+                          index === streamingWordIndex
+                            ? "text-primary scale-105 font-semibold"
+                            : index < streamingWordIndex
+                              ? "text-foreground"
+                              : "text-muted-foreground/50"
+                        }`}
+                        data-testid={`streaming-word-${index}`}
+                      >
+                        {cleanForDisplay(word)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          }
           
           // Get text from the current playing or last played message
           // Show subtitles during playback AND after playback for reading practice

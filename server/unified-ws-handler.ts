@@ -258,7 +258,30 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             audioBuffer = Buffer.from(audioMessage.audio);
           }
 
-          await orchestrator.processUserAudio(session.id, audioBuffer, audioMessage.format || 'webm');
+          const metrics = await orchestrator.processUserAudio(session.id, audioBuffer, audioMessage.format || 'webm');
+          
+          // Save messages to database for history
+          if (metrics.userTranscript && metrics.aiResponse && conversationId) {
+            try {
+              // Save user message
+              await storage.createMessage({
+                conversationId: conversationId,
+                role: 'user',
+                content: metrics.userTranscript,
+              });
+              
+              // Save assistant message
+              await storage.createMessage({
+                conversationId: conversationId,
+                role: 'assistant',
+                content: metrics.aiResponse,
+              });
+              
+              console.log('[Streaming Voice] Messages saved to database');
+            } catch (err: any) {
+              console.error('[Streaming Voice] Failed to save messages:', err.message);
+            }
+          }
           break;
         }
 

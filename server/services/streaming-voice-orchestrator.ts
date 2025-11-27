@@ -60,6 +60,8 @@ export interface StreamingMetrics {
   totalLatencyMs: number;
   sentenceCount: number;
   audioBytes: number;
+  userTranscript?: string;
+  aiResponse?: string;
 }
 
 /**
@@ -228,6 +230,10 @@ export class StreamingVoiceOrchestrator {
       // Update conversation history
       session.conversationHistory.push({ role: 'user', content: transcript });
       session.conversationHistory.push({ role: 'model', content: fullText.trim() });
+      
+      // Store transcript and response in metrics for message saving
+      metrics.userTranscript = transcript;
+      metrics.aiResponse = fullText.trim();
       
       // Send completion message
       metrics.totalLatencyMs = Date.now() - startTime;

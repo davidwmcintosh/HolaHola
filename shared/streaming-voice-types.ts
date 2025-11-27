@@ -157,6 +157,7 @@ export type StreamingErrorCode =
   | 'RATE_LIMITED'
   | 'UNAUTHORIZED'
   | 'TIMEOUT'
+  | 'EMPTY_TRANSCRIPT'
   | 'UNKNOWN';
 
 /**
