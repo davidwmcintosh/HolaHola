@@ -254,12 +254,6 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
             return;
           }
           
-          // Store word timings for karaoke highlighting if received
-          if (result.wordTimings && result.wordTimings.length > 0) {
-            wordTimingsMapRef.current.set(greetingMessage.id, result.wordTimings);
-            console.log('[VOICE GREETING] Stored word timings for greeting:', greetingMessage.id, result.wordTimings.length, 'words');
-          }
-          
           if (audioPlayerRef.current) {
             // CRITICAL: Stop any existing audio playback first
             // This prevents two voices playing simultaneously
@@ -268,6 +262,28 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
             
             const audioUrl = URL.createObjectURL(audioBlob);
             audioPlayerRef.current.src = audioUrl;
+            
+            // Rescale word timings to match actual audio duration for precise karaoke sync
+            audioPlayerRef.current.onloadedmetadata = () => {
+              if (result.wordTimings && result.wordTimings.length > 0 && audioPlayerRef.current) {
+                const actualDuration = audioPlayerRef.current.duration;
+                const estimatedDuration = result.wordTimings[result.wordTimings.length - 1].endTime;
+                
+                if (actualDuration && estimatedDuration && Math.abs(actualDuration - estimatedDuration) > 0.1) {
+                  const scale = actualDuration / estimatedDuration;
+                  const rescaledTimings = result.wordTimings.map(timing => ({
+                    word: timing.word,
+                    startTime: timing.startTime * scale,
+                    endTime: Math.min(timing.endTime * scale, actualDuration),
+                  }));
+                  wordTimingsMapRef.current.set(greetingMessage.id, rescaledTimings);
+                  console.log(`[VOICE GREETING] Rescaled timings: ${estimatedDuration.toFixed(2)}s → ${actualDuration.toFixed(2)}s`);
+                } else if (subtitleMode !== "off") {
+                  wordTimingsMapRef.current.set(greetingMessage.id, result.wordTimings);
+                  console.log('[VOICE GREETING] Stored word timings:', greetingMessage.id, result.wordTimings.length, 'words');
+                }
+              }
+            };
             
             // Track if we've already cleaned up (to prevent double cleanup)
             let hasCleanedUp = false;
@@ -742,14 +758,32 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           setLastMessageId(latestAssistantMessage.id);
         }
         
-        // Store word timings for subtitle synchronization - persist by message ID
-        if (result.wordTimings && subtitleMode !== "off" && latestAssistantMessage) {
-          wordTimingsMapRef.current.set(latestAssistantMessage.id, result.wordTimings);
-          console.log('[SUBTITLES] Stored word timings for message:', latestAssistantMessage.id);
-        }
-        
         const audioUrl = URL.createObjectURL(result.audioBlob);
         audioPlayerRef.current.src = audioUrl;
+        
+        // Use loadedmetadata to rescale word timings to actual audio duration for precise sync
+        audioPlayerRef.current.onloadedmetadata = () => {
+          if (result.wordTimings && result.wordTimings.length > 0 && latestAssistantMessage && audioPlayerRef.current) {
+            const actualDuration = audioPlayerRef.current.duration;
+            const estimatedDuration = result.wordTimings[result.wordTimings.length - 1].endTime;
+            
+            if (actualDuration && estimatedDuration && Math.abs(actualDuration - estimatedDuration) > 0.1) {
+              // Rescale timings proportionally to match actual audio duration
+              const scale = actualDuration / estimatedDuration;
+              const rescaledTimings = result.wordTimings.map(timing => ({
+                word: timing.word,
+                startTime: timing.startTime * scale,
+                endTime: Math.min(timing.endTime * scale, actualDuration),
+              }));
+              wordTimingsMapRef.current.set(latestAssistantMessage.id, rescaledTimings);
+              console.log(`[SUBTITLES] Rescaled timings: ${estimatedDuration.toFixed(2)}s → ${actualDuration.toFixed(2)}s (scale: ${scale.toFixed(3)})`);
+            } else if (subtitleMode !== "off") {
+              // No rescaling needed, store as-is
+              wordTimingsMapRef.current.set(latestAssistantMessage.id, result.wordTimings);
+              console.log('[SUBTITLES] Stored word timings for message:', latestAssistantMessage.id);
+            }
+          }
+        };
         
         // Set the currently playing message ID before playing
         if (latestAssistantMessage) {

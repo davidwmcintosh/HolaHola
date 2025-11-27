@@ -157,7 +157,7 @@ export function getDefaultEmotion(personality: TutorPersonality = 'warm'): Carte
 
 /**
  * Estimate word-level timings based on text and audio duration
- * Uses word length weighting for more natural timing distribution
+ * Uses word length weighting with punctuation-aware pauses for natural prosody
  * 
  * @param text - The spoken text
  * @param audioDurationSeconds - Estimated audio duration in seconds
@@ -176,9 +176,23 @@ export function estimateWordTimings(text: string, audioDurationSeconds: number):
   
   if (words.length === 0) return [];
   
-  // Calculate total "weight" based on word character counts
-  // Longer words take proportionally more time to speak
-  const totalWeight = words.reduce((sum, word) => sum + Math.max(1, word.length), 0);
+  // Calculate weight for each word:
+  // - Base weight from character count
+  // - Extra weight for punctuation pauses (commas, periods, etc.)
+  const wordWeights = words.map(word => {
+    let weight = Math.max(1, word.length);
+    
+    // Add pause weight for sentence-ending punctuation
+    if (/[.!?]$/.test(word)) {
+      weight += 2; // Longer pause after sentence ends
+    } else if (/[,;:]$/.test(word)) {
+      weight += 1; // Short pause after clauses
+    }
+    
+    return weight;
+  });
+  
+  const totalWeight = wordWeights.reduce((sum, w) => sum + w, 0);
   
   const timings: WordTiming[] = [];
   let currentTime = 0;
@@ -187,11 +201,12 @@ export function estimateWordTimings(text: string, audioDurationSeconds: number):
   const startPause = 0.1;
   currentTime = startPause;
   
-  // Distribute time proportionally by word length
+  // Distribute time proportionally by word weight
   const speakingDuration = audioDurationSeconds - startPause - 0.1; // Leave small buffer at end
   
-  for (const word of words) {
-    const wordWeight = Math.max(1, word.length);
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    const wordWeight = wordWeights[i];
     const wordDuration = (wordWeight / totalWeight) * speakingDuration;
     
     // Minimum duration of 0.1s per word
