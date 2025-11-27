@@ -904,8 +904,15 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     setAvatarState('idle');
 
     // Try streaming mode first for low-latency responses
+    const connectionState = streamingVoice.state.connectionState;
     const isStreamingReady = streamingConnectedRef.current && 
-      (streamingVoice.state.connectionState === 'connected' || streamingVoice.state.connectionState === 'ready');
+      (connectionState === 'connected' || connectionState === 'ready');
+    
+    console.log('[STREAMING CHECK]', {
+      streamingConnectedRef: streamingConnectedRef.current,
+      connectionState,
+      isStreamingReady,
+    });
     
     if (isStreamingReady) {
       try {
