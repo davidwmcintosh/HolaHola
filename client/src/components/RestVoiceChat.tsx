@@ -100,13 +100,13 @@ function clearGreetingLock(): void {
   // This ensures the same greeting is never re-synthesized
 }
 
-interface StreamingVoiceChatProps {
+interface RestVoiceChatProps {
   conversationId: string | null;
   setConversationId: (id: string | null) => void;
   setCurrentConversationOnboarding: (isOnboarding: boolean | null) => void;
 }
 
-export function StreamingVoiceChat({ conversationId, setConversationId, setCurrentConversationOnboarding }: StreamingVoiceChatProps) {
+export function RestVoiceChat({ conversationId, setConversationId, setCurrentConversationOnboarding }: RestVoiceChatProps) {
   const { language, difficulty, setLanguage, subtitleMode } = useLanguage();
   const [isRecording, setIsRecording] = useState(false);
   const [isMicPreparing, setIsMicPreparing] = useState(false); // Show "Preparing mic..." before actual recording starts

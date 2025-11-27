@@ -3,16 +3,16 @@
  * 
  * This component uses the OLD WebSocket-based voice chat system which is DEPRECATED.
  * 
- * USE INSTEAD: StreamingVoiceChat.tsx (WebSocket streaming voice system)
+ * USE INSTEAD: RestVoiceChat.tsx (REST-based voice system)
  * 
- * This file is kept for historical reference only. The original OpenAI Realtime API
- * implementation was found to be unstable and has been replaced with a streaming
- * WebSocket pipeline using:
- * - Deepgram Nova-3 STT
- * - Gemini 2.5 Flash
- * - Cartesia Sonic-3 TTS
+ * This file is kept for historical reference only. The WebSocket-based OpenAI Realtime API
+ * was found to be unstable and has been replaced with a REST-based pipeline using:
+ * - Whisper STT
+ * - GPT-4 Chat
+ * - OpenAI TTS
  * 
- * See replit.md for current voice chat architecture documentation.
+ * See REST_VOICE_CHAT.md for current voice chat documentation.
+ * See VOICE_CHAT_TROUBLESHOOTING.md for WebSocket deprecation history.
  * 
  * DO NOT IMPORT OR USE THIS COMPONENT.
  */
