@@ -29,6 +29,30 @@ import {
 import { constrainEmotion, TutorPersonality, CartesiaEmotion } from "./tts-service";
 
 /**
+ * Clean text for display by removing markdown, emotion tags, and other formatting
+ * that should not appear in subtitles
+ */
+function cleanTextForDisplay(text: string): string {
+  return text
+    // Remove markdown bold/italic markers
+    .replace(/\*\*/g, '')
+    .replace(/\*/g, '')
+    .replace(/##/g, '')
+    .replace(/#/g, '')
+    // Remove emotion tags like (friendly), (curious), (excited), etc at start/end
+    .replace(/^\s*\([^)]+\)\s*/g, '')
+    .replace(/\s*\([^)]+\)\s*$/g, '')
+    // Also remove mid-text emotion tags
+    .replace(/\s*\((?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful)\)\s*/gi, ' ')
+    // Remove [laughter] tags for display
+    .replace(/\[laughter\]/gi, '')
+    // Normalize whitespace
+    .replace(/\n+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * Session state for a streaming voice connection
  */
 export interface StreamingSession {
@@ -198,17 +222,26 @@ export class StreamingVoiceOrchestrator {
             console.log(`[Streaming Orchestrator] AI first token: ${metrics.aiFirstTokenMs}ms`);
           }
           
-          // Notify client of new sentence
+          // Clean text for display (remove markdown, emotion tags)
+          const displayText = cleanTextForDisplay(chunk.text);
+          
+          // Skip empty sentences after cleaning
+          if (!displayText) {
+            console.log(`[Streaming Orchestrator] Skipping empty sentence ${chunk.index} after cleaning`);
+            return;
+          }
+          
+          // Notify client of new sentence with cleaned text
           this.sendMessage(session.ws, {
             type: 'sentence_start',
             timestamp: Date.now(),
             sentenceIndex: chunk.index,
-            text: chunk.text,
+            text: displayText,
           } as StreamingSentenceStartMessage);
           
-          // Synthesize and stream audio for this sentence
+          // Synthesize and stream audio for this sentence (pass cleaned text for timing)
           const ttsStart = Date.now();
-          await this.streamSentenceAudio(session, chunk, metrics);
+          await this.streamSentenceAudio(session, chunk, displayText, metrics);
           
           if (chunk.index === 0) {
             metrics.ttsFirstByteMs = Date.now() - ttsStart;
@@ -285,10 +318,15 @@ export class StreamingVoiceOrchestrator {
    * Stream audio for a single sentence
    * Collects all audio chunks to form a complete MP3 file before sending
    * (MP3 fragments are not individually playable)
+   * @param session - Current streaming session
+   * @param chunk - The sentence chunk from Gemini
+   * @param displayText - Cleaned text for display/timing (without markdown/emotion tags)
+   * @param metrics - Metrics to update
    */
   private async streamSentenceAudio(
     session: StreamingSession,
     chunk: SentenceChunk,
+    displayText: string,
     metrics: StreamingMetrics
   ): Promise<void> {
     const { text, index } = chunk;
@@ -340,9 +378,9 @@ export class StreamingVoiceOrchestrator {
         audio: audioBase64,
       } as StreamingAudioChunkMessage);
       
-      // Always estimate word timings using the original display text
+      // Always estimate word timings using the cleaned display text
       if (session.subtitleMode !== 'off') {
-        const estimatedTimings = this.estimateWordTimings(text, totalDurationMs / 1000);
+        const estimatedTimings = this.estimateWordTimings(displayText, totalDurationMs / 1000);
         this.sendMessage(session.ws, {
           type: 'word_timing',
           timestamp: Date.now(),
