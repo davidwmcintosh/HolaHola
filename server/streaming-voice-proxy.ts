@@ -1,28 +1,18 @@
 /**
- * Streaming Voice WebSocket Server
+ * Streaming Voice WebSocket Proxy
  * 
- * Handles WebSocket connections for streaming voice mode.
+ * Uses the SAME pattern as realtime-proxy.ts (which works) instead of noServer mode.
  * Path: /api/voice/stream/ws
- * 
- * Uses noServer mode with manual upgrade handling for Replit compatibility.
- * 
- * Protocol:
- * 1. Client connects (NO AUTH during handshake - Replit proxy times out on async)
- * 2. Client sends 'start_session' with config
- * 3. Server authenticates from session cookie (deferred async)
- * 4. Client sends 'audio_data' with recorded audio
- * 5. Server streams back sentence-by-sentence audio
  */
 
 import { WebSocketServer, WebSocket as WS } from 'ws';
 import { Server } from 'http';
-import type { IncomingMessage, ServerResponse } from 'http';
-import { Duplex } from 'stream';
+import type { IncomingMessage } from 'http';
 import { storage } from './storage';
 import { createSystemPrompt } from './system-prompt';
 import { parse as parseCookie } from 'cookie';
 import signature from 'cookie-signature';
-import { 
+import {
   getStreamingVoiceOrchestrator,
   StreamingSession,
 } from './services/streaming-voice-orchestrator';
@@ -32,23 +22,19 @@ import {
   StreamingErrorMessage,
 } from '@shared/streaming-voice-types';
 
-const STREAMING_WS_PATH = '/api/voice/stream/ws';
-
 /**
  * Extract userId from authenticated session cookie
- * DEFERRED: Called after connection is established, not during handshake
  */
 async function getUserIdFromSession(req: IncomingMessage): Promise<string | null> {
   try {
     const cookieHeader = req.headers.cookie;
     if (!cookieHeader) {
-      console.log('[Streaming Voice Auth] No cookies in request');
+      console.log('[Streaming Voice Auth] No cookies in upgrade request');
       return null;
     }
 
     const cookies = parseCookie(cookieHeader);
-    const sessionCookieName = 'connect.sid';
-    let sessionId = cookies[sessionCookieName];
+    let sessionId = cookies['connect.sid'];
     
     if (!sessionId) {
       console.log('[Streaming Voice Auth] No session cookie found');
@@ -94,131 +80,127 @@ async function getUserIdFromSession(req: IncomingMessage): Promise<string | null
 }
 
 /**
- * Setup streaming voice WebSocket server using noServer mode
- * Manual upgrade handling for better Replit compatibility
+ * Send error message to WebSocket client
+ */
+function sendError(ws: WS, code: string, message: string, recoverable: boolean) {
+  if (ws.readyState === WS.OPEN) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      timestamp: Date.now(),
+      code,
+      message,
+      recoverable,
+    } as StreamingErrorMessage));
+  }
+}
+
+/**
+ * Setup streaming voice WebSocket proxy
+ * Uses the same pattern as realtime-proxy.ts
  */
 export function setupStreamingVoiceProxy(server: Server) {
-  // Create WebSocket server in noServer mode
-  const wss = new WebSocketServer({ noServer: true });
+  console.log('[Streaming Voice] Setting up WebSocket server...');
   
-  const orchestrator = getStreamingVoiceOrchestrator();
-
-  console.log('[Streaming Voice] WebSocket server initialized on /api/voice/stream/ws');
+  // Use path option like realtime-proxy does (known working pattern)
+  const wss = new WebSocketServer({
+    server,
+    path: '/api/voice/stream/ws'
+  });
 
   wss.on('error', (error) => {
-    console.error('[Streaming Voice] WebSocket Server error:', error);
+    console.error('[Streaming Voice] Server error:', error);
   });
 
-  // Handle HTTP upgrade requests manually
-  server.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
-    const { pathname } = new URL(request.url || '', `http://${request.headers.host}`);
+  wss.on('connection', async (ws: WS, req: IncomingMessage) => {
+    console.log('[Streaming Voice] Client connected');
     
-    // Only handle our specific path
-    if (pathname === STREAMING_WS_PATH) {
-      console.log('[Streaming Voice] Upgrade request received');
-      
-      // Perform the WebSocket handshake
-      wss.handleUpgrade(request, socket, head, (ws) => {
-        console.log('[Streaming Voice] Handshake complete, emitting connection');
-        wss.emit('connection', ws, request);
-      });
-    }
-    // Note: Don't call socket.destroy() for other paths - let other handlers process them
-  });
-
-  // Connection handler - MUST be synchronous until connection is fully established
-  wss.on('connection', (clientWs: WS, req: IncomingMessage) => {
-    console.log('[Streaming Voice] Client connected - handshake complete');
-
-    // State stored per connection
+    const orchestrator = getStreamingVoiceOrchestrator();
     let session: StreamingSession | null = null;
     let userId: string | null = null;
     let isAuthenticated = false;
-    
-    // Store request for later auth (synchronous - just a reference)
-    const savedReq = req;
-    
-    // Parse query params synchronously
+
+    // Parse query params
     let conversationId: string | null = null;
     try {
       const url = new URL(req.url!, `http://${req.headers.host}`);
       conversationId = url.searchParams.get('conversationId');
+      console.log('[Streaming Voice] ConversationId:', conversationId);
     } catch (e) {
       console.error('[Streaming Voice] Failed to parse URL:', e);
     }
 
-    // Send connected confirmation immediately
-    if (clientWs.readyState === WS.OPEN) {
-      clientWs.send(JSON.stringify({
+    // Send connected confirmation
+    try {
+      const connectedMsg = JSON.stringify({
         type: 'connected',
         timestamp: Date.now(),
-      }));
+      });
+      console.log('[Streaming Voice] Sending connected:', connectedMsg);
+      ws.send(connectedMsg);
+      console.log('[Streaming Voice] Connected message sent');
+    } catch (err) {
+      console.error('[Streaming Voice] Error sending connected:', err);
     }
 
-    // Handle incoming messages - async work happens here, AFTER connection
-    clientWs.on('message', async (data: Buffer | string) => {
+    // Handle messages
+    ws.on('message', async (data: Buffer | string) => {
+      console.log('[Streaming Voice] Message received, isBuffer:', Buffer.isBuffer(data));
+      
       try {
-        // Check if binary (audio data)
+        // Handle binary audio data
         if (Buffer.isBuffer(data)) {
           if (!isAuthenticated) {
-            sendError(clientWs, 'UNAUTHORIZED', 'Not authenticated', false);
+            sendError(ws, 'UNAUTHORIZED', 'Not authenticated', false);
             return;
           }
           if (session) {
-            console.log(`[Streaming Voice] Received ${data.length} bytes of audio`);
+            console.log(`[Streaming Voice] Audio: ${data.length} bytes`);
             await orchestrator.processUserAudio(session.id, data, 'webm');
-          } else {
-            console.warn('[Streaming Voice] Audio received but no session');
           }
           return;
         }
 
-        // Parse JSON message
+        // Handle JSON messages
         const message = JSON.parse(data.toString());
-        
+        console.log('[Streaming Voice] Message type:', message.type);
+
         switch (message.type) {
           case 'start_session': {
             const config = message as ClientStartSessionMessage;
-            
-            // DEFERRED AUTH: Authenticate now, after connection is established
+            console.log('[Streaming Voice] Processing start_session');
+
+            // Authenticate on first message
             if (!isAuthenticated) {
-              console.log('[Streaming Voice] Authenticating connection...');
-              userId = await getUserIdFromSession(savedReq);
+              console.log('[Streaming Voice] Authenticating...');
+              userId = await getUserIdFromSession(req);
               
               if (!userId) {
-                console.error('[Streaming Voice] Authentication failed');
-                sendError(clientWs, 'UNAUTHORIZED', 'Authentication required', false);
-                clientWs.close(4401, 'Unauthorized');
+                console.error('[Streaming Voice] Auth failed');
+                sendError(ws, 'UNAUTHORIZED', 'Authentication required', false);
+                ws.close(4401, 'Unauthorized');
                 return;
               }
               isAuthenticated = true;
-              console.log('[Streaming Voice] ✓ Authentication successful');
+              console.log('[Streaming Voice] ✓ Authenticated userId:', userId);
             }
 
             if (!conversationId) {
-              sendError(clientWs, 'INVALID_REQUEST', 'Missing conversationId', false);
+              sendError(ws, 'INVALID_REQUEST', 'Missing conversationId', false);
               return;
             }
-            
-            // Fetch user data
+
             const user = await storage.getUser(userId!);
             if (!user) {
-              sendError(clientWs, 'UNAUTHORIZED', 'User not found', false);
+              sendError(ws, 'UNAUTHORIZED', 'User not found', false);
               return;
             }
 
-            // Fetch conversation with message history
-            const conversation = await storage.getConversation(
-              conversationId!,
-              userId!
-            );
-            
+            const conversation = await storage.getConversation(conversationId!, userId!);
             if (!conversation) {
-              sendError(clientWs, 'UNKNOWN', 'Conversation not found', false);
+              sendError(ws, 'UNKNOWN', 'Conversation not found', false);
               return;
             }
 
-            // Get message history
             const messages = await storage.getMessagesByConversation(conversationId!);
             const conversationHistory = messages
               .slice(-20)
@@ -227,7 +209,6 @@ export function setupStreamingVoiceProxy(server: Server) {
                 content: m.content,
               }));
 
-            // Build system prompt
             const systemPrompt = createSystemPrompt(
               config.targetLanguage,
               config.difficultyLevel,
@@ -245,7 +226,7 @@ export function setupStreamingVoiceProxy(server: Server) {
               user.tutorExpressiveness || 3,
             );
 
-            // Resolve voice ID
+            // Get voice configuration
             let voiceId: string | undefined;
             try {
               const allVoices = await storage.getAllTutorVoices();
@@ -260,23 +241,14 @@ export function setupStreamingVoiceProxy(server: Server) {
               
               if (matchingVoice?.voiceId) {
                 voiceId = matchingVoice.voiceId;
-                console.log(`[Streaming Voice] Using voice: ${matchingVoice.voiceName} (${voiceId?.substring(0, 8)}...)`);
-              } else {
-                const languageVoice = allVoices.find(
-                  (v: any) => v.language?.toLowerCase() === effectiveLanguage && v.isActive
-                );
-                if (languageVoice?.voiceId) {
-                  voiceId = languageVoice.voiceId;
-                  console.log(`[Streaming Voice] Using fallback voice: ${languageVoice.voiceName}`);
-                }
               }
             } catch (err: any) {
-              console.warn(`[Streaming Voice] Could not fetch voice config: ${err.message}`);
+              console.warn(`[Streaming Voice] Voice config error: ${err.message}`);
             }
 
-            // Create streaming session
+            // Create session
             session = orchestrator.createSession(
-              clientWs,
+              ws,
               parseInt(userId!),
               config,
               systemPrompt,
@@ -284,31 +256,27 @@ export function setupStreamingVoiceProxy(server: Server) {
               voiceId
             );
 
-            console.log(`[Streaming Voice] Session started: ${session.id}`);
+            console.log(`[Streaming Voice] Session created: ${session.id}`);
             
-            // Confirm session started
-            if (clientWs.readyState === WS.OPEN) {
-              clientWs.send(JSON.stringify({
+            // Send session_started
+            if (ws.readyState === WS.OPEN) {
+              ws.send(JSON.stringify({
                 type: 'session_started',
                 timestamp: Date.now(),
                 sessionId: session.id,
               }));
+              console.log('[Streaming Voice] session_started sent');
             }
             break;
           }
 
           case 'audio_data': {
-            if (!isAuthenticated) {
-              sendError(clientWs, 'UNAUTHORIZED', 'Not authenticated', false);
-              return;
-            }
-            if (!session) {
-              sendError(clientWs, 'UNKNOWN', 'Session not started', true);
+            if (!isAuthenticated || !session) {
+              sendError(ws, 'UNKNOWN', 'Session not ready', true);
               return;
             }
 
             const audioMessage = message as ClientAudioDataMessage;
-            
             let audioBuffer: Buffer;
             if (typeof audioMessage.audio === 'string') {
               audioBuffer = Buffer.from(audioMessage.audio, 'base64');
@@ -316,71 +284,39 @@ export function setupStreamingVoiceProxy(server: Server) {
               audioBuffer = Buffer.from(audioMessage.audio);
             }
 
-            console.log(`[Streaming Voice] Processing ${audioBuffer.length} bytes`);
-            await orchestrator.processUserAudio(
-              session.id,
-              audioBuffer,
-              audioMessage.format || 'webm'
-            );
+            await orchestrator.processUserAudio(session.id, audioBuffer, audioMessage.format || 'webm');
             break;
           }
 
-          case 'interrupt': {
-            if (session) {
-              orchestrator.handleInterrupt(session.id);
-            }
+          case 'interrupt':
+            if (session) orchestrator.handleInterrupt(session.id);
             break;
-          }
 
-          case 'end_session': {
+          case 'end_session':
             if (session) {
               orchestrator.endSession(session.id);
               session = null;
             }
-            clientWs.close(1000, 'Session ended');
+            ws.close(1000, 'Session ended');
             break;
-          }
-
-          default:
-            console.warn(`[Streaming Voice] Unknown message type: ${message.type}`);
         }
       } catch (error: any) {
-        console.error('[Streaming Voice] Message handling error:', error);
-        sendError(clientWs, 'UNKNOWN', error.message, true);
+        console.error('[Streaming Voice] Message error:', error);
+        sendError(ws, 'UNKNOWN', error.message, true);
       }
     });
 
-    // Handle connection close
-    clientWs.on('close', (code, reason) => {
-      console.log(`[Streaming Voice] Connection closed: ${code} - ${reason}`);
-      if (session) {
-        orchestrator.endSession(session.id);
-      }
+    ws.on('close', (code, reason) => {
+      console.log(`[Streaming Voice] Closed: ${code} - ${reason}`);
+      if (session) orchestrator.endSession(session.id);
     });
 
-    // Handle errors
-    clientWs.on('error', (error) => {
-      console.error('[Streaming Voice] WebSocket error:', error);
-      if (session) {
-        orchestrator.endSession(session.id);
-      }
+    ws.on('error', (error) => {
+      console.error('[Streaming Voice] Connection error:', error);
+      if (session) orchestrator.endSession(session.id);
     });
   });
 
+  console.log('[Streaming Voice] ✓ WebSocket server ready on /api/voice/stream/ws');
   return wss;
-}
-
-/**
- * Send error message to client
- */
-function sendError(ws: WS, code: string, message: string, recoverable: boolean) {
-  if (ws.readyState === WS.OPEN) {
-    ws.send(JSON.stringify({
-      type: 'error',
-      timestamp: Date.now(),
-      code,
-      message,
-      recoverable,
-    } as StreamingErrorMessage));
-  }
 }

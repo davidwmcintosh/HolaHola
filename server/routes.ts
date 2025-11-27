@@ -14,7 +14,7 @@ import {
 } from "@shared/schema";
 import OpenAI, { toFile } from "openai";
 import { setupRealtimeProxy } from "./realtime-proxy";
-import { setupWebSocketGateway } from "./ws-gateway";
+import { setupStreamingVoiceProxy } from "./streaming-voice-proxy";
 import {
   extractNameFromMessage,
   extractLanguageFromMessage,
@@ -5469,12 +5469,9 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   const httpServer = createServer(app);
   
-  // Set up unified WebSocket gateway (MUST be before Vite HMR setup)
-  // This handles: /api/voice/stream/ws (streaming voice)
-  setupWebSocketGateway(httpServer);
-  
-  // Set up WebSocket proxy for Realtime API (uses its own upgrade handler)
+  // Set up WebSocket proxies (using path option like realtime-proxy)
   setupRealtimeProxy(httpServer);
+  setupStreamingVoiceProxy(httpServer);
   
   return httpServer;
 }
