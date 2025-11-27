@@ -13,8 +13,7 @@ import {
   conversations,
 } from "@shared/schema";
 import OpenAI, { toFile } from "openai";
-import { setupRealtimeProxy } from "./realtime-proxy";
-import { setupStreamingVoiceProxy } from "./streaming-voice-proxy";
+import { setupUnifiedWebSocketHandler } from "./unified-ws-handler";
 import {
   extractNameFromMessage,
   extractLanguageFromMessage,
@@ -5469,9 +5468,8 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   const httpServer = createServer(app);
   
-  // Set up WebSocket proxies (using path option like realtime-proxy)
-  setupRealtimeProxy(httpServer);
-  setupStreamingVoiceProxy(httpServer);
+  // Set up unified WebSocket handler for all paths
+  setupUnifiedWebSocketHandler(httpServer);
   
   return httpServer;
 }

@@ -1,0 +1,178 @@
+connection to 'wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/?token=upmA2qgkIFLw' failed: 
+setupWebSocket @ client:536
+(anonymous) @ client:531
+client:536 Uncaught (in promise) DOMException: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=upmA2qgkIFLw' is invalid.
+    at setupWebSocket (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:536:19)
+    at fallback (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:509:16)
+    at WebSocket.<anonymous> (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@vite/client:555:7)
+setupWebSocket @ client:536
+fallback @ client:509
+(anonymous) @ client:555
+chunk-RPCDYKBN.js?v=359c67df:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+main.tsx:29 [APP] Screen orientation lock not available
+App.tsx:164 [BUILD] App version: 1763747293
+LanguageContext.tsx:24 [LanguageContext] Initializing with language: spanish (from localStorage)
+LanguageContext.tsx:29 [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+LanguageContext.tsx:34 [LanguageContext] Initializing with userName: David (from localStorage)
+LanguageContext.tsx:40 [LanguageContext] Initializing with subtitleMode: target (from localStorage)
+LanguageContext.tsx:52 [LanguageContext] Hydrating from user preferences: {targetLanguage: 'spanish', difficultyLevel: 'beginner', firstName: 'David'}
+main.tsx:10 [PWA] Service Worker registered: https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/
+audioUtils.ts:192 [StreamingAudioPlayer] Initialized
+chat.tsx:114 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false mode: voice
+chat.tsx:119 [SHARED CHAT] Creating shared conversation... (post-onboarding) forceNew: true mode: voice
+chat.tsx:108 [SHARED CHAT] Auto-create check - skipped (already in progress)
+RestVoiceChat.tsx:296 [VOICE] TTS pre-warmed in 0ms
+chat.tsx:134 [SHARED CHAT] Shared conversation created: 9c7829ea-6a69-46af-9720-67074488d3cd mode: voice
+RestVoiceChat.tsx:311 [CLEANUP] Cleaning up voice recording resources...
+RestVoiceChat.tsx:496 [CLEANUP] Cleaning up recording resources...
+RestVoiceChat.tsx:203 [STREAMING] Connecting to streaming voice...
+useStreamingVoice.ts:195 [StreamingVoice] Connecting for conversation 9c7829ea-6a69-46af-9720-67074488d3cd
+streamingVoiceClient.ts:100 [StreamingVoiceClient] Initialized
+streamingVoiceClient.ts:394 [StreamingVoiceClient] State: disconnected → connecting
+streamingVoiceClient.ts:175 [StreamingVoiceClient] Connecting to: wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/api/voice/stream/ws?conversationId=9c7829ea-6a69-46af-9720-67074488d3cd
+chat.tsx:108 [SHARED CHAT] Auto-create check - skipped (already in progress)
+RestVoiceChat.tsx:161 [MIC WARMUP] Pre-warming microphone (500ms after mount)...
+RestVoiceChat.tsx:84 [VOICE GREETING] Lock acquired for message: ca38f8b5-5451-46b8-a196-d6cd63643236
+RestVoiceChat.tsx:354 [VOICE GREETING] Generating greeting audio for new conversation (karaoke: true)
+RestVoiceChat.tsx:285 [VOICE] Deepgram pre-warmed in 484ms
+streamingVoiceClient.ts:177 WebSocket connection to 'wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/api/voice/stream/ws?conversationId=9c7829ea-6a69-46af-9720-67074488d3cd' failed: 
+connect @ streamingVoiceClient.ts:177
+(anonymous) @ useStreamingVoice.ts:210
+connectStreaming @ RestVoiceChat.tsx:204
+(anonymous) @ RestVoiceChat.tsx:223
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=359c67df:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=359c67df:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=359c67df:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=359c67df:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=359c67df:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=359c67df:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=359c67df:19447
+(anonymous) @ chunk-RPCDYKBN.js?v=359c67df:19328
+workLoop @ chunk-RPCDYKBN.js?v=359c67df:197
+flushWork @ chunk-RPCDYKBN.js?v=359c67df:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=359c67df:384
+Show 11 more frames
+Show less
+streamingVoiceClient.ts:197 [StreamingVoiceClient] WebSocket error: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+ws.onerror @ streamingVoiceClient.ts:197
+ws.onerror @ streamingVoiceClient.ts:445
+error (async)
+(anonymous) @ streamingVoiceClient.ts:442
+waitForOpen @ streamingVoiceClient.ts:416
+connect @ streamingVoiceClient.ts:202
+(anonymous) @ useStreamingVoice.ts:210
+connectStreaming @ RestVoiceChat.tsx:204
+(anonymous) @ RestVoiceChat.tsx:223
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=359c67df:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=359c67df:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=359c67df:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=359c67df:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=359c67df:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=359c67df:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=359c67df:19447
+(anonymous) @ chunk-RPCDYKBN.js?v=359c67df:19328
+workLoop @ chunk-RPCDYKBN.js?v=359c67df:197
+flushWork @ chunk-RPCDYKBN.js?v=359c67df:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=359c67df:384
+Show 11 more frames
+Show less
+streamingVoiceClient.ts:205 [StreamingVoiceClient] Connection failed: Error: WebSocket connection failed
+    at ws.onerror (streamingVoiceClient.ts:447:16)
+connect @ streamingVoiceClient.ts:205
+await in connect (async)
+(anonymous) @ useStreamingVoice.ts:210
+connectStreaming @ RestVoiceChat.tsx:204
+(anonymous) @ RestVoiceChat.tsx:223
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=359c67df:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=359c67df:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=359c67df:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=359c67df:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=359c67df:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=359c67df:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=359c67df:19447
+(anonymous) @ chunk-RPCDYKBN.js?v=359c67df:19328
+workLoop @ chunk-RPCDYKBN.js?v=359c67df:197
+flushWork @ chunk-RPCDYKBN.js?v=359c67df:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=359c67df:384
+Show 11 more frames
+Show less
+streamingVoiceClient.ts:394 [StreamingVoiceClient] State: connecting → error
+useStreamingVoice.ts:228 [StreamingVoice] Connection failed: Error: WebSocket connection failed
+    at ws.onerror (streamingVoiceClient.ts:447:16)
+(anonymous) @ useStreamingVoice.ts:228
+await in (anonymous) (async)
+connectStreaming @ RestVoiceChat.tsx:204
+(anonymous) @ RestVoiceChat.tsx:223
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=359c67df:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=359c67df:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=359c67df:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=359c67df:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=359c67df:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=359c67df:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=359c67df:19447
+(anonymous) @ chunk-RPCDYKBN.js?v=359c67df:19328
+workLoop @ chunk-RPCDYKBN.js?v=359c67df:197
+flushWork @ chunk-RPCDYKBN.js?v=359c67df:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=359c67df:384
+Show 11 more frames
+Show less
+RestVoiceChat.tsx:216 [STREAMING] Failed to connect: WebSocket connection failed
+connectStreaming @ RestVoiceChat.tsx:216
+await in connectStreaming (async)
+(anonymous) @ RestVoiceChat.tsx:223
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=359c67df:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=359c67df:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=359c67df:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=359c67df:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=359c67df:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=359c67df:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=359c67df:19447
+(anonymous) @ chunk-RPCDYKBN.js?v=359c67df:19328
+workLoop @ chunk-RPCDYKBN.js?v=359c67df:197
+flushWork @ chunk-RPCDYKBN.js?v=359c67df:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=359c67df:384
+Show 11 more frames
+Show less
+streamingVoiceClient.ts:192 [StreamingVoiceClient] WebSocket closed: 1006 - 
+streamingVoiceClient.ts:408 [StreamingVoiceClient] Reconnecting (attempt 1/3)...
+streamingVoiceClient.ts:394 [StreamingVoiceClient] State: error → disconnected
+RestVoiceChat.tsx:166 [MIC WARMUP] SUCCESS! Microphone ready for instant recording (took 166 ms)
+chat.tsx:108 [SHARED CHAT] Auto-create check - skipped (already in progress)
+RestVoiceChat.tsx:402 [VOICE GREETING] Stored word timings: ca38f8b5-5451-46b8-a196-d6cd63643236 16 words
+RestVoiceChat.tsx:431 [VOICE GREETING] Greeting audio playing
+RestVoiceChat.tsx:419 [VOICE GREETING] Cleaned up and returned to idle
+ImmersiveTutor.tsx:501 Unable to preventDefault inside passive event listener invocation.
+preventDefault @ chunk-RPCDYKBN.js?v=359c67df:5760
+onTouchStart @ ImmersiveTutor.tsx:501
+callCallback2 @ chunk-RPCDYKBN.js?v=359c67df:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=359c67df:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=359c67df:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=359c67df:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=359c67df:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=359c67df:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=359c67df:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=359c67df:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=359c67df:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=359c67df:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=359c67df:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=359c67df:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=359c67df:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=359c67df:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=359c67df:5449
+Show 16 more frames
+Show less
+ImmersiveTutor.tsx:503 [MIC BUTTON] Touch start
+RestVoiceChat.tsx:705 [PUSH-TO-TALK] Button pressed at 13659 ms
+RestVoiceChat.tsx:724 [PUSH-TO-TALK] Cached stream status: exists active
+RestVoiceChat.tsx:727 [PUSH-TO-TALK] Using cached stream - INSTANT start! (+1ms)
+RestVoiceChat.tsx:825 [PUSH-TO-TALK] Recording started - release to stop
+ImmersiveTutor.tsx:512 [MIC BUTTON] Touch end
+RestVoiceChat.tsx:835 [PUSH-TO-TALK] Releasing button, stopping recording...
+RestVoiceChat.tsx:769 [PUSH-TO-TALK] Stopped, processing audio...
+RestVoiceChat.tsx:808 [PUSH-TO-TALK] Processing audio for conversation: 9c7829ea-6a69-46af-9720-67074488d3cd
+RestVoiceChat.tsx:931 [STREAMING] Not connected, waiting for connection...
+processRecording @ RestVoiceChat.tsx:931
+mediaRecorder.onstop @ RestVoiceChat.tsx:809
+RestVoiceChat.tsx:38 [VOICE GREETING] Already synthesized message: ca38f8b5-5451-46b8-a196-d6cd63643236
+RestVoiceChat.tsx:344 [VOICE GREETING] Skipping - lock not acquired
+RestVoiceChat.tsx:794 [MIC WARMUP] Re-warmed for next recording
