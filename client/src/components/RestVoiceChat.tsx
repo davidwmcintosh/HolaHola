@@ -452,11 +452,17 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     }
   }, [messages, conversationId, language, isProcessing, isRecording, subtitleMode]);
 
-  // Enter key keyboard shortcut for mic button
+  // Enter key keyboard shortcut for mic button (hold to talk)
+  const recordingStartTimeRef = useRef<number | null>(null);
+  const MIN_RECORDING_DURATION_MS = 500; // Minimum 500ms to avoid empty recordings
+  
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Only trigger if Enter is pressed
       if (event.code !== 'Enter') return;
+      
+      // Ignore key repeat events (holding Enter)
+      if (event.repeat) return;
       
       // Don't trigger if user is typing in an input/textarea/contenteditable
       const target = event.target as HTMLElement;
@@ -473,22 +479,58 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       // Prevent default behavior
       event.preventDefault();
       
-      // Toggle recording using push-to-talk mode
-      if (isRecording) {
-        console.log('[KEYBOARD] Enter pressed - stopping recording');
-        stopPushToTalkRecording();
-      } else {
+      // Start recording on keydown (if not already recording)
+      if (!isRecording) {
         console.log('[KEYBOARD] Enter pressed - starting recording');
+        recordingStartTimeRef.current = Date.now();
         startPushToTalkRecording();
       }
     };
+    
+    const handleKeyUp = (event: KeyboardEvent) => {
+      // Only trigger if Enter is released
+      if (event.code !== 'Enter') return;
+      
+      // Don't trigger if user is typing in an input/textarea/contenteditable
+      const target = event.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' || 
+        target.tagName === 'TEXTAREA' || 
+        target.isContentEditable ||
+        target.closest('[contenteditable="true"]')
+      ) return;
+      
+      // Stop recording on keyup (if recording)
+      if (isRecording) {
+        const recordingDuration = recordingStartTimeRef.current 
+          ? Date.now() - recordingStartTimeRef.current 
+          : 0;
+        
+        // Ensure minimum recording time to avoid empty recordings
+        if (recordingDuration < MIN_RECORDING_DURATION_MS) {
+          const remainingTime = MIN_RECORDING_DURATION_MS - recordingDuration;
+          console.log(`[KEYBOARD] Recording too short (${recordingDuration}ms), waiting ${remainingTime}ms`);
+          setTimeout(() => {
+            console.log('[KEYBOARD] Enter released - stopping recording (delayed)');
+            recordingStartTimeRef.current = null;
+            stopPushToTalkRecording();
+          }, remainingTime);
+        } else {
+          console.log('[KEYBOARD] Enter released - stopping recording');
+          recordingStartTimeRef.current = null;
+          stopPushToTalkRecording();
+        }
+      }
+    };
 
-    // Add event listener
+    // Add event listeners
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
     
     // Cleanup
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
     };
   }, [conversationId, isRecording, isProcessing]);
 
