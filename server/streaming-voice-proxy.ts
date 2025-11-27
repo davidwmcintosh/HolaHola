@@ -95,7 +95,16 @@ export function setupStreamingVoiceProxy(server: Server) {
   // Use standard pattern - matches working realtime-proxy.ts
   const wss = new WebSocketServer({ 
     server,
-    path: '/api/voice/stream/ws'
+    path: '/api/voice/stream/ws',
+    // Add verifyClient to debug connection attempts
+    verifyClient: (info, callback) => {
+      console.log('[Streaming Voice] verifyClient called');
+      console.log('[Streaming Voice] Origin:', info.origin);
+      console.log('[Streaming Voice] URL:', info.req.url);
+      console.log('[Streaming Voice] Headers:', JSON.stringify(info.req.headers, null, 2));
+      // Accept all connections for debugging
+      callback(true);
+    }
   });
   
   const orchestrator = getStreamingVoiceOrchestrator();
