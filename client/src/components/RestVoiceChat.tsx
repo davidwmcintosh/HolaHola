@@ -13,10 +13,10 @@ import { queryClient } from "@/lib/queryClient";
 import { VoiceChatViewManager } from "@/components/VoiceChatViewManager";
 import { useStreamingVoice } from "@/hooks/useStreamingVoice";
 
-// Feature flag for streaming mode - ENABLED for testing
-// Set to true to enable low-latency WebSocket streaming (target: <1s TTFB)
-// When false, uses reliable REST mode (~4-5s response time)
+// Streaming mode is ALWAYS enabled - no REST fallback
+// Low-latency WebSocket streaming (target: <1s TTFB)
 const ENABLE_STREAMING_MODE = true;
+const STREAMING_ONLY_MODE = true; // Never fall back to REST
 
 // Helper to prevent double-greetings on mobile app reloads
 // Tracks WHEN last greeting played AND which message ID was synthesized
@@ -213,8 +213,10 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         streamingConnectedRef.current = true;
         console.log('[STREAMING] Connected successfully');
       } catch (err: any) {
-        console.warn('[STREAMING] Failed to connect, will use REST fallback:', err.message);
+        console.error('[STREAMING] Failed to connect:', err.message);
         streamingConnectedRef.current = false;
+        // Don't silently fail - show error to user
+        setError('Voice streaming connection failed. Retrying...');
       }
     };
     
@@ -248,13 +250,11 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       }
     }
     
-    // Handle streaming errors - only show non-recoverable errors
-    // Transient connection errors should not block REST fallback
+    // Handle streaming errors - show them since we don't have REST fallback
     if (streamError && connectionState === 'error') {
-      console.warn('[STREAMING] Non-recoverable error:', streamError);
-      // Mark streaming as unavailable so REST fallback is used
+      console.error('[STREAMING] Connection error:', streamError);
       streamingConnectedRef.current = false;
-      // Don't set error state - let REST try first
+      setError(`Streaming error: ${streamError}`);
     }
     
     // Clear error when connection recovers
@@ -894,24 +894,51 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         
         return; // Exit early - streaming mode handles everything
       } catch (streamErr: any) {
-        console.warn('[STREAMING] Streaming failed, falling back to REST:', streamErr.message);
+        console.error('[STREAMING] Streaming failed:', streamErr.message);
         streamingConnectedRef.current = false;
-        // Reset state before falling through to REST mode
+        // Reset state and show error
         setIsProcessing(false);
         isProcessingRef.current = false;
         setAvatarState('idle');
         setProcessingStage(null);
-        setError(null); // Clear streaming error, let REST try
+        setError('Voice streaming failed. Please try again.');
         
-        // Re-enable processing for REST fallback
-        setIsProcessing(true);
-        isProcessingRef.current = true;
-        // Fall through to REST mode
+        // Attempt to reconnect streaming
+        setTimeout(async () => {
+          try {
+            console.log('[STREAMING] Attempting to reconnect...');
+            await streamingVoice.connect({
+              conversationId: targetConversationId,
+              targetLanguage: language,
+              nativeLanguage: user?.nativeLanguage || 'english',
+              difficultyLevel: difficulty,
+              subtitleMode,
+              tutorPersonality: user?.tutorPersonality || 'warm',
+              tutorExpressiveness: user?.tutorExpressiveness || 3,
+            });
+            streamingConnectedRef.current = true;
+            setError(null);
+            console.log('[STREAMING] Reconnected successfully');
+          } catch (reconnectErr: any) {
+            console.error('[STREAMING] Reconnection failed:', reconnectErr.message);
+          }
+        }, 1000);
+        
+        return; // Don't fall through to REST mode
       }
+    } else if (STREAMING_ONLY_MODE) {
+      // Streaming mode required but not connected - show error
+      console.warn('[STREAMING] Not connected, waiting for connection...');
+      setError('Voice streaming is connecting. Please try again in a moment.');
+      setIsProcessing(false);
+      isProcessingRef.current = false;
+      setAvatarState('idle');
+      setProcessingStage(null);
+      return; // Don't fall through to REST mode
     }
 
     try {
-      // REST mode fallback
+      // REST mode (only used when STREAMING_ONLY_MODE is false)
       // Step 1: Transcribe
       setProcessingStage('Transcribing...');
       console.log('[REST VOICE] Transcribing audio...');
