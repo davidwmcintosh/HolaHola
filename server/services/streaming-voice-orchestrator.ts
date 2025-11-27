@@ -33,6 +33,7 @@ import {
   LATENCY_TARGETS,
 } from "@shared/streaming-voice-types";
 import { constrainEmotion, TutorPersonality, CartesiaEmotion } from "./tts-service";
+import { storage } from "../storage";
 
 /**
  * Session state for a streaming voice connection
@@ -229,9 +230,31 @@ export class StreamingVoiceOrchestrator {
         },
       });
       
-      // Update conversation history
+      // Update conversation history (in-memory for AI context)
       session.conversationHistory.push({ role: 'user', content: transcript });
       session.conversationHistory.push({ role: 'model', content: fullText.trim() });
+      
+      // Save messages to database for persistence
+      try {
+        // Save user message
+        await storage.createMessage({
+          conversationId: session.conversationId,
+          role: 'user',
+          content: transcript,
+        });
+        
+        // Save AI response
+        await storage.createMessage({
+          conversationId: session.conversationId,
+          role: 'assistant',
+          content: fullText.trim(),
+        });
+        
+        console.log(`[Streaming Orchestrator] Messages saved to database`);
+      } catch (dbError: any) {
+        console.error(`[Streaming Orchestrator] Failed to save messages:`, dbError.message);
+        // Don't throw - conversation still worked, just failed to persist
+      }
       
       // Send completion message
       metrics.totalLatencyMs = Date.now() - startTime;
@@ -670,6 +693,25 @@ export class StreamingVoiceOrchestrator {
       
       session.conversationHistory.push({ role: 'user', content: transcript });
       session.conversationHistory.push({ role: 'model', content: fullText.trim() });
+      
+      // Save messages to database for persistence
+      try {
+        await storage.createMessage({
+          conversationId: session.conversationId,
+          role: 'user',
+          content: transcript,
+        });
+        
+        await storage.createMessage({
+          conversationId: session.conversationId,
+          role: 'assistant',
+          content: fullText.trim(),
+        });
+        
+        console.log(`[Streaming Orchestrator] Messages saved to database`);
+      } catch (dbError: any) {
+        console.error(`[Streaming Orchestrator] Failed to save messages:`, dbError.message);
+      }
       
       metrics.totalLatencyMs = Date.now() - startTime;
       
