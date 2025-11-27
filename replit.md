@@ -45,47 +45,34 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Streaming Voice Mode Architecture**: A WebSocket-based progressive audio delivery system aims to reduce Time To First Byte (TTFB) to under 1 second. The pipeline involves Deepgram STT, Gemini streaming, sentence chunking, Cartesia WebSocket TTS, and progressive audio playback. The server streams `connected`, `processing`, `sentence_start`, `audio_chunk`, `word_timing`, `sentence_end`, and `response_complete` messages to the client.
 
-## ACTIVE DEBUGGING: Streaming Voice WebSocket Failure
+## Streaming Voice Mode (WORKING)
 
-**Status**: BROKEN - WebSocket connections fail immediately after upgrade with code 1006
+**Status**: OPERATIONAL - WebSocket streaming voice mode with progressive audio delivery
 
-**Requirement**: Streaming mode ONLY - no REST fallback allowed
-
-**Key Files to Debug**:
-- `server/streaming-voice-proxy.ts` - WebSocket server setup and connection handler
+**Key Files**:
+- `server/unified-ws-handler.ts` - Unified WebSocket handler for streaming voice
 - `client/src/lib/streamingVoiceClient.ts` - Client-side WebSocket connection
 - `client/src/hooks/useStreamingVoice.ts` - React hook for streaming voice
+- `client/src/hooks/useStreamingSubtitles.ts` - Karaoke subtitle system with rescaling
 - `server/services/streaming-voice-orchestrator.ts` - Server-side orchestration
-- `client/src/components/RestVoiceChat.tsx` - Voice chat UI (now streaming-only)
 
-**Observed Behavior**:
-1. Server receives upgrade request: `[Streaming Voice] Upgrade request for path: /api/voice/stream/ws`
-2. Server handles upgrade: `[Streaming Voice] Handling WebSocket upgrade`
-3. Client immediately fails: `[StreamingVoiceClient] WebSocket closed: 1006 - `
-4. Server NEVER logs: `[Streaming Voice] Client connected` (connection handler not reached)
+**Architecture**:
+1. Client connects via WebSocket to `/api/voice/stream/ws`
+2. Audio recorded via push-to-talk → Deepgram STT → Gemini streaming → Cartesia TTS
+3. Server sends progressive messages: `sentence_start`, `word_timing`, `audio_chunk`, `response_complete`
+4. Client plays audio chunks as they arrive with karaoke word highlighting
 
-**Root Cause Hypothesis**:
-The `wss.handleUpgrade()` succeeds but something fails between the upgrade and the `connection` event:
-- Auth check throwing exception?
-- Socket being closed before connection event fires?
-- Missing await or async issue in upgrade handler?
+**Karaoke Timing System**:
+- Server sends word timings BEFORE audio chunks (ensures timing ready when playback starts)
+- Server includes `expectedDurationMs` in word_timing messages
+- Client captures actual audio duration when valid (guards against NaN from early timeupdate events)
+- Rescaling applied when actual duration differs from expected by >5%
+- Supports 3 subtitle modes: Off, Target (foreign language only), All (full text)
 
-**Current WebSocket Setup** (using noServer mode):
-```javascript
-server.on('upgrade', (request, socket, head) => {
-  if (pathname === '/api/voice/stream/ws') {
-    wss.handleUpgrade(request, socket, head, (ws) => {
-      wss.emit('connection', ws, request);
-    });
-  }
-});
-```
-
-**Next Debug Steps**:
-1. Add try-catch and logging inside handleUpgrade callback
-2. Log before and after wss.emit('connection')
-3. Check if socket is already closed when callback fires
-4. Verify auth function doesn't throw before connection event
+**Avatar State Synchronization**:
+- Dual-condition tracking: `pendingAudioCount` (incremented on enqueue, decremented on playback) + `responseCompleteRef`
+- Avatar stays in "speaking" state until both server signals complete AND all audio finishes playing
+- Prevents avatar flickering during buffer gaps between sentences
 
 ## External Dependencies
 

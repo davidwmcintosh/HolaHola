@@ -371,7 +371,21 @@ export class StreamingVoiceOrchestrator {
       const completeAudio = Buffer.concat(audioChunks);
       console.log(`[Streaming] Sentence ${index}: ${completeAudio.length} bytes, ${Math.round(totalDurationMs)}ms`);
       
-      // Send the complete audio as a single chunk
+      // Send word timings BEFORE audio so client has them ready when playback starts
+      // Include the expected duration so client can rescale if actual duration differs
+      if (session.subtitleMode !== 'off') {
+        const estimatedTimings = this.estimateWordTimings(displayText, totalDurationMs / 1000);
+        this.sendMessage(session.ws, {
+          type: 'word_timing',
+          timestamp: Date.now(),
+          sentenceIndex: index,
+          words: estimatedTimings,
+          timings: estimatedTimings,
+          expectedDurationMs: totalDurationMs, // For client-side rescaling
+        } as StreamingWordTimingMessage);
+      }
+      
+      // Send the complete audio after word timings
       const audioBase64 = completeAudio.toString('base64');
       this.sendMessage(session.ws, {
         type: 'audio_chunk',
@@ -382,18 +396,6 @@ export class StreamingVoiceOrchestrator {
         durationMs: totalDurationMs,
         audio: audioBase64,
       } as StreamingAudioChunkMessage);
-      
-      // Always estimate word timings using the cleaned display text
-      if (session.subtitleMode !== 'off') {
-        const estimatedTimings = this.estimateWordTimings(displayText, totalDurationMs / 1000);
-        this.sendMessage(session.ws, {
-          type: 'word_timing',
-          timestamp: Date.now(),
-          sentenceIndex: index,
-          words: estimatedTimings,
-          timings: estimatedTimings,
-        } as StreamingWordTimingMessage);
-      }
       
       // Send sentence end
       this.sendMessage(session.ws, {

@@ -16,6 +16,8 @@ export interface SubtitleSentence {
   text: string;
   targetLanguageText?: string;  // Target language only (for subtitle filtering)
   wordTimings: WordTiming[];
+  expectedDurationMs?: number;  // Expected duration from server (for rescaling)
+  actualDurationMs?: number;    // Actual audio duration (for rescaling)
   isComplete: boolean;
 }
 
@@ -38,9 +40,9 @@ export interface StreamingSubtitleState {
 export interface UseStreamingSubtitlesReturn {
   state: StreamingSubtitleState;
   addSentence: (index: number, text: string, targetLanguageText?: string) => void;
-  setWordTimings: (sentenceIndex: number, timings: WordTiming[]) => void;
+  setWordTimings: (sentenceIndex: number, timings: WordTiming[], expectedDurationMs?: number) => void;
   startPlayback: (sentenceIndex: number) => void;
-  updatePlaybackTime: (currentTime: number) => void;
+  updatePlaybackTime: (currentTime: number, actualDuration?: number) => void;
   stopPlayback: () => void;
   completeSentence: (sentenceIndex: number) => void;
   reset: () => void;
@@ -62,6 +64,8 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   const animationFrameRef = useRef<number | null>(null);
   const playbackStartTimeRef = useRef<number>(0);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const expectedDurationRef = useRef<number | undefined>(undefined);
+  const actualDurationRef = useRef<number | undefined>(undefined);
   
   /**
    * Add a new sentence (called when server sends sentence_start)
@@ -89,13 +93,17 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   /**
    * Set word timings for a sentence (called when server sends word_timing)
    */
-  const setWordTimings = useCallback((sentenceIndex: number, timings: WordTiming[]) => {
-    console.log(`[StreamingSubtitles] Set timings for sentence ${sentenceIndex}: ${timings.length} words`);
+  const setWordTimings = useCallback((sentenceIndex: number, timings: WordTiming[], expectedDurationMs?: number) => {
+    console.log(`[StreamingSubtitles] Set timings for sentence ${sentenceIndex}: ${timings.length} words, expected ${expectedDurationMs}ms`);
     
     setSentences(prev => {
       return prev.map(s => {
         if (s.index === sentenceIndex) {
-          return { ...s, wordTimings: timings };
+          return { 
+            ...s, 
+            wordTimings: timings,
+            expectedDurationMs,
+          };
         }
         return s;
       });
@@ -104,6 +112,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     // Update current timings if this is the active sentence
     if (sentenceIndex === currentSentenceIndex) {
       currentTimingsRef.current = timings;
+      expectedDurationRef.current = expectedDurationMs;
     }
   }, [currentSentenceIndex]);
   
@@ -118,12 +127,14 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     setVisibleWordCount(0);
     setCurrentWordIndex(-1);
     playbackStartTimeRef.current = Date.now();
+    actualDurationRef.current = undefined; // Reset actual duration
     
     // Get timings for this sentence
     setSentences(prev => {
       const sentence = prev.find(s => s.index === sentenceIndex);
       if (sentence) {
         currentTimingsRef.current = sentence.wordTimings;
+        expectedDurationRef.current = sentence.expectedDurationMs;
       }
       return prev;
     });
@@ -131,10 +142,36 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   
   /**
    * Update playback time (called from audio timeupdate event)
+   * Supports rescaling when actual audio duration differs from expected
    */
-  const updatePlaybackTime = useCallback((currentTime: number) => {
+  const updatePlaybackTime = useCallback((currentTime: number, actualDuration?: number) => {
     const timings = currentTimingsRef.current;
     if (timings.length === 0) return;
+    
+    // Store actual duration for rescaling calculations
+    // Only store if it's a valid, finite number (duration can be NaN before metadata loads)
+    const isValidDuration = actualDuration !== undefined && actualDuration > 0 && Number.isFinite(actualDuration);
+    const needsUpdate = actualDurationRef.current === undefined || !Number.isFinite(actualDurationRef.current);
+    
+    if (isValidDuration && needsUpdate) {
+      actualDurationRef.current = actualDuration * 1000; // Convert to ms
+      console.log(`[StreamingSubtitles] Captured actual duration: ${actualDuration.toFixed(2)}s (expected: ${expectedDurationRef.current?.toFixed(0)}ms)`);
+    }
+    
+    // Calculate rescaling factor if we have both expected and actual duration
+    let scaleFactor = 1;
+    const expected = expectedDurationRef.current;
+    const actual = actualDurationRef.current;
+    
+    if (expected && actual && expected > 0 && Number.isFinite(actual)) {
+      scaleFactor = actual / expected;
+      // Only apply rescaling if the difference is significant (> 5%)
+      if (Math.abs(scaleFactor - 1) >= 0.05) {
+        console.log(`[StreamingSubtitles] Rescaling: expected=${expected.toFixed(0)}ms, actual=${actual.toFixed(0)}ms, factor=${scaleFactor.toFixed(3)}`);
+      } else {
+        scaleFactor = 1;
+      }
+    }
     
     let wordIndex = -1;
     let maxVisibleIndex = -1;
@@ -142,13 +179,17 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     for (let i = 0; i < timings.length; i++) {
       const timing = timings[i];
       
+      // Apply rescaling to timing values
+      const scaledStartTime = timing.startTime * scaleFactor;
+      const scaledEndTime = timing.endTime * scaleFactor;
+      
       // Word is visible if we've reached its start time
-      if (currentTime >= timing.startTime) {
+      if (currentTime >= scaledStartTime) {
         maxVisibleIndex = i;
       }
       
       // Word is highlighted if we're within its time range
-      if (currentTime >= timing.startTime && currentTime < timing.endTime) {
+      if (currentTime >= scaledStartTime && currentTime < scaledEndTime) {
         wordIndex = i;
       }
     }
@@ -195,6 +236,8 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     setVisibleWordCount(0);
     setIsPlaying(false);
     currentTimingsRef.current = [];
+    expectedDurationRef.current = undefined;
+    actualDurationRef.current = undefined;
     
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);

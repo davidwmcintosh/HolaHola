@@ -105,6 +105,7 @@ export interface StreamingWordTimingMessage extends StreamingVoiceMessage {
   sentenceIndex: number;
   words: WordTiming[];
   timings: WordTiming[];  // Alias for words
+  expectedDurationMs?: number;  // For client-side rescaling if actual differs
 }
 
 /**

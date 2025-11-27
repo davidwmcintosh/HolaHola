@@ -122,8 +122,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         setPlaybackState(state);
       },
       onProgress: (currentTime, duration) => {
-        // Update subtitle highlighting
-        subtitles.updatePlaybackTime(currentTime);
+        // Update subtitle highlighting with actual duration for rescaling
+        subtitles.updatePlaybackTime(currentTime, duration);
       },
       onSentenceStart: (sentenceIndex) => {
         console.log(`[StreamingVoice] Sentence ${sentenceIndex} started`);
@@ -200,7 +200,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * Handle word timing message
    */
   const handleWordTiming = useCallback((msg: StreamingWordTimingMessage) => {
-    subtitles.setWordTimings(msg.sentenceIndex, msg.timings);
+    subtitles.setWordTimings(msg.sentenceIndex, msg.timings, msg.expectedDurationMs);
   }, [subtitles]);
   
   /**
