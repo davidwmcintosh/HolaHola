@@ -107,10 +107,29 @@ export function setupStreamingVoiceProxy(server: Server) {
     
     if (pathname === STREAMING_WS_PATH || pathname.startsWith(STREAMING_WS_PATH + '?')) {
       console.log('[Streaming Voice] Handling WebSocket upgrade...');
-      wss.handleUpgrade(req, socket, head, (ws) => {
-        console.log('[Streaming Voice] Upgrade successful, emitting connection');
-        wss.emit('connection', ws, req);
+      console.log('[Streaming Voice] Socket destroyed?', socket.destroyed);
+      console.log('[Streaming Voice] Socket writable?', socket.writable);
+      
+      // Check if socket is still valid
+      if (socket.destroyed) {
+        console.error('[Streaming Voice] Socket already destroyed before upgrade');
+        return;
+      }
+      
+      // Add error handler for socket
+      socket.on('error', (err) => {
+        console.error('[Streaming Voice] Socket error during upgrade:', err);
       });
+      
+      try {
+        wss.handleUpgrade(req, socket, head, (ws) => {
+          console.log('[Streaming Voice] Upgrade successful, emitting connection');
+          wss.emit('connection', ws, req);
+        });
+      } catch (error) {
+        console.error('[Streaming Voice] Error in handleUpgrade:', error);
+        socket.destroy();
+      }
     }
     // If not our path, let other handlers (like Vite HMR) handle it
   });
