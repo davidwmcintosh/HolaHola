@@ -295,15 +295,41 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     }
     
     // Handle mid-stream disconnection (WebSocket dropped unexpectedly)
-    if (connectionState === 'disconnected' && isProcessingRef.current) {
-      console.warn('[STREAMING] WebSocket disconnected while processing');
-      streamingConnectedRef.current = false;
-      // Reset processing state so mic button is enabled
-      setIsProcessing(false);
-      isProcessingRef.current = false;
-      setAvatarState('idle');
-      setProcessingStage(null);
-      setError('Connection lost. Tap the mic to try again.');
+    // Automatically attempt to reconnect so next mic tap works
+    if ((connectionState === 'disconnected' || connectionState === 'error') && 
+        streamingConnectedRef.current === false && 
+        conversationId && user) {
+      console.log('[STREAMING] Connection lost, attempting automatic reconnect...');
+      
+      // Reset processing state if we were processing
+      if (isProcessingRef.current) {
+        setIsProcessing(false);
+        isProcessingRef.current = false;
+        setAvatarState('idle');
+        setProcessingStage(null);
+      }
+      
+      // Attempt reconnection in background (don't block UI)
+      const reconnect = async () => {
+        try {
+          await streamingVoice.connect({
+            conversationId,
+            targetLanguage: language,
+            nativeLanguage: user.nativeLanguage || 'english',
+            difficultyLevel: difficulty,
+            subtitleMode,
+            tutorPersonality: user.tutorPersonality || 'warm',
+            tutorExpressiveness: user.tutorExpressiveness || 3,
+          });
+          streamingConnectedRef.current = true;
+          console.log('[STREAMING] Auto-reconnected successfully');
+          setError(null);
+        } catch (err) {
+          console.warn('[STREAMING] Auto-reconnect failed, will retry on mic tap');
+          // Don't show error yet - let user try again with mic tap
+        }
+      };
+      reconnect();
     }
     
     // Clear error when connection recovers
@@ -311,7 +337,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       streamingConnectedRef.current = true;
       setError(null);
     }
-  }, [streamingVoice.state, useStreamingMode]);
+  }, [streamingVoice.state, useStreamingMode, conversationId, language, difficulty, subtitleMode, user]);
 
   // Initialize audio player
   useEffect(() => {
