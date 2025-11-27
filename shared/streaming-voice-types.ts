@@ -32,7 +32,8 @@ export interface StreamingMetrics {
  * Streaming voice message types sent from server to client
  */
 export type StreamingVoiceMessageType = 
-  | 'connected'           // WebSocket connected successfully
+  | 'connected'           // WebSocket connected successfully (handshake complete)
+  | 'session_started'     // Session authenticated and ready
   | 'processing'          // STT received, AI processing started
   | 'sentence_start'      // New sentence chunk starting
   | 'audio_chunk'         // Audio data for current sentence
@@ -51,10 +52,17 @@ export interface StreamingVoiceMessage {
 }
 
 /**
- * Connection established message
+ * Connection established message (handshake complete, no auth yet)
  */
 export interface StreamingConnectedMessage extends StreamingVoiceMessage {
   type: 'connected';
+}
+
+/**
+ * Session started message (authentication complete, ready for audio)
+ */
+export interface StreamingSessionStartedMessage extends StreamingVoiceMessage {
+  type: 'session_started';
   sessionId: string;
 }
 
@@ -156,6 +164,7 @@ export type StreamingErrorCode =
  */
 export type StreamingMessage = 
   | StreamingConnectedMessage
+  | StreamingSessionStartedMessage
   | StreamingProcessingMessage
   | StreamingSentenceStartMessage
   | StreamingAudioChunkMessage

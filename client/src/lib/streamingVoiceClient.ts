@@ -287,7 +287,12 @@ export class StreamingVoiceClient {
       
       switch (message.type) {
         case 'connected':
-          this.handleConnected(message as StreamingConnectedMessage);
+          // Initial connection confirmed (no session yet)
+          console.log('[StreamingVoiceClient] ✓ Connection confirmed by server');
+          break;
+          
+        case 'session_started':
+          this.handleSessionStarted(message);
           break;
           
         case 'processing':
@@ -326,7 +331,7 @@ export class StreamingVoiceClient {
     }
   }
   
-  private handleConnected(message: StreamingConnectedMessage): void {
+  private handleSessionStarted(message: { type: string; sessionId: string; timestamp: number }): void {
     this.sessionId = message.sessionId;
     console.log('[StreamingVoiceClient] Session started:', this.sessionId);
     // Transition to 'ready' state - now client can send audio
