@@ -89,45 +89,18 @@ async function getUserIdFromSession(req: IncomingMessage): Promise<string | null
 
 /**
  * Setup streaming voice WebSocket server
- * Uses noServer mode to manually handle upgrades before Vite HMR can intercept
+ * Uses standard server/path pattern (same as working realtime-proxy)
  */
 export function setupStreamingVoiceProxy(server: Server) {
-  // Use noServer mode so we can manually handle upgrades
-  const wss = new WebSocketServer({ noServer: true });
+  // Use standard pattern - matches working realtime-proxy.ts
+  const wss = new WebSocketServer({ 
+    server,
+    path: '/api/voice/stream/ws'
+  });
+  
   const orchestrator = getStreamingVoiceOrchestrator();
 
-  // Handle HTTP upgrade requests for our path BEFORE Vite's HMR
-  server.on('upgrade', (request, socket, head) => {
-    const pathname = new URL(request.url!, `http://${request.headers.host}`).pathname;
-    
-    console.log(`[Streaming Voice] Upgrade request for path: ${pathname}`);
-    
-    if (pathname === '/api/voice/stream/ws') {
-      console.log('[Streaming Voice] Handling WebSocket upgrade');
-      
-      // Check socket state before upgrade
-      console.log(`[Streaming Voice] Socket state before upgrade - destroyed: ${socket.destroyed}, writable: ${socket.writable}`);
-      
-      try {
-        wss.handleUpgrade(request, socket, head, (ws) => {
-          console.log('[Streaming Voice] handleUpgrade callback fired');
-          console.log(`[Streaming Voice] WebSocket readyState: ${ws.readyState}`);
-          
-          if (ws.readyState !== 1) { // 1 = OPEN
-            console.error(`[Streaming Voice] WebSocket not open after upgrade, state: ${ws.readyState}`);
-            return;
-          }
-          
-          console.log('[Streaming Voice] Emitting connection event');
-          wss.emit('connection', ws, request);
-        });
-      } catch (err) {
-        console.error('[Streaming Voice] handleUpgrade threw error:', err);
-        socket.destroy();
-      }
-    }
-    // Let other upgrade requests (like Vite HMR) pass through
-  });
+  console.log('[Streaming Voice] WebSocket server initialized on /api/voice/stream/ws');
 
   wss.on('connection', async (clientWs: WS, req) => {
     console.log('[Streaming Voice] Client connected');
