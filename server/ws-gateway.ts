@@ -103,20 +103,8 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
     console.error('[Streaming Voice] Failed to parse URL:', e);
   }
 
-  // Send connected confirmation immediately
-  if (ws.readyState === WS.OPEN) {
-    try {
-      const connectedMsg = JSON.stringify({
-        type: 'connected',
-        timestamp: Date.now(),
-      });
-      console.log('[Streaming Voice] Sending connected message:', connectedMsg);
-      ws.send(connectedMsg);
-      console.log('[Streaming Voice] Connected message sent successfully');
-    } catch (err) {
-      console.error('[Streaming Voice] Error sending connected message:', err);
-    }
-  }
+  // Set up message handler FIRST before sending anything
+  let messageHandlerReady = false;
 
   // Handle incoming messages
   ws.on('message', async (data: Buffer | string) => {
@@ -289,6 +277,28 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
   ws.on('error', (error) => {
     console.error('[Streaming Voice] Error:', error);
     if (session) orchestrator.endSession(session.id);
+  });
+
+  // Mark handler as ready and send connected confirmation
+  messageHandlerReady = true;
+  
+  // Defer sending connected message to next tick to ensure handler is fully set up
+  setImmediate(() => {
+    if (ws.readyState === WS.OPEN) {
+      try {
+        const connectedMsg = JSON.stringify({
+          type: 'connected',
+          timestamp: Date.now(),
+        });
+        console.log('[Streaming Voice] Sending connected message (deferred):', connectedMsg);
+        ws.send(connectedMsg);
+        console.log('[Streaming Voice] Connected message sent successfully');
+      } catch (err) {
+        console.error('[Streaming Voice] Error sending connected message:', err);
+      }
+    } else {
+      console.log('[Streaming Voice] WebSocket not open when trying to send connected, state:', ws.readyState);
+    }
   });
 }
 
