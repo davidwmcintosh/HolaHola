@@ -203,6 +203,15 @@ export class GeminiStreamingService {
         // Check for complete sentences
         const sentences = this.extractCompleteSentences(buffer);
         
+        // Update buffer IMMEDIATELY before async operations to prevent timeout race
+        buffer = sentences.remaining;
+        
+        // Clear timeout while processing to prevent duplicate sends
+        if (flushTimeoutId) {
+          clearTimeout(flushTimeoutId);
+          flushTimeoutId = null;
+        }
+        
         for (const sentence of sentences.complete) {
           const chunk: SentenceChunk = {
             index: sentenceIndex++,
@@ -214,9 +223,6 @@ export class GeminiStreamingService {
           console.log(`[Gemini Streaming] Sentence ${chunk.index}: "${sentence.substring(0, 50)}..."`);
           await onSentence(chunk);
         }
-        
-        // Update buffer with remaining text
-        buffer = sentences.remaining;
         
         // Force chunk if buffer is too long (prevents long waits)
         if (buffer.length >= SENTENCE_CHUNKING_CONFIG.MAX_SENTENCE_LENGTH) {
