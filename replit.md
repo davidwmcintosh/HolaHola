@@ -112,8 +112,9 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - AI Generation: ~1-2s (Gemini Flash synchronous mode)
 - TTS: ~1-1.5s (Cartesia Sonic-3)
 
-**Streaming Voice Mode Architecture** (NEW - Ultra-Low Latency):
+**Streaming Voice Mode Architecture** (Infrastructure Complete - DISABLED by default):
 Target: Reduce TTFB from 3-5 seconds to under 1 second via WebSocket-based progressive audio delivery.
+Status: Feature flag `ENABLE_STREAMING_MODE = false` in `RestVoiceChat.tsx`. Enable for testing.
 
 - **Pipeline**: Deepgram STT → Gemini streaming → Sentence Chunking → Cartesia WebSocket TTS → Progressive Audio
 - **WebSocket Endpoint**: `/api/voice/stream/ws?conversationId={id}`
