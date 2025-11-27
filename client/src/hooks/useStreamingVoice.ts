@@ -181,8 +181,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    */
   const handleResponseComplete = useCallback((msg: StreamingResponseCompleteMessage) => {
     console.log('[StreamingVoice] Response complete (audio may still be buffering)');
-    // Don't set isProcessing(false) here - the player state change callback will do it
-    // when audio actually starts playing
+    // Tell player how many sentences to expect so it knows when all are done
+    playerRef.current?.markComplete(msg.totalSentences);
     setMetrics(msg.metrics || null);
   }, []);
   
@@ -295,6 +295,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     setIsProcessing(true);
     setError(null);
     subtitles.reset();
+    
+    // Reset audio player for new response
+    playerRef.current?.reset();
     
     await clientRef.current.sendAudio(audioData);
   }, [connectionState, subtitles]);
