@@ -25,6 +25,8 @@ import {
 import {
   ClientStartSessionMessage,
   ClientAudioDataMessage,
+  ClientAudioChunkMessage,
+  ClientAudioEndMessage,
   StreamingErrorMessage,
 } from '@shared/streaming-voice-types';
 
@@ -256,6 +258,43 @@ export function setupStreamingVoiceProxy(server: Server) {
                 audioBuffer,
                 audioMessage.format || 'webm'
               );
+              break;
+            }
+
+            case 'start_recording': {
+              if (!session) {
+                sendError(clientWs, 'UNKNOWN', 'Session not started', true);
+                return;
+              }
+              
+              console.log(`[Streaming Voice] Starting real-time recording for session: ${session.id}`);
+              await orchestrator.startRecording(session.id);
+              break;
+            }
+
+            case 'audio_chunk': {
+              if (!session) {
+                sendError(clientWs, 'UNKNOWN', 'Session not started', true);
+                return;
+              }
+
+              const chunkMessage = message as ClientAudioChunkMessage;
+              
+              const audioBuffer = Buffer.from(chunkMessage.audio, 'base64');
+              orchestrator.handleAudioChunk(session.id, audioBuffer);
+              break;
+            }
+
+            case 'audio_end': {
+              if (!session) {
+                sendError(clientWs, 'UNKNOWN', 'Session not started', true);
+                return;
+              }
+
+              const endMessage = message as ClientAudioEndMessage;
+              console.log(`[Streaming Voice] Recording ended, ${endMessage.totalChunks} chunks received`);
+              
+              await orchestrator.handleAudioEnd(session.id);
               break;
             }
 

@@ -34,6 +34,7 @@ export interface StreamingMetrics {
 export type StreamingVoiceMessageType = 
   | 'connected'           // WebSocket connected successfully
   | 'processing'          // STT received, AI processing started
+  | 'interim_transcript'  // Real-time transcript during speech
   | 'sentence_start'      // New sentence chunk starting
   | 'audio_chunk'         // Audio data for current sentence
   | 'word_timing'         // Word-level timing for subtitle sync
@@ -157,6 +158,7 @@ export type StreamingErrorCode =
 export type StreamingMessage = 
   | StreamingConnectedMessage
   | StreamingProcessingMessage
+  | StreamingInterimTranscriptMessage
   | StreamingSentenceStartMessage
   | StreamingAudioChunkMessage
   | StreamingWordTimingMessage
@@ -169,7 +171,9 @@ export type StreamingMessage =
  */
 export type ClientVoiceMessageType = 
   | 'start_session'       // Initialize streaming session
-  | 'audio_data'          // User's audio recording
+  | 'audio_data'          // User's full audio recording (legacy batch mode)
+  | 'audio_chunk'         // Real-time audio chunk during recording (streaming mode)
+  | 'audio_end'           // Signal recording has ended (streaming mode)
   | 'interrupt'           // User interrupted (started speaking)
   | 'end_session';        // Close session
 
@@ -188,7 +192,7 @@ export interface ClientStartSessionMessage {
 }
 
 /**
- * Client message with audio data
+ * Client message with audio data (legacy batch mode)
  */
 export interface ClientAudioDataMessage {
   type: 'audio_data';
@@ -197,10 +201,38 @@ export interface ClientAudioDataMessage {
 }
 
 /**
+ * Client message with streaming audio chunk (real-time mode)
+ */
+export interface ClientAudioChunkMessage {
+  type: 'audio_chunk';
+  audio: string;          // Base64-encoded PCM audio chunk
+  chunkIndex: number;     // Sequence number for ordering
+  sampleRate: number;     // Sample rate of the audio (typically 16000)
+}
+
+/**
+ * Client message signaling end of audio recording
+ */
+export interface ClientAudioEndMessage {
+  type: 'audio_end';
+  totalChunks: number;    // Total chunks sent for validation
+}
+
+/**
  * Client interrupt message (user started speaking)
  */
 export interface ClientInterruptMessage {
   type: 'interrupt';
+}
+
+/**
+ * Server message with interim transcript (real-time feedback)
+ */
+export interface StreamingInterimTranscriptMessage extends StreamingVoiceMessage {
+  type: 'interim_transcript';
+  transcript: string;
+  confidence: number;
+  isFinal: boolean;
 }
 
 /**

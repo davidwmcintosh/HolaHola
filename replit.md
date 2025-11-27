@@ -45,6 +45,13 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Streaming Voice Mode Architecture**: A WebSocket-based progressive audio delivery system (enabled in production) aims to reduce Time To First Byte (TTFB) to under 3 seconds. The pipeline involves Deepgram STT, Gemini streaming, sentence chunking, Cartesia WebSocket TTS, and progressive audio playback. The server streams `connected`, `processing`, `sentence_start`, `audio_chunk`, `word_timing`, `sentence_end`, and `response_complete` messages to the client. **Streaming-only mode**: No REST fallback is allowed; the system uses retry/reconnect with exponential backoff (up to 3 attempts on initial connect, 2 attempts during processing) and displays user-friendly error messages if connection fails. Initial connection uses exponential backoff (500ms × attempt#).
 
+**Real-Time Streaming STT Architecture**: Implements Deepgram Live WebSocket API for real-time transcription as the user speaks, reducing STT latency from 400-800ms (batch mode) to near-zero. Key components:
+-   **DeepgramStreamingService** (`server/services/deepgram-streaming.ts`): Manages live WebSocket connections to Deepgram, emitting `interim`, `final`, `speech_started`, `speech_ended` events. Uses Nova-3 model with smart format, punctuation, and 1000ms utterance end detection.
+-   **AudioWorklet Processor** (`client/public/audio-stream-processor.js`): Captures microphone audio at browser rate (44.1/48kHz), resamples to 16kHz, converts to PCM16 format, and streams chunks to main thread. Includes buffer flush on stop to capture trailing samples.
+-   **StreamingAudioCapture** (`client/src/lib/streamingAudioCapture.ts`): Manages AudioWorklet lifecycle, microphone permissions, and audio chunk callbacks.
+-   **WebSocket Protocol**: Client sends `start_recording` when user starts speaking, `audio_chunk` (base64 PCM16) during recording, `audio_end` when finished. Server responds with `interim_transcript` for real-time display.
+-   **Session Lifecycle**: STT session created on `start_recording`, audio chunks forwarded to Deepgram in real-time, session closed on `audio_end` or error. Event listeners properly cleaned up to prevent memory leaks.
+
 **TTS Text Sanitization**: A `removeConsecutiveDuplicates()` function sanitizes text before TTS to remove consecutive duplicate words (e.g., "días días" → "días"), catching both AI-generated duplications and potential phoneme injection artifacts. This runs before phoneme replacement in `addCartesiaPhonemesToText()`.
 
 ## External Dependencies
