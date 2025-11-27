@@ -3253,15 +3253,18 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
       const targetLanguage = conversation.language || 'spanish';
       const nativeLanguage = conversation.nativeLanguage || 'english';
       
-      const simplifyPrompt = `The student is having trouble understanding your last teaching. Please provide a MUCH SIMPLER version that:
-1. Uses only the most essential ${targetLanguage} word/phrase (just ONE key word or phrase)
-2. Gives a very short explanation in ${nativeLanguage}
-3. Breaks down the pronunciation simply
+      // Extract JUST the target language phrase - no explanations, no pronunciation guides
+      // The slow speed will help the student hear it clearly
+      const simplifyPrompt = `Extract ONLY the ${targetLanguage} word or phrase from this message. Return JUST the ${targetLanguage} words - nothing else. No English, no labels, no pronunciation guide, no explanation.
 
-Your last message was:
-"${lastAssistantMessage.content}"
+Message: "${lastAssistantMessage.content}"
 
-Respond with just the simplified version - nothing else. Keep it under 30 words total.`;
+Examples of correct output:
+- "Buenas tardes"
+- "Hola"  
+- "Buenos días"
+
+Return ONLY the ${targetLanguage} phrase:`;
 
       // Generate simplified response using Gemini
       const response = await gemini.models.generateContent({
@@ -3294,18 +3297,19 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
         console.log(`[SLOW REPEAT] Using default voice for ${targetLanguage}`);
       }
 
-      // Strip markdown and synthesize at slower speed
+      // Strip markdown and synthesize at MUCH slower speed for clear pronunciation
       const cleanText = stripMarkdownForSpeech(simplifiedText);
       const ttsService = getTTSService();
+      const slowSpeed = 0.5; // Actually slow! Normal is 0.7
       const result = await ttsService.synthesize({
         text: cleanText,
         language: targetLanguage,
         voiceId, // Pass admin-configured voice ID
         targetLanguage: targetLanguage,
-        speakingRate: 0.7, // Slower speaking rate for better comprehension
+        speakingRate: slowSpeed, // Much slower for clear pronunciation
       });
 
-      console.log(`[SLOW REPEAT] ✓ Generated ${result.audioBuffer.length} bytes at 0.7x speed`);
+      console.log(`[SLOW REPEAT] ✓ Generated ${result.audioBuffer.length} bytes at ${slowSpeed}x speed`);
 
       // Return JSON with audio and the simplified text
       res.json({
