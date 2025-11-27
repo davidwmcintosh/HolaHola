@@ -24,7 +24,12 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Voice TTS Pronunciation Architecture**: Uses Cartesia Sonic-3's custom phoneme syntax `<<phoneme1|phoneme2>>` with MFA-style IPA to correct pronunciation of foreign words in English responses. When the tutor says something like "The greeting is 'Hola'", the word Hola is automatically converted to `<<o|l|a>>` for correct native pronunciation. Phoneme mappings in `MFA_IPA_PRONUNCIATIONS` cover common words in all 9 supported languages.
 
-**Subtitle System Architecture**: A 3-state subtitle system (`subtitleMode`: Off, Target, All) prioritizes Chirp HD voice quality over real-time karaoke highlighting.
+**Subtitle System Architecture**: A 3-state subtitle system (`subtitleMode`: Off, Target, All) with karaoke-style word highlighting.
+- **Karaoke Highlighting**: Words are progressively revealed and highlighted in sync with audio playback
+- **Word Timing Estimation**: Server estimates word timings based on MP3 duration and word length weighting with punctuation-aware pauses
+- **Client-side Rescaling**: Frontend rescales estimated timings to actual audio duration using `loadedmetadata` event for precise synchronization
+- **Progressive Reveal**: Words appear one-by-one as the tutor speaks, with the current word highlighted in primary color
+- **Target Mode**: In "Target" subtitle mode, only foreign language phrases are displayed with karaoke timing
 
 **Deepgram Pre-Warming**: The Deepgram connection is pre-warmed on voice chat entry by sending a minimal silent WAV to reduce cold-start latency.
 
