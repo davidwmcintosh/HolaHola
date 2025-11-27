@@ -151,16 +151,39 @@ export class GeminiStreamingService {
     };
     
     try {
-      // Start streaming generation
-      const result = await this.client.models.generateContentStream({
-        model,
-        contents,
-        config: {
-          systemInstruction: systemPrompt,
-          temperature,
-          maxOutputTokens,
-        },
-      });
+      // Start streaming generation with retry for transient errors
+      let result;
+      let lastError;
+      const maxRetries = 3;
+      
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          result = await this.client.models.generateContentStream({
+            model,
+            contents,
+            config: {
+              systemInstruction: systemPrompt,
+              temperature,
+              maxOutputTokens,
+            },
+          });
+          break; // Success, exit retry loop
+        } catch (error: any) {
+          lastError = error;
+          const status = error.status || error.code;
+          // Retry on 500, 502, 503, 504 errors
+          if (status >= 500 && status < 600 && attempt < maxRetries - 1) {
+            console.log(`[Gemini Streaming] Retry ${attempt + 1}/${maxRetries} after ${status} error`);
+            await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1))); // Exponential backoff
+            continue;
+          }
+          throw error;
+        }
+      }
+      
+      if (!result) {
+        throw lastError || new Error('Failed to start Gemini stream');
+      }
       
       // Process streamed tokens
       for await (const chunk of result) {
