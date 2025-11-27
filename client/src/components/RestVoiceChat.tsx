@@ -100,6 +100,7 @@ interface RestVoiceChatProps {
 export function RestVoiceChat({ conversationId, setConversationId, setCurrentConversationOnboarding }: RestVoiceChatProps) {
   const { language, difficulty, setLanguage, subtitleMode } = useLanguage();
   const [isRecording, setIsRecording] = useState(false);
+  const [isMicPreparing, setIsMicPreparing] = useState(false); // Show "Preparing mic..." before actual recording starts
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStage, setProcessingStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -663,7 +664,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
 
   // Push-to-talk mode: Hold down to record, release to stop
   const startPushToTalkRecording = async () => {
-    if (isRecording) return;
+    if (isRecording || isMicPreparing) return;
     
     try {
       setError(null);
@@ -671,11 +672,10 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       // Mark that recording was requested - for race condition prevention
       recordingRequestedRef.current = true;
       
-      // IMMEDIATE VISUAL FEEDBACK - show listening state before mic access
-      // This prevents 3-second delay when browser needs to initialize microphone
-      setIsRecording(true);
-      isRecordingRef.current = true;
-      setAvatarState('listening');
+      // PHASE 1: IMMEDIATE VISUAL FEEDBACK - show "Preparing mic..." state
+      // This gives instant response but clearly indicates mic isn't ready yet
+      // Users should NOT speak until they see "Release to send" (isRecording=true)
+      setIsMicPreparing(true);
       console.log('[PUSH-TO-TALK] Requesting microphone access...');
       
       // Capture conversation ID for this session
@@ -687,9 +687,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       if (!recordingRequestedRef.current) {
         console.log('[PUSH-TO-TALK] Button released before mic ready - aborting');
         stream.getTracks().forEach(track => track.stop());
-        setIsRecording(false);
-        isRecordingRef.current = false;
-        setAvatarState('idle');
+        setIsMicPreparing(false);
         return;
       }
       
@@ -747,13 +745,19 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       
       mediaRecorderRef.current = mediaRecorder;
       mediaRecorder.start();
-      // Note: isRecording and avatarState already set above for immediate feedback
+      
+      // PHASE 2: Mic is ready - transition to actual recording state
+      // NOW the user can start speaking (they'll see "Release to send")
+      setIsMicPreparing(false);
+      setIsRecording(true);
+      isRecordingRef.current = true;
+      setAvatarState('listening');
       
       console.log('[PUSH-TO-TALK] Recording started - release to stop');
     } catch (err: any) {
       console.error('Failed to start push-to-talk recording:', err);
       setError(err.message || 'Failed to access microphone');
-      
+      setIsMicPreparing(false);
       cleanupRecording();
     }
   };
@@ -763,6 +767,9 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     
     // Cancel any pending recording start (for race condition prevention)
     recordingRequestedRef.current = false;
+    
+    // Clear preparing state if still waiting for mic
+    setIsMicPreparing(false);
     
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
@@ -1141,6 +1148,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           onRecordingStart={startPushToTalkRecording}
           onRecordingStop={stopPushToTalkRecording}
           isRecording={isRecording}
+          isMicPreparing={isMicPreparing}
           isProcessing={isProcessing}
           isPlaying={avatarState === 'speaking'}
           currentPlayingMessageId={currentPlayingMessageId ?? undefined}

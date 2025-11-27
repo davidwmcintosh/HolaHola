@@ -24,6 +24,7 @@ interface ImmersiveTutorProps {
   onRecordingStart: () => void;
   onRecordingStop: () => void;
   isRecording: boolean;
+  isMicPreparing?: boolean; // Show "Preparing mic..." before mic is ready
   isProcessing?: boolean;
   isPlaying: boolean;
   currentPlayingMessageId?: string;
@@ -45,6 +46,7 @@ export function ImmersiveTutor({
   onRecordingStart,
   onRecordingStop,
   isRecording,
+  isMicPreparing = false,
   isProcessing = false,
   isPlaying,
   currentPlayingMessageId,
@@ -456,7 +458,7 @@ export function ImmersiveTutor({
       <div className="flex-shrink-0 pt-2 pb-16 flex flex-col items-center gap-2">
         {/* Instruction text */}
         <p className="text-xs text-muted-foreground" data-testid="text-mic-instruction">
-          {isRecording ? "Release to send" : isProcessing ? "Processing..." : "Hold to speak"}
+          {isRecording ? "Release to send" : isMicPreparing ? "Preparing mic..." : isProcessing ? "Processing..." : "Hold to speak"}
         </p>
         
         <div className="flex justify-center items-center gap-3">
@@ -493,13 +495,13 @@ export function ImmersiveTutor({
         {/* Main Recording Button (Push-to-Talk) */}
         {/* Uses explicit touch AND pointer events for reliable mobile support */}
         <Button
-          variant={isRecording ? "destructive" : "default"}
+          variant={isRecording ? "destructive" : isMicPreparing ? "secondary" : "default"}
           size="icon"
           onTouchStart={(e) => {
             e.preventDefault();
             e.stopPropagation();
             console.log('[MIC BUTTON] Touch start');
-            if (!isRecording && !isProcessing && !isPointerRecordingRef.current) {
+            if (!isRecording && !isMicPreparing && !isProcessing && !isPointerRecordingRef.current) {
               isPointerRecordingRef.current = true;
               onRecordingStart();
             }
@@ -508,7 +510,7 @@ export function ImmersiveTutor({
             e.preventDefault();
             e.stopPropagation();
             console.log('[MIC BUTTON] Touch end');
-            if (isPointerRecordingRef.current) {
+            if (isPointerRecordingRef.current || isMicPreparing) {
               isPointerRecordingRef.current = false;
               onRecordingStop();
             }
@@ -516,7 +518,7 @@ export function ImmersiveTutor({
           onTouchCancel={(e) => {
             e.preventDefault();
             console.log('[MIC BUTTON] Touch cancel');
-            if (isPointerRecordingRef.current) {
+            if (isPointerRecordingRef.current || isMicPreparing) {
               isPointerRecordingRef.current = false;
               onRecordingStop();
             }
@@ -524,7 +526,7 @@ export function ImmersiveTutor({
           onMouseDown={(e) => {
             e.preventDefault();
             console.log('[MIC BUTTON] Mouse down');
-            if (!isRecording && !isProcessing && !isPointerRecordingRef.current) {
+            if (!isRecording && !isMicPreparing && !isProcessing && !isPointerRecordingRef.current) {
               isPointerRecordingRef.current = true;
               onRecordingStart();
             }
@@ -532,27 +534,29 @@ export function ImmersiveTutor({
           onMouseUp={(e) => {
             e.preventDefault();
             console.log('[MIC BUTTON] Mouse up');
-            if (isPointerRecordingRef.current) {
+            if (isPointerRecordingRef.current || isMicPreparing) {
               isPointerRecordingRef.current = false;
               onRecordingStop();
             }
           }}
           onMouseLeave={(e) => {
-            if (isPointerRecordingRef.current) {
-              console.log('[MIC BUTTON] Mouse leave while recording');
+            if (isPointerRecordingRef.current || isMicPreparing) {
+              console.log('[MIC BUTTON] Mouse leave while recording/preparing');
               isPointerRecordingRef.current = false;
               onRecordingStop();
             }
           }}
           disabled={isProcessing}
-          className="h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none"
+          className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none ${isMicPreparing ? 'animate-pulse' : ''}`}
           style={{ touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
-          data-testid={isRecording ? "button-stop-recording" : "button-start-recording"}
-          aria-pressed={isRecording}
-          aria-label="Press and hold to speak"
+          data-testid={isRecording ? "button-stop-recording" : isMicPreparing ? "button-preparing" : "button-start-recording"}
+          aria-pressed={isRecording || isMicPreparing}
+          aria-label={isMicPreparing ? "Preparing microphone..." : "Press and hold to speak"}
         >
           {isRecording ? (
             <MicOff className="h-7 w-7 md:h-8 md:w-8" />
+          ) : isMicPreparing ? (
+            <Mic className="h-7 w-7 md:h-8 md:w-8 animate-pulse" />
           ) : (
             <Mic className="h-7 w-7 md:h-8 md:w-8" />
           )}

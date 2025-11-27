@@ -14,6 +14,7 @@ interface VoiceChatViewManagerProps {
   onRecordingStart: () => void;
   onRecordingStop: () => void;
   isRecording: boolean;
+  isMicPreparing?: boolean;
   isProcessing?: boolean;
   isPlaying: boolean;
   currentPlayingMessageId?: string;
@@ -33,6 +34,7 @@ export function VoiceChatViewManager({
   onRecordingStart,
   onRecordingStop,
   isRecording,
+  isMicPreparing = false,
   isProcessing,
   isPlaying,
   currentPlayingMessageId,
@@ -158,6 +160,7 @@ export function VoiceChatViewManager({
                 onRecordingStart={onRecordingStart}
                 onRecordingStop={onRecordingStop}
                 isRecording={isRecording}
+                isMicPreparing={isMicPreparing}
                 isProcessing={isProcessing}
                 isPlaying={isPlaying}
                 currentPlayingMessageId={currentPlayingMessageId}
