@@ -24,7 +24,9 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Voice TTS Pronunciation Architecture**: Uses Cartesia Sonic-3's custom phoneme syntax `<<phoneme1|phoneme2>>` with MFA-style IPA to correct pronunciation of foreign words in English responses. Phoneme mappings in `MFA_IPA_PRONUNCIATIONS` cover common words in all 9 supported languages.
 
-**Subtitle System Architecture**: A 3-state subtitle system (`subtitleMode`: Off, Target, All) with karaoke-style word highlighting. Word timing estimation occurs server-side, with client-side rescaling for precise synchronization. "Target" mode displays foreign language phrases only during their time window, enabling independent appearance/disappearance of words.
+**Subtitle System Architecture**: A 3-state subtitle system (`subtitleMode`: Off, Target, All) with karaoke-style word highlighting. Word timing estimation occurs server-side, with client-side rescaling for precise synchronization. "Target" mode displays foreign language phrases only during their time window, enabling independent appearance/disappearance of words. The `filterTargetLanguageTimings` function detects foreign words by both exact phrase matching AND character pattern detection (Spanish diacritics á,é,í,ó,ú,ñ,¡,¿ and common Spanish words like "Excelente", "Perfecto"), ensuring encouragement words appear in subtitles.
+
+**Audio Replay Cache Architecture**: A module-level audio cache (`lastPlayedAudioCache`) persists audio blobs and word timings across component unmounts, enabling the replay button to work after navigation. The cache is updated with rescaled word timings after `onloadedmetadata` for accurate subtitle sync during replays.
 
 **Deepgram Pre-Warming**: The Deepgram connection is pre-warmed on voice chat entry by sending a minimal silent WAV to reduce cold-start latency.
 
