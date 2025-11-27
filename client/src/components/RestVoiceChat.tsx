@@ -671,6 +671,13 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       // Mark that recording was requested - for race condition prevention
       recordingRequestedRef.current = true;
       
+      // IMMEDIATE VISUAL FEEDBACK - show listening state before mic access
+      // This prevents 3-second delay when browser needs to initialize microphone
+      setIsRecording(true);
+      isRecordingRef.current = true;
+      setAvatarState('listening');
+      console.log('[PUSH-TO-TALK] Requesting microphone access...');
+      
       // Capture conversation ID for this session
       const recordingConversationId = conversationId;
       
@@ -680,6 +687,9 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       if (!recordingRequestedRef.current) {
         console.log('[PUSH-TO-TALK] Button released before mic ready - aborting');
         stream.getTracks().forEach(track => track.stop());
+        setIsRecording(false);
+        isRecordingRef.current = false;
+        setAvatarState('idle');
         return;
       }
       
@@ -737,9 +747,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       
       mediaRecorderRef.current = mediaRecorder;
       mediaRecorder.start();
-      setIsRecording(true);
-      isRecordingRef.current = true;
-      setAvatarState('listening');
+      // Note: isRecording and avatarState already set above for immediate feedback
       
       console.log('[PUSH-TO-TALK] Recording started - release to stop');
     } catch (err: any) {
