@@ -4,19 +4,20 @@
  * Handles WebSocket connections for streaming voice mode.
  * Path: /api/voice/stream/ws
  * 
+ * Uses noServer mode with manual upgrade handling for Replit compatibility.
+ * 
  * Protocol:
  * 1. Client connects (NO AUTH during handshake - Replit proxy times out on async)
  * 2. Client sends 'start_session' with config
  * 3. Server authenticates from session cookie (deferred async)
  * 4. Client sends 'audio_data' with recorded audio
  * 5. Server streams back sentence-by-sentence audio
- * 
- * CRITICAL: Connection handler must be SYNCHRONOUS to avoid Replit proxy timeout
  */
 
 import { WebSocketServer, WebSocket as WS } from 'ws';
 import { Server } from 'http';
-import type { IncomingMessage } from 'http';
+import type { IncomingMessage, ServerResponse } from 'http';
+import { Duplex } from 'stream';
 import { storage } from './storage';
 import { createSystemPrompt } from './system-prompt';
 import { parse as parseCookie } from 'cookie';
@@ -30,6 +31,8 @@ import {
   ClientAudioDataMessage,
   StreamingErrorMessage,
 } from '@shared/streaming-voice-types';
+
+const STREAMING_WS_PATH = '/api/voice/stream/ws';
 
 /**
  * Extract userId from authenticated session cookie
@@ -91,14 +94,12 @@ async function getUserIdFromSession(req: IncomingMessage): Promise<string | null
 }
 
 /**
- * Setup streaming voice WebSocket server
- * CRITICAL: Connection handler is SYNCHRONOUS - all async work deferred to message handlers
+ * Setup streaming voice WebSocket server using noServer mode
+ * Manual upgrade handling for better Replit compatibility
  */
 export function setupStreamingVoiceProxy(server: Server) {
-  const wss = new WebSocketServer({ 
-    server,
-    path: '/api/voice/stream/ws'
-  });
+  // Create WebSocket server in noServer mode
+  const wss = new WebSocketServer({ noServer: true });
   
   const orchestrator = getStreamingVoiceOrchestrator();
 
@@ -108,10 +109,25 @@ export function setupStreamingVoiceProxy(server: Server) {
     console.error('[Streaming Voice] WebSocket Server error:', error);
   });
 
-  // CRITICAL: This handler must be SYNCHRONOUS
-  // No awaits, no async operations - just set up lightweight handlers
+  // Handle HTTP upgrade requests manually
+  server.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
+    const { pathname } = new URL(request.url || '', `http://${request.headers.host}`);
+    
+    // Only handle our specific path
+    if (pathname === STREAMING_WS_PATH) {
+      console.log('[Streaming Voice] Upgrade request received');
+      
+      // Perform the WebSocket handshake
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        console.log('[Streaming Voice] Handshake complete, emitting connection');
+        wss.emit('connection', ws, request);
+      });
+    }
+    // Note: Don't call socket.destroy() for other paths - let other handlers process them
+  });
+
+  // Connection handler - MUST be synchronous until connection is fully established
   wss.on('connection', (clientWs: WS, req: IncomingMessage) => {
-    // Log immediately - this proves connection succeeded
     console.log('[Streaming Voice] Client connected - handshake complete');
 
     // State stored per connection
