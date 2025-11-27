@@ -89,22 +89,13 @@ async function getUserIdFromSession(req: IncomingMessage): Promise<string | null
 
 /**
  * Setup streaming voice WebSocket server
- * Uses standard server/path pattern (same as working realtime-proxy)
+ * Uses same pattern as working realtime-proxy (server + path mode)
  */
 export function setupStreamingVoiceProxy(server: Server) {
-  // Use standard pattern - matches working realtime-proxy.ts
+  // Use SAME pattern as working realtime-proxy
   const wss = new WebSocketServer({ 
     server,
-    path: '/api/voice/stream/ws',
-    // Add verifyClient to debug connection attempts
-    verifyClient: (info, callback) => {
-      console.log('[Streaming Voice] verifyClient called');
-      console.log('[Streaming Voice] Origin:', info.origin);
-      console.log('[Streaming Voice] URL:', info.req.url);
-      console.log('[Streaming Voice] Headers:', JSON.stringify(info.req.headers, null, 2));
-      // Accept all connections for debugging
-      callback(true);
-    }
+    path: '/api/voice/stream/ws'
   });
   
   const orchestrator = getStreamingVoiceOrchestrator();
@@ -114,11 +105,6 @@ export function setupStreamingVoiceProxy(server: Server) {
   // Add error handler on the server itself
   wss.on('error', (error) => {
     console.error('[Streaming Voice] WebSocket Server error:', error);
-  });
-
-  // Log when headers are sent (just before connection)
-  wss.on('headers', (headers, request) => {
-    console.log('[Streaming Voice] Headers event fired, sending upgrade response');
   });
 
   wss.on('connection', async (clientWs: WS, req) => {
@@ -329,7 +315,6 @@ export function setupStreamingVoiceProxy(server: Server) {
     }
   });
 
-  console.log('[Streaming Voice] WebSocket server initialized on /api/voice/stream/ws');
   return wss;
 }
 
