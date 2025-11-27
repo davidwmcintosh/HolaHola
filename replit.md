@@ -102,10 +102,17 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 ### AI Models
 -   **Text Chat**: `gemini-2.5-flash` (free/basic tiers), `gemini-2.5-pro` (pro tier).
--   **Voice Chat LLM**: `gemini-2.5-flash` (forced for all tiers - optimized for ~200ms TTFT speed).
--   **Voice STT**: Deepgram `nova-3`.
+-   **Voice Chat LLM**: `gemini-2.5-flash` (forced for all tiers - synchronous mode, ~1-2s response time).
+-   **Voice STT**: Deepgram `nova-3` (~400-800ms).
 -   **Voice TTS (Primary)**: Cartesia Sonic-3 (multiple languages, 40-90ms latency).
 -   **Voice TTS (Fallback)**: Google Cloud Chirp 3 HD, Neural2.
 
+**Voice Response Latency**: Typical end-to-end voice response time is 3-5 seconds:
+- STT: ~500ms (Deepgram Nova-3)
+- AI Generation: ~1-2s (Gemini Flash synchronous mode)
+- TTS: ~1-1.5s (Cartesia Sonic-3)
+- Note: ~200ms TTFT only possible with streaming mode (not currently implemented)
+
 ### Future Backlog
 -   **Voice Mode Pro Testing**: Test Gemini 2.5 Pro for voice mode as optional setting for users who prefer quality over speed.
+-   **Streaming Voice Mode**: Implement streaming Gemini responses with chunked TTS for sub-2s latency.

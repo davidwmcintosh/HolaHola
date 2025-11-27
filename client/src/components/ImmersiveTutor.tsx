@@ -72,15 +72,30 @@ export function ImmersiveTutor({
   // Get the last assistant message for display
   const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
 
-  // Helper function to normalize words for matching (strip punctuation, quotes, accents for comparison)
+  // Helper function to normalize words for matching (strip punctuation, quotes, phoneme syntax, accents for comparison)
   const normalizeWord = (word: string): string => {
     return word
       .toLowerCase()
+      // Strip Cartesia phoneme syntax <<phoneme1|phoneme2>> → extract just the phonemes as the word
+      .replace(/<<([^>]+)>>/g, '$1')
+      // Remove phoneme pipe separators (e.g., "o|l|a" → "ola")
+      .replace(/\|/g, '')
       // Remove all types of quotes and apostrophes (straight, curly, smart, unicode)
       .replace(/[\u0027\u0060\u00B4\u2018\u2019\u201A\u201B\u201C\u201D\u201E\u201F\u2032\u2033\u2035\u2036\u0022''""„‟`´]/g, '')
       // Remove all common punctuation
       .replace(/[¡!¿?,.:;()[\]{}<>]/g, '')
       .trim();
+  };
+  
+  // Helper function to clean phoneme syntax for display (keep punctuation but remove <<>> syntax)
+  const cleanForDisplay = (word: string): string => {
+    // Replace <<phoneme>> syntax with just the phonemes joined (e.g., <<o|l|a>> → "ola")
+    // Then capitalize first letter if the original was capitalized
+    return word.replace(/<<([^>]+)>>/g, (_, phonemes) => {
+      const cleaned = phonemes.replace(/\|/g, '');
+      // Capitalize if word started with << (which replaced a capital letter)
+      return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+    });
   };
 
   // Helper function to filter word timings to only include target language words
@@ -367,7 +382,7 @@ export function ImmersiveTutor({
                         }`}
                         data-testid={`word-${index}-${index === highlightedWordIndex ? 'active' : 'visible'}`}
                       >
-                        {timing.word}
+                        {cleanForDisplay(timing.word)}
                       </span>
                     ))
                   ) : (
