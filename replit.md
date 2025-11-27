@@ -43,7 +43,9 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Vocabulary-Conversation Linking**: Extracted vocabulary words are linked to their source conversation via `sourceConversationId`, enabling navigation from flashcards back to the original context.
 
-**Streaming Voice Mode Architecture**: A WebSocket-based progressive audio delivery system (currently enabled for testing) aims to reduce Time To First Byte (TTFB) to under 1 second. The pipeline involves Deepgram STT, Gemini streaming, sentence chunking, Cartesia WebSocket TTS, and progressive audio playback. The server streams `connected`, `processing`, `sentence_start`, `audio_chunk`, `word_timing`, `sentence_end`, and `response_complete` messages to the client. Error recovery includes automatic fallback to REST mode and reconnection attempts.
+**Streaming Voice Mode Architecture**: A WebSocket-based progressive audio delivery system (enabled in production) aims to reduce Time To First Byte (TTFB) to under 3 seconds. The pipeline involves Deepgram STT, Gemini streaming, sentence chunking, Cartesia WebSocket TTS, and progressive audio playback. The server streams `connected`, `processing`, `sentence_start`, `audio_chunk`, `word_timing`, `sentence_end`, and `response_complete` messages to the client. **Streaming-only mode**: No REST fallback is allowed; the system uses retry/reconnect with exponential backoff (up to 3 attempts on initial connect, 2 attempts during processing) and displays user-friendly error messages if connection fails. Initial connection uses exponential backoff (500ms × attempt#).
+
+**TTS Text Sanitization**: A `removeConsecutiveDuplicates()` function sanitizes text before TTS to remove consecutive duplicate words (e.g., "días días" → "días"), catching both AI-generated duplications and potential phoneme injection artifacts. This runs before phoneme replacement in `addCartesiaPhonemesToText()`.
 
 ## External Dependencies
 

@@ -215,26 +215,39 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   });
   
   // Connect streaming voice when conversation and user data are available
+  // Streaming-only mode with retry logic
   useEffect(() => {
     if (!useStreamingMode || !conversationId || !user) return;
     
     const connectStreaming = async () => {
-      try {
-        console.log('[STREAMING] Connecting to streaming voice...');
-        await streamingVoice.connect({
-          conversationId,
-          targetLanguage: language,
-          nativeLanguage: user.nativeLanguage || 'english',
-          difficultyLevel: difficulty,
-          subtitleMode,
-          tutorPersonality: user.tutorPersonality || 'warm',
-          tutorExpressiveness: user.tutorExpressiveness || 3,
-        });
-        streamingConnectedRef.current = true;
-        console.log('[STREAMING] Connected successfully');
-      } catch (err: any) {
-        console.warn('[STREAMING] Failed to connect, will use REST fallback:', err.message);
-        streamingConnectedRef.current = false;
+      const maxRetries = 3;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`[STREAMING] Connecting to streaming voice (attempt ${attempt}/${maxRetries})...`);
+          await streamingVoice.connect({
+            conversationId,
+            targetLanguage: language,
+            nativeLanguage: user.nativeLanguage || 'english',
+            difficultyLevel: difficulty,
+            subtitleMode,
+            tutorPersonality: user.tutorPersonality || 'warm',
+            tutorExpressiveness: user.tutorExpressiveness || 3,
+          });
+          streamingConnectedRef.current = true;
+          console.log('[STREAMING] Connected successfully');
+          setError(null); // Clear any previous connection errors
+          return; // Success - exit retry loop
+        } catch (err: any) {
+          console.warn(`[STREAMING] Connection attempt ${attempt} failed:`, err.message);
+          if (attempt === maxRetries) {
+            // All retries exhausted - user can tap mic to retry
+            streamingConnectedRef.current = false;
+            setError('Unable to connect to voice service. Tap the mic to try again.');
+          } else {
+            // Wait before next retry (exponential backoff: 500ms, 1000ms)
+            await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+          }
+        }
       }
     };
     
@@ -268,13 +281,29 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       }
     }
     
-    // Handle streaming errors - only show non-recoverable errors
-    // Transient connection errors should not block REST fallback
+    // Handle streaming errors - show to user since no REST fallback
     if (streamError && connectionState === 'error') {
-      console.warn('[STREAMING] Non-recoverable error:', streamError);
-      // Mark streaming as unavailable so REST fallback is used
+      console.error('[STREAMING] Non-recoverable error:', streamError);
       streamingConnectedRef.current = false;
-      // Don't set error state - let REST try first
+      // Reset processing state so mic button is enabled
+      setIsProcessing(false);
+      isProcessingRef.current = false;
+      setAvatarState('idle');
+      setProcessingStage(null);
+      // Show error to user - streaming-only mode
+      setError('Voice connection error. Tap the mic to try again.');
+    }
+    
+    // Handle mid-stream disconnection (WebSocket dropped unexpectedly)
+    if (connectionState === 'disconnected' && isProcessingRef.current) {
+      console.warn('[STREAMING] WebSocket disconnected while processing');
+      streamingConnectedRef.current = false;
+      // Reset processing state so mic button is enabled
+      setIsProcessing(false);
+      isProcessingRef.current = false;
+      setAvatarState('idle');
+      setProcessingStage(null);
+      setError('Connection lost. Tap the mic to try again.');
     }
     
     // Clear error when connection recovers
@@ -868,60 +897,101 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     isProcessingRef.current = true; // Update ref immediately
     setAvatarState('idle');
 
-    // Try streaming mode first for low-latency responses
+    // Streaming-only mode - no REST fallback
+    // Check if streaming is ready, attempt reconnect if not
     const isStreamingReady = streamingConnectedRef.current && 
       (streamingVoice.state.connectionState === 'connected' || streamingVoice.state.connectionState === 'ready');
     
-    if (isStreamingReady) {
-      try {
-        console.log('[STREAMING] Using streaming mode for low-latency response');
-        setProcessingStage('Processing...');
-        setAvatarState('speaking');
-        setError(null); // Clear any previous errors
-        
-        // Convert blob to ArrayBuffer
-        const audioData = await audioBlob.arrayBuffer();
-        
-        // Send audio via streaming WebSocket
-        await streamingVoice.sendAudio(audioData);
-        
-        // Streaming audio playback is handled by useStreamingVoice hook
-        // The hook handles:
-        // - Progressive audio playback
-        // - Subtitle word timing
-        // - State management
-        
-        // Wait for response to complete
-        // The hook will update state as audio plays
-        console.log('[STREAMING] Audio sent, awaiting progressive response...');
-        
-        // Refetch messages after response completes (messages are saved server-side)
-        setTimeout(async () => {
-          await queryClient.refetchQueries({
-            queryKey: ["/api/conversations", targetConversationId, "messages"],
+    if (!isStreamingReady && useStreamingMode) {
+      // Attempt to reconnect (up to 3 retries with exponential backoff)
+      let reconnected = false;
+      const maxAttempts = 3;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          console.log(`[STREAMING] Connection lost, reconnecting (attempt ${attempt}/${maxAttempts})...`);
+          setProcessingStage(`Reconnecting (${attempt}/${maxAttempts})...`);
+          
+          await streamingVoice.connect({
+            conversationId: targetConversationId,
+            targetLanguage: language,
+            nativeLanguage: user?.nativeLanguage || 'english',
+            difficultyLevel: difficulty,
+            subtitleMode,
+            tutorPersonality: user?.tutorPersonality || 'warm',
+            tutorExpressiveness: user?.tutorExpressiveness || 3,
           });
-        }, 500);
-        
-        return; // Exit early - streaming mode handles everything
-      } catch (streamErr: any) {
-        console.warn('[STREAMING] Streaming failed, falling back to REST:', streamErr.message);
-        streamingConnectedRef.current = false;
-        // Reset state before falling through to REST mode
+          streamingConnectedRef.current = true;
+          reconnected = true;
+          console.log('[STREAMING] Reconnected successfully');
+          setError(null); // Clear any previous errors on successful reconnect
+          break;
+        } catch (reconnErr) {
+          console.warn(`[STREAMING] Reconnect attempt ${attempt} failed:`, reconnErr);
+          if (attempt === maxAttempts) {
+            // All retries exhausted - show recoverable error to user
+            // User can tap the mic button again to retry
+            setError('Voice connection lost. Tap the mic to try again.');
+            setIsProcessing(false);
+            isProcessingRef.current = false;
+            setAvatarState('idle');
+            setProcessingStage(null);
+            return;
+          }
+          // Wait before next retry (exponential backoff: 500ms, 1000ms, 1500ms)
+          await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+        }
+      }
+      
+      if (!reconnected) {
+        // This shouldn't happen but handle it gracefully
+        setError('Voice connection issue. Tap the mic to try again.');
         setIsProcessing(false);
         isProcessingRef.current = false;
         setAvatarState('idle');
         setProcessingStage(null);
-        setError(null); // Clear streaming error, let REST try
-        
-        // Re-enable processing for REST fallback
-        setIsProcessing(true);
-        isProcessingRef.current = true;
-        // Fall through to REST mode
+        return;
       }
     }
-
+    
+    // Now send audio via streaming
     try {
-      // REST mode fallback
+      console.log('[STREAMING] Using streaming mode for low-latency response');
+      setProcessingStage('Processing...');
+      setAvatarState('speaking');
+      setError(null); // Clear any previous errors
+      
+      // Convert blob to ArrayBuffer
+      const audioData = await audioBlob.arrayBuffer();
+      
+      // Send audio via streaming WebSocket
+      await streamingVoice.sendAudio(audioData);
+      
+      // Streaming audio playback is handled by useStreamingVoice hook
+      console.log('[STREAMING] Audio sent, awaiting progressive response...');
+      
+      // Refetch messages after response completes (messages are saved server-side)
+      setTimeout(async () => {
+        await queryClient.refetchQueries({
+          queryKey: ["/api/conversations", targetConversationId, "messages"],
+        });
+      }, 500);
+      
+      return; // Exit early - streaming mode handles everything
+    } catch (streamErr: any) {
+      console.error('[STREAMING] Streaming failed:', streamErr.message);
+      streamingConnectedRef.current = false;
+      // User-friendly error - they can tap mic to retry
+      setError('Voice processing failed. Tap the mic to try again.');
+      setIsProcessing(false);
+      isProcessingRef.current = false;
+      setAvatarState('idle');
+      setProcessingStage(null);
+      return; // No REST fallback - streaming only
+    }
+
+    // REST mode is only used for initial greeting synthesis (not for user voice messages)
+    try {
+      // REST mode for greeting only (deprecated path)
       // Step 1: Transcribe
       setProcessingStage('Transcribing...');
       console.log('[REST VOICE] Transcribing audio...');
