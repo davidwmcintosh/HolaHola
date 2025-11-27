@@ -21,6 +21,7 @@ import {
   TutorPersonality,
   constrainEmotion,
   PERSONALITY_PRESETS,
+  addCartesiaPhonemesToText,
 } from './tts-service';
 
 /**
@@ -226,7 +227,13 @@ export class CartesiaStreamingService extends EventEmitter {
       cartesiaSpeed = 1.3;
     }
     
-    console.log(`[Cartesia Streaming] Synthesizing: "${text.substring(0, 50)}..." (${text.length} chars)`);
+    // Apply phoneme tags for correct pronunciation of foreign words
+    const phonemedText = addCartesiaPhonemesToText(text, targetLanguage);
+    
+    // Clean quotes but preserve phoneme tags
+    const cleanedText = phonemedText.replace(/["'"]/g, '');
+    
+    console.log(`[Cartesia Streaming] Synthesizing: "${cleanedText.substring(0, 50)}..." (${cleanedText.length} chars)`);
     console.log(`[Cartesia Streaming] Voice: ${voiceConfig.name}, Emotion: ${constrainedEmotion}, Speed: ${cartesiaSpeed}`);
     
     const startTime = Date.now();
@@ -240,7 +247,7 @@ export class CartesiaStreamingService extends EventEmitter {
         // WebSocket streaming
         const result = await this.websocket.send({
           modelId: this.model,
-          transcript: text,
+          transcript: cleanedText,
           voice: {
             mode: 'id',
             id: effectiveVoiceId,
@@ -295,7 +302,7 @@ export class CartesiaStreamingService extends EventEmitter {
         
         const stream = await this.client.tts.bytes({
           modelId: this.model,
-          transcript: text,
+          transcript: cleanedText,
           voice: {
             mode: 'id',
             id: effectiveVoiceId,

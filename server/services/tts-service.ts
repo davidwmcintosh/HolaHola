@@ -393,7 +393,7 @@ const FRANC_TO_LANGUAGE_MAP: Record<string, string> = {
  * See: https://docs.cartesia.ai/build-with-cartesia/capability-guides/specify-custom-pronunciations
  * MFA dictionary reference: https://mfa-models.readthedocs.io/en/latest/dictionary/index.html
  */
-const MFA_IPA_PRONUNCIATIONS: Record<string, Record<string, string>> = {
+export const MFA_IPA_PRONUNCIATIONS: Record<string, Record<string, string>> = {
   'spanish': {
     // Common greetings - Spanish MFA phonemes
     'hola': 'o|l|a',                    // HO-la (2 syllables)
@@ -495,6 +495,64 @@ const MFA_IPA_PRONUNCIATIONS: Record<string, Record<string, string>> = {
     'aniyo': 'a|n|i|j|o',               // no
   },
 };
+
+/**
+ * Standalone function to add Cartesia phoneme tags for quoted foreign words
+ * Can be used by both TTSService and CartesiaStreamingService
+ */
+export function addCartesiaPhonemesToText(text: string, targetLanguage?: string): string {
+  if (!targetLanguage) {
+    return text;
+  }
+
+  const languageKey = targetLanguage.toLowerCase();
+  const pronunciations = MFA_IPA_PRONUNCIATIONS[languageKey];
+  
+  if (!pronunciations) {
+    return text;
+  }
+
+  let hasReplacements = false;
+  let processedText = text;
+
+  // PASS 1: Process quoted words (single, double, smart quotes)
+  const quotedWordPattern = /["""''']([^"""''']+)["""''']/g;
+  
+  processedText = processedText.replace(quotedWordPattern, (match, word) => {
+    const normalizedWord = word.toLowerCase().trim();
+    const phonemes = pronunciations[normalizedWord];
+    if (phonemes) {
+      hasReplacements = true;
+      console.log(`[Streaming Phonemes] Quoted "${word}" → <<${phonemes}>>`);
+      return `<<${phonemes}>>`;
+    }
+    return word;
+  });
+
+  // PASS 2: Process UNQUOTED common foreign words
+  const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  
+  for (const [word, phonemes] of Object.entries(pronunciations)) {
+    if (word.includes(' ')) continue;
+    
+    const wordRegex = new RegExp(
+      `(?<!<)\\b(${escapeRegex(word)})\\b(?![^<]*>>)`,
+      'gi'
+    );
+    
+    processedText = processedText.replace(wordRegex, (match) => {
+      hasReplacements = true;
+      console.log(`[Streaming Phonemes] Unquoted "${match}" → <<${phonemes}>>`);
+      return `<<${phonemes}>>`;
+    });
+  }
+
+  if (hasReplacements) {
+    console.log(`[Streaming Phonemes] Processed: "${processedText.substring(0, 100)}..."`);
+  }
+  
+  return processedText;
+}
 
 /**
  * TTS Service - Abstraction layer supporting multiple TTS providers

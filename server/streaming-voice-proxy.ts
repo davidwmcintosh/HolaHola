@@ -189,6 +189,37 @@ export function setupStreamingVoiceProxy(server: Server) {
                 user.tutorExpressiveness || 3, // tutorExpressiveness
               );
 
+              // Resolve voice ID from tutor_voices table (matches REST mode behavior)
+              let voiceId: string | undefined;
+              try {
+                const allVoices = await storage.getAllTutorVoices();
+                const tutorGender = user?.tutorGender || 'female';
+                const effectiveLanguage = config.targetLanguage?.toLowerCase() || 'spanish';
+                
+                // Find matching voice for user's language and gender preferences
+                const matchingVoice = allVoices.find(
+                  (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
+                              v.gender?.toLowerCase() === tutorGender &&
+                              v.isActive
+                );
+                
+                if (matchingVoice?.voiceId) {
+                  voiceId = matchingVoice.voiceId;
+                  console.log(`[Streaming Voice] Using voice: ${matchingVoice.voiceName} (${voiceId?.substring(0, 8)}...)`);
+                } else {
+                  // Fall back to any voice for this language
+                  const languageVoice = allVoices.find(
+                    (v: any) => v.language?.toLowerCase() === effectiveLanguage && v.isActive
+                  );
+                  if (languageVoice?.voiceId) {
+                    voiceId = languageVoice.voiceId;
+                    console.log(`[Streaming Voice] Using fallback voice: ${languageVoice.voiceName}`);
+                  }
+                }
+              } catch (err: any) {
+                console.warn(`[Streaming Voice] Could not fetch voice config: ${err.message}`);
+              }
+
               // Create streaming session
               session = orchestrator.createSession(
                 clientWs,
@@ -196,7 +227,7 @@ export function setupStreamingVoiceProxy(server: Server) {
                 config,
                 systemPrompt,
                 conversationHistory,
-                undefined // voiceId (will be added later if needed)
+                voiceId
               );
 
               console.log(`[Streaming Voice] Session started: ${session.id}`);
