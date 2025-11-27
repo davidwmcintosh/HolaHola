@@ -146,6 +146,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   // Streaming voice mode for low-latency responses
   const streamingVoice = useStreamingVoice();
   const streamingConnectedRef = useRef(false);
+  const isInitiallyConnectingRef = useRef(true); // Prevents auto-reconnect during initial connection
   const useStreamingMode = ENABLE_STREAMING_MODE && streamingVoice.isSupported();
   
   // Mic warm-up: cache stream for instant recording start
@@ -234,6 +235,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
             tutorExpressiveness: user.tutorExpressiveness || 3,
           });
           streamingConnectedRef.current = true;
+          isInitiallyConnectingRef.current = false; // Initial connection completed
           console.log('[STREAMING] Connected successfully');
           setError(null); // Clear any previous connection errors
           return; // Success - exit retry loop
@@ -242,6 +244,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           if (attempt === maxRetries) {
             // All retries exhausted - user can tap mic to retry
             streamingConnectedRef.current = false;
+            isInitiallyConnectingRef.current = false; // Initial connection completed (failed)
             setError('Unable to connect to voice service. Tap the mic to try again.');
           } else {
             // Wait before next retry (exponential backoff: 500ms, 1000ms)
@@ -296,8 +299,10 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     
     // Handle mid-stream disconnection (WebSocket dropped unexpectedly)
     // Automatically attempt to reconnect so next mic tap works
+    // Skip if we're still in the initial connection phase (prevents race condition)
     if ((connectionState === 'disconnected' || connectionState === 'error') && 
         streamingConnectedRef.current === false && 
+        !isInitiallyConnectingRef.current &&
         conversationId && user) {
       console.log('[STREAMING] Connection lost, attempting automatic reconnect...');
       
