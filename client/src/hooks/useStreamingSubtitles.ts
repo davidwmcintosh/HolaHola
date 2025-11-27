@@ -5,7 +5,7 @@
  * Handles sentence-by-sentence text arrival with karaoke-style word highlighting.
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { WordTiming } from '../../../shared/streaming-voice-types';
 
 /**
@@ -207,12 +207,17 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   }, []);
   
   // Compute full text from all sentences
-  const fullText = sentences
-    .sort((a, b) => a.index - b.index)
-    .map(s => s.text)
-    .join(' ');
+  const fullText = useMemo(() => 
+    sentences
+      .sort((a, b) => a.index - b.index)
+      .map(s => s.text)
+      .join(' '),
+    [sentences]
+  );
   
-  return {
+  // Memoize the return value to prevent infinite re-render loops
+  // when this hook's return value is used as a dependency in other hooks
+  return useMemo(() => ({
     state: {
       sentences,
       currentSentenceIndex,
@@ -229,5 +234,20 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     completeSentence,
     reset,
     getCurrentWordTimings,
-  };
+  }), [
+    sentences,
+    currentSentenceIndex,
+    currentWordIndex,
+    visibleWordCount,
+    isPlaying,
+    fullText,
+    addSentence,
+    setWordTimings,
+    startPlayback,
+    updatePlaybackTime,
+    stopPlayback,
+    completeSentence,
+    reset,
+    getCurrentWordTimings,
+  ]);
 }

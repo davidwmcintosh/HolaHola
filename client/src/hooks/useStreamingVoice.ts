@@ -291,12 +291,16 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     return 'WebSocket' in window;
   }, []);
   
-  // Cleanup on unmount
+  // Store disconnect in a ref so cleanup can use latest version without dependency
+  const disconnectRef = useRef(disconnect);
+  disconnectRef.current = disconnect;
+  
+  // Cleanup on unmount only (empty dependency array)
   useEffect(() => {
     return () => {
-      disconnect();
+      disconnectRef.current();
     };
-  }, [disconnect]);
+  }, []);
   
   return {
     state: {
