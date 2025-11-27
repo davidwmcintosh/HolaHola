@@ -111,9 +111,265 @@ export function setupStreamingVoiceProxy(server: Server) {
 
     let session: StreamingSession | null = null;
     let userId: string | null = null;
+    let conversationId: string | null = null;
+    let isAuthenticated = false;
+    
+    // Buffer to hold messages that arrive before auth completes
+    const messageBuffer: Array<Buffer | ArrayBuffer | Buffer[]> = [];
+    
+    // Process a single message (used for both buffered and live messages)
+    const processMessage = async (rawData: Buffer | ArrayBuffer | Buffer[]) => {
+      try {
+        // Convert to Buffer if needed
+        let data: Buffer;
+        if (Buffer.isBuffer(rawData)) {
+          data = rawData;
+        } else if (rawData instanceof ArrayBuffer) {
+          data = Buffer.from(rawData);
+        } else if (Array.isArray(rawData)) {
+          data = Buffer.concat(rawData);
+        } else {
+          console.error('[Streaming Voice] Unknown data type:', typeof rawData);
+          return;
+        }
+        
+        console.log(`[Streaming Voice] Raw message received: ${data.length} bytes`);
+        
+        // Try to detect if it's JSON (text) or binary audio
+        // JSON messages will start with '{'
+        const firstByte = data[0];
+        const isLikelyJson = firstByte === 123; // '{' = 123 in ASCII
+        
+        if (!isLikelyJson) {
+          // Binary audio data
+          if (session) {
+            console.log(`[Streaming Voice] Processing binary audio: ${data.length} bytes`);
+            await orchestrator.processUserAudio(session.id, data, 'webm');
+          } else {
+            console.warn('[Streaming Voice] Audio received but no session');
+          }
+          return;
+        }
+
+        // Parse JSON message
+        const messageStr = data.toString('utf8');
+        console.log(`[Streaming Voice] Received JSON message: ${messageStr.substring(0, 150)}`);
+        const message = JSON.parse(messageStr);
+        
+        switch (message.type) {
+          case 'start_session': {
+            console.log('[Streaming Voice] Processing start_session request...');
+            const config = message as ClientStartSessionMessage;
+            
+            // Fetch user data
+            const user = await storage.getUser(userId!);
+            if (!user) {
+              sendError(clientWs, 'UNAUTHORIZED', 'User not found', false);
+              return;
+            }
+
+            // Fetch conversation with message history
+            const conversation = await storage.getConversation(
+              conversationId!,
+              userId!
+            );
+            
+            if (!conversation) {
+              sendError(clientWs, 'UNKNOWN', 'Conversation not found', false);
+              return;
+            }
+
+            // Get message history
+            const messages = await storage.getMessagesByConversation(conversationId!);
+            const conversationHistory = messages
+              .slice(-20) // Last 20 messages for context
+              .map((m: { role: string; content: string }) => ({
+                role: m.role as 'user' | 'model',
+                content: m.content,
+              }));
+
+            // Build system prompt (matches signature in system-prompt.ts)
+            const systemPrompt = createSystemPrompt(
+              config.targetLanguage, // language
+              config.difficultyLevel, // difficulty
+              messages.length, // messageCount
+              true, // isVoiceMode
+              null, // topic
+              [], // previousConversations
+              config.nativeLanguage, // nativeLanguage
+              undefined, // dueVocabulary
+              undefined, // sessionVocabulary
+              null, // actflLevel
+              false, // isResuming
+              messages.length, // totalMessageCount
+              (user.tutorPersonality || 'warm') as any, // tutorPersonality
+              user.tutorExpressiveness || 3, // tutorExpressiveness
+            );
+
+            // Resolve voice ID from tutor_voices table (matches REST mode behavior)
+            let voiceId: string | undefined;
+            try {
+              const allVoices = await storage.getAllTutorVoices();
+              const tutorGender = user?.tutorGender || 'female';
+              const effectiveLanguage = config.targetLanguage?.toLowerCase() || 'spanish';
+              
+              // Find matching voice for user's language and gender preferences
+              const matchingVoice = allVoices.find(
+                (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
+                            v.gender?.toLowerCase() === tutorGender &&
+                            v.isActive
+              );
+              
+              if (matchingVoice?.voiceId) {
+                voiceId = matchingVoice.voiceId;
+                console.log(`[Streaming Voice] Using voice: ${matchingVoice.voiceName} (${voiceId?.substring(0, 8)}...)`);
+              } else {
+                // Fall back to any voice for this language
+                const languageVoice = allVoices.find(
+                  (v: any) => v.language?.toLowerCase() === effectiveLanguage && v.isActive
+                );
+                if (languageVoice?.voiceId) {
+                  voiceId = languageVoice.voiceId;
+                  console.log(`[Streaming Voice] Using fallback voice: ${languageVoice.voiceName}`);
+                }
+              }
+            } catch (err: any) {
+              console.warn(`[Streaming Voice] Could not fetch voice config: ${err.message}`);
+            }
+
+            // Create streaming session
+            session = orchestrator.createSession(
+              clientWs,
+              parseInt(userId!),
+              config,
+              systemPrompt,
+              conversationHistory,
+              voiceId
+            );
+
+            console.log(`[Streaming Voice] Session started: ${session.id}`);
+            break;
+          }
+
+          case 'audio_data': {
+            if (!session) {
+              sendError(clientWs, 'UNKNOWN', 'Session not started', true);
+              return;
+            }
+
+            const audioMessage = message as ClientAudioDataMessage;
+            
+            // Convert base64 audio to buffer if needed
+            let audioBuffer: Buffer;
+            if (typeof audioMessage.audio === 'string') {
+              audioBuffer = Buffer.from(audioMessage.audio, 'base64');
+            } else {
+              audioBuffer = Buffer.from(audioMessage.audio);
+            }
+
+            console.log(`[Streaming Voice] Processing ${audioBuffer.length} bytes`);
+            await orchestrator.processUserAudio(
+              session.id,
+              audioBuffer,
+              audioMessage.format || 'webm'
+            );
+            break;
+          }
+
+          case 'start_recording': {
+            if (!session) {
+              sendError(clientWs, 'UNKNOWN', 'Session not started', true);
+              return;
+            }
+            
+            console.log(`[Streaming Voice] Starting real-time recording for session: ${session.id}`);
+            await orchestrator.startRecording(session.id);
+            break;
+          }
+
+          case 'audio_chunk': {
+            if (!session) {
+              sendError(clientWs, 'UNKNOWN', 'Session not started', true);
+              return;
+            }
+
+            const chunkMessage = message as ClientAudioChunkMessage;
+            
+            const audioBuffer = Buffer.from(chunkMessage.audio, 'base64');
+            orchestrator.handleAudioChunk(session.id, audioBuffer);
+            break;
+          }
+
+          case 'audio_end': {
+            if (!session) {
+              sendError(clientWs, 'UNKNOWN', 'Session not started', true);
+              return;
+            }
+
+            const endMessage = message as ClientAudioEndMessage;
+            console.log(`[Streaming Voice] Recording ended, ${endMessage.totalChunks} chunks received`);
+            
+            await orchestrator.handleAudioEnd(session.id);
+            break;
+          }
+
+          case 'interrupt': {
+            if (session) {
+              orchestrator.handleInterrupt(session.id);
+            }
+            break;
+          }
+
+          case 'end_session': {
+            if (session) {
+              orchestrator.endSession(session.id);
+              session = null;
+            }
+            clientWs.close(1000, 'Session ended');
+            break;
+          }
+
+          default:
+            console.warn(`[Streaming Voice] Unknown message type: ${message.type}`);
+        }
+      } catch (error: any) {
+        console.error('[Streaming Voice] Message handling error:', error);
+        sendError(clientWs, 'UNKNOWN', error.message, true);
+      }
+    };
+    
+    // CRITICAL: Register message handler IMMEDIATELY to capture messages during async auth
+    // Without this, messages sent before auth completes would be lost
+    clientWs.on('message', async (rawData: Buffer | ArrayBuffer | Buffer[]) => {
+      if (!isAuthenticated) {
+        // Buffer messages until auth completes
+        console.log('[Streaming Voice] Buffering message during auth...');
+        messageBuffer.push(rawData);
+        return;
+      }
+      
+      // Process message normally after auth
+      await processMessage(rawData);
+    });
+
+    // Handle connection close
+    clientWs.on('close', (code, reason) => {
+      console.log(`[Streaming Voice] Connection closed: ${code} - ${reason}`);
+      if (session) {
+        orchestrator.endSession(session.id);
+      }
+    });
+
+    // Handle errors
+    clientWs.on('error', (error) => {
+      console.error('[Streaming Voice] WebSocket error:', error);
+      if (session) {
+        orchestrator.endSession(session.id);
+      }
+    });
 
     try {
-      // Authenticate connection
+      // Authenticate connection (async, but message handler is already registered)
       userId = await getUserIdFromSession(req);
       
       if (!userId) {
@@ -124,251 +380,22 @@ export function setupStreamingVoiceProxy(server: Server) {
 
       // Parse query params
       const url = new URL(req.url!, `http://${req.headers.host}`);
-      const conversationId = url.searchParams.get('conversationId');
+      conversationId = url.searchParams.get('conversationId');
 
       if (!conversationId) {
         clientWs.close(4400, 'Missing conversationId parameter');
         return;
       }
 
-      console.log('[Streaming Voice] Setting up message handler for authenticated connection');
+      // Mark as authenticated
+      isAuthenticated = true;
+      console.log('[Streaming Voice] Auth complete, processing buffered messages:', messageBuffer.length);
       
-      // Handle incoming messages
-      clientWs.on('message', async (rawData: Buffer | ArrayBuffer | Buffer[]) => {
-        try {
-          // Convert to Buffer if needed
-          let data: Buffer;
-          if (Buffer.isBuffer(rawData)) {
-            data = rawData;
-          } else if (rawData instanceof ArrayBuffer) {
-            data = Buffer.from(rawData);
-          } else if (Array.isArray(rawData)) {
-            data = Buffer.concat(rawData);
-          } else {
-            console.error('[Streaming Voice] Unknown data type:', typeof rawData);
-            return;
-          }
-          
-          console.log(`[Streaming Voice] Raw message received: ${data.length} bytes`);
-          
-          // Try to detect if it's JSON (text) or binary audio
-          // JSON messages will start with '{'
-          const firstByte = data[0];
-          const isLikelyJson = firstByte === 123; // '{' = 123 in ASCII
-          
-          if (!isLikelyJson) {
-            // Binary audio data
-            if (session) {
-              console.log(`[Streaming Voice] Processing binary audio: ${data.length} bytes`);
-              await orchestrator.processUserAudio(session.id, data, 'webm');
-            } else {
-              console.warn('[Streaming Voice] Audio received but no session');
-            }
-            return;
-          }
-
-          // Parse JSON message
-          const messageStr = data.toString('utf8');
-          console.log(`[Streaming Voice] Received JSON message: ${messageStr.substring(0, 150)}`);
-          const message = JSON.parse(messageStr);
-          
-          switch (message.type) {
-            case 'start_session': {
-              console.log('[Streaming Voice] Processing start_session request...');
-              const config = message as ClientStartSessionMessage;
-              
-              // Fetch user data
-              const user = await storage.getUser(userId!);
-              if (!user) {
-                sendError(clientWs, 'UNAUTHORIZED', 'User not found', false);
-                return;
-              }
-
-              // Fetch conversation with message history
-              const conversation = await storage.getConversation(
-                conversationId!,
-                userId!
-              );
-              
-              if (!conversation) {
-                sendError(clientWs, 'UNKNOWN', 'Conversation not found', false);
-                return;
-              }
-
-              // Get message history
-              const messages = await storage.getMessagesByConversation(conversationId!);
-              const conversationHistory = messages
-                .slice(-20) // Last 20 messages for context
-                .map((m: { role: string; content: string }) => ({
-                  role: m.role as 'user' | 'model',
-                  content: m.content,
-                }));
-
-              // Build system prompt (matches signature in system-prompt.ts)
-              const systemPrompt = createSystemPrompt(
-                config.targetLanguage, // language
-                config.difficultyLevel, // difficulty
-                messages.length, // messageCount
-                true, // isVoiceMode
-                null, // topic
-                [], // previousConversations
-                config.nativeLanguage, // nativeLanguage
-                undefined, // dueVocabulary
-                undefined, // sessionVocabulary
-                null, // actflLevel
-                false, // isResuming
-                messages.length, // totalMessageCount
-                (user.tutorPersonality || 'warm') as any, // tutorPersonality
-                user.tutorExpressiveness || 3, // tutorExpressiveness
-              );
-
-              // Resolve voice ID from tutor_voices table (matches REST mode behavior)
-              let voiceId: string | undefined;
-              try {
-                const allVoices = await storage.getAllTutorVoices();
-                const tutorGender = user?.tutorGender || 'female';
-                const effectiveLanguage = config.targetLanguage?.toLowerCase() || 'spanish';
-                
-                // Find matching voice for user's language and gender preferences
-                const matchingVoice = allVoices.find(
-                  (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
-                              v.gender?.toLowerCase() === tutorGender &&
-                              v.isActive
-                );
-                
-                if (matchingVoice?.voiceId) {
-                  voiceId = matchingVoice.voiceId;
-                  console.log(`[Streaming Voice] Using voice: ${matchingVoice.voiceName} (${voiceId?.substring(0, 8)}...)`);
-                } else {
-                  // Fall back to any voice for this language
-                  const languageVoice = allVoices.find(
-                    (v: any) => v.language?.toLowerCase() === effectiveLanguage && v.isActive
-                  );
-                  if (languageVoice?.voiceId) {
-                    voiceId = languageVoice.voiceId;
-                    console.log(`[Streaming Voice] Using fallback voice: ${languageVoice.voiceName}`);
-                  }
-                }
-              } catch (err: any) {
-                console.warn(`[Streaming Voice] Could not fetch voice config: ${err.message}`);
-              }
-
-              // Create streaming session
-              session = orchestrator.createSession(
-                clientWs,
-                parseInt(userId!),
-                config,
-                systemPrompt,
-                conversationHistory,
-                voiceId
-              );
-
-              console.log(`[Streaming Voice] Session started: ${session.id}`);
-              break;
-            }
-
-            case 'audio_data': {
-              if (!session) {
-                sendError(clientWs, 'UNKNOWN', 'Session not started', true);
-                return;
-              }
-
-              const audioMessage = message as ClientAudioDataMessage;
-              
-              // Convert base64 audio to buffer if needed
-              let audioBuffer: Buffer;
-              if (typeof audioMessage.audio === 'string') {
-                audioBuffer = Buffer.from(audioMessage.audio, 'base64');
-              } else {
-                audioBuffer = Buffer.from(audioMessage.audio);
-              }
-
-              console.log(`[Streaming Voice] Processing ${audioBuffer.length} bytes`);
-              await orchestrator.processUserAudio(
-                session.id,
-                audioBuffer,
-                audioMessage.format || 'webm'
-              );
-              break;
-            }
-
-            case 'start_recording': {
-              if (!session) {
-                sendError(clientWs, 'UNKNOWN', 'Session not started', true);
-                return;
-              }
-              
-              console.log(`[Streaming Voice] Starting real-time recording for session: ${session.id}`);
-              await orchestrator.startRecording(session.id);
-              break;
-            }
-
-            case 'audio_chunk': {
-              if (!session) {
-                sendError(clientWs, 'UNKNOWN', 'Session not started', true);
-                return;
-              }
-
-              const chunkMessage = message as ClientAudioChunkMessage;
-              
-              const audioBuffer = Buffer.from(chunkMessage.audio, 'base64');
-              orchestrator.handleAudioChunk(session.id, audioBuffer);
-              break;
-            }
-
-            case 'audio_end': {
-              if (!session) {
-                sendError(clientWs, 'UNKNOWN', 'Session not started', true);
-                return;
-              }
-
-              const endMessage = message as ClientAudioEndMessage;
-              console.log(`[Streaming Voice] Recording ended, ${endMessage.totalChunks} chunks received`);
-              
-              await orchestrator.handleAudioEnd(session.id);
-              break;
-            }
-
-            case 'interrupt': {
-              if (session) {
-                orchestrator.handleInterrupt(session.id);
-              }
-              break;
-            }
-
-            case 'end_session': {
-              if (session) {
-                orchestrator.endSession(session.id);
-                session = null;
-              }
-              clientWs.close(1000, 'Session ended');
-              break;
-            }
-
-            default:
-              console.warn(`[Streaming Voice] Unknown message type: ${message.type}`);
-          }
-        } catch (error: any) {
-          console.error('[Streaming Voice] Message handling error:', error);
-          sendError(clientWs, 'UNKNOWN', error.message, true);
-        }
-      });
-
-      // Handle connection close
-      clientWs.on('close', (code, reason) => {
-        console.log(`[Streaming Voice] Connection closed: ${code} - ${reason}`);
-        if (session) {
-          orchestrator.endSession(session.id);
-        }
-      });
-
-      // Handle errors
-      clientWs.on('error', (error) => {
-        console.error('[Streaming Voice] WebSocket error:', error);
-        if (session) {
-          orchestrator.endSession(session.id);
-        }
-      });
+      // Process any buffered messages
+      for (const bufferedData of messageBuffer) {
+        await processMessage(bufferedData);
+      }
+      messageBuffer.length = 0; // Clear buffer
 
     } catch (error: any) {
       console.error('[Streaming Voice] Connection error:', error);
