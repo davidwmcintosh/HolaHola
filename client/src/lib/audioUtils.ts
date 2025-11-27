@@ -153,3 +153,222 @@ export class AudioPlayer {
     this.isPlaying = false;
   }
 }
+
+/**
+ * Streaming Audio Player
+ * 
+ * Optimized for progressive playback of streaming audio chunks.
+ * Uses HTMLAudioElement for MP3 playback (better browser support).
+ * Supports queue-based playback with minimal buffering latency.
+ */
+export interface StreamingAudioChunk {
+  sentenceIndex: number;
+  audio: ArrayBuffer;
+  durationMs: number;
+  isLast: boolean;
+}
+
+export type StreamingPlaybackState = 'idle' | 'buffering' | 'playing' | 'paused';
+
+export interface StreamingPlaybackCallbacks {
+  onStateChange?: (state: StreamingPlaybackState) => void;
+  onProgress?: (currentTime: number, duration: number) => void;
+  onSentenceStart?: (sentenceIndex: number) => void;
+  onSentenceEnd?: (sentenceIndex: number) => void;
+  onComplete?: () => void;
+  onError?: (error: Error) => void;
+}
+
+export class StreamingAudioPlayer {
+  private queue: StreamingAudioChunk[] = [];
+  private currentAudio: HTMLAudioElement | null = null;
+  private currentSentenceIndex = -1;
+  private state: StreamingPlaybackState = 'idle';
+  private callbacks: StreamingPlaybackCallbacks = {};
+  private objectUrls: string[] = [];
+  private isPlaying = false;
+  
+  constructor() {
+    console.log('[StreamingAudioPlayer] Initialized');
+  }
+  
+  /**
+   * Set playback callbacks
+   */
+  setCallbacks(callbacks: StreamingPlaybackCallbacks): void {
+    this.callbacks = { ...this.callbacks, ...callbacks };
+  }
+  
+  /**
+   * Get current playback state
+   */
+  getState(): StreamingPlaybackState {
+    return this.state;
+  }
+  
+  /**
+   * Enqueue an audio chunk for playback
+   * Will start playing immediately if not already playing
+   */
+  enqueue(chunk: StreamingAudioChunk): void {
+    console.log(`[StreamingAudioPlayer] Enqueue sentence ${chunk.sentenceIndex} (${chunk.audio.byteLength} bytes)`);
+    
+    this.queue.push(chunk);
+    
+    // Start playback if not already playing
+    if (!this.isPlaying) {
+      this.playNext();
+    }
+  }
+  
+  /**
+   * Stop playback and clear queue
+   */
+  stop(): void {
+    console.log('[StreamingAudioPlayer] Stop');
+    
+    // Stop current audio
+    if (this.currentAudio) {
+      this.currentAudio.pause();
+      this.currentAudio.src = '';
+      this.currentAudio = null;
+    }
+    
+    // Clear queue
+    this.queue = [];
+    this.isPlaying = false;
+    
+    // Cleanup object URLs
+    this.cleanupUrls();
+    
+    this.setState('idle');
+  }
+  
+  /**
+   * Pause playback
+   */
+  pause(): void {
+    if (this.currentAudio && this.state === 'playing') {
+      this.currentAudio.pause();
+      this.setState('paused');
+    }
+  }
+  
+  /**
+   * Resume playback
+   */
+  resume(): void {
+    if (this.currentAudio && this.state === 'paused') {
+      this.currentAudio.play().catch(console.error);
+      this.setState('playing');
+    }
+  }
+  
+  /**
+   * Play the next chunk in the queue
+   */
+  private async playNext(): Promise<void> {
+    // Get next chunk from queue
+    const chunk = this.queue.shift();
+    
+    if (!chunk) {
+      console.log('[StreamingAudioPlayer] Queue empty');
+      this.isPlaying = false;
+      this.setState('idle');
+      this.callbacks.onComplete?.();
+      return;
+    }
+    
+    this.isPlaying = true;
+    this.currentSentenceIndex = chunk.sentenceIndex;
+    
+    console.log(`[StreamingAudioPlayer] Playing sentence ${chunk.sentenceIndex}`);
+    this.callbacks.onSentenceStart?.(chunk.sentenceIndex);
+    
+    try {
+      // Create blob URL for the audio
+      const blob = new Blob([chunk.audio], { type: 'audio/mpeg' });
+      const url = URL.createObjectURL(blob);
+      this.objectUrls.push(url);
+      
+      // Create audio element
+      this.currentAudio = new Audio(url);
+      
+      // Handle audio events
+      this.currentAudio.onloadedmetadata = () => {
+        console.log(`[StreamingAudioPlayer] Audio loaded: ${this.currentAudio?.duration}s`);
+      };
+      
+      this.currentAudio.oncanplaythrough = () => {
+        this.setState('playing');
+      };
+      
+      this.currentAudio.ontimeupdate = () => {
+        if (this.currentAudio) {
+          this.callbacks.onProgress?.(
+            this.currentAudio.currentTime,
+            this.currentAudio.duration
+          );
+        }
+      };
+      
+      this.currentAudio.onended = () => {
+        console.log(`[StreamingAudioPlayer] Sentence ${chunk.sentenceIndex} ended`);
+        this.callbacks.onSentenceEnd?.(chunk.sentenceIndex);
+        
+        // Play next chunk
+        this.playNext();
+      };
+      
+      this.currentAudio.onerror = (event) => {
+        console.error('[StreamingAudioPlayer] Audio error:', event);
+        this.callbacks.onError?.(new Error('Audio playback failed'));
+        
+        // Try next chunk
+        this.playNext();
+      };
+      
+      // Start buffering
+      this.setState('buffering');
+      
+      // Start playback
+      await this.currentAudio.play();
+      
+    } catch (error: any) {
+      console.error('[StreamingAudioPlayer] Error playing chunk:', error);
+      this.callbacks.onError?.(error);
+      
+      // Try next chunk
+      this.playNext();
+    }
+  }
+  
+  /**
+   * Update state and notify callback
+   */
+  private setState(state: StreamingPlaybackState): void {
+    if (this.state !== state) {
+      console.log(`[StreamingAudioPlayer] State: ${this.state} → ${state}`);
+      this.state = state;
+      this.callbacks.onStateChange?.(state);
+    }
+  }
+  
+  /**
+   * Cleanup object URLs to prevent memory leaks
+   */
+  private cleanupUrls(): void {
+    for (const url of this.objectUrls) {
+      URL.revokeObjectURL(url);
+    }
+    this.objectUrls = [];
+  }
+  
+  /**
+   * Cleanup on destroy
+   */
+  destroy(): void {
+    this.stop();
+    console.log('[StreamingAudioPlayer] Destroyed');
+  }
+}

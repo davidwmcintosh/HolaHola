@@ -6,6 +6,29 @@
  */
 
 /**
+ * Client connection states
+ */
+export type StreamingClientState = 
+  | 'disconnected'
+  | 'connecting'
+  | 'connected'
+  | 'ready'
+  | 'processing'
+  | 'error';
+
+/**
+ * Streaming performance metrics
+ */
+export interface StreamingMetrics {
+  sttLatencyMs: number;
+  aiFirstTokenMs: number;
+  ttsFirstChunkMs: number;
+  totalTtfbMs: number;
+  sentenceCount: number;
+  totalDurationMs: number;
+}
+
+/**
  * Streaming voice message types sent from server to client
  */
 export type StreamingVoiceMessageType = 
@@ -62,6 +85,7 @@ export interface StreamingAudioChunkMessage extends StreamingVoiceMessage {
   chunkIndex: number;
   isLast: boolean;        // Last chunk for this sentence
   durationMs: number;     // Duration of this chunk
+  audio: string;          // Base64-encoded audio data
 }
 
 /**
@@ -71,6 +95,7 @@ export interface StreamingWordTimingMessage extends StreamingVoiceMessage {
   type: 'word_timing';
   sentenceIndex: number;
   words: WordTiming[];
+  timings: WordTiming[];  // Alias for words
 }
 
 /**
@@ -100,6 +125,7 @@ export interface StreamingResponseCompleteMessage extends StreamingVoiceMessage 
   totalDurationMs: number;
   fullText: string;       // Complete AI response text
   emotion?: string;       // Final emotion used
+  metrics?: StreamingMetrics;  // Performance metrics
 }
 
 /**

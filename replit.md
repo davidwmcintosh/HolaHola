@@ -107,12 +107,49 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 -   **Voice TTS (Primary)**: Cartesia Sonic-3 (multiple languages, 40-90ms latency).
 -   **Voice TTS (Fallback)**: Google Cloud Chirp 3 HD, Neural2.
 
-**Voice Response Latency**: Typical end-to-end voice response time is 3-5 seconds:
+**Voice Response Latency**: Typical end-to-end voice response time is 3-5 seconds (REST mode):
 - STT: ~500ms (Deepgram Nova-3)
 - AI Generation: ~1-2s (Gemini Flash synchronous mode)
 - TTS: ~1-1.5s (Cartesia Sonic-3)
-- Note: ~200ms TTFT only possible with streaming mode (not currently implemented)
+
+**Streaming Voice Mode Architecture** (NEW - Ultra-Low Latency):
+Target: Reduce TTFB from 3-5 seconds to under 1 second via WebSocket-based progressive audio delivery.
+
+- **Pipeline**: Deepgram STT → Gemini streaming → Sentence Chunking → Cartesia WebSocket TTS → Progressive Audio
+- **WebSocket Endpoint**: `/api/voice/stream/ws?conversationId={id}`
+- **Sentence Chunking**: 
+  - MIN_SENTENCE_LENGTH: 20 chars, MAX_SENTENCE_LENGTH: 200 chars
+  - CHUNK_TIMEOUT_MS: 500ms (max wait before forcing chunk)
+  - Splits on punctuation (. ! ? 。 ！ ？) or clause breaks (, ; : —)
+- **Audio Streaming**: 
+  - Cartesia WebSocket → MP3 chunks → Frontend jitter buffer → Progressive playback
+  - SAMPLE_RATE: 44100, MIN_BUFFER_MS: 100, MAX_BUFFER_MS: 5000
+
+Key Files:
+- `shared/streaming-voice-types.ts` - Shared types and constants
+- `server/services/gemini-streaming.ts` - Gemini streaming wrapper with sentence chunking
+- `server/services/cartesia-streaming.ts` - Cartesia WebSocket TTS
+- `server/services/streaming-voice-orchestrator.ts` - Coordinates STT→AI→TTS pipeline
+- `server/streaming-voice-proxy.ts` - WebSocket endpoint
+- `client/src/lib/streamingVoiceClient.ts` - Frontend WebSocket client
+- `client/src/lib/audioUtils.ts` - StreamingAudioPlayer for progressive playback
+- `client/src/hooks/useStreamingVoice.ts` - Unified hook integrating client, player, subtitles
+- `client/src/hooks/useStreamingSubtitles.ts` - Karaoke-style word highlighting for streaming
+
+Message Flow (Server → Client):
+1. `connected` - Session established
+2. `processing` - User transcript received, AI generating
+3. `sentence_start` - New sentence starting with text
+4. `audio_chunk` - MP3 audio data (base64)
+5. `word_timing` - Word-level timings for subtitles
+6. `sentence_end` - Sentence complete
+7. `response_complete` - Full response finished with metrics
+
+Error Recovery:
+- Automatic fallback to REST mode if WebSocket connection fails
+- Reconnection attempts with exponential backoff
+- Recoverable errors allow retry, non-recoverable trigger fallback
 
 ### Future Backlog
 -   **Voice Mode Pro Testing**: Test Gemini 2.5 Pro for voice mode as optional setting for users who prefer quality over speed.
--   **Streaming Voice Mode**: Implement streaming Gemini responses with chunked TTS for sub-2s latency.
+-   **Streaming Voice Mode Polish**: Add metrics dashboard, A/B testing between REST and streaming modes.

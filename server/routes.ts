@@ -14,6 +14,7 @@ import {
 } from "@shared/schema";
 import OpenAI, { toFile } from "openai";
 import { setupRealtimeProxy } from "./realtime-proxy";
+import { setupStreamingVoiceProxy } from "./streaming-voice-proxy";
 import {
   extractNameFromMessage,
   extractLanguageFromMessage,
@@ -5466,6 +5467,9 @@ Respond with just the simplified version - nothing else. Keep it under 30 words 
   
   // Set up WebSocket proxy for Realtime API
   setupRealtimeProxy(httpServer);
+  
+  // Set up WebSocket proxy for Streaming Voice Mode (Gemini + Cartesia)
+  setupStreamingVoiceProxy(httpServer);
   
   return httpServer;
 }
