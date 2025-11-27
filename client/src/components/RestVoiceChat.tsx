@@ -152,18 +152,20 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   
   // Pre-warm microphone on component mount for instant recording
   // This requests mic permission early and caches the stream
+  // NOTE: This may fail on browsers that require user gesture for mic access
   useEffect(() => {
     if (micWarmedUpRef.current) return;
     
     const warmUpMic = async () => {
       try {
-        console.log('[MIC WARMUP] Pre-warming microphone...');
+        console.log('[MIC WARMUP] Pre-warming microphone (500ms after mount)...');
+        const startTime = performance.now();
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         cachedStreamRef.current = stream;
         micWarmedUpRef.current = true;
-        console.log('[MIC WARMUP] Microphone ready for instant recording');
-      } catch (err) {
-        console.log('[MIC WARMUP] Failed to pre-warm mic (user may need to grant permission):', err);
+        console.log('[MIC WARMUP] SUCCESS! Microphone ready for instant recording (took', (performance.now() - startTime).toFixed(0), 'ms)');
+      } catch (err: any) {
+        console.log('[MIC WARMUP] FAILED - Browser likely requires user gesture for mic access:', err.name, err.message);
         // Not a critical error - we'll request permission on first button press
       }
     };
@@ -699,7 +701,13 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
 
   // Push-to-talk mode: Hold down to record, release to stop
   const startPushToTalkRecording = async () => {
-    if (isRecording || isMicPreparing) return;
+    const startTime = performance.now();
+    console.log('[PUSH-TO-TALK] Button pressed at', startTime.toFixed(0), 'ms');
+    
+    if (isRecording || isMicPreparing) {
+      console.log('[PUSH-TO-TALK] Already recording or preparing, ignoring');
+      return;
+    }
     
     try {
       setError(null);
@@ -713,17 +721,21 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       let stream: MediaStream;
       
       // Use cached stream for INSTANT recording if available
+      console.log('[PUSH-TO-TALK] Cached stream status:', cachedStreamRef.current ? 'exists' : 'null', cachedStreamRef.current?.active ? 'active' : 'inactive');
+      
       if (cachedStreamRef.current && cachedStreamRef.current.active) {
-        console.log('[PUSH-TO-TALK] Using cached stream - INSTANT start!');
+        console.log('[PUSH-TO-TALK] Using cached stream - INSTANT start! (+' + (performance.now() - startTime).toFixed(0) + 'ms)');
         stream = cachedStreamRef.current;
         cachedStreamRef.current = null; // Will re-warm after recording
         // No preparing state needed - jump straight to recording!
       } else {
         // No cached stream - show preparing state and request new one
+        console.log('[PUSH-TO-TALK] No cached stream, requesting microphone... (+' + (performance.now() - startTime).toFixed(0) + 'ms)');
         setIsMicPreparing(true);
-        console.log('[PUSH-TO-TALK] Requesting microphone access...');
         
+        const micStartTime = performance.now();
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log('[PUSH-TO-TALK] getUserMedia completed in', (performance.now() - micStartTime).toFixed(0), 'ms');
         
         // Check if user released the button while we were waiting for microphone
         if (!recordingRequestedRef.current) {
