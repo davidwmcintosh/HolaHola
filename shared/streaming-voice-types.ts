@@ -285,6 +285,6 @@ export const STREAMING_FEATURE_FLAGS = {
   /** Enable sentence-level chunking (vs full response) */
   ENABLE_SENTENCE_CHUNKING: true,
   
-  /** Use sonic-turbo for ultra-low latency (40ms vs 90ms) at slight quality cost */
-  USE_ULTRA_LOW_LATENCY_TTS: true,
+  /** Use sonic-turbo for ultra-low latency (40ms vs 90ms) at slight quality cost - disabled by default for better voice quality */
+  USE_ULTRA_LOW_LATENCY_TTS: false,
 } as const;

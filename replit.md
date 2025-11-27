@@ -71,5 +71,5 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 -   **Text Chat**: `gemini-2.5-flash` (free/basic tiers), `gemini-2.5-pro` (pro tier).
 -   **Voice Chat LLM**: `gemini-2.5-flash` (forced for all tiers - synchronous mode, ~1-2s response time).
 -   **Voice STT**: Deepgram `nova-3` (~400-800ms).
--   **Voice TTS (Primary)**: Cartesia Sonic-Turbo (multiple languages, ~40ms latency). Ultra-low latency mode enabled via `STREAMING_FEATURE_FLAGS.USE_ULTRA_LOW_LATENCY_TTS`.
+-   **Voice TTS (Primary)**: Cartesia Sonic-3 (multiple languages, ~90ms latency). Optional sonic-turbo mode (40ms) available via `STREAMING_FEATURE_FLAGS.USE_ULTRA_LOW_LATENCY_TTS` but disabled by default for better voice quality.
 -   **Voice TTS (Fallback)**: Google Cloud Chirp 3 HD, Neural2.
