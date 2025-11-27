@@ -114,22 +114,32 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
   }
 
   ws.on('message', async (data: Buffer | string) => {
-    console.log('[Streaming Voice] Message received, isBuffer:', Buffer.isBuffer(data));
+    console.log('[Streaming Voice] Message received, length:', Buffer.isBuffer(data) ? data.length : data.length);
     
     try {
-      if (Buffer.isBuffer(data)) {
+      // Convert Buffer to string for JSON parsing attempt
+      const dataStr = Buffer.isBuffer(data) ? data.toString('utf-8') : data;
+      
+      // Try to parse as JSON first
+      let message: any = null;
+      try {
+        message = JSON.parse(dataStr);
+        console.log('[Streaming Voice] Parsed JSON message type:', message.type);
+      } catch (e) {
+        // Not JSON - must be binary audio data
         if (!isAuthenticated) {
           sendError(ws, 'UNAUTHORIZED', 'Not authenticated', false);
           return;
         }
         if (session) {
-          console.log(`[Streaming Voice] Audio: ${data.length} bytes`);
-          await orchestrator.processUserAudio(session.id, data, 'webm');
+          const audioBuffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+          console.log(`[Streaming Voice] Audio: ${audioBuffer.length} bytes`);
+          await orchestrator.processUserAudio(session.id, audioBuffer, 'webm');
         }
         return;
       }
 
-      const message = JSON.parse(data.toString());
+      // Handle JSON message
       console.log('[Streaming Voice] Message type:', message.type);
 
       switch (message.type) {
