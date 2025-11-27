@@ -28,7 +28,9 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Deepgram Pre-Warming**: The Deepgram connection is pre-warmed on voice chat entry by sending a minimal silent WAV to reduce cold-start latency.
 
-**Slow Repeat Feature**: Provides AI-simplified, slower explanations of the last assistant message (Gemini 2.5 Flash, 0.7x speaking rate) when students struggle. Frontend caches the audio for instant replays.
+**Microphone Stream Caching**: After each push-to-talk recording, a new MediaStream is immediately requested and cached. This makes subsequent recordings instant (+0ms) instead of waiting for getUserMedia (~150-500ms). First recording still has normal latency due to browser security requiring user gesture.
+
+**Slow Repeat Feature (Turtle Button)**: Extracts ONLY the target language phrase from the last assistant message (no English, no pronunciation guides) and speaks it at 0.5x speed for clear pronunciation. Uses Gemini 2.5 Flash for phrase extraction. Frontend caches the audio for instant replays.
 
 **TTS Provider Architecture**: Dual-provider system with Cartesia Sonic-3 as primary and Google Cloud Chirp HD as fallback, configurable via environment variables.
 
