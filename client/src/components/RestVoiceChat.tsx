@@ -29,15 +29,6 @@ const GREETING_COOLDOWN_MS = 30000; // 30 seconds - prevent greeting if one play
 let greetingInProgress = false;
 let synthesizedMessageId: string | null = null; // Track which message was already synthesized
 
-// Module-level audio cache for replay functionality
-// Persists across component mounts so replay works after navigation
-interface AudioCache {
-  messageId: string;
-  audioBlob: Blob;
-  wordTimings?: WordTiming[];
-}
-let lastPlayedAudioCache: AudioCache | null = null;
-
 // Atomically try to acquire the greeting lock
 // Returns true if lock acquired, false if already locked
 function tryAcquireGreetingLock(messageId: string): boolean {
@@ -146,7 +137,6 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   // Streaming voice mode for low-latency responses
   const streamingVoice = useStreamingVoice();
   const streamingConnectedRef = useRef(false);
-  const isInitiallyConnectingRef = useRef(true); // Prevents auto-reconnect during initial connection
   const useStreamingMode = ENABLE_STREAMING_MODE && streamingVoice.isSupported();
   
   // Mic warm-up: cache stream for instant recording start
@@ -168,13 +158,15 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     
     const warmUpMic = async () => {
       try {
+        console.log('[MIC WARMUP] Pre-warming microphone (500ms after mount)...');
+        const startTime = performance.now();
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         cachedStreamRef.current = stream;
         micWarmedUpRef.current = true;
-        console.log('[MIC WARMUP] Microphone ready for instant recording');
+        console.log('[MIC WARMUP] SUCCESS! Microphone ready for instant recording (took', (performance.now() - startTime).toFixed(0), 'ms)');
       } catch (err: any) {
+        console.log('[MIC WARMUP] FAILED - Browser likely requires user gesture for mic access:', err.name, err.message);
         // Not a critical error - we'll request permission on first button press
-        // This commonly fails on browsers that require user gesture for mic access
       }
     };
     
@@ -191,19 +183,6 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     };
   }, []);
 
-  // Restore audio from module-level cache on mount (enables replay after navigation)
-  useEffect(() => {
-    if (lastPlayedAudioCache && !lastAudioBlob) {
-      console.log('[AUDIO CACHE] Restoring audio from cache for message:', lastPlayedAudioCache.messageId);
-      setLastAudioBlob(lastPlayedAudioCache.audioBlob);
-      setLastMessageId(lastPlayedAudioCache.messageId);
-      // Also restore word timings if available
-      if (lastPlayedAudioCache.wordTimings) {
-        wordTimingsMapRef.current.set(lastPlayedAudioCache.messageId, lastPlayedAudioCache.wordTimings);
-      }
-    }
-  }, []); // Only run on mount
-
   // Fetch existing messages
   const { data: messages = [] } = useQuery<Message[]>({
     queryKey: ["/api/conversations", conversationId, "messages"],
@@ -216,41 +195,26 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
   });
   
   // Connect streaming voice when conversation and user data are available
-  // Streaming-only mode with retry logic
   useEffect(() => {
     if (!useStreamingMode || !conversationId || !user) return;
     
     const connectStreaming = async () => {
-      const maxRetries = 3;
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          console.log(`[STREAMING] Connecting to streaming voice (attempt ${attempt}/${maxRetries})...`);
-          await streamingVoice.connect({
-            conversationId,
-            targetLanguage: language,
-            nativeLanguage: user.nativeLanguage || 'english',
-            difficultyLevel: difficulty,
-            subtitleMode,
-            tutorPersonality: user.tutorPersonality || 'warm',
-            tutorExpressiveness: user.tutorExpressiveness || 3,
-          });
-          streamingConnectedRef.current = true;
-          isInitiallyConnectingRef.current = false; // Initial connection completed
-          console.log('[STREAMING] Connected successfully');
-          setError(null); // Clear any previous connection errors
-          return; // Success - exit retry loop
-        } catch (err: any) {
-          console.warn(`[STREAMING] Connection attempt ${attempt} failed:`, err.message);
-          if (attempt === maxRetries) {
-            // All retries exhausted - user can tap mic to retry
-            streamingConnectedRef.current = false;
-            isInitiallyConnectingRef.current = false; // Initial connection completed (failed)
-            setError('Unable to connect to voice service. Tap the mic to try again.');
-          } else {
-            // Wait before next retry (exponential backoff: 500ms, 1000ms)
-            await new Promise(resolve => setTimeout(resolve, 500 * attempt));
-          }
-        }
+      try {
+        console.log('[STREAMING] Connecting to streaming voice...');
+        await streamingVoice.connect({
+          conversationId,
+          targetLanguage: language,
+          nativeLanguage: user.nativeLanguage || 'english',
+          difficultyLevel: difficulty,
+          subtitleMode,
+          tutorPersonality: user.tutorPersonality || 'warm',
+          tutorExpressiveness: user.tutorExpressiveness || 3,
+        });
+        streamingConnectedRef.current = true;
+        console.log('[STREAMING] Connected successfully');
+      } catch (err: any) {
+        console.warn('[STREAMING] Failed to connect, will use REST fallback:', err.message);
+        streamingConnectedRef.current = false;
       }
     };
     
@@ -284,57 +248,13 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       }
     }
     
-    // Handle streaming errors - show to user since no REST fallback
+    // Handle streaming errors - only show non-recoverable errors
+    // Transient connection errors should not block REST fallback
     if (streamError && connectionState === 'error') {
-      console.error('[STREAMING] Non-recoverable error:', streamError);
+      console.warn('[STREAMING] Non-recoverable error:', streamError);
+      // Mark streaming as unavailable so REST fallback is used
       streamingConnectedRef.current = false;
-      // Reset processing state so mic button is enabled
-      setIsProcessing(false);
-      isProcessingRef.current = false;
-      setAvatarState('idle');
-      setProcessingStage(null);
-      // Show error to user - streaming-only mode
-      setError('Voice connection error. Tap the mic to try again.');
-    }
-    
-    // Handle mid-stream disconnection (WebSocket dropped unexpectedly)
-    // Automatically attempt to reconnect so next mic tap works
-    // Skip if we're still in the initial connection phase (prevents race condition)
-    if ((connectionState === 'disconnected' || connectionState === 'error') && 
-        streamingConnectedRef.current === false && 
-        !isInitiallyConnectingRef.current &&
-        conversationId && user) {
-      console.log('[STREAMING] Connection lost, attempting automatic reconnect...');
-      
-      // Reset processing state if we were processing
-      if (isProcessingRef.current) {
-        setIsProcessing(false);
-        isProcessingRef.current = false;
-        setAvatarState('idle');
-        setProcessingStage(null);
-      }
-      
-      // Attempt reconnection in background (don't block UI)
-      const reconnect = async () => {
-        try {
-          await streamingVoice.connect({
-            conversationId,
-            targetLanguage: language,
-            nativeLanguage: user.nativeLanguage || 'english',
-            difficultyLevel: difficulty,
-            subtitleMode,
-            tutorPersonality: user.tutorPersonality || 'warm',
-            tutorExpressiveness: user.tutorExpressiveness || 3,
-          });
-          streamingConnectedRef.current = true;
-          console.log('[STREAMING] Auto-reconnected successfully');
-          setError(null);
-        } catch (err) {
-          console.warn('[STREAMING] Auto-reconnect failed, will retry on mic tap');
-          // Don't show error yet - let user try again with mic tap
-        }
-      };
-      reconnect();
+      // Don't set error state - let REST try first
     }
     
     // Clear error when connection recovers
@@ -342,7 +262,7 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       streamingConnectedRef.current = true;
       setError(null);
     }
-  }, [streamingVoice.state, useStreamingMode, conversationId, language, difficulty, subtitleMode, user]);
+  }, [streamingVoice.state, useStreamingMode]);
 
   // Initialize audio player
   useEffect(() => {
@@ -781,7 +701,13 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
 
   // Push-to-talk mode: Hold down to record, release to stop
   const startPushToTalkRecording = async () => {
-    if (isRecording || isMicPreparing) return;
+    const startTime = performance.now();
+    console.log('[PUSH-TO-TALK] Button pressed at', startTime.toFixed(0), 'ms');
+    
+    if (isRecording || isMicPreparing) {
+      console.log('[PUSH-TO-TALK] Already recording or preparing, ignoring');
+      return;
+    }
     
     try {
       setError(null);
@@ -795,17 +721,21 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       let stream: MediaStream;
       
       // Use cached stream for INSTANT recording if available
+      console.log('[PUSH-TO-TALK] Cached stream status:', cachedStreamRef.current ? 'exists' : 'null', cachedStreamRef.current?.active ? 'active' : 'inactive');
+      
       if (cachedStreamRef.current && cachedStreamRef.current.active) {
-        console.log('[PUSH-TO-TALK] Using cached stream - instant start');
+        console.log('[PUSH-TO-TALK] Using cached stream - INSTANT start! (+' + (performance.now() - startTime).toFixed(0) + 'ms)');
         stream = cachedStreamRef.current;
         cachedStreamRef.current = null; // Will re-warm after recording
         // No preparing state needed - jump straight to recording!
       } else {
         // No cached stream - show preparing state and request new one
+        console.log('[PUSH-TO-TALK] No cached stream, requesting microphone... (+' + (performance.now() - startTime).toFixed(0) + 'ms)');
         setIsMicPreparing(true);
-        console.log('[PUSH-TO-TALK] Requesting microphone access...');
         
+        const micStartTime = performance.now();
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log('[PUSH-TO-TALK] getUserMedia completed in', (performance.now() - micStartTime).toFixed(0), 'ms');
         
         // Check if user released the button while we were waiting for microphone
         if (!recordingRequestedRef.current) {
@@ -928,101 +858,60 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     isProcessingRef.current = true; // Update ref immediately
     setAvatarState('idle');
 
-    // Streaming-only mode - no REST fallback
-    // Check if streaming is ready, attempt reconnect if not
+    // Try streaming mode first for low-latency responses
     const isStreamingReady = streamingConnectedRef.current && 
       (streamingVoice.state.connectionState === 'connected' || streamingVoice.state.connectionState === 'ready');
     
-    if (!isStreamingReady && useStreamingMode) {
-      // Attempt to reconnect (up to 3 retries with exponential backoff)
-      let reconnected = false;
-      const maxAttempts = 3;
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-          console.log(`[STREAMING] Connection lost, reconnecting (attempt ${attempt}/${maxAttempts})...`);
-          setProcessingStage(`Reconnecting (${attempt}/${maxAttempts})...`);
-          
-          await streamingVoice.connect({
-            conversationId: targetConversationId,
-            targetLanguage: language,
-            nativeLanguage: user?.nativeLanguage || 'english',
-            difficultyLevel: difficulty,
-            subtitleMode,
-            tutorPersonality: user?.tutorPersonality || 'warm',
-            tutorExpressiveness: user?.tutorExpressiveness || 3,
+    if (isStreamingReady) {
+      try {
+        console.log('[STREAMING] Using streaming mode for low-latency response');
+        setProcessingStage('Processing...');
+        setAvatarState('speaking');
+        setError(null); // Clear any previous errors
+        
+        // Convert blob to ArrayBuffer
+        const audioData = await audioBlob.arrayBuffer();
+        
+        // Send audio via streaming WebSocket
+        await streamingVoice.sendAudio(audioData);
+        
+        // Streaming audio playback is handled by useStreamingVoice hook
+        // The hook handles:
+        // - Progressive audio playback
+        // - Subtitle word timing
+        // - State management
+        
+        // Wait for response to complete
+        // The hook will update state as audio plays
+        console.log('[STREAMING] Audio sent, awaiting progressive response...');
+        
+        // Refetch messages after response completes (messages are saved server-side)
+        setTimeout(async () => {
+          await queryClient.refetchQueries({
+            queryKey: ["/api/conversations", targetConversationId, "messages"],
           });
-          streamingConnectedRef.current = true;
-          reconnected = true;
-          console.log('[STREAMING] Reconnected successfully');
-          setError(null); // Clear any previous errors on successful reconnect
-          break;
-        } catch (reconnErr) {
-          console.warn(`[STREAMING] Reconnect attempt ${attempt} failed:`, reconnErr);
-          if (attempt === maxAttempts) {
-            // All retries exhausted - show recoverable error to user
-            // User can tap the mic button again to retry
-            setError('Voice connection lost. Tap the mic to try again.');
-            setIsProcessing(false);
-            isProcessingRef.current = false;
-            setAvatarState('idle');
-            setProcessingStage(null);
-            return;
-          }
-          // Wait before next retry (exponential backoff: 500ms, 1000ms, 1500ms)
-          await new Promise(resolve => setTimeout(resolve, 500 * attempt));
-        }
-      }
-      
-      if (!reconnected) {
-        // This shouldn't happen but handle it gracefully
-        setError('Voice connection issue. Tap the mic to try again.');
+        }, 500);
+        
+        return; // Exit early - streaming mode handles everything
+      } catch (streamErr: any) {
+        console.warn('[STREAMING] Streaming failed, falling back to REST:', streamErr.message);
+        streamingConnectedRef.current = false;
+        // Reset state before falling through to REST mode
         setIsProcessing(false);
         isProcessingRef.current = false;
         setAvatarState('idle');
         setProcessingStage(null);
-        return;
+        setError(null); // Clear streaming error, let REST try
+        
+        // Re-enable processing for REST fallback
+        setIsProcessing(true);
+        isProcessingRef.current = true;
+        // Fall through to REST mode
       }
     }
-    
-    // Now send audio via streaming
-    try {
-      console.log('[STREAMING] Using streaming mode for low-latency response');
-      setProcessingStage('Processing...');
-      setAvatarState('speaking');
-      setError(null); // Clear any previous errors
-      
-      // Convert blob to ArrayBuffer
-      const audioData = await audioBlob.arrayBuffer();
-      
-      // Send audio via streaming WebSocket
-      await streamingVoice.sendAudio(audioData);
-      
-      // Streaming audio playback is handled by useStreamingVoice hook
-      console.log('[STREAMING] Audio sent, awaiting progressive response...');
-      
-      // Refetch messages after response completes (messages are saved server-side)
-      setTimeout(async () => {
-        await queryClient.refetchQueries({
-          queryKey: ["/api/conversations", targetConversationId, "messages"],
-        });
-      }, 500);
-      
-      return; // Exit early - streaming mode handles everything
-    } catch (streamErr: any) {
-      console.error('[STREAMING] Streaming failed:', streamErr.message);
-      streamingConnectedRef.current = false;
-      // User-friendly error - they can tap mic to retry
-      setError('Voice processing failed. Tap the mic to try again.');
-      setIsProcessing(false);
-      isProcessingRef.current = false;
-      setAvatarState('idle');
-      setProcessingStage(null);
-      return; // No REST fallback - streaming only
-    }
 
-    // REST mode is only used for initial greeting synthesis (not for user voice messages)
     try {
-      // REST mode for greeting only (deprecated path)
+      // REST mode fallback
       // Step 1: Transcribe
       setProcessingStage('Transcribing...');
       console.log('[REST VOICE] Transcribing audio...');
@@ -1081,17 +970,10 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         console.log('[REST VOICE] Audio blob size:', result.audioBlob.size, 'bytes');
         console.log('[REST VOICE] Audio blob type:', result.audioBlob.type);
         
-        // Store audio for replay functionality (both in state and module-level cache)
+        // Store audio for replay functionality
         setLastAudioBlob(result.audioBlob);
         if (latestAssistantMessage) {
           setLastMessageId(latestAssistantMessage.id);
-          // Also store in module-level cache for persistence across navigation
-          lastPlayedAudioCache = {
-            messageId: latestAssistantMessage.id,
-            audioBlob: result.audioBlob,
-            wordTimings: result.wordTimings,
-          };
-          console.log('[AUDIO CACHE] Stored audio for message:', latestAssistantMessage.id);
         }
         
         const audioUrl = URL.createObjectURL(result.audioBlob);
@@ -1112,11 +994,6 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
                 endTime: Math.min(timing.endTime * scale, actualDuration),
               }));
               wordTimingsMapRef.current.set(latestAssistantMessage.id, rescaledTimings);
-              // Also update module-level cache with rescaled timings for accurate replay after navigation
-              if (lastPlayedAudioCache && lastPlayedAudioCache.messageId === latestAssistantMessage.id) {
-                lastPlayedAudioCache.wordTimings = rescaledTimings;
-                console.log('[AUDIO CACHE] Updated with rescaled timings');
-              }
               console.log(`[SUBTITLES] Rescaled timings: ${estimatedDuration.toFixed(2)}s → ${actualDuration.toFixed(2)}s (scale: ${scale.toFixed(3)})`);
             } else if (subtitleMode !== "off") {
               // No rescaling needed, store as-is

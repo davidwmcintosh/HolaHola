@@ -496,56 +496,23 @@ export const MFA_IPA_PRONUNCIATIONS: Record<string, Record<string, string>> = {
 };
 
 /**
- * Sanitize text to remove consecutive duplicate words
- * Catches AI-generated duplications like "días días" or "hola, hola" or phoneme injection artifacts
- * Uses Unicode-aware word matching to handle accented characters and punctuation-separated repeats
- */
-export function removeConsecutiveDuplicates(text: string): string {
-  // Unicode-aware pattern that matches words (including accented characters)
-  // Handles: "días días", "días, días", "días. días", "¡hola! hola" etc.
-  // Pattern: word + optional punctuation/whitespace + same word (case-insensitive)
-  const duplicatePattern = /(\p{L}+)[\s.,!?;:¡¿]+\1(?=[\s.,!?;:¡¿]|$)/giu;
-  
-  let result = text;
-  let previousResult = '';
-  
-  // Keep applying until no more duplicates found (handles triple+ duplications)
-  let iterations = 0;
-  const maxIterations = 10; // Safety limit to prevent infinite loops
-  while (result !== previousResult && iterations < maxIterations) {
-    previousResult = result;
-    result = result.replace(duplicatePattern, '$1');
-    iterations++;
-  }
-  
-  // Log if we removed any duplicates
-  if (result !== text) {
-    console.log(`[TTS Sanitizer] Removed duplicate words: "${text}" → "${result}"`);
-  }
-  
-  return result;
-}
-
-/**
  * Standalone function to add Cartesia phoneme tags for quoted foreign words
  * Can be used by both TTSService and CartesiaStreamingService
  */
 export function addCartesiaPhonemesToText(text: string, targetLanguage?: string): string {
-  // First, remove any consecutive duplicate words
-  let processedText = removeConsecutiveDuplicates(text);
-  
   if (!targetLanguage) {
-    return processedText;
+    return text;
   }
 
   const languageKey = targetLanguage.toLowerCase();
   const pronunciations = MFA_IPA_PRONUNCIATIONS[languageKey];
   
   if (!pronunciations) {
-    return processedText;
+    return text;
   }
 
   let hasReplacements = false;
+  let processedText = text;
 
   // PASS 1: Process quoted words (single, double, smart quotes)
   const quotedWordPattern = /["""''']([^"""''']+)["""''']/g;

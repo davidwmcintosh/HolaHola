@@ -24,9 +24,7 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Voice TTS Pronunciation Architecture**: Uses Cartesia Sonic-3's custom phoneme syntax `<<phoneme1|phoneme2>>` with MFA-style IPA to correct pronunciation of foreign words in English responses. Phoneme mappings in `MFA_IPA_PRONUNCIATIONS` cover common words in all 9 supported languages.
 
-**Subtitle System Architecture**: A 3-state subtitle system (`subtitleMode`: Off, Target, All) with karaoke-style word highlighting. Word timing estimation occurs server-side, with client-side rescaling for precise synchronization. "Target" mode displays foreign language phrases only during their time window, enabling independent appearance/disappearance of words. The `filterTargetLanguageTimings` function detects foreign words by both exact phrase matching AND character pattern detection (Spanish diacritics á,é,í,ó,ú,ñ,¡,¿ and common Spanish words like "Excelente", "Perfecto"), ensuring encouragement words appear in subtitles.
-
-**Audio Replay Cache Architecture**: A module-level audio cache (`lastPlayedAudioCache`) persists audio blobs and word timings across component unmounts, enabling the replay button to work after navigation. The cache is updated with rescaled word timings after `onloadedmetadata` for accurate subtitle sync during replays.
+**Subtitle System Architecture**: A 3-state subtitle system (`subtitleMode`: Off, Target, All) with karaoke-style word highlighting. Word timing estimation occurs server-side, with client-side rescaling for precise synchronization. "Target" mode displays foreign language phrases only during their time window, enabling independent appearance/disappearance of words.
 
 **Deepgram Pre-Warming**: The Deepgram connection is pre-warmed on voice chat entry by sending a minimal silent WAV to reduce cold-start latency.
 
@@ -43,9 +41,7 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Vocabulary-Conversation Linking**: Extracted vocabulary words are linked to their source conversation via `sourceConversationId`, enabling navigation from flashcards back to the original context.
 
-**Streaming Voice Mode Architecture**: A WebSocket-based progressive audio delivery system (enabled in production) aims to reduce Time To First Byte (TTFB) to under 3 seconds. The pipeline involves Deepgram STT, Gemini streaming, sentence chunking, Cartesia WebSocket TTS, and progressive audio playback. The server streams `connected`, `processing`, `sentence_start`, `audio_chunk`, `word_timing`, `sentence_end`, and `response_complete` messages to the client. **Streaming-only mode**: No REST fallback is allowed; the system uses retry/reconnect with exponential backoff (up to 3 attempts on initial connect, 2 attempts during processing) and displays user-friendly error messages if connection fails. Initial connection uses exponential backoff (500ms × attempt#).
-
-**TTS Text Sanitization**: A `removeConsecutiveDuplicates()` function sanitizes text before TTS to remove consecutive duplicate words (e.g., "días días" → "días"), catching both AI-generated duplications and potential phoneme injection artifacts. This runs before phoneme replacement in `addCartesiaPhonemesToText()`.
+**Streaming Voice Mode Architecture**: A WebSocket-based progressive audio delivery system (currently enabled for testing) aims to reduce Time To First Byte (TTFB) to under 1 second. The pipeline involves Deepgram STT, Gemini streaming, sentence chunking, Cartesia WebSocket TTS, and progressive audio playback. The server streams `connected`, `processing`, `sentence_start`, `audio_chunk`, `word_timing`, `sentence_end`, and `response_complete` messages to the client. Error recovery includes automatic fallback to REST mode and reconnection attempts.
 
 ## External Dependencies
 

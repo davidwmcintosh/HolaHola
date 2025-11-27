@@ -178,9 +178,9 @@ app.use((req, res, next) => {
       }
     }
     
-    if (status.fallbackEnabled && !status.googleHealthy) {
-      console.warn('\n⚠️  WARNING: Google Cloud TTS is not healthy, using fallback');
-      console.warn('   Voice quality may be degraded');
+    if (status.fallbackActive) {
+      console.warn('\n⚠️  WARNING: Google Cloud TTS is not healthy, using OpenAI TTS fallback');
+      console.warn('   Voice quality degraded - users will hear OpenAI voices instead of authentic WaveNet pronunciation');
       console.warn('   See setup instructions above to enable Google Cloud TTS API');
     } else if (status.googleHealthy) {
       console.log('\n✓ Google Cloud WaveNet TTS is active and healthy');

@@ -151,10 +151,10 @@ export class StreamingVoiceClient {
   }
   
   /**
-   * Check if connected and ready to send audio
+   * Check if connected and ready
    */
   isReady(): boolean {
-    return (this.state === 'connected' || this.state === 'ready') && this.ws?.readyState === WebSocket.OPEN;
+    return this.state === 'connected' && this.ws?.readyState === WebSocket.OPEN;
   }
   
   /**
