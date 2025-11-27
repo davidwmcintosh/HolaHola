@@ -131,13 +131,35 @@ export function setupStreamingVoiceProxy(server: Server) {
         return;
       }
 
+      console.log('[Streaming Voice] Setting up message handler for authenticated connection');
+      
       // Handle incoming messages
-      clientWs.on('message', async (data: Buffer | string) => {
+      clientWs.on('message', async (rawData: Buffer | ArrayBuffer | Buffer[]) => {
         try {
-          // Check if binary (audio data)
-          if (Buffer.isBuffer(data)) {
+          // Convert to Buffer if needed
+          let data: Buffer;
+          if (Buffer.isBuffer(rawData)) {
+            data = rawData;
+          } else if (rawData instanceof ArrayBuffer) {
+            data = Buffer.from(rawData);
+          } else if (Array.isArray(rawData)) {
+            data = Buffer.concat(rawData);
+          } else {
+            console.error('[Streaming Voice] Unknown data type:', typeof rawData);
+            return;
+          }
+          
+          console.log(`[Streaming Voice] Raw message received: ${data.length} bytes`);
+          
+          // Try to detect if it's JSON (text) or binary audio
+          // JSON messages will start with '{'
+          const firstByte = data[0];
+          const isLikelyJson = firstByte === 123; // '{' = 123 in ASCII
+          
+          if (!isLikelyJson) {
+            // Binary audio data
             if (session) {
-              console.log(`[Streaming Voice] Received ${data.length} bytes of audio`);
+              console.log(`[Streaming Voice] Processing binary audio: ${data.length} bytes`);
               await orchestrator.processUserAudio(session.id, data, 'webm');
             } else {
               console.warn('[Streaming Voice] Audio received but no session');
@@ -146,10 +168,13 @@ export function setupStreamingVoiceProxy(server: Server) {
           }
 
           // Parse JSON message
-          const message = JSON.parse(data.toString());
+          const messageStr = data.toString('utf8');
+          console.log(`[Streaming Voice] Received JSON message: ${messageStr.substring(0, 150)}`);
+          const message = JSON.parse(messageStr);
           
           switch (message.type) {
             case 'start_session': {
+              console.log('[Streaming Voice] Processing start_session request...');
               const config = message as ClientStartSessionMessage;
               
               // Fetch user data
