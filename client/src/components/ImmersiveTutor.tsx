@@ -304,19 +304,7 @@ export function ImmersiveTutor({
           </div>
         )}
         
-        {/* Subtitle Overlay - Static text display (karaoke highlighting disabled) */}
-        {/* 
-          KARAOKE FEATURE DISABLED: Word-by-word highlighting requires Neural2 voices with SSML marks,
-          but Chirp HD provides superior voice quality for language learning. Karaoke code is preserved
-          below for when Chirp HD adds SSML mark support.
-          
-          TODO: Periodically check Google Cloud TTS documentation for Chirp HD SSML mark support:
-          https://cloud.google.com/text-to-speech/docs/ssml
-          
-          When available, restore karaoke by:
-          1. In RestVoiceChat.tsx: Change needTimings to: subtitleMode !== "off"
-          2. Uncomment the progressive reveal code below
-        */}
+        {/* Subtitle Overlay - Karaoke-style word highlighting with Cartesia estimated timings */}
         {(() => {
           // When subtitleMode is "off", don't show any overlay
           if (subtitleMode === "off") return null;
@@ -346,36 +334,14 @@ export function ImmersiveTutor({
           // If no text at all, don't show overlay
           if (!displayText) return null;
           
-          /* 
-           * KARAOKE CODE - PRESERVED FOR FUTURE USE
-           * Uncomment when Chirp HD supports SSML marks:
-           *
-           * const hasTimings = currentWordTimings.length > 0;
-           * const useProgressiveMode = isPlaying && hasTimings;
-           * 
-           * // During progressive mode with 0 visible words, show nothing (wait for first word)
-           * if (useProgressiveMode && visibleWordCount === 0) {
-           *   return null;
-           * }
-           * 
-           * // In the render, replace static text with:
-           * {useProgressiveMode ? (
-           *   currentWordTimings.slice(0, visibleWordCount).map((timing, index) => (
-           *     <span
-           *       key={index}
-           *       className={`inline-block mx-1 transition-all duration-150 ${
-           *         index === highlightedWordIndex
-           *           ? "text-primary scale-110 font-bold"
-           *           : "text-foreground"
-           *       }`}
-           *     >
-           *       {timing.word}
-           *     </span>
-           *   ))
-           * ) : (
-           *   <span className="text-foreground">{displayText}</span>
-           * )}
-           */
+          // KARAOKE MODE: Use word-by-word highlighting when we have timings
+          const hasTimings = currentWordTimings.length > 0;
+          const useProgressiveMode = isPlaying && hasTimings;
+          
+          // During progressive mode with 0 visible words, show nothing (wait for first word)
+          if (useProgressiveMode && visibleWordCount === 0) {
+            return null;
+          }
           
           return (
             <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
@@ -389,8 +355,25 @@ export function ImmersiveTutor({
                   }}
                   data-testid="text-subtitle-overlay"
                 >
-                  {/* Static subtitle text - Chirp HD voice quality prioritized over karaoke */}
-                  <span className="text-foreground">{displayText}</span>
+                  {/* Karaoke-style word highlighting when playing with timings */}
+                  {useProgressiveMode ? (
+                    currentWordTimings.slice(0, visibleWordCount).map((timing, index) => (
+                      <span
+                        key={index}
+                        className={`inline-block mx-0.5 transition-all duration-150 ${
+                          index === highlightedWordIndex
+                            ? "text-primary scale-105 font-semibold"
+                            : "text-foreground"
+                        }`}
+                        data-testid={`word-${index}-${index === highlightedWordIndex ? 'active' : 'visible'}`}
+                      >
+                        {timing.word}
+                      </span>
+                    ))
+                  ) : (
+                    // Static display when not playing or no timings available
+                    <span className="text-foreground">{displayText}</span>
+                  )}
                 </div>
               </div>
             </div>
