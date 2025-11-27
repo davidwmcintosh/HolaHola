@@ -111,6 +111,16 @@ export function setupStreamingVoiceProxy(server: Server) {
 
   console.log('[Streaming Voice] WebSocket server initialized on /api/voice/stream/ws');
 
+  // Add error handler on the server itself
+  wss.on('error', (error) => {
+    console.error('[Streaming Voice] WebSocket Server error:', error);
+  });
+
+  // Log when headers are sent (just before connection)
+  wss.on('headers', (headers, request) => {
+    console.log('[Streaming Voice] Headers event fired, sending upgrade response');
+  });
+
   wss.on('connection', async (clientWs: WS, req) => {
     console.log('[Streaming Voice] Client connected');
 
