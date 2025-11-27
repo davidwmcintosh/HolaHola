@@ -13,10 +13,10 @@ import { queryClient } from "@/lib/queryClient";
 import { VoiceChatViewManager } from "@/components/VoiceChatViewManager";
 import { useStreamingVoice } from "@/hooks/useStreamingVoice";
 
-// Feature flag for streaming mode - disabled until fully tested
+// Feature flag for streaming mode - ENABLED for testing
 // Set to true to enable low-latency WebSocket streaming (target: <1s TTFB)
 // When false, uses reliable REST mode (~4-5s response time)
-const ENABLE_STREAMING_MODE = false;
+const ENABLE_STREAMING_MODE = true;
 
 // Helper to prevent double-greetings on mobile app reloads
 // Tracks WHEN last greeting played AND which message ID was synthesized
