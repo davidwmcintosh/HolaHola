@@ -452,12 +452,15 @@ export class StreamingVoiceOrchestrator {
    */
   private async transcribeAudio(audioData: Buffer, targetLanguage: string): Promise<{ transcript: string; confidence: number }> {
     try {
+      // Use nova-2 for better WebM compatibility (nova-3 is more conservative with low-confidence audio)
+      // Use multi-language detection like the REST endpoint for better reliability
       const response = await deepgram.listen.prerecorded.transcribeFile(
         audioData,
         {
-          model: 'nova-3',
-          language: this.getLanguageCode(targetLanguage),
+          model: 'nova-2',
+          language: 'multi', // Auto-detect for better reliability with WebM
           smart_format: true,
+          punctuate: true,
         }
       );
       
