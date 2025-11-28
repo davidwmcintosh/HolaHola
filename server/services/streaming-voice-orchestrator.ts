@@ -8,6 +8,7 @@
  */
 
 import { createClient } from "@deepgram/sdk";
+import { transcribeWithLiveAPI, getDeepgramLanguageCode } from "./deepgram-live-stt";
 import { getGeminiStreamingService, SentenceChunk } from "./gemini-streaming";
 import { getCartesiaStreamingService } from "./cartesia-streaming";
 import { WebSocket as WS } from "ws";
@@ -452,47 +453,73 @@ export class StreamingVoiceOrchestrator {
   }
   
   /**
-   * Transcribe audio using Deepgram Nova-3
+   * Transcribe audio using Deepgram Live Streaming API
+   * 
+   * Core values alignment:
+   * - <2 sec response: WebSocket reduces overhead vs REST calls
+   * - Word timestamps: Enabled for karaoke highlighting
+   * - Reliability: Live API handles WebM/Opus from browser MediaRecorder better
+   * 
    * Returns transcript AND confidence for ACTFL tracking (no shared state)
    */
   private async transcribeAudio(audioData: Buffer, targetLanguage: string): Promise<{ transcript: string; confidence: number }> {
     try {
-      // Use nova-3 for best accuracy with language learners
-      // Specify target language for better recognition of accented speech
-      const languageCode = this.getLanguageCode(targetLanguage);
-      console.log(`[Deepgram] Transcribing ${audioData.length} bytes, language: ${languageCode}`);
+      const languageCode = getDeepgramLanguageCode(targetLanguage);
+      console.log(`[Deepgram Live] Transcribing ${audioData.length} bytes, language: ${languageCode}`);
       
-      // Log first few bytes to verify audio format (WebM should start with 0x1A 0x45 0xDF 0xA3)
+      // Log header to verify WebM format (0x1A 0x45 0xDF 0xA3)
       const header = audioData.slice(0, 16);
-      console.log(`[Deepgram] Audio header: ${header.toString('hex')}`);
+      console.log(`[Deepgram Live] Audio header: ${header.toString('hex')}`);
       
-      // WebM from browser MediaRecorder uses Opus codec
-      // Explicitly specify encoding to help Deepgram decode properly
+      // Use live streaming API - more reliable for WebM/Opus from browser
+      const result = await transcribeWithLiveAPI(audioData, {
+        language: languageCode,
+        model: 'nova-2',
+      });
+      
+      console.log(`[Deepgram Live] Result: "${result.transcript}" (${(result.confidence * 100).toFixed(0)}%, ${result.durationMs}ms)`);
+      
+      return {
+        transcript: result.transcript,
+        confidence: result.confidence,
+      };
+      
+    } catch (error: any) {
+      console.error('[Deepgram Live] Error:', error.message);
+      // Fallback to prerecorded API on live streaming failure
+      console.log('[Deepgram] Falling back to prerecorded API...');
+      return this.transcribeAudioFallback(audioData, targetLanguage);
+    }
+  }
+  
+  /**
+   * Fallback to prerecorded API if live streaming fails
+   */
+  private async transcribeAudioFallback(audioData: Buffer, targetLanguage: string): Promise<{ transcript: string; confidence: number }> {
+    try {
+      const languageCode = getDeepgramLanguageCode(targetLanguage);
+      
       const response = await deepgram.listen.prerecorded.transcribeFile(
         audioData,
         {
-          model: 'nova-2', // nova-2 has better WebM/Opus support
+          model: 'nova-2',
           language: languageCode,
           smart_format: true,
           punctuate: true,
-          // Explicitly tell Deepgram this is WebM with Opus codec
           mimetype: 'audio/webm',
         }
       );
-      
-      // Log full response for debugging
-      console.log(`[Deepgram] Response metadata:`, JSON.stringify(response.result?.metadata || {}).substring(0, 200));
       
       const alternative = response.result?.results?.channels?.[0]?.alternatives?.[0];
       const transcript = alternative?.transcript || '';
       const confidence = alternative?.confidence || 0;
       
-      console.log(`[Deepgram] Result: transcript="${transcript}", confidence=${confidence}`);
+      console.log(`[Deepgram Fallback] Result: "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
       
       return { transcript, confidence };
       
     } catch (error: any) {
-      console.error('[Deepgram STT] Error:', error.message);
+      console.error('[Deepgram Fallback] Error:', error.message);
       throw new Error(`STT failed: ${error.message}`);
     }
   }
