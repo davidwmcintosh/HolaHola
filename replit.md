@@ -72,6 +72,31 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 3. Server sends progressive messages: `sentence_start`, `word_timing`, `audio_chunk`, `response_complete`
 4. Client plays audio chunks as they arrive with karaoke word highlighting
 
+**WebSocket Message Protocol**:
+
+| Direction | Message Type | Purpose | Key Fields |
+|-----------|--------------|---------|------------|
+| Server→Client | `connected` | Initial connection established | `timestamp` |
+| Client→Server | `start_session` | Begin voice session | `conversationId`, `userId`, `targetLanguage`, `nativeLanguage` |
+| Server→Client | `session_started` | Session ready | `sessionId` |
+| Client→Server | Binary audio | User's recorded audio | Raw WAV/WebM bytes |
+| Server→Client | `processing` | STT complete, AI thinking | `userTranscript` |
+| Server→Client | `sentence_start` | New sentence from AI | `sentenceIndex`, `text`, `targetLanguageText` |
+| Server→Client | `word_timing` | Timing data for karaoke | `sentenceIndex`, `words[]`, `expectedDurationMs` |
+| Server→Client | `audio_chunk` | Synthesized audio | `sentenceIndex`, `audio` (base64), `durationMs`, `isLast` |
+| Server→Client | `sentence_end` | Sentence complete | `sentenceIndex`, `totalDurationMs` |
+| Server→Client | `response_complete` | Full response done | `totalSentences`, `totalDurationMs`, `fullText` |
+| Server→Client | `error` | Error occurred | `code`, `message`, `recoverable` |
+
+**Client State Machine**:
+`idle` → `connecting` → `ready` → `recording` → `processing` → `streaming` → `ready`
+
+**Latency Targets** (achieved):
+- STT (Deepgram Nova-3): ~400-800ms
+- AI First Token (Gemini): ~1-2s  
+- TTS First Byte (Cartesia): ~40-90ms
+- Total Time to First Audio: ~1.5-2.5s
+
 **Karaoke Timing System**:
 - Server sends word timings BEFORE audio chunks (ensures timing ready when playback starts)
 - Server includes `expectedDurationMs` in word_timing messages
