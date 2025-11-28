@@ -70,3 +70,16 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 -   **State Management**: TanStack Query, React Context.
 -   **Billing**: `stripe-replit-sync`.
 -   **Utilities**: `date-fns`, Embla Carousel, `franc-min`.
+
+## Pending Testing & Future Improvements
+
+### Subtitle System (needs verification)
+- Translation parentheticals removed (no "(Excellent!)", "(Wonderful!)" in subtitles)
+- Target language extraction only captures foreign words (not English phrases)
+- Markdown markers (`**`) fully stripped from display text
+- Karaoke highlighting works correctly in Target mode
+
+### Audio Hardware Error Handling (future improvement)
+- "Start Practicing" button became unresponsive when no mic detected
+- Greeting was delayed during audio initialization errors
+- Consider showing clear user feedback when audio hardware is missing
