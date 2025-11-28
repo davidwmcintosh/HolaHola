@@ -373,10 +373,6 @@ export function ImmersiveTutor({
           // When streaming text is set, we're in streaming mode - don't fall through to non-streaming path
           // This prevents showing accumulated target words from the database after streaming ends
           if (streamingText) {
-            // Only show subtitles while actively playing
-            if (!isPlaying) {
-              return null; // Streaming ended - hide subtitles to avoid showing accumulated words
-            }
             // For "target" mode, use streamingTargetText if available
             const isTargetMode = subtitleMode === "target";
             const displayTextForStreaming = isTargetMode 
@@ -403,13 +399,23 @@ export function ImmersiveTutor({
             // In Target mode, show only the current target word (not all accumulated words)
             // This ensures only one foreign word appears at a time
             if (isTargetMode) {
-              // If no active word yet, don't show anything
-              if (activeWordIndex < 0) {
+              // Determine which word to show:
+              // - During playback: show the current word (activeWordIndex)
+              // - After playback ends: show the LAST word so student can reference it
+              let wordToShowIndex = activeWordIndex;
+              
+              // If no active word (playback ended or not started), show the last word
+              if (wordToShowIndex < 0 && allWords.length > 0) {
+                wordToShowIndex = allWords.length - 1;
+              }
+              
+              // If still no word to show, return null
+              if (wordToShowIndex < 0 || allWords.length === 0) {
                 return null;
               }
               
-              // Show only the current target word, always highlighted
-              const currentWord = allWords[activeWordIndex];
+              // Show the target word (current during playback, last after playback)
+              const currentWord = allWords[wordToShowIndex];
               return (
                 <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
                   <div className="max-w-4xl mx-auto">
