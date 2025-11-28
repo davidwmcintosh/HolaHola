@@ -1408,6 +1408,7 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
           streamingWordIndex={useStreamingMode ? streamingVoice.subtitles.state.currentWordIndex : undefined}
           streamingTargetWordIndex={useStreamingMode ? streamingVoice.subtitles.state.currentTargetWordIndex : undefined}
           isWaitingForContent={useStreamingMode ? streamingVoice.subtitles.state.isWaitingForContent : undefined}
+          getIsWaitingForContent={useStreamingMode ? streamingVoice.subtitles.getIsWaitingForContent : undefined}
         />
       </div>
     </div>

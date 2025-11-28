@@ -52,6 +52,7 @@ export interface UseStreamingSubtitlesReturn {
   completeSentence: (sentenceIndex: number) => void;
   reset: () => void;
   getCurrentWordTimings: () => WordTiming[];
+  getIsWaitingForContent: () => boolean;  // Synchronous getter for immediate access
 }
 
 /**
@@ -63,6 +64,11 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   const [currentWordIndex, setCurrentWordIndex] = useState(-1);
   const [visibleWordCount, setVisibleWordCount] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  
+  // Use ref + state pattern for isWaitingForContent to ensure:
+  // - Ref provides IMMEDIATE synchronous update for render guards
+  // - State triggers React re-render when content arrives
+  const isWaitingForContentRef = useRef(false);
   const [isWaitingForContent, setIsWaitingForContent] = useState(false);
   
   // Ref for current timings (avoids closure issues in animation frame)
@@ -89,7 +95,8 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     
     console.log(`[StreamingSubtitles] Add sentence ${index}: "${text.substring(0, 50)}..." (target: ${targetLanguageText?.substring(0, 30) || 'none'}, mapping: ${wordMapping?.size || 0} entries)`);
     
-    // Clear waiting flag when first sentence arrives
+    // Clear waiting flag when first sentence arrives (ref for immediate, state for re-render)
+    isWaitingForContentRef.current = false;
     setIsWaitingForContent(false);
     
     setSentences(prev => {
@@ -288,12 +295,17 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
    */
   const reset = useCallback(() => {
     console.log('[StreamingSubtitles] Reset');
+    
+    // IMMEDIATELY set waiting flag via ref (synchronous - bypasses React batching)
+    // This ensures ImmersiveTutor.isWaitingForContent is true on the very next render
+    isWaitingForContentRef.current = true;
+    setIsWaitingForContent(true);  // Also update state for React re-render
+    
     setSentences([]);
     setCurrentSentenceIndex(-1);
     setCurrentWordIndex(-1);
     setVisibleWordCount(0);
     setIsPlaying(false);
-    setIsWaitingForContent(true);  // Signal that we're waiting for new content
     currentTimingsRef.current = [];
     expectedDurationRef.current = undefined;
     actualDurationRef.current = undefined;
@@ -310,6 +322,14 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
    */
   const getCurrentWordTimings = useCallback(() => {
     return currentTimingsRef.current;
+  }, []);
+  
+  /**
+   * Get synchronous waiting flag (bypasses React batching)
+   * Use this for immediate checks in render guards
+   */
+  const getIsWaitingForContent = useCallback(() => {
+    return isWaitingForContentRef.current;
   }, []);
   
   // Compute full text from all sentences
@@ -376,6 +396,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     completeSentence,
     reset,
     getCurrentWordTimings,
+    getIsWaitingForContent,
   }), [
     sentences,
     currentSentenceIndex,
@@ -396,5 +417,6 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     completeSentence,
     reset,
     getCurrentWordTimings,
+    getIsWaitingForContent,
   ]);
 }

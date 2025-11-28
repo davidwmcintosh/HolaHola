@@ -44,6 +44,23 @@ export function extractTargetLanguageText(text: string): string {
     .replace(/\s*\((?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful|encouraging|patient)\)\s*/gi, ' ')
     .trim();
   
+  // CRITICAL: Remove ALL parenthetical content early
+  // This catches English translations like (Good morning.), (Hello!), (Perfect!)
+  // Must happen BEFORE bold extraction to prevent English leaking into target text
+  let prevInput = '';
+  while (cleanedInput !== prevInput) {
+    prevInput = cleanedInput;
+    cleanedInput = cleanedInput.replace(/\([^()]*\)/g, ' ');
+  }
+  cleanedInput = cleanedInput.replace(/\s+/g, ' ').trim();
+  
+  // Also strip dangling bold markers from sentence splits (e.g., "** at start or ** at end)
+  // These occur when Gemini's bold markers span across sentence boundaries
+  cleanedInput = cleanedInput
+    .replace(/^["']?\*\*\s*/g, '')  // Remove dangling "** or '** at start
+    .replace(/\s*\*\*["']?$/g, '')  // Remove dangling **" or **' at end
+    .trim();
+  
   // Common multi-word foreign phrases - defined early for phrase expansion
   // These must be matched as complete units, not split by accent filtering
   const COMMON_PHRASES = [
