@@ -411,6 +411,7 @@ export class StreamingVoiceOrchestrator {
       for await (const audioChunk of this.cartesiaService.streamSynthesize({
         text: displayText,
         language: session.targetLanguage,
+        targetLanguage: session.targetLanguage, // For phoneme pronunciation
         voiceId: session.voiceId,
         emotion,
         personality: session.tutorPersonality,
