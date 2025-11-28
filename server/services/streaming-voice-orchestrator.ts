@@ -461,12 +461,17 @@ export class StreamingVoiceOrchestrator {
       const header = audioData.slice(0, 16);
       console.log(`[Deepgram] Audio header: ${header.toString('hex')}`);
       
+      // WebM from browser MediaRecorder uses Opus codec
+      // Explicitly specify encoding to help Deepgram decode properly
       const response = await deepgram.listen.prerecorded.transcribeFile(
         audioData,
         {
-          model: 'nova-3',
+          model: 'nova-2', // nova-2 has better WebM/Opus support
           language: languageCode,
           smart_format: true,
+          punctuate: true,
+          // Explicitly tell Deepgram this is WebM with Opus codec
+          mimetype: 'audio/webm',
         }
       );
       
