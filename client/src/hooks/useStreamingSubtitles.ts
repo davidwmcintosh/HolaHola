@@ -184,14 +184,24 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     // - Primes the brain for incoming audio
     // - Strengthens written-to-spoken word association  
     // - Improves word recognition and memory retention
-    // - Too early (>200ms) feels disconnected; too late undermines learning
-    // 
-    // This offset accounts for MP3 encoder padding (~50-100ms) while intentionally
-    // keeping words appearing ~100-150ms before they're spoken for optimal reinforcement
-    const PEDAGOGICAL_TIMING_OFFSET = 0.18; // 180ms: balances codec delay + anticipatory learning
+    // Cartesia MP3 Leading Silence Compensation
+    // Cartesia's MP3 output includes ~2.5-3.0 seconds of silence before speech begins.
+    // The timer starts when the audio file plays, but speech doesn't start until later.
+    // This offset delays subtitle appearance to match when speech actually starts.
+    //
+    // After compensating for leading silence, we want words ~100-150ms EARLY 
+    // for pedagogical benefit (primes brain, strengthens word association).
+    //
+    // TUNING: Increase CARTESIA_LEADING_SILENCE if words appear too early
+    //         Decrease PEDAGOGICAL_ANTICIPATION if words appear too late after speech
+    const CARTESIA_LEADING_SILENCE = 2.7; // ~2.7s silence before speech in Cartesia MP3s
+    const PEDAGOGICAL_ANTICIPATION = 0.15; // 150ms early for learning reinforcement
     
-    // Adjust timing to achieve slight anticipation (words appear just before spoken)
-    const adjustedTime = Math.max(0, currentTime - PEDAGOGICAL_TIMING_OFFSET);
+    // Net offset: delay for silence, then bring forward slightly for anticipation
+    const TOTAL_OFFSET = CARTESIA_LEADING_SILENCE - PEDAGOGICAL_ANTICIPATION; // ~2.55s
+    
+    // Delay word appearance to sync with actual speech onset
+    const adjustedTime = Math.max(0, currentTime - TOTAL_OFFSET);
     
     // Store actual duration for rescaling calculations
     // Only store if it's a valid, finite number (duration can be NaN before metadata loads)
