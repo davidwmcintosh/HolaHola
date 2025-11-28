@@ -32,6 +32,7 @@ export interface StreamingSubtitleState {
   currentTargetWordIndex: number;  // Word index in target-only text (for Target mode karaoke)
   visibleWordCount: number;
   isPlaying: boolean;
+  isWaitingForContent: boolean;  // True after reset(), false when first sentence arrives
   fullText: string;
   targetFullText: string;  // Target language only (for subtitle mode filtering)
   currentSentenceText: string;  // Current sentence text for karaoke display
@@ -62,6 +63,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   const [currentWordIndex, setCurrentWordIndex] = useState(-1);
   const [visibleWordCount, setVisibleWordCount] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isWaitingForContent, setIsWaitingForContent] = useState(false);
   
   // Ref for current timings (avoids closure issues in animation frame)
   const currentTimingsRef = useRef<WordTiming[]>([]);
@@ -86,6 +88,9 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       : undefined;
     
     console.log(`[StreamingSubtitles] Add sentence ${index}: "${text.substring(0, 50)}..." (target: ${targetLanguageText?.substring(0, 30) || 'none'}, mapping: ${wordMapping?.size || 0} entries)`);
+    
+    // Clear waiting flag when first sentence arrives
+    setIsWaitingForContent(false);
     
     setSentences(prev => {
       // Check if sentence already exists
@@ -288,6 +293,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     setCurrentWordIndex(-1);
     setVisibleWordCount(0);
     setIsPlaying(false);
+    setIsWaitingForContent(true);  // Signal that we're waiting for new content
     currentTimingsRef.current = [];
     expectedDurationRef.current = undefined;
     actualDurationRef.current = undefined;
@@ -356,6 +362,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       currentTargetWordIndex,
       visibleWordCount,
       isPlaying,
+      isWaitingForContent,
       fullText,
       targetFullText,
       currentSentenceText,
@@ -376,6 +383,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     currentTargetWordIndex,
     visibleWordCount,
     isPlaying,
+    isWaitingForContent,
     fullText,
     targetFullText,
     currentSentenceText,

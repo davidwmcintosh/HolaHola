@@ -30,6 +30,7 @@ interface VoiceChatViewManagerProps {
   streamingTargetText?: string;
   streamingWordIndex?: number;
   streamingTargetWordIndex?: number;  // Word index in target-only text for Target mode karaoke
+  isWaitingForContent?: boolean;  // True after subtitle reset, false when new content arrives
 }
 
 export function VoiceChatViewManager({
@@ -54,6 +55,7 @@ export function VoiceChatViewManager({
   streamingTargetText,
   streamingWordIndex,
   streamingTargetWordIndex,
+  isWaitingForContent,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -185,6 +187,7 @@ export function VoiceChatViewManager({
                 streamingTargetText={streamingTargetText}
                 streamingWordIndex={streamingWordIndex}
                 streamingTargetWordIndex={streamingTargetWordIndex}
+                isWaitingForContent={isWaitingForContent}
               />
             </div>
           ) : (

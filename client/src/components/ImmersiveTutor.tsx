@@ -42,6 +42,7 @@ interface ImmersiveTutorProps {
   streamingTargetText?: string; // Target language only text from streaming mode
   streamingWordIndex?: number; // Current word index for streaming subtitles
   streamingTargetWordIndex?: number; // Current word index for target-only text (enables karaoke in Target mode)
+  isWaitingForContent?: boolean; // True after subtitle reset, false when new content arrives
 }
 
 export function ImmersiveTutor({
@@ -68,6 +69,7 @@ export function ImmersiveTutor({
   streamingTargetText,
   streamingWordIndex = -1,
   streamingTargetWordIndex = -1,
+  isWaitingForContent = false,
 }: ImmersiveTutorProps) {
   const [currentWordTimings, setCurrentWordTimings] = useState<WordTiming[]>([]);
   const [highlightedWordIndex, setHighlightedWordIndex] = useState<number>(-1);
@@ -368,6 +370,13 @@ export function ImmersiveTutor({
         {(() => {
           // When subtitleMode is "off", don't show any overlay
           if (subtitleMode === "off") return null;
+          
+          // Hide subtitles when waiting for new content after reset
+          // This is set synchronously when reset() is called, before React batches state updates
+          // Prevents stale subtitles from flashing during the processing window
+          if (isWaitingForContent) {
+            return null;
+          }
           
           // Hide subtitles during processing (after recording, before response arrives)
           // This prevents showing stale target words from previous tutor message
