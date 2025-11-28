@@ -104,15 +104,23 @@ export function ImmersiveTutor({
       .trim();
   };
   
-  // Helper function to clean phoneme syntax for display (keep punctuation but remove <<>> syntax)
+  // Helper function to clean phoneme syntax and markdown for display
   const cleanForDisplay = (word: string): string => {
-    // Replace <<phoneme>> syntax with just the phonemes joined (e.g., <<o|l|a>> → "ola")
-    // Then capitalize first letter if the original was capitalized
-    return word.replace(/<<([^>]+)>>/g, (_, phonemes) => {
-      const cleaned = phonemes.replace(/\|/g, '');
-      // Capitalize if word started with << (which replaced a capital letter)
-      return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
-    });
+    let cleaned = word
+      // Replace <<phoneme>> syntax with just the phonemes joined (e.g., <<o|l|a>> → "ola")
+      .replace(/<<([^>]+)>>/g, (_, phonemes) => {
+        const cleanedPhonemes = phonemes.replace(/\|/g, '');
+        // Capitalize if word started with << (which replaced a capital letter)
+        return cleanedPhonemes.charAt(0).toUpperCase() + cleanedPhonemes.slice(1);
+      })
+      // Safety net: strip any markdown bold/italic markers that slipped through
+      .replace(/\*\*/g, '')
+      .replace(/\*/g, '')
+      // Strip leading/trailing quotes (but preserve apostrophes in contractions)
+      .replace(/^["'"'""]+/g, '')
+      .replace(/["'"'""]+$/g, '');
+    
+    return cleaned;
   };
 
   // Helper function to filter word timings to only include target language words

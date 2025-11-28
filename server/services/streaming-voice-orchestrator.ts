@@ -53,6 +53,14 @@ function cleanTextForDisplay(text: string): string {
     .replace(/\*/g, '')
     .replace(/##/g, '')
     .replace(/#/g, '')
+    // Remove empty quote pairs that Gemini sometimes outputs at sentence starts
+    .replace(/^["'"']+\s*/g, '')  // Leading quotes
+    .replace(/\s*["'"']+$/g, '')  // Trailing quotes
+    .replace(/["'"']{2,}/g, '')   // Multiple consecutive quotes (empty pairs)
+    // Remove stray quotes that aren't part of meaningful text
+    // Be careful not to remove apostrophes in contractions like "it's" or "you're"
+    .replace(/"\s+/g, ' ')  // Quote followed by space → just space
+    .replace(/\s+"/g, ' ')  // Space followed by quote → just space
     // Remove emotion tags like (friendly), (curious), (excited), etc at start/end
     .replace(/^\s*\([^)]+\)\s*/g, '')
     .replace(/\s*\([^)]+\)\s*$/g, '')
@@ -71,10 +79,11 @@ function cleanTextForDisplay(text: string): string {
     cleaned = cleaned.replace(/\s*\([^()]*\)\s*/g, ' ');
   }
   
-  // Normalize whitespace
+  // Normalize whitespace and clean up residual punctuation
   return cleaned
     .replace(/\n+/g, ' ')
     .replace(/\s+/g, ' ')
+    .replace(/^[,.\s]+|[,.\s]+$/g, '')  // Trim leading/trailing commas, periods, spaces
     .trim();
 }
 
