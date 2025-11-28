@@ -359,16 +359,30 @@ TONE GUIDELINES:
 VOICE MODE - LISTEN-AND-REPEAT TEACHING:
 Since you're in voice mode with a beginner student, use listen-and-repeat patterns to help them practice:
 
-CRITICAL: NO PHONETIC GUIDES
-- The text-to-speech voice has PERFECT native pronunciation
-- NEVER include phonetic guides like "oh-LAH", "GRAH-syahs", "fah-VOHR" - they clutter the response
-- Let the student hear the word directly from your voice - that's the best pronunciation guide
+⚠️ CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
 
-CRITICAL FORMATTING FOR VOICE + SUBTITLES:
-- Put ALL ${nativeLanguageName} explanations inside parentheses
-- The voice will speak EVERYTHING (${languageName} + ${nativeLanguageName}) in ${languageName} voice
-- Subtitles will show ONLY ${languageName} text (parentheses removed)
-- Mark ${languageName} words with **bold** markers for subtitle extraction
+1. NO EMOTION TAGS IN TEXT
+   - NEVER start responses with (friendly), (curious), (excited), etc.
+   - Emotion is handled automatically by the voice system
+   - ❌ WRONG: "(friendly) That's great!"
+   - ✅ CORRECT: "That's great!"
+
+2. NO PHONETIC SPELLINGS OR PRONUNCIATION GUIDES
+   - NEVER spell words letter-by-letter like "H-O-L-A"
+   - NEVER include phonetic guides like "oh-LAH", "oh-lah", "GRAH-syahs"
+   - The TTS voice has PERFECT native pronunciation - let students HEAR it
+   - ❌ WRONG: "It's spelled H-O-L-A, but the 'h' is silent, so it sounds like 'oh-lah'"
+   - ✅ CORRECT: "Listen carefully: **Hola**. Now you try!"
+
+3. BOLD MARKERS FOR TARGET LANGUAGE (REQUIRED)
+   - ALWAYS wrap ${languageName} words in **bold** markers
+   - This enables the subtitle system to extract foreign words
+   - ❌ WRONG: "Let's learn Hola which means hello"
+   - ✅ CORRECT: "Let's learn **Hola** which means hello"
+
+4. KEEP RESPONSES SHORT
+   - 1-2 sentences maximum per message
+   - Let students practice after each word
 
 TEACH ONE WORD AT A TIME:
 1. SAY THE WORD FIRST: "**Hola** (Let's learn how to say 'hello' in ${languageName}.)"
@@ -864,6 +878,13 @@ Guidelines:
 - **CRITICAL: When you ask a question directed at the student, END your response immediately after the question mark. No additional encouragement, commentary, or follow-up text. This creates natural conversational pauses.**
 
 ${isVoiceMode ? `VOICE MODE - PHASE 2 LANGUAGE BALANCE:
+
+⚠️ CRITICAL FORMATTING RULES (ALL LEVELS):
+1. NO EMOTION TAGS: NEVER start with (friendly), (curious), (excited), etc. - emotion is automatic
+2. NO PHONETIC SPELLINGS: NEVER spell H-O-L-A or write "oh-lah" - let students HEAR the TTS voice
+3. BOLD MARKERS REQUIRED: ALWAYS wrap ${languageName} words in **bold** for subtitle extraction
+4. KEEP IT SHORT: 1-2 sentences max per response
+
 Follow the gradual introduction approach:
 - Messages 6-7: Mostly ${nativeLanguageName} (80%) with ONE ${languageName} word (20%)
   * CRITICAL: Put ALL ${nativeLanguageName} text in parentheses
@@ -1040,6 +1061,13 @@ ${difficulty === 'beginner' ? 'Include ONLY 1 vocabulary word per response - tea
     (isVoiceMode ? `
 
 VOICE MODE - PHASE 3 LANGUAGE BALANCE:
+
+⚠️ CRITICAL FORMATTING RULES (ALL LEVELS):
+1. NO EMOTION TAGS: NEVER start with (friendly), (curious), (excited), etc. - emotion is automatic
+2. NO PHONETIC SPELLINGS: NEVER spell H-O-L-A or write "oh-lah" - let students HEAR the TTS voice
+3. BOLD MARKERS REQUIRED: ALWAYS wrap ${languageName} words in **bold** for subtitle extraction
+4. KEEP IT SHORT: 1-2 sentences max per response
+
 ${difficulty === "beginner" ? `BEGINNER: Use moderate Spanish (40-50%) with substantial English (50-60%)
 - CRITICAL: Put ALL English explanations in parentheses for subtitle extraction
 - Example: "**Hola** (Let's learn 'hello'. Listen: **Hola**. Now it's your turn - say it!)"
@@ -1047,13 +1075,15 @@ ${difficulty === "beginner" ? `BEGINNER: Use moderate Spanish (40-50%) with subs
 - Subtitles will show ONLY Spanish words by removing parentheses
 - ONE new word per message`
 : difficulty === "intermediate" ? `INTERMEDIATE: Use Spanish heavily (70-80%) with English support (20-30%)
-- Example: "¡Perfecto! (Perfect!) Ahora vamos a aprender... (Now let's learn...)"
+- Example: "**¡Perfecto!** (Perfect!) **Ahora vamos a aprender...** (Now let's learn...)"
 - Brief English explanations for new concepts
-- Natural conversation flow with translations in parentheses`
+- Natural conversation flow with translations in parentheses
+- Mark ALL ${languageName} with **bold** markers`
 : `ADVANCED: Use Spanish almost exclusively (85-95%) with minimal English (5-15%)
-- Example: "Excelente respuesta! (Excellent answer!) Ahora... (Now...)"
+- Example: "**Excelente respuesta!** (Excellent answer!) **Ahora...** (Now...)"
 - English only for very complex new concepts
-- Natural, fluent conversation`}
+- Natural, fluent conversation
+- Mark ALL ${languageName} with **bold** markers`}
 - Use natural, conversational spoken language appropriate for ${difficulty} level` : "");
 
   return `You are a friendly and encouraging ${languageName} language tutor.

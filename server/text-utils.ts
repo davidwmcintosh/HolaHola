@@ -36,12 +36,20 @@ const TARGET_LANGUAGE_CODES = new Set([
 export function extractTargetLanguageText(text: string): string {
   if (!text) return '';
   
+  // First, strip any emotion tags like (friendly), (encouraging) at start of text
+  // These should not interfere with foreign language extraction
+  let cleanedInput = text
+    .replace(/^\s*\([^)]+\)\s*/g, '')
+    .replace(/\s*\([^)]+\)\s*$/g, '')
+    .replace(/\s*\((?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful|encouraging|patient)\)\s*/gi, ' ')
+    .trim();
+  
   // Extract text between ** markers (foreign language phrases)
   const boldPattern = /\*\*([^*]+)\*\*/g;
   const matches: string[] = [];
   let match;
   
-  while ((match = boldPattern.exec(text)) !== null) {
+  while ((match = boldPattern.exec(cleanedInput)) !== null) {
     matches.push(match[1].trim());
   }
   
@@ -115,32 +123,46 @@ export function extractTargetLanguageText(text: string): string {
     }
   }
   
-  // Fallback 3: Check for common short foreign words (unambiguous only)
-  // This catches brief utterances like "Gracias", "Hola", "Ciao" when franc fails
-  const COMMON_SHORT_FOREIGN_WORDS = [
+  // Fallback 3: Check for common short foreign words ANYWHERE in the text
+  // This catches words like "Hola" even when embedded in English sentences
+  // IMPORTANT: Preserve word order for subtitle accuracy
+  const COMMON_SHORT_FOREIGN_WORDS = new Set([
     // Spanish
-    'hola', 'gracias', 'adios', 'vamos', 'claro', 'bueno', 'vale', 'perfecto',
+    'hola', 'gracias', 'adios', 'adiós', 'vamos', 'claro', 'bueno', 'vale', 'perfecto',
+    'buenos', 'días', 'noches', 'tardes', 'señor', 'señora', 'amigo', 'amiga',
     // French
-    'bonjour', 'merci', 'salut', 'parfait', 'voila', 
+    'bonjour', 'merci', 'salut', 'parfait', 'voila', 'voilà', 'madame', 'monsieur',
     // German
-    'danke', 'bitte', 'genau', 'prima', 'toll',
+    'danke', 'bitte', 'genau', 'prima', 'toll', 'guten', 'morgen', 'tag', 'abend',
     // Italian
-    'ciao', 'prego', 'bravo', 'bene', 'perfetto',
+    'ciao', 'prego', 'bravo', 'bene', 'perfetto', 'buongiorno', 'buonasera',
     // Portuguese
-    'obrigado', 'obrigada', 'tchau',
+    'obrigado', 'obrigada', 'tchau', 'olá',
     // Japanese romanized
-    'arigatou', 'sugoi', 'kawaii', 'ganbatte',
+    'arigatou', 'sugoi', 'kawaii', 'ganbatte', 'konnichiwa', 'ohayou',
     // Korean romanized
-    'annyeong', 'gomawo', 'daebak',
+    'annyeong', 'gomawo', 'daebak', 'annyeonghaseyo',
     // Mandarin romanized
-    'xiexie', 'nihao', 'haode',
-  ];
+    'xiexie', 'nihao', 'haode', 'zaijian',
+  ]);
   
-  const lowerCleaned = cleanedText.toLowerCase().trim();
-  for (const word of COMMON_SHORT_FOREIGN_WORDS) {
-    if (lowerCleaned === word || lowerCleaned.startsWith(word + ' ') || lowerCleaned.endsWith(' ' + word)) {
-      return cleanedText;
+  // Match all words in the text that are in our foreign word set
+  // Use word boundary regex to find words and preserve their order
+  const wordPattern = /\b[\p{L}]+\b/gu;
+  const matchedWords: { word: string; index: number }[] = [];
+  
+  let wordMatch;
+  while ((wordMatch = wordPattern.exec(cleanedInput)) !== null) {
+    const word = wordMatch[0];
+    if (COMMON_SHORT_FOREIGN_WORDS.has(word.toLowerCase())) {
+      matchedWords.push({ word, index: wordMatch.index });
     }
+  }
+  
+  // Sort by occurrence order and return
+  if (matchedWords.length > 0) {
+    matchedWords.sort((a, b) => a.index - b.index);
+    return matchedWords.map(m => m.word).join(' ');
   }
   
   // No foreign language content detected

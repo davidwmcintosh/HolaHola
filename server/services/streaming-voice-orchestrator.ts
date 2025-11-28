@@ -52,11 +52,11 @@ function cleanTextForDisplay(text: string): string {
     .replace(/^\s*\([^)]+\)\s*/g, '')
     .replace(/\s*\([^)]+\)\s*$/g, '')
     // Also remove mid-text emotion tags
-    .replace(/\s*\((?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful)\)\s*/gi, ' ')
+    .replace(/\s*\((?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful|encouraging|patient)\)\s*/gi, ' ')
     // Remove [laughter] tags for display
     .replace(/\[laughter\]/gi, '')
     // Remove [bracket] emotion/action tags like [happy], [excited]
-    .replace(/\[(?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful|encouraging)\]/gi, '')
+    .replace(/\[(?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful|encouraging|patient)\]/gi, '')
     // Normalize whitespace
     .replace(/\n+/g, ' ')
     .replace(/\s+/g, ' ')
