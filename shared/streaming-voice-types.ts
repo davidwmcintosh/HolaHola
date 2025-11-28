@@ -140,6 +140,15 @@ export interface StreamingResponseCompleteMessage extends StreamingVoiceMessage 
 }
 
 /**
+ * Feedback message (pedagogical guidance, non-blocking)
+ */
+export interface StreamingFeedbackMessage extends StreamingVoiceMessage {
+  type: 'feedback';
+  feedbackType: 'one_word_rule' | 'pronunciation_tip' | 'encouragement';
+  message: string;
+}
+
+/**
  * Error message
  */
 export interface StreamingErrorMessage extends StreamingVoiceMessage {
@@ -161,6 +170,7 @@ export type StreamingErrorCode =
   | 'UNAUTHORIZED'
   | 'TIMEOUT'
   | 'EMPTY_TRANSCRIPT'
+  | 'CONTENT_REJECTED'
   | 'UNKNOWN';
 
 /**
@@ -175,6 +185,7 @@ export type StreamingMessage =
   | StreamingWordTimingMessage
   | StreamingSentenceEndMessage
   | StreamingResponseCompleteMessage
+  | StreamingFeedbackMessage
   | StreamingErrorMessage;
 
 /**

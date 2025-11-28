@@ -20,6 +20,7 @@ import {
   StreamingWordTimingMessage,
   StreamingSentenceEndMessage,
   StreamingResponseCompleteMessage,
+  StreamingFeedbackMessage,
   StreamingErrorMessage,
   StreamingErrorCode,
   ClientStartSessionMessage,
@@ -29,6 +30,8 @@ import {
 import { constrainEmotion, TutorPersonality, CartesiaEmotion } from "./tts-service";
 import { extractTargetLanguageText, extractTargetLanguageWithMapping, hasSignificantTargetLanguageContent } from "../text-utils";
 import { storage } from "../storage";
+import { validateOneUnitRule, UnitValidationResult } from "../phrase-detection";
+import { GoogleGenAI } from "@google/genai";
 
 /**
  * Clean text for display by removing markdown, emotion tags, and other formatting
@@ -113,6 +116,52 @@ export interface StreamingMetrics {
  * Deepgram client (STT)
  */
 const deepgram = createClient(process.env.DEEPGRAM_API_KEY || '');
+
+/**
+ * Gemini client for vocabulary extraction (using Replit AI integrations)
+ */
+const gemini = new GoogleGenAI({
+  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '',
+});
+
+/**
+ * Content moderation: Check for inappropriate content
+ * This provides a safety net for user inputs
+ */
+const INAPPROPRIATE_TERMS = [
+  'offensive', 'curse', 'swear', 'bad words', 'profan', 'explicit', 'sexual',
+  'violent', 'insult', 'slur', 'derogatory', 'fuck', 'shit', 'damn', 'hell',
+  'crap', 'ass', 'bitch', 'kill', 'murder', 'hate',
+];
+
+function containsInappropriateContent(text: string): boolean {
+  const lowerText = text.toLowerCase();
+  return INAPPROPRIATE_TERMS.some(term => lowerText.includes(term));
+}
+
+/**
+ * Schema for vocabulary extraction using Gemini structured output
+ */
+const VOCABULARY_EXTRACTION_SCHEMA = {
+  type: "object",
+  properties: {
+    vocabulary: {
+      type: "array",
+      description: "New vocabulary words introduced in this response (max 3 per exchange)",
+      items: {
+        type: "object",
+        properties: {
+          word: { type: "string", description: "The foreign language word/phrase" },
+          translation: { type: "string", description: "English translation" },
+          example: { type: "string", description: "Example sentence using the word" },
+          pronunciation: { type: "string", description: "Phonetic pronunciation guide" }
+        },
+        required: ["word", "translation", "example", "pronunciation"]
+      }
+    }
+  },
+  required: ["vocabulary"]
+};
 
 /**
  * Streaming Voice Orchestrator
@@ -244,6 +293,35 @@ export class StreamingVoiceOrchestrator {
         return metrics;
       }
       
+      // CONTENT MODERATION: Check for inappropriate content
+      if (containsInappropriateContent(transcript)) {
+        console.log('[Streaming Orchestrator] Content moderation: Inappropriate content detected');
+        this.sendMessage(session.ws, {
+          type: 'error',
+          timestamp: Date.now(),
+          code: 'CONTENT_REJECTED',
+          message: 'Please keep the conversation appropriate for a learning environment.',
+          recoverable: true,
+        });
+        return metrics;
+      }
+      
+      // ONE-WORD RULE: Validate user input for beginners
+      // Non-blocking - we still process the request but provide feedback
+      const oneWordValidation = validateOneUnitRule(transcript, session.targetLanguage, session.difficultyLevel);
+      if (!oneWordValidation.isValid) {
+        console.log(`[Streaming Orchestrator] One-word rule: ${oneWordValidation.message}`);
+        // Send feedback to client about one-word rule (non-blocking - still process)
+        this.sendMessage(session.ws, {
+          type: 'feedback',
+          timestamp: Date.now(),
+          feedbackType: 'one_word_rule',
+          message: oneWordValidation.message || 'Try practicing one word or phrase at a time for better learning!',
+        } as StreamingFeedbackMessage);
+      } else if (oneWordValidation.matchedPhrase) {
+        console.log(`[Streaming Orchestrator] Matched phrase unit: "${oneWordValidation.matchedPhrase}"`);
+      }
+      
       // Notify client that processing has started
       this.sendMessage(session.ws, {
         type: 'processing',
@@ -276,6 +354,13 @@ export class StreamingVoiceOrchestrator {
           if (!displayText) {
             console.log(`[Streaming Orchestrator] Skipping empty sentence ${chunk.index} after cleaning`);
             return;
+          }
+          
+          // AI CONTENT MODERATION: Check AI response before sending to client/TTS
+          // This is a safety net - Gemini should already filter, but we double-check
+          if (containsInappropriateContent(displayText)) {
+            console.log(`[Streaming Orchestrator] AI response moderation: Skipping sentence ${chunk.index}`);
+            return; // Skip this sentence entirely
           }
           
           // Extract target language with word mapping (needs raw text with bold markers)
@@ -342,7 +427,8 @@ export class StreamingVoiceOrchestrator {
       console.log(`[Streaming Orchestrator] Latencies: STT=${metrics.sttLatencyMs}ms, AI=${metrics.aiFirstTokenMs}ms, TTS=${metrics.ttsFirstByteMs}ms`);
       
       // Persist messages to database (non-blocking)
-      this.persistMessages(session.conversationId, transcript, fullText.trim()).catch((err: Error) => {
+      // Also triggers background vocabulary extraction and progress updates
+      this.persistMessages(session.conversationId, transcript, fullText.trim(), session).catch((err: Error) => {
         console.error('[Streaming Orchestrator] Failed to persist messages:', err.message);
       });
       
@@ -574,7 +660,12 @@ export class StreamingVoiceOrchestrator {
   /**
    * Persist user and AI messages to database
    */
-  private async persistMessages(conversationId: string, userTranscript: string, aiResponse: string): Promise<void> {
+  private async persistMessages(
+    conversationId: string, 
+    userTranscript: string, 
+    aiResponse: string,
+    session: StreamingSession
+  ): Promise<void> {
     try {
       // Save user message
       await storage.createMessage({
@@ -588,7 +679,7 @@ export class StreamingVoiceOrchestrator {
       const hasTargetLanguage = hasSignificantTargetLanguageContent(targetLanguageText);
       
       // Save AI message with target language text if applicable
-      await storage.createMessage({
+      const aiMessage = await storage.createMessage({
         conversationId,
         role: 'assistant',
         content: aiResponse,
@@ -597,9 +688,126 @@ export class StreamingVoiceOrchestrator {
       });
       
       console.log(`[Streaming Orchestrator] Messages persisted to conversation: ${conversationId}`);
+      
+      // BACKGROUND ENRICHMENT: Extract vocabulary and update progress (non-blocking)
+      setImmediate(async () => {
+        try {
+          await this.processBackgroundEnrichment(
+            session, 
+            conversationId, 
+            aiMessage.id, 
+            aiResponse
+          );
+        } catch (error: any) {
+          console.error('[Streaming Enrichment] Failed:', error.message);
+        }
+      });
+      
     } catch (error: any) {
       console.error('[Streaming Orchestrator] Database error:', error.message);
       throw error;
+    }
+  }
+  
+  /**
+   * Background enrichment: Extract vocabulary and update user progress
+   * Runs non-blocking after message persistence
+   */
+  private async processBackgroundEnrichment(
+    session: StreamingSession,
+    conversationId: string,
+    messageId: string,
+    aiResponse: string
+  ): Promise<void> {
+    const startTime = Date.now();
+    console.log(`[Streaming Enrichment] Starting for message: ${messageId}`);
+    
+    try {
+      // Update message status to processing
+      await storage.updateMessage(messageId, { enrichmentStatus: 'processing' });
+      
+      // Get conversation for language/difficulty info
+      const conversation = await storage.getConversation(conversationId, String(session.userId));
+      if (!conversation) {
+        console.error('[Streaming Enrichment] Conversation not found');
+        await storage.updateMessage(messageId, { enrichmentStatus: 'failed' });
+        return;
+      }
+      
+      // VOCABULARY EXTRACTION: Use Gemini to extract new vocabulary from AI response
+      let vocabularyItems: any[] = [];
+      try {
+        const extractionPrompt = `Extract vocabulary words from this language learning response. The student is learning ${session.targetLanguage} at ${session.difficultyLevel} level. Only extract foreign language words/phrases that were introduced in this response (max 3 items).
+
+AI Response: "${aiResponse}"
+
+Return vocabulary items with word, translation, example sentence, and pronunciation guide.`;
+
+        const response = await gemini.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: [{ role: 'user', parts: [{ text: extractionPrompt }] }],
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: VOCABULARY_EXTRACTION_SCHEMA as any,
+          },
+        });
+        
+        const responseText = response.text || "{}";
+        const parsed = JSON.parse(responseText);
+        vocabularyItems = Array.isArray(parsed.vocabulary) ? parsed.vocabulary : [];
+        
+        console.log(`[Streaming Enrichment] Extracted ${vocabularyItems.length} vocabulary items`);
+      } catch (extractError: any) {
+        console.error('[Streaming Enrichment] Vocabulary extraction failed:', extractError.message);
+      }
+      
+      // Save vocabulary words to database
+      if (vocabularyItems.length > 0) {
+        for (const vocab of vocabularyItems) {
+          try {
+            await storage.createVocabularyWord({
+              userId: String(session.userId),
+              language: session.targetLanguage,
+              word: vocab.word,
+              translation: vocab.translation,
+              example: vocab.example || '',
+              pronunciation: vocab.pronunciation || '',
+              difficulty: session.difficultyLevel,
+              sourceConversationId: conversationId,
+            });
+          } catch (vocabError: any) {
+            // Duplicate words are expected - silently continue
+            if (!vocabError.message?.includes('duplicate')) {
+              console.error('[Streaming Enrichment] Failed to save vocab:', vocabError.message);
+            }
+          }
+        }
+      }
+      
+      // UPDATE USER PROGRESS: Increment vocabulary count and update last practice
+      try {
+        const progress = await storage.getOrCreateUserProgress(session.targetLanguage, String(session.userId));
+        if (progress) {
+          // Increment words learned if we extracted vocabulary
+          const wordsLearned = progress.wordsLearned || 0;
+          await storage.updateUserProgress(progress.id, {
+            wordsLearned: wordsLearned + vocabularyItems.length,
+            lastPracticeDate: new Date(),
+          });
+        }
+      } catch (progressError: any) {
+        console.error('[Streaming Enrichment] Progress update failed:', progressError.message);
+      }
+      
+      // Mark enrichment as complete
+      await storage.updateMessage(messageId, { enrichmentStatus: null });
+      
+      const elapsed = Date.now() - startTime;
+      console.log(`[Streaming Enrichment] Completed in ${elapsed}ms (${vocabularyItems.length} vocab)`);
+      
+    } catch (error: any) {
+      console.error('[Streaming Enrichment] Error:', error.message);
+      await storage.updateMessage(messageId, { enrichmentStatus: 'failed' });
     }
   }
   
