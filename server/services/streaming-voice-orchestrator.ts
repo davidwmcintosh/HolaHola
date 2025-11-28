@@ -1079,9 +1079,10 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       let classEnrollment: { className: string; curriculumLesson?: string; curriculumUnit?: string } | null = null;
       
       try {
+        // Note: getOrCreateActflProgress expects (language, userId) order
         const actflProgress = await storage.getOrCreateActflProgress(
-          String(session.userId),
-          session.targetLanguage
+          session.targetLanguage,
+          String(session.userId)
         );
         actflLevel = actflProgress?.currentActflLevel || 'Novice Low';
         
