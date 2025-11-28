@@ -42,7 +42,7 @@ function cleanTextForDisplay(text: string): string {
     return ''; // Return empty to skip this sentence entirely
   }
   
-  return text
+  let cleaned = text
     // Remove markdown bold/italic markers
     .replace(/\*\*/g, '')
     .replace(/\*/g, '')
@@ -56,8 +56,18 @@ function cleanTextForDisplay(text: string): string {
     // Remove [laughter] tags for display
     .replace(/\[laughter\]/gi, '')
     // Remove [bracket] emotion/action tags like [happy], [excited]
-    .replace(/\[(?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful|encouraging|patient)\]/gi, '')
-    // Normalize whitespace
+    .replace(/\[(?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful|encouraging|patient)\]/gi, '');
+  
+  // Remove ALL parenthetical content (English translations like (Hello!), (Excellent!), (Perfect!))
+  // These are distracting and redundant - the user heard the Spanish and doesn't need English in subtitles
+  let prevCleaned = '';
+  while (cleaned !== prevCleaned) {
+    prevCleaned = cleaned;
+    cleaned = cleaned.replace(/\s*\([^()]*\)\s*/g, ' ');
+  }
+  
+  // Normalize whitespace
+  return cleaned
     .replace(/\n+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();

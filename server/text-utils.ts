@@ -227,16 +227,17 @@ export function extractTargetLanguageText(text: string): string {
     return foreignWords.join(' ');
   }
   
-  // PRIORITY 3: Use language detection on the cleaned text
-  // Only if remaining text looks substantial and non-English
-  if (cleanedText.length >= 8 && nonEnglishWords.length >= 2) {
+  // PRIORITY 3: Use language detection ONLY on text with non-ASCII characters
+  // This prevents false positives on English text that franc misidentifies
+  // If no foreign characters, skip language detection entirely
+  const hasNonAscii = /[^\x00-\x7F]/.test(cleanedText);
+  const hasForeignPunctuation = /[¡¿«»„""''‹›]/.test(cleanedText);
+  
+  if ((hasNonAscii || hasForeignPunctuation) && cleanedText.length >= 6 && nonEnglishWords.length >= 1) {
     try {
       const detectedLang = franc(cleanedText, { minLength: 3 });
       if (TARGET_LANGUAGE_CODES.has(detectedLang)) {
-        const avgWordLength = cleanedText.length / nonEnglishWords.length;
-        if (avgWordLength > 2) {
-          return cleanedText;
-        }
+        return cleanedText;
       }
     } catch (e) {
       // franc detection failed, continue
