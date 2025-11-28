@@ -289,6 +289,28 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           break;
         }
 
+        case 'request_greeting': {
+          // Generate AI-powered personalized greeting
+          if (!isAuthenticated || !session) {
+            sendError(ws, 'UNKNOWN', 'Session not ready for greeting', true);
+            return;
+          }
+          
+          const greetingRequest = message as { type: 'request_greeting'; userName?: string };
+          console.log('[Streaming Voice] Generating AI greeting...');
+          
+          try {
+            await orchestrator.processGreetingRequest(
+              session.id, 
+              greetingRequest.userName
+            );
+          } catch (greetingError: any) {
+            console.error('[Streaming Voice] Greeting error:', greetingError.message);
+            sendError(ws, 'AI_FAILED', 'Failed to generate greeting', true);
+          }
+          break;
+        }
+
         case 'interrupt':
           if (session) orchestrator.handleInterrupt(session.id);
           break;
