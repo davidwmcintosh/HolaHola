@@ -49,6 +49,8 @@ import {
   type InsertUserLesson,
   type UserLessonItem,
   type InsertUserLessonItem,
+  type ActflProgress,
+  type InsertActflProgress,
   users,
   conversations,
   messages,
@@ -76,6 +78,7 @@ import {
   userLessons,
   userLessonItems,
   tutorVoices,
+  actflProgress as actflProgressTable,
   type TutorVoice,
   type InsertTutorVoice,
 } from "@shared/schema";
@@ -149,6 +152,16 @@ export interface IStorage {
   // User Progress
   getOrCreateUserProgress(language: string, userId: string): Promise<UserProgress>;
   updateUserProgress(id: string, data: Partial<UserProgress>): Promise<UserProgress | undefined>;
+
+  // ACTFL Progress (FACT criteria tracking for advancement)
+  getOrCreateActflProgress(language: string, userId: string): Promise<ActflProgress>;
+  updateActflProgress(id: string, data: Partial<ActflProgress>): Promise<ActflProgress | undefined>;
+  recordVoiceExchange(userId: string, language: string, data: {
+    pronunciationConfidence?: number;
+    messageLength: number;
+    topicsCovered?: string[];
+    tasksCompleted?: string[];
+  }): Promise<ActflProgress>;
 
   // Progress History
   createProgressHistory(data: InsertProgressHistory): Promise<ProgressHistory>;
@@ -1263,6 +1276,105 @@ export class DatabaseStorage implements IStorage {
       .where(eq(userProgressTable.id, id))
       .returning();
     return updated;
+  }
+
+  // ACTFL Progress Methods
+  async getOrCreateActflProgress(language: string, userId: string): Promise<ActflProgress> {
+    const result = await db.select().from(actflProgressTable)
+      .where(and(eq(actflProgressTable.language, language), eq(actflProgressTable.userId, userId)));
+    
+    if (result.length > 0) {
+      return result[0];
+    }
+
+    const [progress] = await db.insert(actflProgressTable)
+      .values({ 
+        language, 
+        userId,
+        currentActflLevel: 'novice_low',
+        tasksCompleted: [],
+        topicsCovered: [],
+        textType: 'words',
+      })
+      .returning();
+    return progress;
+  }
+
+  async updateActflProgress(id: string, data: Partial<ActflProgress>): Promise<ActflProgress | undefined> {
+    const updateData: any = { ...data, updatedAt: new Date() };
+    const [updated] = await db.update(actflProgressTable)
+      .set(updateData)
+      .where(eq(actflProgressTable.id, id))
+      .returning();
+    return updated;
+  }
+
+  async recordVoiceExchange(userId: string, language: string, data: {
+    pronunciationConfidence?: number;
+    messageLength: number;
+    topicsCovered?: string[];
+    tasksCompleted?: string[];
+  }): Promise<ActflProgress> {
+    const progress = await this.getOrCreateActflProgress(language, userId);
+    
+    // Update message count at current level
+    const messagesAtCurrentLevel = (progress.messagesAtCurrentLevel || 0) + 1;
+    
+    // Update average message length (rolling average based on messages at level)
+    const currentAvgLength = progress.avgMessageLength || 0;
+    const avgMessageLength = messagesAtCurrentLevel === 1 
+      ? data.messageLength 
+      : (currentAvgLength * (messagesAtCurrentLevel - 1) + data.messageLength) / messagesAtCurrentLevel;
+    
+    // Update pronunciation confidence (rolling average)
+    let avgPronunciationConfidence = progress.avgPronunciationConfidence || 0;
+    if (data.pronunciationConfidence !== undefined) {
+      avgPronunciationConfidence = messagesAtCurrentLevel === 1
+        ? data.pronunciationConfidence
+        : (avgPronunciationConfidence * (messagesAtCurrentLevel - 1) + data.pronunciationConfidence) / messagesAtCurrentLevel;
+    }
+    
+    // Merge topics (unique)
+    let topicsCovered = progress.topicsCovered || [];
+    if (data.topicsCovered && data.topicsCovered.length > 0) {
+      const existingTopics = new Set(topicsCovered);
+      data.topicsCovered.forEach(t => existingTopics.add(t));
+      topicsCovered = Array.from(existingTopics);
+    }
+    
+    // Merge tasks (unique)
+    let tasksCompleted = progress.tasksCompleted || [];
+    if (data.tasksCompleted && data.tasksCompleted.length > 0) {
+      const existingTasks = new Set(tasksCompleted);
+      data.tasksCompleted.forEach(t => existingTasks.add(t));
+      tasksCompleted = Array.from(existingTasks);
+    }
+    
+    // Calculate days at current level (from last advancement or creation)
+    const levelStartDate = progress.lastAdvancement || progress.createdAt || new Date();
+    const daysAtCurrentLevel = Math.floor((Date.now() - levelStartDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Determine text type based on average message length
+    let textType: string = 'words';
+    if (avgMessageLength >= 15) {
+      textType = 'paragraphs';
+    } else if (avgMessageLength >= 5) {
+      textType = 'sentences';
+    }
+    
+    const updated = await this.updateActflProgress(progress.id, {
+      messagesAtCurrentLevel,
+      avgMessageLength,
+      avgPronunciationConfidence,
+      topicsCovered,
+      topicsTotal: topicsCovered.length,
+      tasksCompleted,
+      tasksTotal: tasksCompleted.length,
+      daysAtCurrentLevel,
+      textType,
+    });
+    
+    return updated || progress;
   }
 
   async createProgressHistory(data: InsertProgressHistory): Promise<ProgressHistory> {
