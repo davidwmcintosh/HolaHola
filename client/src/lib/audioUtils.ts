@@ -194,6 +194,11 @@ export class StreamingAudioPlayer {
   private allAudioChunks: ArrayBuffer[] = [];
   private combinedAudioBlob: Blob | null = null;
   
+  // High-precision timing using performance.now()
+  private playbackStartTime: number | null = null;
+  private rafId: number | null = null;
+  private currentDuration = 0;
+  
   constructor() {
     console.log('[StreamingAudioPlayer] Initialized');
   }
@@ -280,6 +285,9 @@ export class StreamingAudioPlayer {
   stop(): void {
     console.log('[StreamingAudioPlayer] Stop');
     
+    // Stop precision timing
+    this.stopPrecisionTiming();
+    
     // Stop current audio
     if (this.currentAudio) {
       this.currentAudio.pause();
@@ -319,9 +327,51 @@ export class StreamingAudioPlayer {
   }
   
   /**
+   * Start high-precision timing loop using requestAnimationFrame
+   * This provides ~60fps updates instead of the coarse timeupdate (~4fps)
+   */
+  private startPrecisionTiming(): void {
+    // Cancel any existing timing loop
+    this.stopPrecisionTiming();
+    
+    const tick = () => {
+      if (!this.isPlaying || this.playbackStartTime === null) {
+        return;
+      }
+      
+      // Calculate elapsed time since audio started playing
+      // Using performance.now() for sub-millisecond precision
+      const elapsedMs = performance.now() - this.playbackStartTime;
+      const currentTime = elapsedMs / 1000; // Convert to seconds
+      
+      // Fire progress callback with precise timing
+      this.callbacks.onProgress?.(currentTime, this.currentDuration);
+      
+      // Continue the loop
+      this.rafId = requestAnimationFrame(tick);
+    };
+    
+    this.rafId = requestAnimationFrame(tick);
+  }
+  
+  /**
+   * Stop the precision timing loop
+   */
+  private stopPrecisionTiming(): void {
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+    this.playbackStartTime = null;
+  }
+  
+  /**
    * Play the next chunk in the queue
    */
   private async playNext(): Promise<void> {
+    // Stop any existing precision timing
+    this.stopPrecisionTiming();
+    
     // Get next chunk from queue
     const chunk = this.queue.shift();
     
@@ -335,6 +385,7 @@ export class StreamingAudioPlayer {
     
     this.isPlaying = true;
     this.currentSentenceIndex = chunk.sentenceIndex;
+    this.currentDuration = chunk.durationMs / 1000; // Convert to seconds
     
     // Set state to buffering BEFORE firing callbacks
     // This prevents race condition where isProcessing=false but playbackState still 'idle'
@@ -354,24 +405,27 @@ export class StreamingAudioPlayer {
       
       // Handle audio events
       this.currentAudio.onloadedmetadata = () => {
-        console.log(`[StreamingAudioPlayer] Audio loaded: ${this.currentAudio?.duration}s`);
-      };
-      
-      this.currentAudio.oncanplaythrough = () => {
-        this.setState('playing');
-      };
-      
-      this.currentAudio.ontimeupdate = () => {
-        if (this.currentAudio) {
-          this.callbacks.onProgress?.(
-            this.currentAudio.currentTime,
-            this.currentAudio.duration
-          );
+        // Use actual duration from audio if available
+        if (this.currentAudio && this.currentAudio.duration > 0 && Number.isFinite(this.currentAudio.duration)) {
+          this.currentDuration = this.currentAudio.duration;
+          console.log(`[StreamingAudioPlayer] Audio loaded: ${this.currentDuration.toFixed(3)}s`);
         }
+      };
+      
+      // Use 'playing' event - fires when audio ACTUALLY starts producing sound
+      // This is more accurate than 'play' (which fires when play() is called)
+      this.currentAudio.onplaying = () => {
+        this.setState('playing');
+        // Capture the EXACT moment audio starts playing
+        this.playbackStartTime = performance.now();
+        console.log(`[StreamingAudioPlayer] Audio started at ${this.playbackStartTime.toFixed(2)}ms`);
+        // Start high-precision timing loop
+        this.startPrecisionTiming();
       };
       
       this.currentAudio.onended = () => {
         console.log(`[StreamingAudioPlayer] Sentence ${chunk.sentenceIndex} ended`);
+        this.stopPrecisionTiming();
         this.callbacks.onSentenceEnd?.(chunk.sentenceIndex);
         
         // Decrement pending count after chunk finishes
@@ -383,6 +437,7 @@ export class StreamingAudioPlayer {
       
       this.currentAudio.onerror = (event) => {
         console.error('[StreamingAudioPlayer] Audio error:', event);
+        this.stopPrecisionTiming();
         this.callbacks.onError?.(new Error('Audio playback failed'));
         
         // Decrement pending count on error too
@@ -397,6 +452,7 @@ export class StreamingAudioPlayer {
       
     } catch (error: any) {
       console.error('[StreamingAudioPlayer] Error playing chunk:', error);
+      this.stopPrecisionTiming();
       this.callbacks.onError?.(error);
       
       // Decrement pending count on error (matches onerror handler behavior)
@@ -432,6 +488,7 @@ export class StreamingAudioPlayer {
    * Cleanup on destroy
    */
   destroy(): void {
+    this.stopPrecisionTiming();
     this.stop();
     console.log('[StreamingAudioPlayer] Destroyed');
   }

@@ -171,20 +171,13 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   }, []);
   
   /**
-   * Update playback time (called from audio timeupdate event)
+   * Update playback time (called from high-precision timing loop)
+   * Uses performance.now() based timing from StreamingAudioPlayer for frame-accurate sync
    * Supports rescaling when actual audio duration differs from expected
    */
   const updatePlaybackTime = useCallback((currentTime: number, actualDuration?: number) => {
     const timings = currentTimingsRef.current;
     if (timings.length === 0) return;
-    
-    // Audio playback latency offset (in seconds)
-    // Browser reports currentTime before audio actually reaches speakers
-    // This delay ensures words appear when spoken, not before
-    const AUDIO_LATENCY_OFFSET = 0.25; // 250ms delay to sync with actual audio output
-    
-    // Adjust currentTime to account for audio latency
-    const adjustedTime = Math.max(0, currentTime - AUDIO_LATENCY_OFFSET);
     
     // Store actual duration for rescaling calculations
     // Only store if it's a valid, finite number (duration can be NaN before metadata loads)
@@ -204,9 +197,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     if (expected && actual && expected > 0 && Number.isFinite(actual)) {
       scaleFactor = actual / expected;
       // Only apply rescaling if the difference is significant (> 5%)
-      if (Math.abs(scaleFactor - 1) >= 0.05) {
-        // Only log once per sentence, not every frame
-      } else {
+      if (Math.abs(scaleFactor - 1) < 0.05) {
         scaleFactor = 1;
       }
     }
@@ -221,13 +212,13 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       const scaledStartTime = timing.startTime * scaleFactor;
       const scaledEndTime = timing.endTime * scaleFactor;
       
-      // Word is visible if we've reached its start time (using adjusted time)
-      if (adjustedTime >= scaledStartTime) {
+      // Word is visible if we've reached its start time
+      if (currentTime >= scaledStartTime) {
         maxVisibleIndex = i;
       }
       
-      // Word is highlighted if we're within its time range (using adjusted time)
-      if (adjustedTime >= scaledStartTime && adjustedTime < scaledEndTime) {
+      // Word is highlighted if we're within its time range
+      if (currentTime >= scaledStartTime && currentTime < scaledEndTime) {
         wordIndex = i;
       }
     }
