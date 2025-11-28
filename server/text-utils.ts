@@ -267,14 +267,25 @@ export function extractTargetLanguageWithMapping(
   const ENGLISH_FILTER = new Set([
     'respond', 'with', 'that', 'was', 'great', 'you', 'got', 'the', 'and',
     'or', 'a', 'an', 'to', 'for', 'is', 'it', 'in', 'on', 'of', 'can', 'try',
-    'saying', 'say', 'lets', 'now', 'your', 'i', 'we', 'they', 'this', 'how'
+    'saying', 'say', 'said', 'lets', 'now', 'your', 'i', 'we', 'they', 'this', 'how',
+    'excellent', 'perfect', 'wonderful', 'amazing', 'fantastic', 'beautiful',
+    'david', 'just', 'right', 'good', 'job', 'nice', 'work', 'well', 'done',
+    'remember', 'means', 'mean', 'english', 'spanish', 'french', 'german',
+    'italian', 'portuguese', 'japanese', 'korean', 'chinese', 'arabic'
   ]);
   
   const targetWords = targetText.split(/\s+/).filter(w => w.length > 0);
   const filteredWords = targetWords.filter(word => {
-    const normalized = word.toLowerCase().replace(/[^a-z]/gi, '');
-    // Keep if it has non-ASCII chars (foreign accents) or isn't in English filter
-    return /[^a-zA-Z]/.test(word) || !ENGLISH_FILTER.has(normalized);
+    // Strip punctuation to get the core word for checking
+    const stripped = word.replace(/^[^a-zA-ZÀ-ÿ]+|[^a-zA-ZÀ-ÿ]+$/g, '');
+    const normalized = stripped.toLowerCase();
+    
+    // Check for actual foreign characters (not just punctuation)
+    // Foreign chars: accented letters, ñ, inverted punctuation ¡¿, etc.
+    const hasForeignChars = /[À-ÿñ¡¿]/.test(stripped);
+    
+    // Keep if it has genuine foreign characters OR isn't in English filter
+    return hasForeignChars || !ENGLISH_FILTER.has(normalized);
   });
   
   targetText = filteredWords.join(' ').trim();
