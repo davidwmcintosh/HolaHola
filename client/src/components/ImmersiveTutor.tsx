@@ -383,16 +383,47 @@ export function ImmersiveTutor({
               return null;
             }
             
-            const words = displayTextForStreaming.split(/\s+/).filter(w => w.length > 0);
+            const allWords = displayTextForStreaming.split(/\s+/).filter(w => w.length > 0);
             
             // Karaoke highlighting in streaming mode:
-            // - "All" mode: use streamingWordIndex directly (full text word index)
-            // - "Target" mode: use streamingTargetWordIndex (mapped to target-only text words)
+            // - "All" mode: use streamingWordIndex directly (full text word index), show all words
+            // - "Target" mode: use streamingTargetWordIndex, show ONLY the current target word
             // Validate index is within bounds to avoid highlighting wrong words
             const rawActiveWordIndex = isTargetMode ? streamingTargetWordIndex : streamingWordIndex;
-            const activeWordIndex = (rawActiveWordIndex !== undefined && rawActiveWordIndex >= 0 && rawActiveWordIndex < words.length) 
+            const activeWordIndex = (rawActiveWordIndex !== undefined && rawActiveWordIndex >= 0 && rawActiveWordIndex < allWords.length) 
               ? rawActiveWordIndex 
               : -1;
+            
+            // In Target mode, show only the current target word (not all accumulated words)
+            // This ensures only one foreign word appears at a time
+            if (isTargetMode) {
+              // If no active word yet, don't show anything
+              if (activeWordIndex < 0) {
+                return null;
+              }
+              
+              // Show only the current target word, always highlighted
+              const currentWord = allWords[activeWordIndex];
+              return (
+                <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
+                  <div className="max-w-4xl mx-auto">
+                    <div 
+                      className="text-xl md:text-3xl font-medium text-center leading-relaxed"
+                      data-testid="text-subtitle-overlay-streaming"
+                    >
+                      <span
+                        className="inline-block mx-0.5 text-primary scale-105 font-semibold"
+                        data-testid="streaming-word-current"
+                      >
+                        {cleanForDisplay(currentWord)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+            
+            // "All" mode: show all words with karaoke highlighting
             const useKaraokeInStreaming = activeWordIndex >= 0;
             
             return (
@@ -406,7 +437,7 @@ export function ImmersiveTutor({
                     }}
                     data-testid="text-subtitle-overlay-streaming"
                   >
-                    {words.map((word, index) => (
+                    {allWords.map((word, index) => (
                       <span
                         key={index}
                         className={`inline-block mx-0.5 transition-all duration-150 ${
