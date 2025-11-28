@@ -186,15 +186,25 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
               content: m.content,
             }));
 
-          // OPTIMIZATION: Use streamlined prompt for faster AI first-token latency
-          // Reduces prompt from ~3000 tokens to ~500 tokens
-          const systemPrompt = createStreamingVoicePrompt(
+          // Use full system prompt with streaming voice mode flag
+          // This preserves all teaching context (ACTFL, cultural guidelines, vocabulary)
+          // while outputting plain text format for TTS
+          const systemPrompt = createSystemPrompt(
             config.targetLanguage,
             config.difficultyLevel,
+            messages.length,
+            true, // isVoiceMode
+            null,
+            [],
             config.nativeLanguage,
+            undefined,
+            undefined,
             user.actflLevel,
+            false,
+            messages.length,
             (user.tutorPersonality || 'warm') as any,
-            user.tutorExpressiveness || 3
+            user.tutorExpressiveness || 3,
+            true // isStreamingVoiceMode - outputs plain text with **bold** markers
           );
 
           let voiceId: string | undefined;
