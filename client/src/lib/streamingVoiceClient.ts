@@ -96,6 +96,10 @@ export class StreamingVoiceClient {
   private currentSentenceIndex = -1;
   private eventListeners: Map<StreamingEventType, Set<EventListener>> = new Map();
   
+  // Connection ID to prevent race conditions when reconnecting
+  // Events from old WebSockets are ignored if connectionId doesn't match
+  private connectionId = 0;
+  
   constructor() {
     console.log('[StreamingVoiceClient] Initialized');
   }
@@ -168,34 +172,54 @@ export class StreamingVoiceClient {
       return;
     }
     
+    // Increment connection ID to invalidate any pending events from old connections
+    this.connectionId++;
+    const currentConnectionId = this.connectionId;
+    
     this.setState('connecting');
     
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/api/voice/stream/ws?conversationId=${conversationId}`;
       
-      console.log('[StreamingVoiceClient] Connecting to:', wsUrl);
+      console.log('[StreamingVoiceClient] Connecting to:', wsUrl, `(connId: ${currentConnectionId})`);
       
       this.ws = new WebSocket(wsUrl);
       this.ws.binaryType = 'arraybuffer';
       
-      // Setup event handlers
+      // Setup event handlers - check connectionId to ignore events from old connections
       this.ws.onopen = () => {
+        if (this.connectionId !== currentConnectionId) {
+          console.log('[StreamingVoiceClient] Ignoring onopen from stale connection');
+          return;
+        }
         console.log('[StreamingVoiceClient] ✓ WebSocket connected');
         this.reconnectAttempts = 0;
         this.setState('connected');
       };
       
       this.ws.onmessage = (event) => {
+        if (this.connectionId !== currentConnectionId) {
+          console.log('[StreamingVoiceClient] Ignoring message from stale connection');
+          return;
+        }
         this.handleMessage(event);
       };
       
       this.ws.onclose = (event) => {
+        if (this.connectionId !== currentConnectionId) {
+          console.log('[StreamingVoiceClient] Ignoring onclose from stale connection');
+          return;
+        }
         console.log(`[StreamingVoiceClient] WebSocket closed: ${event.code} - ${event.reason}`);
         this.handleDisconnect();
       };
       
       this.ws.onerror = (error) => {
+        if (this.connectionId !== currentConnectionId) {
+          console.log('[StreamingVoiceClient] Ignoring onerror from stale connection');
+          return;
+        }
         console.error('[StreamingVoiceClient] WebSocket error:', error);
         this.callbacks.onError?.('CONNECTION_FAILED', 'WebSocket connection failed', true);
       };
