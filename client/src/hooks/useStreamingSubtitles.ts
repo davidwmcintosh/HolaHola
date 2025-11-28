@@ -183,7 +183,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     // MP3 files have ~50-100ms of silence at the start due to codec requirements
     // The onplaying event fires at file start, but word timings are relative to actual speech
     // This offset delays text appearance to sync with when audio is actually heard
-    const MP3_PADDING_OFFSET = 0.20; // 200ms to account for encoder padding + audio pipeline
+    const MP3_PADDING_OFFSET = 0.28; // 280ms to account for encoder padding + audio pipeline
     
     // Adjust word timing start times by adding the offset
     // This makes words appear later, matching when they're actually heard
