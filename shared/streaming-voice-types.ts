@@ -40,6 +40,7 @@ export type StreamingVoiceMessageType =
   | 'word_timing'         // Word-level timing for subtitle sync
   | 'sentence_end'        // Current sentence complete
   | 'response_complete'   // Full AI response finished
+  | 'feedback'            // Pedagogical feedback (non-blocking)
   | 'error';              // Error occurred
 
 /**
@@ -144,8 +145,15 @@ export interface StreamingResponseCompleteMessage extends StreamingVoiceMessage 
  */
 export interface StreamingFeedbackMessage extends StreamingVoiceMessage {
   type: 'feedback';
-  feedbackType: 'one_word_rule' | 'pronunciation_tip' | 'encouragement';
+  feedbackType: 'one_word_rule' | 'pronunciation_tip' | 'encouragement' | 'actfl_advancement';
   message: string;
+  severity?: string;
+  details?: {
+    currentLevel?: string;
+    nextLevel?: string;
+    progress?: number;
+    reason?: string;
+  };
 }
 
 /**

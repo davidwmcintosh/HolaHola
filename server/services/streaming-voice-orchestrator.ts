@@ -120,9 +120,14 @@ const deepgram = createClient(process.env.DEEPGRAM_API_KEY || '');
 
 /**
  * Gemini client for vocabulary extraction (using Replit AI integrations)
+ * IMPORTANT: Must include apiVersion: "" and baseUrl for Replit's AI proxy to work correctly
  */
 const gemini = new GoogleGenAI({
   apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '',
+  httpOptions: {
+    apiVersion: "",  // Required: removes /v1beta path prefix for Replit proxy
+    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
+  }
 });
 
 /**
