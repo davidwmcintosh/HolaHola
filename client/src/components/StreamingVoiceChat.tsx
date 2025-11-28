@@ -497,8 +497,14 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
             audioPlayerRef.current.onended = cleanup;
             audioPlayerRef.current.onerror = cleanup;
             
-            // Set speaking state and current playing message before playing
-            setAvatarState('speaking');
+            // Use 'onplaying' event to set avatar state - fires when audio ACTUALLY starts
+            // This is more accurate than setting state before play() call
+            audioPlayerRef.current.onplaying = () => {
+              console.log('[VOICE GREETING] Audio actually started - setting avatar to speaking');
+              setAvatarState('speaking');
+            };
+            
+            // Set current playing message ID (for subtitle sync) but NOT avatar state yet
             setCurrentPlayingMessageId(greetingMessage.id);
             
             audioPlayerRef.current.play()
