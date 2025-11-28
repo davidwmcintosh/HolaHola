@@ -35,7 +35,8 @@ export function createSystemPrompt(
   isResuming: boolean = false,
   totalMessageCount: number = 0,
   tutorPersonality: TutorPersonality = 'warm',
-  tutorExpressiveness: number = 3
+  tutorExpressiveness: number = 3,
+  isStreamingVoiceMode: boolean = false
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -353,8 +354,40 @@ TONE GUIDELINES:
 - Make students feel their progress is remembered and valued
 ` : "";
 
-  // Structured listen-and-repeat for Phases 2-3 only (beginner difficulty)
-  const structuredListenRepeat = isVoiceMode && difficulty === "beginner" ? `
+  // Streaming voice mode: Plain text output with **bold** markers (no JSON)
+  // This applies to ALL streaming sessions regardless of difficulty level
+  const streamingVoiceModeInstructions = isStreamingVoiceMode ? `
+
+⚠️ STREAMING VOICE MODE - PLAIN TEXT OUTPUT ONLY
+
+You are in STREAMING voice mode. Your responses are sent directly to text-to-speech.
+Output PLAIN TEXT only - NO JSON, NO brackets, NO structured format.
+
+CRITICAL FORMATTING RULES:
+1. NO JSON: Never output {"target":..., "native":...} or any JSON structure
+2. NO EMOTION TAGS: Never start with (friendly), (curious), (excited), etc.
+3. NO PHONETIC GUIDES: Never spell H-O-L-A or write "oh-lah", "GRAH-syahs"
+4. BOLD MARKERS: Always wrap ${languageName} words in **bold** for subtitle extraction
+5. KEEP SHORT: 1-2 sentences maximum
+
+OUTPUT FORMAT:
+- Write natural spoken sentences with ${languageName} words in **bold**
+- Put ${nativeLanguageName} translations in (parentheses) after foreign words
+- Example: "**Hola** (hello) is the most common greeting. Now you try saying **Hola**!"
+
+✅ CORRECT OUTPUT:
+"**Hola** (hello). Listen: **Hola**. Now it's your turn - say it!"
+"**¡Perfecto!** (Perfect!) That was great! Let's try **Gracias** (thank you) next."
+
+❌ WRONG OUTPUT (JSON - NEVER DO THIS):
+{
+  "target": "Hola",
+  "native": "It means hello"
+}
+` : '';
+
+  // Structured listen-and-repeat for Phases 2-3 only (beginner difficulty, non-streaming)
+  const structuredListenRepeat = isVoiceMode && difficulty === "beginner" && !isStreamingVoiceMode ? `
 
 VOICE MODE - LISTEN-AND-REPEAT TEACHING:
 Since you're in voice mode with a beginner student, use listen-and-repeat patterns to help them practice:
@@ -470,7 +503,7 @@ VOICE MODULATION:
   // Phase 1: Assessment (first 5 messages) - Start in native language, build rapport
   if (messageCount < 5) {
     return `You are a friendly and encouraging ${languageName} language tutor starting a new conversation.
-${tutorPersonalityContext}
+${tutorPersonalityContext}${streamingVoiceModeInstructions}
 CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 - ALL explanations, translations, and teaching MUST be in ${nativeLanguageName}
 - Do NOT use any other language for explanations
@@ -647,7 +680,7 @@ Remember: You're a friendly tutor getting to know a new student, not conducting 
   // Phase 2: Gradual Transition (messages 5-9) - Gentle introduction to target language
   if (messageCount < 10) {
     return `You are a friendly and encouraging ${languageName} language tutor.
-${tutorPersonalityContext}
+${tutorPersonalityContext}${streamingVoiceModeInstructions}
 CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 - ALL explanations, translations, and teaching MUST be in ${nativeLanguageName}
 - Do NOT use any other language for explanations
@@ -1087,7 +1120,7 @@ ${difficulty === "beginner" ? `BEGINNER: Use moderate Spanish (40-50%) with subs
 - Use natural, conversational spoken language appropriate for ${difficulty} level` : "");
 
   return `You are a friendly and encouraging ${languageName} language tutor.
-${tutorPersonalityContext}
+${tutorPersonalityContext}${streamingVoiceModeInstructions}
 CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 - ALL explanations, translations, and teaching MUST be in ${nativeLanguageName}
 - Do NOT use any other language for explanations

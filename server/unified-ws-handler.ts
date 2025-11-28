@@ -190,7 +190,7 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             config.targetLanguage,
             config.difficultyLevel,
             messages.length,
-            true,
+            true, // isVoiceMode
             null,
             [],
             config.nativeLanguage,
@@ -201,6 +201,7 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             messages.length,
             (user.tutorPersonality || 'warm') as any,
             user.tutorExpressiveness || 3,
+            true // isStreamingVoiceMode - outputs plain text with **bold** markers
           );
 
           let voiceId: string | undefined;
