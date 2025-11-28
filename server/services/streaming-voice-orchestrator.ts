@@ -143,6 +143,7 @@ const gemini = new GoogleGenAI({
 /**
  * Content moderation: Check for inappropriate content
  * This provides a safety net for user inputs
+ * Uses word boundary matching to avoid false positives (e.g., "hello" matching "hell")
  */
 const INAPPROPRIATE_TERMS = [
   'offensive', 'curse', 'swear', 'bad words', 'profan', 'explicit', 'sexual',
@@ -152,7 +153,10 @@ const INAPPROPRIATE_TERMS = [
 
 function containsInappropriateContent(text: string): boolean {
   const lowerText = text.toLowerCase();
-  return INAPPROPRIATE_TERMS.some(term => lowerText.includes(term));
+  return INAPPROPRIATE_TERMS.some(term => {
+    const regex = new RegExp(`\\b${term}\\b`, 'i');
+    return regex.test(lowerText);
+  });
 }
 
 /**
