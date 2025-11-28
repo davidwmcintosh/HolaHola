@@ -179,6 +179,54 @@ This document tracks potential features and improvements for future development.
 
 ---
 
+## Voice Latency Optimizations (Priority: High)
+
+The streaming voice pipeline is working well. These optimizations can further reduce latency:
+
+### 1. Parallel Processing
+**Current:** STT → LLM → TTS runs sequentially  
+**Optimization:** Run independent operations concurrently where possible
+- Start LLM prefetch/warm-up during STT processing
+- Prepare TTS connection while waiting for first LLM tokens
+- Overlap audio encoding with network transmission
+
+**Estimated Improvement:** 100-200ms reduction in total latency
+
+### 2. Speculative TTS
+**Current:** TTS waits for complete sentence from LLM  
+**Optimization:** Start synthesizing the first few words while LLM is still generating
+- Buffer initial words (3-5) and begin TTS immediately
+- Continue streaming rest of sentence as it arrives
+- Risk: May need to discard audio if LLM changes direction (rare)
+
+**Estimated Improvement:** 200-400ms reduction in Time To First Audio
+
+### 3. Connection Pooling
+**Current:** Connections may be established per-request  
+**Optimization:** Keep persistent WebSocket connections to all services
+- Maintain warm connections to Deepgram, Cartesia, Gemini
+- Implement connection health monitoring and auto-reconnect
+- Pool multiple connections for concurrent requests
+
+**Estimated Improvement:** 50-150ms per request (eliminates handshake overhead)
+
+### 4. Response Prediction
+**Current:** AI generates fresh response each time  
+**Optimization:** Pre-generate likely responses for common interaction patterns
+- Cache common greetings, acknowledgments, encouragements
+- Predict follow-up responses based on conversation context
+- Use Gemini's context window to anticipate user queries
+
+**Estimated Improvement:** Variable (instant response for predicted patterns)
+
+**Implementation Priority:** 
+1. Connection Pooling (easiest, most reliable gains)
+2. Parallel Processing (moderate effort, good gains)
+3. Speculative TTS (complex, high reward)
+4. Response Prediction (experimental, context-dependent)
+
+---
+
 ## Other Potential Features
 
 ### Pronunciation Practice Module
@@ -228,4 +276,4 @@ This document tracks potential features and improvements for future development.
 
 ---
 
-*Last Updated: November 24, 2025*
+*Last Updated: November 28, 2025*
