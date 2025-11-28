@@ -32,6 +32,7 @@ import { extractTargetLanguageText, extractTargetLanguageWithMapping, hasSignifi
 import { storage } from "../storage";
 import { validateOneUnitRule, UnitValidationResult } from "../phrase-detection";
 import { GoogleGenAI } from "@google/genai";
+import { assessAdvancementReadiness, formatLevel } from "../actfl-advancement";
 
 /**
  * Clean text for display by removing markdown, emotion tags, and other formatting
@@ -266,8 +267,8 @@ export class StreamingVoiceOrchestrator {
       const sttStart = Date.now();
       
       // Start both operations in parallel
-      const [transcript, cartesiaWarmupTime] = await Promise.all([
-        // STT: Transcribe user audio with Deepgram
+      const [transcriptionResult, cartesiaWarmupTime] = await Promise.all([
+        // STT: Transcribe user audio with Deepgram (returns transcript + confidence)
         this.transcribeAudio(audioData, session.targetLanguage),
         // Connection warmup: Ensure Cartesia WebSocket is ready (no-op if already connected)
         this.cartesiaService.ensureConnection().catch((err: Error) => {
@@ -276,9 +277,12 @@ export class StreamingVoiceOrchestrator {
         }),
       ]);
       
+      // Extract transcript and pronunciation confidence (per-session, no race conditions)
+      const { transcript, confidence: pronunciationConfidence } = transcriptionResult;
+      
       metrics.sttLatencyMs = Date.now() - sttStart;
       
-      console.log(`[Streaming Orchestrator] STT: "${transcript}" (${metrics.sttLatencyMs}ms, Cartesia: ${cartesiaWarmupTime >= 0 ? cartesiaWarmupTime + 'ms' : 'fallback'})`);
+      console.log(`[Streaming Orchestrator] STT: "${transcript}" (${metrics.sttLatencyMs}ms, conf: ${(pronunciationConfidence * 100).toFixed(0)}%, Cartesia: ${cartesiaWarmupTime >= 0 ? cartesiaWarmupTime + 'ms' : 'fallback'})`);
       
       if (!transcript.trim()) {
         // Empty transcript - gracefully notify client and return
@@ -427,8 +431,9 @@ export class StreamingVoiceOrchestrator {
       console.log(`[Streaming Orchestrator] Latencies: STT=${metrics.sttLatencyMs}ms, AI=${metrics.aiFirstTokenMs}ms, TTS=${metrics.ttsFirstByteMs}ms`);
       
       // Persist messages to database (non-blocking)
-      // Also triggers background vocabulary extraction and progress updates
-      this.persistMessages(session.conversationId, transcript, fullText.trim(), session).catch((err: Error) => {
+      // Also triggers background vocabulary extraction, progress updates, and ACTFL tracking
+      // Pass the per-session pronunciationConfidence (captured above, no race conditions)
+      this.persistMessages(session.conversationId, transcript, fullText.trim(), session, pronunciationConfidence).catch((err: Error) => {
         console.error('[Streaming Orchestrator] Failed to persist messages:', err.message);
       });
       
@@ -443,8 +448,9 @@ export class StreamingVoiceOrchestrator {
   
   /**
    * Transcribe audio using Deepgram Nova-3
+   * Returns transcript AND confidence for ACTFL tracking (no shared state)
    */
-  private async transcribeAudio(audioData: Buffer, targetLanguage: string): Promise<string> {
+  private async transcribeAudio(audioData: Buffer, targetLanguage: string): Promise<{ transcript: string; confidence: number }> {
     try {
       const response = await deepgram.listen.prerecorded.transcribeFile(
         audioData,
@@ -455,8 +461,11 @@ export class StreamingVoiceOrchestrator {
         }
       );
       
-      const transcript = response.result?.results?.channels?.[0]?.alternatives?.[0]?.transcript || '';
-      return transcript;
+      const alternative = response.result?.results?.channels?.[0]?.alternatives?.[0];
+      const transcript = alternative?.transcript || '';
+      const confidence = alternative?.confidence || 0;
+      
+      return { transcript, confidence };
       
     } catch (error: any) {
       console.error('[Deepgram STT] Error:', error.message);
@@ -664,7 +673,8 @@ export class StreamingVoiceOrchestrator {
     conversationId: string, 
     userTranscript: string, 
     aiResponse: string,
-    session: StreamingSession
+    session: StreamingSession,
+    pronunciationConfidence: number = 0
   ): Promise<void> {
     try {
       // Save user message
@@ -696,7 +706,9 @@ export class StreamingVoiceOrchestrator {
             session, 
             conversationId, 
             aiMessage.id, 
-            aiResponse
+            userTranscript,
+            aiResponse,
+            pronunciationConfidence
           );
         } catch (error: any) {
           console.error('[Streaming Enrichment] Failed:', error.message);
@@ -710,14 +722,16 @@ export class StreamingVoiceOrchestrator {
   }
   
   /**
-   * Background enrichment: Extract vocabulary and update user progress
+   * Background enrichment: Extract vocabulary, update user progress, and track ACTFL advancement
    * Runs non-blocking after message persistence
    */
   private async processBackgroundEnrichment(
     session: StreamingSession,
     conversationId: string,
     messageId: string,
-    aiResponse: string
+    userTranscript: string,
+    aiResponse: string,
+    pronunciationConfidence: number = 0
   ): Promise<void> {
     const startTime = Date.now();
     console.log(`[Streaming Enrichment] Starting for message: ${messageId}`);
@@ -797,6 +811,93 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         }
       } catch (progressError: any) {
         console.error('[Streaming Enrichment] Progress update failed:', progressError.message);
+      }
+      
+      // ACTFL PROGRESS TRACKING: Record voice exchange and check for advancement
+      try {
+        // Count actual words in user's transcript (handle empty/whitespace properly)
+        const trimmedTranscript = userTranscript.trim();
+        const userWordCount = trimmedTranscript.length > 0 
+          ? trimmedTranscript.split(/\s+/).filter(w => w.length > 0).length 
+          : 0;
+        
+        // Skip ACTFL tracking if user said nothing meaningful
+        if (userWordCount === 0) {
+          console.log('[ACTFL Tracking] Skipping - empty user transcript');
+        } else {
+          // Detect communication tasks from user's speech (not AI output)
+          // Tasks are based on WHAT the user did, not vocabulary the AI taught
+          const detectedTasks: string[] = [];
+          const lowerTranscript = trimmedTranscript.toLowerCase();
+          
+          // Detect basic ACTFL communication functions
+          if (/\b(hello|hi|buenos?|hola|bonjour|guten tag)\b/i.test(lowerTranscript)) {
+            detectedTasks.push('greeting');
+          }
+          if (/\?$/.test(trimmedTranscript) || /\b(what|how|why|where|when|who|qué|cómo|dónde)\b/i.test(lowerTranscript)) {
+            detectedTasks.push('asking_question');
+          }
+          if (/\b(my name|me llamo|je m'appelle|ich heisse)\b/i.test(lowerTranscript)) {
+            detectedTasks.push('self_introduction');
+          }
+          if (/\b(i like|i want|me gusta|j'aime|ich mag)\b/i.test(lowerTranscript)) {
+            detectedTasks.push('expressing_preference');
+          }
+          if (/\b(thank|gracias|merci|danke)\b/i.test(lowerTranscript)) {
+            detectedTasks.push('thanking');
+          }
+          
+          // Record the voice exchange with ACTUAL metrics
+          const actflProgress = await storage.recordVoiceExchange(
+            String(session.userId),
+            session.targetLanguage,
+            {
+              pronunciationConfidence: pronunciationConfidence > 0 ? pronunciationConfidence : undefined,
+              messageLength: userWordCount,
+              topicsCovered: session.difficultyLevel ? [`${session.difficultyLevel}_practice`] : undefined,
+              tasksCompleted: detectedTasks.length > 0 ? detectedTasks : undefined,
+            }
+          );
+          
+          // Assess if user is ready for ACTFL advancement
+          const assessment = assessAdvancementReadiness(actflProgress);
+          
+          // Only consider advancement if pronunciation confidence is reasonable (at least 60%)
+          const hasMinimumAccuracy = (actflProgress.avgPronunciationConfidence || 0) >= 0.6;
+          
+          if (assessment.readyForAdvancement && assessment.nextLevel && hasMinimumAccuracy) {
+            // User qualified for advancement! Send feedback message
+            console.log(`[ACTFL Advancement] User ${session.userId} ready to advance from ${assessment.currentLevel} to ${assessment.nextLevel}`);
+            
+            // Send advancement notification to client
+            this.sendMessage(session.ws, {
+              type: 'feedback',
+              timestamp: Date.now(),
+              feedbackType: 'actfl_advancement',
+              message: `Congratulations! You're ready to advance to ${formatLevel(assessment.nextLevel)}!`,
+              severity: 'positive',
+              details: {
+                currentLevel: assessment.currentLevel,
+                nextLevel: assessment.nextLevel,
+                progress: assessment.progress,
+                reason: assessment.reason,
+              },
+            } as StreamingFeedbackMessage);
+            
+            // Update user's ACTFL level
+            await storage.updateActflProgress(actflProgress.id, {
+              currentActflLevel: assessment.nextLevel,
+              lastAdvancement: new Date(),
+              advancementReason: assessment.reason,
+              messagesAtCurrentLevel: 0, // Reset for new level
+            });
+          } else if (assessment.progress >= 80 && hasMinimumAccuracy) {
+            // User is close to advancement - log progress (don't spam encouragement)
+            console.log(`[ACTFL Advancement] User ${session.userId} at ${assessment.progress}% progress (accuracy: ${((actflProgress.avgPronunciationConfidence || 0) * 100).toFixed(0)}%)`);
+          }
+        }
+      } catch (actflError: any) {
+        console.error('[Streaming Enrichment] ACTFL tracking failed:', actflError.message);
       }
       
       // Mark enrichment as complete

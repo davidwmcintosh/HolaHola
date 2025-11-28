@@ -384,7 +384,7 @@ export function assessAdvancementReadiness(
 /**
  * Format ACTFL level for display
  */
-function formatLevel(level: ActflLevel): string {
+export function formatLevel(level: ActflLevel): string {
   return level
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
