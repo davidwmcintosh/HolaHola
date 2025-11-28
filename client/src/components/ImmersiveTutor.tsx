@@ -396,26 +396,17 @@ export function ImmersiveTutor({
               ? rawActiveWordIndex 
               : -1;
             
-            // In Target mode, show only the current target word (not all accumulated words)
-            // This ensures only one foreign word appears at a time
+            // In Target mode, show the FULL target phrase with karaoke highlighting
+            // This ensures multi-word phrases like "Buenos días" display together
             if (isTargetMode) {
-              // Determine which word to show:
-              // - During playback: show the current word (activeWordIndex)
-              // - After playback ends: show the LAST word so student can reference it
-              let wordToShowIndex = activeWordIndex;
-              
-              // If no active word (playback ended or not started), show the last word
-              if (wordToShowIndex < 0 && allWords.length > 0) {
-                wordToShowIndex = allWords.length - 1;
-              }
-              
-              // If still no word to show, return null
-              if (wordToShowIndex < 0 || allWords.length === 0) {
+              // If no target words, return null
+              if (allWords.length === 0) {
                 return null;
               }
               
-              // Show the target word (current during playback, last after playback)
-              const currentWord = allWords[wordToShowIndex];
+              // Use karaoke highlighting if we have an active word index
+              const useKaraoke = activeWordIndex >= 0;
+              
               return (
                 <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
                   <div className="max-w-4xl mx-auto">
@@ -423,12 +414,23 @@ export function ImmersiveTutor({
                       className="text-xl md:text-3xl font-medium text-center leading-relaxed"
                       data-testid="text-subtitle-overlay-streaming"
                     >
-                      <span
-                        className="inline-block mx-0.5 text-primary scale-105 font-semibold"
-                        data-testid="streaming-word-current"
-                      >
-                        {cleanForDisplay(currentWord)}
-                      </span>
+                      {allWords.map((word, index) => (
+                        <span
+                          key={index}
+                          className={`inline-block mx-0.5 transition-all duration-150 ${
+                            useKaraoke
+                              ? (index === activeWordIndex
+                                  ? "text-primary scale-105 font-semibold"
+                                  : index < activeWordIndex
+                                    ? "text-foreground"
+                                    : "text-muted-foreground/50")
+                              : "text-primary font-semibold"
+                          }`}
+                          data-testid={`streaming-target-word-${index}`}
+                        >
+                          {cleanForDisplay(word)}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 </div>
