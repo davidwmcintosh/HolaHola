@@ -179,6 +179,16 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     const timings = currentTimingsRef.current;
     if (timings.length === 0) return;
     
+    // MP3 encoder padding offset (in seconds)
+    // MP3 files have ~50-100ms of silence at the start due to codec requirements
+    // The onplaying event fires at file start, but word timings are relative to actual speech
+    // This offset delays text appearance to sync with when audio is actually heard
+    const MP3_PADDING_OFFSET = 0.12; // 120ms to account for encoder padding + audio pipeline
+    
+    // Adjust word timing start times by adding the offset
+    // This makes words appear later, matching when they're actually heard
+    const adjustedTime = Math.max(0, currentTime - MP3_PADDING_OFFSET);
+    
     // Store actual duration for rescaling calculations
     // Only store if it's a valid, finite number (duration can be NaN before metadata loads)
     const isValidDuration = actualDuration !== undefined && actualDuration > 0 && Number.isFinite(actualDuration);
@@ -212,13 +222,13 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       const scaledStartTime = timing.startTime * scaleFactor;
       const scaledEndTime = timing.endTime * scaleFactor;
       
-      // Word is visible if we've reached its start time
-      if (currentTime >= scaledStartTime) {
+      // Word is visible if we've reached its start time (using adjusted time)
+      if (adjustedTime >= scaledStartTime) {
         maxVisibleIndex = i;
       }
       
-      // Word is highlighted if we're within its time range
-      if (currentTime >= scaledStartTime && currentTime < scaledEndTime) {
+      // Word is highlighted if we're within its time range (using adjusted time)
+      if (adjustedTime >= scaledStartTime && adjustedTime < scaledEndTime) {
         wordIndex = i;
       }
     }
