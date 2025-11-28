@@ -107,23 +107,105 @@ export function extractTargetLanguageText(text: string): string {
     return word;
   }
 
-  // Extract text between ** markers (foreign language phrases)
-  const boldPattern = /\*\*([^*]+)\*\*/g;
-  const matches: string[] = [];
-  let match;
+  // UNIFIED COLLECTION: Gather ALL foreign language segments with positions
+  // This prevents early returns from missing non-bold Spanish words
+  interface Segment { text: string; startIndex: number; endIndex: number; }
+  const segments: Segment[] = [];
+  const coveredRanges: Array<[number, number]> = [];
   
-  while ((match = boldPattern.exec(cleanedInput)) !== null) {
-    const boldText = match[1].trim();
-    // Try to expand single-word bold text to full phrase if applicable
-    const expanded = expandToPhrase(boldText, cleanedInput);
-    matches.push(expanded);
+  // Helper to check if a range overlaps with already covered ranges
+  function isOverlapping(start: number, end: number): boolean {
+    return coveredRanges.some(([s, e]) => !(end <= s || start >= e));
   }
   
-  // If we found bold-marked phrases, return them (possibly expanded)
-  if (matches.length > 0) {
-    // Deduplicate in case the same phrase was expanded multiple times
-    const unique = Array.from(new Set(matches));
-    return unique.join(' ');
+  // Helper to add segment if not overlapping
+  function addSegment(text: string, start: number, end: number): void {
+    if (!isOverlapping(start, end)) {
+      segments.push({ text, startIndex: start, endIndex: end });
+      coveredRanges.push([start, end]);
+    }
+  }
+  
+  // PASS 1: Extract bold-marked phrases (**word**)
+  const boldPattern = /\*\*([^*]+)\*\*/g;
+  let match;
+  while ((match = boldPattern.exec(cleanedInput)) !== null) {
+    const boldText = match[1].trim();
+    const expanded = expandToPhrase(boldText, cleanedInput);
+    addSegment(expanded, match.index, match.index + match[0].length);
+  }
+  
+  // Create a plain text version for subsequent detection (strip bold markers)
+  const plainText = cleanedInput.replace(/\*\*/g, '');
+  
+  // PASS 2: Extract words with foreign characters (accents, ñ, ¡¿, etc.)
+  const foreignCharPattern = /[¡¿ñáéíóúàâçéèêëîïôùûüäöüß]/i;
+  const wordBoundaryPattern = /[\p{L}\p{N}¡¿]+/gu;
+  let wordMatch;
+  while ((wordMatch = wordBoundaryPattern.exec(plainText)) !== null) {
+    const word = wordMatch[0];
+    if (foreignCharPattern.test(word)) {
+      // Find approximate position in original text
+      const approxStart = wordMatch.index;
+      addSegment(word, approxStart, approxStart + word.length);
+    }
+  }
+  
+  // PASS 3: Check for common foreign words that don't have accent marks
+  const COMMON_SHORT_FOREIGN_WORDS = new Set([
+    // Spanish exclamatory/praise words
+    'maravilloso', 'excelente', 'estupendo', 'genial', 'fenomenal', 
+    'magnifico', 'brillante', 'fabuloso', 'sensacional', 'impresionante',
+    // Spanish greetings and basics
+    'hola', 'gracias', 'adios', 'vamos', 'claro', 'bueno', 'vale', 'perfecto',
+    'amigo', 'amiga', 'por', 'favor',
+    // French
+    'bonjour', 'merci', 'salut', 'parfait', 'voila', 'madame', 'monsieur', 'oui',
+    'magnifique', 'formidable', 'superbe',
+    // German  
+    'danke', 'bitte', 'genau', 'prima', 'toll', 'ja', 'nein', 'wunderbar',
+    // Italian
+    'ciao', 'prego', 'bravo', 'bene', 'perfetto', 'buongiorno', 'buonasera', 'bellissimo',
+    // Portuguese
+    'obrigado', 'obrigada', 'tchau', 'sim', 'maravilhoso',
+  ]);
+  
+  wordBoundaryPattern.lastIndex = 0;
+  while ((wordMatch = wordBoundaryPattern.exec(plainText)) !== null) {
+    const word = wordMatch[0];
+    const normalized = word.toLowerCase().replace(/[^a-záéíóúàâçèêëîïôùûüäöüñß]/gi, '');
+    if (COMMON_SHORT_FOREIGN_WORDS.has(normalized)) {
+      const approxStart = wordMatch.index;
+      addSegment(word, approxStart, approxStart + word.length);
+    }
+  }
+  
+  // PASS 4: Check for multi-word phrases
+  for (const { pattern, replacement } of COMMON_PHRASES) {
+    pattern.lastIndex = 0;
+    let phraseMatch;
+    while ((phraseMatch = pattern.exec(plainText)) !== null) {
+      addSegment(replacement, phraseMatch.index, phraseMatch.index + phraseMatch[0].length);
+    }
+  }
+  
+  // Sort segments by position and deduplicate
+  if (segments.length > 0) {
+    segments.sort((a, b) => a.startIndex - b.startIndex);
+    // Return unique segment texts in order
+    const seen = new Set<string>();
+    const result = segments
+      .filter(s => {
+        const lower = s.text.toLowerCase();
+        if (seen.has(lower)) return false;
+        seen.add(lower);
+        return true;
+      })
+      .map(s => s.text);
+    
+    if (result.length > 0) {
+      return result.join(' ');
+    }
   }
   
   // Remove common English scaffolding phrases that introduce foreign words
@@ -249,6 +331,9 @@ export function extractTargetLanguageText(text: string): string {
     // Spanish (single words only - phrases handled above)
     'hola', 'gracias', 'adios', 'adiós', 'vamos', 'claro', 'bueno', 'vale', 'perfecto',
     'señor', 'señora', 'amigo', 'amiga', 'sí', 'por', 'favor',
+    // Spanish exclamatory/praise words (common tutor responses)
+    'maravilloso', 'excelente', 'estupendo', 'genial', 'increíble', 'increible',
+    'fenomenal', 'magnifico', 'magnífico', 'brillante', 'fabuloso', 'sensacional',
     // French
     'bonjour', 'merci', 'salut', 'parfait', 'voila', 'voilà', 'madame', 'monsieur', 'oui',
     // German
