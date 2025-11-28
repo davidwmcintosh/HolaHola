@@ -389,9 +389,8 @@ export function ImmersiveTutor({
             return null;
           }
           
-          // Hide subtitles during processing (after recording, before response arrives)
-          // This prevents showing stale target words from previous tutor message
-          if (isProcessing && !streamingText) {
+          // Hide subtitles while recording - user is speaking, not listening
+          if (isRecording) {
             return null;
           }
           
