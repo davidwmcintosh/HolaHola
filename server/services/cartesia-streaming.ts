@@ -271,88 +271,10 @@ export class CartesiaStreamingService extends EventEmitter {
     let chunkCount = 0;
     
     try {
-      // Use WebSocket if connected for lower latency, otherwise fall back to bytes API
-      if (this.connected && this.websocket) {
-        // WebSocket streaming using events API
-        console.log('[Cartesia Streaming] Using WebSocket streaming');
-        
-        const response = await this.websocket.send({
-          modelId: this.model,
-          transcript: cleanedText,
-          voice: {
-            mode: 'id',
-            id: effectiveVoiceId,
-          },
-          language: voiceConfig.languageCode,
-          outputFormat: {
-            container: 'mp3',
-            sampleRate: AUDIO_STREAMING_CONFIG.SAMPLE_RATE,
-            bitRate: AUDIO_STREAMING_CONFIG.BIT_RATE,
-          },
-          generation_config: {
-            speed: cartesiaSpeed,
-            emotion: constrainedEmotion,
-          },
-        });
-        
-        // Collect chunks using Promise-based event handling
-        // The SDK uses response.on('message', callback) pattern
-        const chunks: Buffer[] = [];
-        let done = false;
-        
-        await new Promise<void>((resolve, reject) => {
-          // Set up message handler
-          response.on('message', (message: any) => {
-            if (message.type === 'chunk' && message.data) {
-              if (!firstChunkTime) {
-                firstChunkTime = Date.now();
-                console.log(`[Cartesia Streaming] TTFB: ${firstChunkTime - startTime}ms`);
-              }
-              // Data is Base64 encoded
-              const buffer = Buffer.from(message.data, 'base64');
-              totalBytes += buffer.length;
-              chunkCount++;
-              chunks.push(buffer);
-            } else if (message.type === 'timestamps') {
-              console.log(`[Cartesia Streaming] Received word timestamps`);
-            } else if (message.done || message.type === 'done') {
-              console.log(`[Cartesia Streaming] Stream complete`);
-              done = true;
-              resolve();
-            } else if (message.type === 'error') {
-              console.error(`[Cartesia Streaming] Stream error:`, message);
-              reject(new Error(message.message || 'WebSocket stream error'));
-            }
-          });
-          
-          // Timeout fallback in case 'done' is never received
-          setTimeout(() => {
-            if (!done) {
-              console.log(`[Cartesia Streaming] Timeout, completing with ${chunks.length} chunks`);
-              resolve();
-            }
-          }, 10000);
-        });
-        
-        // Yield all collected chunks
-        for (const chunk of chunks) {
-          yield {
-            audio: chunk,
-            durationMs: this.estimateDuration(chunk.length),
-            isLast: false,
-          };
-        }
-        
-        // Signal completion
-        yield {
-          audio: Buffer.alloc(0),
-          durationMs: 0,
-          isLast: true,
-        };
-        
-      } else {
-        // Fall back to bytes API (still streams, just not WebSocket)
-        console.log('[Cartesia Streaming] Using bytes API fallback');
+      // Use the bytes API for reliable streaming
+      // The WebSocket API has compatibility issues, bytes API works reliably
+      {
+        console.log('[Cartesia Streaming] Using bytes API streaming');
         
         const stream = await this.client.tts.bytes({
           modelId: this.model,
