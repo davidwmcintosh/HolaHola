@@ -349,10 +349,10 @@ export class StreamingVoiceOrchestrator {
     displayText: string,
     metrics: StreamingMetrics
   ): Promise<void> {
-    const { text, index } = chunk;
+    const { text: originalText, index } = chunk;
     
-    // Determine emotion based on context
-    const emotion = this.selectEmotionForContext(text, session);
+    // Determine emotion based on original text (which may have emotion tags)
+    const emotion = this.selectEmotionForContext(originalText, session);
     
     let totalDurationMs = 0;
     const audioChunks: Buffer[] = [];
@@ -363,8 +363,9 @@ export class StreamingVoiceOrchestrator {
     
     try {
       // Collect all audio chunks from Cartesia (MP3 fragments need concatenation)
+      // IMPORTANT: Use displayText (cleaned) for TTS, not originalText (which may have emotion tags)
       for await (const audioChunk of this.cartesiaService.streamSynthesize({
-        text,
+        text: displayText,
         language: session.targetLanguage,
         voiceId: session.voiceId,
         emotion,
