@@ -27,7 +27,8 @@ import {
   LATENCY_TARGETS,
 } from "@shared/streaming-voice-types";
 import { constrainEmotion, TutorPersonality, CartesiaEmotion } from "./tts-service";
-import { extractTargetLanguageText } from "../text-utils";
+import { extractTargetLanguageText, hasSignificantTargetLanguageContent } from "../text-utils";
+import { storage } from "../storage";
 
 /**
  * Clean text for display by removing markdown, emotion tags, and other formatting
@@ -287,6 +288,11 @@ export class StreamingVoiceOrchestrator {
       console.log(`[Streaming Orchestrator] Complete: ${metrics.sentenceCount} sentences in ${metrics.totalLatencyMs}ms`);
       console.log(`[Streaming Orchestrator] Latencies: STT=${metrics.sttLatencyMs}ms, AI=${metrics.aiFirstTokenMs}ms, TTS=${metrics.ttsFirstByteMs}ms`);
       
+      // Persist messages to database (non-blocking)
+      this.persistMessages(session.conversationId, transcript, fullText.trim()).catch((err: Error) => {
+        console.error('[Streaming Orchestrator] Failed to persist messages:', err.message);
+      });
+      
       return metrics;
       
     } catch (error: any) {
@@ -508,6 +514,38 @@ export class StreamingVoiceOrchestrator {
       'korean': 'ko',
     };
     return codes[language.toLowerCase()] || 'en';
+  }
+  
+  /**
+   * Persist user and AI messages to database
+   */
+  private async persistMessages(conversationId: string, userTranscript: string, aiResponse: string): Promise<void> {
+    try {
+      // Save user message
+      await storage.createMessage({
+        conversationId,
+        role: 'user',
+        content: userTranscript,
+      });
+      
+      // Extract target language text for the AI response
+      const targetLanguageText = extractTargetLanguageText(aiResponse);
+      const hasTargetLanguage = hasSignificantTargetLanguageContent(targetLanguageText);
+      
+      // Save AI message with target language text if applicable
+      await storage.createMessage({
+        conversationId,
+        role: 'assistant',
+        content: aiResponse,
+        ...(hasTargetLanguage ? { targetLanguageText } : {}),
+        enrichmentStatus: 'pending',
+      });
+      
+      console.log(`[Streaming Orchestrator] Messages persisted to conversation: ${conversationId}`);
+    } catch (error: any) {
+      console.error('[Streaming Orchestrator] Database error:', error.message);
+      throw error;
+    }
   }
   
   /**

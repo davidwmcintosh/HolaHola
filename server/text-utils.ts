@@ -50,6 +50,22 @@ export function extractTargetLanguageText(text: string): string {
     return matches.join(' ');
   }
   
+  // Remove common English scaffolding phrases that introduce foreign words
+  // These patterns remove ONLY the English phrase, preserving trailing foreign words
+  // Use non-greedy matches and word boundaries to avoid consuming too much
+  const scaffoldingPatterns = [
+    /\bin\s+(?:spanish|french|german|italian|portuguese|japanese|korean|chinese|mandarin|arabic)\s+(?:it's|is|we say|you say|that's|this is)\s+/gi,
+    /\bthe\s+(?:word|phrase|expression)\s+(?:is|for)\s+/gi,
+    /,?\s*which\s+means\s+["']?[^"']+["']?/gi,  // "which means 'hello'" - remove the English translation
+    /,?\s*that\s+means\s+["']?[^"']+["']?/gi,
+    /,?\s*meaning\s+["']?[^"']+["']?/gi,
+    /,?\s*in\s+english,?\s+(?:it's|that's|this is)\s+["']?[^"']+["']?/gi,  // "in English it's 'hello'" - remove the English part
+    /\blet'?s\s+(?:learn|practice|say|try)\s+/gi,
+    /\byou\s+(?:can\s+)?say\s+/gi,
+    /\bwe\s+(?:can\s+)?say\s+/gi,
+    /\bto\s+say\s+/gi,
+  ];
+  
   // Fallback 1: Extract only words containing foreign characters
   // Common patterns: Spanish ¡¿ñáéíóú, French àâçéèêëîïôùûü, etc.
   const foreignCharPattern = /[¡¿ñáéíóúàâçéèêëîïôùûüäöüß]/i;
@@ -61,7 +77,19 @@ export function extractTargetLanguageText(text: string): string {
     prevText = cleanedText;
     cleanedText = cleanedText.replace(/\([^()]*\)/g, '');
   }
-  cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
+  
+  // Remove English scaffolding patterns
+  for (const pattern of scaffoldingPatterns) {
+    cleanedText = cleanedText.replace(pattern, ' ');
+  }
+  
+  // Clean up residual English connector words and punctuation
+  // Remove: but, and, so, or, also, now, then, here, today
+  cleanedText = cleanedText
+    .replace(/\b(but|and|so|or|also|now|then|here|today|okay|well|great|good|nice|right|sure|yes|perfect|exactly|correct|wonderful|excellent|fantastic)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/^[,.\s!?]+|[,.\s]+$/g, '')  // Trim leading/trailing punctuation
+    .trim();
   
   // Split into words and extract only those with foreign characters
   const words = cleanedText.split(/\s+/);
