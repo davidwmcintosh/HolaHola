@@ -480,6 +480,12 @@ export function ImmersiveTutor({
             );
           }
           
+          // Hide subtitles during processing when there's no streaming text
+          // This prevents showing stale subtitles from the previous message
+          if (isProcessing) {
+            return null;
+          }
+          
           // Get text from the current playing or last played message
           // Show subtitles during playback AND after playback for reading practice
           const currentMessage = currentPlayingMessageId 
