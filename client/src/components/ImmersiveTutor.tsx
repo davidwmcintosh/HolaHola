@@ -405,9 +405,20 @@ export function ImmersiveTutor({
               ? (streamingTargetText || '') 
               : streamingText;
             
+            // DEBUG: Log streaming subtitle state
+            console.log('[SUBTITLE DEBUG]', {
+              mode: subtitleMode,
+              streamingText: streamingText?.substring(0, 50),
+              streamingTargetText: streamingTargetText?.substring(0, 50),
+              streamingWordIndex,
+              streamingTargetWordIndex,
+              isProcessing,
+            });
+            
             // For "target" mode with no target text available, don't show subtitles
             if (isTargetMode && !streamingTargetText) {
               // No target language content in streaming - skip display
+              console.log('[SUBTITLE DEBUG] Target mode with no target text - hiding');
               return null;
             }
             
@@ -421,6 +432,13 @@ export function ImmersiveTutor({
             const activeWordIndex = (rawActiveWordIndex !== undefined && rawActiveWordIndex >= 0 && rawActiveWordIndex < allWords.length) 
               ? rawActiveWordIndex 
               : -1;
+            
+            console.log('[SUBTITLE DEBUG] Target render check:', {
+              allWordsCount: allWords.length,
+              rawActiveWordIndex,
+              activeWordIndex,
+              willRender: isTargetMode ? (allWords.length > 0 && activeWordIndex >= 0) : true
+            });
             
             // In Target mode, PROGRESSIVELY reveal target words as they're spoken
             // Only show words that have been spoken (up to and including activeWordIndex)
