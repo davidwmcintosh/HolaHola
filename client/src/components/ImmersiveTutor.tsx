@@ -369,6 +369,12 @@ export function ImmersiveTutor({
           // When subtitleMode is "off", don't show any overlay
           if (subtitleMode === "off") return null;
           
+          // Hide subtitles during processing (after recording, before response arrives)
+          // This prevents showing stale target words from previous tutor message
+          if (isProcessing && !streamingText) {
+            return null;
+          }
+          
           // STREAMING MODE: Use streaming text if available
           // When streaming text is set, we're in streaming mode - don't fall through to non-streaming path
           // This prevents showing accumulated target words from the database after streaming ends
