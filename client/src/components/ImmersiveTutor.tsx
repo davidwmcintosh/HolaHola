@@ -370,7 +370,13 @@ export function ImmersiveTutor({
           if (subtitleMode === "off") return null;
           
           // STREAMING MODE: Use streaming text if available
-          if (streamingText && isPlaying) {
+          // When streaming text is set, we're in streaming mode - don't fall through to non-streaming path
+          // This prevents showing accumulated target words from the database after streaming ends
+          if (streamingText) {
+            // Only show subtitles while actively playing
+            if (!isPlaying) {
+              return null; // Streaming ended - hide subtitles to avoid showing accumulated words
+            }
             // For "target" mode, use streamingTargetText if available
             const isTargetMode = subtitleMode === "target";
             const displayTextForStreaming = isTargetMode 
