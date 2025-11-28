@@ -528,12 +528,15 @@ export function addCartesiaPhonemesToText(text: string, targetLanguage?: string)
     return word;
   });
 
-  // PASS 2: Process UNQUOTED common foreign words
+  // PASS 2: Process UNQUOTED multi-word phrases FIRST (before single words)
+  // This ensures "por favor" is matched as a phrase before "por" is matched alone
   const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   
-  for (const [word, phonemes] of Object.entries(pronunciations)) {
-    if (word.includes(' ')) continue;
-    
+  // Sort by length (longest first) to match multi-word phrases before single words
+  const sortedEntries = Object.entries(pronunciations).sort((a, b) => b[0].length - a[0].length);
+  
+  for (const [word, phonemes] of sortedEntries) {
+    // For multi-word phrases, match case-insensitively
     const wordRegex = new RegExp(
       `(?<!<)\\b(${escapeRegex(word)})\\b(?![^<]*>>)`,
       'gi'
