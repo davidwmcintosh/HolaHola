@@ -181,7 +181,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     // Audio playback latency offset (in seconds)
     // Browser reports currentTime before audio actually reaches speakers
     // This delay ensures words appear when spoken, not before
-    const AUDIO_LATENCY_OFFSET = 0.15; // 150ms delay to sync with actual audio output
+    const AUDIO_LATENCY_OFFSET = 0.25; // 250ms delay to sync with actual audio output
     
     // Adjust currentTime to account for audio latency
     const adjustedTime = Math.max(0, currentTime - AUDIO_LATENCY_OFFSET);
