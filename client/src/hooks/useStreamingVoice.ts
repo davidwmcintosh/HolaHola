@@ -62,6 +62,8 @@ export interface UseStreamingVoiceReturn {
   stop: () => void;
   isSupported: () => boolean;
   isReady: () => boolean;
+  getCombinedAudioBlob: () => Blob | null;
+  clearStoredAudio: () => void;
 }
 
 /**
@@ -332,8 +334,25 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     setError(null);
     subtitles.reset();
     
+    // Clear stored audio from previous response before new request
+    playerRef.current?.clearStoredAudio();
+    
     await clientRef.current.sendAudio(audioData);
   }, [connectionState, subtitles]);
+  
+  /**
+   * Get combined audio blob for replay
+   */
+  const getCombinedAudioBlob = useCallback((): Blob | null => {
+    return playerRef.current?.getCombinedAudioBlob() ?? null;
+  }, []);
+  
+  /**
+   * Clear stored audio for replay
+   */
+  const clearStoredAudio = useCallback(() => {
+    playerRef.current?.clearStoredAudio();
+  }, []);
   
   /**
    * Stop playback and processing
@@ -393,5 +412,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     stop,
     isSupported,
     isReady,
+    getCombinedAudioBlob,
+    clearStoredAudio,
   };
 }

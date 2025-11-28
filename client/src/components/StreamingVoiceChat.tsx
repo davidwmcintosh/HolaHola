@@ -231,6 +231,17 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
           onResponseComplete: (convId: string) => {
             console.log('[STREAMING] Response complete - refreshing messages for', convId);
             queryClient.invalidateQueries({ queryKey: ["/api/conversations", convId, "messages"] });
+            
+            // Store combined audio blob for replay functionality
+            const combinedBlob = streamingVoice.getCombinedAudioBlob();
+            if (combinedBlob) {
+              console.log('[STREAMING] Storing combined audio for replay:', combinedBlob.size, 'bytes');
+              setLastAudioBlob(combinedBlob);
+              
+              // Find the latest assistant message ID for replay tracking
+              // We need to invalidate first and let messages refresh, then set the ID
+              // Since invalidation is async, we'll set lastMessageId in a separate effect
+            }
           },
         });
         streamingConnectedRef.current = true;
@@ -313,6 +324,20 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
       setError(null);
     }
   }, [streamingVoice.state, useStreamingMode]);
+  
+  // Update lastMessageId for replay when streaming completes and messages are refreshed
+  useEffect(() => {
+    // When we have a lastAudioBlob but no lastMessageId, find the latest assistant message
+    if (lastAudioBlob && !lastMessageId && messages.length > 0) {
+      const latestAssistantMessage = [...messages]
+        .reverse()
+        .find(m => m.role === 'assistant');
+      if (latestAssistantMessage) {
+        console.log('[STREAMING] Setting lastMessageId for replay:', latestAssistantMessage.id);
+        setLastMessageId(latestAssistantMessage.id);
+      }
+    }
+  }, [lastAudioBlob, lastMessageId, messages]);
 
   // Initialize audio player
   useEffect(() => {
@@ -966,6 +991,10 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
         setProcessingStage('Processing...');
         setAvatarState('speaking');
         setError(null); // Clear any previous errors
+        
+        // Clear previous audio for replay (new response will set these)
+        setLastMessageId(null);
+        // Note: lastAudioBlob will be set by onResponseComplete callback
         
         // Convert blob to ArrayBuffer
         const audioData = await audioBlob.arrayBuffer();

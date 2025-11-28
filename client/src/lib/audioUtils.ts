@@ -190,8 +190,40 @@ export class StreamingAudioPlayer {
   private isPlaying = false;
   private pendingAudioCount = 0;
   
+  // Store all audio chunks for replay functionality
+  private allAudioChunks: ArrayBuffer[] = [];
+  private combinedAudioBlob: Blob | null = null;
+  
   constructor() {
     console.log('[StreamingAudioPlayer] Initialized');
+  }
+  
+  /**
+   * Get the combined audio blob for replay
+   * Returns null if no audio has been played yet
+   */
+  getCombinedAudioBlob(): Blob | null {
+    if (this.combinedAudioBlob) {
+      return this.combinedAudioBlob;
+    }
+    
+    // Combine all chunks into a single blob if not already done
+    if (this.allAudioChunks.length > 0) {
+      this.combinedAudioBlob = new Blob(this.allAudioChunks, { type: 'audio/mpeg' });
+      console.log(`[StreamingAudioPlayer] Combined ${this.allAudioChunks.length} chunks into ${this.combinedAudioBlob.size} bytes`);
+      return this.combinedAudioBlob;
+    }
+    
+    return null;
+  }
+  
+  /**
+   * Clear stored audio chunks (call when starting a new response)
+   */
+  clearStoredAudio(): void {
+    this.allAudioChunks = [];
+    this.combinedAudioBlob = null;
+    console.log('[StreamingAudioPlayer] Cleared stored audio');
   }
   
   /**
@@ -227,6 +259,11 @@ export class StreamingAudioPlayer {
    */
   enqueue(chunk: StreamingAudioChunk): void {
     console.log(`[StreamingAudioPlayer] Enqueue sentence ${chunk.sentenceIndex} (${chunk.audio.byteLength} bytes)`);
+    
+    // Store chunk for replay functionality
+    this.allAudioChunks.push(chunk.audio);
+    // Invalidate combined blob so it will be regenerated on next getCombinedAudioBlob()
+    this.combinedAudioBlob = null;
     
     this.queue.push(chunk);
     this.updatePendingCount(this.pendingAudioCount + 1);
