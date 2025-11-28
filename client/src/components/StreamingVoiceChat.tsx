@@ -507,8 +507,21 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
             // Set current playing message ID (for subtitle sync) but NOT avatar state yet
             setCurrentPlayingMessageId(greetingMessage.id);
             
+            // AUTOPLAY FIX: Add timeout detection for hanging play() promises
+            // Browsers sometimes silently block autoplay without rejecting the promise
+            let playStarted = false;
+            const playTimeout = setTimeout(() => {
+              if (!playStarted && !hasCleanedUp) {
+                console.warn('[VOICE GREETING] play() timeout - autoplay may be blocked. Audio URL still valid for user interaction.');
+                // Don't cleanup - leave audio ready so clicking the mic or any interaction can trigger it
+              }
+            }, 2000);
+            
+            console.log('[VOICE GREETING] Calling play()...');
             audioPlayerRef.current.play()
               .then(() => {
+                playStarted = true;
+                clearTimeout(playTimeout);
                 console.log('[VOICE GREETING] Greeting audio playing');
                 // MOBILE FIX: Add fallback timer in case onended doesn't fire
                 // Estimate duration from audio blob size (roughly 16KB/second for MP3)
@@ -521,6 +534,8 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
                 }, estimatedDurationMs);
               })
               .catch(err => {
+                playStarted = true;
+                clearTimeout(playTimeout);
                 console.error('[VOICE GREETING] Failed to play greeting:', err);
                 cleanup();
               });
