@@ -54,6 +54,19 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - **One-Word Rule**: Validates beginner utterances for conceptual units (single words or phrase units like "por favor"). Sends `StreamingFeedbackMessage` with `feedbackType: 'one_word_rule'` for client display.
 - **Background Vocabulary Extraction**: After message persistence, uses `setImmediate` to extract vocabulary via Gemini structured output and saves to database with `sourceConversationId` linking.
 - **Progress Tracking**: Updates `wordsLearned` and `lastPracticeDate` in UserProgress after each voice exchange.
+- **ACTFL Advancement Tracking**: Real-time assessment of FACT criteria (Functions, Accuracy, Context, Text Type) after each voice exchange. Pronunciation confidence is captured per-session from Deepgram STT (no race conditions). Task detection analyzes learner speech patterns (greetings, questions, introductions). Word count tracked from actual transcribed speech. Advancement notifications sent via `StreamingFeedbackMessage` when thresholds are met.
+
+**ACTFL Advancement Data Flow** (race-condition free):
+```
+processAudioMessage() 
+  → transcribeAudio() returns { transcript, confidence }
+  → local pronunciationConfidence captured per-session
+  → persistMessages(..., pronunciationConfidence)
+  → processBackgroundEnrichment(..., pronunciationConfidence)
+  → storage.recordVoiceExchange({ pronunciationConfidence, userWordCount, tasksCompleted })
+  → assessAdvancementReadiness() evaluates FACT criteria
+  → StreamingFeedbackMessage sent if user qualifies for next level
+```
 
 **Pedagogical Subtitle Timing**: A `180ms` anticipatory offset (`PEDAGOGICAL_TIMING_OFFSET`) for word appearance is implemented to optimize language learning by priming the brain for incoming audio.
 
