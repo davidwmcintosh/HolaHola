@@ -42,6 +42,8 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Cartesia Sonic-3 Emotion & Expression Features**: A 3-layer emotion control system includes personality presets (`warm`, `calm`, `energetic`, `professional`), an expressiveness slider (1-5), and AI-driven dynamic emotion selection based on context. Speed control (`generation_config.speed`) allows for varying speaking rates. Natural laughter tags (`[laughter]`) are used sparingly. Settings UI allows users to configure personality and expressiveness. A Voice Console Admin tool (`/admin/voices`) provides a developer/admin interface for voice audition and validation.
 
+**Emotion Tag Cleaning**: AI responses may include emotion tags like `(friendly)` or `(excited)` at the start. These are extracted for Cartesia's emotion parameter, then stripped from text using `cleanTextForDisplay()` in `server/text-utils.ts`. This cleaning is applied to both TTS input AND database persistence to ensure emotion tags never appear in spoken audio or message history.
+
 **Three-Phase Organization System**:
 -   **Phase 1 (Starring + Time Filtering)**: `isStarred` field for conversations, time-based filtering on History and Vocabulary pages.
 -   **Phase 2 (AI Topic Tagging)**: Junction tables (`conversationTopics`, `vocabularyWordTopics`) for many-to-many relationships, `sourceConversationId` links vocabulary to conversations.
