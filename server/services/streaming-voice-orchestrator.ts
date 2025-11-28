@@ -121,8 +121,8 @@ export class StreamingVoiceOrchestrator {
    * Create a new streaming session
    * Connection pooling: Pre-warms Cartesia WebSocket for low-latency TTS
    * 
-   * OPTIMIZATION: Limits conversation history to reduce AI latency
-   * More history = more tokens = slower first token
+   * NOTE: Full conversation history is preserved to support "Tutor knows all" philosophy
+   * Gemini's 1M context window handles large histories efficiently
    */
   async createSession(
     ws: WS,
@@ -133,17 +133,6 @@ export class StreamingVoiceOrchestrator {
     voiceId?: string
   ): Promise<StreamingSession> {
     const sessionId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    // OPTIMIZATION: Limit conversation history to last N messages
-    // Reduces AI first token latency significantly for long conversations
-    const MAX_HISTORY_MESSAGES = 10;
-    const trimmedHistory = conversationHistory.length > MAX_HISTORY_MESSAGES
-      ? conversationHistory.slice(-MAX_HISTORY_MESSAGES)
-      : conversationHistory;
-    
-    if (conversationHistory.length > MAX_HISTORY_MESSAGES) {
-      console.log(`[Streaming Orchestrator] Trimmed history from ${conversationHistory.length} to ${MAX_HISTORY_MESSAGES} messages`);
-    }
     
     const session: StreamingSession = {
       id: sessionId,
@@ -157,7 +146,7 @@ export class StreamingVoiceOrchestrator {
       tutorExpressiveness: config.tutorExpressiveness || 3,
       voiceId,
       systemPrompt,
-      conversationHistory: trimmedHistory,
+      conversationHistory,
       ws,
       startTime: Date.now(),
       isActive: true,

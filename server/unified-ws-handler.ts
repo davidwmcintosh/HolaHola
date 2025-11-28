@@ -14,7 +14,7 @@ import { Server } from 'http';
 import type { IncomingMessage } from 'http';
 import { Duplex } from 'stream';
 import { storage } from './storage';
-import { createSystemPrompt } from './system-prompt';
+import { createSystemPrompt, createStreamingVoicePrompt } from './system-prompt';
 import { parse as parseCookie } from 'cookie';
 import signature from 'cookie-signature';
 import {
@@ -186,22 +186,15 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
               content: m.content,
             }));
 
-          const systemPrompt = createSystemPrompt(
+          // OPTIMIZATION: Use streamlined prompt for faster AI first-token latency
+          // Reduces prompt from ~3000 tokens to ~500 tokens
+          const systemPrompt = createStreamingVoicePrompt(
             config.targetLanguage,
             config.difficultyLevel,
-            messages.length,
-            true, // isVoiceMode
-            null,
-            [],
             config.nativeLanguage,
-            undefined,
-            undefined,
-            null,
-            false,
-            messages.length,
+            user.actflLevel,
             (user.tutorPersonality || 'warm') as any,
-            user.tutorExpressiveness || 3,
-            true // isStreamingVoiceMode - outputs plain text with **bold** markers
+            user.tutorExpressiveness || 3
           );
 
           let voiceId: string | undefined;

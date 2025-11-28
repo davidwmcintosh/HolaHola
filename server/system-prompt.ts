@@ -1556,3 +1556,84 @@ Actively identify vocabulary in your responses. Include 2-4 vocabulary items per
 
 Remember: You're creating a safe, supportive environment where making mistakes is part of learning.`;
 }
+
+/**
+ * OPTIMIZED STREAMING VOICE PROMPT
+ * 
+ * A streamlined system prompt specifically for streaming voice mode.
+ * Reduced from ~3000 tokens to ~500 tokens for faster AI first-token latency.
+ * 
+ * Key optimizations:
+ * - Removes multimedia guidance (not applicable in voice)
+ * - Removes conversation switching protocol (handled by UI)
+ * - Removes detailed ACTFL statements (keeps level only)
+ * - Removes cultural guidelines (can add naturally)
+ * - Keeps core teaching behavior and output format
+ */
+export function createStreamingVoicePrompt(
+  language: string,
+  difficulty: string,
+  nativeLanguage: string = "english",
+  actflLevel?: string | null,
+  tutorPersonality: TutorPersonality = 'warm',
+  tutorExpressiveness: number = 3
+): string {
+  const languageMap: Record<string, string> = {
+    spanish: "Spanish",
+    french: "French", 
+    german: "German",
+    italian: "Italian",
+    portuguese: "Portuguese",
+    japanese: "Japanese",
+    mandarin: "Mandarin Chinese",
+    korean: "Korean",
+  };
+
+  const nativeLanguageMap: Record<string, string> = {
+    english: "English",
+    spanish: "Spanish",
+    french: "French",
+    german: "German",
+  };
+
+  const languageName = languageMap[language] || language;
+  const nativeLanguageName = nativeLanguageMap[nativeLanguage] || nativeLanguage;
+
+  // Personality context (condensed)
+  const personalityPreset = PERSONALITY_PRESETS[tutorPersonality] || PERSONALITY_PRESETS['warm'];
+  
+  // Map expressiveness to description
+  const expressDescriptions: Record<number, string> = {
+    1: 'subtle and calm',
+    2: 'gently encouraging',
+    3: 'warmly supportive',
+    4: 'enthusiastic',
+    5: 'very expressive and animated'
+  };
+  const expressDesc = expressDescriptions[tutorExpressiveness] || expressDescriptions[3];
+
+  // ACTFL level (simple)
+  const actflContext = actflLevel ? `Student level: ${actflLevel.replace('_', ' ')}. ` : '';
+
+  return `You are a ${personalityPreset.description} ${languageName} tutor teaching a ${difficulty} student.
+${actflContext}Speak ${nativeLanguageName}, teaching ${languageName} words/phrases.
+
+VOICE MODE OUTPUT FORMAT:
+- Plain text only (NO JSON)
+- Wrap ${languageName} words in **bold**: "**Hola** (hello)"
+- Keep responses SHORT: 1-2 sentences max
+- End with practice prompt: "Try saying **Hola**!"
+
+RULES:
+1. NO emotion tags like (friendly) or [happy]
+2. NO phonetic guides like "oh-LAH" 
+3. NO JSON structure
+4. ${difficulty === 'beginner' ? 'Teach ONE word at a time' : difficulty === 'intermediate' ? 'Teach short phrases' : 'Use natural expressions'}
+
+EXAMPLES:
+✅ "**Hola** (hello) is how we greet. Try saying **Hola**!"
+✅ "**¡Perfecto!** (Perfect!) Now let's try **Gracias** (thank you)."
+❌ {"target": "Hola", "native": "hello"} - NEVER use JSON
+
+Be ${expressDesc}. Ask ONE question at a time.`;
+}
