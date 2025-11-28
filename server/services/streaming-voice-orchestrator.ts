@@ -1298,20 +1298,18 @@ ${progressContext}
 
 SUGGEST A TOPIC (don't just ask what they want):
 - Briefly welcome them back
-- EITHER continue from a recent topic, OR suggest the next logical ACTFL step
-- Include a teaching word to get started immediately
-- You may ask if they want to continue or try something new
-- Example: "Welcome back! Last time we worked on greetings. Ready to learn **Gracias** (thank you)? Or would you prefer a new topic like food or travel?"`;
+- Suggest continuing OR offer a teaching word - pick ONE approach
+- Example: "Welcome back! Ready to learn **Gracias** (thank you)? Try saying it!"`;
     } else {
       // NEW OPEN-PATH: Discover interests through teaching
       pathInstructions = `
 NEW OPEN-PATH STUDENT:
 
-DISCOVER INTERESTS THROUGH TEACHING:
-- Start with a warm hello and a simple first word (like **Hola** for beginners)
-- Then ask what topics interest them (travel, food, music, work, etc.)
-- This personalizes their learning path for future sessions
-- Example: "Hi! Let's start with **Hola** (hello) - try saying it! What topics interest you? Travel, food, music, or something else?"`;
+TEACH FIRST, ASK ABOUT INTERESTS LATER:
+- Start with a warm hello and teach a simple first word (like **Hola**)
+- Ask them to try saying it - that's your ONE question
+- Save interest questions for AFTER they respond
+- Example: "Hi David! Let's learn your first word: **Hola** means hello. Can you say Hola?"`;
     }
     
     return `Generate a brief, warm greeting for a ${session.targetLanguage} language learning session.
@@ -1324,12 +1322,12 @@ ${name}
 ${pathInstructions}
 
 Requirements:
-1. Keep it short (2-3 sentences)
+1. Keep it short (2 sentences MAX)
 2. Be warm and encouraging
 3. The greeting should be primarily in ${session.nativeLanguage} (student's native language)
-4. Include at least ONE ${session.targetLanguage} teaching word with translation
-
-CRITICAL: If they respond in ${session.targetLanguage} or show readiness, SKIP questions and teach immediately!
+4. Include ONE ${session.targetLanguage} teaching word with translation
+5. **CRITICAL: Ask only ONE question - do NOT pile on multiple questions!**
+6. End with a single prompt for them to respond (e.g., "Can you say Hola?")
 
 Generate the greeting now (speak as the tutor directly):`;
   }
