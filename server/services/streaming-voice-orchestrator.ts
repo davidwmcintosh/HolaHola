@@ -141,19 +141,34 @@ const gemini = new GoogleGenAI({
 });
 
 /**
- * Content moderation: Check for inappropriate content
- * This provides a safety net for user inputs
+ * Content moderation: Check for severely inappropriate content
+ * Only blocks truly explicit content - mild issues are handled by the AI tutor naturally
  * Uses word boundary matching to avoid false positives (e.g., "hello" matching "hell")
  */
-const INAPPROPRIATE_TERMS = [
-  'offensive', 'curse', 'swear', 'bad words', 'profan', 'explicit', 'sexual',
-  'violent', 'insult', 'slur', 'derogatory', 'fuck', 'shit', 'damn', 'hell',
-  'crap', 'ass', 'bitch', 'kill', 'murder', 'hate',
+const SEVERE_INAPPROPRIATE_TERMS = [
+  'fuck', 'shit', 'bitch', 'slur', 'n-word', 'faggot',
 ];
 
-function containsInappropriateContent(text: string): boolean {
+function containsSeverelyInappropriateContent(text: string): boolean {
   const lowerText = text.toLowerCase();
-  return INAPPROPRIATE_TERMS.some(term => {
+  return SEVERE_INAPPROPRIATE_TERMS.some(term => {
+    const regex = new RegExp(`\\b${term}\\b`, 'i');
+    return regex.test(lowerText);
+  });
+}
+
+/**
+ * Check for mildly inappropriate content that the tutor should gently redirect
+ * These are passed to the AI with a note to redirect gracefully
+ */
+const MILD_INAPPROPRIATE_TERMS = [
+  'damn', 'hell', 'crap', 'ass', 'hate', 'kill', 'murder',
+  'offensive', 'curse', 'swear', 'violent',
+];
+
+function containsMildlyInappropriateContent(text: string): boolean {
+  const lowerText = text.toLowerCase();
+  return MILD_INAPPROPRIATE_TERMS.some(term => {
     const regex = new RegExp(`\\b${term}\\b`, 'i');
     return regex.test(lowerText);
   });
@@ -316,17 +331,25 @@ export class StreamingVoiceOrchestrator {
         return metrics;
       }
       
-      // CONTENT MODERATION: Check for inappropriate content
-      if (containsInappropriateContent(transcript)) {
-        console.log('[Streaming Orchestrator] Content moderation: Inappropriate content detected');
+      // CONTENT MODERATION: Check for severely inappropriate content (block only the worst)
+      if (containsSeverelyInappropriateContent(transcript)) {
+        console.log('[Streaming Orchestrator] Content moderation: Severely inappropriate content blocked');
         this.sendMessage(session.ws, {
           type: 'error',
           timestamp: Date.now(),
           code: 'CONTENT_REJECTED',
-          message: 'Please keep the conversation appropriate for a learning environment.',
+          message: 'Let\'s keep our conversation focused on language learning!',
           recoverable: true,
         });
         return metrics;
+      }
+      
+      // For mildly inappropriate content, let the AI tutor handle it naturally
+      // The tutor will gently redirect without breaking the conversation flow
+      let contentRedirectNote = '';
+      if (containsMildlyInappropriateContent(transcript)) {
+        console.log('[Streaming Orchestrator] Content moderation: Mild content - tutor will redirect');
+        contentRedirectNote = ' (Note: Gently redirect this conversation back to language learning without being preachy.)';
       }
       
       // ONE-WORD RULE: Validate user input for beginners
@@ -359,10 +382,13 @@ export class StreamingVoiceOrchestrator {
       let currentSentenceIndex = 0;
       
       // Process sentences as they arrive from Gemini
+      // Include redirect note if mild content was detected
+      const userMessageWithNote = transcript + contentRedirectNote;
+      
       await this.geminiService.streamWithSentenceChunking({
         systemPrompt: session.systemPrompt,
         conversationHistory: session.conversationHistory,
-        userMessage: transcript,
+        userMessage: userMessageWithNote,
         onSentence: async (chunk: SentenceChunk) => {
           if (!firstTokenReceived) {
             metrics.aiFirstTokenMs = Date.now() - aiStart;
@@ -380,8 +406,8 @@ export class StreamingVoiceOrchestrator {
           }
           
           // AI CONTENT MODERATION: Check AI response before sending to client/TTS
-          // This is a safety net - Gemini should already filter, but we double-check
-          if (containsInappropriateContent(displayText)) {
+          // Only block severely inappropriate AI responses (rare edge case)
+          if (containsSeverelyInappropriateContent(displayText)) {
             console.log(`[Streaming Orchestrator] AI response moderation: Skipping sentence ${chunk.index}`);
             return; // Skip this sentence entirely
           }
