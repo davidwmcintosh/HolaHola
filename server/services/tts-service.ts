@@ -427,6 +427,15 @@ export const MFA_IPA_PRONUNCIATIONS: Record<string, Record<string, string>> = {
     'también': 't|a|m|b|j|e|n',         // also
     'siempre': 's|j|e|m|p|ɾ|e',         // always
     'ahora': 'a|o|ɾ|a',                 // now
+    'y tú': 'i|t|u',                    // and you? (y = "ee", not "why")
+    'tú': 't|u',                        // you (informal)
+    'usted': 'u|s|t|e|ð',               // you (formal)
+    'estoy bien': 'e|s|t|o|i|b|j|e|n',  // I'm fine
+    'estoy bien, gracias': 'e|s|t|o|i|b|j|e|n|ɡ|ɾ|a|s|j|a|s', // I'm fine, thanks
+    'me llamo': 'm|e|ʝ|a|m|o',          // my name is
+    'mucho gusto': 'm|u|tʃ|o|ɡ|u|s|t|o', // nice to meet you
+    'hasta luego': 'a|s|t|a|l|w|e|ɣ|o', // see you later
+    'hasta mañana': 'a|s|t|a|m|a|ɲ|a|n|a', // see you tomorrow
   },
   'french': {
     'bonjour': 'b|ɔ̃|ʒ|u|ʁ',            // hello
@@ -536,9 +545,14 @@ export function addCartesiaPhonemesToText(text: string, targetLanguage?: string)
   const sortedEntries = Object.entries(pronunciations).sort((a, b) => b[0].length - a[0].length);
   
   for (const [word, phonemes] of sortedEntries) {
-    // For multi-word phrases, match case-insensitively
+    // Use a flexible boundary pattern that handles:
+    // - Standard word boundaries
+    // - Spanish inverted punctuation (¿, ¡) before words
+    // - Regular punctuation after words
+    // (?:^|[\s¿¡"'(]) matches start, whitespace, or opening punctuation
+    // (?:$|[\s?!.,;:"')]) matches end, whitespace, or closing punctuation
     const wordRegex = new RegExp(
-      `(?<!<)\\b(${escapeRegex(word)})\\b(?![^<]*>>)`,
+      `(?<!<)(?:^|(?<=[\\s¿¡"'(]))(${escapeRegex(word)})(?=$|[\\s?!.,;:"')])(?![^<]*>>)`,
       'gi'
     );
     
