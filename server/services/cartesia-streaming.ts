@@ -240,6 +240,18 @@ export class CartesiaStreamingService extends EventEmitter {
       expressiveness = 3,
     } = request;
     
+    // Skip empty text - Cartesia returns 400 for empty strings
+    const trimmedText = text?.trim() || '';
+    if (trimmedText.length === 0) {
+      console.log('[Cartesia Streaming] Skipping empty text');
+      yield {
+        audio: Buffer.alloc(0),
+        durationMs: 0,
+        isLast: true,
+      };
+      return;
+    }
+    
     // Determine voice
     const selectedLanguage = language?.toLowerCase() || 'english';
     const voiceConfig = CARTESIA_VOICE_MAP[selectedLanguage] || CARTESIA_VOICE_MAP['english'];
