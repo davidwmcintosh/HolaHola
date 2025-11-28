@@ -1,6 +1,6 @@
 # LinguaFlow Teacher Guide
 
-**Last Updated:** November 24, 2025  
+**Last Updated:** November 28, 2025  
 **For:** Teachers and Educators using LinguaFlow
 
 ---
@@ -304,6 +304,41 @@ Curriculum Path (e.g., "Spanish 1")
    - Average score
    - Grade distribution
    - Students needing support
+
+### Understanding ACTFL Proficiency Tracking
+
+LinguaFlow automatically tracks student progress using ACTFL World-Readiness Standards.
+
+**What Gets Tracked (FACT Criteria):**
+- **Functions**: Communication tasks performed (greetings, questions, introductions)
+- **Accuracy**: Pronunciation quality from voice practice sessions
+- **Context**: Variety of topics discussed across conversations
+- **Text Type**: Word count and speech complexity per message
+
+**Proficiency Levels:**
+
+| Level | Description |
+|-------|-------------|
+| Novice Low | Just starting, learning basic words |
+| Novice Mid | Can say simple memorized phrases |
+| Novice High | Beginning to create with language |
+| Intermediate Low | Can handle simple transactions |
+| Intermediate Mid | Can discuss familiar topics |
+| Intermediate High | Can narrate and describe |
+
+**Viewing ACTFL Progress:**
+- Go to student's individual progress page
+- See current ACTFL level and progress toward next level
+- View voice practice minutes and pronunciation scores
+- Monitor vocabulary growth over time
+
+**Advancement Notifications:**
+Students receive real-time feedback when they're ready to advance to the next proficiency level. The system requires:
+- Minimum voice practice time (5+ hours for Novice Low)
+- Sufficient messages at current level
+- Adequate pronunciation accuracy (70%+ threshold for Novice Low, higher for advanced levels)
+- Demonstrated communication tasks (greetings, introductions, questions)
+- Coverage of multiple topics
 
 ---
 

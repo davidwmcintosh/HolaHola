@@ -70,6 +70,28 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 - FACT criteria tracking (Functions, Accuracy, Context, Text Type)
 - Clear progression from Novice to Distinguished levels
 
+### Real-Time ACTFL Advancement Tracking
+**Automatic Proficiency Assessment After Every Voice Exchange**
+- **Functions**: Tracks communication tasks performed (greetings, questions, introductions, expressing preferences, thanking)
+- **Accuracy**: Measures pronunciation confidence from Deepgram speech recognition (per-session, race-condition free)
+- **Context**: Monitors topics discussed across conversations
+- **Text Type**: Analyzes word count and speech complexity per message
+
+**Smart Advancement Notifications**
+- Real-time feedback when you're ready for the next proficiency level
+- Encouragement messages when metrics are improving
+- Level-specific thresholds aligned with ACTFL World-Readiness Standards:
+  - Novice Low: 5 hours practice, 70%+ pronunciation, 3 tasks completed
+  - Higher levels require progressively more practice time, accuracy, and task mastery
+
+### One-Word Rule for Beginners
+**Pedagogically-Optimized Beginner Practice**
+- Validates beginner speech for single conceptual units
+- Allows phrase units like "por favor" or "buenos días" as one word
+- Smart phrase detection recognizes multi-word expressions
+- Gentle feedback via streaming messages when rule is violated
+- Builds confidence through focused, achievable practice
+
 ---
 
 ## Smart Learning Features
@@ -169,11 +191,28 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 - **Text-to-Speech (Fallback)**: Google Cloud Chirp 3 HD for reliable backup
 - **Image Generation**: Gemini Flash-Image for contextual visuals
 
+### Voice Mode Architecture
+**WebSocket-Based Voice Communication**
+- Real-time voice pipeline: speech recognition → AI → text-to-speech
+- Fast response times with optimized processing
+- Complete pipeline for natural conversation
+
+**Voice Pipeline**:
+1. Deepgram Nova-3 STT → Accurate transcription
+2. Gemini 2.5 Flash → AI response generation
+3. Cartesia Sonic-3 TTS → Ultra-low latency audio synthesis
+
+**Background Learning Integration**:
+- Vocabulary extraction happens after each exchange (non-blocking)
+- Progress tracking updates automatically
+- ACTFL metrics recorded after each voice exchange
+
 ### Fast & Reliable
 - Sub-300ms speech recognition latency
 - Ultra-fast voice responses with Cartesia Sonic-3 (40-90ms TTS latency)
 - Deepgram pre-warming eliminates cold start delays
 - Dual TTS provider architecture with automatic failover
+- Per-session pronunciation confidence tracking (no cross-session data contamination)
 
 ### Science-Backed Learning
 - Pedagogically calibrated subtitle timing based on cognitive research

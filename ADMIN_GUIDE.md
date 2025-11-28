@@ -1220,5 +1220,129 @@ When reporting system issues, include:
 
 ---
 
-**Last Updated:** November 24, 2025  
+## ACTFL Progress Management
+
+### Overview
+
+LinguaFlow tracks learner proficiency using ACTFL World-Readiness Standards with real-time FACT criteria assessment.
+
+### Viewing ACTFL Progress
+
+**Get User's ACTFL Level:**
+```sql
+SELECT 
+  u.id,
+  u.email,
+  u."fullName",
+  u."actflLevel",
+  ap."currentLevel",
+  ap."totalVoiceMinutes",
+  ap."wordsLearned",
+  ap."avgPronunciationConfidence",
+  ap."tasksCompleted"
+FROM users u
+LEFT JOIN "actflProgress" ap ON u.id = ap."userId"
+WHERE u.email = 'user@example.com';
+```
+
+**View All Progress for a User:**
+```sql
+SELECT * FROM "actflProgress"
+WHERE "userId" = 'user-id-here'
+ORDER BY "updatedAt" DESC;
+```
+
+**Class ACTFL Statistics:**
+```sql
+SELECT 
+  u."fullName",
+  u.email,
+  ap."currentLevel",
+  ap."totalVoiceMinutes",
+  ap."wordsLearned",
+  ap."avgPronunciationConfidence"
+FROM "classEnrollments" e
+JOIN users u ON e."studentId" = u.id
+LEFT JOIN "actflProgress" ap ON u.id = ap."userId"
+WHERE e."classId" = 789
+ORDER BY ap."avgPronunciationConfidence" DESC NULLS LAST;
+```
+
+### Updating ACTFL Progress
+
+**Manually Update ACTFL Level:**
+```sql
+UPDATE users 
+SET "actflLevel" = 'novice_mid'
+WHERE email = 'user@example.com';
+
+UPDATE "actflProgress"
+SET "currentLevel" = 'novice_mid'
+WHERE "userId" = 'user-id-here';
+```
+
+**Reset ACTFL Progress (Testing):**
+```sql
+-- Warning: This resets all progress data
+UPDATE "actflProgress"
+SET 
+  "currentLevel" = 'novice_low',
+  "totalVoiceMinutes" = 0,
+  "wordsLearned" = 0,
+  "avgPronunciationConfidence" = 0,
+  "tasksCompleted" = '[]'::jsonb
+WHERE "userId" = 'user-id-here';
+```
+
+### ACTFL Advancement Thresholds
+
+From `server/actfl-advancement.ts`:
+
+| Level | Practice Hours | Messages | Pronunciation | Tasks | Topics |
+|-------|---------------|----------|---------------|-------|--------|
+| Novice Low | 5 | 50 | 70% | 3 | 2 |
+| Novice Mid | 10 | 80 | 75% | 6 | 4 |
+| Novice High | 15 | 120 | 78% | 10 | 6 |
+| Intermediate Low | 25 | 150 | 80% | 15 | 8 |
+| Intermediate Mid | 40 | 200 | 82% | 20 | 12 |
+
+### Troubleshooting ACTFL Issues
+
+**Issue: Pronunciation confidence always 0**
+
+**Diagnosis:**
+```sql
+-- Check recent voice exchanges
+SELECT 
+  "pronunciationConfidence",
+  "userWordCount",
+  "createdAt"
+FROM "actflProgress"
+WHERE "userId" = 'user-id'
+ORDER BY "updatedAt" DESC
+LIMIT 5;
+```
+
+**Solution:**
+This was fixed with per-session confidence tracking. Ensure you're running the latest code. Previous versions had a race condition with shared class properties.
+
+**Issue: User not advancing despite meeting criteria**
+
+**Diagnosis:**
+Check if accuracy gating is blocking:
+```sql
+SELECT 
+  "avgPronunciationConfidence",
+  "totalVoiceMinutes",
+  "wordsLearned"
+FROM "actflProgress"
+WHERE "userId" = 'user-id';
+```
+
+**Solution:**
+Users need 70%+ pronunciation confidence for Novice Low (higher for advanced levels) to receive advancement notifications. If other metrics are met but accuracy is low, encourage more practice.
+
+---
+
+**Last Updated:** November 28, 2025  
 **Maintainer:** LinguaFlow Development Team

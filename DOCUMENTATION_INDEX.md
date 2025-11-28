@@ -265,7 +265,21 @@ project/
 
 ---
 
-## Recent Updates (Nov 26, 2025)
+## Recent Updates (Nov 28, 2025)
+
+### ✅ ACTFL Advancement Tracking (Nov 28)
+- **Real-Time FACT Criteria**: Functions, Accuracy, Context, Text Type tracked after every voice exchange
+- **Pronunciation Confidence**: Per-session tracking from Deepgram STT (race-condition free architecture)
+- **Task Detection**: Identifies communication tasks from learner speech (greetings, questions, introductions)
+- **Smart Advancement Notifications**: Real-time feedback when ready for next proficiency level
+- **Thresholds**: 70% pronunciation for Novice Low, 5 hours practice, 3 tasks completed
+- **Background Enrichment**: Non-blocking vocabulary extraction and progress updates
+
+### ✅ Voice Mode Enhancements (Nov 28)
+- **WebSocket Architecture**: Voice communication with optimized processing
+- **Complete Pipeline**: Deepgram STT → Gemini → Cartesia TTS
+- **One-Word Rule**: Beginner validation with smart phrase detection
+- **Background Learning**: Vocabulary extraction and ACTFL metrics recorded after each exchange
 
 ### ✅ Cartesia Sonic-3 TTS Integration (Nov 26)
 - **Primary TTS**: Google Cloud Chirp HD → Cartesia Sonic-3 (40-90ms latency)
@@ -327,7 +341,7 @@ project/
 
 ---
 
-**Last Updated**: November 26, 2025  
+**Last Updated**: November 28, 2025  
 **Current AI Stack**: Gemini 2.5 Flash/Pro (text), Deepgram Nova-3 (STT), Cartesia Sonic-3 (Primary TTS), Google Cloud Chirp HD (Fallback TTS), Gemini Flash-Image (images)  
-**Production Status**: Production-ready with offline support, mobile responsiveness, security hardening, and emotionally expressive AI tutors  
+**Production Status**: Production-ready with voice mode, ACTFL advancement tracking, and emotionally expressive AI tutors  
 **Maintainer**: LinguaFlow Development Team

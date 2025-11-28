@@ -283,6 +283,38 @@ console.log('[VOICE LANG GUARD] Detected=...'); // Already in code
 
 ---
 
+## One-Word Rule Enforcement
+
+### Purpose
+Beginners should practice single words or short phrases to build confidence before attempting complex sentences.
+
+### Implementation
+**Location**: `server/phrase-detection.ts`, streaming voice orchestrator
+
+**Logic**:
+1. Count conceptual units in user transcript
+2. Allow recognized phrase units (e.g., "buenos días", "por favor") as single units
+3. If more than one unit detected at beginner level:
+   - Send `StreamingFeedbackMessage` with `feedbackType: 'one_word_rule'`
+   - Include friendly guidance message
+   - Continue processing (non-blocking)
+
+**Smart Phrase Detection**:
+- Maintains per-language phrase lists
+- Recognizes multi-word expressions as single conceptual units
+- Prevents false positives on common greetings/expressions
+
+### Example Flow
+
+```
+User says: "Hola, cómo estás"
+→ Phrase detection: ["hola", "cómo estás"] (2 units)
+→ If beginner: Send one_word_rule feedback
+→ "Try practicing one word at a time! Focus on 'hola' first."
+```
+
+---
+
 ## Migration Notes
 
 **DO NOT REVERT** to the old complex validation system.
@@ -317,6 +349,77 @@ See `DEVELOPMENT_METRICS.md` for detailed performance analysis.
 
 ---
 
-*Last Updated*: November 2025  
+## ACTFL Advancement Tracking
+
+### Overview
+Real-time proficiency assessment using ACTFL World-Readiness Standards, tracking FACT criteria after every voice exchange.
+
+### FACT Criteria Implementation
+
+**Functions** (Communication Tasks):
+- Detected from learner speech patterns
+- Tracked tasks: greeting, asking_question, self_introduction, expressing_preference, thanking
+- Uses regex-based detection on user transcript
+
+**Accuracy** (Pronunciation Quality):
+- Measured via Deepgram STT confidence score (0.0-1.0)
+- Per-session capture prevents race conditions in multi-user environments
+- Rolling average maintained in ActflProgress table
+- 70% threshold required for Novice Low advancement (higher for advanced levels)
+
+**Context** (Topic Diversity):
+- Topics tracked across conversations
+- Linked via conversationTopics junction table
+- Breadth of topics indicates contextual competence
+
+**Text Type** (Speech Complexity):
+- Word count per message tracked
+- Empty/whitespace transcripts skipped (userWordCount === 0)
+- Complexity increases expected at higher levels
+
+### Data Flow (Race-Condition Free)
+
+```
+processAudioMessage() 
+  → transcribeAudio() returns { transcript, confidence }
+  → local pronunciationConfidence captured per-session
+  → persistMessages(..., pronunciationConfidence)
+  → processBackgroundEnrichment(..., pronunciationConfidence)
+  → storage.recordVoiceExchange({ pronunciationConfidence, userWordCount, tasksCompleted })
+  → assessAdvancementReadiness() evaluates FACT criteria
+  → StreamingFeedbackMessage sent if user qualifies for next level
+```
+
+### Advancement Thresholds
+
+From `server/actfl-advancement.ts`:
+
+| Level | Practice Hours | Messages | Pronunciation | Tasks | Topics |
+|-------|---------------|----------|---------------|-------|--------|
+| Novice Low | 5 | 50 | 70% | 3 | 2 |
+| Novice Mid | 10 | 80 | 75% | 6 | 4 |
+| Novice High | 15 | 120 | 78% | 10 | 6 |
+| Intermediate Low | 25 | 150 | 80% | 15 | 8 |
+| Intermediate Mid | 40 | 200 | 82% | 20 | 12 |
+
+### Client Notifications
+
+```typescript
+// StreamingFeedbackMessage for advancement
+{
+  type: 'feedback',
+  feedbackType: 'actfl_advancement',
+  message: "Congratulations! You're ready for Novice Mid level!",
+  data: {
+    currentLevel: 'novice_low',
+    nextLevel: 'novice_mid',
+    criteria: { ... }
+  }
+}
+```
+
+---
+
+*Last Updated*: November 28, 2025  
 *Architecture Owner*: LinguaFlow Development Team  
 *Status*: Production (Architect Approved)*
