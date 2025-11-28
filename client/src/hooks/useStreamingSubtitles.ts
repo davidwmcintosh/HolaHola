@@ -178,6 +178,14 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     const timings = currentTimingsRef.current;
     if (timings.length === 0) return;
     
+    // Audio playback latency offset (in seconds)
+    // Browser reports currentTime before audio actually reaches speakers
+    // This delay ensures words appear when spoken, not before
+    const AUDIO_LATENCY_OFFSET = 0.15; // 150ms delay to sync with actual audio output
+    
+    // Adjust currentTime to account for audio latency
+    const adjustedTime = Math.max(0, currentTime - AUDIO_LATENCY_OFFSET);
+    
     // Store actual duration for rescaling calculations
     // Only store if it's a valid, finite number (duration can be NaN before metadata loads)
     const isValidDuration = actualDuration !== undefined && actualDuration > 0 && Number.isFinite(actualDuration);
@@ -197,7 +205,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       scaleFactor = actual / expected;
       // Only apply rescaling if the difference is significant (> 5%)
       if (Math.abs(scaleFactor - 1) >= 0.05) {
-        console.log(`[StreamingSubtitles] Rescaling: expected=${expected.toFixed(0)}ms, actual=${actual.toFixed(0)}ms, factor=${scaleFactor.toFixed(3)}`);
+        // Only log once per sentence, not every frame
       } else {
         scaleFactor = 1;
       }
@@ -213,13 +221,13 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       const scaledStartTime = timing.startTime * scaleFactor;
       const scaledEndTime = timing.endTime * scaleFactor;
       
-      // Word is visible if we've reached its start time
-      if (currentTime >= scaledStartTime) {
+      // Word is visible if we've reached its start time (using adjusted time)
+      if (adjustedTime >= scaledStartTime) {
         maxVisibleIndex = i;
       }
       
-      // Word is highlighted if we're within its time range
-      if (currentTime >= scaledStartTime && currentTime < scaledEndTime) {
+      // Word is highlighted if we're within its time range (using adjusted time)
+      if (adjustedTime >= scaledStartTime && adjustedTime < scaledEndTime) {
         wordIndex = i;
       }
     }
