@@ -479,6 +479,12 @@ export class StreamingVoiceOrchestrator {
       
       console.log(`[Deepgram Live] Result: "${result.transcript}" (${(result.confidence * 100).toFixed(0)}%, ${result.durationMs}ms)`);
       
+      // If live API returns empty, try prerecorded API as fallback
+      if (!result.transcript) {
+        console.log('[Deepgram] Live API returned empty, trying prerecorded API...');
+        return this.transcribeAudioFallback(audioData, targetLanguage);
+      }
+      
       return {
         transcript: result.transcript,
         confidence: result.confidence,

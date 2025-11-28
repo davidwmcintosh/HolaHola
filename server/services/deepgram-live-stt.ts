@@ -75,16 +75,15 @@ export async function transcribeWithLiveAPI(
       connection.on(LiveTranscriptionEvents.Open, () => {
         console.log(`[Deepgram Live] Connected, sending ${audioBuffer.length} bytes`);
         
-        // Send all audio data
+        // Send all audio data at once
         connection.send(audioBuffer);
         
-        // For pre-recorded audio sent at once, we need to signal end of stream
-        // Wait a bit then close - Deepgram needs time to process
-        // Use 2 second timeout to allow processing of short clips
+        // Wait for Deepgram to process, then close connection
+        // The 2.5 second timeout worked in earlier tests
         closeTimeout = setTimeout(() => {
-          console.log(`[Deepgram Live] Closing after timeout (transcript so far: "${finalTranscript}")`);
+          console.log(`[Deepgram Live] Closing after timeout (transcript: "${finalTranscript}")`);
           connection.requestClose();
-        }, 2000);
+        }, 2500);
       });
       
       connection.on(LiveTranscriptionEvents.Transcript, (data) => {
