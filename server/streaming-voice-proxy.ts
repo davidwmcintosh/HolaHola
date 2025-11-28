@@ -19,6 +19,7 @@ import {
 import {
   ClientStartSessionMessage,
   ClientAudioDataMessage,
+  ClientRequestGreetingMessage,
   StreamingErrorMessage,
 } from '@shared/streaming-voice-types';
 
@@ -247,7 +248,7 @@ export function setupStreamingVoiceProxy(server: Server) {
             }
 
             // Create session
-            session = orchestrator.createSession(
+            session = await orchestrator.createSession(
               ws,
               parseInt(userId!),
               config,
@@ -285,6 +286,28 @@ export function setupStreamingVoiceProxy(server: Server) {
             }
 
             await orchestrator.processUserAudio(session.id, audioBuffer, audioMessage.format || 'webm');
+            break;
+          }
+
+          case 'request_greeting': {
+            // Generate AI-powered personalized greeting
+            if (!isAuthenticated || !session) {
+              sendError(ws, 'UNKNOWN', 'Session not ready for greeting', true);
+              return;
+            }
+            
+            const greetingRequest = message as ClientRequestGreetingMessage;
+            console.log('[Streaming Voice] Generating AI greeting...');
+            
+            try {
+              await orchestrator.processGreetingRequest(
+                session.id, 
+                greetingRequest.userName
+              );
+            } catch (greetingError: any) {
+              console.error('[Streaming Voice] Greeting error:', greetingError.message);
+              sendError(ws, 'AI_FAILED', 'Failed to generate greeting', true);
+            }
             break;
           }
 

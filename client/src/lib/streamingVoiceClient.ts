@@ -267,6 +267,22 @@ export class StreamingVoiceClient {
   }
   
   /**
+   * Request AI-generated personalized greeting
+   * Called when starting a new conversation
+   */
+  requestGreeting(userName?: string): void {
+    if (!this.isReady()) {
+      throw new Error('WebSocket not ready for greeting');
+    }
+    
+    console.log('[StreamingVoiceClient] Requesting AI greeting...');
+    this.ws!.send(JSON.stringify({ 
+      type: 'request_greeting',
+      userName,
+    }));
+  }
+  
+  /**
    * Send interrupt signal (user started speaking)
    */
   interrupt(): void {

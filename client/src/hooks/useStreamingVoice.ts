@@ -59,6 +59,7 @@ export interface UseStreamingVoiceReturn {
   connect: (config: StreamingSessionConfig) => Promise<void>;
   disconnect: () => void;
   sendAudio: (audioData: ArrayBuffer) => Promise<void>;
+  requestGreeting: (userName?: string) => void;
   stop: () => void;
   isSupported: () => boolean;
   isReady: () => boolean;
@@ -355,6 +356,32 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   /**
+   * Request AI-generated personalized greeting
+   * Called when starting a new conversation to get a streaming greeting
+   */
+  const requestGreeting = useCallback((userName?: string) => {
+    if (!clientRef.current || !clientRef.current.isReady()) {
+      console.error('[StreamingVoice] Cannot request greeting - not ready');
+      return;
+    }
+    
+    console.log('[StreamingVoice] Requesting AI greeting...');
+    
+    // Reset state for greeting
+    responseCompleteRef.current = false;
+    pendingAudioCountRef.current = 0;
+    setIsProcessing(true);
+    setError(null);
+    subtitles.reset();
+    
+    // Clear stored audio
+    playerRef.current?.clearStoredAudio();
+    
+    // Request greeting from server
+    clientRef.current.requestGreeting(userName);
+  }, [subtitles]);
+  
+  /**
    * Stop playback and processing
    */
   const stop = useCallback(() => {
@@ -409,6 +436,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     connect,
     disconnect,
     sendAudio,
+    requestGreeting,
     stop,
     isSupported,
     isReady,

@@ -964,22 +964,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         nativeLanguage: conversation.nativeLanguage
       });
       
-      // Generate greeting if it's a new conversation
-      if (isNewConversation) {
-        // Greeting is always in student's native language (beginner-friendly)
-        // For voice mode: spoken with target language voice (English gets Spanish accent)
-        // Subtitles will be empty since there's no target language text in the greeting
-        const greeting = userName 
-          ? `Hello ${userName}! I'm excited to help you learn ${conversation.language}. What would you like to practice today?`
-          : `Hello! I'm your ${conversation.language} language tutor. What would you like to learn today?`;
-        
-        await storage.createMessage({
-          conversationId: conversation.id,
-          role: "assistant",
-          content: greeting,
-          // No target_language_text for greetings (all in student's native language)
-        });
-      }
+      // NOTE: Hardcoded greeting removed - now using dynamic AI-generated greeting via streaming pipeline
+      // The greeting is generated when the client sends a 'request_greeting' message after session starts
+      // See replit.md "Reversion Notes" section for how to restore hardcoded greeting if needed
       
       res.json(conversation);
     } catch (error: any) {

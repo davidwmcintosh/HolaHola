@@ -395,8 +395,81 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
     }
   }, [messages]);
 
-  // Auto-play greeting message in new conversations
+  // Request AI-generated streaming greeting for new conversations
+  // When streaming mode is enabled, we use the streaming pipeline for dynamic greetings
+  // that are ACTFL-aware, personalized, and context-aware
+  const greetingRequestedRef = useRef<string | null>(null);
+  
   useEffect(() => {
+    // Only for streaming mode
+    if (!useStreamingMode) return;
+    
+    // Wait for streaming connection to be ready
+    const { connectionState } = streamingVoice.state;
+    if (connectionState !== 'ready') return;
+    
+    // Need conversation and user data
+    if (!conversationId || !user) return;
+    
+    // Don't request if recording or processing
+    if (isRecording || isProcessing) return;
+    
+    // Check if this is a new conversation (no messages yet, or only AI greeting placeholder)
+    const aiMessages = messages.filter(m => m.role === 'assistant');
+    const userMessages = messages.filter(m => m.role === 'user');
+    
+    // Request greeting if: new conversation (no user messages) OR no messages at all
+    const isNewConversation = userMessages.length === 0 && aiMessages.length <= 1;
+    
+    if (isNewConversation) {
+      // ATOMICALLY try to acquire lock (using conversation ID as the lock key)
+      // This prevents double-greetings on mobile reloads and fast switching
+      const lockKey = `streaming-greeting-${conversationId}`;
+      
+      // Check if we already requested greeting for this conversation
+      if (greetingRequestedRef.current === conversationId) {
+        console.log('[STREAMING GREETING] Already requested for this conversation');
+        return;
+      }
+      
+      // Try to acquire the lock
+      if (!tryAcquireGreetingLock(lockKey)) {
+        console.log('[STREAMING GREETING] Lock not acquired - skipping');
+        return;
+      }
+      
+      // Mark as requested
+      greetingRequestedRef.current = conversationId;
+      hasPlayedGreetingRef.current = lockKey;
+      
+      console.log('[STREAMING GREETING] Requesting AI-generated personalized greeting...');
+      
+      // Request greeting through the streaming pipeline
+      // The server will generate an ACTFL-aware, history-aware greeting
+      // and stream it through the same pipeline as normal responses
+      streamingVoice.requestGreeting(user.firstName);
+      
+      // Clear lock after a delay to allow for the greeting to play
+      setTimeout(() => {
+        clearGreetingLock();
+      }, 5000);
+    }
+  }, [
+    useStreamingMode, 
+    streamingVoice.state.connectionState, 
+    conversationId, 
+    user, 
+    messages, 
+    isRecording, 
+    isProcessing, 
+    streamingVoice
+  ]);
+  
+  // Fallback: REST-based greeting for non-streaming mode only
+  useEffect(() => {
+    // Skip if streaming mode is enabled (streaming handles greeting)
+    if (useStreamingMode) return;
+    
     // Only process if we have messages and conversation ID
     if (!conversationId || !messages || messages.length === 0) return;
     
@@ -531,7 +604,7 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
           clearGreetingLock(); // Clear lock on synthesis failure
         });
     }
-  }, [messages, conversationId, language, isProcessing, isRecording, subtitleMode]);
+  }, [useStreamingMode, messages, conversationId, language, isProcessing, isRecording, subtitleMode]);
 
   // Enter key keyboard shortcut for mic button (hold to talk)
   const recordingStartTimeRef = useRef<number | null>(null);

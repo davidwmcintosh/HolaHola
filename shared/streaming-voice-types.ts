@@ -202,6 +202,7 @@ export type StreamingMessage =
 export type ClientVoiceMessageType = 
   | 'start_session'       // Initialize streaming session
   | 'audio_data'          // User's audio recording
+  | 'request_greeting'    // Request AI-generated personalized greeting
   | 'interrupt'           // User interrupted (started speaking)
   | 'end_session';        // Close session
 
@@ -233,6 +234,15 @@ export interface ClientAudioDataMessage {
  */
 export interface ClientInterruptMessage {
   type: 'interrupt';
+}
+
+/**
+ * Client message to request AI-generated greeting
+ * Used when starting a new conversation - generates personalized, ACTFL-aware greeting
+ */
+export interface ClientRequestGreetingMessage {
+  type: 'request_greeting';
+  userName?: string;  // Student's name for personalization
 }
 
 /**

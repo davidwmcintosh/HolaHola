@@ -1031,6 +1031,233 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
   }
   
   /**
+   * Generate and stream a personalized AI greeting for a new conversation
+   * Uses the full streaming pipeline (Gemini → Cartesia) for real-time delivery
+   */
+  async processGreetingRequest(
+    sessionId: string,
+    userName?: string
+  ): Promise<StreamingMetrics> {
+    const session = this.sessions.get(sessionId);
+    if (!session || !session.isActive) {
+      throw new Error(`Session not found or inactive: ${sessionId}`);
+    }
+    
+    const startTime = Date.now();
+    const metrics: StreamingMetrics = {
+      sessionId,
+      sttLatencyMs: 0,  // No STT for greeting
+      aiFirstTokenMs: 0,
+      ttsFirstByteMs: 0,
+      totalLatencyMs: 0,
+      sentenceCount: 0,
+      audioBytes: 0,
+    };
+    
+    try {
+      console.log(`[Streaming Greeting] Generating personalized greeting for user ${session.userId}`);
+      
+      // Fetch student's ACTFL progress for personalized greeting
+      let actflLevel = 'Novice Low';
+      let recentTopics: string[] = [];
+      let wordsLearned = 0;
+      
+      try {
+        const actflProgress = await storage.getOrCreateActflProgress(
+          String(session.userId),
+          session.targetLanguage
+        );
+        actflLevel = actflProgress?.currentActflLevel || 'Novice Low';
+        
+        // Get user progress for additional context
+        const userProgress = await storage.getOrCreateUserProgress(
+          session.targetLanguage, 
+          String(session.userId)
+        );
+        if (userProgress) {
+          wordsLearned = userProgress.wordsLearned || 0;
+        }
+        
+        // Get recent conversations for topic continuity
+        const recentConversations = await storage.getUserConversations(String(session.userId));
+        if (recentConversations.length > 1) {
+          // Get the previous conversation's title/topic if available
+          const prevConversation = recentConversations[1]; // [0] is current, [1] is previous
+          if (prevConversation.title) {
+            recentTopics.push(prevConversation.title);
+          } else if (prevConversation.topic) {
+            recentTopics.push(prevConversation.topic);
+          }
+        }
+      } catch (error: any) {
+        console.log(`[Streaming Greeting] Could not fetch ACTFL data: ${error.message}`);
+      }
+      
+      // Build greeting prompt with full context
+      const greetingPrompt = this.buildGreetingPrompt(
+        session,
+        userName,
+        actflLevel,
+        wordsLearned,
+        recentTopics
+      );
+      
+      // Notify client that greeting is being generated
+      this.sendMessage(session.ws, {
+        type: 'processing',
+        timestamp: Date.now(),
+        userTranscript: '[Greeting]',  // Special marker for greeting
+      } as StreamingProcessingMessage);
+      
+      // Stream AI greeting with sentence chunking
+      const aiStart = Date.now();
+      let firstTokenReceived = false;
+      let fullText = '';
+      
+      await this.geminiService.streamWithSentenceChunking({
+        systemPrompt: session.systemPrompt,
+        conversationHistory: [],  // Fresh greeting, no history
+        userMessage: greetingPrompt,
+        onSentence: async (chunk: SentenceChunk) => {
+          if (!firstTokenReceived) {
+            metrics.aiFirstTokenMs = Date.now() - aiStart;
+            firstTokenReceived = true;
+            console.log(`[Streaming Greeting] AI first token: ${metrics.aiFirstTokenMs}ms`);
+          }
+          
+          // Clean text for display
+          const displayText = cleanTextForDisplay(chunk.text);
+          if (!displayText) return;
+          
+          // Extract target language with word mapping
+          const extraction = extractTargetLanguageWithMapping(displayText, chunk.text);
+          const wordMappingArray: [number, number][] = extraction.wordMapping.size > 0
+            ? Array.from(extraction.wordMapping.entries())
+            : [];
+          
+          // Notify client of new sentence
+          this.sendMessage(session.ws, {
+            type: 'sentence_start',
+            timestamp: Date.now(),
+            sentenceIndex: chunk.index,
+            text: displayText,
+            targetLanguageText: extraction.targetText || undefined,
+            wordMapping: wordMappingArray.length > 0 ? wordMappingArray : undefined,
+          } as StreamingSentenceStartMessage);
+          
+          // Synthesize and stream audio
+          const ttsStart = Date.now();
+          await this.streamSentenceAudio(session, chunk, displayText, metrics);
+          
+          if (chunk.index === 0) {
+            metrics.ttsFirstByteMs = Date.now() - ttsStart;
+          }
+          
+          fullText += displayText + ' ';
+          metrics.sentenceCount++;
+        },
+        onProgress: () => {},
+        onError: (error) => {
+          console.error(`[Streaming Greeting] AI error:`, error.message);
+          this.sendError(session.ws, 'AI_FAILED', error.message, true);
+        },
+      });
+      
+      // Update conversation history
+      session.conversationHistory.push({ role: 'model', content: fullText.trim() });
+      
+      // Store response in metrics
+      metrics.aiResponse = fullText.trim();
+      
+      // Send completion message
+      metrics.totalLatencyMs = Date.now() - startTime;
+      
+      this.sendMessage(session.ws, {
+        type: 'response_complete',
+        timestamp: Date.now(),
+        totalSentences: metrics.sentenceCount,
+        totalDurationMs: metrics.totalLatencyMs,
+        fullText: fullText.trim(),
+      } as StreamingResponseCompleteMessage);
+      
+      console.log(`[Streaming Greeting] Complete: ${metrics.sentenceCount} sentences in ${metrics.totalLatencyMs}ms`);
+      
+      // Persist greeting message to database
+      this.persistGreetingMessage(session.conversationId, fullText.trim()).catch((err: Error) => {
+        console.error('[Streaming Greeting] Failed to persist greeting:', err.message);
+      });
+      
+      return metrics;
+      
+    } catch (error: any) {
+      console.error(`[Streaming Greeting] Error:`, error.message);
+      this.sendError(session.ws, 'UNKNOWN', error.message, true);
+      throw error;
+    }
+  }
+  
+  /**
+   * Build a personalized greeting prompt based on student context
+   */
+  private buildGreetingPrompt(
+    session: StreamingSession,
+    userName: string | undefined,
+    actflLevel: string,
+    wordsLearned: number,
+    recentTopics: string[]
+  ): string {
+    const name = userName ? `The student's name is ${userName}.` : '';
+    const topicContext = recentTopics.length > 0 
+      ? `Recently, the student practiced: ${recentTopics.join(', ')}.`
+      : '';
+    const progressContext = wordsLearned > 0 
+      ? `The student has learned ${wordsLearned} vocabulary words so far.`
+      : '';
+    
+    return `Generate a brief, warm greeting for a ${session.targetLanguage} language learning session.
+
+Context:
+- Student's ACTFL level: ${actflLevel}
+- Native language: ${session.nativeLanguage}
+- Difficulty: ${session.difficultyLevel}
+${name}
+${topicContext}
+${progressContext}
+
+Requirements:
+1. Keep it short (1-2 sentences)
+2. Be warm and encouraging
+3. Reference their level or progress if appropriate
+4. Ask what they'd like to practice today
+5. The greeting should be in ${session.nativeLanguage} (student's native language)
+6. You may include a simple ${session.targetLanguage} word or phrase with its meaning if appropriate for their level
+
+Generate the greeting now (speak as the tutor directly):`;
+  }
+  
+  /**
+   * Persist greeting message to database (separate from regular message persistence)
+   */
+  private async persistGreetingMessage(conversationId: string, content: string): Promise<void> {
+    try {
+      const targetLanguageText = extractTargetLanguageText(content);
+      const hasTargetLanguage = hasSignificantTargetLanguageContent(targetLanguageText);
+      
+      await storage.createMessage({
+        conversationId,
+        role: 'assistant',
+        content,
+        ...(hasTargetLanguage ? { targetLanguageText } : {}),
+      });
+      
+      console.log(`[Streaming Greeting] Message persisted to conversation: ${conversationId}`);
+    } catch (error: any) {
+      console.error('[Streaming Greeting] Database error:', error.message);
+      throw error;
+    }
+  }
+  
+  /**
    * Handle client interrupt (user started speaking while AI is responding)
    */
   handleInterrupt(sessionId: string): void {
