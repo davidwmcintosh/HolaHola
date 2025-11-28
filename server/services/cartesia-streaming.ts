@@ -271,10 +271,12 @@ export class CartesiaStreamingService extends EventEmitter {
     let chunkCount = 0;
     
     try {
-      // Use WebSocket if connected, otherwise fall back to bytes API with streaming
+      // Use WebSocket if connected for lower latency, otherwise fall back to bytes API
       if (this.connected && this.websocket) {
-        // WebSocket streaming
-        const result = await this.websocket.send({
+        // WebSocket streaming using events API
+        console.log('[Cartesia Streaming] Using WebSocket streaming');
+        
+        const response = await this.websocket.send({
           modelId: this.model,
           transcript: cleanedText,
           voice: {
@@ -293,32 +295,33 @@ export class CartesiaStreamingService extends EventEmitter {
           },
         });
         
-        // Note: We intentionally DON'T use Cartesia's word timestamps here
-        // because they're for the phoneme-processed text (e.g., "<<o|l|a>>")
-        // not the original display text (e.g., "Hola")
-        // The orchestrator will use its own estimation with the original display text
-        result.on('timestamps', (timestamps: any) => {
-          // Log but don't emit - let orchestrator use original text for timing
-          console.log(`[Cartesia Streaming] Received ${timestamps?.words?.length || 0} word timestamps (not using - phoneme mismatch)`);
-        });
-        
-        // Stream audio chunks from the source
-        const source = result.source;
-        for await (const chunk of source) {
-          if (!firstChunkTime) {
-            firstChunkTime = Date.now();
-            console.log(`[Cartesia Streaming] TTFB: ${firstChunkTime - startTime}ms`);
+        // Use the events() API to iterate over messages
+        for await (const message of response.events('message')) {
+          if (message.type === 'chunk' && message.data) {
+            if (!firstChunkTime) {
+              firstChunkTime = Date.now();
+              console.log(`[Cartesia Streaming] TTFB: ${firstChunkTime - startTime}ms`);
+            }
+            
+            const buffer = Buffer.from(message.data);
+            totalBytes += buffer.length;
+            chunkCount++;
+            
+            yield {
+              audio: buffer,
+              durationMs: this.estimateDuration(buffer.length),
+              isLast: false,
+            };
+          } else if (message.type === 'timestamps') {
+            // Log but don't emit - let orchestrator use original text for timing
+            console.log(`[Cartesia Streaming] Received word timestamps`);
+          } else if (message.type === 'done') {
+            console.log(`[Cartesia Streaming] Stream complete`);
+            break;
+          } else if (message.type === 'error') {
+            console.error(`[Cartesia Streaming] Stream error:`, message);
+            throw new Error(message.message || 'WebSocket stream error');
           }
-          
-          const buffer = Buffer.from(chunk);
-          totalBytes += buffer.length;
-          chunkCount++;
-          
-          yield {
-            audio: buffer,
-            durationMs: this.estimateDuration(buffer.length),
-            isLast: false,
-          };
         }
         
         // Signal completion
