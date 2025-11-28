@@ -70,6 +70,10 @@ processAudioMessage()
 
 **Pedagogical Subtitle Timing**: A `180ms` anticipatory offset (`PEDAGOGICAL_TIMING_OFFSET`) for word appearance is implemented to optimize language learning by priming the brain for incoming audio.
 
+**Session Idle Timeout Protection**: Protects tutor resources by automatically cleaning up inactive sessions. After any tutor response (greeting or regular response), a 2-minute idle timeout starts. If the student doesn't respond within this time, the session is gracefully closed with a `TIMEOUT` error and resources are freed. The timeout resets whenever the student sends audio. This prevents resource leaks and protects against abandoned sessions.
+
+**Dynamic Streaming Greeting System**: New conversations trigger an AI-generated personalized greeting through the streaming voice pipeline. The greeting is ACTFL-aware (references student's current level), history-aware (can reference previous topics), and context-aware (knows word count, recent progress). Client sends `request_greeting` message when streaming session becomes ready; server's `processGreetingRequest()` generates and streams the greeting through the full Gemini → Cartesia pipeline with karaoke subtitles.
+
 ## External Dependencies
 
 ### Third-Party Services

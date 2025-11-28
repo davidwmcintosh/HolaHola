@@ -88,6 +88,12 @@ function cleanTextForDisplay(text: string): string {
 }
 
 /**
+ * Idle timeout configuration - protects tutor resources
+ * When student doesn't respond within timeout, session resources are cleaned up
+ */
+const SESSION_IDLE_TIMEOUT_MS = 120000; // 2 minutes of inactivity before cleanup
+
+/**
  * Session state for a streaming voice connection
  */
 export interface StreamingSession {
@@ -106,6 +112,8 @@ export interface StreamingSession {
   ws: WS;
   startTime: number;
   isActive: boolean;
+  idleTimeoutId?: NodeJS.Timeout;  // Timer for idle cleanup
+  lastActivityTime: number;         // Timestamp of last student activity
 }
 
 /**
@@ -244,6 +252,7 @@ export class StreamingVoiceOrchestrator {
       ws,
       startTime: Date.now(),
       isActive: true,
+      lastActivityTime: Date.now(),
     };
     
     this.sessions.set(sessionId, session);
@@ -281,6 +290,9 @@ export class StreamingVoiceOrchestrator {
     if (!session || !session.isActive) {
       throw new Error(`Session not found or inactive: ${sessionId}`);
     }
+    
+    // Student activity detected - reset idle timeout
+    this.resetIdleTimeout(session);
     
     const startTime = Date.now();
     const metrics: StreamingMetrics = {
@@ -474,6 +486,9 @@ export class StreamingVoiceOrchestrator {
       
       console.log(`[Streaming Orchestrator] Complete: ${metrics.sentenceCount} sentences in ${metrics.totalLatencyMs}ms`);
       console.log(`[Streaming Orchestrator] Latencies: STT=${metrics.sttLatencyMs}ms, AI=${metrics.aiFirstTokenMs}ms, TTS=${metrics.ttsFirstByteMs}ms`);
+      
+      // Start idle timeout - tutor waiting for student response
+      this.startIdleTimeout(session);
       
       // Persist messages to database (non-blocking)
       // Also triggers background vocabulary extraction, progress updates, and ACTFL tracking
@@ -1182,6 +1197,9 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       
       console.log(`[Streaming Greeting] Complete: ${metrics.sentenceCount} sentences in ${metrics.totalLatencyMs}ms`);
       
+      // Start idle timeout - tutor waiting for student's first response
+      this.startIdleTimeout(session);
+      
       // Persist greeting message to database
       this.persistGreetingMessage(session.conversationId, fullText.trim()).catch((err: Error) => {
         console.error('[Streaming Greeting] Failed to persist greeting:', err.message);
@@ -1274,9 +1292,62 @@ Generate the greeting now (speak as the tutor directly):`;
   endSession(sessionId: string): void {
     const session = this.sessions.get(sessionId);
     if (session) {
+      // Clear any pending idle timeout
+      if (session.idleTimeoutId) {
+        clearTimeout(session.idleTimeoutId);
+        session.idleTimeoutId = undefined;
+      }
       session.isActive = false;
       this.sessions.delete(sessionId);
       console.log(`[Streaming Orchestrator] Session ended: ${sessionId}`);
+    }
+  }
+  
+  /**
+   * Start or reset the idle timeout for a session
+   * Called after tutor finishes responding - gives student time to respond
+   * Protects tutor resources by cleaning up inactive sessions
+   */
+  private startIdleTimeout(session: StreamingSession): void {
+    // Clear any existing timeout
+    if (session.idleTimeoutId) {
+      clearTimeout(session.idleTimeoutId);
+    }
+    
+    // Start new timeout
+    session.idleTimeoutId = setTimeout(() => {
+      if (session.isActive) {
+        const idleTime = Date.now() - session.lastActivityTime;
+        console.log(`[Streaming Orchestrator] Session ${session.id} idle timeout after ${Math.round(idleTime / 1000)}s of inactivity`);
+        
+        // Notify client that session is closing due to inactivity
+        this.sendMessage(session.ws, {
+          type: 'error',
+          timestamp: Date.now(),
+          code: 'TIMEOUT',
+          message: 'Session closed due to inactivity. Start a new practice session when ready.',
+          recoverable: false,
+        } as StreamingErrorMessage);
+        
+        // Clean up the session
+        this.endSession(session.id);
+      }
+    }, SESSION_IDLE_TIMEOUT_MS);
+    
+    console.log(`[Streaming Orchestrator] Idle timeout started for session ${session.id} (${SESSION_IDLE_TIMEOUT_MS / 1000}s)`);
+  }
+  
+  /**
+   * Reset the idle timeout when student activity is detected
+   * Called when student sends audio
+   */
+  private resetIdleTimeout(session: StreamingSession): void {
+    session.lastActivityTime = Date.now();
+    
+    // Clear the timeout - it will restart after tutor responds
+    if (session.idleTimeoutId) {
+      clearTimeout(session.idleTimeoutId);
+      session.idleTimeoutId = undefined;
     }
   }
   

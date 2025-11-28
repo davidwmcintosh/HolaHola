@@ -79,6 +79,7 @@ type StreamingEventType =
   | 'wordTiming'
   | 'sentenceEnd'
   | 'responseComplete'
+  | 'feedback'
   | 'error';
 
 /**
@@ -363,6 +364,14 @@ export class StreamingVoiceClient {
           
         case 'error':
           this.handleError(message as StreamingErrorMessage);
+          break;
+          
+        case 'feedback':
+          // Pedagogical feedback (one-word rule, pronunciation tips, etc.)
+          // Non-blocking - just log for now, could display UI notifications
+          const feedbackMsg = message as { type: string; feedbackType: string; message: string };
+          console.log(`[StreamingVoiceClient] Feedback (${feedbackMsg.feedbackType}):`, feedbackMsg.message);
+          this.emit('feedback', feedbackMsg);
           break;
           
         default:
