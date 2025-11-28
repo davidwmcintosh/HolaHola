@@ -69,8 +69,8 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   const expectedDurationRef = useRef<number | undefined>(undefined);
   const actualDurationRef = useRef<number | undefined>(undefined);
   
-  // Store timings by sentence index for immediate access (React state batching workaround)
-  // This allows startPlayback to access timings synchronously without waiting for React render
+  // Store timings by sentence index for immediate synchronous access during streaming
+  // Word timings arrive before audio playback starts - this cache ensures they're available instantly
   const timingsBySentenceRef = useRef<Map<number, { timings: WordTiming[]; expectedDurationMs?: number }>>(new Map());
   
   /**
@@ -102,7 +102,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   const setWordTimings = useCallback((sentenceIndex: number, timings: WordTiming[], expectedDurationMs?: number) => {
     console.log(`[StreamingSubtitles] Set timings for sentence ${sentenceIndex}: ${timings.length} words, expected ${expectedDurationMs}ms`);
     
-    // Store in ref map for immediate access (React state batching workaround)
+    // Store in ref map for immediate synchronous access during streaming playback
     timingsBySentenceRef.current.set(sentenceIndex, { timings, expectedDurationMs });
     
     // Also update React state for sentence data
@@ -139,7 +139,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     playbackStartTimeRef.current = Date.now();
     actualDurationRef.current = undefined; // Reset actual duration
     
-    // Get timings from ref map (immediate access, not affected by React batching)
+    // Get timings from ref map (immediate synchronous access for streaming playback)
     const storedTimings = timingsBySentenceRef.current.get(sentenceIndex);
     if (storedTimings) {
       currentTimingsRef.current = storedTimings.timings;

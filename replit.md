@@ -74,7 +74,7 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - Client captures actual audio duration when valid (guards against NaN from early timeupdate events)
 - Rescaling applied when actual duration differs from expected by >5%
 - Supports 3 subtitle modes: Off, Target (foreign language only), All (full text)
-- **React State Batching Fix**: Word timings are stored in a ref map (`timingsBySentenceRef`) for immediate synchronous access when audio playback starts, bypassing React's state batching which could delay timing availability
+- **Streaming Timing Cache**: Word timings are stored in a ref map (`timingsBySentenceRef`) for immediate synchronous access when audio playback starts, ensuring timings are available instantly during streaming
 
 **Avatar State Synchronization**:
 - Dual-condition tracking: `pendingAudioCount` (incremented on enqueue, decremented on playback) + `responseCompleteRef`
