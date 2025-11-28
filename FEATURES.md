@@ -17,6 +17,16 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 - Slow repeat button for difficult phrases - AI simplifies and speaks slower
 - Replay button to hear the last response again
 
+**Research-Backed Karaoke Subtitles**
+- Word-by-word highlighting synchronized with spoken audio
+- Pedagogically optimized timing: words appear ~100-150ms BEFORE they're spoken
+- Based on cognitive science research showing anticipatory display:
+  - Primes the brain for incoming audio
+  - Strengthens written-to-spoken word association
+  - Improves word recognition and long-term memory retention
+- "Target Language Only" mode shows only foreign words, filtering out English
+- Smart phrase detection keeps multi-word expressions together (e.g., "Buenos días")
+
 ### Emotionally Expressive AI Tutor
 **3-Layer Emotion Control System**
 - **Personality Presets**: Choose your tutor's base personality
@@ -165,6 +175,12 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 - Deepgram pre-warming eliminates cold start delays
 - Dual TTS provider architecture with automatic failover
 
+### Science-Backed Learning
+- Pedagogically calibrated subtitle timing based on cognitive research
+- ~100-150ms anticipatory word display optimizes brain priming
+- Frame-accurate synchronization using high-precision timing (performance.now + requestAnimationFrame)
+- Karaoke highlighting strengthens audio-visual word association for faster memorization
+
 ### Works Everywhere
 - Progressive Web App (PWA) - install on any device
 - Offline indicator with automatic reconnection
@@ -227,6 +243,7 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 ### vs. Other AI Apps
 - **Premium voice quality** - ultra-low latency Cartesia Sonic-3 with emotion control
 - **Expressive AI tutors** - configurable personality and emotional range
+- **Research-backed learning** - pedagogically optimized karaoke timing for better retention
 - **Educational standards** - ACTFL alignment for institutions
 - **Complete platform** - vocabulary, flashcards, organization built-in
 - **Institutional ready** - full teacher tools and class management
@@ -260,4 +277,4 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 
 *LinguaFlow - Where AI Meets Language Learning*
 
-*Last Updated: November 26, 2025*
+*Last Updated: November 28, 2025*
