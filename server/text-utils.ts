@@ -324,9 +324,36 @@ export function extractTargetLanguageWithMapping(
   if (!displayText) return result;
   
   // Get the target language text using existing extraction
-  const targetText = rawText 
+  let targetText = rawText 
     ? extractTargetLanguageText(rawText) 
     : extractTargetLanguageText(displayText);
+  
+  if (!targetText) return result;
+  
+  // Clean any residual markers from target text
+  // This catches edge cases where ** markers or quotes weren't fully stripped
+  targetText = targetText
+    .replace(/\*\*/g, '')           // Remove any remaining bold markers
+    .replace(/^["'""'']+|["'""'']+$/g, '')  // Remove leading/trailing quotes
+    .replace(/["'""'']\s*$/g, '')   // Remove trailing quote followed by space
+    .replace(/^\s*["'""'']/g, '')   // Remove leading quote
+    .trim();
+  
+  // Filter out common English words that may have leaked through
+  const ENGLISH_FILTER = new Set([
+    'respond', 'with', 'that', 'was', 'great', 'you', 'got', 'the', 'and',
+    'or', 'a', 'an', 'to', 'for', 'is', 'it', 'in', 'on', 'of', 'can', 'try',
+    'saying', 'say', 'lets', 'now', 'your', 'i', 'we', 'they', 'this', 'how'
+  ]);
+  
+  const targetWords = targetText.split(/\s+/).filter(w => w.length > 0);
+  const filteredWords = targetWords.filter(word => {
+    const normalized = word.toLowerCase().replace(/[^a-z]/gi, '');
+    // Keep if it has non-ASCII chars (foreign accents) or isn't in English filter
+    return /[^a-zA-Z]/.test(word) || !ENGLISH_FILTER.has(normalized);
+  });
+  
+  targetText = filteredWords.join(' ').trim();
   
   if (!targetText) return result;
   
@@ -334,9 +361,9 @@ export function extractTargetLanguageWithMapping(
   
   // Split both texts into words for mapping
   const displayWords = displayText.split(/\s+/).filter(w => w.length > 0);
-  const targetWords = targetText.split(/\s+/).filter(w => w.length > 0);
+  const targetWordsForMapping = targetText.split(/\s+/).filter(w => w.length > 0);
   
-  if (displayWords.length === 0 || targetWords.length === 0) {
+  if (displayWords.length === 0 || targetWordsForMapping.length === 0) {
     return result;
   }
   
@@ -344,9 +371,9 @@ export function extractTargetLanguageWithMapping(
   // Use a greedy matching approach that handles repeated words
   let targetWordIndex = 0;
   
-  for (let displayIndex = 0; displayIndex < displayWords.length && targetWordIndex < targetWords.length; displayIndex++) {
+  for (let displayIndex = 0; displayIndex < displayWords.length && targetWordIndex < targetWordsForMapping.length; displayIndex++) {
     const displayWord = normalizeWordForComparison(displayWords[displayIndex]);
-    const targetWord = normalizeWordForComparison(targetWords[targetWordIndex]);
+    const targetWord = normalizeWordForComparison(targetWordsForMapping[targetWordIndex]);
     
     if (displayWord === targetWord) {
       result.wordMapping.set(displayIndex, targetWordIndex);
@@ -359,7 +386,7 @@ export function extractTargetLanguageWithMapping(
     const mappingStr = Array.from(result.wordMapping.entries())
       .map(([full, target]) => `${full}=>${target}`)
       .join(', ');
-    console.log(`[TargetExtraction] Mapping: ${mappingStr} (${displayWords.length} display -> ${targetWords.length} target)`);
+    console.log(`[TargetExtraction] Mapping: ${mappingStr} (${displayWords.length} display -> ${targetWordsForMapping.length} target)`);
   }
   
   return result;
