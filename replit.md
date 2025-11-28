@@ -3,6 +3,8 @@
 ## Overview
 LinguaFlow is an AI-powered language learning application designed for interactive conversation practice, vocabulary building, and grammar exercises across nine languages. It leverages AI for personalized chat, flashcards, and grammar modules, adapting to individual user progress. The project aims to provide a comprehensive, adaptive, and engaging learning experience, supporting multiple languages and difficulty levels with explanations in any native language. The business vision focuses on utilizing AI advancements to offer personalized education and expand into institutional markets.
 
+**Pedagogical Philosophy: "Steer but also Adhere"** - The tutor guides students by discovering their interests (making learning engaging and personalized) while adhering to ACTFL standards. Strict curriculum for syllabus-driven classes, looser conversation progression for open-path learners. The AI should NEVER be stubborn about asking motivation questions - if a student shows ANY readiness to learn, pivot immediately to teaching!
+
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 

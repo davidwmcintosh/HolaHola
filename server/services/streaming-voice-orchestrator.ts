@@ -1232,6 +1232,9 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       ? `The student has learned ${wordsLearned} vocabulary words so far.`
       : '';
     
+    // Determine if student has prior context (returning student vs brand new)
+    const isReturningStudent = wordsLearned > 0 || recentTopics.length > 0;
+    
     return `Generate a brief, warm greeting for a ${session.targetLanguage} language learning session.
 
 Context:
@@ -1243,12 +1246,23 @@ ${topicContext}
 ${progressContext}
 
 Requirements:
-1. Keep it short (1-2 sentences)
+1. Keep it short (2-3 sentences)
 2. Be warm and encouraging
-3. Reference their level or progress if appropriate
-4. Ask what they'd like to practice today
-5. The greeting should be in ${session.nativeLanguage} (student's native language)
-6. You may include a simple ${session.targetLanguage} word or phrase with its meaning if appropriate for their level
+3. The greeting should be primarily in ${session.nativeLanguage} (student's native language)
+${isReturningStudent ? `
+RETURNING STUDENT - Pick up where you left off:
+- Reference their recent progress or topics naturally
+- Suggest continuing with a related topic OR offer a fresh start
+- Include a simple ${session.targetLanguage} teaching word to get started
+- Example: "Welcome back! Last time we worked on greetings. Ready to learn **Gracias** (thank you) today?"
+` : `
+NEW STUDENT - Discover their interests through teaching:
+- Start with a warm hello and a simple first word (like **Hola** for Spanish beginners)
+- THEN ask what brings them here or what interests them
+- This helps personalize their learning path
+- Example: "Hi! Let's start with **Hola** (hello) - try saying it! What made you want to learn ${session.targetLanguage}?"
+`}
+CRITICAL: If they respond in ${session.targetLanguage} or show readiness, SKIP questions and teach immediately!
 
 Generate the greeting now (speak as the tutor directly):`;
   }

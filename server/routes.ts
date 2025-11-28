@@ -1354,7 +1354,12 @@ Return a JSON array of suggestions with this format:
             // Generate the completion message in the user's native language
             const nativeLanguagePrompt = `You are a language tutor. The student's name is ${userName}, they want to learn ${targetLanguage}, and their native language is ${nativeLanguage}. 
             
-            Write a brief, friendly message IN ${nativeLanguage} asking them what motivated them to learn ${targetLanguage}. Keep it conversational and encouraging. Use ONLY ${nativeLanguage} for your response.`;
+            Write a brief, friendly message IN ${nativeLanguage} that:
+            1. Welcomes them warmly
+            2. Introduces one simple ${targetLanguage} word (like "Hola" for Spanish) with its meaning
+            3. Optionally asks what topics interest them (travel, food, music, etc.) to personalize learning
+            
+            Keep it conversational and encouraging. Use ONLY ${nativeLanguage} for explanations.`;
             
             console.log('[ONBOARDING-COMPLETION PROMPT]', nativeLanguagePrompt);
             
@@ -1369,7 +1374,7 @@ Return a JSON array of suggestions with this format:
               console.log('[ONBOARDING-COMPLETION SUCCESS] Generated:', aiResponse.substring(0, 100));
             } catch (error) {
               console.error('[ONBOARDING-COMPLETION ERROR]', error);
-              aiResponse = `Perfect, ${userName}! What made you interested in learning ${targetLanguage}?`;
+              aiResponse = `Perfect, ${userName}! Let's start with a simple word. What topics interest you - travel, food, music, or something else?`;
               console.log('[ONBOARDING-COMPLETION FALLBACK] Using English fallback');
             }
           } else {
