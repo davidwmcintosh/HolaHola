@@ -366,13 +366,15 @@ export class StreamingAudioPlayer {
   
   /**
    * Stop the precision timing loop
+   * NOTE: Does NOT reset playbackStartTime - that's set in onplaying handler
    */
   private stopPrecisionTiming(): void {
     if (this.rafId !== null) {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
     }
-    this.playbackStartTime = null;
+    // Don't reset playbackStartTime here - it's set in onplaying handler
+    // and cleared in playNext() when preparing for next chunk
   }
   
   /**
