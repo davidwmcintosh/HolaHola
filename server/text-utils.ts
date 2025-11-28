@@ -170,6 +170,92 @@ export function extractTargetLanguageText(text: string): string {
 }
 
 /**
+ * Result from target language extraction with word mapping for karaoke highlighting
+ */
+export interface TargetLanguageExtractionResult {
+  targetText: string;                    // The extracted target language text
+  wordMapping: Map<number, number>;      // Maps fullTextWordIndex -> targetTextWordIndex
+}
+
+/**
+ * Extracts target language text from display text with word position mapping
+ * This enables karaoke highlighting in Target subtitle mode by knowing which
+ * word indices from the full text correspond to words in the target text
+ * 
+ * Example:
+ *   displayText: "Let's learn the word Hola which means hello"
+ *   Returns: {
+ *     targetText: "Hola",
+ *     wordMapping: Map { 4 => 0 }  // "Hola" is word 4 in full, word 0 in target
+ *   }
+ * 
+ * @param displayText - The cleaned display text (no markdown, no emotion tags)
+ * @param rawText - The raw text with **bold** markers (optional, for primary extraction)
+ * @returns Target text and word index mapping
+ */
+export function extractTargetLanguageWithMapping(
+  displayText: string,
+  rawText?: string
+): TargetLanguageExtractionResult {
+  const result: TargetLanguageExtractionResult = {
+    targetText: '',
+    wordMapping: new Map<number, number>(),
+  };
+  
+  if (!displayText) return result;
+  
+  // Get the target language text using existing extraction
+  const targetText = rawText 
+    ? extractTargetLanguageText(rawText) 
+    : extractTargetLanguageText(displayText);
+  
+  if (!targetText) return result;
+  
+  result.targetText = targetText;
+  
+  // Split both texts into words for mapping
+  const displayWords = displayText.split(/\s+/).filter(w => w.length > 0);
+  const targetWords = targetText.split(/\s+/).filter(w => w.length > 0);
+  
+  if (displayWords.length === 0 || targetWords.length === 0) {
+    return result;
+  }
+  
+  // Build word mapping: for each target word, find its position in display text
+  // Use a greedy matching approach that handles repeated words
+  let targetWordIndex = 0;
+  
+  for (let displayIndex = 0; displayIndex < displayWords.length && targetWordIndex < targetWords.length; displayIndex++) {
+    const displayWord = normalizeWordForComparison(displayWords[displayIndex]);
+    const targetWord = normalizeWordForComparison(targetWords[targetWordIndex]);
+    
+    if (displayWord === targetWord) {
+      result.wordMapping.set(displayIndex, targetWordIndex);
+      targetWordIndex++;
+    }
+  }
+  
+  // Log mapping for debugging
+  if (result.wordMapping.size > 0) {
+    const mappingStr = Array.from(result.wordMapping.entries())
+      .map(([full, target]) => `${full}=>${target}`)
+      .join(', ');
+    console.log(`[TargetExtraction] Mapping: ${mappingStr} (${displayWords.length} display -> ${targetWords.length} target)`);
+  }
+  
+  return result;
+}
+
+/**
+ * Normalize a word for comparison (lowercase, remove punctuation at edges)
+ */
+function normalizeWordForComparison(word: string): string {
+  return word
+    .toLowerCase()
+    .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ''); // Remove leading/trailing non-letter/number
+}
+
+/**
  * Determines if text contains significant target language content
  * Used to decide if target_language_text should be stored
  * 

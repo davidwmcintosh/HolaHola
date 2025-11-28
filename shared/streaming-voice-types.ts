@@ -82,6 +82,7 @@ export interface StreamingSentenceStartMessage extends StreamingVoiceMessage {
   sentenceIndex: number;
   text: string;           // The sentence text (for display)
   targetLanguageText?: string;  // Target language only (parenthetical translations removed)
+  wordMapping?: [number, number][];  // Maps fullTextWordIndex -> targetTextWordIndex for karaoke in Target mode
 }
 
 /**

@@ -29,6 +29,7 @@ interface VoiceChatViewManagerProps {
   streamingText?: string;
   streamingTargetText?: string;
   streamingWordIndex?: number;
+  streamingTargetWordIndex?: number;  // Word index in target-only text for Target mode karaoke
 }
 
 export function VoiceChatViewManager({
@@ -52,6 +53,7 @@ export function VoiceChatViewManager({
   streamingText,
   streamingTargetText,
   streamingWordIndex,
+  streamingTargetWordIndex,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -182,6 +184,7 @@ export function VoiceChatViewManager({
                 streamingText={streamingText}
                 streamingTargetText={streamingTargetText}
                 streamingWordIndex={streamingWordIndex}
+                streamingTargetWordIndex={streamingTargetWordIndex}
               />
             </div>
           ) : (

@@ -173,8 +173,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * Handle sentence start message
    */
   const handleSentenceStart = useCallback((msg: StreamingSentenceStartMessage) => {
-    console.log(`[StreamingVoice] Sentence ${msg.sentenceIndex}: "${msg.text.substring(0, 50)}..." (target: ${msg.targetLanguageText?.substring(0, 30) || 'none'})`);
-    subtitles.addSentence(msg.sentenceIndex, msg.text, msg.targetLanguageText);
+    console.log(`[StreamingVoice] Sentence ${msg.sentenceIndex}: "${msg.text.substring(0, 50)}..." (target: ${msg.targetLanguageText?.substring(0, 30) || 'none'}, mapping: ${msg.wordMapping?.length || 0} entries)`);
+    subtitles.addSentence(msg.sentenceIndex, msg.text, msg.targetLanguageText, msg.wordMapping);
   }, [subtitles]);
   
   /**

@@ -15,6 +15,7 @@ export interface SubtitleSentence {
   index: number;
   text: string;
   targetLanguageText?: string;  // Target language only (for subtitle filtering)
+  wordMapping?: Map<number, number>;  // Maps fullTextWordIndex -> targetTextWordIndex
   wordTimings: WordTiming[];
   expectedDurationMs?: number;  // Expected duration from server (for rescaling)
   actualDurationMs?: number;    // Actual audio duration (for rescaling)
@@ -28,6 +29,7 @@ export interface StreamingSubtitleState {
   sentences: SubtitleSentence[];
   currentSentenceIndex: number;
   currentWordIndex: number;
+  currentTargetWordIndex: number;  // Word index in target-only text (for Target mode karaoke)
   visibleWordCount: number;
   isPlaying: boolean;
   fullText: string;
@@ -41,7 +43,7 @@ export interface StreamingSubtitleState {
  */
 export interface UseStreamingSubtitlesReturn {
   state: StreamingSubtitleState;
-  addSentence: (index: number, text: string, targetLanguageText?: string) => void;
+  addSentence: (index: number, text: string, targetLanguageText?: string, wordMapping?: [number, number][]) => void;
   setWordTimings: (sentenceIndex: number, timings: WordTiming[], expectedDurationMs?: number) => void;
   startPlayback: (sentenceIndex: number) => void;
   updatePlaybackTime: (currentTime: number, actualDuration?: number) => void;
@@ -63,6 +65,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   
   // Ref for current timings (avoids closure issues in animation frame)
   const currentTimingsRef = useRef<WordTiming[]>([]);
+  const currentWordMappingRef = useRef<Map<number, number> | undefined>(undefined);
   const animationFrameRef = useRef<number | null>(null);
   const playbackStartTimeRef = useRef<number>(0);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
@@ -76,8 +79,13 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   /**
    * Add a new sentence (called when server sends sentence_start)
    */
-  const addSentence = useCallback((index: number, text: string, targetLanguageText?: string) => {
-    console.log(`[StreamingSubtitles] Add sentence ${index}: "${text.substring(0, 50)}..." (target: ${targetLanguageText?.substring(0, 30) || 'none'})`);
+  const addSentence = useCallback((index: number, text: string, targetLanguageText?: string, wordMappingArray?: [number, number][]) => {
+    // Convert array of tuples to Map for efficient lookup
+    const wordMapping = wordMappingArray && wordMappingArray.length > 0
+      ? new Map<number, number>(wordMappingArray)
+      : undefined;
+    
+    console.log(`[StreamingSubtitles] Add sentence ${index}: "${text.substring(0, 50)}..." (target: ${targetLanguageText?.substring(0, 30) || 'none'}, mapping: ${wordMapping?.size || 0} entries)`);
     
     setSentences(prev => {
       // Check if sentence already exists
@@ -90,6 +98,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
         index,
         text,
         targetLanguageText,
+        wordMapping,
         wordTimings: [],
         isComplete: false,
       }];
@@ -151,6 +160,14 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       currentTimingsRef.current = [];
       expectedDurationRef.current = undefined;
     }
+    
+    // Load word mapping for Target mode karaoke highlighting
+    // This is stored in the sentence data from addSentence
+    setSentences(prev => {
+      const sentence = prev.find(s => s.index === sentenceIndex);
+      currentWordMappingRef.current = sentence?.wordMapping;
+      return prev; // No actual state change, just loading the ref
+    });
   }, []);
   
   /**
@@ -297,6 +314,18 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   const currentSentenceText = currentSentence?.text || '';
   const currentSentenceTargetText = currentSentence?.targetLanguageText || '';
   
+  // Compute current target word index from current word index using word mapping
+  // This enables karaoke highlighting in Target mode
+  const currentTargetWordIndex = useMemo(() => {
+    if (currentWordIndex < 0) return -1;
+    
+    const mapping = currentSentence?.wordMapping;
+    if (!mapping) return -1;
+    
+    // Look up the target word index for the current full-text word index
+    return mapping.get(currentWordIndex) ?? -1;
+  }, [currentWordIndex, currentSentence?.wordMapping]);
+  
   // Memoize the return value to prevent infinite re-render loops
   // when this hook's return value is used as a dependency in other hooks
   return useMemo(() => ({
@@ -304,6 +333,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       sentences,
       currentSentenceIndex,
       currentWordIndex,
+      currentTargetWordIndex,
       visibleWordCount,
       isPlaying,
       fullText,
@@ -323,6 +353,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     sentences,
     currentSentenceIndex,
     currentWordIndex,
+    currentTargetWordIndex,
     visibleWordCount,
     isPlaying,
     fullText,

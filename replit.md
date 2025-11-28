@@ -24,7 +24,9 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Voice TTS Pronunciation Architecture**: Uses Cartesia Sonic-3's custom phoneme syntax `<<phoneme1|phoneme2>>` with MFA-style IPA to correct pronunciation of foreign words in English responses. Phoneme mappings in `MFA_IPA_PRONUNCIATIONS` cover common words in all 9 supported languages.
 
-**Subtitle System Architecture**: A 3-state subtitle system (`subtitleMode`: Off, Target, All) with karaoke-style word highlighting. Word timing estimation occurs server-side, with client-side rescaling for precise synchronization. "Target" mode displays foreign language phrases only, with karaoke highlighting currently disabled in target mode (timing alignment pending).
+**Subtitle System Architecture**: A 3-state subtitle system (`subtitleMode`: Off, Target, All) with karaoke-style word highlighting. Word timing estimation occurs server-side, with client-side rescaling for precise synchronization. "Target" mode displays foreign language phrases only, with karaoke highlighting enabled via word index mapping.
+
+**Word Mapping for Target Mode Karaoke**: Server-side `extractTargetLanguageWithMapping()` function generates a mapping from full text word indices to target-only word indices. This mapping is sent in `sentence_start` WebSocket messages as `wordMapping: [number, number][]`. The client uses `streamingTargetWordIndex` (computed from `currentWordIndex` using the mapping) to highlight words correctly in Target subtitle mode.
 
 **Target Language Extraction** (`server/text-utils.ts`): Four-tier extraction system for target-only subtitle mode:
 1. Bold-marked phrases (**word**) → extracted directly

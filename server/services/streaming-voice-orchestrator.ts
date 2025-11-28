@@ -27,7 +27,7 @@ import {
   LATENCY_TARGETS,
 } from "@shared/streaming-voice-types";
 import { constrainEmotion, TutorPersonality, CartesiaEmotion } from "./tts-service";
-import { extractTargetLanguageText, hasSignificantTargetLanguageContent } from "../text-utils";
+import { extractTargetLanguageText, extractTargetLanguageWithMapping, hasSignificantTargetLanguageContent } from "../text-utils";
 import { storage } from "../storage";
 
 /**
@@ -259,9 +259,6 @@ export class StreamingVoiceOrchestrator {
             console.log(`[Streaming Orchestrator] AI first token: ${metrics.aiFirstTokenMs}ms`);
           }
           
-          // Extract target language BEFORE cleaning (needs bold markers for extraction)
-          const targetLanguageText = extractTargetLanguageText(chunk.text);
-          
           // Clean text for display (remove markdown, emotion tags)
           const displayText = cleanTextForDisplay(chunk.text);
           
@@ -271,13 +268,23 @@ export class StreamingVoiceOrchestrator {
             return;
           }
           
-          // Notify client of new sentence with cleaned text
+          // Extract target language with word mapping (needs raw text with bold markers)
+          // This provides both targetLanguageText AND a mapping for karaoke highlighting
+          const extraction = extractTargetLanguageWithMapping(displayText, chunk.text);
+          
+          // Convert Map to array of tuples for JSON serialization
+          const wordMappingArray: [number, number][] = extraction.wordMapping.size > 0
+            ? Array.from(extraction.wordMapping.entries())
+            : [];
+          
+          // Notify client of new sentence with cleaned text and word mapping
           this.sendMessage(session.ws, {
             type: 'sentence_start',
             timestamp: Date.now(),
             sentenceIndex: chunk.index,
             text: displayText,
-            targetLanguageText: targetLanguageText || undefined,
+            targetLanguageText: extraction.targetText || undefined,
+            wordMapping: wordMappingArray.length > 0 ? wordMappingArray : undefined,
           } as StreamingSentenceStartMessage);
           
           // Synthesize and stream audio for this sentence (pass cleaned text for timing)

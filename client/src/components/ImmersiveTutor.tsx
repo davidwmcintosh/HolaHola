@@ -41,6 +41,7 @@ interface ImmersiveTutorProps {
   streamingText?: string; // Text from streaming voice mode
   streamingTargetText?: string; // Target language only text from streaming mode
   streamingWordIndex?: number; // Current word index for streaming subtitles
+  streamingTargetWordIndex?: number; // Current word index for target-only text (enables karaoke in Target mode)
 }
 
 export function ImmersiveTutor({
@@ -66,6 +67,7 @@ export function ImmersiveTutor({
   streamingText,
   streamingTargetText,
   streamingWordIndex = -1,
+  streamingTargetWordIndex = -1,
 }: ImmersiveTutorProps) {
   const [currentWordTimings, setCurrentWordTimings] = useState<WordTiming[]>([]);
   const [highlightedWordIndex, setHighlightedWordIndex] = useState<number>(-1);
@@ -383,9 +385,15 @@ export function ImmersiveTutor({
             
             const words = displayTextForStreaming.split(/\s+/).filter(w => w.length > 0);
             
-            // In target mode, word timings are for full sentence but we show only target phrases
-            // Skip karaoke highlighting in target mode until proper alignment is implemented
-            const useKaraokeInStreaming = !isTargetMode && streamingWordIndex !== undefined && streamingWordIndex >= 0;
+            // Karaoke highlighting in streaming mode:
+            // - "All" mode: use streamingWordIndex directly (full text word index)
+            // - "Target" mode: use streamingTargetWordIndex (mapped to target-only text words)
+            // Validate index is within bounds to avoid highlighting wrong words
+            const rawActiveWordIndex = isTargetMode ? streamingTargetWordIndex : streamingWordIndex;
+            const activeWordIndex = (rawActiveWordIndex !== undefined && rawActiveWordIndex >= 0 && rawActiveWordIndex < words.length) 
+              ? rawActiveWordIndex 
+              : -1;
+            const useKaraokeInStreaming = activeWordIndex >= 0;
             
             return (
               <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
@@ -403,9 +411,9 @@ export function ImmersiveTutor({
                         key={index}
                         className={`inline-block mx-0.5 transition-all duration-150 ${
                           useKaraokeInStreaming
-                            ? (index === streamingWordIndex
+                            ? (index === activeWordIndex
                                 ? "text-primary scale-105 font-semibold"
-                                : index < streamingWordIndex
+                                : index < activeWordIndex
                                   ? "text-foreground"
                                   : "text-muted-foreground/50")
                             : "text-foreground font-medium"
