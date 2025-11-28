@@ -37,6 +37,7 @@ export interface StreamingSubtitleState {
   targetFullText: string;  // Target language only (for subtitle mode filtering)
   currentSentenceText: string;  // Current sentence text for karaoke display
   currentSentenceTargetText: string;  // Current sentence target text for subtitle mode
+  visibleTargetText: string;  // Only target text from COMPLETED sentences (not pending ones)
 }
 
 /**
@@ -351,6 +352,17 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     [sentences]
   );
   
+  // Compute VISIBLE target text - only from COMPLETED sentences
+  // This prevents showing target words before they've been spoken
+  const visibleTargetText = useMemo(() => {
+    return sentences
+      .filter(s => s.isComplete)  // Only completed sentences
+      .sort((a, b) => a.index - b.index)
+      .map(s => s.targetLanguageText || '')
+      .filter(t => t.length > 0)
+      .join(' ');
+  }, [sentences]);
+  
   // Get current sentence text for karaoke display (word index is relative to this)
   const currentSentence = useMemo(() => 
     sentences.find(s => s.index === currentSentenceIndex),
@@ -387,6 +399,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       targetFullText,
       currentSentenceText,
       currentSentenceTargetText,
+      visibleTargetText,
     },
     addSentence,
     setWordTimings,
@@ -409,6 +422,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     targetFullText,
     currentSentenceText,
     currentSentenceTargetText,
+    visibleTargetText,
     addSentence,
     setWordTimings,
     startPlayback,

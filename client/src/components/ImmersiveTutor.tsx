@@ -422,16 +422,24 @@ export function ImmersiveTutor({
               ? rawActiveWordIndex 
               : -1;
             
-            // In Target mode, show the FULL target phrase with karaoke highlighting
-            // This ensures multi-word phrases like "Buenos días" display together
+            // In Target mode, PROGRESSIVELY reveal target words as they're spoken
+            // Only show words that have been spoken (up to and including activeWordIndex)
+            // Don't show ANY words before playback starts (prevents spoilers)
             if (isTargetMode) {
               // If no target words, return null
               if (allWords.length === 0) {
                 return null;
               }
               
-              // Use karaoke highlighting if we have an active word index
-              const useKaraoke = activeWordIndex >= 0;
+              // Only show words if playback has started (activeWordIndex >= 0)
+              // Before playback starts, don't show any target words
+              if (activeWordIndex < 0) {
+                return null;
+              }
+              
+              // Only render words that have been spoken (progressive reveal)
+              // Include current word and all previously spoken words
+              const visibleWords = allWords.slice(0, activeWordIndex + 1);
               
               return (
                 <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
@@ -440,17 +448,13 @@ export function ImmersiveTutor({
                       className="text-xl md:text-3xl font-medium text-center leading-relaxed"
                       data-testid="text-subtitle-overlay-streaming"
                     >
-                      {allWords.map((word, index) => (
+                      {visibleWords.map((word, index) => (
                         <span
                           key={index}
                           className={`inline-block mx-0.5 transition-all duration-150 ${
-                            useKaraoke
-                              ? (index === activeWordIndex
-                                  ? "text-primary scale-105 font-semibold"
-                                  : index < activeWordIndex
-                                    ? "text-foreground"
-                                    : "text-muted-foreground/50")
-                              : "text-primary font-semibold"
+                            index === activeWordIndex
+                              ? "text-primary scale-105 font-semibold"
+                              : "text-foreground"
                           }`}
                           data-testid={`streaming-target-word-${index}`}
                         >
