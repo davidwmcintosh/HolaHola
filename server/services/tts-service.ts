@@ -544,23 +544,36 @@ export function addCartesiaPhonemesToText(text: string, targetLanguage?: string)
   // Sort by length (longest first) to match multi-word phrases before single words
   const sortedEntries = Object.entries(pronunciations).sort((a, b) => b[0].length - a[0].length);
   
+  console.log(`[Streaming Phonemes] Processing text: "${processedText.substring(0, 80)}..." for ${targetLanguage}`);
+  
   for (const [word, phonemes] of sortedEntries) {
-    // Use a flexible boundary pattern that handles:
-    // - Standard word boundaries
-    // - Spanish inverted punctuation (¿, ¡) before words
-    // - Regular punctuation after words
-    // (?:^|[\s¿¡"'(]) matches start, whitespace, or opening punctuation
-    // (?:$|[\s?!.,;:"')]) matches end, whitespace, or closing punctuation
-    const wordRegex = new RegExp(
-      `(?<!<)(?:^|(?<=[\\s¿¡"'(]))(${escapeRegex(word)})(?=$|[\\s?!.,;:"')])(?![^<]*>>)`,
+    // Simple approach: use word boundaries with manual handling of Spanish punctuation
+    // First try standard word boundaries
+    const simpleRegex = new RegExp(
+      `(?<!<)\\b(${escapeRegex(word)})\\b(?![^<]*>>)`,
       'gi'
     );
     
-    processedText = processedText.replace(wordRegex, (match) => {
+    const beforeCount = processedText.length;
+    processedText = processedText.replace(simpleRegex, (match) => {
       hasReplacements = true;
-      console.log(`[Streaming Phonemes] Unquoted "${match}" → <<${phonemes}>>`);
+      console.log(`[Streaming Phonemes] Matched "${match}" → <<${phonemes}>>`);
       return `<<${phonemes}>>`;
     });
+    
+    // If no match with simple regex, try handling Spanish punctuation (¿, ¡)
+    if (processedText.length === beforeCount) {
+      // Match after ¿ or ¡ (inverted punctuation)
+      const spanishPuncRegex = new RegExp(
+        `(?<!<)([¿¡])(${escapeRegex(word)})(?=[?!.,;:\\s]|$)(?![^<]*>>)`,
+        'gi'
+      );
+      processedText = processedText.replace(spanishPuncRegex, (match, punct, wordMatch) => {
+        hasReplacements = true;
+        console.log(`[Streaming Phonemes] Spanish punct "${wordMatch}" → ${punct}<<${phonemes}>>`);
+        return `${punct}<<${phonemes}>>`;
+      });
+    }
   }
 
   if (hasReplacements) {
