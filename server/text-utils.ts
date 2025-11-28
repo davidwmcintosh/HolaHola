@@ -54,18 +54,12 @@ export function extractTargetLanguageText(text: string): string {
   }
   cleanedInput = cleanedInput.replace(/\s+/g, ' ').trim();
   
-  // Strip truly DANGLING bold markers from sentence splits
-  // A dangling marker is one that doesn't have a matching pair
-  // e.g., text ending with '**' but no opening, or starting with '**' but no closing
-  // Do NOT remove markers that are part of a complete **text** pair
-  const hasCompleteBoldPair = /\*\*[^*]+\*\*/.test(cleanedInput);
-  if (!hasCompleteBoldPair) {
-    // No complete pairs, so any ** markers are truly dangling - remove them
-    cleanedInput = cleanedInput
-      .replace(/^["']?\*\*\s*/g, '')  // Remove dangling "** or '** at start
-      .replace(/\s*\*\*["']?$/g, '')  // Remove dangling **" or **' at end
-      .trim();
-  }
+  // Also strip dangling bold markers from sentence splits (e.g., "** at start or ** at end)
+  // These occur when Gemini's bold markers span across sentence boundaries
+  cleanedInput = cleanedInput
+    .replace(/^["']?\*\*\s*/g, '')  // Remove dangling "** or '** at start
+    .replace(/\s*\*\*["']?$/g, '')  // Remove dangling **" or **' at end
+    .trim();
   
   // Common multi-word foreign phrases - defined early for phrase expansion
   // These must be matched as complete units, not split by accent filtering

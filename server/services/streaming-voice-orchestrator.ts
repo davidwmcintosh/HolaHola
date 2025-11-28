@@ -66,24 +66,11 @@ function cleanTextForDisplay(text: string): string {
     cleaned = cleaned.replace(/\s*\([^()]*\)\s*/g, ' ');
   }
   
-  // Clean up orphaned quotes and punctuation left after parenthetical removal
-  cleaned = cleaned
-    // Remove orphaned quotes at start/end (left behind after removing parenthetical translations)
-    .replace(/^["'"'\s]+/g, '')
-    .replace(/["'"'\s]+$/g, '')
-    // Remove quotes around nothing or just whitespace
-    .replace(/["']["']/g, '')
-    .replace(/["']\s+["']/g, ' ')
-    // Clean up multiple periods (.... -> .)
-    .replace(/\.{2,}/g, '.')
-    // Clean up space before punctuation
-    .replace(/\s+([.,!?])/g, '$1')
-    // Normalize whitespace
+  // Normalize whitespace
+  return cleaned
     .replace(/\n+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  
-  return cleaned;
 }
 
 /**
