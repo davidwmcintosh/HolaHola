@@ -184,24 +184,21 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     // - Primes the brain for incoming audio
     // - Strengthens written-to-spoken word association  
     // - Improves word recognition and memory retention
-    // Cartesia MP3 Leading Silence Compensation
-    // Cartesia's MP3 output includes ~2.5-3.0 seconds of silence before speech begins.
-    // The timer starts when the audio file plays, but speech doesn't start until later.
-    // This offset delays subtitle appearance to match when speech actually starts.
+    // Subtitle Timing Offset
+    // Words should appear ~100-150ms BEFORE audio for optimal learning (pedagogical timing).
+    // Cartesia MP3s have significant leading silence before speech begins.
     //
-    // After compensating for leading silence, we want words ~100-150ms EARLY 
-    // for pedagogical benefit (primes brain, strengthens word association).
-    //
-    // TUNING: Increase CARTESIA_LEADING_SILENCE if words appear too early
-    //         Decrease PEDAGOGICAL_ANTICIPATION if words appear too late after speech
-    const CARTESIA_LEADING_SILENCE = 2.7; // ~2.7s silence before speech in Cartesia MP3s
-    const PEDAGOGICAL_ANTICIPATION = 0.15; // 150ms early for learning reinforcement
+    // TUNING: Increase this value if words appear too early
+    //         Decrease this value if words appear too late
+    // 
+    // Testing notes:
+    // - 0.50s: Too early (user reported)  
+    // - 2.55s: Still too early (user reported)
+    // - Trying 3.5s to compensate for more silence
+    const SUBTITLE_OFFSET = 3.5; // Larger offset to account for MP3 leading silence
     
-    // Net offset: delay for silence, then bring forward slightly for anticipation
-    const TOTAL_OFFSET = CARTESIA_LEADING_SILENCE - PEDAGOGICAL_ANTICIPATION; // ~2.55s
-    
-    // Delay word appearance to sync with actual speech onset
-    const adjustedTime = Math.max(0, currentTime - TOTAL_OFFSET);
+    // Apply timing offset (delays word appearance)
+    const adjustedTime = Math.max(0, currentTime - SUBTITLE_OFFSET);
     
     // Store actual duration for rescaling calculations
     // Only store if it's a valid, finite number (duration can be NaN before metadata loads)
