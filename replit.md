@@ -47,7 +47,13 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Vocabulary-Conversation Linking**: Extracted vocabulary words are linked to their source conversation via `sourceConversationId`.
 
-**Streaming Voice Mode Architecture**: A WebSocket-based progressive audio delivery system aiming for Time To First Byte (TTFB) under 1 second. The pipeline involves Deepgram STT, Gemini streaming, sentence chunking, Cartesia WebSocket TTS, and progressive audio playback. The server streams `connected`, `processing`, `sentence_start`, `audio_chunk`, `word_timing`, `sentence_end`, and `response_complete` messages to the client.
+**Streaming Voice Mode Architecture**: A WebSocket-based progressive audio delivery system aiming for Time To First Byte (TTFB) under 1 second. The pipeline involves Deepgram STT, Gemini streaming, sentence chunking, Cartesia WebSocket TTS, and progressive audio playback. The server streams `connected`, `processing`, `sentence_start`, `audio_chunk`, `word_timing`, `sentence_end`, `response_complete`, and `feedback` messages to the client.
+
+**Streaming Voice Pedagogical Integrations**:
+- **Content Moderation**: Two-layer safety - blocks user input with `CONTENT_REJECTED` error and skips inappropriate AI sentence chunks before TTS.
+- **One-Word Rule**: Validates beginner utterances for conceptual units (single words or phrase units like "por favor"). Sends `StreamingFeedbackMessage` with `feedbackType: 'one_word_rule'` for client display.
+- **Background Vocabulary Extraction**: After message persistence, uses `setImmediate` to extract vocabulary via Gemini structured output and saves to database with `sourceConversationId` linking.
+- **Progress Tracking**: Updates `wordsLearned` and `lastPracticeDate` in UserProgress after each voice exchange.
 
 **Pedagogical Subtitle Timing**: A `180ms` anticipatory offset (`PEDAGOGICAL_TIMING_OFFSET`) for word appearance is implemented to optimize language learning by priming the brain for incoming audio.
 
