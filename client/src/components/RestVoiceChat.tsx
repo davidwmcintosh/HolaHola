@@ -209,6 +209,11 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
           subtitleMode,
           tutorPersonality: user.tutorPersonality || 'warm',
           tutorExpressiveness: user.tutorExpressiveness || 3,
+          // Invalidate messages query when streaming completes to show persisted messages
+          onResponseComplete: (convId: string) => {
+            console.log('[STREAMING] Response complete - refreshing messages for', convId);
+            queryClient.invalidateQueries({ queryKey: ["/api/conversations", convId, "messages"] });
+          },
         });
         streamingConnectedRef.current = true;
         console.log('[STREAMING] Connected successfully');
@@ -238,15 +243,25 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
     const { isProcessing: streamProcessing, playbackState, error: streamError, connectionState } = streamingVoice.state;
     
     // Update avatar state based on streaming state
-    // Keep avatar speaking whenever we're processing OR audio is playing/buffering
-    // Only go to idle when BOTH are false - this prevents flashing during buffer gaps
-    const isActive = streamProcessing || playbackState === 'playing' || playbackState === 'buffering';
+    // Only show speaking when audio is ACTUALLY playing (not just processing)
+    // Processing state should show a "thinking" indicator, not speaking avatar
+    // NOTE: Don't override avatar state if greeting is currently playing (via REST)
+    const isStreamingPlaying = playbackState === 'playing' || playbackState === 'buffering';
     
-    if (isActive) {
-      // Audio is active (processing, playing, or buffering) - show speaking state
+    // Check if we're in the middle of greeting playback (non-streaming)
+    // If currentPlayingMessageId is set but we're not streaming, a greeting is playing
+    const isGreetingPlaying = currentPlayingMessageId && !isStreamingPlaying && avatarState === 'speaking';
+    
+    if (isGreetingPlaying) {
+      // Don't override greeting playback state
+      return;
+    }
+    
+    if (isStreamingPlaying) {
+      // Audio is actually playing - show speaking state
       setAvatarState('speaking');
-    } else {
-      // Both processing finished AND playback is idle - reset to idle
+    } else if (!streamProcessing) {
+      // Not processing AND not playing - reset to idle
       setAvatarState('idle');
       if (isProcessingRef.current) {
         setIsProcessing(false);
@@ -254,6 +269,8 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
         setProcessingStage(null);
       }
     }
+    // Note: When streamProcessing is true but not playing yet, 
+    // avatar stays in current state (idle/listening) until audio actually starts
     
     // Handle streaming errors - show them since we don't have REST fallback
     if (streamError) {

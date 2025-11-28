@@ -35,6 +35,13 @@ import { storage } from "../storage";
  * that should not appear in subtitles
  */
 function cleanTextForDisplay(text: string): string {
+  // First check if the entire text is just JSON emotion data (AI sometimes outputs this at end)
+  // Match patterns like: { "emotion": "happy" } or { emotion: "happy" }
+  const jsonEmotionPattern = /^\s*\{\s*"?emotion"?\s*:\s*"?\w+"?\s*\}\s*$/i;
+  if (jsonEmotionPattern.test(text.trim())) {
+    return ''; // Return empty to skip this sentence entirely
+  }
+  
   return text
     // Remove markdown bold/italic markers
     .replace(/\*\*/g, '')
@@ -48,6 +55,8 @@ function cleanTextForDisplay(text: string): string {
     .replace(/\s*\((?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful)\)\s*/gi, ' ')
     // Remove [laughter] tags for display
     .replace(/\[laughter\]/gi, '')
+    // Remove [bracket] emotion/action tags like [happy], [excited]
+    .replace(/\[(?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful|encouraging)\]/gi, '')
     // Normalize whitespace
     .replace(/\n+/g, ' ')
     .replace(/\s+/g, ' ')

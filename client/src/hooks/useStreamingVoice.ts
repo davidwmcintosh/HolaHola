@@ -47,6 +47,7 @@ export interface StreamingSessionConfig {
   subtitleMode: 'off' | 'target' | 'all';
   tutorPersonality?: string;
   tutorExpressiveness?: number;
+  onResponseComplete?: (conversationId: string) => void;
 }
 
 /**
@@ -87,6 +88,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const pendingAudioCountRef = useRef(0);
   const setIsProcessingRef = useRef(setIsProcessing);
   setIsProcessingRef.current = setIsProcessing;
+  
+  // Store current session config for callbacks
+  const sessionConfigRef = useRef<StreamingSessionConfig | null>(null);
   
   // Helper to check if we can clear isProcessing
   // Note: Does NOT reset responseCompleteRef - that's done when new request starts
@@ -215,6 +219,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // Mark response as complete
     responseCompleteRef.current = true;
     
+    // Call the onResponseComplete callback to refresh messages
+    // Messages are persisted server-side, so we need to refetch
+    if (sessionConfigRef.current?.onResponseComplete && sessionConfigRef.current?.conversationId) {
+      sessionConfigRef.current.onResponseComplete(sessionConfigRef.current.conversationId);
+    }
+    
     // Check if we can clear isProcessing (no pending audio)
     checkAndClearProcessing();
   }, [checkAndClearProcessing]);
@@ -233,6 +243,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    */
   const connect = useCallback(async (config: StreamingSessionConfig) => {
     console.log(`[StreamingVoice] Connecting for conversation ${config.conversationId}`);
+    
+    // Store config for callbacks (e.g., onResponseComplete)
+    sessionConfigRef.current = config;
     
     try {
       // Get or create client
