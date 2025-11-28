@@ -262,7 +262,8 @@ export class StreamingVoiceOrchestrator {
             metrics.ttsFirstByteMs = Date.now() - ttsStart;
           }
           
-          fullText += chunk.text + ' ';
+          // Use cleaned displayText for persistence (no emotion tags, no markdown)
+          fullText += displayText + ' ';
           currentSentenceIndex = chunk.index;
           metrics.sentenceCount++;
         },
