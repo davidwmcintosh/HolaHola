@@ -1,3 +1,17 @@
+/**
+ * StreamingVoiceChat - WebSocket-based streaming voice chat
+ * 
+ * This component uses STREAMING ONLY mode:
+ * - Deepgram Nova-3 STT → Gemini 2.5 Flash → Cartesia Sonic-3 TTS
+ * - Progressive audio delivery via WebSocket
+ * - Target: <1s TTFB (Time To First Byte)
+ * 
+ * REST FALLBACK CODE IS PRESERVED BUT NEVER EXECUTED
+ * The REST code below (starting around line 1020) is kept as emergency backup
+ * but is protected by STREAMING_ONLY_MODE = true which prevents it from running.
+ * DO NOT set STREAMING_ONLY_MODE to false without extensive testing.
+ */
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,10 +27,14 @@ import { queryClient } from "@/lib/queryClient";
 import { VoiceChatViewManager } from "@/components/VoiceChatViewManager";
 import { useStreamingVoice } from "@/hooks/useStreamingVoice";
 
-// Streaming mode is ALWAYS enabled - no REST fallback
-// Low-latency WebSocket streaming (target: <1s TTFB)
+// ============================================================================
+// STREAMING MODE CONFIGURATION
+// ============================================================================
+// STREAMING_ONLY_MODE = true means REST code is NEVER executed
+// This is the production setting - do not change without extensive testing
+// ============================================================================
 const ENABLE_STREAMING_MODE = true;
-const STREAMING_ONLY_MODE = true; // Never fall back to REST
+const STREAMING_ONLY_MODE = true; // CRITICAL: Never fall back to REST
 
 // Helper to prevent double-greetings on mobile app reloads
 // Tracks WHEN last greeting played AND which message ID was synthesized
@@ -91,13 +109,13 @@ function clearGreetingLock(): void {
   // This ensures the same greeting is never re-synthesized
 }
 
-interface RestVoiceChatProps {
+interface StreamingVoiceChatProps {
   conversationId: string | null;
   setConversationId: (id: string | null) => void;
   setCurrentConversationOnboarding: (isOnboarding: boolean | null) => void;
 }
 
-export function RestVoiceChat({ conversationId, setConversationId, setCurrentConversationOnboarding }: RestVoiceChatProps) {
+export function StreamingVoiceChat({ conversationId, setConversationId, setCurrentConversationOnboarding }: StreamingVoiceChatProps) {
   const { language, difficulty, setLanguage, subtitleMode } = useLanguage();
   const [isRecording, setIsRecording] = useState(false);
   const [isMicPreparing, setIsMicPreparing] = useState(false); // Show "Preparing mic..." before actual recording starts
@@ -1016,6 +1034,20 @@ export function RestVoiceChat({ conversationId, setConversationId, setCurrentCon
       setProcessingStage(null);
       return; // Don't fall through to REST mode
     }
+
+    // ========================================================================
+    // ⚠️ DEAD CODE - REST FALLBACK (PRESERVED BUT NEVER EXECUTED) ⚠️
+    // ========================================================================
+    // This REST code is ONLY reached when STREAMING_ONLY_MODE = false
+    // Currently STREAMING_ONLY_MODE = true, so this code NEVER runs.
+    // 
+    // This code is preserved as an emergency fallback in case streaming
+    // has critical issues. To enable:
+    //   1. Set STREAMING_ONLY_MODE = false at the top of this file
+    //   2. Test thoroughly before deploying
+    //
+    // DO NOT DELETE - This is our backup pipeline.
+    // ========================================================================
 
     try {
       // REST mode (only used when STREAMING_ONLY_MODE is false)
