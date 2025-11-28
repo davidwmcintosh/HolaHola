@@ -370,17 +370,22 @@ export function ImmersiveTutor({
           // STREAMING MODE: Use streaming text if available
           if (streamingText && isPlaying) {
             // For "target" mode, use streamingTargetText if available
-            const displayTextForStreaming = subtitleMode === "target" 
-              ? (streamingTargetText || streamingText) 
+            const isTargetMode = subtitleMode === "target";
+            const displayTextForStreaming = isTargetMode 
+              ? (streamingTargetText || '') 
               : streamingText;
             
             // For "target" mode with no target text available, don't show subtitles
-            if (subtitleMode === "target" && !streamingTargetText) {
+            if (isTargetMode && !streamingTargetText) {
               // No target language content in streaming - skip display
               return null;
             }
             
             const words = displayTextForStreaming.split(/\s+/).filter(w => w.length > 0);
+            
+            // In target mode, word timings are for full sentence but we show only target phrases
+            // Skip karaoke highlighting in target mode until proper alignment is implemented
+            const useKaraokeInStreaming = !isTargetMode && streamingWordIndex !== undefined && streamingWordIndex >= 0;
             
             return (
               <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
@@ -397,11 +402,13 @@ export function ImmersiveTutor({
                       <span
                         key={index}
                         className={`inline-block mx-0.5 transition-all duration-150 ${
-                          index === streamingWordIndex
-                            ? "text-primary scale-105 font-semibold"
-                            : index < streamingWordIndex
-                              ? "text-foreground"
-                              : "text-muted-foreground/50"
+                          useKaraokeInStreaming
+                            ? (index === streamingWordIndex
+                                ? "text-primary scale-105 font-semibold"
+                                : index < streamingWordIndex
+                                  ? "text-foreground"
+                                  : "text-muted-foreground/50")
+                            : "text-foreground font-medium"
                         }`}
                         data-testid={`streaming-word-${index}`}
                       >

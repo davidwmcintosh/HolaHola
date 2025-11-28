@@ -32,6 +32,8 @@ export interface StreamingSubtitleState {
   isPlaying: boolean;
   fullText: string;
   targetFullText: string;  // Target language only (for subtitle mode filtering)
+  currentSentenceText: string;  // Current sentence text for karaoke display
+  currentSentenceTargetText: string;  // Current sentence target text for subtitle mode
 }
 
 /**
@@ -271,6 +273,15 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     [sentences]
   );
   
+  // Get current sentence text for karaoke display (word index is relative to this)
+  const currentSentence = useMemo(() => 
+    sentences.find(s => s.index === currentSentenceIndex),
+    [sentences, currentSentenceIndex]
+  );
+  
+  const currentSentenceText = currentSentence?.text || '';
+  const currentSentenceTargetText = currentSentence?.targetLanguageText || '';
+  
   // Memoize the return value to prevent infinite re-render loops
   // when this hook's return value is used as a dependency in other hooks
   return useMemo(() => ({
@@ -282,6 +293,8 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       isPlaying,
       fullText,
       targetFullText,
+      currentSentenceText,
+      currentSentenceTargetText,
     },
     addSentence,
     setWordTimings,
@@ -299,6 +312,8 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     isPlaying,
     fullText,
     targetFullText,
+    currentSentenceText,
+    currentSentenceTargetText,
     addSentence,
     setWordTimings,
     startPlayback,

@@ -362,6 +362,9 @@ export class StreamingAudioPlayer {
       console.error('[StreamingAudioPlayer] Error playing chunk:', error);
       this.callbacks.onError?.(error);
       
+      // Decrement pending count on error (matches onerror handler behavior)
+      this.updatePendingCount(Math.max(0, this.pendingAudioCount - 1));
+      
       // Try next chunk
       this.playNext();
     }
