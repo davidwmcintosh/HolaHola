@@ -102,3 +102,25 @@ processAudioMessage()
 - "Start Practicing" button became unresponsive when no mic detected
 - Greeting was delayed during audio initialization errors
 - Consider showing clear user feedback when audio hardware is missing
+
+## Reversion Notes
+
+### Dynamic Greeting System (Current - November 2024)
+The greeting system now uses the streaming voice pipeline to generate AI-powered personalized greetings. The tutor can reference the student's ACTFL level, conversation history, and provide context-aware welcomes.
+
+**To revert to hardcoded greeting if needed:**
+
+1. **Server-side** (`server/routes.ts` lines 967-982):
+   - Uncomment the greeting creation code in the conversation creation endpoint
+   - The hardcoded greeting template was:
+     ```javascript
+     const greeting = userName 
+       ? `Hello ${userName}! I'm excited to help you learn ${conversation.language}. What would you like to practice today?`
+       : `Hello! I'm your ${conversation.language} language tutor. What would you like to learn today?`;
+     ```
+
+2. **Client-side** (`client/src/components/StreamingVoiceChat.tsx` lines 398-534):
+   - Restore the greeting synthesis via REST TTS in the `useEffect` that watches `messages`
+   - Uses `synthesizeSpeech()` to generate audio for the first AI message
+
+3. **Streaming orchestrator**: Remove the `requestGreeting()` message type handling if added
