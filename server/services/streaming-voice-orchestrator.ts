@@ -452,21 +452,32 @@ export class StreamingVoiceOrchestrator {
    */
   private async transcribeAudio(audioData: Buffer, targetLanguage: string): Promise<{ transcript: string; confidence: number }> {
     try {
-      // Use nova-2 for better WebM compatibility (nova-3 is more conservative with low-confidence audio)
-      // Use multi-language detection like the REST endpoint for better reliability
+      // Use nova-3 for best accuracy with language learners
+      // Specify target language for better recognition of accented speech
+      const languageCode = this.getLanguageCode(targetLanguage);
+      console.log(`[Deepgram] Transcribing ${audioData.length} bytes, language: ${languageCode}`);
+      
+      // Log first few bytes to verify audio format (WebM should start with 0x1A 0x45 0xDF 0xA3)
+      const header = audioData.slice(0, 16);
+      console.log(`[Deepgram] Audio header: ${header.toString('hex')}`);
+      
       const response = await deepgram.listen.prerecorded.transcribeFile(
         audioData,
         {
-          model: 'nova-2',
-          language: 'multi', // Auto-detect for better reliability with WebM
+          model: 'nova-3',
+          language: languageCode,
           smart_format: true,
-          punctuate: true,
         }
       );
+      
+      // Log full response for debugging
+      console.log(`[Deepgram] Response metadata:`, JSON.stringify(response.result?.metadata || {}).substring(0, 200));
       
       const alternative = response.result?.results?.channels?.[0]?.alternatives?.[0];
       const transcript = alternative?.transcript || '';
       const confidence = alternative?.confidence || 0;
+      
+      console.log(`[Deepgram] Result: transcript="${transcript}", confidence=${confidence}`);
       
       return { transcript, confidence };
       
