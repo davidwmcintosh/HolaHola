@@ -107,6 +107,15 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - Supports 3 subtitle modes: Off, Target (foreign language only), All (full text)
 - **Streaming Timing Cache**: Word timings are stored in a ref map (`timingsBySentenceRef`) for immediate synchronous access when audio playback starts, ensuring timings are available instantly during streaming
 
+**Pedagogical Subtitle Timing** (`PEDAGOGICAL_TIMING_OFFSET = 0.18s`):
+- Research shows 100-150ms EARLY word appearance is optimal for language learning
+- Primes the brain for incoming audio before it's spoken
+- Strengthens written-to-spoken word association
+- Improves word recognition and memory retention
+- Too early (>200ms) feels disconnected; too late undermines learning
+- The 180ms offset balances MP3 codec padding (~50-100ms) with intentional ~100-150ms anticipatory display
+- Configured in `client/src/hooks/useStreamingSubtitles.ts`
+
 **Avatar State Synchronization**:
 - Dual-condition tracking: `pendingAudioCount` (incremented on enqueue, decremented on playback) + `responseCompleteRef`
 - Avatar stays in "speaking" state until both server signals complete AND all audio finishes playing
