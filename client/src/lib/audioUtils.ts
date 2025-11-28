@@ -392,7 +392,7 @@ export class StreamingAudioPlayer {
     this.setState('buffering');
     
     console.log(`[StreamingAudioPlayer] Playing sentence ${chunk.sentenceIndex}`);
-    this.callbacks.onSentenceStart?.(chunk.sentenceIndex);
+    // NOTE: onSentenceStart is now called from onplaying event for precise timing sync
     
     try {
       // Create blob URL for the audio
@@ -419,6 +419,11 @@ export class StreamingAudioPlayer {
         // Capture the EXACT moment audio starts playing
         this.playbackStartTime = performance.now();
         console.log(`[StreamingAudioPlayer] Audio started at ${this.playbackStartTime.toFixed(2)}ms`);
+        
+        // Fire onSentenceStart HERE for precise sync with subtitle timing
+        // This ensures subtitles start at the exact moment audio plays
+        this.callbacks.onSentenceStart?.(this.currentSentenceIndex);
+        
         // Start high-precision timing loop
         this.startPrecisionTiming();
       };
