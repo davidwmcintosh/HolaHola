@@ -105,6 +105,7 @@ export function extractTargetLanguageText(text: string): string {
     'learn', 'say', 'try', 'practice', 'speak', 'word', 'phrase', 'expression',
     'means', 'meaning', 'used', 'using', 'give', 'another', 'very', 'useful',
     'pronounced', 'beautifully', 'start', 'lets', 'how', 'what', 'when', 'where',
+    'important', 'remember', 'note', 'notice', 'keep', 'mind', // added: instruction words
     // Common verbs and pronouns
     'is', 'its', 'it', 'that', 'this', 'the', 'a', 'an', 'to', 'for', 'of', 'in', 'on',
     'you', 'your', 'we', 'our', 'they', 'their', 'he', 'she', 'his', 'her',
@@ -113,6 +114,51 @@ export function extractTargetLanguageText(text: string): string {
     'hello', 'hi', 'hey', 'bye', 'goodbye', 'thank', 'thanks', 'please', 'welcome',
     'david', 'friend', 'sir', 'madam', // names/titles
   ]);
+  
+  // Common multi-word foreign phrases - check FIRST before other extraction
+  // These must be matched as complete units, not split by accent filtering
+  const COMMON_PHRASES = [
+    // Spanish greetings (must match as complete phrases)
+    { pattern: /buenos\s+d[ií]as/gi, replacement: 'Buenos días' },
+    { pattern: /buenas\s+tardes/gi, replacement: 'Buenas tardes' },
+    { pattern: /buenas\s+noches/gi, replacement: 'Buenas noches' },
+    { pattern: /muy\s+bien/gi, replacement: 'Muy bien' },
+    { pattern: /muchas\s+gracias/gi, replacement: 'Muchas gracias' },
+    { pattern: /hasta\s+luego/gi, replacement: 'Hasta luego' },
+    { pattern: /hasta\s+ma[ñn]ana/gi, replacement: 'Hasta mañana' },
+    { pattern: /por\s+favor/gi, replacement: 'Por favor' },
+    { pattern: /de\s+nada/gi, replacement: 'De nada' },
+    { pattern: /lo\s+siento/gi, replacement: 'Lo siento' },
+    // French
+    { pattern: /bonne\s+nuit/gi, replacement: 'Bonne nuit' },
+    { pattern: /bonne\s+journ[ée]e/gi, replacement: 'Bonne journée' },
+    { pattern: /merci\s+beaucoup/gi, replacement: 'Merci beaucoup' },
+    { pattern: /s'?il\s+vous\s+pla[iî]t/gi, replacement: "S'il vous plaît" },
+    // German
+    { pattern: /guten\s+morgen/gi, replacement: 'Guten Morgen' },
+    { pattern: /guten\s+tag/gi, replacement: 'Guten Tag' },
+    { pattern: /guten\s+abend/gi, replacement: 'Guten Abend' },
+    { pattern: /gute\s+nacht/gi, replacement: 'Gute Nacht' },
+    // Italian
+    { pattern: /buona\s+sera/gi, replacement: 'Buona sera' },
+    { pattern: /buona\s+notte/gi, replacement: 'Buona notte' },
+    { pattern: /buon\s+giorno/gi, replacement: 'Buon giorno' },
+  ];
+  
+  // PRIORITY 1: Check for multi-word phrases FIRST (before accent filtering can split them)
+  const foundPhrases: { phrase: string; index: number }[] = [];
+  for (const { pattern, replacement } of COMMON_PHRASES) {
+    pattern.lastIndex = 0; // Reset regex state
+    let phraseMatch;
+    while ((phraseMatch = pattern.exec(cleanedText)) !== null) {
+      foundPhrases.push({ phrase: replacement, index: phraseMatch.index });
+    }
+  }
+  
+  if (foundPhrases.length > 0) {
+    foundPhrases.sort((a, b) => a.index - b.index);
+    return foundPhrases.map(p => p.phrase).join(' ');
+  }
   
   // Clean up residual English words and punctuation
   cleanedText = cleanedText
@@ -134,7 +180,7 @@ export function extractTargetLanguageText(text: string): string {
   
   cleanedText = nonEnglishWords.join(' ');
   
-  // Split into words and extract only those with foreign characters
+  // PRIORITY 2: Extract words with foreign characters (accents, special chars)
   const words = cleanedText.split(/\s+/);
   const foreignWords = words.filter(word => foreignCharPattern.test(word));
   
@@ -142,67 +188,23 @@ export function extractTargetLanguageText(text: string): string {
     return foreignWords.join(' ');
   }
   
-  // Fallback 2: Use language detection on the cleaned text
+  // PRIORITY 3: Use language detection on the cleaned text
   // Only if remaining text looks substantial and non-English
-  // This handles cases like "Practicar ahora mismo" without accents or bold
   if (cleanedText.length >= 8 && nonEnglishWords.length >= 2) {
     try {
       const detectedLang = franc(cleanedText, { minLength: 3 });
-      // Only trust franc if it confidently detects a target language
-      // AND the text doesn't contain obvious English patterns
       if (TARGET_LANGUAGE_CODES.has(detectedLang)) {
-        // Double-check: if most words look English, don't trust franc
         const avgWordLength = cleanedText.length / nonEnglishWords.length;
         if (avgWordLength > 2) {
           return cleanedText;
         }
       }
     } catch (e) {
-      // franc detection failed, continue to return empty
+      // franc detection failed, continue
     }
   }
   
-  // Fallback 3: Check for common multi-word foreign phrases FIRST
-  // These are complete greetings that should be matched as units
-  const COMMON_PHRASES = [
-    // Spanish greetings (must match as complete phrases)
-    { pattern: /buenos\s+d[ií]as/gi, replacement: 'Buenos días' },
-    { pattern: /buenas\s+tardes/gi, replacement: 'Buenas tardes' },
-    { pattern: /buenas\s+noches/gi, replacement: 'Buenas noches' },
-    { pattern: /muy\s+bien/gi, replacement: 'Muy bien' },
-    { pattern: /muchas\s+gracias/gi, replacement: 'Muchas gracias' },
-    { pattern: /hasta\s+luego/gi, replacement: 'Hasta luego' },
-    { pattern: /hasta\s+ma[ñn]ana/gi, replacement: 'Hasta mañana' },
-    // French
-    { pattern: /bonne\s+nuit/gi, replacement: 'Bonne nuit' },
-    { pattern: /bonne\s+journ[ée]e/gi, replacement: 'Bonne journée' },
-    { pattern: /merci\s+beaucoup/gi, replacement: 'Merci beaucoup' },
-    // German
-    { pattern: /guten\s+morgen/gi, replacement: 'Guten Morgen' },
-    { pattern: /guten\s+tag/gi, replacement: 'Guten Tag' },
-    { pattern: /guten\s+abend/gi, replacement: 'Guten Abend' },
-    { pattern: /gute\s+nacht/gi, replacement: 'Gute Nacht' },
-    // Italian
-    { pattern: /buona\s+sera/gi, replacement: 'Buona sera' },
-    { pattern: /buona\s+notte/gi, replacement: 'Buona notte' },
-  ];
-  
-  // Check for multi-word phrases first
-  const foundPhrases: { phrase: string; index: number }[] = [];
-  for (const { pattern, replacement } of COMMON_PHRASES) {
-    pattern.lastIndex = 0; // Reset regex state
-    let phraseMatch;
-    while ((phraseMatch = pattern.exec(cleanedInput)) !== null) {
-      foundPhrases.push({ phrase: replacement, index: phraseMatch.index });
-    }
-  }
-  
-  if (foundPhrases.length > 0) {
-    foundPhrases.sort((a, b) => a.index - b.index);
-    return foundPhrases.map(p => p.phrase).join(' ');
-  }
-  
-  // Fallback 4: Check for single common foreign words
+  // PRIORITY 4: Check for single common foreign words
   const COMMON_SHORT_FOREIGN_WORDS = new Set([
     // Spanish (single words only - phrases handled above)
     'hola', 'gracias', 'adios', 'adiós', 'vamos', 'claro', 'bueno', 'vale', 'perfecto',
