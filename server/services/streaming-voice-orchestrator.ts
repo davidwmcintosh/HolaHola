@@ -1076,6 +1076,7 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       let actflLevel = 'Novice Low';
       let recentTopics: string[] = [];
       let wordsLearned = 0;
+      let classEnrollment: { className: string; curriculumLesson?: string; curriculumUnit?: string } | null = null;
       
       try {
         const actflProgress = await storage.getOrCreateActflProgress(
@@ -1093,7 +1094,38 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
           wordsLearned = userProgress.wordsLearned || 0;
         }
         
-        // Get recent conversations for topic continuity
+        // Check if student is enrolled in an organized class
+        try {
+          const enrollments = await storage.getStudentEnrollments(String(session.userId));
+          // Find an active class for this language
+          const activeClass = enrollments.find(e => 
+            e.isActive && 
+            e.class?.isActive && 
+            e.class?.language === session.targetLanguage
+          );
+          
+          if (activeClass?.class) {
+            classEnrollment = { className: activeClass.class.name };
+            
+            // If class has a curriculum, get current lesson context
+            if (activeClass.class.curriculumPathId) {
+              const units = await storage.getCurriculumUnits(activeClass.class.curriculumPathId);
+              if (units.length > 0) {
+                // Get first unit's lessons (simplified - could enhance with progress tracking)
+                const lessons = await storage.getCurriculumLessons(units[0].id);
+                if (lessons.length > 0) {
+                  classEnrollment.curriculumUnit = units[0].name;
+                  classEnrollment.curriculumLesson = lessons[0].name;
+                }
+              }
+            }
+            console.log(`[Streaming Greeting] Student enrolled in class: ${activeClass.class.name}`);
+          }
+        } catch (enrollmentError: any) {
+          console.log(`[Streaming Greeting] Could not check enrollments: ${enrollmentError.message}`);
+        }
+        
+        // Get recent conversations for topic continuity (for open-path learners)
         const recentConversations = await storage.getUserConversations(String(session.userId));
         if (recentConversations.length > 1) {
           // Get the previous conversation's title/topic if available
@@ -1114,7 +1146,8 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         userName,
         actflLevel,
         wordsLearned,
-        recentTopics
+        recentTopics,
+        classEnrollment
       );
       
       // Notify client that greeting is being generated
@@ -1216,13 +1249,17 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
   
   /**
    * Build a personalized greeting prompt based on student context
+   * Implements "Steer but also Adhere" philosophy:
+   * - Enrolled students: Teach from syllabus immediately
+   * - Open-path students: Discover interests OR suggest topics based on history/ACTFL
    */
   private buildGreetingPrompt(
     session: StreamingSession,
     userName: string | undefined,
     actflLevel: string,
     wordsLearned: number,
-    recentTopics: string[]
+    recentTopics: string[],
+    classEnrollment: { className: string; curriculumLesson?: string; curriculumUnit?: string } | null
   ): string {
     const name = userName ? `The student's name is ${userName}.` : '';
     const topicContext = recentTopics.length > 0 
@@ -1232,8 +1269,50 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       ? `The student has learned ${wordsLearned} vocabulary words so far.`
       : '';
     
-    // Determine if student has prior context (returning student vs brand new)
-    const isReturningStudent = wordsLearned > 0 || recentTopics.length > 0;
+    // Determine learning path type
+    const isEnrolledStudent = classEnrollment !== null;
+    const isReturningOpenPath = !isEnrolledStudent && (wordsLearned > 0 || recentTopics.length > 0);
+    const isNewOpenPath = !isEnrolledStudent && !isReturningOpenPath;
+    
+    // Build path-specific instructions
+    let pathInstructions = '';
+    
+    if (isEnrolledStudent) {
+      // ORGANIZED CLASS: Teach from syllabus immediately
+      pathInstructions = `
+ENROLLED STUDENT - CLASS: "${classEnrollment.className}"
+${classEnrollment.curriculumUnit ? `Current Unit: ${classEnrollment.curriculumUnit}` : ''}
+${classEnrollment.curriculumLesson ? `Current Lesson: ${classEnrollment.curriculumLesson}` : ''}
+
+TEACH IMMEDIATELY FROM SYLLABUS:
+- Welcome them briefly, then dive into the lesson content
+- Do NOT ask about motivation or interests - they're in a structured class
+- Start teaching the current lesson topic right away
+- Example: "Welcome to class! Today we're working on ${classEnrollment.curriculumLesson || 'greetings'}. Let's start with **Hola** (hello)."`;
+    } else if (isReturningOpenPath) {
+      // RETURNING OPEN-PATH: Suggest topic based on history or ACTFL progression
+      pathInstructions = `
+RETURNING OPEN-PATH STUDENT:
+${topicContext}
+${progressContext}
+
+SUGGEST A TOPIC (don't just ask what they want):
+- Briefly welcome them back
+- EITHER continue from a recent topic, OR suggest the next logical ACTFL step
+- Include a teaching word to get started immediately
+- You may ask if they want to continue or try something new
+- Example: "Welcome back! Last time we worked on greetings. Ready to learn **Gracias** (thank you)? Or would you prefer a new topic like food or travel?"`;
+    } else {
+      // NEW OPEN-PATH: Discover interests through teaching
+      pathInstructions = `
+NEW OPEN-PATH STUDENT:
+
+DISCOVER INTERESTS THROUGH TEACHING:
+- Start with a warm hello and a simple first word (like **Hola** for beginners)
+- Then ask what topics interest them (travel, food, music, work, etc.)
+- This personalizes their learning path for future sessions
+- Example: "Hi! Let's start with **Hola** (hello) - try saying it! What topics interest you? Travel, food, music, or something else?"`;
+    }
     
     return `Generate a brief, warm greeting for a ${session.targetLanguage} language learning session.
 
@@ -1242,26 +1321,14 @@ Context:
 - Native language: ${session.nativeLanguage}
 - Difficulty: ${session.difficultyLevel}
 ${name}
-${topicContext}
-${progressContext}
+${pathInstructions}
 
 Requirements:
 1. Keep it short (2-3 sentences)
 2. Be warm and encouraging
 3. The greeting should be primarily in ${session.nativeLanguage} (student's native language)
-${isReturningStudent ? `
-RETURNING STUDENT - Pick up where you left off:
-- Reference their recent progress or topics naturally
-- Suggest continuing with a related topic OR offer a fresh start
-- Include a simple ${session.targetLanguage} teaching word to get started
-- Example: "Welcome back! Last time we worked on greetings. Ready to learn **Gracias** (thank you) today?"
-` : `
-NEW STUDENT - Discover their interests through teaching:
-- Start with a warm hello and a simple first word (like **Hola** for Spanish beginners)
-- THEN ask what brings them here or what interests them
-- This helps personalize their learning path
-- Example: "Hi! Let's start with **Hola** (hello) - try saying it! What made you want to learn ${session.targetLanguage}?"
-`}
+4. Include at least ONE ${session.targetLanguage} teaching word with translation
+
 CRITICAL: If they respond in ${session.targetLanguage} or show readiness, SKIP questions and teach immediately!
 
 Generate the greeting now (speak as the tutor directly):`;
