@@ -295,33 +295,52 @@ export class CartesiaStreamingService extends EventEmitter {
           },
         });
         
-        // Use the events() API to iterate over messages
-        for await (const message of response.events('message')) {
-          if (message.type === 'chunk' && message.data) {
-            if (!firstChunkTime) {
-              firstChunkTime = Date.now();
-              console.log(`[Cartesia Streaming] TTFB: ${firstChunkTime - startTime}ms`);
+        // Collect chunks using Promise-based event handling
+        // The SDK uses response.on('message', callback) pattern
+        const chunks: Buffer[] = [];
+        let done = false;
+        
+        await new Promise<void>((resolve, reject) => {
+          // Set up message handler
+          response.on('message', (message: any) => {
+            if (message.type === 'chunk' && message.data) {
+              if (!firstChunkTime) {
+                firstChunkTime = Date.now();
+                console.log(`[Cartesia Streaming] TTFB: ${firstChunkTime - startTime}ms`);
+              }
+              // Data is Base64 encoded
+              const buffer = Buffer.from(message.data, 'base64');
+              totalBytes += buffer.length;
+              chunkCount++;
+              chunks.push(buffer);
+            } else if (message.type === 'timestamps') {
+              console.log(`[Cartesia Streaming] Received word timestamps`);
+            } else if (message.done || message.type === 'done') {
+              console.log(`[Cartesia Streaming] Stream complete`);
+              done = true;
+              resolve();
+            } else if (message.type === 'error') {
+              console.error(`[Cartesia Streaming] Stream error:`, message);
+              reject(new Error(message.message || 'WebSocket stream error'));
             }
-            
-            const buffer = Buffer.from(message.data);
-            totalBytes += buffer.length;
-            chunkCount++;
-            
-            yield {
-              audio: buffer,
-              durationMs: this.estimateDuration(buffer.length),
-              isLast: false,
-            };
-          } else if (message.type === 'timestamps') {
-            // Log but don't emit - let orchestrator use original text for timing
-            console.log(`[Cartesia Streaming] Received word timestamps`);
-          } else if (message.type === 'done') {
-            console.log(`[Cartesia Streaming] Stream complete`);
-            break;
-          } else if (message.type === 'error') {
-            console.error(`[Cartesia Streaming] Stream error:`, message);
-            throw new Error(message.message || 'WebSocket stream error');
-          }
+          });
+          
+          // Timeout fallback in case 'done' is never received
+          setTimeout(() => {
+            if (!done) {
+              console.log(`[Cartesia Streaming] Timeout, completing with ${chunks.length} chunks`);
+              resolve();
+            }
+          }, 10000);
+        });
+        
+        // Yield all collected chunks
+        for (const chunk of chunks) {
+          yield {
+            audio: chunk,
+            durationMs: this.estimateDuration(chunk.length),
+            isLast: false,
+          };
         }
         
         // Signal completion
