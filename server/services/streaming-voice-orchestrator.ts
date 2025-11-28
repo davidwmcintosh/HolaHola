@@ -119,15 +119,16 @@ export class StreamingVoiceOrchestrator {
   
   /**
    * Create a new streaming session
+   * Connection pooling: Pre-warms Cartesia WebSocket for low-latency TTS
    */
-  createSession(
+  async createSession(
     ws: WS,
     userId: number,
     config: ClientStartSessionMessage,
     systemPrompt: string,
     conversationHistory: Array<{ role: 'user' | 'model'; content: string }>,
     voiceId?: string
-  ): StreamingSession {
+  ): Promise<StreamingSession> {
     const sessionId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     const session: StreamingSession = {
@@ -149,6 +150,16 @@ export class StreamingVoiceOrchestrator {
     };
     
     this.sessions.set(sessionId, session);
+    
+    // CONNECTION POOLING: Pre-warm Cartesia WebSocket connection
+    // This eliminates handshake latency (~150-200ms) from first TTS request
+    try {
+      const warmupTime = await this.cartesiaService.ensureConnection();
+      console.log(`[Streaming Orchestrator] Cartesia pre-warmed: ${warmupTime}ms`);
+    } catch (error: any) {
+      console.warn(`[Streaming Orchestrator] Cartesia warmup failed (will retry on demand): ${error.message}`);
+      // Non-fatal - will fallback to bytes API if WebSocket unavailable
+    }
     
     // Send connected message
     this.sendMessage(ws, {
@@ -186,14 +197,26 @@ export class StreamingVoiceOrchestrator {
     };
     
     try {
-      // Step 1: Transcribe user audio with Deepgram
+      // PARALLEL PROCESSING: Run STT and Cartesia warmup concurrently
+      // This overlaps the ~200ms WebSocket handshake with STT processing
       console.log(`[Streaming Orchestrator] Processing ${audioData.length} bytes of audio`);
       
       const sttStart = Date.now();
-      const transcript = await this.transcribeAudio(audioData, session.targetLanguage);
+      
+      // Start both operations in parallel
+      const [transcript, cartesiaWarmupTime] = await Promise.all([
+        // STT: Transcribe user audio with Deepgram
+        this.transcribeAudio(audioData, session.targetLanguage),
+        // Connection warmup: Ensure Cartesia WebSocket is ready (no-op if already connected)
+        this.cartesiaService.ensureConnection().catch((err: Error) => {
+          console.warn(`[Streaming Orchestrator] Cartesia warmup failed: ${err.message}`);
+          return -1; // Return -1 to indicate failure (will fallback to bytes API)
+        }),
+      ]);
+      
       metrics.sttLatencyMs = Date.now() - sttStart;
       
-      console.log(`[Streaming Orchestrator] STT: "${transcript}" (${metrics.sttLatencyMs}ms)`);
+      console.log(`[Streaming Orchestrator] STT: "${transcript}" (${metrics.sttLatencyMs}ms, Cartesia: ${cartesiaWarmupTime >= 0 ? cartesiaWarmupTime + 'ms' : 'fallback'})`);
       
       if (!transcript.trim()) {
         // Empty transcript - gracefully notify client and return

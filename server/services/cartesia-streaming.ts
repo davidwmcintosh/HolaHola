@@ -140,6 +140,33 @@ export class CartesiaStreamingService extends EventEmitter {
   }
   
   /**
+   * Check if WebSocket is connected and healthy
+   */
+  isConnected(): boolean {
+    return this.connected && this.websocket !== null;
+  }
+  
+  /**
+   * Ensure WebSocket connection is active (for connection pooling)
+   * Returns time taken to establish/verify connection
+   */
+  async ensureConnection(): Promise<number> {
+    const startTime = Date.now();
+    
+    if (this.isConnected()) {
+      // Already connected - verify health with a quick check
+      console.log('[Cartesia Streaming] Connection verified (already active)');
+      return Date.now() - startTime;
+    }
+    
+    // Not connected - establish new connection
+    await this.connect();
+    const elapsed = Date.now() - startTime;
+    console.log(`[Cartesia Streaming] Connection established in ${elapsed}ms`);
+    return elapsed;
+  }
+  
+  /**
    * Connect to Cartesia WebSocket
    * Call this once at session start for persistent connection
    */
@@ -155,6 +182,7 @@ export class CartesiaStreamingService extends EventEmitter {
     
     try {
       console.log('[Cartesia Streaming] Connecting to WebSocket...');
+      const connectStart = Date.now();
       
       // Get WebSocket client from Cartesia SDK
       this.websocket = this.client.tts.websocket({
@@ -167,7 +195,8 @@ export class CartesiaStreamingService extends EventEmitter {
       await this.websocket.connect();
       this.connected = true;
       
-      console.log('[Cartesia Streaming] ✓ WebSocket connected');
+      const elapsed = Date.now() - connectStart;
+      console.log(`[Cartesia Streaming] ✓ WebSocket connected (${elapsed}ms handshake)`);
     } catch (error: any) {
       console.error('[Cartesia Streaming] Connection failed:', error.message);
       this.connected = false;

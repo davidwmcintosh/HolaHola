@@ -223,7 +223,7 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             console.warn(`[Streaming Voice] Voice config error: ${err.message}`);
           }
 
-          session = orchestrator.createSession(
+          session = await orchestrator.createSession(
             ws,
             parseInt(userId!),
             config,
