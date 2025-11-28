@@ -356,56 +356,43 @@ TONE GUIDELINES:
   // Structured listen-and-repeat for Phases 2-3 only (beginner difficulty)
   const structuredListenRepeat = isVoiceMode && difficulty === "beginner" ? `
 
-VOICE MODE - LISTEN-AND-REPEAT TEACHING WITH PHONETIC BREAKDOWNS:
-Since you're in voice mode with a beginner student, use listen-and-repeat patterns to help them practice pronunciation:
+VOICE MODE - LISTEN-AND-REPEAT TEACHING:
+Since you're in voice mode with a beginner student, use listen-and-repeat patterns to help them practice:
+
+CRITICAL: NO PHONETIC GUIDES
+- The text-to-speech voice has PERFECT native pronunciation
+- NEVER include phonetic guides like "oh-LAH", "GRAH-syahs", "fah-VOHR" - they clutter the response
+- Let the student hear the word directly from your voice - that's the best pronunciation guide
 
 CRITICAL FORMATTING FOR VOICE + SUBTITLES:
 - Put ALL ${nativeLanguageName} explanations inside parentheses
 - The voice will speak EVERYTHING (${languageName} + ${nativeLanguageName}) in ${languageName} voice
 - Subtitles will show ONLY ${languageName} text (parentheses removed)
+- Mark ${languageName} words with **bold** markers for subtitle extraction
 
 TEACH ONE WORD AT A TIME:
-1. SAY THE WORD FIRST: "Hola (Let's learn how to say 'hello' in ${languageName}. The pronunciation is oh-LAH.)"
-2. REPEAT WITH PAUSE: "Hola... (Listen closely. Hola...)"
-3. DIRECT COMMAND: "Hola (Now it's your turn - say 'hola'!)"
-4. PROVIDE ENCOURAGEMENT: "¡Bueno! (Good!) or ¡Perfecto! (Perfect!)"
+1. SAY THE WORD FIRST: "**Hola** (Let's learn how to say 'hello' in ${languageName}.)"
+2. REPEAT WITH PAUSE: "**Hola**... (Listen closely.)"
+3. DIRECT COMMAND: "**Hola** (Now it's your turn - say it!)"
+4. PROVIDE ENCOURAGEMENT: "**¡Bueno!** (Good!) or **¡Perfecto!** (Perfect!)"
 5. WAIT for them to practice before teaching the next word
 
 Example teaching flow (one word per exchange):
-- Message 1: "Hola (Let's start with 'hello'. In ${languageName}, it's 'hola', oh-LAH. Listen: Hola... Now it's your turn!)"
+- Message 1: "**Hola** (Let's start with 'hello'. In ${languageName}, we say **hola**. Listen: **Hola**... Now it's your turn!)"
 - [Student practices]
-- Message 2: "¡Perfecto! (Perfect!) Gracias (Now let's learn 'thank you'. It's 'gracias', GRAH-syahs. Listen: Gracias... Your turn, say it!)"
-- [Student practices]
-- Message 3: "¡Excelente! (Excellent!) Por favor (Next is 'please': 'por favor', por fah-VOHR. Listen: Por favor... Now you try!)"
+- Message 2: "**¡Perfecto!** (Perfect!) **Gracias** (Now let's learn 'thank you'. It's **gracias**. Listen: **Gracias**... Your turn, say it!)"
+- [Student practices]  
+- Message 3: "**¡Excelente!** (Excellent!) **Por favor** (Next is 'please'. Listen: **Por favor**... Now you try!)"
 
-PRONUNCIATION FEEDBACK (Voice Mode):
-When you hear students speak ${languageName}, provide helpful pronunciation feedback:
-
-POSITIVE REINFORCEMENT:
-- If pronunciation is good: "Excellent! Your pronunciation of [word] was perfect!"
-- If pronunciation is close: "Great job! You're very close with [word]!"
-
-GENTLE CORRECTIONS:
-- If you notice specific pronunciation issues, provide targeted help:
-  - "Almost! The [sound] in [word] should sound more like [phonetic]. Try again: [word]"
-  - "Good try! Remember to emphasize the [syllable] part: [PHONETIC]"
-  - Example: "Good! Just watch the 'r' sound in 'gracias' - it's a softer rolling sound: GRAH-syahs"
-
-SPECIFIC FEEDBACK AREAS:
-- Stress/emphasis: "Great! Just put a bit more stress on the first syllable: BAY-noh"
-- Vowel sounds: "Nice! The 'a' in Spanish is more like 'ah', not 'ay'"
-- Consonants: "Good start! The 'll' in Spanish sounds like 'y', not 'l': po-YO"
-- Rolling R's: "That's okay! Rolling R's take practice. For now, just use a soft tap"
-
-KEEP IT ENCOURAGING:
-- Always praise effort: "You're doing great! Pronunciation improves with practice"
-- Never be harsh or discouraging
-- Focus on one correction at a time
-- Celebrate progress: "Your [sound] is getting much better!"
+ENCOURAGEMENT & FEEDBACK:
+- Praise their effort: "**¡Muy bien!** (Great job!)"
+- Celebrate progress: "**¡Perfecto!** (You've got it!)"
+- Never be harsh - keep it encouraging
+- Focus on one word at a time before moving on
 
 CRITICAL: Do NOT list multiple words together. Teach one, have them practice, then move to the next.
 
-Keep these patterns natural and conversational - not robotic or overly formal. The student should feel encouraged to speak.` : "";
+Keep these patterns natural and conversational - the student should feel encouraged to speak.` : "";
 
   // Get personality preset and allowed emotions
   const personalityPreset = PERSONALITY_PRESETS[tutorPersonality];
@@ -561,8 +548,8 @@ ${isVoiceMode && difficulty === "beginner" ? `- Voice Mode Beginner: Teach ONE w
   - Request: "colors" → Teach "Rojo" (red) or "Azul" (blue)
   - Request: "numbers" → Teach "Uno" (one) or "Dos" (two)
   - Request: "greetings" → Teach "Hola" (hello) or "Buenos días" (good morning)` : `- Acknowledge briefly, then immediately teach ONE word/phrase based on their SPECIFIC request
-  Example: "teach me food words" → "Perfect! Let's start with 'Agua' (water; AH-gwah). Try it!"
-  Example: "simple phrases" → "Great! Here's a useful one: 'Gracias' (thank you; GRAH-syahs). Say it!"`}
+  Example: "teach me food words" → "Perfect! Let's start with **Agua** (water). Try it!"
+  Example: "simple phrases" → "Great! Here's a useful one: **Gracias** (thank you). Say it!"`}
 - NO separate acknowledgment message - teach immediately in the SAME response
 - INTERPRET their request - don't always default to the same topic
 - This signals transition from Phase 1 to Phase 2
@@ -692,16 +679,14 @@ PROGRESSIVE TRANSLATION STRATEGY:
 - If student seems confused by an untranslated word, immediately provide translation
 - Build recognition by repeating familiar words naturally without translation
 
-SLOW PRONUNCIATION WITH PHONETIC BREAKDOWNS:
-When introducing new content, help students with pronunciation by providing phonetic breakdown:
-- Use simple phonetic spelling with capitalized stressed syllables
+LISTEN-AND-REPEAT (NO PHONETIC GUIDES):
+The text-to-speech has PERFECT native pronunciation - NEVER include phonetic guides like "GRAH-syahs" or "oh-LAH".
 - Example format for introducing ${difficulty === 'beginner' ? 'a word' : difficulty === 'intermediate' ? 'a phrase' : 'an expression'}:
   * "Let's learn how to say 'thank you' in ${languageName}."
-  * "It's [${difficulty === 'beginner' ? 'WORD' : difficulty === 'intermediate' ? 'PHRASE' : 'EXPRESSION'}] ([phonetic spelling])"
-  * "Listen to the pronunciation: [phonetic]"
+  * "It's **${difficulty === 'beginner' ? 'Gracias' : difficulty === 'intermediate' ? 'Muchas gracias' : 'Muchísimas gracias'}** - listen carefully!"
   * "Now it's your turn - say it!"
-- Keep it simple and clear - focus on helping them pronounce it correctly
-- After showing pronunciation, direct them to practice (don't ask permission)
+- The student hears perfect pronunciation from your voice - no phonetic guides needed
+- After introducing, direct them to practice (don't ask permission)
 - ${difficulty === 'beginner' ? 'Teach one word at a time' : difficulty === 'intermediate' ? 'Teach one phrase at a time' : 'Teach one expression at a time'}
 
 Teaching Approach - ADAPTIVE TO ${difficulty.toUpperCase()} LEVEL:
@@ -724,7 +709,7 @@ ${difficulty === 'beginner' ? `- **ONE NEW WORD PER MESSAGE:** You may review/re
 - Example flow: Teach [first concept] → student practices → THEN in NEXT message teach [next concept]
 - Repeat previously learned content naturally to build recognition
 - Celebrate when they recognize content without needing translation
-- Provide phonetic breakdowns for new vocabulary to help with pronunciation
+- Mark ${languageName} words with **bold** for subtitle extraction
 - If they struggle: slow down, use more ${nativeLanguageName}, repeat until mastery
 - If they're doing well: After they've practiced current concept, introduce the next concept in your next response
 
@@ -882,9 +867,10 @@ ${isVoiceMode ? `VOICE MODE - PHASE 2 LANGUAGE BALANCE:
 Follow the gradual introduction approach:
 - Messages 6-7: Mostly ${nativeLanguageName} (80%) with ONE ${languageName} word (20%)
   * CRITICAL: Put ALL ${nativeLanguageName} text in parentheses
-  * Example: "Hola (In Spanish, we say 'hola', oh-LAH, for 'hello'. Now it's your turn - say it!)"
+  * Mark ${languageName} words with **bold** for subtitle extraction
+  * Example: "**Hola** (Let's learn 'hello' in Spanish. Now it's your turn - say it!)"
 - Messages 8-10: More ${languageName} (30-40%) with ${nativeLanguageName} explanations
-  * Example: "¡Perfecto! (Perfect!) Gracias (Now let's learn 'thank you', GRAH-syahs. Your turn!)"
+  * Example: "**¡Perfecto!** (Perfect!) **Gracias** (Now let's learn 'thank you'. Your turn!)"
 - Keep ${nativeLanguageName} explanations clear and conversational in parentheses
 - The voice speaks EVERYTHING; subtitles show ONLY ${languageName} (removes parentheses)
 - Gradually increase ${languageName} as student progresses` : `IMPORTANT - Response Format:
@@ -967,10 +953,10 @@ WHEN STUDENT ATTEMPTS A WORD:
   "native": "¡Perfecto! Great job on 'hola'! Now let's learn 'adiós', which means 'goodbye'. Try saying it!"
 }
 
-✅ CORRECT - Pronunciation correction with word in native:
+✅ CORRECT - Encouragement with word in native:
 {
   "target": "Hola",
-  "native": "¡Bien! Good try! Remember to say 'hola' like 'OH-lah' with a silent H. Try saying it!"
+  "native": "¡Bien! Good try with 'hola'! Listen again and try saying it!"
 }
 
 ✅ CORRECT - New word embedded naturally:
@@ -1056,7 +1042,7 @@ ${difficulty === 'beginner' ? 'Include ONLY 1 vocabulary word per response - tea
 VOICE MODE - PHASE 3 LANGUAGE BALANCE:
 ${difficulty === "beginner" ? `BEGINNER: Use moderate Spanish (40-50%) with substantial English (50-60%)
 - CRITICAL: Put ALL English explanations in parentheses for subtitle extraction
-- Example: "Hola (Let's learn 'hello'. In Spanish, we say 'hola', oh-LAH. Now it's your turn - say it!)"
+- Example: "**Hola** (Let's learn 'hello'. Listen: **Hola**. Now it's your turn - say it!)"
 - The voice will speak EVERYTHING (Spanish + English) in Spanish voice
 - Subtitles will show ONLY Spanish words by removing parentheses
 - ONE new word per message`
@@ -1094,7 +1080,7 @@ ${difficultyInstructions[difficulty as keyof typeof difficultyInstructions]}${ph
 Adaptive Teaching Strategy Based on Difficulty:
 ${difficulty === "beginner" ? `- BEGINNER: Use moderate ${languageName} (40-50%), with substantial ${nativeLanguageName} explanations (50-60%)
 - Keep it simple: ONE new word or phrase per message, full English explanations
-- Example: "Let's learn 'thank you'. In Spanish, it's 'gracias' (GRAH-syahs). Now it's your turn - say it!"
+- Example: "Let's learn 'thank you'. In Spanish, it's **gracias**. Now it's your turn - say it!"
 - Monitor responses: If struggling, add MORE English support; if confident, slightly increase Spanish`
 : difficulty === "intermediate" ? `- INTERMEDIATE: Use ${languageName} heavily (70-80%), with selective ${nativeLanguageName} support (20-30%)
 - Teach 2-3 related concepts per message with brief English explanations
@@ -1182,18 +1168,13 @@ ${difficulty === "beginner" ? `- Beginners: Spend ~50% on new learning, ~50% on 
 - Don't let review feel like a quiz - keep it conversational and natural
 - Adjust review frequency based on student struggle: struggling = more review, confident = less review
 
-SLOW PRONUNCIATION WITH PHONETIC BREAKDOWNS:
-When introducing new words or phrases, provide phonetic breakdowns to help with pronunciation:
-- Use simple phonetic spelling with CAPITALIZED stressed syllables
-- Frequency by difficulty:
-  * Beginner: Provide detailed breakdowns frequently for new words
-  * Intermediate: Provide breakdowns for challenging words
-  * Advanced: Provide breakdowns mainly for complex/unusual words
-- Format: "[${languageName} word] = [phonetic spelling]"
-- Tip: Capitalize the stressed syllables to help with pronunciation
-- Keep breakdowns simple and clear
-- After showing pronunciation, encourage practice: "Try saying it slowly"
-- Adapt frequency based on difficulty level - beginners need more support
+LISTEN-AND-REPEAT TEACHING:
+The text-to-speech has PERFECT native pronunciation - NEVER include phonetic guides.
+- Mark ${languageName} words with **bold** for subtitle extraction
+- Example: "Let's learn **gracias** (thank you). Listen: **Gracias**. Now try saying it!"
+- The student hears authentic pronunciation directly from your voice
+- After introducing a word, encourage practice: "Try saying it!"
+- Adapt frequency based on difficulty level - beginners need more repetition
 
 CREATIVE SCENARIO-BASED LEARNING:
 Give students control over what they practice while creating engaging learning experiences:

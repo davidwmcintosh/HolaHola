@@ -69,6 +69,10 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   const expectedDurationRef = useRef<number | undefined>(undefined);
   const actualDurationRef = useRef<number | undefined>(undefined);
   
+  // Store timings by sentence index for immediate access (React state batching workaround)
+  // This allows startPlayback to access timings synchronously without waiting for React render
+  const timingsBySentenceRef = useRef<Map<number, { timings: WordTiming[]; expectedDurationMs?: number }>>(new Map());
+  
   /**
    * Add a new sentence (called when server sends sentence_start)
    */
@@ -98,6 +102,10 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   const setWordTimings = useCallback((sentenceIndex: number, timings: WordTiming[], expectedDurationMs?: number) => {
     console.log(`[StreamingSubtitles] Set timings for sentence ${sentenceIndex}: ${timings.length} words, expected ${expectedDurationMs}ms`);
     
+    // Store in ref map for immediate access (React state batching workaround)
+    timingsBySentenceRef.current.set(sentenceIndex, { timings, expectedDurationMs });
+    
+    // Also update React state for sentence data
     setSentences(prev => {
       return prev.map(s => {
         if (s.index === sentenceIndex) {
@@ -111,7 +119,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       });
     });
     
-    // Update current timings if this is the active sentence
+    // Update current timings ref if this is the active sentence
     if (sentenceIndex === currentSentenceIndex) {
       currentTimingsRef.current = timings;
       expectedDurationRef.current = expectedDurationMs;
@@ -131,15 +139,18 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     playbackStartTimeRef.current = Date.now();
     actualDurationRef.current = undefined; // Reset actual duration
     
-    // Get timings for this sentence
-    setSentences(prev => {
-      const sentence = prev.find(s => s.index === sentenceIndex);
-      if (sentence) {
-        currentTimingsRef.current = sentence.wordTimings;
-        expectedDurationRef.current = sentence.expectedDurationMs;
-      }
-      return prev;
-    });
+    // Get timings from ref map (immediate access, not affected by React batching)
+    const storedTimings = timingsBySentenceRef.current.get(sentenceIndex);
+    if (storedTimings) {
+      currentTimingsRef.current = storedTimings.timings;
+      expectedDurationRef.current = storedTimings.expectedDurationMs;
+      console.log(`[StreamingSubtitles] Loaded ${storedTimings.timings.length} word timings for sentence ${sentenceIndex}`);
+    } else {
+      // Timings may arrive slightly after audio starts - this is a normal race condition
+      console.debug(`[StreamingSubtitles] No timings yet for sentence ${sentenceIndex}`);
+      currentTimingsRef.current = [];
+      expectedDurationRef.current = undefined;
+    }
   }, []);
   
   /**
@@ -217,6 +228,9 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
    * Mark sentence as complete
    */
   const completeSentence = useCallback((sentenceIndex: number) => {
+    // Clean up timing cache entry for completed sentence to prevent memory leak
+    timingsBySentenceRef.current.delete(sentenceIndex);
+    
     setSentences(prev => {
       return prev.map(s => {
         if (s.index === sentenceIndex) {
@@ -240,6 +254,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     currentTimingsRef.current = [];
     expectedDurationRef.current = undefined;
     actualDurationRef.current = undefined;
+    timingsBySentenceRef.current.clear(); // Clear the timing cache
     
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);

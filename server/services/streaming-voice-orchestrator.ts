@@ -233,6 +233,9 @@ export class StreamingVoiceOrchestrator {
             console.log(`[Streaming Orchestrator] AI first token: ${metrics.aiFirstTokenMs}ms`);
           }
           
+          // Extract target language BEFORE cleaning (needs bold markers for extraction)
+          const targetLanguageText = extractTargetLanguageText(chunk.text);
+          
           // Clean text for display (remove markdown, emotion tags)
           const displayText = cleanTextForDisplay(chunk.text);
           
@@ -241,9 +244,6 @@ export class StreamingVoiceOrchestrator {
             console.log(`[Streaming Orchestrator] Skipping empty sentence ${chunk.index} after cleaning`);
             return;
           }
-          
-          // Extract target language only text (removes parenthetical translations)
-          const targetLanguageText = extractTargetLanguageText(displayText);
           
           // Notify client of new sentence with cleaned text
           this.sendMessage(session.ws, {
