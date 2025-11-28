@@ -66,6 +66,11 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   const [visibleWordCount, setVisibleWordCount] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   
+  // Track the maximum target word index reached during playback
+  // This enables progressive reveal in Target mode - once a target word is spoken,
+  // it stays visible even when subsequent English words are playing
+  const [maxTargetWordIndex, setMaxTargetWordIndex] = useState(-1);
+  
   // Use ref + state pattern for isWaitingForContent to ensure:
   // - Ref provides IMMEDIATE synchronous update for render guards
   // - State triggers React re-render when content arrives
@@ -158,6 +163,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     setIsPlaying(true);
     setVisibleWordCount(0);
     setCurrentWordIndex(-1);
+    setMaxTargetWordIndex(-1);  // Reset max target index for new sentence
     playbackStartTimeRef.current = Date.now();
     actualDurationRef.current = undefined; // Reset actual duration
     
@@ -305,6 +311,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     setCurrentWordIndex(-1);
     setVisibleWordCount(0);
     setIsPlaying(false);
+    setMaxTargetWordIndex(-1);  // Reset max target index
     currentTimingsRef.current = [];
     expectedDurationRef.current = undefined;
     actualDurationRef.current = undefined;
@@ -372,7 +379,11 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   
   // Compute current target word index from current word index using word mapping
   // This enables karaoke highlighting in Target mode
-  const currentTargetWordIndex = useMemo(() => {
+  // 
+  // IMPORTANT: We track the MAXIMUM target word index reached during playback.
+  // This enables progressive reveal - once a target word is spoken, it stays visible
+  // even when subsequent English words are playing.
+  const instantTargetWordIndex = useMemo(() => {
     if (currentWordIndex < 0) return -1;
     
     const mapping = currentSentence?.wordMapping;
@@ -381,6 +392,18 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     // Look up the target word index for the current full-text word index
     return mapping.get(currentWordIndex) ?? -1;
   }, [currentWordIndex, currentSentence?.wordMapping]);
+  
+  // Update max target word index when we reach a new target word
+  // This ensures progressive reveal works correctly
+  const currentTargetWordIndex = useMemo(() => {
+    if (instantTargetWordIndex > maxTargetWordIndex) {
+      // Use setTimeout to avoid state update during render
+      setTimeout(() => setMaxTargetWordIndex(instantTargetWordIndex), 0);
+      return instantTargetWordIndex;
+    }
+    // Return the max reached so far (keeps words visible after English words play)
+    return maxTargetWordIndex;
+  }, [instantTargetWordIndex, maxTargetWordIndex]);
   
   // Memoize the return value to prevent infinite re-render loops
   // when this hook's return value is used as a dependency in other hooks
