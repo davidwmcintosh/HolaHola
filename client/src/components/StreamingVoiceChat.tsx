@@ -771,6 +771,11 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
         
         // Only touch shared state if this is still the active session
         if (isActiveSession) {
+          // CRITICAL: Reset subtitles BEFORE changing isRecording state
+          // This sets isWaitingForContent=true BEFORE the re-render triggered by setIsRecording(false)
+          // Without this, stale target words flash briefly after mic release
+          streamingVoice.subtitles.reset();
+          
           mediaRecorderRef.current = null;
           streamRef.current = null;
           setIsRecording(false);
@@ -899,6 +904,11 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
         
         // Only touch shared state if this is still the active session
         if (isActiveSession) {
+          // CRITICAL: Reset subtitles BEFORE changing isRecording state
+          // This sets isWaitingForContent=true BEFORE the re-render triggered by setIsRecording(false)
+          // Without this, stale target words flash briefly after mic release
+          streamingVoice.subtitles.reset();
+          
           mediaRecorderRef.current = null;
           streamRef.current = null;
           setIsRecording(false);
