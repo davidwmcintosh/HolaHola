@@ -195,8 +195,19 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
    * Supports rescaling when actual audio duration differs from expected
    */
   const updatePlaybackTime = useCallback((currentTime: number, actualDuration?: number) => {
+    // DEBUG: Log every call to verify RAF loop is running (only log periodically to avoid spam)
+    if (Math.floor(currentTime * 60) % 60 === 0) { // Log ~once per second
+      console.log(`[StreamingSubtitles] updatePlaybackTime: time=${currentTime.toFixed(2)}s, timings=${currentTimingsRef.current.length}`);
+    }
+    
     const timings = currentTimingsRef.current;
-    if (timings.length === 0) return;
+    if (timings.length === 0) {
+      // DEBUG: Log when timings are empty (this would prevent word highlighting)
+      if (Math.floor(currentTime * 10) % 20 === 0) { // Log every 2 seconds
+        console.log(`[StreamingSubtitles] updatePlaybackTime called but NO timings loaded! currentTime: ${currentTime.toFixed(2)}s`);
+      }
+      return;
+    }
     
     // Pedagogical timing offset (in seconds)
     // Research shows 100-150ms EARLY word appearance is optimal for language learning:
@@ -259,6 +270,11 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       if (adjustedTime >= scaledStartTime && adjustedTime < scaledEndTime) {
         wordIndex = i;
       }
+    }
+    
+    // DEBUG: Log word index updates periodically to verify RAF loop is running
+    if (wordIndex >= 0 && wordIndex !== currentWordIndex) {
+      console.log(`[StreamingSubtitles] Word ${wordIndex} at ${currentTime.toFixed(2)}s (visible: ${maxVisibleIndex + 1})`);
     }
     
     setVisibleWordCount(maxVisibleIndex + 1);

@@ -334,8 +334,12 @@ export class StreamingAudioPlayer {
     // Cancel any existing timing loop
     this.stopPrecisionTiming();
     
+    console.log('[StreamingAudioPlayer] Starting precision timing loop');
+    
+    let frameCount = 0;
     const tick = () => {
       if (!this.isPlaying || this.playbackStartTime === null) {
+        console.log('[StreamingAudioPlayer] RAF loop exiting: isPlaying=', this.isPlaying, 'startTime=', this.playbackStartTime);
         return;
       }
       
@@ -346,6 +350,12 @@ export class StreamingAudioPlayer {
       
       // Fire progress callback with precise timing
       this.callbacks.onProgress?.(currentTime, this.currentDuration);
+      
+      // DEBUG: Log periodically to verify loop is running
+      frameCount++;
+      if (frameCount % 60 === 0) { // Every ~1 second at 60fps
+        console.log(`[StreamingAudioPlayer] RAF frame ${frameCount}, time: ${currentTime.toFixed(2)}s`);
+      }
       
       // Continue the loop
       this.rafId = requestAnimationFrame(tick);

@@ -113,6 +113,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   // Subtitle management
   const subtitles = useStreamingSubtitles();
   
+  // Keep a ref to subtitles to avoid stale closure issues in audio player callbacks
+  // The audio player callbacks are set once on mount but need access to latest subtitles methods
+  const subtitlesRef = useRef(subtitles);
+  subtitlesRef.current = subtitles;
+  
   /**
    * Initialize the audio player
    */
@@ -123,6 +128,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // NOTE: isProcessing is only cleared when BOTH:
     // 1. Server has sent response_complete (responseCompleteRef = true)
     // 2. No pending audio chunks (pendingAudioCountRef = 0)
+    // IMPORTANT: Use subtitlesRef.current to get latest subtitles (avoids stale closure)
     playerRef.current.setCallbacks({
       onStateChange: (state) => {
         console.log(`[StreamingVoice] Playback state: ${state}`);
@@ -130,22 +136,23 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       },
       onProgress: (currentTime, duration) => {
         // Update subtitle highlighting with actual duration for rescaling
-        subtitles.updatePlaybackTime(currentTime, duration);
+        // Use ref to get latest subtitles (avoids stale closure from mount-time capture)
+        subtitlesRef.current.updatePlaybackTime(currentTime, duration);
       },
       onSentenceStart: (sentenceIndex) => {
         console.log(`[StreamingVoice] Sentence ${sentenceIndex} started`);
-        subtitles.startPlayback(sentenceIndex);
+        subtitlesRef.current.startPlayback(sentenceIndex);
       },
       onSentenceEnd: (sentenceIndex) => {
         console.log(`[StreamingVoice] Sentence ${sentenceIndex} ended`);
-        subtitles.completeSentence(sentenceIndex);
+        subtitlesRef.current.completeSentence(sentenceIndex);
       },
       onComplete: () => {
         console.log('[StreamingVoice] Playback queue empty');
         // Only stop subtitles when response is truly complete
         // Don't stop during buffer gaps between sentences
         if (responseCompleteRef.current && pendingAudioCountRef.current === 0) {
-          subtitles.stopPlayback();
+          subtitlesRef.current.stopPlayback();
         }
         // Check if we can clear isProcessing
         checkAndClearProcessing();
