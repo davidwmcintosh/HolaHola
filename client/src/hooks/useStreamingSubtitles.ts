@@ -199,16 +199,14 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     // - Improves word recognition and memory retention
     // Subtitle Timing Offset
     // Words should appear ~100-150ms BEFORE audio for optimal learning (pedagogical timing).
-    // Cartesia MP3s have significant leading silence before speech begins.
-    //
+    // 
     // TUNING: Increase this value if words appear too early
     //         Decrease this value if words appear too late
     // 
     // Testing notes:
-    // - 0.50s: Too early (user reported)  
-    // - 2.55s: Still too early (user reported)
-    // - Trying 3.5s to compensate for more silence
-    const SUBTITLE_OFFSET = 3.5; // Larger offset to account for MP3 leading silence
+    // - 3.5s was WAY too large - words never appeared for short audio clips
+    // - Starting with 0.18s (180ms pedagogical timing offset)
+    const SUBTITLE_OFFSET = 0.18; // Pedagogical timing - words appear slightly before audio
     
     // Apply timing offset (delays word appearance)
     const adjustedTime = Math.max(0, currentTime - SUBTITLE_OFFSET);
