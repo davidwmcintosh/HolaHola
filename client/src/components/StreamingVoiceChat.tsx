@@ -917,14 +917,33 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
       let stream: MediaStream;
       
       // Use cached stream for INSTANT recording if available
-      console.log('[PUSH-TO-TALK] Cached stream status:', cachedStreamRef.current ? 'exists' : 'null', cachedStreamRef.current?.active ? 'active' : 'inactive');
+      // Must verify: stream active AND at least one audio track is live and enabled
+      const cachedStream = cachedStreamRef.current;
+      const audioTracks = cachedStream?.getAudioTracks() || [];
+      const hasLiveTrack = audioTracks.some(track => 
+        track.readyState === 'live' && track.enabled && !track.muted
+      );
       
-      if (cachedStreamRef.current && cachedStreamRef.current.active) {
+      console.log('[PUSH-TO-TALK] Cached stream status:', {
+        exists: !!cachedStream,
+        active: cachedStream?.active,
+        trackCount: audioTracks.length,
+        trackStates: audioTracks.map(t => ({ readyState: t.readyState, enabled: t.enabled, muted: t.muted })),
+        hasLiveTrack
+      });
+      
+      if (cachedStream && cachedStream.active && hasLiveTrack) {
         console.log('[PUSH-TO-TALK] Using cached stream - INSTANT start! (+' + (performance.now() - startTime).toFixed(0) + 'ms)');
-        stream = cachedStreamRef.current;
+        stream = cachedStream;
         cachedStreamRef.current = null; // Will re-warm after recording
         // No preparing state needed - jump straight to recording!
       } else {
+        // Cached stream unusable - dispose of it if exists
+        if (cachedStream) {
+          console.log('[PUSH-TO-TALK] Cached stream unusable, disposing...');
+          cachedStream.getTracks().forEach(track => track.stop());
+          cachedStreamRef.current = null;
+        }
         // No cached stream - show preparing state and request new one
         console.log('[PUSH-TO-TALK] No cached stream, requesting microphone... (+' + (performance.now() - startTime).toFixed(0) + 'ms)');
         setIsMicPreparing(true);
