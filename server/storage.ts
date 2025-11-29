@@ -2933,6 +2933,16 @@ export class DatabaseStorage implements IStorage {
       lessonDescription: string | null;
       unitName: string;
     } | null;
+    upcomingAssignments: Array<{
+      id: string;
+      title: string;
+      description: string | null;
+      dueDate: Date | null;
+      classId: string;
+      className: string;
+      lessonId: string | null;
+      status: 'not_started' | 'in_progress' | 'submitted' | 'graded' | 'overdue';
+    }>;
     stats: {
       totalConversations: number;
       totalVocabulary: number;
@@ -3242,7 +3252,7 @@ export class DatabaseStorage implements IStorage {
           
           let status: AssignmentWithStatus['status'] = 'not_started';
           if (submission) {
-            if (submission.grade !== null) {
+            if (submission.teacherScore !== null) {
               status = 'graded';
             } else if (submission.submittedAt) {
               status = 'submitted';
@@ -3262,7 +3272,7 @@ export class DatabaseStorage implements IStorage {
               dueDate: assignment.dueDate,
               classId: teacherClass.id,
               className: teacherClass.name,
-              lessonId: assignment.lessonId,
+              lessonId: assignment.curriculumLessonId ?? null,
               status
             });
           }

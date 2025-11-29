@@ -422,171 +422,55 @@ export default function ReviewHub() {
         </CardContent>
       </Card>
 
-      {/* Coursework Section - Show based on context:
-          - Self-directed: Show personal lessons only (no assignments)
-          - Class context: Show class assignments only (personal lessons shown via dedicated Lessons page)
-      */}
+      {/* My Lessons Card - Only for self-directed learners with personal lessons */}
       {(() => {
         const isSelfDirected = !learningContext || learningContext === "self-directed";
         const hasPersonalLessons = isSelfDirected && (data?.activeLessons?.length ?? 0) > 0;
-        const hasClassAssignments = !isSelfDirected && (data?.upcomingAssignments?.length ?? 0) > 0;
         
-        if (!hasPersonalLessons && !hasClassAssignments) return null;
+        if (!hasPersonalLessons || !data) return null;
         
         return (
-        <Card data-testid="section-coursework">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <GraduationCap className="h-5 w-5 text-primary" />
-              {isSelfDirected ? "My Lessons" : "Class Assignments"}
-            </CardTitle>
-            <CardDescription>
-              {isSelfDirected 
-                ? "Lessons created from your conversations" 
-                : "Assignments from your enrolled class"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isSelfDirected ? (
-              // Self-directed: Show personal lessons only
-              <div className="space-y-2">
-              
-              <TabsContent value="lessons" className="space-y-2">
-                {(data.activeLessons?.length ?? 0) > 0 ? (
-                  <>
-                    {data.activeLessons?.slice(0, 5).map((lesson) => (
-                      <Link key={lesson.id} href={`/lessons?expand=${lesson.id}`}>
-                        <div className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer" data-testid={`card-lesson-${lesson.id}`}>
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-800">
-                              <BookOpen className="h-4 w-4 text-indigo-700 dark:text-indigo-300" />
-                            </div>
-                            <div>
-                              <p className="font-medium">{lesson.title}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {getLanguageDisplayName(lesson.language)}
-                              </p>
-                            </div>
-                          </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      </Link>
-                    ))}
-                    {(data.activeLessons?.length ?? 0) > 5 && (
-                      <div className="text-center pt-2">
-                        <Link href="/lessons">
-                          <Button variant="ghost" size="sm" className="gap-1">
-                            View all lessons
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
-                        </Link>
+          <Card data-testid="section-my-lessons">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <BookOpen className="h-5 w-5 text-primary" />
+                My Lessons
+              </CardTitle>
+              <CardDescription>Lessons created from your conversations</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {data.activeLessons?.slice(0, 3).map((lesson) => (
+                <Link key={lesson.id} href={`/lessons?expand=${lesson.id}`}>
+                  <div className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer" data-testid={`card-lesson-${lesson.id}`}>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-800">
+                        <BookOpen className="h-4 w-4 text-indigo-700 dark:text-indigo-300" />
                       </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="text-center py-6 text-muted-foreground">
-                    <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No lessons yet</p>
-                    <p className="text-sm">Create lessons from your conversations</p>
-                  </div>
-                )}
-              </TabsContent>
-              
-              <TabsContent value="assignments" className="space-y-2">
-                {(data.upcomingAssignments?.length ?? 0) > 0 ? (
-                  <>
-                    {data.upcomingAssignments?.slice(0, 5).map((assignment) => {
-                      const dueDate = assignment.dueDate ? new Date(assignment.dueDate) : null;
-                      const isOverdue = assignment.status === 'overdue';
-                      const daysUntilDue = dueDate 
-                        ? Math.ceil((dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-                        : null;
-                      const isDueSoon = daysUntilDue !== null && daysUntilDue <= 2 && daysUntilDue >= 0;
-                      
-                      const statusConfig = {
-                        not_started: { icon: Clock, color: "text-gray-500", label: "Not started" },
-                        in_progress: { icon: Clock, color: "text-blue-500", label: "In progress" },
-                        submitted: { icon: CheckCircle2, color: "text-green-500", label: "Submitted" },
-                        overdue: { icon: AlertCircle, color: "text-red-500", label: "Overdue" },
-                        graded: { icon: CheckCircle2, color: "text-green-500", label: "Graded" },
-                      };
-                      const status = statusConfig[assignment.status];
-                      const StatusIcon = status.icon;
-                      
-                      return (
-                        <Link key={assignment.id} href={`/student/assignments?assignment=${assignment.id}`}>
-                          <div 
-                            className={`flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer ${
-                              isOverdue ? "border-red-300 dark:border-red-800" : ""
-                            }`}
-                            data-testid={`card-assignment-${assignment.id}`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className={`p-2 rounded-full ${
-                                isOverdue 
-                                  ? "bg-red-100 dark:bg-red-900/30" 
-                                  : "bg-cyan-100 dark:bg-cyan-900/30"
-                              }`}>
-                                <ClipboardList className={`h-4 w-4 ${
-                                  isOverdue 
-                                    ? "text-red-700 dark:text-red-300" 
-                                    : "text-cyan-700 dark:text-cyan-300"
-                                }`} />
-                              </div>
-                              <div>
-                                <p className="font-medium flex items-center gap-2">
-                                  {assignment.title}
-                                  {isOverdue && (
-                                    <Badge variant="destructive" className="text-xs">Overdue</Badge>
-                                  )}
-                                  {isDueSoon && !isOverdue && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      {daysUntilDue === 0 ? "Due today" : `${daysUntilDue}d`}
-                                    </Badge>
-                                  )}
-                                </p>
-                                <p className="text-xs text-muted-foreground flex items-center gap-2">
-                                  <span>{assignment.className}</span>
-                                  {dueDate && (
-                                    <>
-                                      <span>•</span>
-                                      <span>Due {dueDate.toLocaleDateString()}</span>
-                                    </>
-                                  )}
-                                  <span>•</span>
-                                  <StatusIcon className={`h-3 w-3 ${status.color}`} />
-                                  <span className={status.color}>{status.label}</span>
-                                </p>
-                              </div>
-                            </div>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        </Link>
-                      );
-                    })}
-                    {(data.upcomingAssignments?.length ?? 0) > 5 && (
-                      <div className="text-center pt-2">
-                        <Link href="/student/assignments">
-                          <Button variant="ghost" size="sm" className="gap-1">
-                            View all assignments
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
-                        </Link>
+                      <div>
+                        <p className="font-medium">{lesson.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {getLanguageDisplayName(lesson.language)}
+                        </p>
                       </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="text-center py-6 text-muted-foreground">
-                    <ClipboardList className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No assignments</p>
-                    <p className="text-sm">You're all caught up!</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-      )}
+                </Link>
+              ))}
+              {(data.activeLessons?.length ?? 0) > 3 && (
+                <div className="text-center pt-2">
+                  <Link href="/lessons">
+                    <Button variant="ghost" size="sm" className="gap-1">
+                      View all {data.activeLessons?.length ?? 0} lessons
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Topic Deep Dives with Culture Insight */}
       {(hasTopics || (data?.culturalTips?.length ?? 0) > 0) && (
