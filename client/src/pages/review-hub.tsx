@@ -129,9 +129,9 @@ export default function ReviewHub() {
   return (
     <div className="container mx-auto p-4 max-w-4xl space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-start justify-between flex-wrap gap-2 md:gap-3">
         <div className="flex items-center gap-3">
-          <img src={linguaflowLogo} alt="LinguaFlow" className="h-32 w-32" />
+          <img src={linguaflowLogo} alt="LinguaFlow" className="h-24 w-24" />
           <div>
             <h1 className="text-2xl font-bold" data-testid="text-review-hub-title">
               Language Hub
@@ -141,7 +141,7 @@ export default function ReviewHub() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap mt-1">
           <LearningContextFilter />
           <Link href="/chat">
             <Button size="lg" className="gap-2" data-testid="button-start-practice">
