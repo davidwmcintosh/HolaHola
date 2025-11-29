@@ -2837,6 +2837,14 @@ export class DatabaseStorage implements IStorage {
     activeLessons: UserLesson[];
     recentVocabulary: VocabularyWord[];
     topicsWithContent: Array<Topic & { conversationCount: number; vocabularyCount: number }>;
+    nextLesson: {
+      classId: string;
+      className: string;
+      lessonId: string;
+      lessonName: string;
+      lessonDescription: string | null;
+      unitName: string;
+    } | null;
     stats: {
       totalConversations: number;
       totalVocabulary: number;
@@ -2992,6 +3000,62 @@ export class DatabaseStorage implements IStorage {
     const progress = await this.getOrCreateUserProgress(language, userId);
     const streakDays = progress.currentStreak || 0;
 
+    // Find next lesson for enrolled students in this language
+    let nextLesson: {
+      classId: string;
+      className: string;
+      lessonId: string;
+      lessonName: string;
+      lessonDescription: string | null;
+      unitName: string;
+    } | null = null;
+
+    try {
+      const enrollments = await this.getStudentEnrollments(userId);
+      const activeEnrollments = enrollments.filter(e => 
+        e.isActive && e.class?.language === language
+      );
+
+      for (const enrollment of activeEnrollments) {
+        const teacherClass = enrollment.class;
+        if (!teacherClass?.curriculumPathId) continue;
+
+        const curriculumPath = await this.getCurriculumPath(teacherClass.curriculumPathId);
+        if (!curriculumPath) continue;
+
+        const units = await this.getCurriculumUnits(curriculumPath.id);
+        const syllabusProgress = await this.getSyllabusProgress(userId, teacherClass.id);
+        
+        const completedLessons = new Set(
+          syllabusProgress
+            .filter(p => p.status === 'completed_early' || p.status === 'completed_assigned' || p.tutorVerified)
+            .map(p => p.lessonId)
+        );
+
+        // Find first incomplete lesson
+        for (const unit of units) {
+          const lessons = await this.getCurriculumLessons(unit.id);
+          for (const lesson of lessons) {
+            if (!completedLessons.has(lesson.id)) {
+              nextLesson = {
+                classId: teacherClass.id,
+                className: teacherClass.name,
+                lessonId: lesson.id,
+                lessonName: lesson.name,
+                lessonDescription: lesson.description,
+                unitName: unit.name
+              };
+              break;
+            }
+          }
+          if (nextLesson) break;
+        }
+        if (nextLesson) break; // Use first class with incomplete lessons
+      }
+    } catch (error) {
+      console.error('[ReviewHub] Error finding next lesson:', error);
+    }
+
     return {
       dueFlashcards,
       recentConversations,
@@ -2999,6 +3063,7 @@ export class DatabaseStorage implements IStorage {
       activeLessons,
       recentVocabulary,
       topicsWithContent,
+      nextLesson,
       stats: {
         totalConversations: Number(totalConvsResult[0]?.count || 0),
         totalVocabulary: Number(totalVocabResult[0]?.count || 0),

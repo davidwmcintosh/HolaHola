@@ -35,6 +35,14 @@ interface ReviewHubData {
   activeLessons: UserLesson[];
   recentVocabulary: VocabularyWord[];
   topicsWithContent: Array<Topic & { conversationCount: number; vocabularyCount: number }>;
+  nextLesson: {
+    classId: string;
+    className: string;
+    lessonId: string;
+    lessonName: string;
+    lessonDescription: string | null;
+    unitName: string;
+  } | null;
   stats: {
     totalConversations: number;
     totalVocabulary: number;
@@ -105,6 +113,7 @@ export default function ReviewHub() {
   const hasCulturalTips = data?.culturalTips && data.culturalTips.length > 0;
   const hasTopics = data?.topicsWithContent && data.topicsWithContent.length > 0;
   const hasLessons = data?.activeLessons && data.activeLessons.length > 0;
+  const hasNextLesson = data?.nextLesson !== null && data?.nextLesson !== undefined;
 
   return (
     <div className="container mx-auto p-4 max-w-4xl space-y-6">
@@ -218,6 +227,28 @@ export default function ReviewHub() {
                 <p className="text-sm text-muted-foreground">No flashcards due for review</p>
               </div>
             </div>
+          )}
+
+          {/* Next Lesson from Syllabus - For enrolled students */}
+          {hasNextLesson && data.nextLesson && (
+            <Link href={`/chat?lesson=${data.nextLesson.lessonId}&class=${data.nextLesson.classId}`}>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 hover-elevate cursor-pointer" data-testid="link-next-lesson">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-800">
+                    <GraduationCap className="h-5 w-5 text-indigo-700 dark:text-indigo-300" />
+                  </div>
+                  <div>
+                    <p className="font-medium">Begin: {data.nextLesson.lessonName}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {data.nextLesson.className} - {data.nextLesson.unitName}
+                    </p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon">
+                  <Play className="h-5 w-5" />
+                </Button>
+              </div>
+            </Link>
           )}
 
           {/* Recent Vocabulary - Only show if there are new words NOT already in due cards */}
