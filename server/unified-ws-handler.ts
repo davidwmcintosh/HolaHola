@@ -26,6 +26,7 @@ import {
   ClientAudioDataMessage,
   StreamingErrorMessage,
 } from '@shared/streaming-voice-types';
+import { generateCongratulatoryPromptAddition } from './services/competency-verifier';
 
 const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
 const REALTIME_PATH = '/api/realtime/ws';
@@ -189,7 +190,7 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           // Use full system prompt with streaming voice mode flag
           // This preserves all teaching context (ACTFL, cultural guidelines, vocabulary)
           // while outputting plain text format for TTS
-          const systemPrompt = createSystemPrompt(
+          let systemPrompt = createSystemPrompt(
             config.targetLanguage,
             config.difficultyLevel,
             messages.length,
@@ -206,6 +207,19 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             user.tutorExpressiveness || 3,
             true // isStreamingVoiceMode - outputs plain text with **bold** markers
           );
+
+          // Add congratulatory messaging if student is ahead of syllabus
+          if (conversation.classId) {
+            try {
+              const congratsAddition = await generateCongratulatoryPromptAddition(userId!, conversation.classId);
+              if (congratsAddition) {
+                systemPrompt += '\n\n' + congratsAddition;
+                console.log('[Streaming Voice] Added syllabus acknowledgment to prompt');
+              }
+            } catch (err) {
+              console.warn('[Streaming Voice] Could not add congrats:', err);
+            }
+          }
 
           let voiceId: string | undefined;
           try {

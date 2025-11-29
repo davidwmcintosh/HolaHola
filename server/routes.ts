@@ -4514,6 +4514,109 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ===== Syllabus Progress & Competency =====
+
+  // Check lesson competency for a student
+  app.get("/api/competency/check/:classId/:lessonId", isAuthenticated, async (req: any, res) => {
+    try {
+      const studentId = req.user.claims.sub;
+      const { classId, lessonId } = req.params;
+      
+      // Import dynamically to avoid circular dependencies
+      const { checkLessonCompetency } = await import('./services/competency-verifier');
+      const result = await checkLessonCompetency(studentId, classId, lessonId);
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error checking competency:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Check upcoming lessons for early completion
+  app.get("/api/competency/upcoming/:classId", isAuthenticated, async (req: any, res) => {
+    try {
+      const studentId = req.user.claims.sub;
+      const { classId } = req.params;
+      
+      const { checkUpcomingLessonsForEarlyCompletion } = await import('./services/competency-verifier');
+      const results = await checkUpcomingLessonsForEarlyCompletion(studentId, classId);
+      
+      res.json(results);
+    } catch (error: any) {
+      console.error('Error checking upcoming lessons:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Mark lesson as organically completed
+  app.post("/api/competency/complete-early", mutationLimiter, isAuthenticated, async (req: any, res) => {
+    try {
+      const studentId = req.user.claims.sub;
+      const { classId, lessonId, tutorVerified } = req.body;
+      
+      const { checkLessonCompetency, markLessonAsOrganicallyCompleted } = await import('./services/competency-verifier');
+      const competencyResult = await checkLessonCompetency(studentId, classId, lessonId);
+      
+      if (competencyResult.recommendation !== 'complete_early') {
+        return res.status(400).json({ 
+          error: "Lesson does not meet early completion requirements",
+          competency: competencyResult
+        });
+      }
+      
+      const success = await markLessonAsOrganicallyCompleted(
+        studentId, 
+        classId, 
+        lessonId, 
+        competencyResult,
+        tutorVerified || false
+      );
+      
+      res.json({ 
+        success, 
+        competency: competencyResult,
+        message: success ? "Lesson marked as completed early!" : "Failed to mark lesson complete"
+      });
+    } catch (error: any) {
+      console.error('Error marking lesson complete:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get syllabus progress for a student in a class
+  app.get("/api/syllabus-progress/:classId", isAuthenticated, async (req: any, res) => {
+    try {
+      const studentId = req.user.claims.sub;
+      const { classId } = req.params;
+      
+      const progress = await storage.getSyllabusProgress(studentId, classId);
+      res.json(progress);
+    } catch (error: any) {
+      console.error('Error fetching syllabus progress:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get early completions for a class (teachers only)
+  app.get("/api/teacher/classes/:classId/early-completions", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { classId } = req.params;
+      const teacherClass = await storage.getTeacherClass(classId);
+      
+      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      const earlyCompletions = await storage.getEarlyCompletions(classId);
+      res.json(earlyCompletions);
+    } catch (error: any) {
+      console.error('Error fetching early completions:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== Assignments =====
   
   // Create assignment (teachers only)

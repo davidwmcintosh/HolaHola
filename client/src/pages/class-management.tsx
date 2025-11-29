@@ -6,11 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Copy, Plus, Trash2, Users, ClipboardList, BookOpen, UserMinus } from "lucide-react";
+import { Copy, Plus, Trash2, Users, ClipboardList, BookOpen, UserMinus, Sparkles } from "lucide-react";
 import { useParams, Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { TeacherEarlyCompletions } from "@/components/teacher-early-completions";
 
 interface TeacherClass {
   id: string;
@@ -213,6 +214,10 @@ export default function ClassManagement() {
         <TabsList>
           <TabsTrigger value="students" data-testid="tab-students">Students</TabsTrigger>
           <TabsTrigger value="assignments" data-testid="tab-assignments">Assignments</TabsTrigger>
+          <TabsTrigger value="progress" data-testid="tab-progress" className="gap-1">
+            <Sparkles className="h-4 w-4" />
+            Organic Progress
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="students" className="space-y-4">
@@ -385,6 +390,10 @@ export default function ClassManagement() {
               </div>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="progress">
+          <TeacherEarlyCompletions classId={classId || ''} />
         </TabsContent>
       </Tabs>
     </div>

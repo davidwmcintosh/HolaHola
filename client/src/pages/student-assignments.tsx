@@ -9,10 +9,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { Clock, CheckCircle2, AlertCircle, FileText, Send } from "lucide-react";
+import { Clock, CheckCircle2, AlertCircle, FileText, Send, Target, Sparkles } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { SyllabusProgress } from "@/components/syllabus-progress";
 
 interface EnrolledClass {
   id: string;
@@ -199,6 +200,10 @@ export default function StudentAssignments() {
         <TabsList>
           <TabsTrigger value="pending" data-testid="tab-pending">Pending</TabsTrigger>
           <TabsTrigger value="completed" data-testid="tab-completed">Completed</TabsTrigger>
+          <TabsTrigger value="progress" data-testid="tab-progress" className="gap-1">
+            <Sparkles className="h-4 w-4" />
+            Syllabus Progress
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="pending" className="space-y-4">
@@ -342,6 +347,36 @@ export default function StudentAssignments() {
                   <h3 className="text-xl font-semibold">No Completed Assignments</h3>
                   <p className="text-muted-foreground max-w-md mx-auto">
                     Completed assignments will appear here.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="progress" className="space-y-4">
+          {enrolledClasses && enrolledClasses.length > 0 ? (
+            <div className="space-y-6">
+              {enrolledClasses.map((enrollment) => (
+                <SyllabusProgress 
+                  key={enrollment.classId}
+                  classId={enrollment.classId}
+                  className="w-full"
+                />
+              ))}
+            </div>
+          ) : (
+            <Card className="p-12">
+              <div className="text-center space-y-4">
+                <div className="flex justify-center">
+                  <div className="p-4 bg-muted rounded-full">
+                    <Target className="w-12 h-12 text-muted-foreground" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold">No Classes Yet</h3>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    Join a class to start tracking your syllabus progress.
                   </p>
                 </div>
               </div>

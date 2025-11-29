@@ -42,6 +42,13 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 The Dashboard includes a "What's Next?" card linking to Review Hub for easy navigation.
 
+**Syllabus-Aware Competency System**: Recognizes when students organically cover curriculum topics during conversations, enabling early completion instead of redundant assignments. Key features:
+- **Competency Verification Service**: Analyzes topic coverage, vocabulary mastery, grammar demonstration, and pronunciation against lesson requirements with 80%+ weighted threshold (topics 40%, vocab 35%, grammar 25%)
+- **syllabusProgress Table**: Tracks completion method (organic_conversation, assignment, tutor_verified), competency scores, and evidence conversations
+- **Student Progress UI**: Shows early completions, coverage percentages, and quick review options via SyllabusProgress component
+- **Teacher Dashboard**: TeacherEarlyCompletions component displays organic vs assigned completion with tutor verification workflow and congratulatory messaging
+- **Tutor Acknowledgment**: Generates encouraging messages when students are ahead of syllabus, integrated into conversation prompts
+
 ## External Dependencies
 
 ### Third-Party Services
