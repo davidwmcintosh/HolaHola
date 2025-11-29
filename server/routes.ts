@@ -3470,6 +3470,24 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Review Hub: Unified learning dashboard data
+  app.get("/api/review-hub", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { language } = req.query;
+      
+      if (!language) {
+        return res.status(400).json({ error: "language query parameter is required" });
+      }
+      
+      const data = await storage.getReviewHubData(userId, language as string);
+      res.json(data);
+    } catch (error: any) {
+      console.error("[Review Hub] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Phase 3: User Lessons CRUD
   app.get("/api/lessons", isAuthenticated, async (req: any, res) => {
     try {

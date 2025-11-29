@@ -6,9 +6,11 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { DifficultySelector } from "@/components/DifficultySelector";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { useLocation, Link } from "wouter";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSidebar } from "@/components/ui/sidebar";
+import { Target, ArrowRight, BookOpen, MessageSquare, Sparkles } from "lucide-react";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -25,6 +27,32 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       <WelcomeHero onStartPractice={handleStartPractice} />
+      
+      {/* What's Next - Link to Review Hub */}
+      <Link href="/review">
+        <Card className="p-6 bg-gradient-to-r from-primary/10 via-primary/5 to-background border-primary/20 hover-elevate cursor-pointer" data-testid="card-whats-next">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-full bg-primary/20">
+                <Target className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  What's Next?
+                  <Sparkles className="h-4 w-4 text-primary" />
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  View your personalized learning plan - due reviews, topics to practice, and more
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" className="gap-1">
+              Review Hub
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </Card>
+      </Link>
       
       <div className="space-y-4">
         <h2 className="text-3xl font-semibold">Your Progress</h2>

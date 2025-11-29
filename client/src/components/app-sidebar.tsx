@@ -1,4 +1,4 @@
-import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck, Library, Shield, X, FolderOpen, Volume2 } from "lucide-react";
+import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck, Library, Shield, X, FolderOpen, Volume2, Target } from "lucide-react";
 import linguaflowLogo from "@assets/LF_no_words_no_background_1764099068542.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -22,6 +22,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 const menuItems = [
   { title: "Dashboard", url: "/", icon: Home },
+  { title: "Review Hub", url: "/review", icon: Target },
   { title: "Call Tutor", url: "/chat", icon: MessageSquare },
   { title: "Chat Ideas", url: "/chat-ideas", icon: Lightbulb },
   { title: "Vocabulary", url: "/vocabulary", icon: BookOpen },

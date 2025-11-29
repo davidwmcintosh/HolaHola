@@ -47,6 +47,7 @@ const AdminClasses = lazy(() => import("@/pages/admin/Classes"));
 const AdminReports = lazy(() => import("@/pages/admin/Reports"));
 const AdminVoiceConsole = lazy(() => import("@/pages/admin/VoiceConsole"));
 const Lessons = lazy(() => import("@/pages/lessons"));
+const ReviewHub = lazy(() => import("@/pages/review-hub"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 // Loading fallback component
@@ -126,6 +127,7 @@ function Router() {
         <Route path="/history" component={History} />
         <Route path="/can-do-progress" component={CanDoProgress} />
         <Route path="/lessons" component={Lessons} />
+        <Route path="/review" component={ReviewHub} />
         
         {/* Teacher Routes - Protected */}
         <Route path="/teacher/dashboard" component={TeacherDashboard} />

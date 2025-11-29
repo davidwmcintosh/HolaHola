@@ -61,6 +61,16 @@ const stripeInitPromise = (async function initStripe() {
     } catch (error) {
       console.error('Failed to seed topics:', error);
     }
+
+    // Seed Cultural Tips for all languages
+    try {
+      console.log('Seeding cultural tips...');
+      const { seedCulturalTips } = await import('./cultural-tips-seed');
+      await seedCulturalTips();
+      console.log('Cultural tips ready');
+    } catch (error) {
+      console.error('Failed to seed cultural tips:', error);
+    }
     
     stripeReady = true;
   } catch (error) {

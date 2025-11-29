@@ -355,6 +355,22 @@ export interface IStorage {
   // Phase 3: Auto-generate lesson from time range
   generateWeeklyLesson(userId: string, language: string, weekStart: Date): Promise<UserLesson | null>;
 
+  // Review Hub: Unified learning data aggregation
+  getReviewHubData(userId: string, language: string): Promise<{
+    dueFlashcards: VocabularyWord[];
+    recentConversations: Array<Conversation & { topics: Array<{ topic: Topic }> }>;
+    culturalTips: CulturalTip[];
+    activeLessons: UserLesson[];
+    recentVocabulary: VocabularyWord[];
+    topicsWithContent: Array<Topic & { conversationCount: number; vocabularyCount: number }>;
+    stats: {
+      totalConversations: number;
+      totalVocabulary: number;
+      dueCount: number;
+      streakDays: number;
+    };
+  }>;
+
   // ===== Tutor Voice Management (Admin Console) =====
   
   // Get voice for a specific language and gender
@@ -2640,6 +2656,157 @@ export class DatabaseStorage implements IStorage {
     }
     
     return lesson;
+  }
+
+  // Review Hub: Unified learning data aggregation
+  async getReviewHubData(userId: string, language: string): Promise<{
+    dueFlashcards: VocabularyWord[];
+    recentConversations: Array<Conversation & { topics: Array<{ topic: Topic }> }>;
+    culturalTips: CulturalTip[];
+    activeLessons: UserLesson[];
+    recentVocabulary: VocabularyWord[];
+    topicsWithContent: Array<Topic & { conversationCount: number; vocabularyCount: number }>;
+    stats: {
+      totalConversations: number;
+      totalVocabulary: number;
+      dueCount: number;
+      streakDays: number;
+    };
+  }> {
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    // Get due flashcards (limit to 10 for daily review)
+    const dueFlashcards = await this.getDueVocabulary(language, userId, undefined, 10);
+
+    // Get recent conversations (last 7 days) with their topics
+    const recentConvs = await db
+      .select()
+      .from(conversations)
+      .where(and(
+        eq(conversations.userId, userId),
+        eq(conversations.language, language),
+        gte(conversations.createdAt, weekAgo)
+      ))
+      .orderBy(desc(conversations.createdAt))
+      .limit(10);
+
+    // Fetch topics for each conversation
+    const recentConversations: Array<Conversation & { topics: Array<{ topic: Topic }> }> = [];
+    for (const conv of recentConvs) {
+      const topicsResult = await this.getConversationTopics(conv.id);
+      recentConversations.push({
+        ...conv,
+        topics: topicsResult.map(t => ({ topic: t.topic }))
+      });
+    }
+
+    // Get cultural tips for this language (randomly pick 3)
+    const allTips = await this.getCulturalTips(language);
+    const shuffledTips = allTips.sort(() => Math.random() - 0.5);
+    const culturalTips = shuffledTips.slice(0, 3);
+
+    // Get active lessons
+    const activeLessons = await this.getUserLessons(userId, language);
+
+    // Get recently learned vocabulary (words with few repetitions = newly learned)
+    // Since vocabulary words don't have createdAt, we use repetition count as proxy
+    const recentVocabulary = await db
+      .select()
+      .from(vocabularyWords)
+      .where(and(
+        eq(vocabularyWords.userId, userId),
+        eq(vocabularyWords.language, language),
+        sql`${vocabularyWords.repetition} < 3` // Words with fewer than 3 repetitions are "new"
+      ))
+      .orderBy(desc(vocabularyWords.nextReviewDate))
+      .limit(20);
+
+    // Get topics with content counts
+    const allTopics = await this.getTopics();
+    const topicsWithContent: Array<Topic & { conversationCount: number; vocabularyCount: number }> = [];
+
+    for (const topic of allTopics) {
+      // Count conversations with this topic for this user
+      const convTopics = await db
+        .select({ conversationId: conversationTopics.conversationId })
+        .from(conversationTopics)
+        .innerJoin(conversations, eq(conversationTopics.conversationId, conversations.id))
+        .where(and(
+          eq(conversationTopics.topicId, topic.id),
+          eq(conversations.userId, userId),
+          eq(conversations.language, language)
+        ));
+
+      // Count vocabulary with this topic for this user
+      const vocabTopics = await db
+        .select({ vocabularyWordId: vocabularyWordTopics.vocabularyWordId })
+        .from(vocabularyWordTopics)
+        .innerJoin(vocabularyWords, eq(vocabularyWordTopics.vocabularyWordId, vocabularyWords.id))
+        .where(and(
+          eq(vocabularyWordTopics.topicId, topic.id),
+          eq(vocabularyWords.userId, userId),
+          eq(vocabularyWords.language, language)
+        ));
+
+      if (convTopics.length > 0 || vocabTopics.length > 0) {
+        topicsWithContent.push({
+          ...topic,
+          conversationCount: convTopics.length,
+          vocabularyCount: vocabTopics.length
+        });
+      }
+    }
+
+    // Sort by total content count
+    topicsWithContent.sort((a, b) => 
+      (b.conversationCount + b.vocabularyCount) - (a.conversationCount + a.vocabularyCount)
+    );
+
+    // Get total stats
+    const totalConvsResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(conversations)
+      .where(and(
+        eq(conversations.userId, userId),
+        eq(conversations.language, language)
+      ));
+
+    const totalVocabResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(vocabularyWords)
+      .where(and(
+        eq(vocabularyWords.userId, userId),
+        eq(vocabularyWords.language, language)
+      ));
+
+    const dueCountResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(vocabularyWords)
+      .where(and(
+        eq(vocabularyWords.userId, userId),
+        eq(vocabularyWords.language, language),
+        sql`${vocabularyWords.nextReviewDate} <= ${now}`
+      ));
+
+    // Calculate streak (simplified - just check consecutive days with activity)
+    const progress = await this.getOrCreateUserProgress(language, userId);
+    const streakDays = progress.currentStreak || 0;
+
+    return {
+      dueFlashcards,
+      recentConversations,
+      culturalTips,
+      activeLessons,
+      recentVocabulary,
+      topicsWithContent,
+      stats: {
+        totalConversations: Number(totalConvsResult[0]?.count || 0),
+        totalVocabulary: Number(totalVocabResult[0]?.count || 0),
+        dueCount: Number(dueCountResult[0]?.count || 0),
+        streakDays
+      }
+    };
   }
 
   // ===== Tutor Voice Management =====
