@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
@@ -18,6 +18,7 @@ import {
   Sparkles,
   Play,
   ChevronRight,
+  ChevronDown,
   Flame,
   GraduationCap,
   Hash,
@@ -31,8 +32,11 @@ import {
   AlertCircle,
   Clock,
   CheckCircle2,
+  Circle,
   Globe,
+  ListTree,
 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { VocabularyWord, Conversation, CulturalTip, UserLesson, Topic } from "@shared/schema";
 
 interface UpcomingAssignment {
@@ -44,6 +48,31 @@ interface UpcomingAssignment {
   className: string;
   lessonId: string | null;
   status: 'not_started' | 'in_progress' | 'submitted' | 'graded' | 'overdue';
+}
+
+interface SyllabusLesson {
+  id: string;
+  name: string;
+  orderIndex: number;
+  lessonType: string;
+  status: 'not_started' | 'in_progress' | 'completed';
+  estimatedMinutes: number | null;
+}
+
+interface SyllabusUnit {
+  id: string;
+  name: string;
+  orderIndex: number;
+  lessons: SyllabusLesson[];
+}
+
+interface SyllabusOverview {
+  classId: string;
+  className: string;
+  curriculumName: string;
+  totalLessons: number;
+  completedLessons: number;
+  units: SyllabusUnit[];
 }
 
 interface ReviewHubData {
@@ -62,6 +91,7 @@ interface ReviewHubData {
     unitName: string;
   } | null;
   upcomingAssignments: UpcomingAssignment[];
+  syllabusOverview: SyllabusOverview | null;
   stats: {
     totalConversations: number;
     totalVocabulary: number;
@@ -467,6 +497,127 @@ export default function ReviewHub() {
                   </Link>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* Course Overview - Only for class context */}
+      {(() => {
+        const isClassContext = learningContext && !learningContext.includes('self-directed') && learningContext !== 'all';
+        const syllabus = data?.syllabusOverview;
+        
+        if (!isClassContext || !syllabus) return null;
+        
+        const progressPercent = syllabus.totalLessons > 0 
+          ? Math.round((syllabus.completedLessons / syllabus.totalLessons) * 100) 
+          : 0;
+
+        return (
+          <Card data-testid="section-course-overview">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <ListTree className="h-5 w-5 text-primary" />
+                    Course Overview
+                  </CardTitle>
+                  <CardDescription>{syllabus.curriculumName}</CardDescription>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-primary">{progressPercent}%</p>
+                  <p className="text-xs text-muted-foreground">
+                    {syllabus.completedLessons} of {syllabus.totalLessons} lessons
+                  </p>
+                </div>
+              </div>
+              {/* Progress bar */}
+              <div className="mt-3 h-2 w-full bg-muted rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary transition-all duration-300" 
+                  style={{ width: `${progressPercent}%` }} 
+                />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {syllabus.units.map((unit, unitIndex) => {
+                const completedInUnit = unit.lessons.filter(l => l.status === 'completed').length;
+                const unitProgress = unit.lessons.length > 0 
+                  ? Math.round((completedInUnit / unit.lessons.length) * 100) 
+                  : 0;
+                const isComplete = unitProgress === 100;
+                const hasStarted = completedInUnit > 0;
+                
+                return (
+                  <Collapsible key={unit.id} defaultOpen={unitIndex === 0 || (!isComplete && hasStarted)} className="group">
+                    <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg border hover-elevate" data-testid={`unit-${unit.id}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-full ${isComplete ? 'bg-green-100 dark:bg-green-900' : hasStarted ? 'bg-blue-100 dark:bg-blue-900' : 'bg-muted'}`}>
+                          {isComplete ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                          ) : (
+                            <BookOpen className={`h-4 w-4 ${hasStarted ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`} />
+                          )}
+                        </div>
+                        <div className="text-left">
+                          <p className="font-medium">{unit.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {completedInUnit} of {unit.lessons.length} lessons completed
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isComplete && (
+                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                            Complete
+                          </Badge>
+                        )}
+                        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="pl-12 pr-3 py-2 space-y-1">
+                        {unit.lessons.map((lesson) => {
+                          const LessonStatusIcon = lesson.status === 'completed' 
+                            ? CheckCircle2 
+                            : lesson.status === 'in_progress' 
+                              ? Clock 
+                              : Circle;
+                          const statusColor = lesson.status === 'completed' 
+                            ? 'text-green-600 dark:text-green-400' 
+                            : lesson.status === 'in_progress' 
+                              ? 'text-blue-600 dark:text-blue-400' 
+                              : 'text-muted-foreground';
+                          
+                          return (
+                            <Link 
+                              key={lesson.id} 
+                              href={`/chat?lesson=${lesson.id}&class=${syllabus.classId}`}
+                            >
+                              <div 
+                                className="flex items-center gap-3 p-2 rounded hover-elevate cursor-pointer" 
+                                data-testid={`lesson-${lesson.id}`}
+                              >
+                                <LessonStatusIcon className={`h-4 w-4 ${statusColor}`} />
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-sm truncate ${lesson.status === 'completed' ? 'text-muted-foreground' : ''}`}>
+                                    {lesson.name}
+                                  </p>
+                                </div>
+                                {lesson.estimatedMinutes && (
+                                  <span className="text-xs text-muted-foreground">
+                                    ~{lesson.estimatedMinutes}m
+                                  </span>
+                                )}
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                );
+              })}
             </CardContent>
           </Card>
         );

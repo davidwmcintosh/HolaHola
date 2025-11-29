@@ -405,6 +405,26 @@ export interface IStorage {
       lessonId: string | null;
       status: 'not_started' | 'in_progress' | 'submitted' | 'graded' | 'overdue';
     }>;
+    syllabusOverview: {
+      classId: string;
+      className: string;
+      curriculumName: string;
+      totalLessons: number;
+      completedLessons: number;
+      units: Array<{
+        id: string;
+        name: string;
+        orderIndex: number;
+        lessons: Array<{
+          id: string;
+          name: string;
+          orderIndex: number;
+          lessonType: string;
+          status: 'not_started' | 'in_progress' | 'completed';
+          estimatedMinutes: number | null;
+        }>;
+      }>;
+    } | null;
     stats: {
       totalConversations: number;
       totalVocabulary: number;
@@ -3295,6 +3315,92 @@ export class DatabaseStorage implements IStorage {
       console.error('[ReviewHub] Error fetching assignments:', error);
     }
 
+    // Build syllabus overview for enrolled class context
+    type SyllabusOverview = {
+      classId: string;
+      className: string;
+      curriculumName: string;
+      totalLessons: number;
+      completedLessons: number;
+      units: Array<{
+        id: string;
+        name: string;
+        orderIndex: number;
+        lessons: Array<{
+          id: string;
+          name: string;
+          orderIndex: number;
+          lessonType: string;
+          status: 'not_started' | 'in_progress' | 'completed';
+          estimatedMinutes: number | null;
+        }>;
+      }>;
+    };
+    let syllabusOverview: SyllabusOverview | null = null;
+
+    try {
+      // Only build syllabus when viewing a specific class
+      if (classId) {
+        const teacherClass = await this.getTeacherClass(classId);
+        if (teacherClass?.curriculumPathId) {
+          const curriculumPath = await this.getCurriculumPath(teacherClass.curriculumPathId);
+          if (curriculumPath) {
+            const units = await this.getCurriculumUnits(curriculumPath.id);
+            const syllabusProgress = await this.getSyllabusProgress(userId, classId);
+            
+            // Build a map of lesson progress
+            const progressMap = new Map<string, 'not_started' | 'in_progress' | 'completed'>();
+            for (const p of syllabusProgress) {
+              if (p.status === 'completed_early' || p.status === 'completed_assigned' || p.tutorVerified) {
+                progressMap.set(p.lessonId, 'completed');
+              } else if (p.status === 'in_progress') {
+                progressMap.set(p.lessonId, 'in_progress');
+              }
+            }
+
+            let totalLessons = 0;
+            let completedLessons = 0;
+            const unitsWithLessons: SyllabusOverview['units'] = [];
+
+            for (const unit of units) {
+              const lessons = await this.getCurriculumLessons(unit.id);
+              const lessonsWithStatus = lessons.map(lesson => {
+                const status = progressMap.get(lesson.id) || 'not_started';
+                totalLessons++;
+                if (status === 'completed') completedLessons++;
+                return {
+                  id: lesson.id,
+                  name: lesson.name,
+                  orderIndex: lesson.orderIndex,
+                  lessonType: lesson.lessonType,
+                  status,
+                  estimatedMinutes: lesson.estimatedMinutes
+                };
+              });
+
+              unitsWithLessons.push({
+                id: unit.id,
+                name: unit.name,
+                orderIndex: unit.orderIndex,
+                lessons: lessonsWithStatus
+              });
+            }
+
+            syllabusOverview = {
+              classId: teacherClass.id,
+              className: teacherClass.name,
+              curriculumName: curriculumPath.name,
+              totalLessons,
+              completedLessons,
+              units: unitsWithLessons
+            };
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[ReviewHub] Error building syllabus overview:', error);
+    }
+
     return {
       dueFlashcards,
       recentConversations,
@@ -3304,6 +3410,7 @@ export class DatabaseStorage implements IStorage {
       topicsWithContent,
       nextLesson,
       upcomingAssignments,
+      syllabusOverview,
       stats: {
         totalConversations: Number(totalConvsResult[0]?.count || 0),
         totalVocabulary: Number(totalVocabResult[0]?.count || 0),
