@@ -993,6 +993,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // IMPORTANT: This route MUST come before /api/conversations/:id to avoid "filtered" being treated as an ID
+  app.get("/api/conversations/filtered", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { timeFilter, starredOnly, topicId } = req.query;
+      
+      const conversations = await storage.getFilteredConversations(userId, {
+        timeFilter: timeFilter as 'today' | 'week' | 'month' | 'older' | undefined,
+        starredOnly: starredOnly === 'true',
+        topicId: topicId as string | undefined
+      });
+      
+      res.json(conversations);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Week 1 Feature: Smart search across all user conversations
   app.get("/api/search/messages", isAuthenticated, async (req: any, res) => {
     try {
@@ -3393,24 +3411,6 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(404).json({ message: "Conversation not found" });
       }
       res.json(updated);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Phase 1: Get filtered conversations
-  app.get("/api/conversations/filtered", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { timeFilter, starredOnly, topicId } = req.query;
-      
-      const conversations = await storage.getFilteredConversations(userId, {
-        timeFilter: timeFilter as 'today' | 'week' | 'month' | 'older' | undefined,
-        starredOnly: starredOnly === 'true',
-        topicId: topicId as string | undefined
-      });
-      
-      res.json(conversations);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

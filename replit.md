@@ -146,6 +146,15 @@ Three-tier permission system for voice emotion controls:
 
 ## Recent Fixes (November 29, 2024)
 
+### Conversation History Route Ordering Fix
+**Problem**: `/api/conversations/filtered` returned 404 "Conversation not found" error.
+
+**Root Cause**: In Express, route order matters. The parameterized route `/api/conversations/:id` was defined before `/api/conversations/filtered`, causing "filtered" to be treated as a conversation ID.
+
+**Solution**: Moved `/api/conversations/filtered` route before `/api/conversations/:id` in `server/routes.ts` (now at line 999-1015).
+
+**Rule**: In Express, always define specific routes (like `/filtered`) BEFORE parameterized routes (like `/:id`).
+
 ### AI Duplicate Response Bug
 **Problem**: Gemini generated 10 sentences, repeating same 5-sentence pattern twice.
 
