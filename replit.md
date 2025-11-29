@@ -66,6 +66,29 @@ The Dashboard includes a "What's Next?" card linking to Review Hub for easy navi
 - **Pages Supported**: Review Hub, Vocabulary, Grammar, Chat History
 - **API Integration**: Endpoints accept `?language=` and `?classId=` query parameters
 
+**Usage & Credit System Architecture**: A comprehensive metering system for voice tutoring time:
+- **Database Schema**: `voiceSessions` tracks individual sessions with userId, duration, status; `usageLedger` records all credit transactions with entitlementType (class_allocation, purchase, bonus, trial), stripePaymentId for idempotency
+- **Usage Service** (`server/services/usage-service.ts`): Core accounting service with `getUserBalance()`, `checkCreditsAvailable()`, `startSession()`, `endSession()`, `addCredits()`, `checkExistingPayment()`
+- **Session Tracking**: WebSocket voice handler automatically tracks session start/end with `usageService.startSession()` and `usageService.endSession()`
+- **Balance Calculation**: Aggregates all ledger entries per user, respects expiration dates, separates personal vs class credits
+- **Backend Guards**: `checkCreditsAvailable()` called before voice sessions, blocks if < 5 minutes remaining
+- **Frontend Integration**: `UsageContext` provides `useCredits()` hook, `CreditBalance` component, `InsufficientCreditsDialog` for upsells
+- **Dashboard Components**: `UsageOverview` card with hours remaining/used, `SessionHistory` list, `LearningAlerts` for low balance warnings, `ActflFluencyDial` gauge visualization
+
+**Hour Package Purchase System**: Stripe-integrated one-time payment flow for independent learners:
+- **Package Tiers**: Try It (1hr @ $12), Starter (5hrs @ $50), Regular (10hrs @ $90), Committed (20hrs @ $160)
+- **Checkout Flow**: `stripeService.createHourPackageCheckoutSession()` creates one-time payment session with package metadata
+- **Fulfillment**: `stripeService.fulfillHourPackage()` with idempotency protection via `usageService.checkExistingPayment()`
+- **Security**: User ownership validation ensures requesting user matches session.metadata.userId, stripePaymentId recorded to prevent duplicate credits
+- **API Endpoints**: GET `/api/billing/hour-packages`, POST `/api/billing/hour-packages/checkout`, POST `/api/billing/hour-packages/fulfill`
+- **Frontend Component**: `HourPackageShop` with card-based package display, purchase buttons, compact variant for dashboard integration
+
+**Class Hour Package System**: Institutional credit allocation for teachers:
+- **Package Management**: `classHourPackages` table stores package metadata (name, hoursPerStudent, totalPurchasedHours, status)
+- **Storage CRUD**: `createClassHourPackage()`, `getClassHourPackages()`, `updateClassHourPackage()`, `deleteClassHourPackage()`
+- **API Endpoints**: Full REST interface for package lifecycle management
+- **Credit Allocation**: Class enrollment triggers auto-allocation of hours from package to student ledger
+
 ## External Dependencies
 
 ### Third-Party Services
