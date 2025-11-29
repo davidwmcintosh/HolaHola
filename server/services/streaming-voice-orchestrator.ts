@@ -567,14 +567,15 @@ export class StreamingVoiceOrchestrator {
   
   /**
    * Race two STT promises for the first VALID (non-empty) result
-   * If both return empty, returns empty with 0 confidence
+   * Uses true racing - returns IMMEDIATELY when first valid result arrives
+   * If first result is empty, waits for second. If both empty, returns empty.
    */
   private async raceForValidTranscript(
     livePromise: Promise<{ transcript: string; confidence: number; source: string }>,
     prerecordedPromise: Promise<{ transcript: string; confidence: number; source: string }>
   ): Promise<{ transcript: string; confidence: number }> {
     
-    // Wrap promises to handle errors gracefully
+    // Wrap promises to handle errors gracefully and track completion
     const safeLive = livePromise.catch(err => {
       console.error('[Deepgram Live] Error:', err.message);
       return { transcript: '', confidence: 0, source: 'live-error' };
@@ -585,35 +586,49 @@ export class StreamingVoiceOrchestrator {
       return { transcript: '', confidence: 0, source: 'prerecorded-error' };
     });
     
-    // Wait for both to complete
-    const results = await Promise.all([safeLive, safePrerecorded]);
-    const [liveResult, prerecordedResult] = results;
-    
-    // Log both results
-    console.log(`[Deepgram Parallel] Live: "${liveResult.transcript}" (${(liveResult.confidence * 100).toFixed(0)}%)`);
-    console.log(`[Deepgram Parallel] Prerecorded: "${prerecordedResult.transcript}" (${(prerecordedResult.confidence * 100).toFixed(0)}%)`);
-    
-    // Prefer the result with higher confidence if both have transcripts
-    // Otherwise, return whichever has a transcript
-    if (liveResult.transcript && prerecordedResult.transcript) {
-      // Both have transcripts - use higher confidence
-      if (liveResult.confidence >= prerecordedResult.confidence) {
-        console.log(`[Deepgram Parallel] Winner: Live (higher confidence)`);
-        return { transcript: liveResult.transcript, confidence: liveResult.confidence };
-      } else {
-        console.log(`[Deepgram Parallel] Winner: Prerecorded (higher confidence)`);
-        return { transcript: prerecordedResult.transcript, confidence: prerecordedResult.confidence };
-      }
-    } else if (liveResult.transcript) {
-      console.log(`[Deepgram Parallel] Winner: Live (only valid result)`);
-      return { transcript: liveResult.transcript, confidence: liveResult.confidence };
-    } else if (prerecordedResult.transcript) {
-      console.log(`[Deepgram Parallel] Winner: Prerecorded (only valid result)`);
-      return { transcript: prerecordedResult.transcript, confidence: prerecordedResult.confidence };
-    }
-    
-    // Both empty
-    return { transcript: '', confidence: 0 };
+    // TRUE RACE: Return first valid result immediately
+    // Create a promise that resolves when first VALID result arrives
+    return new Promise(async (resolve) => {
+      let firstResult: { transcript: string; confidence: number; source: string } | null = null;
+      let secondResult: { transcript: string; confidence: number; source: string } | null = null;
+      let resolved = false;
+      
+      const handleResult = (result: { transcript: string; confidence: number; source: string }) => {
+        if (resolved) return;
+        
+        if (!firstResult) {
+          firstResult = result;
+          console.log(`[Deepgram Parallel] First result (${result.source}): "${result.transcript}" (${(result.confidence * 100).toFixed(0)}%)`);
+          
+          // If first result has valid transcript, return immediately!
+          if (result.transcript) {
+            resolved = true;
+            console.log(`[Deepgram Parallel] Winner: ${result.source} (first valid result)`);
+            resolve({ transcript: result.transcript, confidence: result.confidence });
+          }
+          // If empty, wait for second result
+        } else {
+          secondResult = result;
+          console.log(`[Deepgram Parallel] Second result (${result.source}): "${result.transcript}" (${(result.confidence * 100).toFixed(0)}%)`);
+          
+          // First was empty, check if second is valid
+          if (result.transcript) {
+            resolved = true;
+            console.log(`[Deepgram Parallel] Winner: ${result.source} (second result, first was empty)`);
+            resolve({ transcript: result.transcript, confidence: result.confidence });
+          } else {
+            // Both empty
+            resolved = true;
+            console.log(`[Deepgram Parallel] Both results empty`);
+            resolve({ transcript: '', confidence: 0 });
+          }
+        }
+      };
+      
+      // Race both promises
+      safeLive.then(handleResult);
+      safePrerecorded.then(handleResult);
+    });
   }
   
   /**

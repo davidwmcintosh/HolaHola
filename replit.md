@@ -77,6 +77,7 @@ User releases mic → STT (2.9s) → AI first token (1.2s) → TTS TTFB (0.2s) �
 - **Pre-warming**: Deepgram connection pre-warmed on voice chat entry
 - **Mic Stream Caching**: Subsequent recordings start instantly (0ms delay)
 - **Deduplication Guard**: Prevents LLM repetition loops (max 5 sentences)
+- **Parallel STT** (Nov 29): Runs Live + Prerecorded APIs simultaneously, uses best result
 
 ### STT Bottleneck Analysis
 Deepgram Nova-3 accounts for ~60% of total latency:
