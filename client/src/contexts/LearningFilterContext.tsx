@@ -21,7 +21,7 @@ export interface EnrolledClass {
   };
 }
 
-export type LearningContext = "all" | "self-directed" | "all-classes" | string;
+export type LearningContext = "all" | "self-directed" | "all-classes" | "all-learning" | string;
 
 interface LearningFilterContextType {
   learningContext: LearningContext;
@@ -80,6 +80,7 @@ export function LearningFilterProvider({ children }: { children: ReactNode }) {
     if (learningContext === "all") return "Self-Directed"; // Fallback
     if (learningContext === "self-directed") return "Self-Directed";
     if (learningContext === "all-classes") return "All Classes";
+    if (learningContext === "all-learning") return "All Learning";
     const cls = enrolledClasses.find(e => e.classId === learningContext);
     return cls?.class.name || "Self-Directed";
   };
