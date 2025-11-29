@@ -142,8 +142,8 @@ export default function ReviewHub() {
           </div>
         </div>
 
-        {/* Quick Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Quick Stats Row - Integrated with ACTFL */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <Card className="p-3">
             <div className="flex items-center gap-2">
               <div className="p-2 rounded-full bg-orange-100 dark:bg-orange-900/30">
@@ -151,7 +151,7 @@ export default function ReviewHub() {
               </div>
               <div>
                 <p className="text-2xl font-bold" data-testid="text-streak">{data?.stats.streakDays || 0}</p>
-                <p className="text-xs text-muted-foreground">Day Streak</p>
+                <p className="text-xs text-muted-foreground">Streak</p>
               </div>
             </div>
           </Card>
@@ -162,7 +162,7 @@ export default function ReviewHub() {
               </div>
               <div>
                 <p className="text-2xl font-bold" data-testid="text-vocab-count">{data?.stats.totalVocabulary || 0}</p>
-                <p className="text-xs text-muted-foreground">Words Learned</p>
+                <p className="text-xs text-muted-foreground">Words</p>
               </div>
             </div>
           </Card>
@@ -173,7 +173,7 @@ export default function ReviewHub() {
               </div>
               <div>
                 <p className="text-2xl font-bold" data-testid="text-conv-count">{data?.stats.totalConversations || 0}</p>
-                <p className="text-xs text-muted-foreground">Conversations</p>
+                <p className="text-xs text-muted-foreground">Chats</p>
               </div>
             </div>
           </Card>
@@ -184,14 +184,13 @@ export default function ReviewHub() {
               </div>
               <div>
                 <p className="text-2xl font-bold" data-testid="text-due-count">{data?.stats.dueCount || 0}</p>
-                <p className="text-xs text-muted-foreground">Cards Due</p>
+                <p className="text-xs text-muted-foreground">Due</p>
               </div>
             </div>
           </Card>
+          {/* ACTFL Fluency - integrated as stat card */}
+          <ActflFluencyDial stat language={language} />
         </div>
-
-        {/* ACTFL Fluency Gauge - compact version below stats */}
-        <ActflFluencyDial compact language={language} />
       </div>
 
       {/* Daily Plan Section */}

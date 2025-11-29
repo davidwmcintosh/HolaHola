@@ -71,6 +71,46 @@ function calculateContinuousScore(levelKey: string | null | undefined, progress:
   return Math.round(levelInfo.score + (progressWithin * levelSpan));
 }
 
+interface MiniRingProps {
+  score: number;
+  color: string;
+  size?: number;
+}
+
+function MiniRing({ score, color, size = 36 }: MiniRingProps) {
+  const strokeWidth = 3;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progress = (score / 100) * circumference;
+  const center = size / 2;
+  
+  return (
+    <svg width={size} height={size} className="transform -rotate-90">
+      <circle
+        cx={center}
+        cy={center}
+        r={radius}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        className="text-muted/30"
+      />
+      <circle
+        cx={center}
+        cy={center}
+        r={radius}
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={circumference - progress}
+        style={{ transition: 'stroke-dashoffset 0.5s ease-out' }}
+      />
+    </svg>
+  );
+}
+
 interface GaugeDialProps {
   score: number;
   color: string;
@@ -185,10 +225,11 @@ function GaugeDial({ score, color, size = 200 }: GaugeDialProps) {
 
 interface ActflFluencyDialProps {
   compact?: boolean;
+  stat?: boolean; // Render as a stat card matching other counters
   language?: string; // Optional override for the language (e.g., from LearningFilterContext)
 }
 
-export function ActflFluencyDial({ compact = false, language: languageProp }: ActflFluencyDialProps) {
+export function ActflFluencyDial({ compact = false, stat = false, language: languageProp }: ActflFluencyDialProps) {
   const { language: globalLanguage } = useLanguage();
   
   // Use prop language if provided, otherwise fall back to global context
@@ -214,6 +255,19 @@ export function ActflFluencyDial({ compact = false, language: languageProp }: Ac
   const progressWithinLevel = estimateProgressWithinLevel(progress);
   
   if (isLoading) {
+    if (stat) {
+      return (
+        <Card className="p-3">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-9 rounded-full" />
+            <div>
+              <Skeleton className="h-6 w-8" />
+              <Skeleton className="h-3 w-12 mt-1" />
+            </div>
+          </div>
+        </Card>
+      );
+    }
     return (
       <Card className="overflow-hidden">
         <CardHeader className="pb-2">
@@ -224,6 +278,82 @@ export function ActflFluencyDial({ compact = false, language: languageProp }: Ac
           <Skeleton className="h-8 w-40 mt-4" />
         </CardContent>
       </Card>
+    );
+  }
+  
+  // Stat mode - matches the other stat cards with a mini ring indicator
+  if (stat) {
+    if (isAllLanguages) {
+      return (
+        <Card className="p-3" data-testid="card-actfl-stat-all">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-900/30">
+              <Globe className="h-4 w-4 text-indigo-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-muted-foreground">--</p>
+              <p className="text-xs text-muted-foreground">ACTFL</p>
+            </div>
+          </div>
+        </Card>
+      );
+    }
+    
+    if (!hasProgress) {
+      return (
+        <Card className="p-3" data-testid="card-actfl-stat-pending">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-900/30">
+              <Award className="h-4 w-4 text-indigo-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-muted-foreground">--</p>
+              <p className="text-xs text-muted-foreground">ACTFL</p>
+            </div>
+          </div>
+        </Card>
+      );
+    }
+    
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Card className="p-3 cursor-help" data-testid="card-actfl-stat">
+            <div className="flex items-center gap-2">
+              <div className="relative flex items-center justify-center">
+                <MiniRing score={continuousScore} color={levelInfo.color} size={36} />
+                <span 
+                  className="absolute text-[10px] font-bold" 
+                  style={{ color: levelInfo.color }}
+                >
+                  {continuousScore}
+                </span>
+              </div>
+              <div>
+                <p className="text-lg font-bold leading-tight" style={{ color: levelInfo.color }}>
+                  {levelInfo.shortLabel}
+                </p>
+                <p className="text-xs text-muted-foreground">ACTFL</p>
+              </div>
+              {readyForAdvancement && (
+                <Zap className="h-4 w-4 text-green-500 ml-auto" />
+              )}
+            </div>
+          </Card>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-xs">
+          <div className="space-y-1">
+            <p className="font-medium">{levelInfo.label}</p>
+            <p className="text-xs text-muted-foreground">
+              Score: {continuousScore}/100
+              {nextLevel && ` • ${Math.round(progressWithinLevel * 100)}% to ${nextLevel.shortLabel}`}
+            </p>
+            {readyForAdvancement && (
+              <p className="text-xs text-green-600">{progress?.advancementReason || "Ready to advance!"}</p>
+            )}
+          </div>
+        </TooltipContent>
+      </Tooltip>
     );
   }
   
