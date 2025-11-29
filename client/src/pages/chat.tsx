@@ -8,6 +8,9 @@ import { MessageSquare, Mic, Plus } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSidebar } from "@/components/ui/sidebar";
+import { CreditBalance } from "@/components/CreditBalance";
+import { useCredits } from "@/contexts/UsageContext";
+import { InsufficientCreditsDialog } from "@/components/InsufficientCreditsDialog";
 
 export default function Chat() {
   const search = useSearch();
@@ -21,6 +24,8 @@ export default function Chat() {
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [currentConversationOnboarding, setCurrentConversationOnboarding] = useState<boolean | null>(null);
   const previousModeRef = useRef<"text" | "voice">("voice");
+  const [showInsufficientCreditsDialog, setShowInsufficientCreditsDialog] = useState(false);
+  const { isExhausted, isLow, isCritical } = useCredits();
   // Check localStorage to see if user clicked "New Chat" before page reload
   // Default to false so page reloads reuse existing conversations
   const [forceNewConversation, setForceNewConversation] = useState(() => {
@@ -229,16 +234,34 @@ export default function Chat() {
             Type instead
           </Button>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleNewChat}
-          data-testid="button-new-chat"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          New Chat
-        </Button>
+        
+        <div className="flex items-center gap-3">
+          {/* Credit balance display - only in voice mode */}
+          {mode === "voice" && (
+            <CreditBalance 
+              variant="compact" 
+              showWarning={false}
+              data-testid="credit-balance-header"
+            />
+          )}
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleNewChat}
+            data-testid="button-new-chat"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Chat
+          </Button>
+        </div>
       </div>
+      
+      {/* Insufficient credits dialog */}
+      <InsufficientCreditsDialog
+        open={showInsufficientCreditsDialog}
+        onOpenChange={setShowInsufficientCreditsDialog}
+      />
       <div className="flex-1 min-h-0">
         {mode === "voice" ? (
           <VoiceChat 
