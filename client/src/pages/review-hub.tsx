@@ -25,6 +25,7 @@ import {
   Trophy,
   Target,
   Mic,
+  Calendar,
 } from "lucide-react";
 import type { VocabularyWord, Conversation, CulturalTip, UserLesson, Topic } from "@shared/schema";
 
