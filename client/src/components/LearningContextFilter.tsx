@@ -89,13 +89,19 @@ export function LearningContextFilter({
 
   const selectedLanguage = availableLanguages.find((lang) => lang.value === language) 
     || allLanguages.find((lang) => lang.value === language);
-  const classesForLanguage = getClassesForLanguage(language);
-  const hasClasses = classesForLanguage.length > 0;
+  
+  // When "All Languages" is selected, show all enrolled classes; otherwise filter by language
+  const classesToShow = language === "all" 
+    ? enrolledClasses.filter(e => e.isActive)
+    : getClassesForLanguage(language);
+  const hasClasses = classesToShow.length > 0;
+  const hasAnyClasses = enrolledClasses.some(e => e.isActive);
 
   const handleLanguageChange = (newLang: string) => {
     setLanguage(newLang);
     // When changing language, check if current class context is still valid
-    if (learningContext !== "self-directed") {
+    // For "all" languages, all classes remain valid
+    if (learningContext !== "self-directed" && newLang !== "all") {
       const newClasses = getClassesForLanguage(newLang);
       const stillValid = newClasses.some(c => c.classId === learningContext);
       if (!stillValid) {
@@ -103,6 +109,12 @@ export function LearningContextFilter({
         setLearningContext("self-directed");
       }
     }
+  };
+  
+  // Helper to get language flag for a class
+  const getLanguageFlag = (langCode: string): string => {
+    const lang = allLanguages.find(l => l.value.toLowerCase() === langCode.toLowerCase());
+    return lang?.flag || "🌍";
   };
 
   const getContextLabel = (ctx: LearningContext): string => {
@@ -125,7 +137,7 @@ export function LearningContextFilter({
             {selectedLanguage.label}
           </Badge>
         )}
-        {showContext && hasClasses && (
+        {showContext && hasAnyClasses && (
           <Badge variant="outline" className="text-sm" data-testid="badge-current-context">
             {getContextIcon(learningContext)}
             <span className="ml-1">{getContextLabel(learningContext)}</span>
