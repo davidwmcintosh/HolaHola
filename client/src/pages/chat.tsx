@@ -16,6 +16,7 @@ export default function Chat() {
   const { language, difficulty, userName } = useLanguage();
   const { setOpen, setOpenMobile } = useSidebar();
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isResumedConversation, setIsResumedConversation] = useState(false);
   const resumeHandledRef = useRef(false);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [currentConversationOnboarding, setCurrentConversationOnboarding] = useState<boolean | null>(null);
@@ -58,6 +59,7 @@ export default function Chat() {
       console.log('[SHARED CHAT] Resuming conversation from URL:', resumeId);
       resumeHandledRef.current = true;
       setConversationId(resumeId);
+      setIsResumedConversation(true); // Mark as resumed to trigger welcome-back greeting
       // Clear the URL parameter to avoid re-resuming on refresh
       setLocation('/chat', { replace: true });
     }
@@ -243,6 +245,8 @@ export default function Chat() {
             conversationId={conversationId} 
             setConversationId={setConversationId}
             setCurrentConversationOnboarding={setCurrentConversationOnboarding}
+            isResumedConversation={isResumedConversation}
+            onResumeHandled={() => setIsResumedConversation(false)}
           />
         ) : (
           <ChatInterface 
