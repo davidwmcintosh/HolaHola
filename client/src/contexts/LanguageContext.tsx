@@ -4,6 +4,8 @@ import type { User } from "@shared/schema";
 
 type DifficultyLevel = "beginner" | "intermediate" | "advanced";
 export type SubtitleMode = "off" | "target" | "all";
+export type TutorGender = "male" | "female";
+export type VoiceSpeed = "normal" | "slow";
 
 interface LanguageContextType {
   language: string;
@@ -14,6 +16,10 @@ interface LanguageContextType {
   setUserName: (name: string) => void;
   subtitleMode: SubtitleMode;
   setSubtitleMode: (mode: SubtitleMode) => void;
+  tutorGender: TutorGender;
+  setTutorGender: (gender: TutorGender) => void;
+  voiceSpeed: VoiceSpeed;
+  setVoiceSpeed: (speed: VoiceSpeed) => void;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -39,6 +45,18 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     const mode = saved && ["off", "target", "all"].includes(saved) ? saved : "target";
     console.log('[LanguageContext] Initializing with subtitleMode:', mode, '(from localStorage)');
     return mode;
+  });
+  const [tutorGender, setTutorGenderState] = useState<TutorGender>(() => {
+    const saved = localStorage.getItem("tutorGender") as TutorGender;
+    const gender = saved && ["male", "female"].includes(saved) ? saved : "female";
+    console.log('[LanguageContext] Initializing with tutorGender:', gender, '(from localStorage)');
+    return gender;
+  });
+  const [voiceSpeed, setVoiceSpeedState] = useState<VoiceSpeed>(() => {
+    const saved = localStorage.getItem("voiceSpeed") as VoiceSpeed;
+    const speed = saved && ["normal", "slow"].includes(saved) ? saved : "normal";
+    console.log('[LanguageContext] Initializing with voiceSpeed:', speed, '(from localStorage)');
+    return speed;
   });
 
   // Fetch user preferences from database and sync with context
@@ -119,8 +137,20 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     setSubtitleModeState(mode);
   };
 
+  const setTutorGender = (gender: TutorGender) => {
+    console.log('[LanguageContext] Setting tutorGender:', gender);
+    localStorage.setItem("tutorGender", gender);
+    setTutorGenderState(gender);
+  };
+
+  const setVoiceSpeed = (speed: VoiceSpeed) => {
+    console.log('[LanguageContext] Setting voiceSpeed:', speed);
+    localStorage.setItem("voiceSpeed", speed);
+    setVoiceSpeedState(speed);
+  };
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, difficulty, setDifficulty, userName, setUserName, subtitleMode, setSubtitleMode }}>
+    <LanguageContext.Provider value={{ language, setLanguage, difficulty, setDifficulty, userName, setUserName, subtitleMode, setSubtitleMode, tutorGender, setTutorGender, voiceSpeed, setVoiceSpeed }}>
       {children}
     </LanguageContext.Provider>
   );

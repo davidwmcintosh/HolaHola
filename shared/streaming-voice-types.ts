@@ -218,6 +218,8 @@ export interface ClientStartSessionMessage {
   subtitleMode: 'off' | 'target' | 'all';
   tutorPersonality?: string;
   tutorExpressiveness?: number;
+  tutorGender?: 'male' | 'female';
+  voiceSpeed?: 'normal' | 'slow';
 }
 
 /**

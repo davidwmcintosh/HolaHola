@@ -47,6 +47,8 @@ export interface StreamingSessionConfig {
   subtitleMode: 'off' | 'target' | 'all';
   tutorPersonality?: string;
   tutorExpressiveness?: number;
+  tutorGender?: 'male' | 'female';
+  voiceSpeed?: 'normal' | 'slow';
   onResponseComplete?: (conversationId: string) => void;
 }
 
@@ -283,6 +285,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         subtitleMode: config.subtitleMode,
         tutorPersonality: config.tutorPersonality,
         tutorExpressiveness: config.tutorExpressiveness,
+        tutorGender: config.tutorGender,
+        voiceSpeed: config.voiceSpeed,
       });
       
       console.log('[StreamingVoice] Session started, waiting for ready state...');

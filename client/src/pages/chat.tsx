@@ -4,19 +4,26 @@ import { ChatInterface } from "@/components/ChatInterface";
 import { StreamingVoiceChat as VoiceChat } from "@/components/StreamingVoiceChat";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Mic, Plus } from "lucide-react";
-import { useLanguage } from "@/contexts/LanguageContext";
+import { MessageSquare, Mic, Plus, Settings, User, Gauge } from "lucide-react";
+import { useLanguage, type TutorGender, type VoiceSpeed } from "@/contexts/LanguageContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSidebar } from "@/components/ui/sidebar";
 import { CreditBalance } from "@/components/CreditBalance";
 import { useCredits } from "@/contexts/UsageContext";
 import { InsufficientCreditsDialog } from "@/components/InsufficientCreditsDialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 export default function Chat() {
   const search = useSearch();
   const [, setLocation] = useLocation();
   const [mode, setMode] = useState<"text" | "voice">("voice");
-  const { language, difficulty, userName } = useLanguage();
+  const { language, difficulty, userName, tutorGender, setTutorGender, voiceSpeed, setVoiceSpeed } = useLanguage();
   const { setOpen, setOpenMobile } = useSidebar();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isResumedConversation, setIsResumedConversation] = useState(false);
@@ -204,20 +211,20 @@ export default function Chat() {
       )}
       
       {/* Header - Mode Toggle visible in both voice and text modes */}
-      <div className="flex items-center justify-between gap-2 p-4 border-b">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-center md:justify-between gap-2 p-3 md:p-4 border-b">
+        <div className="flex items-center gap-2">
           {/* Voice button - prominent and primary */}
           <Button
             variant={mode === "voice" ? "default" : "outline"}
-            size="default"
+            size="sm"
             onClick={() => setMode("voice")}
             data-testid="button-voice-mode"
           >
-            <Mic className="h-4 w-4 mr-2" />
-            Voice Learning
+            <Mic className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Voice Learning</span>
             {mode === "voice" && (
-              <Badge variant="secondary" className="ml-2 text-xs">
-                Recommended
+              <Badge variant="secondary" className="ml-1 md:ml-2 text-xs hidden sm:inline">
+                Best
               </Badge>
             )}
           </Button>
@@ -230,12 +237,12 @@ export default function Chat() {
             data-testid="button-text-mode"
             className="text-muted-foreground"
           >
-            <MessageSquare className="h-4 w-4 mr-2" />
-            Type instead
+            <MessageSquare className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Type instead</span>
           </Button>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {/* Credit balance display - only in voice mode */}
           {mode === "voice" && (
             <CreditBalance 
@@ -244,14 +251,66 @@ export default function Chat() {
             />
           )}
           
+          {/* Settings popover - tutor gender and voice speed */}
+          {mode === "voice" && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  data-testid="button-settings"
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64" align="end">
+                <div className="space-y-4">
+                  <h4 className="font-medium text-sm">Tutor Settings</h4>
+                  
+                  {/* Tutor Gender Toggle */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <Label htmlFor="tutor-gender" className="text-sm">Male Tutor</Label>
+                    </div>
+                    <Switch
+                      id="tutor-gender"
+                      checked={tutorGender === "male"}
+                      onCheckedChange={(checked) => setTutorGender(checked ? "male" : "female")}
+                      data-testid="switch-tutor-gender"
+                    />
+                  </div>
+                  
+                  {/* Voice Speed Toggle */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Gauge className="h-4 w-4 text-muted-foreground" />
+                      <Label htmlFor="voice-speed" className="text-sm">Slow Speed</Label>
+                    </div>
+                    <Switch
+                      id="voice-speed"
+                      checked={voiceSpeed === "slow"}
+                      onCheckedChange={(checked) => setVoiceSpeed(checked ? "slow" : "normal")}
+                      data-testid="switch-voice-speed"
+                    />
+                  </div>
+                  
+                  <p className="text-xs text-muted-foreground">
+                    Changes apply to the next tutor response
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+          
           <Button
             variant="outline"
             size="sm"
             onClick={handleNewChat}
             data-testid="button-new-chat"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            New Chat
+            <Plus className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">New Chat</span>
           </Button>
         </div>
       </div>

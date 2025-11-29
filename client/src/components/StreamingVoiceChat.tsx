@@ -124,7 +124,7 @@ export function StreamingVoiceChat({
   isResumedConversation,
   onResumeHandled
 }: StreamingVoiceChatProps) {
-  const { language, difficulty, setLanguage, subtitleMode } = useLanguage();
+  const { language, difficulty, setLanguage, subtitleMode, tutorGender, voiceSpeed } = useLanguage();
   const [isRecording, setIsRecording] = useState(false);
   const [isMicPreparing, setIsMicPreparing] = useState(false); // Show "Preparing mic..." before actual recording starts
   const [isProcessing, setIsProcessing] = useState(false);
@@ -1534,7 +1534,7 @@ export function StreamingVoiceChat({
           canSlowRepeat={messages.some(m => m.role === 'assistant') && !isProcessing && avatarState !== 'speaking'}
           isSlowRepeatLoading={isSlowRepeatLoading}
           wordTimings={currentPlayingMessageId ? wordTimingsMapRef.current.get(currentPlayingMessageId) : undefined}
-          tutorGender={user?.tutorGender as 'male' | 'female' || 'female'}
+          tutorGender={tutorGender}
           streamingText={useStreamingMode ? streamingVoice.subtitles.state.currentSentenceText : undefined}
           streamingTargetText={useStreamingMode ? streamingVoice.subtitles.state.currentSentenceTargetText : undefined}
           streamingWordIndex={useStreamingMode ? streamingVoice.subtitles.state.currentWordIndex : undefined}
