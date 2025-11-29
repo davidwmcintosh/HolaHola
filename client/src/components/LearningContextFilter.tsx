@@ -119,12 +119,14 @@ export function LearningContextFilter({
 
   const getContextLabel = (ctx: LearningContext): string => {
     if (ctx === "all" || ctx === "self-directed") return "Self-Directed";
+    if (ctx === "all-classes") return "All Classes";
     const cls = enrolledClasses.find(e => e.classId === ctx);
     return cls?.class.name || "Self-Directed";
   };
 
   const getContextIcon = (ctx: LearningContext) => {
     if (ctx === "self-directed" || ctx === "all") return <User className="h-3 w-3" />;
+    if (ctx === "all-classes") return <GraduationCap className="h-3 w-3" />;
     return <GraduationCap className="h-3 w-3" />;
   };
 
@@ -180,6 +182,14 @@ export function LearningContextFilter({
                   <span>Self-Directed</span>
                 </div>
               </SelectItem>
+              {hasClasses && (
+                <SelectItem value="all-classes" data-testid="option-context-all-classes">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="h-4 w-4 text-primary" />
+                    <span>All Classes</span>
+                  </div>
+                </SelectItem>
+              )}
               {classesToShow.map((enrollment) => (
                 <SelectItem 
                   key={enrollment.classId} 
