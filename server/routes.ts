@@ -29,6 +29,7 @@ import { generateConversationTitle, generateConversationContextSummary } from ".
 import { extractTargetLanguageText, hasSignificantTargetLanguageContent } from "./text-utils";
 import multer from "multer";
 import { getTTSService } from "./services/tts-service";
+import { usageService } from "./services/usage-service";
 import { 
   getAvailableActflLevels,
   getSupportedLanguages,
@@ -513,6 +514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Check if user can send voice message (and increment counter)
+  // DEPRECATED: Use /api/usage/status instead for hour-based tracking
   app.post('/api/user/check-voice-usage', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -531,6 +533,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error checking voice usage:", error);
       res.status(500).json({ message: "Failed to check voice usage" });
+    }
+  });
+
+  // ===== Hour-Based Usage Tracking Routes =====
+  
+  // Get current usage status (balance, active session, etc.)
+  app.get('/api/usage/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const status = await usageService.getUsageStatus(userId);
+      
+      // Check for developer bypass
+      const balance = await usageService.getBalanceWithBypass(userId);
+      
+      res.json({
+        ...status,
+        balance,
+      });
+    } catch (error) {
+      console.error("Error fetching usage status:", error);
+      res.status(500).json({ message: "Failed to fetch usage status" });
+    }
+  });
+  
+  // Check if user can start a voice session
+  app.get('/api/usage/check', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Check for developer bypass first
+      const isDeveloper = await usageService.checkDeveloperBypass(userId);
+      if (isDeveloper) {
+        return res.json({
+          allowed: true,
+          remainingSeconds: 999999 * 3600,
+          remainingHours: 999999,
+          message: "Developer mode - unlimited access",
+        });
+      }
+      
+      const result = await usageService.checkSufficientCredits(userId);
+      res.json({
+        ...result,
+        remainingHours: result.remainingSeconds / 3600,
+      });
+    } catch (error) {
+      console.error("Error checking credits:", error);
+      res.status(500).json({ message: "Failed to check credits" });
+    }
+  });
+  
+  // Get usage history (ledger entries)
+  app.get('/api/usage/history', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const history = await usageService.getUsageHistory(userId, limit);
+      res.json({ history });
+    } catch (error) {
+      console.error("Error fetching usage history:", error);
+      res.status(500).json({ message: "Failed to fetch usage history" });
+    }
+  });
+  
+  // Get recent voice sessions
+  app.get('/api/usage/sessions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const sessions = await usageService.getRecentSessions(userId, limit);
+      res.json({ sessions });
+    } catch (error) {
+      console.error("Error fetching sessions:", error);
+      res.status(500).json({ message: "Failed to fetch sessions" });
+    }
+  });
+  
+  // Get credit balance only (lightweight endpoint)
+  app.get('/api/usage/balance', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const balance = await usageService.getBalanceWithBypass(userId);
+      res.json(balance);
+    } catch (error) {
+      console.error("Error fetching balance:", error);
+      res.status(500).json({ message: "Failed to fetch balance" });
     }
   });
 

@@ -8,6 +8,46 @@ This document provides the cost analysis for LinguaFlow's voice tutoring platfor
 
 ---
 
+## Understanding Our Pricing Model
+
+### The Challenge: Time vs. Messages
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| **Pure hourly** | Simple, familiar to students | Fast speakers have more exchanges = higher TTS cost |
+| **Per message** | Best cost control | Confusing, feels metered/restrictive |
+| **Session blocks** | Predictable, user-friendly | Needs internal guardrails |
+
+### Our Solution: Hybrid "Session-Based with Turn Allowance"
+
+We present pricing as **hours/sessions** to users while internally tracking both time and exchanges. This gives:
+- **Students/Schools**: Clear, understandable time-based pricing
+- **Us**: Cost control via natural conversation flow
+
+### What Students & Schools Should Expect
+
+#### Typical 15-Minute Session
+| Metric | Value |
+|--------|-------|
+| Duration | ~15 minutes |
+| Exchanges | ~20-25 back-and-forth turns |
+| Student speaking | ~5 minutes |
+| Tutor speaking | ~8 minutes |
+| Thinking/pauses | ~2 minutes |
+
+#### Typical 1-Hour Tutoring Session
+| Metric | Value |
+|--------|-------|
+| Duration | ~60 minutes |
+| Exchanges | ~40 back-and-forth turns |
+| Student speaking | ~15 minutes |
+| Tutor speaking | ~25 minutes |
+| Thinking/pauses | ~20 minutes |
+
+**Note:** Natural conversation flow varies - some sessions have fewer, deeper exchanges; others have more rapid practice. The tutor adapts to the student's pace and learning needs without artificial limits.
+
+---
+
 ## 1. Voice Pipeline Cost Breakdown
 
 ### Current Technology Stack

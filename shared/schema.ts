@@ -441,7 +441,17 @@ export const classEnrollments = pgTable("class_enrollments", {
   studentId: varchar("student_id").notNull().references(() => users.id),
   enrolledAt: timestamp("enrolled_at").notNull().defaultNow(),
   isActive: boolean("is_active").default(true),
-});
+  // Hour allocation for this enrollment
+  allocatedSeconds: integer("allocated_seconds").default(0), // Total hours allocated (in seconds, e.g., 36000 = 10 hrs)
+  usedSeconds: integer("used_seconds").default(0), // Hours used so far
+  // Pacing status for falling-behind warnings
+  paceStatus: varchar("pace_status").default("on_track"), // on_track, ahead, behind, critical
+  expectedProgressPercent: real("expected_progress_percent"), // Where student should be based on time elapsed
+  actualProgressPercent: real("actual_progress_percent"), // Where student actually is
+}, (table) => [
+  index("idx_class_enrollments_student").on(table.studentId),
+  index("idx_class_enrollments_class").on(table.classId),
+]);
 
 // Teacher assignments
 export const assignments = pgTable("assignments", {
@@ -515,6 +525,80 @@ export const syllabusProgress = pgTable("syllabus_progress", {
   index("idx_syllabus_progress_lesson").on(table.lessonId),
   index("idx_syllabus_progress_status").on(table.status),
 ]);
+
+// ===== Usage Tracking & Credit System =====
+
+// Entitlement type enum - how credits were earned
+export const entitlementTypeEnum = pgEnum('entitlement_type', ['class_allocation', 'purchase', 'bonus', 'trial']);
+
+// Voice session status enum
+export const voiceSessionStatusEnum = pgEnum('voice_session_status', ['active', 'completed', 'abandoned', 'error']);
+
+// Voice sessions - tracks each tutoring session with timing and exchange data
+export const voiceSessions = pgTable("voice_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  conversationId: varchar("conversation_id").references(() => conversations.id),
+  // Session timing
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  endedAt: timestamp("ended_at"),
+  durationSeconds: integer("duration_seconds").default(0), // Total session time
+  // Exchange tracking
+  exchangeCount: integer("exchange_count").default(0), // Number of back-and-forth turns
+  studentSpeakingSeconds: integer("student_speaking_seconds").default(0),
+  tutorSpeakingSeconds: integer("tutor_speaking_seconds").default(0),
+  // Cost tracking (for internal analytics)
+  ttsCharacters: integer("tts_characters").default(0), // Characters sent to TTS
+  sttSeconds: integer("stt_seconds").default(0), // Seconds of STT processing
+  // Session metadata
+  language: varchar("language"),
+  status: voiceSessionStatusEnum("status").default("active"),
+  // Class context (if enrolled)
+  classId: varchar("class_id").references(() => teacherClasses.id),
+}, (table) => [
+  index("idx_voice_sessions_user").on(table.userId),
+  index("idx_voice_sessions_started").on(table.startedAt),
+  index("idx_voice_sessions_class").on(table.classId),
+]);
+
+// Usage ledger - credit transactions (earned and consumed)
+export const usageLedger = pgTable("usage_ledger", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  // Credit amount (positive = earned, negative = consumed)
+  creditSeconds: integer("credit_seconds").notNull(), // Time in seconds (3600 = 1 hour)
+  // Source of credits
+  entitlementType: entitlementTypeEnum("entitlement_type").notNull(),
+  description: text("description"), // "Class enrollment: Spanish 101", "Purchased: 10 Hour Package"
+  // References
+  classId: varchar("class_id").references(() => teacherClasses.id), // For class allocations
+  voiceSessionId: varchar("voice_session_id").references(() => voiceSessions.id), // For consumption
+  stripePaymentId: varchar("stripe_payment_id"), // For purchases
+  // Expiration
+  expiresAt: timestamp("expires_at"), // null = never expires
+  // Metadata
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_usage_ledger_user").on(table.userId),
+  index("idx_usage_ledger_created").on(table.createdAt),
+  index("idx_usage_ledger_expires").on(table.expiresAt),
+]);
+
+// Hour packages - defines purchasable hour bundles
+export const hourPackages = pgTable("hour_packages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(), // "Try It", "Starter", "Regular", "Committed"
+  description: text("description"),
+  hours: integer("hours").notNull(), // Number of hours
+  priceInCents: integer("price_in_cents").notNull(), // Price in cents (e.g., 1200 = $12)
+  stripePriceId: varchar("stripe_price_id"), // Stripe price ID for checkout
+  // Package type
+  isInstitutional: boolean("is_institutional").default(false), // For class packages vs individual
+  // Validity
+  validityDays: integer("validity_days"), // null = never expires, e.g., 365 for 1 year
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
 
 // ===== Admin System Tables =====
 
@@ -956,6 +1040,32 @@ export type AssignmentSubmission = typeof assignmentSubmissions.$inferSelect;
 
 export type InsertAdminAuditLog = z.infer<typeof insertAdminAuditLogSchema>;
 export type AdminAuditLog = typeof adminAuditLog.$inferSelect;
+
+// ===== Usage Tracking & Credit System Types =====
+
+export const insertVoiceSessionSchema = createInsertSchema(voiceSessions).omit({
+  id: true,
+  startedAt: true,
+});
+
+export const insertUsageLedgerSchema = createInsertSchema(usageLedger).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertHourPackageSchema = createInsertSchema(hourPackages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertVoiceSession = z.infer<typeof insertVoiceSessionSchema>;
+export type VoiceSession = typeof voiceSessions.$inferSelect;
+
+export type InsertUsageLedger = z.infer<typeof insertUsageLedgerSchema>;
+export type UsageLedger = typeof usageLedger.$inferSelect;
+
+export type InsertHourPackage = z.infer<typeof insertHourPackageSchema>;
+export type HourPackage = typeof hourPackages.$inferSelect;
 
 // ===== Join Table Types =====
 

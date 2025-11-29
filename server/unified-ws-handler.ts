@@ -28,6 +28,8 @@ import {
 } from '@shared/streaming-voice-types';
 import { generateCongratulatoryPromptAddition } from './services/competency-verifier';
 import { buildCurriculumContext, detectSyllabusQuery } from './services/curriculum-context';
+import { usageService } from './services/usage-service';
+import type { VoiceSession as UsageVoiceSession } from '@shared/schema';
 
 const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
 const REALTIME_PATH = '/api/realtime/ws';
@@ -94,6 +96,14 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
   let session: StreamingSession | null = null;
   let userId: string | null = null;
   let isAuthenticated = false;
+  
+  // Usage tracking state
+  let usageSession: UsageVoiceSession | null = null;
+  let exchangeCount = 0;
+  let studentSpeakingSeconds = 0;
+  let tutorSpeakingSeconds = 0;
+  let ttsCharacters = 0;
+  let sttSeconds = 0;
   
   let conversationId: string | null = null;
   try {
@@ -166,6 +176,31 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           if (!conversationId) {
             sendError(ws, 'INVALID_REQUEST', 'Missing conversationId', false);
             return;
+          }
+
+          // Check if user has sufficient credits before starting session
+          const isDeveloper = await usageService.checkDeveloperBypass(userId!);
+          if (!isDeveloper) {
+            const creditCheck = await usageService.checkSufficientCredits(userId!);
+            if (!creditCheck.allowed) {
+              console.log(`[Streaming Voice] Insufficient credits for user ${userId}`);
+              sendError(ws, 'INSUFFICIENT_CREDITS', creditCheck.message || 'Insufficient tutoring hours', false);
+              
+              // Send specific message for frontend to handle
+              if (ws.readyState === WS.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'credits_exhausted',
+                  timestamp: Date.now(),
+                  remainingSeconds: creditCheck.remainingSeconds,
+                  message: creditCheck.message,
+                }));
+              }
+              ws.close(4402, 'Insufficient credits');
+              return;
+            }
+            console.log(`[Streaming Voice] Credits check passed: ${Math.round(creditCheck.remainingSeconds / 60)} minutes remaining`);
+          } else {
+            console.log('[Streaming Voice] Developer mode - credits check bypassed');
           }
 
           const user = await storage.getUser(userId!);
@@ -265,6 +300,23 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
 
           console.log(`[Streaming Voice] Session created: ${session.id}`);
           
+          // Start usage tracking session (skip for developers)
+          if (!isDeveloper) {
+            try {
+              // Get class ID from conversation if any
+              const classId = conversation.classId || undefined;
+              usageSession = await usageService.startSession(
+                userId!,
+                conversationId!,
+                config.targetLanguage,
+                classId
+              );
+              console.log(`[Streaming Voice] Usage session started: ${usageSession.id}`);
+            } catch (usageErr: any) {
+              console.warn('[Streaming Voice] Could not start usage session:', usageErr.message);
+            }
+          }
+          
           if (ws.readyState === WS.OPEN) {
             ws.send(JSON.stringify({
               type: 'session_started',
@@ -291,6 +343,34 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           }
 
           const metrics = await orchestrator.processUserAudio(session.id, audioBuffer, audioMessage.format || 'webm');
+          
+          // Track exchange for usage accounting
+          if (metrics.userTranscript && metrics.aiResponse) {
+            exchangeCount++;
+            
+            // Estimate speaking time from transcript length (rough: ~150 words/min = ~2.5 words/sec)
+            const studentWords = metrics.userTranscript.split(/\s+/).length;
+            const tutorWords = metrics.aiResponse.split(/\s+/).length;
+            studentSpeakingSeconds += studentWords / 2.5;
+            tutorSpeakingSeconds += tutorWords / 2.5;
+            
+            // Track TTS characters (for cost calculation)
+            ttsCharacters += metrics.aiResponse.length;
+            
+            // Update usage session metrics periodically (every 5 exchanges)
+            if (usageSession && exchangeCount % 5 === 0) {
+              try {
+                await usageService.updateSessionMetrics(usageSession.id, {
+                  exchangeCount,
+                  studentSpeakingSeconds: Math.round(studentSpeakingSeconds),
+                  tutorSpeakingSeconds: Math.round(tutorSpeakingSeconds),
+                  ttsCharacters,
+                });
+              } catch (updateErr: any) {
+                console.warn('[Streaming Voice] Could not update session metrics:', updateErr.message);
+              }
+            }
+          }
           
           // Save messages to database for history
           if (metrics.userTranscript && metrics.aiResponse && conversationId) {
@@ -349,6 +429,24 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             orchestrator.endSession(session.id);
             session = null;
           }
+          // End usage session and record consumption
+          if (usageSession) {
+            try {
+              // Update final metrics
+              await usageService.updateSessionMetrics(usageSession.id, {
+                exchangeCount,
+                studentSpeakingSeconds: Math.round(studentSpeakingSeconds),
+                tutorSpeakingSeconds: Math.round(tutorSpeakingSeconds),
+                ttsCharacters,
+              });
+              // End session (this also records consumption)
+              const endedSession = await usageService.endSession(usageSession.id);
+              console.log(`[Streaming Voice] Usage session ended: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);
+            } catch (endErr: any) {
+              console.error('[Streaming Voice] Could not end usage session:', endErr.message);
+            }
+            usageSession = null;
+          }
           ws.close(1000, 'Session ended');
           break;
       }
@@ -358,14 +456,35 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
     }
   });
 
+  // Helper to end usage session on disconnect
+  const endUsageSession = async () => {
+    if (usageSession) {
+      try {
+        await usageService.updateSessionMetrics(usageSession.id, {
+          exchangeCount,
+          studentSpeakingSeconds: Math.round(studentSpeakingSeconds),
+          tutorSpeakingSeconds: Math.round(tutorSpeakingSeconds),
+          ttsCharacters,
+        });
+        const endedSession = await usageService.endSession(usageSession.id);
+        console.log(`[Streaming Voice] Usage session ended on disconnect: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);
+      } catch (endErr: any) {
+        console.error('[Streaming Voice] Could not end usage session:', endErr.message);
+      }
+      usageSession = null;
+    }
+  };
+
   ws.on('close', (code, reason) => {
     console.log(`[Streaming Voice] Closed: ${code} - ${reason}`);
     if (session) orchestrator.endSession(session.id);
+    endUsageSession();
   });
 
   ws.on('error', (error) => {
     console.error('[Streaming Voice] Connection error:', error);
     if (session) orchestrator.endSession(session.id);
+    endUsageSession();
   });
 }
 
