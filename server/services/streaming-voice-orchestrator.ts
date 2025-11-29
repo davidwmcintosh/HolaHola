@@ -396,6 +396,11 @@ export class StreamingVoiceOrchestrator {
       let fullText = '';
       let currentSentenceIndex = 0;
       
+      // DEDUPLICATION GUARD: Track seen sentences to prevent LLM repetition loops
+      const seenSentences = new Set<string>();
+      const MAX_SENTENCES = 5; // Hard limit to prevent runaway responses
+      let actualSentenceCount = 0;
+      
       // Process sentences as they arrive from Gemini
       // Include redirect note if mild content was detected
       const userMessageWithNote = transcript + contentRedirectNote;
@@ -419,6 +424,21 @@ export class StreamingVoiceOrchestrator {
             console.log(`[Streaming Orchestrator] Skipping empty sentence ${chunk.index} after cleaning`);
             return;
           }
+          
+          // DEDUPLICATION: Skip if we've already seen this sentence (LLM repetition loop)
+          const normalizedText = displayText.toLowerCase().trim();
+          if (seenSentences.has(normalizedText)) {
+            console.log(`[Streaming Orchestrator] DEDUP: Skipping duplicate sentence ${chunk.index}: "${displayText.substring(0, 40)}..."`);
+            return;
+          }
+          seenSentences.add(normalizedText);
+          
+          // MAX SENTENCE LIMIT: Prevent runaway responses
+          if (actualSentenceCount >= MAX_SENTENCES) {
+            console.log(`[Streaming Orchestrator] MAX LIMIT: Skipping sentence ${chunk.index} (already have ${actualSentenceCount})`);
+            return;
+          }
+          actualSentenceCount++;
           
           // AI CONTENT MODERATION: Check AI response before sending to client/TTS
           // Only block severely inappropriate AI responses (rare edge case)
