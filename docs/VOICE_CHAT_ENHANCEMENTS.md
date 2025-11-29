@@ -319,13 +319,120 @@ Deepgram only returns word-level timing data when diarization is enabled, even f
 
 ---
 
+---
+
+### Phase 5: Conversational Syllabus Navigation ✅
+**Goal:** Students can ask their AI tutor about class progress, assignments, and next lessons during voice conversations
+
+**Implementation:**
+
+#### 5.1 Curriculum Context Service
+Created `server/services/curriculum-context.ts` with comprehensive context building:
+
+**Key Functions:**
+```typescript
+// Build full curriculum context for enrolled students
+buildCurriculumContext(storage, studentId, studentName): Promise<CurriculumContext | null>
+
+// Format context for AI tutor system prompt
+formatCurriculumContextForTutor(context: CurriculumContext): string
+
+// Detect syllabus-related queries
+detectSyllabusQuery(message: string): SyllabusQueryResult
+```
+
+**Context Structure:**
+```typescript
+interface CurriculumContext {
+  studentId: string;
+  studentName: string;
+  classes: Array<{
+    classId: string;
+    className: string;
+    teacherName: string;
+    language: string;
+    curriculumPath?: string;
+    lessonsCompleted: number;
+    lessonsTotal: number;
+    nextLesson?: { title: string; unitTitle: string };
+    assignments: {
+      completed: number;
+      pending: number;
+      dueSoon: Array<{ title: string; dueDate: Date }>;
+    };
+  }>;
+}
+```
+
+#### 5.2 Query Detection
+Recognizes syllabus-related questions with pattern matching:
+
+| Query Type | Example Patterns |
+|------------|-----------------|
+| next_lesson | "what's next", "next lesson", "what should I learn" |
+| progress | "how am I doing", "my progress", "how far" |
+| assignments | "homework", "assignments", "what's due" |
+| class_info | "about my class", "syllabus", "enrolled" |
+| tutor_switch | "let me talk to my Spanish tutor", "switch to French" |
+
+#### 5.3 WebSocket Integration
+In `server/unified-ws-handler.ts`:
+```typescript
+// Build curriculum context at session start for enrolled students
+let curriculumContext: string | undefined;
+if (session.userId) {
+  const context = await buildCurriculumContext(storage, session.userId, userName);
+  if (context) {
+    curriculumContext = formatCurriculumContextForTutor(context);
+  }
+}
+
+// Pass to system prompt
+const systemPrompt = createSystemPrompt({ curriculumContext, ... });
+```
+
+#### 5.4 System Prompt Integration
+Curriculum context injected into AI tutor prompt:
+```
+📚 STUDENT CLASS CONTEXT:
+Student is enrolled in: Spanish 101 (Spanish): 45% complete, 2 assignments due
+
+📖 Spanish 101 (Spanish):
+   Curriculum: Beginner Spanish Path
+   Progress: 5/11 lessons
+   Assignments: 1/3 completed
+   ➡️ NEXT UP: "Food and Dining" in Unit 2: Daily Life
+   📋 Due Soon:
+      - "Restaurant Ordering Practice" (due 12/5/2024)
+
+INSTRUCTIONS: If the student asks about their class, syllabus, assignments, 
+or progress, use this context to give a helpful, accurate response.
+```
+
+**Example Conversation Flow:**
+```
+Student: "Hey, what's my next assignment?"
+Tutor: "You have a 'Restaurant Ordering Practice' assignment due on December 5th! 
+        Would you like to start practicing some restaurant vocabulary now?"
+```
+
+**Files Created:**
+- `server/services/curriculum-context.ts` - Context building and query detection
+
+**Files Modified:**
+- `server/system-prompt.ts` - Accepts curriculum context parameter
+- `server/unified-ws-handler.ts` - Builds context at session start
+
+---
+
 ## Summary
 
-All 4 phases of voice chat enhancement are **complete and integrated**:
+All 5 phases of voice chat enhancement are **complete and integrated**:
 
 1. ✅ **Word-Level Timestamps** - Deepgram configured, data extracted
 2. ✅ **Smart Phrase Detection** - Module created, integrated into transcribe
 3. ✅ **Fast Foreign Display** - Component simplified, stable and fast
 4. ✅ **ACTFL Advancement** - Schema added, algorithm implemented
+5. ✅ **Conversational Syllabus Navigation** - Context service, query detection, prompt integration
 
-**Result:** Enhanced voice chat system with immersive display, beginner-friendly validation, and standards-aligned proficiency tracking.
+**Result:** Enhanced voice chat system with immersive display, beginner-friendly validation, standards-aligned proficiency tracking, and conversational access to class information.

@@ -329,14 +329,39 @@ The migration cost revelation completely transforms the product roadmap. Everyth
 
 ---
 
-## Implementation Status Summary (Nov 24, 2025)
+## Implementation Status Summary (Nov 29, 2025)
 
 **Completed:**
 - ✅ Phase 4: Classroom Analytics (institutional features) - Production-ready
+- ✅ Syllabus-Aware Competency System - Organic learning detection with tutor verification
+- ✅ Conversational Syllabus Navigation - Students can ask tutor about class progress/assignments
+- ✅ Unified Learning Filter System - Cross-page filtering by language and class
 
 **Pending:**
 - ⏳ Phase 1: Quick Wins (resume, search, suggestions)
 - ⏳ Phase 2: Visualization (timeline, insights)
 - ⏳ Phase 3: Vocabulary Tracker
+
+**Recent Additions (Nov 29, 2025):**
+
+### Conversational Syllabus Navigation
+Students can now ask their AI tutor about syllabus and class information during conversations:
+- "What's next in my class?" → Shows next incomplete lesson
+- "Do I have assignments due?" → Lists upcoming assignments with dates
+- "How am I doing?" → Summarizes progress percentage
+- "Let me talk to my Spanish tutor" → Supports mid-conversation language/tutor switching
+
+**Technical Implementation:**
+- New `curriculum-context.ts` service builds class context for enrolled students
+- System prompt integration provides AI tutor with full curriculum awareness
+- WebSocket handler builds context at session start for voice mode
+- Pattern matching detects syllabus queries and tutor switch requests
+
+### Unified Learning Filter System
+Cross-page filtering system for consistent learning content filtering:
+- LearningFilterContext provides shared state across pages
+- Filter by language and learning context (class or self-directed)
+- Applied to Review Hub, Vocabulary, Grammar, and Chat History pages
+- Persistent filter settings via localStorage
 
 **Strategic Note:** Phase 4 was prioritized for B2B market opportunity. Phases 1-3 remain excellent candidates for future implementation at low cost (~$28 total).

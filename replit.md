@@ -56,6 +56,15 @@ The Dashboard includes a "What's Next?" card linking to Review Hub for easy navi
 - **Query Detection**: Recognizes syllabus-related questions like "what's next in my class?", "do I have assignments due?", and "how am I doing?"
 - **Tutor Switch Detection**: Detects language/tutor switch requests like "let me talk to my Spanish tutor" for mid-conversation switching
 - **Context Formatting**: Provides the tutor with class names, teacher names, curriculum paths, lesson progress, and upcoming assignments
+- **Output Limiting**: Context limited to max 3 classes and 3 assignments per class to prevent prompt bloat
+- **Error Handling**: Graceful fallbacks when data fetching fails, with null context filtering
+
+**Unified Learning Filter System**: A cross-page filtering system for consistent content filtering:
+- **LearningFilterContext** (`client/src/contexts/LearningFilterContext.tsx`): Provides shared filter state across pages
+- **LearningContextFilter Component**: Consistent UI with language and class dropdowns
+- **Persistent State**: Filter settings saved to localStorage for session continuity
+- **Pages Supported**: Review Hub, Vocabulary, Grammar, Chat History
+- **API Integration**: Endpoints accept `?language=` and `?classId=` query parameters
 
 ## External Dependencies
 

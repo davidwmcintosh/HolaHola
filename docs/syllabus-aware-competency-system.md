@@ -240,6 +240,96 @@ In `server/unified-ws-handler.ts`, the start_session handler:
 
 This enables the AI tutor to naturally acknowledge student progress during conversations.
 
+---
+
+## Conversational Syllabus Navigation
+
+### Overview
+
+Students can now ask their AI tutor about their class progress, assignments, and next lessons during voice or text conversations. The tutor has full context about enrolled classes and can provide accurate, helpful responses.
+
+### Supported Query Types
+
+| Query Type | Example Questions | Tutor Response |
+|------------|------------------|----------------|
+| **Next Lesson** | "What's next in my class?" / "What should I learn next?" | Identifies next incomplete lesson from curriculum |
+| **Progress** | "How am I doing?" / "Show me my progress" | Summarizes completion percentage and achievements |
+| **Assignments** | "Do I have any homework?" / "What's due?" | Lists upcoming assignments with due dates |
+| **Class Info** | "Tell me about my class" / "What's my syllabus?" | Describes enrolled classes and curriculum paths |
+| **Tutor Switch** | "Let me talk to my French tutor" | Switches language context and greets student |
+
+### Technical Implementation
+
+#### Curriculum Context Service
+
+Located at `server/services/curriculum-context.ts`, this service:
+
+1. **buildCurriculumContext(storage, studentId, studentName)**
+   - Fetches all active class enrollments
+   - Builds detailed context for each class including:
+     - Class name, teacher name, language
+     - Curriculum path and progress (lessons completed / total)
+     - Assignment status (completed / pending with due dates)
+   - Returns structured context for system prompt injection
+
+2. **formatCurriculumContextForTutor(context)**
+   - Converts structured context to prompt-friendly text
+   - Limits output to prevent prompt bloat (max 3 classes, 3 assignments each)
+   - Includes INSTRUCTIONS for the AI tutor on how to respond
+
+3. **detectSyllabusQuery(userMessage)**
+   - Pattern matching for syllabus-related questions
+   - Returns query type and any extracted parameters (e.g., target language for tutor switch)
+   - Uses normalized text matching for robustness
+
+#### System Prompt Integration
+
+The curriculum context is injected into the AI tutor's system prompt:
+
+```
+📚 STUDENT CLASS CONTEXT:
+Student is enrolled in: Spanish 101 (Spanish): 45% complete, 2 assignments due
+
+📖 Spanish 101 (Spanish):
+   Curriculum: Beginner Spanish Path
+   Progress: 5/11 lessons
+   Assignments: 1/3 completed
+   ➡️ NEXT UP: "Food and Dining" in Unit 2: Daily Life
+   📋 Due Soon:
+      - "Restaurant Ordering Practice" (due 12/5/2024)
+      - "Food Vocabulary Quiz" (due 12/10/2024)
+
+INSTRUCTIONS: If the student asks about their class, syllabus, "what's next", 
+assignments, or progress, use this context to give a helpful, accurate response.
+```
+
+#### WebSocket Integration
+
+In `server/unified-ws-handler.ts`:
+1. Builds curriculum context for authenticated users at session start
+2. Passes context to `createSystemPrompt()` function
+3. Logs when context is built for enrolled students
+
+### Example Conversation
+
+**Student (voice):** "Hey, what's next in my Spanish class?"
+
+**Tutor (voice):** "Great question! You're making excellent progress in Spanish 101 - you've completed 45% of the curriculum! Your next lesson is 'Food and Dining' in Unit 2. You also have a restaurant ordering practice assignment due on December 5th. Would you like to start practicing some restaurant vocabulary now?"
+
+### Best Practices
+
+For Teachers:
+- Keep curriculum paths well-organized with clear lesson names
+- Set assignment due dates to help students track deadlines
+- The tutor will encourage students who are ahead of schedule
+
+For Students:
+- Ask naturally - the tutor understands many phrasings
+- Check in regularly about progress and assignments
+- Use tutor switch to practice multiple languages seamlessly
+
+---
+
 ### Weighting Algorithm
 
 ```typescript
@@ -364,6 +454,48 @@ Currently no feature flags. The system is always active for students enrolled in
 
 ---
 
-*Documentation Version: 1.0*
+---
+
+## Unified Learning Filter System
+
+### Overview
+
+A unified filtering system allows students to filter their learning content by language and learning context (class vs self-directed) across all pages. This provides a consistent experience throughout the application.
+
+### Implementation
+
+#### LearningFilterContext
+
+A React context (`client/src/contexts/LearningFilterContext.tsx`) provides:
+- `selectedLanguage`: Filter by target language (all, spanish, french, etc.)
+- `learningContext`: Filter by class enrollment or self-directed practice
+- `classId`: Specific class ID when filtering by a class
+- Persistent state via localStorage
+
+#### Filter Component
+
+`LearningContextFilter.tsx` provides a consistent UI across pages:
+- Language dropdown with all 9 supported languages
+- Learning context dropdown showing enrolled classes
+- Combines with "My Practice" option for self-directed learning
+
+#### Pages Using Filters
+
+| Page | Route | Filter Behavior |
+|------|-------|-----------------|
+| Review Hub | `/review` | Filters daily plan, topics, and vocabulary |
+| Vocabulary | `/vocabulary` | Filters word list and spaced repetition queue |
+| Grammar | `/grammar` | Filters exercises by language |
+| Chat History | `/chat-history` | Filters conversations by language and class |
+
+### API Support
+
+Endpoints support optional query parameters:
+- `?language=spanish` - Filter by target language
+- `?classId=abc123` - Filter by specific class
+
+---
+
+*Documentation Version: 1.1*
 *Last Updated: November 2025*
 *System: LinguaFlow Syllabus-Aware Competency System*

@@ -1,6 +1,6 @@
 # LinguaFlow B2B Institutional Standards Integration Plan
 
-## ✅ Implementation Status (Updated November 24, 2025)
+## ✅ Implementation Status (Updated November 29, 2025)
 
 **Completed Features**:
 - ✅ **Milestone 1: Standards Mapping** - ACTFL proficiency levels integrated across all content
@@ -10,6 +10,9 @@
 - ✅ **Security & Authorization** - Frontend route guards + backend role-based access control
 - ✅ **Form Architecture** - All 6 institutional forms use standardized shadcn Form + zodResolver pattern
 - ✅ **Production Polish** - Offline support, mobile responsiveness, security hardening (Nov 24, 2025)
+- ✅ **Syllabus-Aware Competency** - Organic learning detection with early completion (Nov 25, 2025)
+- ✅ **Conversational Syllabus Navigation** - Students can ask tutor about class progress (Nov 29, 2025)
+- ✅ **Unified Learning Filters** - Cross-page filtering by language and class (Nov 29, 2025)
 
 **Production-Ready Components**:
 - Teacher Dashboard with class creation and management
@@ -21,7 +24,22 @@
 - ProtectedRoute component for teacher-only pages
 - OfflineIndicator component with reconnection handling
 - Enhanced service worker with comprehensive API caching
-- 32 backend storage methods + 29 secure API endpoints
+- Curriculum Context Service for voice/text tutor integration
+- LearningFilterContext for cross-page content filtering
+- 32+ backend storage methods + 29+ secure API endpoints
+
+**Conversational Syllabus Navigation (Nov 29, 2025)**:
+- Students can ask AI tutor about class progress during voice or text conversations
+- Supported queries: "What's next?", "Do I have assignments?", "How am I doing?"
+- Tutor switch detection: "Let me talk to my Spanish tutor"
+- `curriculum-context.ts` service builds context from enrollments, curricula, and assignments
+- System prompt integration provides AI tutor with full curriculum awareness
+
+**Unified Learning Filters (Nov 29, 2025)**:
+- LearningFilterContext provides shared filter state across pages
+- Filter by target language and learning context (class vs self-directed)
+- Applied to Review Hub, Vocabulary, Grammar, and Chat History pages
+- Persistent filter settings via localStorage
 
 **Production Polish (Nov 24, 2025)**:
 - Offline support with automatic reconnection detection
@@ -491,6 +509,10 @@ Example IPA: "Planning a Trip to Mexico"
 3. **Teacher-first design**: Unlike consumer apps, built for classroom use
 4. **Real conversation practice**: Not just gamified drills
 5. **Comprehensive tracking**: Auto-generated standards-aligned reports
+6. **Organic learning detection**: Recognizes curriculum coverage during free practice (syllabus-aware competency)
+7. **Conversational syllabus access**: Students can ask tutor about assignments and progress naturally
+8. **Mid-conversation tutor switching**: Students can seamlessly switch between language tutors
+9. **Unified learning context**: Filter all content by class enrollment for focused practice
 
 ---
 

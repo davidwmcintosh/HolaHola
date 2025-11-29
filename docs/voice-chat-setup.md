@@ -283,6 +283,38 @@ Admin and developer users can access the Voice Console to:
 - Emotion mappings per personality/expressiveness combination
 - Default emotions for each personality
 
+## Institutional Features in Voice Mode
+
+### Conversational Syllabus Navigation (Nov 2025)
+
+Students enrolled in classes can ask their AI tutor about class progress, assignments, and next lessons during voice conversations:
+
+**Supported Queries:**
+- "What's next in my class?" → Shows next incomplete lesson
+- "Do I have any homework?" → Lists upcoming assignments with due dates
+- "How am I doing?" → Summarizes progress percentage
+- "Let me talk to my Spanish tutor" → Mid-conversation language/tutor switching
+
+**Technical Implementation:**
+- `curriculum-context.ts` service builds context from enrollments, curricula, and assignments
+- Context is injected into AI tutor system prompt at session start
+- WebSocket handler builds context for authenticated voice mode users
+- Query detection uses pattern matching for natural language variations
+
+**Example:**
+```
+Student: "Hey, what's my next assignment?"
+Tutor: "You have a 'Restaurant Ordering Practice' assignment due on December 5th! 
+        Would you like to start practicing some restaurant vocabulary now?"
+```
+
+### Syllabus-Aware Competency (Nov 2025)
+
+The AI tutor recognizes when students organically cover curriculum topics during conversations:
+- Automatic topic coverage detection
+- Early completion recognition with teacher verification
+- Congratulatory acknowledgments when ahead of syllabus
+
 ## Documentation
 
 For detailed technical documentation, see:
@@ -290,3 +322,5 @@ For detailed technical documentation, see:
 - `LLM-Migration-Analysis.md` - Migration analysis and decision rationale
 - `Development-Cost-Projections.md` - Cost estimation reference
 - `ADMIN_GUIDE.md` - Voice Console admin features
+- `syllabus-aware-competency-system.md` - Organic learning detection and conversational syllabus navigation
+- `VOICE_CHAT_ENHANCEMENTS.md` - All voice chat enhancement phases
