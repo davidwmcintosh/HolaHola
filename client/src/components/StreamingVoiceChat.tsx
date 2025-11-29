@@ -1067,6 +1067,11 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
     if (isStreamingReady) {
       try {
         console.log('[STREAMING] Using streaming mode for low-latency response');
+        
+        // Reset subtitles immediately to hide stale content from previous response
+        // This prevents old target words from showing during the processing window
+        streamingVoice.subtitles.reset();
+        
         setProcessingStage('Processing...');
         setAvatarState('speaking');
         setError(null); // Clear any previous errors
