@@ -100,6 +100,8 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 - New words are automatically captured during conversations
 - Each word linked back to the conversation where you learned it
 - Flip a flashcard and click "View in conversation" to see context
+- **Grammar classification included**: Words tagged with type (noun, verb, adjective), verb tense, mood, gender, and plurality
+- Example: "hablé" auto-tagged as verb, past tense, indicative mood
 
 ### Spaced Repetition Flashcards
 - Scientifically-proven memory optimization
@@ -114,9 +116,15 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 - Quickly find what you need
 
 **Phase 2: Smart Topics**
-- AI-powered topic tagging (coming soon)
-- Automatically categorize conversations by subject
-- Filter vocabulary by topic
+- **AI-powered topic tagging** - Automatic categorization of your conversations
+- Three types of topics with color-coded badges:
+  - **Subject Topics** (purple): Travel, Food & Dining, Family, Work, Shopping, Entertainment, Weather, Health, Sports, News
+  - **Grammar Topics** (blue): Verb tenses (present, past, future, imperfect), moods (subjunctive, imperative, conditional), structures (passive voice, reflexive verbs, relative clauses)
+  - **Function Topics** (green): Greetings, Requests, Opinions, Questions, Comparisons, Directions, Descriptions, Apologies, Suggestions, Celebrations, Stories, Debates
+- Topics auto-tagged after voice exchanges using Gemini AI analysis
+- See what grammar you practiced and what subjects you covered at a glance
+- AI generates conversation titles based on content
+- Vocabulary tagged with grammar classification (word type, verb tense, mood, gender)
 
 **Phase 3: Lesson Bundles**
 - Create custom lessons from your content
@@ -156,6 +164,8 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 - Create unlimited classes with simple 6-character join codes
 - Track individual student progress and activity
 - View conversation history and vocabulary growth
+- Filter student conversations by class to see course-specific practice
+- Vocabulary words linked to classes for curriculum-aligned tracking
 
 **Assignment System**
 - Create practice, homework, quiz, or project assignments
@@ -334,4 +344,4 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 
 *LinguaFlow - Where AI Meets Language Learning*
 
-*Last Updated: November 28, 2025*
+*Last Updated: November 29, 2025*
