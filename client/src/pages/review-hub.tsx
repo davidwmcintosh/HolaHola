@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import linguaflowLogo from "@assets/LF_no_words_no_background_1764099068542.png";
 import {
   BookOpen,
   MessageSquare,
@@ -17,18 +18,13 @@ import {
   Play,
   ChevronRight,
   Flame,
-  Globe,
   GraduationCap,
-  Lightbulb,
-  Clock,
   Hash,
   Tag,
   ArrowRight,
-  Calendar,
   Trophy,
   Target,
   Mic,
-  Award,
 } from "lucide-react";
 import type { VocabularyWord, Conversation, CulturalTip, UserLesson, Topic } from "@shared/schema";
 
@@ -126,9 +122,7 @@ export default function ReviewHub() {
 
   const hasDueCards = data?.dueFlashcards && data.dueFlashcards.length > 0;
   const hasRecentConversations = data?.recentConversations && data.recentConversations.length > 0;
-  const hasCulturalTips = data?.culturalTips && data.culturalTips.length > 0;
   const hasTopics = data?.topicsWithContent && data.topicsWithContent.length > 0;
-  const hasLessons = data?.activeLessons && data.activeLessons.length > 0;
   const hasNextLesson = data?.nextLesson !== null && data?.nextLesson !== undefined;
 
   return (
@@ -138,8 +132,8 @@ export default function ReviewHub() {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="text-review-hub-title">
-              <GraduationCap className="h-7 w-7 text-primary" />
-              Review Hub
+              <img src={linguaflowLogo} alt="LinguaFlow" className="h-8 w-8" />
+              Language Hub
             </h1>
             <p className="text-muted-foreground mt-1">
               Your personalized {getLanguageDisplayName(language)} learning dashboard
@@ -398,95 +392,6 @@ export default function ReviewHub() {
                 </Link>
               </div>
             )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Cultural Corner */}
-      {hasCulturalTips && (
-        <Card data-testid="section-cultural-corner">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Globe className="h-5 w-5 text-primary" />
-              Cultural Corner
-            </CardTitle>
-            <CardDescription>Understanding culture is key to fluency</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {data.culturalTips.map((tip, index) => (
-                <div 
-                  key={tip.id} 
-                  className={`p-4 rounded-lg ${index === 0 ? 'bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20' : 'bg-muted/50'}`}
-                  data-testid={`card-cultural-tip-${tip.id}`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-full bg-primary/10">
-                      <Lightbulb className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <h4 className="font-semibold">{tip.title}</h4>
-                        <Badge variant="secondary" className="text-xs">{tip.category}</Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{tip.content}</p>
-                      <p className="text-xs text-muted-foreground mt-2 italic">
-                        <Clock className="h-3 w-3 inline mr-1" />
-                        {tip.context}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Lesson Journeys */}
-      {hasLessons && (
-        <Card data-testid="section-lesson-journeys">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <GraduationCap className="h-5 w-5 text-primary" />
-                  Lesson Journeys
-                </CardTitle>
-                <CardDescription>Your learning bundles and weekly reviews</CardDescription>
-              </div>
-              <Link href="/lessons">
-                <Button variant="outline" size="sm" className="gap-1">
-                  View All
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {data.activeLessons.slice(0, 3).map((lesson) => (
-                <Link key={lesson.id} href={`/lessons`}>
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover-elevate cursor-pointer" data-testid={`card-lesson-${lesson.id}`}>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-full bg-primary/10">
-                        <BookOpen className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium">{lesson.title}</p>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span>{lesson.conversationCount || 0} chats</span>
-                          <span>{lesson.vocabularyCount || 0} words</span>
-                        </div>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="capitalize">
-                      {lesson.lessonType === 'weekly_auto' ? 'Weekly' : lesson.lessonType || 'Custom'}
-                    </Badge>
-                  </div>
-                </Link>
-              ))}
-            </div>
           </CardContent>
         </Card>
       )}
