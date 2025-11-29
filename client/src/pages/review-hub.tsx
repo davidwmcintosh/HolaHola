@@ -191,7 +191,7 @@ export default function ReviewHub() {
         </div>
 
         {/* ACTFL Fluency Gauge */}
-        <ActflFluencyDial compact />
+        <ActflFluencyDial compact language={language} />
       </div>
 
       {/* Daily Plan Section */}

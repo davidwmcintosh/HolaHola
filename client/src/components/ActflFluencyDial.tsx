@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, Award, Target, Zap, HelpCircle } from "lucide-react";
+import { TrendingUp, Award, Target, Zap, HelpCircle, Globe } from "lucide-react";
 import type { ActflProgress } from "@shared/schema";
 
 const ACTFL_LEVELS = [
@@ -185,13 +185,21 @@ function GaugeDial({ score, color, size = 200 }: GaugeDialProps) {
 
 interface ActflFluencyDialProps {
   compact?: boolean;
+  language?: string; // Optional override for the language (e.g., from LearningFilterContext)
 }
 
-export function ActflFluencyDial({ compact = false }: ActflFluencyDialProps) {
-  const { language } = useLanguage();
+export function ActflFluencyDial({ compact = false, language: languageProp }: ActflFluencyDialProps) {
+  const { language: globalLanguage } = useLanguage();
+  
+  // Use prop language if provided, otherwise fall back to global context
+  const language = languageProp ?? globalLanguage;
+  
+  // Don't fetch if language is "all" - ACTFL is per-language
+  const isAllLanguages = language === 'all';
   
   const { data: progress, isLoading } = useQuery<ActflProgress | null>({
     queryKey: ['/api/actfl-progress', language],
+    enabled: !isAllLanguages && !!language,
   });
   
   const hasProgress = progress && (progress.tasksTotal > 0 || progress.topicsTotal > 0 || (progress.practiceHours && progress.practiceHours > 0));
@@ -214,6 +222,29 @@ export function ActflFluencyDial({ compact = false }: ActflFluencyDialProps) {
         <CardContent className="flex flex-col items-center">
           <Skeleton className="h-[130px] w-[200px] rounded-t-full" />
           <Skeleton className="h-8 w-40 mt-4" />
+        </CardContent>
+      </Card>
+    );
+  }
+  
+  // When "All Languages" is selected, show a helpful message
+  if (isAllLanguages) {
+    return (
+      <Card className="overflow-hidden" data-testid="card-actfl-dial-all-languages">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Award className="h-5 w-5 text-muted-foreground" />
+            ACTFL Fluency Level
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center py-8">
+          <div className="p-4 rounded-full bg-muted/50 mb-4">
+            <Globe className="h-12 w-12 text-muted-foreground" />
+          </div>
+          <h3 className="font-semibold text-lg mb-1">Select a Language</h3>
+          <p className="text-sm text-muted-foreground text-center max-w-xs">
+            ACTFL proficiency is measured per language. Select a specific language to view your fluency level.
+          </p>
         </CardContent>
       </Card>
     );
