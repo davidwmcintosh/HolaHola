@@ -1,8 +1,10 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { LearningContextFilter } from "@/components/LearningContextFilter";
 import { ActflFluencyDial } from "@/components/ActflFluencyDial";
+import { useSidebar } from "@/components/ui/sidebar";
 import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -83,6 +85,16 @@ function getLanguageDisplayName(code: string): string {
 export default function ReviewHub() {
   const { language } = useLanguage();
   const { learningContext } = useLearningFilter();
+  const { setOpen, isMobile, setOpenMobile } = useSidebar();
+
+  // Close sidebar when arriving at the Review Hub (dashboard)
+  useEffect(() => {
+    if (isMobile) {
+      setOpenMobile(false);
+    } else {
+      setOpen(false);
+    }
+  }, []); // Only run on mount
 
   const { data, isLoading } = useQuery<ReviewHubData>({
     queryKey: ["/api/review-hub", { language, learningContext }],
@@ -190,8 +202,8 @@ export default function ReviewHub() {
               </div>
             </div>
           </Card>
-          {/* ACTFL Fluency - integrated as stat card */}
-          <ActflFluencyDial stat language={language} />
+          {/* ACTFL Fluency - only show when single language selected */}
+          {language !== "all" && <ActflFluencyDial stat language={language} />}
         </div>
       </div>
 
