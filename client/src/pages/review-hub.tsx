@@ -449,7 +449,7 @@ export default function ReviewHub() {
                 {(data.activeLessons?.length ?? 0) > 0 ? (
                   <>
                     {data.activeLessons?.slice(0, 5).map((lesson) => (
-                      <Link key={lesson.id} href={`/lessons/${lesson.id}`}>
+                      <Link key={lesson.id} href={`/lessons?expand=${lesson.id}`}>
                         <div className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer" data-testid={`card-lesson-${lesson.id}`}>
                           <div className="flex items-center gap-3">
                             <div className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-800">

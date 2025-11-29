@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useSearch } from "wouter";
 import { 
   Loader2, 
   Plus, 
@@ -52,10 +53,24 @@ type LessonItem = {
 export default function Lessons() {
   const { language } = useLanguage();
   const { toast } = useToast();
+  const searchString = useSearch();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newLessonTitle, setNewLessonTitle] = useState("");
   const [newLessonDescription, setNewLessonDescription] = useState("");
   const [expandedLessons, setExpandedLessons] = useState<Set<string>>(new Set());
+
+  // Auto-expand lesson from URL query param
+  useEffect(() => {
+    const params = new URLSearchParams(searchString);
+    const expandId = params.get('expand');
+    if (expandId) {
+      setExpandedLessons(prev => {
+        const newSet = new Set(prev);
+        newSet.add(expandId);
+        return newSet;
+      });
+    }
+  }, [searchString]);
 
   const { data: lessons = [], isLoading } = useQuery<UserLesson[]>({
     queryKey: ["/api/lessons", { language }],
