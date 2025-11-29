@@ -10,8 +10,11 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter, LearningContext } from "@/contexts/LearningFilterContext";
 import { GraduationCap, User, Filter } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery } from "@tanstack/react-query";
+import type { User as UserType } from "@shared/schema";
+import { useMemo } from "react";
 
-const languages = [
+const allLanguages = [
   { value: "spanish", label: "Spanish", flag: "🇪🇸" },
   { value: "french", label: "French", flag: "🇫🇷" },
   { value: "german", label: "German", flag: "🇩🇪" },
@@ -42,7 +45,36 @@ export function LearningContextFilter({
     getClassesForLanguage 
   } = useLearningFilter();
 
-  const selectedLanguage = languages.find((lang) => lang.value === language);
+  // Get user's target language for self-directed learning
+  const { data: user } = useQuery<UserType>({
+    queryKey: ["/api/auth/user"],
+  });
+
+  // Smart-filter languages: only show languages user is enrolled in OR has as target language
+  const availableLanguages = useMemo(() => {
+    // Get unique languages from enrolled classes
+    const enrolledLanguages = new Set(
+      enrolledClasses
+        .filter(e => e.isActive)
+        .map(e => e.class.targetLanguage.toLowerCase())
+    );
+
+    // Add user's self-directed target language
+    if (user?.targetLanguage) {
+      enrolledLanguages.add(user.targetLanguage.toLowerCase());
+    }
+
+    // If no enrollments and no target language, show all languages (new user)
+    if (enrolledLanguages.size === 0) {
+      return allLanguages;
+    }
+
+    // Filter to only show relevant languages
+    return allLanguages.filter(lang => enrolledLanguages.has(lang.value.toLowerCase()));
+  }, [enrolledClasses, user?.targetLanguage]);
+
+  const selectedLanguage = availableLanguages.find((lang) => lang.value === language) 
+    || allLanguages.find((lang) => lang.value === language);
   const classesForLanguage = getClassesForLanguage(language);
   const hasClasses = classesForLanguage.length > 0;
 
@@ -97,7 +129,7 @@ export function LearningContextFilter({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {languages.map((lang) => (
+            {availableLanguages.map((lang) => (
               <SelectItem key={lang.value} value={lang.value} data-testid={`option-language-${lang.value}`}>
                 <span className="mr-2">{lang.flag}</span>
                 {lang.label}
