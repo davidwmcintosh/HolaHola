@@ -6,7 +6,7 @@ import { MessageSquare, Radio, Captions, CaptionsOff, Languages } from "lucide-r
 import { type Message, type Conversation } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { type WordTiming } from "@/lib/restVoiceApi";
-import { useLanguage, type SubtitleMode } from "@/contexts/LanguageContext";
+import { useLanguage, type SubtitleMode, type VoiceSpeed } from "@/contexts/LanguageContext";
 
 interface VoiceChatViewManagerProps {
   conversationId: string | null;
@@ -32,6 +32,11 @@ interface VoiceChatViewManagerProps {
   streamingTargetWordIndex?: number;  // Word index in target-only text for Target mode karaoke
   isWaitingForContent?: boolean;  // True after subtitle reset, false when new content arrives
   getIsWaitingForContent?: () => boolean;  // Synchronous getter for immediate access
+  voiceSpeed?: VoiceSpeed;
+  setTutorGender?: (gender: 'male' | 'female') => void;
+  setVoiceSpeed?: (speed: VoiceSpeed) => void;
+  femaleVoiceName?: string;
+  maleVoiceName?: string;
 }
 
 export function VoiceChatViewManager({
@@ -58,6 +63,11 @@ export function VoiceChatViewManager({
   streamingTargetWordIndex,
   isWaitingForContent,
   getIsWaitingForContent,
+  voiceSpeed,
+  setTutorGender,
+  setVoiceSpeed,
+  femaleVoiceName,
+  maleVoiceName,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -191,6 +201,11 @@ export function VoiceChatViewManager({
                 streamingTargetWordIndex={streamingTargetWordIndex}
                 isWaitingForContent={isWaitingForContent}
                 getIsWaitingForContent={getIsWaitingForContent}
+                voiceSpeed={voiceSpeed}
+                setTutorGender={setTutorGender}
+                setVoiceSpeed={setVoiceSpeed}
+                femaleVoiceName={femaleVoiceName}
+                maleVoiceName={maleVoiceName}
               />
             </div>
           ) : (

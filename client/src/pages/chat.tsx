@@ -1,48 +1,22 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearch, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
 import { ChatInterface } from "@/components/ChatInterface";
 import { StreamingVoiceChat as VoiceChat } from "@/components/StreamingVoiceChat";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Mic, Plus, Settings, Gauge } from "lucide-react";
-import { useLanguage, type TutorGender, type VoiceSpeed } from "@/contexts/LanguageContext";
+import { MessageSquare, Mic, Plus } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSidebar } from "@/components/ui/sidebar";
 import { CreditBalance } from "@/components/CreditBalance";
 import { useCredits } from "@/contexts/UsageContext";
 import { InsufficientCreditsDialog } from "@/components/InsufficientCreditsDialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-
-interface VoiceOption {
-  name: string;
-  voiceId: string;
-}
-
-interface TutorVoicesResponse {
-  language: string;
-  female: VoiceOption | null;
-  male: VoiceOption | null;
-}
-
-// Helper to extract just the first name from voice name (e.g., "Daniela - Relaxed Woman" -> "Daniela")
-function getVoiceFirstName(fullName: string | undefined, fallback: string): string {
-  if (!fullName) return fallback;
-  const dashIndex = fullName.indexOf(' - ');
-  return dashIndex > 0 ? fullName.substring(0, dashIndex) : fullName;
-}
 
 export default function Chat() {
   const search = useSearch();
   const [, setLocation] = useLocation();
   const [mode, setMode] = useState<"text" | "voice">("voice");
-  const { language, difficulty, userName, tutorGender, setTutorGender, voiceSpeed, setVoiceSpeed } = useLanguage();
+  const { language, difficulty, userName } = useLanguage();
   const { setOpen, setOpenMobile } = useSidebar();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isResumedConversation, setIsResumedConversation] = useState(false);
@@ -66,21 +40,6 @@ export default function Chat() {
   const [isReloading, setIsReloading] = useState(false); // Smooth transition for page reload
   const previousLanguageRef = useRef(language);
   const creationInProgressRef = useRef(false); // Prevent duplicate conversation creation
-
-  // Fetch voice names for the current language
-  const { data: tutorVoices, isLoading: isLoadingVoices, isError: isVoicesError } = useQuery<TutorVoicesResponse>({
-    queryKey: ['/api/tutor-voices', language],
-    queryFn: async () => {
-      const response = await fetch(`/api/tutor-voices/${encodeURIComponent(language)}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch tutor voices');
-      }
-      return response.json();
-    },
-    enabled: !!language,
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
-    retry: 2,
-  });
 
   // Auto-close sidebar when entering voice chat area
   // This runs ONLY ONCE on initial mount - works for Call Tutor, New Chat, and Start Practicing
@@ -283,71 +242,6 @@ export default function Chat() {
               variant="compact" 
               showWarning={false}
             />
-          )}
-          
-          {/* Settings popover - tutor gender and voice speed */}
-          {mode === "voice" && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  data-testid="button-settings"
-                >
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-72" align="end">
-                <div className="space-y-4">
-                  <h4 className="font-medium text-sm">Tutor Settings</h4>
-                  
-                  {/* Tutor Voice Selector */}
-                  <div className="space-y-2">
-                    <Label className="text-sm text-muted-foreground">Tutor Voice</Label>
-                    <div className="flex gap-2">
-                      <Button
-                        variant={tutorGender === "female" ? "default" : "outline"}
-                        size="sm"
-                        className="flex-1 text-xs"
-                        onClick={() => setTutorGender("female")}
-                        disabled={isLoadingVoices}
-                        data-testid="button-voice-female"
-                      >
-                        {isLoadingVoices ? "..." : getVoiceFirstName(tutorVoices?.female?.name, "Female")}
-                      </Button>
-                      <Button
-                        variant={tutorGender === "male" ? "default" : "outline"}
-                        size="sm"
-                        className="flex-1 text-xs"
-                        onClick={() => setTutorGender("male")}
-                        disabled={isLoadingVoices}
-                        data-testid="button-voice-male"
-                      >
-                        {isLoadingVoices ? "..." : getVoiceFirstName(tutorVoices?.male?.name, "Male")}
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  {/* Voice Speed Toggle */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Gauge className="h-4 w-4 text-muted-foreground" />
-                      <Label htmlFor="voice-speed" className="text-sm">Slow Speed</Label>
-                    </div>
-                    <Switch
-                      id="voice-speed"
-                      checked={voiceSpeed === "slow"}
-                      onCheckedChange={(checked) => setVoiceSpeed(checked ? "slow" : "normal")}
-                      data-testid="switch-voice-speed"
-                    />
-                  </div>
-                  
-                  <p className="text-xs text-muted-foreground">
-                    Changes apply to the next tutor response
-                  </p>
-                </div>
-              </PopoverContent>
-            </Popover>
           )}
           
           <Button

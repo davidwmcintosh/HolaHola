@@ -124,7 +124,20 @@ export function StreamingVoiceChat({
   isResumedConversation,
   onResumeHandled
 }: StreamingVoiceChatProps) {
-  const { language, difficulty, setLanguage, subtitleMode, tutorGender, voiceSpeed } = useLanguage();
+  const { language, difficulty, setLanguage, subtitleMode, tutorGender, voiceSpeed, setTutorGender, setVoiceSpeed } = useLanguage();
+  
+  // Query voice names for the current language
+  const { data: tutorVoices } = useQuery<{ language: string; female: { name: string; voiceId: string } | null; male: { name: string; voiceId: string } | null }>({
+    queryKey: ['/api/tutor-voices', language?.toLowerCase()],
+    enabled: !!language,
+  });
+  
+  // Helper to extract just the first name from voice name (e.g., "Daniela - Relaxed Woman" -> "Daniela")
+  const getVoiceFirstName = (fullName: string | undefined, fallback: string): string => {
+    if (!fullName) return fallback;
+    const dashIndex = fullName.indexOf(' - ');
+    return dashIndex > 0 ? fullName.substring(0, dashIndex) : fullName;
+  };
   const [isRecording, setIsRecording] = useState(false);
   const [isMicPreparing, setIsMicPreparing] = useState(false); // Show "Preparing mic..." before actual recording starts
   const [isProcessing, setIsProcessing] = useState(false);
@@ -1541,6 +1554,11 @@ export function StreamingVoiceChat({
           streamingTargetWordIndex={useStreamingMode ? streamingVoice.subtitles.state.currentTargetWordIndex : undefined}
           isWaitingForContent={useStreamingMode ? streamingVoice.subtitles.state.isWaitingForContent : undefined}
           getIsWaitingForContent={useStreamingMode ? streamingVoice.subtitles.getIsWaitingForContent : undefined}
+          voiceSpeed={voiceSpeed}
+          setTutorGender={setTutorGender}
+          setVoiceSpeed={setVoiceSpeed}
+          femaleVoiceName={getVoiceFirstName(tutorVoices?.female?.name, "Female")}
+          maleVoiceName={getVoiceFirstName(tutorVoices?.male?.name, "Male")}
         />
       </div>
     </div>

@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, MessageSquare, RotateCcw, Turtle } from "lucide-react";
+import { Mic, MicOff, MessageSquare, RotateCcw, Turtle, Gauge } from "lucide-react";
 import { type Message } from "@shared/schema";
-import { type SubtitleMode } from "@/contexts/LanguageContext";
+import { type SubtitleMode, type VoiceSpeed } from "@/contexts/LanguageContext";
+import { Switch } from "@/components/ui/switch";
 
 // Female tutor avatars (default)
 import femaleTutorSpeakingUrl from "@assets/tutor-speaking-No-Background_1764099971093.png";
@@ -44,6 +45,11 @@ interface ImmersiveTutorProps {
   streamingTargetWordIndex?: number; // Current word index for target-only text (enables karaoke in Target mode)
   isWaitingForContent?: boolean; // True after subtitle reset, false when new content arrives
   getIsWaitingForContent?: () => boolean; // Synchronous getter for immediate access
+  voiceSpeed?: VoiceSpeed; // Voice speed: normal or slow
+  setTutorGender?: (gender: 'male' | 'female') => void; // Callback to change tutor gender
+  setVoiceSpeed?: (speed: VoiceSpeed) => void; // Callback to change voice speed
+  femaleVoiceName?: string; // Female voice name for display
+  maleVoiceName?: string; // Male voice name for display
 }
 
 export function ImmersiveTutor({
@@ -72,6 +78,11 @@ export function ImmersiveTutor({
   streamingTargetWordIndex = -1,
   isWaitingForContent = false,
   getIsWaitingForContent,
+  voiceSpeed = "normal",
+  setTutorGender,
+  setVoiceSpeed,
+  femaleVoiceName,
+  maleVoiceName,
 }: ImmersiveTutorProps) {
   const [currentWordTimings, setCurrentWordTimings] = useState<WordTiming[]>([]);
   const [highlightedWordIndex, setHighlightedWordIndex] = useState<number>(-1);
@@ -752,6 +763,42 @@ export function ImmersiveTutor({
           </div>
         )}
         </div>
+        
+        {/* Voice Settings Row - below the main controls */}
+        {setTutorGender && setVoiceSpeed && (
+          <div className="flex items-center justify-center gap-3 mt-2">
+            {/* Tutor Voice Toggle */}
+            <div className="flex items-center gap-1">
+              <Button
+                variant={tutorGender === "female" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setTutorGender("female")}
+                data-testid="button-voice-female"
+              >
+                {femaleVoiceName}
+              </Button>
+              <Button
+                variant={tutorGender === "male" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setTutorGender("male")}
+                data-testid="button-voice-male"
+              >
+                {maleVoiceName}
+              </Button>
+            </div>
+            
+            {/* Voice Speed Toggle */}
+            <div className="flex items-center gap-2">
+              <Gauge className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Slow</span>
+              <Switch
+                checked={voiceSpeed === "slow"}
+                onCheckedChange={(checked) => setVoiceSpeed(checked ? "slow" : "normal")}
+                data-testid="switch-voice-speed"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
