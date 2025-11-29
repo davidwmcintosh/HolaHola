@@ -5261,6 +5261,48 @@ Return ONLY the ${targetLanguage} phrase:`;
       res.status(500).json({ error: error.message });
     }
   });
+
+  // Reset user learning data (admin/developer only)
+  app.post("/api/admin/users/:userId/reset-learning-data", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+    try {
+      const adminId = req.user.claims.sub;
+      const { userId } = req.params;
+      const { resetVocabulary, resetConversations, resetProgress, resetLessons } = req.body;
+      
+      // Verify user exists
+      const targetUser = await storage.getUser(userId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const result = await storage.resetUserLearningData(userId, {
+        resetVocabulary: resetVocabulary !== false,
+        resetConversations: resetConversations !== false,
+        resetProgress: resetProgress !== false,
+        resetLessons: resetLessons !== false,
+      });
+      
+      // Log the action
+      await storage.logAdminAction({
+        actorId: adminId,
+        action: 'reset_learning_data',
+        targetType: 'user',
+        targetId: userId,
+        metadata: result,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      res.json({ 
+        success: true,
+        message: `Reset complete: ${result.vocabularyDeleted} vocabulary words, ${result.conversationsDeleted} conversations, ${result.lessonsDeleted} lessons deleted`,
+        ...result
+      });
+    } catch (error: any) {
+      console.error('Error resetting user learning data:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
   
   // ===== Class Management (Platform-wide) =====
   

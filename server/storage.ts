@@ -411,6 +411,19 @@ export interface IStorage {
   
   // Seed default voices (for initial setup)
   seedDefaultTutorVoices(): Promise<void>;
+
+  // ===== Admin: Reset User Learning Data =====
+  resetUserLearningData(userId: string, options?: {
+    resetVocabulary?: boolean;
+    resetConversations?: boolean;
+    resetProgress?: boolean;
+    resetLessons?: boolean;
+  }): Promise<{ 
+    vocabularyDeleted: number;
+    conversationsDeleted: number;
+    progressReset: boolean;
+    lessonsDeleted: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3286,6 +3299,103 @@ export class DatabaseStorage implements IStorage {
     }
 
     console.log(`[Voice Seed] ✓ Seeded ${defaultVoices.length} default tutor voices`);
+  }
+
+  // ===== Admin: Reset User Learning Data =====
+  async resetUserLearningData(userId: string, options?: {
+    resetVocabulary?: boolean;
+    resetConversations?: boolean;
+    resetProgress?: boolean;
+    resetLessons?: boolean;
+  }): Promise<{ 
+    vocabularyDeleted: number;
+    conversationsDeleted: number;
+    progressReset: boolean;
+    lessonsDeleted: number;
+  }> {
+    const opts = {
+      resetVocabulary: true,
+      resetConversations: true,
+      resetProgress: true,
+      resetLessons: true,
+      ...options
+    };
+
+    let vocabularyDeleted = 0;
+    let conversationsDeleted = 0;
+    let progressReset = false;
+    let lessonsDeleted = 0;
+
+    // Delete vocabulary words and their topic associations
+    if (opts.resetVocabulary) {
+      // First delete vocabulary word topics
+      const userVocab = await db.select({ id: vocabularyWords.id })
+        .from(vocabularyWords)
+        .where(eq(vocabularyWords.userId, userId));
+      
+      for (const word of userVocab) {
+        await db.delete(vocabularyWordTopics).where(eq(vocabularyWordTopics.vocabularyWordId, word.id));
+      }
+      
+      // Then delete vocabulary words
+      const vocabResult = await db.delete(vocabularyWords)
+        .where(eq(vocabularyWords.userId, userId))
+        .returning();
+      vocabularyDeleted = vocabResult.length;
+    }
+
+    // Delete conversations and their associated data
+    if (opts.resetConversations) {
+      // Get all user conversations
+      const userConvs = await db.select({ id: conversations.id })
+        .from(conversations)
+        .where(eq(conversations.userId, userId));
+      
+      for (const conv of userConvs) {
+        // Delete messages
+        await db.delete(messages).where(eq(messages.conversationId, conv.id));
+        // Delete conversation topics
+        await db.delete(conversationTopics).where(eq(conversationTopics.conversationId, conv.id));
+      }
+      
+      // Delete conversations
+      const convResult = await db.delete(conversations)
+        .where(eq(conversations.userId, userId))
+        .returning();
+      conversationsDeleted = convResult.length;
+    }
+
+    // Reset user progress
+    if (opts.resetProgress) {
+      await db.delete(userProgressTable).where(eq(userProgressTable.userId, userId));
+      await db.delete(actflProgressTable).where(eq(actflProgressTable.userId, userId));
+      progressReset = true;
+    }
+
+    // Delete user lessons and their items
+    if (opts.resetLessons) {
+      const lessonsToDelete = await db.select({ id: userLessons.id })
+        .from(userLessons)
+        .where(eq(userLessons.userId, userId));
+      
+      for (const lesson of lessonsToDelete) {
+        await db.delete(userLessonItems).where(eq(userLessonItems.lessonId, lesson.id));
+      }
+      
+      const lessonResult = await db.delete(userLessons)
+        .where(eq(userLessons.userId, userId))
+        .returning();
+      lessonsDeleted = lessonResult.length;
+    }
+
+    console.log(`[Admin] Reset learning data for user ${userId}: ${vocabularyDeleted} vocab, ${conversationsDeleted} convs, progress=${progressReset}, ${lessonsDeleted} lessons`);
+
+    return {
+      vocabularyDeleted,
+      conversationsDeleted,
+      progressReset,
+      lessonsDeleted
+    };
   }
 }
 

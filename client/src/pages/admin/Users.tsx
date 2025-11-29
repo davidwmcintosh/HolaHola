@@ -7,10 +7,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { User, Shield, Search } from "lucide-react";
+import { User, Shield, Search, RotateCcw, Loader2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function AdminUsers() {
   const [roleFilter, setRoleFilter] = useState<string>("");
@@ -59,6 +70,28 @@ export default function AdminUsers() {
       toast({
         title: "Error",
         description: error.message || "Failed to start impersonation",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resetLearningDataMutation = useMutation({
+    mutationFn: async (targetUserId: string) => {
+      return apiRequest(`/api/admin/users/${targetUserId}/reset-learning-data`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+    },
+    onSuccess: (data: any) => {
+      toast({ 
+        title: "Learning data reset", 
+        description: data.message || "User learning data has been reset"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reset learning data",
         variant: "destructive",
       });
     },
@@ -173,6 +206,49 @@ export default function AdminUsers() {
                               Impersonate
                             </Button>
                           )}
+                          
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-destructive hover:text-destructive"
+                                disabled={resetLearningDataMutation.isPending}
+                                data-testid={`button-reset-${user.id}`}
+                              >
+                                {resetLearningDataMutation.isPending ? (
+                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                ) : (
+                                  <RotateCcw className="h-3 w-3 mr-1" />
+                                )}
+                                Reset
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Reset Learning Data</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently delete all learning data for {user.firstName || user.email}, including:
+                                  <ul className="list-disc list-inside mt-2 space-y-1">
+                                    <li>All vocabulary words</li>
+                                    <li>All conversations and messages</li>
+                                    <li>All progress and ACTFL levels</li>
+                                    <li>All lessons and bundles</li>
+                                  </ul>
+                                  <p className="mt-2 font-medium">This action cannot be undone.</p>
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => resetLearningDataMutation.mutate(user.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Reset All Data
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </div>
                     ))
