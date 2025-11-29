@@ -176,12 +176,6 @@ export function LearningContextFilter({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="self-directed" data-testid="option-context-self">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span>Self-Directed</span>
-                </div>
-              </SelectItem>
               {hasClasses && (
                 <SelectItem value="all-classes" data-testid="option-context-all-classes">
                   <div className="flex items-center gap-2">
@@ -190,6 +184,12 @@ export function LearningContextFilter({
                   </div>
                 </SelectItem>
               )}
+              <SelectItem value="self-directed" data-testid="option-context-self">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span>Self-Directed</span>
+                </div>
+              </SelectItem>
               {classesToShow.map((enrollment) => (
                 <SelectItem 
                   key={enrollment.classId} 
