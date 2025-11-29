@@ -60,8 +60,8 @@ export function LearningContextFilter({
     // Get unique languages from enrolled classes
     const enrolledLanguages = new Set(
       enrolledClasses
-        .filter(e => e.isActive)
-        .map(e => e.class.targetLanguage.toLowerCase())
+        .filter(e => e.isActive && e.class?.language)
+        .map(e => e.class.language.toLowerCase())
     );
 
     // Add user's self-directed target language

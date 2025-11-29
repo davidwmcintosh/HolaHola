@@ -12,10 +12,11 @@ export interface EnrolledClass {
     id: string;
     teacherId: string;
     name: string;
-    subject: string;
-    targetLanguage: string;
+    language: string;
     description: string | null;
-    classCode: string;
+    joinCode: string;
+    curriculumPathId?: string | null;
+    isActive: boolean;
     createdAt: string;
   };
 }
@@ -58,8 +59,9 @@ export function LearningFilterProvider({ children }: { children: ReactNode }) {
 
   const getClassesForLanguage = (lang?: string): EnrolledClass[] => {
     const targetLang = lang || language;
+    if (!targetLang) return [];
     return enrolledClasses.filter(e => 
-      e.class.targetLanguage.toLowerCase() === targetLang.toLowerCase() && 
+      e.class?.language?.toLowerCase() === targetLang.toLowerCase() && 
       e.isActive
     );
   };
