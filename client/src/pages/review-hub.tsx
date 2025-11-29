@@ -88,7 +88,9 @@ export default function ReviewHub() {
     queryKey: ["/api/review-hub", { language, learningContext }],
     queryFn: async () => {
       const params = new URLSearchParams({ language });
-      if (learningContext !== "all") {
+      // "all-learning" means everything combined - pass it to backend
+      // "all" is legacy value, treat same as "all-learning"
+      if (learningContext && learningContext !== "all") {
         params.append("context", learningContext);
       }
       const response = await fetch(`/api/review-hub?${params}`, { credentials: 'include' });

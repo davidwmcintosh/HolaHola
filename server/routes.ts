@@ -3694,8 +3694,10 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(400).json({ error: "language query parameter is required" });
       }
       
-      // context can be: "all", "self-directed", or a classId
-      const classId = context && context !== "all" && context !== "self-directed" 
+      // context can be: "all", "all-learning", "self-directed", or a classId
+      // "all-learning" means combine self-directed AND all classes (no filtering)
+      const isAllLearning = context === "all-learning" || context === "all";
+      const classId = context && !isAllLearning && context !== "self-directed" 
         ? context as string 
         : undefined;
       const selfDirectedOnly = context === "self-directed";
