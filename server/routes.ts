@@ -2802,7 +2802,6 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
             const targetMessages = await storage.getMessagesByConversation(targetConversationId);
             if (targetMessages.length > 0) {
               contextSummary = await generateConversationContextSummary(
-                openai,
                 targetMessages.map(m => ({ role: m.role, content: m.content })),
                 targetConversation.title,
                 targetConversation.language
@@ -2867,7 +2866,6 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
               // Get all messages for context
               const allMessages = await storage.getMessagesByConversation(conversationId);
               const generatedTitle = await generateConversationTitle(
-                openai,
                 allMessages.map(m => ({ role: m.role, content: m.content })),
                 latestConversation.language
               );

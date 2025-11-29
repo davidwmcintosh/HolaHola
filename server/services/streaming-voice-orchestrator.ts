@@ -34,6 +34,7 @@ import { storage } from "../storage";
 import { validateOneUnitRule, UnitValidationResult } from "../phrase-detection";
 import { GoogleGenAI } from "@google/genai";
 import { assessAdvancementReadiness, formatLevel } from "../actfl-advancement";
+import { tagConversation } from "./conversation-tagger";
 
 /**
  * Clean text for display by removing markdown, emotion tags, and other formatting
@@ -187,6 +188,7 @@ function containsMildlyInappropriateContent(text: string): boolean {
 
 /**
  * Schema for vocabulary extraction using Gemini structured output
+ * Includes grammar classification for enhanced flashcard filtering
  */
 const VOCABULARY_EXTRACTION_SCHEMA = {
   type: "object",
@@ -200,9 +202,20 @@ const VOCABULARY_EXTRACTION_SCHEMA = {
           word: { type: "string", description: "The foreign language word/phrase" },
           translation: { type: "string", description: "English translation" },
           example: { type: "string", description: "Example sentence using the word" },
-          pronunciation: { type: "string", description: "Phonetic pronunciation guide" }
+          pronunciation: { type: "string", description: "Phonetic pronunciation guide" },
+          wordType: { 
+            type: "string", 
+            enum: ["noun", "verb", "adjective", "adverb", "preposition", "conjunction", "pronoun", "article", "other"],
+            description: "Grammatical category of the word" 
+          },
+          verbTense: { type: "string", description: "For verbs: present, past_preterite, past_imperfect, future, conditional" },
+          verbMood: { type: "string", description: "For verbs: indicative, subjunctive, imperative" },
+          verbPerson: { type: "string", description: "For verbs: 1st_singular, 2nd_singular, 3rd_singular, 1st_plural, 2nd_plural, 3rd_plural" },
+          nounGender: { type: "string", description: "For nouns: masculine, feminine, neuter" },
+          nounNumber: { type: "string", description: "For nouns: singular, plural" },
+          grammarNotes: { type: "string", description: "Additional notes: irregular, reflexive, stem-changing, etc." }
         },
-        required: ["word", "translation", "example", "pronunciation"]
+        required: ["word", "translation", "example", "pronunciation", "wordType"]
       }
     }
   },
@@ -981,7 +994,7 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         console.error('[Streaming Enrichment] Vocabulary extraction failed:', extractError.message);
       }
       
-      // Save vocabulary words to database
+      // Save vocabulary words to database with grammar classification
       if (vocabularyItems.length > 0) {
         for (const vocab of vocabularyItems) {
           try {
@@ -994,6 +1007,13 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
               pronunciation: vocab.pronunciation || '',
               difficulty: session.difficultyLevel,
               sourceConversationId: conversationId,
+              wordType: vocab.wordType || 'other',
+              verbTense: vocab.verbTense || null,
+              verbMood: vocab.verbMood || null,
+              verbPerson: vocab.verbPerson || null,
+              nounGender: vocab.nounGender || null,
+              nounNumber: vocab.nounNumber || null,
+              grammarNotes: vocab.grammarNotes || null,
             });
           } catch (vocabError: any) {
             // Duplicate words are expected - silently continue
@@ -1104,6 +1124,19 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         }
       } catch (actflError: any) {
         console.error('[Streaming Enrichment] ACTFL tracking failed:', actflError.message);
+      }
+      
+      // TOPIC TAGGING: Periodically analyze conversation for topic tags
+      // Run every 5 messages to avoid excessive API calls
+      try {
+        if (conversation.messageCount % 5 === 0) {
+          const conversationMessages = await storage.getMessagesByConversation(conversationId);
+          const messageData = conversationMessages.map((m: { role: string; content: string }) => ({ role: m.role, content: m.content }));
+          
+          await tagConversation(conversationId, messageData, session.targetLanguage);
+        }
+      } catch (tagError: any) {
+        console.error('[Streaming Enrichment] Topic tagging failed:', tagError.message);
       }
       
       // Mark enrichment as complete

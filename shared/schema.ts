@@ -123,10 +123,13 @@ export const conversations = pgTable("conversations", {
   actflLevel: text("actfl_level"), // novice_low, novice_mid, novice_high, intermediate_low, intermediate_mid, intermediate_high, advanced_low, advanced_mid, advanced_high, superior, distinguished
   // Organization features (Phase 1)
   isStarred: boolean("is_starred").notNull().default(false), // User can star/favorite conversations
+  // Institutional features - Class/Course assignment
+  classId: varchar("class_id"), // Links to teacherClasses table for filtering by class (e.g., "Spanish 101")
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_conversations_user_id").on(table.userId),
   index("idx_conversations_user_language").on(table.userId, table.language),
+  index("idx_conversations_class").on(table.classId),
 ]);
 
 export const messages = pgTable("messages", {
@@ -153,6 +156,9 @@ export const messages = pgTable("messages", {
   index("idx_messages_conversation_id").on(table.conversationId),
 ]);
 
+// Word type enum for grammar classification
+export const wordTypeEnum = pgEnum('word_type', ['noun', 'verb', 'adjective', 'adverb', 'preposition', 'conjunction', 'pronoun', 'article', 'other']);
+
 export const vocabularyWords = pgTable("vocabulary_words", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
@@ -167,6 +173,16 @@ export const vocabularyWords = pgTable("vocabulary_words", {
   // Organization features (Phase 2) - Link to source conversation
   sourceConversationId: varchar("source_conversation_id").references(() => conversations.id), // Where this word was learned
   sourceMessageId: varchar("source_message_id"), // Optional: specific message that introduced the word
+  // Institutional features - Class/Course assignment
+  classId: varchar("class_id"), // Links to teacherClasses table for filtering by class (e.g., "Spanish 101")
+  // Grammar classification (Phase 3) - For filtering flashcards by grammar type
+  wordType: wordTypeEnum("word_type"), // noun, verb, adjective, etc.
+  verbTense: text("verb_tense"), // present, past, future, conditional, etc. (for verbs)
+  verbMood: text("verb_mood"), // indicative, subjunctive, imperative (for verbs)
+  verbPerson: text("verb_person"), // 1st_singular, 3rd_plural, etc. (for verbs)
+  nounGender: text("noun_gender"), // masculine, feminine, neutral (for nouns)
+  nounNumber: text("noun_number"), // singular, plural (for nouns)
+  grammarNotes: text("grammar_notes"), // Additional grammar info (e.g., "irregular", "reflexive")
   // Spaced repetition fields
   nextReviewDate: timestamp("next_review_date").notNull().defaultNow(),
   correctCount: integer("correct_count").notNull().default(0), // Lifetime correct reviews
@@ -178,6 +194,8 @@ export const vocabularyWords = pgTable("vocabulary_words", {
 }, (table) => [
   index("idx_vocabulary_user_id").on(table.userId),
   index("idx_vocabulary_source_conversation").on(table.sourceConversationId),
+  index("idx_vocabulary_word_type").on(table.wordType),
+  index("idx_vocabulary_class").on(table.classId),
 ]);
 
 export const grammarExercises = pgTable("grammar_exercises", {
@@ -284,15 +302,26 @@ export const pronunciationScores = pgTable("pronunciation_scores", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Topic type enum: subject (travel, food), grammar (past tense, subjunctive), function (asking questions)
+export const topicTypeEnum = pgEnum('topic_type', ['subject', 'grammar', 'function']);
+
 export const topics = pgTable("topics", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   description: text("description").notNull(),
-  category: text("category").notNull(), // e.g., "Daily Life", "Travel", "Business"
+  topicType: topicTypeEnum("topic_type").notNull().default('subject'), // subject, grammar, or function
+  category: text("category").notNull(), // e.g., "Daily Life", "Travel", "Business" OR "Verb Tenses", "Mood"
   icon: text("icon").notNull(), // Lucide icon name
   samplePhrases: text("sample_phrases").array().notNull(),
   difficulty: text("difficulty"), // Optional difficulty recommendation
-});
+  // Grammar-specific fields
+  grammarConcept: text("grammar_concept"), // For grammar topics: "past_tense", "subjunctive", etc.
+  applicableLanguages: text("applicable_languages").array(), // Languages this grammar applies to (null = all)
+  actflLevelRange: text("actfl_level_range"), // e.g., "novice_high-intermediate_mid"
+}, (table) => [
+  index("idx_topics_type").on(table.topicType),
+  index("idx_topics_category").on(table.category),
+]);
 
 export const culturalTips = pgTable("cultural_tips", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -52,6 +52,16 @@ const stripeInitPromise = (async function initStripe() {
       console.error('Failed to seed Can-Do statements:', error);
     }
     
+    // Seed Topics (grammar, function, subject)
+    try {
+      console.log('Seeding topic categories...');
+      const { seedTopics } = await import('./topic-seed');
+      await seedTopics();
+      console.log('Topics ready');
+    } catch (error) {
+      console.error('Failed to seed topics:', error);
+    }
+    
     stripeReady = true;
   } catch (error) {
     console.error('Failed to initialize Stripe:', error);
@@ -178,9 +188,9 @@ app.use((req, res, next) => {
       }
     }
     
-    if (status.fallbackActive) {
-      console.warn('\n⚠️  WARNING: Google Cloud TTS is not healthy, using OpenAI TTS fallback');
-      console.warn('   Voice quality degraded - users will hear OpenAI voices instead of authentic WaveNet pronunciation');
+    if (status.fallbackEnabled && !status.googleHealthy && status.googleAvailable) {
+      console.warn('\n⚠️  WARNING: Google Cloud TTS is not healthy, using fallback');
+      console.warn('   Voice quality may be degraded');
       console.warn('   See setup instructions above to enable Google Cloud TTS API');
     } else if (status.googleHealthy) {
       console.log('\n✓ Google Cloud WaveNet TTS is active and healthy');

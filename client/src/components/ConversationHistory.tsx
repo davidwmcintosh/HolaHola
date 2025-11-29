@@ -4,10 +4,10 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Calendar, Clock, Eye, Loader2, Star, Filter, ArrowLeft, Bot, User, Play } from "lucide-react";
+import { Calendar, Clock, Eye, Loader2, Star, Filter, ArrowLeft, Bot, User, Play, BookOpen, MessageSquare, Hash } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Conversation, Message } from "@shared/schema";
+import type { Conversation, Message, Topic } from "@shared/schema";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +20,61 @@ const difficultyColors = {
   intermediate: "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-400",
   advanced: "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400",
 };
+
+const topicTypeColors = {
+  subject: "bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400",
+  grammar: "bg-purple-100 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400",
+  function: "bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400",
+};
+
+const topicTypeIcons = {
+  subject: BookOpen,
+  grammar: Hash,
+  function: MessageSquare,
+};
+
+interface ConversationTopicWithDetails {
+  id: string;
+  conversationId: string;
+  topicId: string;
+  confidence: number | null;
+  createdAt: Date;
+  topic: Topic;
+}
+
+function ConversationTopicTags({ conversationId }: { conversationId: string }) {
+  const { data: topicLinks = [] } = useQuery<ConversationTopicWithDetails[]>({
+    queryKey: ["/api/conversations", conversationId, "topics"],
+    enabled: !!conversationId,
+  });
+
+  if (topicLinks.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1 mt-2 ml-10">
+      {topicLinks.slice(0, 4).map((link) => {
+        const topic = link.topic;
+        const Icon = topicTypeIcons[topic.topicType as keyof typeof topicTypeIcons] || Hash;
+        return (
+          <Badge 
+            key={link.id} 
+            variant="outline" 
+            className={`text-xs ${topicTypeColors[topic.topicType as keyof typeof topicTypeColors] || ''}`}
+            data-testid={`badge-topic-${topic.id}`}
+          >
+            <Icon className="h-3 w-3 mr-1" />
+            {topic.name}
+          </Badge>
+        );
+      })}
+      {topicLinks.length > 4 && (
+        <Badge variant="outline" className="text-xs text-muted-foreground">
+          +{topicLinks.length - 4} more
+        </Badge>
+      )}
+    </div>
+  );
+}
 
 type TimeFilter = 'all' | 'today' | 'week' | 'month' | 'older';
 
@@ -271,6 +326,7 @@ export function ConversationHistory({
                     </span>
                     <span>{conversation.messageCount} messages</span>
                   </div>
+                  <ConversationTopicTags conversationId={conversation.id} />
                 </div>
                 <Button
                   variant="outline"
