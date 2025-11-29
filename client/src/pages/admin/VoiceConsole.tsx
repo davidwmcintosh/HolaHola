@@ -42,6 +42,9 @@ interface TutorVoice {
   voiceName: string;
   languageCode: string;
   speakingRate: number;
+  personality: PersonalityType;
+  expressiveness: number;
+  emotion: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -128,6 +131,9 @@ export default function VoiceConsole() {
     voiceName: '',
     languageCode: '',
     speakingRate: 0.9,
+    personality: 'warm' as PersonalityType,
+    expressiveness: 3,
+    emotion: 'friendly',
     isActive: true,
   });
 
@@ -187,9 +193,12 @@ export default function VoiceConsole() {
       voiceName: '',
       languageCode: '',
       speakingRate: 0.9,
+      personality: 'warm',
+      expressiveness: 3,
+      emotion: 'friendly',
       isActive: true,
     });
-    // Reset emotion audition to defaults
+    // Reset emotion audition to defaults (synced with form)
     setAuditionPersonality('warm');
     setAuditionExpressiveness(3);
     setAuditionEmotion('friendly');
@@ -198,17 +207,30 @@ export default function VoiceConsole() {
   // Get available emotions based on personality and expressiveness
   const availableEmotions = ttsMetadata?.emotionsMap?.[auditionPersonality]?.[auditionExpressiveness] || ['friendly'];
   
-  // Update emotion when personality/expressiveness changes
+  // Update emotion when personality/expressiveness changes and sync to formData
   useEffect(() => {
     if (ttsMetadata) {
       const defaultEmotion = ttsMetadata.getDefaultEmotion[auditionPersonality];
       const allowed = ttsMetadata.emotionsMap[auditionPersonality]?.[auditionExpressiveness] || [];
       // If current emotion is not in allowed list, reset to default
       if (!allowed.includes(auditionEmotion)) {
-        setAuditionEmotion(defaultEmotion || 'friendly');
+        const newEmotion = defaultEmotion || 'friendly';
+        setAuditionEmotion(newEmotion);
+        // Also sync to formData
+        setFormData(prev => ({ ...prev, emotion: newEmotion }));
       }
     }
   }, [auditionPersonality, auditionExpressiveness, ttsMetadata]);
+  
+  // Sync audition controls to formData when they change (so changes get saved)
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      personality: auditionPersonality,
+      expressiveness: auditionExpressiveness,
+      emotion: auditionEmotion,
+    }));
+  }, [auditionPersonality, auditionExpressiveness, auditionEmotion]);
 
   // Bilingual audition: plays voice in target language, then native (English)
   // Uses the selected auditionEmotion for previewing different emotional tones
@@ -323,6 +345,11 @@ export default function VoiceConsole() {
 
   const handleEdit = (voice: TutorVoice) => {
     setEditingVoice(voice);
+    // Load saved emotion settings into form
+    const savedPersonality = (voice.personality || 'warm') as PersonalityType;
+    const savedExpressiveness = voice.expressiveness || 3;
+    const savedEmotion = voice.emotion || 'friendly';
+    
     setFormData({
       language: voice.language,
       gender: voice.gender,
@@ -331,8 +358,15 @@ export default function VoiceConsole() {
       voiceName: voice.voiceName,
       languageCode: voice.languageCode,
       speakingRate: voice.speakingRate || 0.9,
+      personality: savedPersonality,
+      expressiveness: savedExpressiveness,
+      emotion: savedEmotion,
       isActive: voice.isActive,
     });
+    // Sync audition controls with saved values so preview uses saved emotion
+    setAuditionPersonality(savedPersonality);
+    setAuditionExpressiveness(savedExpressiveness);
+    setAuditionEmotion(savedEmotion);
     setIsAddDialogOpen(true);
   };
 

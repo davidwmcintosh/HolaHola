@@ -5102,7 +5102,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Create or update a voice configuration (admin only)
   app.post("/api/admin/tutor-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { language, gender, provider, voiceId, voiceName, languageCode, speakingRate, isActive } = req.body;
+      const { language, gender, provider, voiceId, voiceName, languageCode, speakingRate, personality, expressiveness, emotion, isActive } = req.body;
       
       if (!language || !gender || !provider || !voiceId || !voiceName || !languageCode) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -5113,6 +5113,18 @@ Return ONLY the ${targetLanguage} phrase:`;
         ? Math.max(0.7, Math.min(1.3, parseFloat(speakingRate))) 
         : 0.9; // Default to natural speed
       
+      // Validate personality (warm, calm, energetic, professional)
+      const validPersonalities = ['warm', 'calm', 'energetic', 'professional'];
+      const validatedPersonality = validPersonalities.includes(personality) ? personality : 'warm';
+      
+      // Validate expressiveness (1-5)
+      const validatedExpressiveness = expressiveness !== undefined
+        ? Math.max(1, Math.min(5, parseInt(expressiveness)))
+        : 3;
+      
+      // Validate emotion (use provided or default to friendly)
+      const validatedEmotion = emotion || 'friendly';
+      
       const voice = await storage.upsertTutorVoice({
         language,
         gender,
@@ -5121,6 +5133,9 @@ Return ONLY the ${targetLanguage} phrase:`;
         voiceName,
         languageCode,
         speakingRate: validatedSpeakingRate,
+        personality: validatedPersonality,
+        expressiveness: validatedExpressiveness,
+        emotion: validatedEmotion,
         isActive: isActive !== false, // default to true
       });
       
@@ -5130,7 +5145,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         action: 'upsert_tutor_voice',
         targetType: 'tutor_voice',
         targetId: voice.id,
-        metadata: { language, gender, voiceId, voiceName, speakingRate: validatedSpeakingRate },
+        metadata: { language, gender, voiceId, voiceName, speakingRate: validatedSpeakingRate, personality: validatedPersonality, expressiveness: validatedExpressiveness, emotion: validatedEmotion },
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
       });

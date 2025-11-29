@@ -89,6 +89,9 @@ export const tutorVoices = pgTable("tutor_voices", {
   voiceName: varchar("voice_name").notNull(), // Display name for admin UI (e.g., "Mexican Woman")
   languageCode: varchar("language_code").notNull(), // Language code for TTS (e.g., "es", "en")
   speakingRate: real("speaking_rate").notNull().default(0.9), // Speed: 0.7 (slow) to 1.3 (fast), 0.9 = natural
+  personality: varchar("personality").notNull().default("warm"), // warm, calm, energetic, professional
+  expressiveness: integer("expressiveness").notNull().default(3), // 1-5 scale
+  emotion: varchar("emotion").notNull().default("friendly"), // Default emotion for TTS
   isActive: boolean("is_active").notNull().default(true), // Enable/disable voice without deleting
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
