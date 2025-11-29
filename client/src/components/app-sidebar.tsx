@@ -1,4 +1,4 @@
-import { MessageSquare, BookOpen, Languages, History, Home, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck, Library, Shield, X, FolderOpen, Volume2, Target } from "lucide-react";
+import { MessageSquare, BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck, Library, Shield, X, FolderOpen, Volume2, Target, ChevronDown, User } from "lucide-react";
 import linguaflowLogo from "@assets/LF_no_words_no_background_1764099068542.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -14,17 +14,23 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StreakIndicator } from "@/components/StreakIndicator";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { useAuth } from "@/hooks/useAuth";
 
-const dashboardItem = { title: "Dashboard", url: "/", icon: Home };
+const dashboardItem = { title: "Dashboard", url: "/", icon: Target };
 
 const learnMenuItems = [
   { title: "Call Tutor", url: "/chat", icon: MessageSquare },
-  { title: "Review Hub", url: "/review", icon: Target },
 ];
 
 const libraryMenuItems = [
@@ -60,10 +66,15 @@ const adminMenuItems = [
 ];
 
 export function AppSidebar() {
-  const [location] = useLocation();
-  const { userName } = useLanguage();
+  const [location, setLocation] = useLocation();
+  const { userName, language, setLanguage } = useLanguage();
   const { user } = useAuth();
   const { setOpenMobile, setOpen, isMobile } = useSidebar();
+  const { getTutorContexts, setLearningContext } = useLearningFilter();
+  
+  // Get available tutor contexts
+  const tutorContexts = getTutorContexts();
+  const hasMultipleTutorContexts = tutorContexts.length > 1;
   
   // Auto-close sidebar when a menu item is clicked (both mobile and desktop)
   const closeSidebar = () => {
@@ -72,6 +83,19 @@ export function AppSidebar() {
     } else {
       setOpen(false);
     }
+  };
+  
+  // Handle tutor selection from dropdown
+  const handleTutorSelect = (context: { id: string; language: string; type: "self-directed" | "class" }) => {
+    // Set the language context
+    setLanguage(context.language);
+    // Set the learning context (self-directed or class ID)
+    setLearningContext(context.type === "self-directed" ? "self-directed" : context.id);
+    // Force new conversation
+    localStorage.setItem('forceNewConversation', 'true');
+    // Navigate to chat
+    closeSidebar();
+    setLocation("/chat");
   };
   
   // Hide Chat Ideas until onboarding is complete
@@ -144,30 +168,71 @@ export function AppSidebar() {
           <SidebarGroupLabel>Learn</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {learnMenuItems.map((item) => {
-                const isActive = location === item.url;
-                const handleClick = () => {
-                  if (item.title === "Call Tutor") {
-                    localStorage.setItem('forceNewConversation', 'true');
-                  }
-                  closeSidebar();
-                };
-                
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton 
-                      asChild
-                      isActive={isActive}
-                      data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}
-                    >
-                      <Link href={item.url} onClick={handleClick}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+              {hasMultipleTutorContexts ? (
+                <SidebarMenuItem>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className={`flex items-center justify-between w-full gap-2 h-auto px-2 py-2 text-sm font-medium ${
+                          location === "/chat" ? "bg-sidebar-accent text-sidebar-accent-foreground" : ""
+                        }`}
+                        data-testid="dropdown-call-tutor"
+                      >
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4" />
+                          <span>Call Tutor</span>
+                        </div>
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56">
+                      {tutorContexts.map((ctx) => (
+                        <DropdownMenuItem
+                          key={ctx.id}
+                          onClick={() => handleTutorSelect(ctx)}
+                          className="cursor-pointer"
+                          data-testid={`option-tutor-${ctx.id}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            {ctx.type === "self-directed" ? (
+                              <User className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <GraduationCap className="h-4 w-4 text-primary" />
+                            )}
+                            <span className="truncate">{ctx.name}</span>
+                          </div>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </SidebarMenuItem>
+              ) : (
+                learnMenuItems.map((item) => {
+                  const isActive = location === item.url;
+                  const handleClick = () => {
+                    if (item.title === "Call Tutor") {
+                      localStorage.setItem('forceNewConversation', 'true');
+                    }
+                    closeSidebar();
+                  };
+                  
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton 
+                        asChild
+                        isActive={isActive}
+                        data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}
+                      >
+                        <Link href={item.url} onClick={handleClick}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

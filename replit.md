@@ -32,15 +32,15 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Conversation Tagging System**: An AI-powered topic tagging system for conversations and vocabulary, categorizing content into Subject, Grammar, and Function topics. Topics are auto-tagged in the background using Gemini, extracting covered subjects, grammar concepts, and language functions, and returning topic IDs with confidence scores and estimated ACTFL levels. Vocabulary extraction includes grammar classification.
 
-**Review Hub**: A unified learning dashboard at `/review` that guides students through prioritized learning tasks rather than requiring them to navigate separate sections. The hub aggregates:
+**Review Hub (Primary Dashboard)**: The Review Hub is now the main landing page, accessible at `/`, `/dashboard`, and `/review`. It serves as a unified learning dashboard that guides students through prioritized learning tasks. The hub aggregates:
 - **Daily Plan**: Due flashcards, recent vocabulary (repetition < 3), conversation continuation, and quick practice start
 - **Topic Deep Dives**: Topics with associated conversations and vocabulary, organized by subject/grammar/function
 - **Cultural Corner**: 3 randomly selected cultural tips for the current language (43 tips across 9 languages)
 - **Lesson Journeys**: Auto-generated weekly lessons and custom bundles
-- **Quick Stats**: Streak days, words learned, conversations count, due cards
+- **Quick Stats**: 5-column stats row with Streak, Words, Chats, Due Cards, and ACTFL progress (using MiniRing component)
 - **Mobile CTA**: Fixed "Next Up" button on mobile for primary action (review cards or start practice)
 
-The Dashboard includes a "What's Next?" card linking to Review Hub for easy navigation.
+The sidebar Dashboard item now uses the Target icon and links directly to the Review Hub.
 
 **Syllabus-Aware Competency System**: Recognizes when students organically cover curriculum topics during conversations, enabling early completion instead of redundant assignments. Key features:
 - **Competency Verification Service**: Analyzes topic coverage, vocabulary mastery, grammar demonstration, and pronunciation against lesson requirements with 80%+ weighted threshold (topics 40%, vocab 35%, grammar 25%)
@@ -60,11 +60,12 @@ The Dashboard includes a "What's Next?" card linking to Review Hub for easy navi
 - **Error Handling**: Graceful fallbacks when data fetching fails, with null context filtering
 
 **Unified Learning Filter System**: A cross-page filtering system for consistent content filtering:
-- **LearningFilterContext** (`client/src/contexts/LearningFilterContext.tsx`): Provides shared filter state across pages
+- **LearningFilterContext** (`client/src/contexts/LearningFilterContext.tsx`): Provides shared filter state across pages, defaults to "self-directed" (no "All Learning" option)
 - **LearningContextFilter Component**: Consistent UI with language and class dropdowns
 - **Persistent State**: Filter settings saved to localStorage for session continuity
 - **Pages Supported**: Review Hub, Vocabulary, Grammar, Chat History
 - **API Integration**: Endpoints accept `?language=` and `?classId=` query parameters
+- **Tutor Selection**: When user has multiple learning contexts (self-directed + enrolled classes), the "Call Tutor" sidebar item shows a dropdown for selecting which tutor/class to practice with
 
 **Usage & Credit System Architecture**: A comprehensive metering system for voice tutoring time:
 - **Database Schema**: `voiceSessions` tracks individual sessions with userId, duration, status; `usageLedger` records all credit transactions with entitlementType (class_allocation, purchase, bonus, trial), stripePaymentId for idempotency

@@ -94,26 +94,26 @@ export function LearningContextFilter({
 
   const handleLanguageChange = (newLang: string) => {
     setLanguage(newLang);
-    const newClasses = getClassesForLanguage(newLang);
-    if (learningContext !== "all" && learningContext !== "self-directed") {
+    // When changing language, check if current class context is still valid
+    if (learningContext !== "self-directed") {
+      const newClasses = getClassesForLanguage(newLang);
       const stillValid = newClasses.some(c => c.classId === learningContext);
       if (!stillValid) {
-        setLearningContext("all");
+        // Reset to self-directed when class is no longer valid for new language
+        setLearningContext("self-directed");
       }
     }
   };
 
   const getContextLabel = (ctx: LearningContext): string => {
-    if (ctx === "all") return "All Learning";
-    if (ctx === "self-directed") return "Self-Directed";
+    if (ctx === "all" || ctx === "self-directed") return "Self-Directed";
     const cls = enrolledClasses.find(e => e.classId === ctx);
-    return cls?.class.name || "Class";
+    return cls?.class.name || "Self-Directed";
   };
 
   const getContextIcon = (ctx: LearningContext) => {
-    if (ctx === "self-directed") return <User className="h-3 w-3" />;
-    if (ctx !== "all") return <GraduationCap className="h-3 w-3" />;
-    return <Filter className="h-3 w-3" />;
+    if (ctx === "self-directed" || ctx === "all") return <User className="h-3 w-3" />;
+    return <GraduationCap className="h-3 w-3" />;
   };
 
   if (compact) {
@@ -156,18 +156,12 @@ export function LearningContextFilter({
       {showContext && (
         isLoadingClasses ? (
           <Skeleton className="h-9 w-[180px]" />
-        ) : hasClasses ? (
-          <Select value={learningContext} onValueChange={setLearningContext}>
+        ) : (
+          <Select value={learningContext === "all" ? "self-directed" : learningContext} onValueChange={setLearningContext}>
             <SelectTrigger className="w-[180px]" data-testid="select-learning-context">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all" data-testid="option-context-all">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-muted-foreground" />
-                  <span>All Learning</span>
-                </div>
-              </SelectItem>
               <SelectItem value="self-directed" data-testid="option-context-self">
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4 text-muted-foreground" />
@@ -188,7 +182,7 @@ export function LearningContextFilter({
               ))}
             </SelectContent>
           </Select>
-        ) : null
+        )
       )}
     </div>
   );

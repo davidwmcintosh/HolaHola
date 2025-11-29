@@ -114,12 +114,13 @@ function Router() {
   }
 
   // For authenticated users, always define all routes
-  // Onboarding redirection is handled inside the Dashboard component
+  // Review Hub is now the main dashboard/landing page
   return (
     <PageWrapper>
       <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/dashboard" component={Dashboard} />
+        <Route path="/" component={ReviewHub} />
+        <Route path="/dashboard" component={ReviewHub} />
+        <Route path="/review" component={ReviewHub} />
         <Route path="/onboarding" component={Onboarding} />
         <Route path="/chat" component={Chat} />
         <Route path="/chat-ideas" component={ChatIdeas} />
@@ -129,7 +130,6 @@ function Router() {
         <Route path="/history" component={History} />
         <Route path="/can-do-progress" component={CanDoProgress} />
         <Route path="/lessons" component={Lessons} />
-        <Route path="/review" component={ReviewHub} />
         
         {/* Teacher Routes - Protected */}
         <Route path="/teacher/dashboard" component={TeacherDashboard} />
