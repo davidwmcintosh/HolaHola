@@ -1060,6 +1060,87 @@ The system automatically falls back to Google Cloud Chirp HD if Cartesia is unav
 
 ---
 
+## Voice Console Permissions Model (Nov 29, 2024)
+
+### Three-Tier Permission System
+
+Voice emotion controls are restricted by user role to prevent students from accessing advanced tutor customization:
+
+| Role | Gender Control | Personality/Expressiveness/Emotion |
+|------|---------------|-----------------------------------|
+| **Student** | ✅ Male/Female toggle | ❌ Hidden |
+| **Teacher** | ✅ Male/Female toggle | ❌ Hidden |
+| **Developer** | ✅ Male/Female toggle | ✅ Full control |
+| **Admin** | ✅ Male/Female toggle | ✅ Full control |
+
+### Security Enforcement
+
+**Backend Protection** (`server/routes.ts`):
+The `/api/user/preferences` endpoint strips restricted fields for non-developers:
+
+```typescript
+// Non-developers cannot modify voice emotion settings
+if (user.role !== 'developer' && user.role !== 'admin') {
+  delete preferences.tutorPersonality;
+  delete preferences.tutorExpressiveness;
+  delete preferences.tutorEmotions;
+}
+```
+
+**Frontend Controls** (`client/src/pages/settings.tsx`):
+Voice emotion sliders are conditionally rendered based on user role:
+
+```typescript
+// Only show emotion controls to developers/admins
+{(user.role === 'developer' || user.role === 'admin') && (
+  <VoiceEmotionControls ... />
+)}
+```
+
+### User Settings Available by Role
+
+**All Users (Student+)**:
+- Tutor gender: Male/Female toggle
+- Target language
+- Native language
+- Difficulty level
+- Subtitle mode: Off, Target, All
+
+**Developers/Admins Only**:
+- Personality preset: warm, calm, energetic, professional
+- Expressiveness level: 1-5 slider
+- Emotion selection: varies by personality/expressiveness
+
+### Checking User Voice Permissions
+
+```sql
+-- Check if user has developer/admin voice permissions
+SELECT 
+  id, 
+  email, 
+  role,
+  CASE WHEN role IN ('developer', 'admin') 
+       THEN 'Full voice control' 
+       ELSE 'Gender only' 
+  END as "voicePermissions"
+FROM users
+WHERE email = 'user@example.com';
+```
+
+### Granting Voice Control Access
+
+To give a user full voice emotion control access, promote them to developer role:
+
+```sql
+UPDATE users 
+SET role = 'developer'
+WHERE email = 'trusted-tester@example.com';
+```
+
+**Note**: Developer role also grants read access to platform metrics and audit logs. Only grant to trusted users.
+
+---
+
 ### Platform Metrics
 
 **User Statistics:**
