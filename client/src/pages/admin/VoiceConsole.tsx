@@ -418,7 +418,7 @@ export default function VoiceConsole() {
   }, {} as Record<string, { male: TutorVoice | null; female: TutorVoice | null }>);
 
   return (
-    <RoleGuard allowedRoles={['developer', 'admin']}>
+    <RoleGuard allowedRoles={['developer']}>
       <AdminLayout>
         <div className="space-y-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

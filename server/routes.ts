@@ -5099,8 +5099,9 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
-  // Create or update a voice configuration (admin only)
-  app.post("/api/admin/tutor-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  // Create or update a voice configuration (developer/super admin only)
+  // Only super admins can modify voice settings including personality, expressiveness, and emotion
+  app.post("/api/admin/tutor-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
     try {
       const { language, gender, provider, voiceId, voiceName, languageCode, speakingRate, personality, expressiveness, emotion, isActive } = req.body;
       

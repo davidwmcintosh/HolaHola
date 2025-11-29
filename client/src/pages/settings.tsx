@@ -6,8 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Subtitles, CaptionsOff, Languages, Captions, Palette, Moon, Sun, Monitor, User as UserIcon, Smile, Heart, Zap, Briefcase } from "lucide-react";
-import { Slider } from "@/components/ui/slider";
+import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Subtitles, CaptionsOff, Languages, Captions, Palette, Moon, Sun, Monitor, User as UserIcon } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -54,23 +53,15 @@ export default function Settings() {
   const [isResetting, setIsResetting] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark" | "system">("light");
   const [tutorGender, setTutorGender] = useState<"male" | "female">((user?.tutorGender as "male" | "female") || "female");
-  const [tutorPersonality, setTutorPersonality] = useState<"warm" | "calm" | "energetic" | "professional">((user?.tutorPersonality as "warm" | "calm" | "energetic" | "professional") || "warm");
-  const [tutorExpressiveness, setTutorExpressiveness] = useState<number>(user?.tutorExpressiveness || 3);
   const { toast } = useToast();
   const logoutMutation = useLogout();
 
-  // Initialize tutor settings from user when loaded
+  // Initialize tutor gender from user when loaded
   useEffect(() => {
     if (user?.tutorGender) {
       setTutorGender(user.tutorGender as "male" | "female");
     }
-    if (user?.tutorPersonality) {
-      setTutorPersonality(user.tutorPersonality as "warm" | "calm" | "energetic" | "professional");
-    }
-    if (user?.tutorExpressiveness !== undefined && user.tutorExpressiveness !== null) {
-      setTutorExpressiveness(user.tutorExpressiveness);
-    }
-  }, [user?.tutorGender, user?.tutorPersonality, user?.tutorExpressiveness]);
+  }, [user?.tutorGender]);
 
   // Tutor gender update mutation
   const tutorGenderMutation = useMutation({
@@ -96,66 +87,6 @@ export default function Settings() {
   const handleTutorGenderChange = (gender: "male" | "female") => {
     setTutorGender(gender);
     tutorGenderMutation.mutate(gender);
-  };
-
-  // Tutor personality update mutation
-  const tutorPersonalityMutation = useMutation({
-    mutationFn: async (personality: "warm" | "calm" | "energetic" | "professional") => {
-      return apiRequest("PUT", "/api/user/preferences", { tutorPersonality: personality });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-      const descriptions: Record<string, string> = {
-        warm: "Warm and encouraging tutor personality",
-        calm: "Calm and patient tutor personality",
-        energetic: "Energetic and enthusiastic tutor personality",
-        professional: "Professional and focused tutor personality"
-      };
-      toast({
-        title: "Personality updated",
-        description: descriptions[tutorPersonality],
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update personality",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleTutorPersonalityChange = (personality: "warm" | "calm" | "energetic" | "professional") => {
-    setTutorPersonality(personality);
-    tutorPersonalityMutation.mutate(personality);
-  };
-
-  // Tutor expressiveness update mutation
-  const tutorExpressivenessMutation = useMutation({
-    mutationFn: async (level: number) => {
-      return apiRequest("PUT", "/api/user/preferences", { tutorExpressiveness: level });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-      const levelNames = ["", "Very Subtle", "Subtle", "Balanced", "Expressive", "Very Expressive"];
-      toast({
-        title: "Expressiveness updated",
-        description: `Tutor will be ${levelNames[tutorExpressiveness]}`,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update expressiveness",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleTutorExpressivenessChange = (value: number[]) => {
-    const level = value[0];
-    setTutorExpressiveness(level);
-    tutorExpressivenessMutation.mutate(level);
   };
   
   // Initialize theme from localStorage
@@ -422,78 +353,6 @@ export default function Settings() {
               </Select>
             </div>
             
-            <div className="flex items-center justify-between gap-4">
-              <div className="space-y-0.5 flex-1">
-                <Label htmlFor="tutor-personality-select" className="text-base">Tutor Personality</Label>
-                <p className="text-sm text-muted-foreground">
-                  Set the emotional style of your tutor's voice
-                </p>
-              </div>
-              <Select
-                value={tutorPersonality}
-                onValueChange={(value) => handleTutorPersonalityChange(value as "warm" | "calm" | "energetic" | "professional")}
-                disabled={tutorPersonalityMutation.isPending}
-              >
-                <SelectTrigger className="w-40" id="tutor-personality-select" data-testid="select-tutor-personality">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="warm" data-testid="select-personality-warm">
-                    <div className="flex items-center gap-2">
-                      <Heart className="h-4 w-4" />
-                      <span>Warm</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="calm" data-testid="select-personality-calm">
-                    <div className="flex items-center gap-2">
-                      <Smile className="h-4 w-4" />
-                      <span>Calm</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="energetic" data-testid="select-personality-energetic">
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-4 w-4" />
-                      <span>Energetic</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="professional" data-testid="select-personality-professional">
-                    <div className="flex items-center gap-2">
-                      <Briefcase className="h-4 w-4" />
-                      <span>Professional</span>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5 flex-1">
-                  <Label htmlFor="tutor-expressiveness-slider" className="text-base">Expressiveness</Label>
-                  <p className="text-sm text-muted-foreground">
-                    How much emotional variety in your tutor's voice
-                  </p>
-                </div>
-                <Badge variant="outline" className="ml-4">
-                  {["", "Very Subtle", "Subtle", "Balanced", "Expressive", "Very Expressive"][tutorExpressiveness]}
-                </Badge>
-              </div>
-              <Slider
-                id="tutor-expressiveness-slider"
-                data-testid="slider-tutor-expressiveness"
-                min={1}
-                max={5}
-                step={1}
-                value={[tutorExpressiveness]}
-                onValueChange={handleTutorExpressivenessChange}
-                disabled={tutorExpressivenessMutation.isPending}
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Subtle</span>
-                <span>Expressive</span>
-              </div>
-            </div>
           </CardContent>
         </Card>
 
