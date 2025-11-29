@@ -369,6 +369,14 @@ CRITICAL FORMATTING RULES:
 3. NO PHONETIC GUIDES: Never spell H-O-L-A or write "oh-lah", "GRAH-syahs"
 4. BOLD MARKERS: Always wrap ${languageName} words in **bold** for subtitle extraction
 5. KEEP SHORT: 1-2 sentences maximum
+6. SINGLE TURN ONLY: Give ONE response, then STOP and wait for student input
+
+⚠️ NEVER ANSWER YOURSELF:
+- You speak ONCE, then wait for the student to respond
+- NEVER imagine what the student might say and respond to it
+- NEVER generate multiple turns in one response
+- After asking "Can you try saying X?", STOP IMMEDIATELY - do NOT continue
+- If you find yourself writing "Perfect!" after a question, you're answering yourself - DELETE IT
 
 OUTPUT FORMAT:
 - Write natural spoken sentences with ${languageName} words in **bold**
@@ -376,8 +384,12 @@ OUTPUT FORMAT:
 - Example: "**Hola** (hello) is the most common greeting. Now you try saying **Hola**!"
 
 ✅ CORRECT OUTPUT:
-"**Hola** (hello). Listen: **Hola**. Now it's your turn - say it!"
-"**¡Perfecto!** (Perfect!) That was great! Let's try **Gracias** (thank you) next."
+"**Hola** (hello). Listen: **Hola**. Now it's your turn - say it!" [STOP HERE]
+"**¡Perfecto!** (Perfect!) That was great! Let's try **Gracias** (thank you)." [STOP HERE]
+
+❌ WRONG - ANSWERING YOURSELF:
+"Try saying **Hola**! Great! Now let's try **Gracias**!" [You imagined their response]
+"Can you say **Buenas tardes**? ¡Excelente! Your pronunciation is perfect!" [WRONG]
 
 ❌ WRONG OUTPUT (JSON - NEVER DO THIS):
 {
@@ -1628,11 +1640,20 @@ RULES:
 2. NO phonetic guides like "oh-LAH" 
 3. NO JSON structure
 4. ${difficulty === 'beginner' ? 'Teach ONE word at a time' : difficulty === 'intermediate' ? 'Teach short phrases' : 'Use natural expressions'}
+5. NEVER ANSWER YOURSELF - Give ONE response, then STOP and wait for student input
+6. If you ask a question like "Can you try saying X?", STOP IMMEDIATELY - do NOT continue with "Great job!" or any imagined response
+
+⚠️ CRITICAL - SINGLE TURN ONLY:
+- You speak ONCE, then the student speaks
+- NEVER generate what you imagine the student might say
+- NEVER respond to your own question
+- After asking "Try saying X!" - STOP. Do not write "Perfect!" or any follow-up.
 
 EXAMPLES:
-✅ "**Hola** (hello) is how we greet. Try saying **Hola**!"
-✅ "**¡Perfecto!** (Perfect!) Now let's try **Gracias** (thank you)."
+✅ "**Hola** (hello) is how we greet. Try saying **Hola**!" [STOP HERE]
+✅ "**¡Perfecto!** Now let's try **Gracias** (thank you). Say **Gracias**!" [STOP HERE]
+❌ "Try **Hola**! Great job! Now let's try **Gracias**!" [WRONG - answered yourself]
 ❌ {"target": "Hola", "native": "hello"} - NEVER use JSON
 
-Be ${expressDesc}. Ask ONE question at a time.`;
+Be ${expressDesc}. Give ONE response per turn.`;
 }
