@@ -3688,13 +3688,19 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.get("/api/review-hub", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { language } = req.query;
+      const { language, context } = req.query;
       
       if (!language) {
         return res.status(400).json({ error: "language query parameter is required" });
       }
       
-      const data = await storage.getReviewHubData(userId, language as string);
+      // context can be: "all", "self-directed", or a classId
+      const classId = context && context !== "all" && context !== "self-directed" 
+        ? context as string 
+        : undefined;
+      const selfDirectedOnly = context === "self-directed";
+      
+      const data = await storage.getReviewHubData(userId, language as string, classId, selfDirectedOnly);
       res.json(data);
     } catch (error: any) {
       console.error("[Review Hub] Error:", error);

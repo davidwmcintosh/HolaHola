@@ -91,7 +91,7 @@ import {
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
 import { db } from "./db";
-import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql, isNull } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (Replit Auth Integration)
@@ -379,7 +379,7 @@ export interface IStorage {
   generateWeeklyLesson(userId: string, language: string, weekStart: Date): Promise<UserLesson | null>;
 
   // Review Hub: Unified learning data aggregation
-  getReviewHubData(userId: string, language: string): Promise<{
+  getReviewHubData(userId: string, language: string, classId?: string, selfDirectedOnly?: boolean): Promise<{
     dueFlashcards: VocabularyWord[];
     recentConversations: Array<Conversation & { topics: Array<{ topic: Topic }> }>;
     culturalTips: CulturalTip[];
@@ -2830,7 +2830,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Review Hub: Unified learning data aggregation
-  async getReviewHubData(userId: string, language: string): Promise<{
+  async getReviewHubData(userId: string, language: string, classId?: string, selfDirectedOnly?: boolean): Promise<{
     dueFlashcards: VocabularyWord[];
     recentConversations: Array<Conversation & { topics: Array<{ topic: Topic }> }>;
     culturalTips: CulturalTip[];
@@ -2855,17 +2855,42 @@ export class DatabaseStorage implements IStorage {
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    // Get due flashcards (limit to 10 for daily review)
-    const dueFlashcards = await this.getDueVocabulary(language, userId, undefined, 10);
+    // Build class filter conditions
+    const vocabClassFilter = classId 
+      ? eq(vocabularyWords.classId, classId)
+      : selfDirectedOnly 
+        ? isNull(vocabularyWords.classId)
+        : undefined;
+    
+    const convClassFilter = classId
+      ? eq(conversations.classId, classId)
+      : selfDirectedOnly
+        ? isNull(conversations.classId)
+        : undefined;
 
-    // Get recent conversations (last 7 days) with their topics
+    // Get due flashcards (limit to 10 for daily review) - filtered by class
+    const dueFlashcardsQuery = db
+      .select()
+      .from(vocabularyWords)
+      .where(and(
+        eq(vocabularyWords.userId, userId),
+        eq(vocabularyWords.language, language),
+        sql`${vocabularyWords.nextReviewDate} <= ${now}`,
+        vocabClassFilter
+      ))
+      .orderBy(vocabularyWords.nextReviewDate)
+      .limit(10);
+    const dueFlashcards = await dueFlashcardsQuery;
+
+    // Get recent conversations (last 7 days) with their topics - filtered by class
     const recentConvs = await db
       .select()
       .from(conversations)
       .where(and(
         eq(conversations.userId, userId),
         eq(conversations.language, language),
-        gte(conversations.createdAt, weekAgo)
+        gte(conversations.createdAt, weekAgo),
+        convClassFilter
       ))
       .orderBy(desc(conversations.createdAt))
       .limit(10);
@@ -2916,15 +2941,15 @@ export class DatabaseStorage implements IStorage {
     // Get active lessons
     const activeLessons = await this.getUserLessons(userId, language);
 
-    // Get recently learned vocabulary (words with few repetitions = newly learned)
-    // Since vocabulary words don't have createdAt, we use repetition count as proxy
+    // Get recently learned vocabulary (words with few repetitions = newly learned) - filtered by class
     const recentVocabulary = await db
       .select()
       .from(vocabularyWords)
       .where(and(
         eq(vocabularyWords.userId, userId),
         eq(vocabularyWords.language, language),
-        sql`${vocabularyWords.repetition} < 3` // Words with fewer than 3 repetitions are "new"
+        sql`${vocabularyWords.repetition} < 3`, // Words with fewer than 3 repetitions are "new"
+        vocabClassFilter
       ))
       .orderBy(desc(vocabularyWords.nextReviewDate))
       .limit(20);
@@ -2934,27 +2959,31 @@ export class DatabaseStorage implements IStorage {
     const topicsWithContent: Array<Topic & { conversationCount: number; vocabularyCount: number }> = [];
 
     for (const topic of allTopics) {
-      // Count conversations with this topic for this user
-      const convTopics = await db
+      // Count conversations with this topic for this user - filtered by class
+      const convTopicsQuery = db
         .select({ conversationId: conversationTopics.conversationId })
         .from(conversationTopics)
         .innerJoin(conversations, eq(conversationTopics.conversationId, conversations.id))
         .where(and(
           eq(conversationTopics.topicId, topic.id),
           eq(conversations.userId, userId),
-          eq(conversations.language, language)
+          eq(conversations.language, language),
+          convClassFilter
         ));
+      const convTopics = await convTopicsQuery;
 
-      // Count vocabulary with this topic for this user
-      const vocabTopics = await db
+      // Count vocabulary with this topic for this user - filtered by class
+      const vocabTopicsQuery = db
         .select({ vocabularyWordId: vocabularyWordTopics.vocabularyWordId })
         .from(vocabularyWordTopics)
         .innerJoin(vocabularyWords, eq(vocabularyWordTopics.vocabularyWordId, vocabularyWords.id))
         .where(and(
           eq(vocabularyWordTopics.topicId, topic.id),
           eq(vocabularyWords.userId, userId),
-          eq(vocabularyWords.language, language)
+          eq(vocabularyWords.language, language),
+          vocabClassFilter
         ));
+      const vocabTopics = await vocabTopicsQuery;
 
       if (convTopics.length > 0 || vocabTopics.length > 0) {
         topicsWithContent.push({
@@ -2970,13 +2999,14 @@ export class DatabaseStorage implements IStorage {
       (b.conversationCount + b.vocabularyCount) - (a.conversationCount + a.vocabularyCount)
     );
 
-    // Get total stats
+    // Get total stats - filtered by class
     const totalConvsResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(conversations)
       .where(and(
         eq(conversations.userId, userId),
-        eq(conversations.language, language)
+        eq(conversations.language, language),
+        convClassFilter
       ));
 
     const totalVocabResult = await db
@@ -2984,7 +3014,8 @@ export class DatabaseStorage implements IStorage {
       .from(vocabularyWords)
       .where(and(
         eq(vocabularyWords.userId, userId),
-        eq(vocabularyWords.language, language)
+        eq(vocabularyWords.language, language),
+        vocabClassFilter
       ));
 
     const dueCountResult = await db
@@ -2993,7 +3024,8 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(vocabularyWords.userId, userId),
         eq(vocabularyWords.language, language),
-        sql`${vocabularyWords.nextReviewDate} <= ${now}`
+        sql`${vocabularyWords.nextReviewDate} <= ${now}`,
+        vocabClassFilter
       ));
 
     // Calculate streak (simplified - just check consecutive days with activity)
