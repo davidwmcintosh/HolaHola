@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { voiceSessions, usageLedger, classEnrollments, users, hourPackages } from "@shared/schema";
+import { voiceSessions, usageLedger, classEnrollments, users, hourPackages, classHourPackages, teacherClasses } from "@shared/schema";
 import { eq, and, sql, gt, isNull, or, desc, sum } from "drizzle-orm";
 import type { VoiceSession, UsageLedger, InsertVoiceSession, InsertUsageLedger } from "@shared/schema";
 
@@ -436,11 +436,13 @@ export class UsageService {
   
   /**
    * Allocate hours when student enrolls in a class
+   * Draws from the linked hour package if available
    */
   async allocateClassHours(
     userId: string,
     classId: string,
     hoursToAllocate: number,
+    packageId?: string,
     expiresAt?: Date
   ): Promise<void> {
     const seconds = hoursToAllocate * 3600;
@@ -460,7 +462,18 @@ export class UsageService {
         )
       );
     
-    // Add to ledger
+    // If drawing from a package, update the package's used hours
+    if (packageId) {
+      await db
+        .update(classHourPackages)
+        .set({
+          usedHours: sql`${classHourPackages.usedHours} + ${hoursToAllocate}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(classHourPackages.id, packageId));
+    }
+    
+    // Add to ledger with package metadata for auditability
     await this.addCredits(
       userId,
       seconds,
@@ -468,9 +481,79 @@ export class UsageService {
       `Class enrollment allocation: ${hoursToAllocate} hours`,
       {
         classId,
+        packageId: packageId || null,
         expiresAt,
       }
     );
+  }
+  
+  /**
+   * Get allocation details from a class's linked package
+   */
+  async getClassAllocationDetails(classId: string): Promise<{
+    hoursPerStudent: number;
+    packageId: string | null;
+    expiresAt: Date | null;
+    canAllocate: boolean;
+  }> {
+    // Get class with its package
+    const [classData] = await db
+      .select({
+        hourPackageId: teacherClasses.hourPackageId,
+        hoursOverride: teacherClasses.hoursPerStudentOverride,
+      })
+      .from(teacherClasses)
+      .where(eq(teacherClasses.id, classId))
+      .limit(1);
+    
+    if (!classData) {
+      return { hoursPerStudent: 0, packageId: null, expiresAt: null, canAllocate: false };
+    }
+    
+    // If there's a per-class override, use that
+    if (classData.hoursOverride) {
+      return {
+        hoursPerStudent: classData.hoursOverride,
+        packageId: classData.hourPackageId,
+        expiresAt: null,
+        canAllocate: true,
+      };
+    }
+    
+    // If there's a linked package, get allocation from it
+    if (classData.hourPackageId) {
+      const [pkg] = await db
+        .select({
+          hoursPerStudent: classHourPackages.hoursPerStudent,
+          status: classHourPackages.status,
+          expiresAt: classHourPackages.expiresAt,
+          totalPurchasedHours: classHourPackages.totalPurchasedHours,
+          usedHours: classHourPackages.usedHours,
+        })
+        .from(classHourPackages)
+        .where(eq(classHourPackages.id, classData.hourPackageId))
+        .limit(1);
+      
+      if (!pkg) {
+        return { hoursPerStudent: 0, packageId: null, expiresAt: null, canAllocate: false };
+      }
+      
+      // Check if package is valid
+      const isActive = pkg.status === 'active';
+      const notExpired = !pkg.expiresAt || new Date(pkg.expiresAt) > new Date();
+      const hasCapacity = !pkg.totalPurchasedHours || 
+        (pkg.usedHours || 0) + pkg.hoursPerStudent <= pkg.totalPurchasedHours;
+      
+      return {
+        hoursPerStudent: pkg.hoursPerStudent,
+        packageId: classData.hourPackageId,
+        expiresAt: pkg.expiresAt,
+        canAllocate: isActive && notExpired && hasCapacity,
+      };
+    }
+    
+    // No package, no override - use default (10 hours for MVP)
+    return { hoursPerStudent: 10, packageId: null, expiresAt: null, canAllocate: true };
   }
   
   /**

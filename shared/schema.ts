@@ -419,6 +419,24 @@ export const curriculumLessons = pgTable("curriculum_lessons", {
   minPronunciationScore: real("min_pronunciation_score"), // Minimum pronunciation confidence (0-1)
 });
 
+// Institutional hour packages for classes (tracks purchased allocations)
+export const classHourPackages = pgTable("class_hour_packages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(), // "Basic 10-Hour Package", "Standard 20-Hour Package", "Premium 30-Hour Package"
+  hoursPerStudent: integer("hours_per_student").notNull(), // Hours allocated per enrolled student
+  totalPurchasedHours: integer("total_purchased_hours"), // Total hours purchased for this package (if bulk)
+  usedHours: integer("used_hours").default(0), // Total hours used across all allocations
+  pricePerStudent: integer("price_per_student"), // Price in cents per student (e.g., 5000 = $50)
+  purchasedAt: timestamp("purchased_at").defaultNow(),
+  expiresAt: timestamp("expires_at"), // When this package expires
+  purchaserId: varchar("purchaser_id").references(() => users.id), // Teacher, admin, or institution
+  status: varchar("status").default("active"), // active, expired, exhausted
+  stripeSubscriptionId: varchar("stripe_subscription_id"), // For Stripe linkage
+  metadata: text("metadata"), // JSON for additional contract details
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Teacher classes (for structured path)
 export const teacherClasses = pgTable("teacher_classes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -430,6 +448,8 @@ export const teacherClasses = pgTable("teacher_classes", {
   curriculumPathId: varchar("curriculum_path_id").references(() => curriculumPaths.id), // Optional: link to structured curriculum
   joinCode: varchar("join_code").unique().notNull(), // 6-digit code for students to join
   isActive: boolean("is_active").default(true),
+  hourPackageId: varchar("hour_package_id").references(() => classHourPackages.id), // Link to purchased hour package
+  hoursPerStudentOverride: integer("hours_per_student_override"), // Optional per-class override
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -962,6 +982,12 @@ export const insertCurriculumLessonSchema = createInsertSchema(curriculumLessons
   conversationPrompt: z.string().max(5000, "Prompt must be less than 5000 characters").optional(),
 });
 
+export const insertClassHourPackageSchema = createInsertSchema(classHourPackages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertTeacherClassSchema = createInsertSchema(teacherClasses).omit({
   id: true,
   createdAt: true,
@@ -1025,6 +1051,9 @@ export type CurriculumUnit = typeof curriculumUnits.$inferSelect;
 
 export type InsertCurriculumLesson = z.infer<typeof insertCurriculumLessonSchema>;
 export type CurriculumLesson = typeof curriculumLessons.$inferSelect;
+
+export type InsertClassHourPackage = z.infer<typeof insertClassHourPackageSchema>;
+export type ClassHourPackage = typeof classHourPackages.$inferSelect;
 
 export type InsertTeacherClass = z.infer<typeof insertTeacherClassSchema>;
 export type TeacherClass = typeof teacherClasses.$inferSelect;

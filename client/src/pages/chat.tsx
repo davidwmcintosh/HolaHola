@@ -241,7 +241,6 @@ export default function Chat() {
             <CreditBalance 
               variant="compact" 
               showWarning={false}
-              data-testid="credit-balance-header"
             />
           )}
           

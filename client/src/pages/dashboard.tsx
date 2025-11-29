@@ -4,17 +4,20 @@ import { StreakIndicator } from "@/components/StreakIndicator";
 import { ProgressCharts } from "@/components/ProgressCharts";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { DifficultySelector } from "@/components/DifficultySelector";
+import { ActflFluencyDial } from "@/components/ActflFluencyDial";
+import { UsageOverview, SessionHistory } from "@/components/SessionHistory";
+import { LearningAlerts } from "@/components/LearningAlerts";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLocation, Link } from "wouter";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSidebar } from "@/components/ui/sidebar";
-import { Target, ArrowRight, BookOpen, MessageSquare, Sparkles } from "lucide-react";
+import { Target, ArrowRight, Sparkles } from "lucide-react";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
-  const { userName, setUserName } = useLanguage();
+  const { userName, setUserName, language } = useLanguage();
   const { setOpenMobile, isMobile } = useSidebar();
   
   const handleStartPractice = () => {
@@ -27,6 +30,9 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       <WelcomeHero onStartPractice={handleStartPractice} />
+      
+      {/* Learning Alerts */}
+      <LearningAlerts language={language} />
       
       {/* What's Next - Link to Review Hub */}
       <Link href="/review">
@@ -57,10 +63,13 @@ export default function Dashboard() {
       <div className="space-y-4">
         <h2 className="text-3xl font-semibold">Your Progress</h2>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-6">
             <StatsCards />
+            <UsageOverview />
+            <SessionHistory limit={5} />
           </div>
-          <div>
+          <div className="space-y-6">
+            <ActflFluencyDial />
             <StreakIndicator />
           </div>
         </div>

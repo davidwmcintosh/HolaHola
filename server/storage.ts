@@ -53,6 +53,9 @@ import {
   type InsertUserLessonItem,
   type ActflProgress,
   type InsertActflProgress,
+  type ClassHourPackage,
+  type InsertClassHourPackage,
+  classHourPackages,
   users,
   conversations,
   messages,
@@ -220,6 +223,13 @@ export interface IStorage {
   deleteTeacherClass(id: string): Promise<boolean>;
   getClassByJoinCode(joinCode: string): Promise<TeacherClass | undefined>;
 
+  // Class Hour Packages (Institutional)
+  createClassHourPackage(data: InsertClassHourPackage): Promise<ClassHourPackage>;
+  getClassHourPackage(id: string): Promise<ClassHourPackage | undefined>;
+  getClassHourPackages(purchaserId?: string): Promise<ClassHourPackage[]>;
+  updateClassHourPackage(id: string, data: Partial<ClassHourPackage>): Promise<ClassHourPackage | undefined>;
+  deleteClassHourPackage(id: string): Promise<boolean>;
+  
   // Class Enrollments
   enrollStudent(classId: string, studentId: string): Promise<ClassEnrollment>;
   getClassEnrollments(classId: string): Promise<Array<ClassEnrollment & { student: User }>>;
@@ -1694,6 +1704,39 @@ export class DatabaseStorage implements IStorage {
   async getClassByJoinCode(joinCode: string): Promise<TeacherClass | undefined> {
     const result = await db.select().from(teacherClasses).where(eq(teacherClasses.joinCode, joinCode));
     return result[0];
+  }
+  
+  // ===== Class Hour Packages (Institutional) =====
+  
+  async createClassHourPackage(data: InsertClassHourPackage): Promise<ClassHourPackage> {
+    const [pkg] = await db.insert(classHourPackages).values(data).returning();
+    return pkg;
+  }
+  
+  async getClassHourPackage(id: string): Promise<ClassHourPackage | undefined> {
+    const result = await db.select().from(classHourPackages).where(eq(classHourPackages.id, id));
+    return result[0];
+  }
+  
+  async getClassHourPackages(purchaserId?: string): Promise<ClassHourPackage[]> {
+    if (purchaserId) {
+      return await db.select().from(classHourPackages).where(eq(classHourPackages.purchaserId, purchaserId));
+    }
+    return await db.select().from(classHourPackages);
+  }
+  
+  async updateClassHourPackage(id: string, data: Partial<ClassHourPackage>): Promise<ClassHourPackage | undefined> {
+    const [updated] = await db
+      .update(classHourPackages)
+      .set(data)
+      .where(eq(classHourPackages.id, id))
+      .returning();
+    return updated;
+  }
+  
+  async deleteClassHourPackage(id: string): Promise<boolean> {
+    const result = await db.delete(classHourPackages).where(eq(classHourPackages.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
   }
 
   // ===== Class Enrollments =====

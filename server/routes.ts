@@ -10,6 +10,7 @@ import {
   insertProgressHistorySchema,
   insertPronunciationScoreSchema,
   updateUserPreferencesSchema,
+  insertClassHourPackageSchema,
   conversations,
 } from "@shared/schema";
 import OpenAI, { toFile } from "openai";
@@ -4432,7 +4433,31 @@ Return ONLY the ${targetLanguage} phrase:`;
       }
 
       const enrollment = await storage.enrollStudent(teacherClass.id, studentId);
-      res.json({ enrollment, class: teacherClass });
+      
+      // Auto-allocate tutoring hours based on class package configuration
+      let hoursAllocated = 0;
+      try {
+        const allocationDetails = await usageService.getClassAllocationDetails(teacherClass.id);
+        
+        if (allocationDetails.canAllocate && allocationDetails.hoursPerStudent > 0) {
+          await usageService.allocateClassHours(
+            studentId, 
+            teacherClass.id, 
+            allocationDetails.hoursPerStudent,
+            allocationDetails.packageId || undefined,
+            allocationDetails.expiresAt || undefined
+          );
+          hoursAllocated = allocationDetails.hoursPerStudent;
+          console.log(`[Enrollment] Allocated ${hoursAllocated} hours to student ${studentId} for class ${teacherClass.id} (package: ${allocationDetails.packageId || 'none'})`);
+        } else if (!allocationDetails.canAllocate) {
+          console.log(`[Enrollment] Cannot allocate hours - package exhausted or expired for class ${teacherClass.id}`);
+        }
+      } catch (allocationError) {
+        console.error('[Enrollment] Error allocating hours:', allocationError);
+        // Don't fail enrollment if hour allocation fails - they can still access the class
+      }
+      
+      res.json({ enrollment, class: teacherClass, hoursAllocated });
     } catch (error: any) {
       console.error('Error enrolling student:', error);
       res.status(500).json({ error: error.message });
@@ -5114,6 +5139,152 @@ Return ONLY the ${targetLanguage} phrase:`;
       res.json(classDetails);
     } catch (error: any) {
       console.error('Error fetching class details:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // ===== Class Hour Packages (Institutional) =====
+  
+  // Get all hour packages (admin/developer only)
+  app.get("/api/admin/hour-packages", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+    try {
+      const { purchaserId } = req.query;
+      const packages = await storage.getClassHourPackages(purchaserId as string | undefined);
+      res.json(packages);
+    } catch (error: any) {
+      console.error('Error fetching hour packages:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Create a new hour package (admin/developer only)
+  app.post("/api/admin/hour-packages", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+    try {
+      const adminId = req.user?.claims?.sub;
+      
+      // Validate with Zod schema
+      const parseResult = insertClassHourPackageSchema.safeParse({
+        ...req.body,
+        purchaserId: req.body.purchaserId || adminId,
+        status: req.body.status || 'active',
+        usedHours: req.body.usedHours || 0,
+      });
+      
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: parseResult.error.flatten().fieldErrors 
+        });
+      }
+      
+      const validated = parseResult.data;
+      const pkg = await storage.createClassHourPackage(validated);
+      
+      // Log the action
+      await storage.logAdminAction({
+        actorId: adminId,
+        action: 'create_hour_package',
+        targetType: 'hour_package',
+        targetId: pkg.id,
+        metadata: { name: validated.name, hoursPerStudent: validated.hoursPerStudent, totalPurchasedHours: validated.totalPurchasedHours },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      res.status(201).json(pkg);
+    } catch (error: any) {
+      console.error('Error creating hour package:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get a specific hour package
+  app.get("/api/admin/hour-packages/:packageId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+    try {
+      const { packageId } = req.params;
+      const pkg = await storage.getClassHourPackage(packageId);
+      
+      if (!pkg) {
+        return res.status(404).json({ error: "Hour package not found" });
+      }
+      
+      res.json(pkg);
+    } catch (error: any) {
+      console.error('Error fetching hour package:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Update an hour package
+  app.patch("/api/admin/hour-packages/:packageId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+    try {
+      const adminId = req.user?.claims?.sub;
+      const { packageId } = req.params;
+      
+      const updated = await storage.updateClassHourPackage(packageId, req.body);
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Hour package not found" });
+      }
+      
+      // Log the action
+      await storage.logAdminAction({
+        actorId: adminId,
+        action: 'update_hour_package',
+        targetType: 'hour_package',
+        targetId: packageId,
+        metadata: req.body,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error('Error updating hour package:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Assign package to a class (link hourPackageId to teacherClasses)
+  app.post("/api/admin/hour-packages/:packageId/assign-class", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+    try {
+      const adminId = req.user?.claims?.sub;
+      const { packageId } = req.params;
+      const { classId } = req.body;
+      
+      if (!classId) {
+        return res.status(400).json({ error: "classId is required" });
+      }
+      
+      // Verify package exists
+      const pkg = await storage.getClassHourPackage(packageId);
+      if (!pkg) {
+        return res.status(404).json({ error: "Hour package not found" });
+      }
+      
+      // Verify class exists
+      const teacherClass = await storage.getTeacherClass(classId);
+      if (!teacherClass) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+      
+      // Update the class to link the package
+      const updated = await storage.updateTeacherClass(classId, { hourPackageId: packageId });
+      
+      // Log the action
+      await storage.logAdminAction({
+        actorId: adminId,
+        action: 'assign_package_to_class',
+        targetType: 'class',
+        targetId: classId,
+        metadata: { packageId, className: teacherClass.name },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      res.json({ success: true, class: updated });
+    } catch (error: any) {
+      console.error('Error assigning package to class:', error);
       res.status(500).json({ error: error.message });
     }
   });
