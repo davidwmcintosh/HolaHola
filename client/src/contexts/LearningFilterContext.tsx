@@ -59,6 +59,15 @@ export function LearningFilterProvider({ children }: { children: ReactNode }) {
       return;
     }
     
+    // "all-learning" is valid if user has classes, otherwise reset to self-directed
+    if (learningContext === "all-learning") {
+      const hasActiveClasses = enrolledClasses.some(e => e.isActive);
+      if (!hasActiveClasses) {
+        setLearningContext("self-directed");
+      }
+      return;
+    }
+    
     // If context is a class ID, validate it exists
     if (learningContext !== "self-directed") {
       const classExists = enrolledClasses.some(e => e.classId === learningContext && e.isActive);
