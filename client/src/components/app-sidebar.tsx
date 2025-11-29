@@ -122,13 +122,32 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild
+                  isActive={location === dashboardItem.url}
+                  data-testid="link-dashboard"
+                >
+                  <Link href={dashboardItem.url} onClick={closeSidebar}>
+                    <dashboardItem.icon className="h-4 w-4" />
+                    <span>{dashboardItem.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
           <SidebarGroupLabel>Learn</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {primaryMenuItems.map((item) => {
+              {learnMenuItems.map((item) => {
                 const isActive = location === item.url;
                 const handleClick = () => {
-                  if (item.title === "Practice") {
+                  if (item.title === "Call Tutor") {
                     localStorage.setItem('forceNewConversation', 'true');
                   }
                   closeSidebar();
@@ -203,6 +222,33 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {showStudentFeatures && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Classes</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {studentMenuItems.map((item) => {
+                  const isActive = location === item.url;
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton 
+                        asChild
+                        isActive={isActive}
+                        data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        <Link href={item.url} onClick={closeSidebar}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
         {isTeacher && (
           <SidebarGroup>
             <SidebarGroupLabel>Teaching</SidebarGroupLabel>
@@ -237,33 +283,6 @@ export function AppSidebar() {
               <SidebarMenu>
                 {adminMenuItems.map((item) => {
                   const isActive = location === item.url || location.startsWith(item.url + '/');
-                  return (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton 
-                        asChild
-                        isActive={isActive}
-                        data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
-                      >
-                        <Link href={item.url} onClick={closeSidebar}>
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-
-        {showStudentFeatures && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Classes</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {studentMenuItems.map((item) => {
-                  const isActive = location === item.url;
                   return (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton 
