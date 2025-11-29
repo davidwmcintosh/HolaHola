@@ -15,6 +15,7 @@ import type { User as UserType } from "@shared/schema";
 import { useMemo } from "react";
 
 const allLanguages = [
+  { value: "all", label: "All Languages", flag: "🌍" },
   { value: "spanish", label: "Spanish", flag: "🇪🇸" },
   { value: "french", label: "French", flag: "🇫🇷" },
   { value: "german", label: "German", flag: "🇩🇪" },
@@ -79,8 +80,11 @@ export function LearningContextFilter({
       return allLanguages;
     }
 
-    // Filter to only show relevant languages
-    return allLanguages.filter(lang => enrolledLanguages.has(lang.value.toLowerCase()));
+    // Filter to only show relevant languages, but always include "All Languages" option
+    const filteredLanguages = allLanguages.filter(lang => 
+      lang.value === "all" || enrolledLanguages.has(lang.value.toLowerCase())
+    );
+    return filteredLanguages;
   }, [enrolledClasses, user?.targetLanguage, userLanguagesData?.languages]);
 
   const selectedLanguage = availableLanguages.find((lang) => lang.value === language) 

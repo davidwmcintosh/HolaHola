@@ -3700,7 +3700,10 @@ Return ONLY the ${targetLanguage} phrase:`;
         : undefined;
       const selfDirectedOnly = context === "self-directed";
       
-      const data = await storage.getReviewHubData(userId, language as string, classId, selfDirectedOnly);
+      // Handle "all" language by returning aggregate data
+      const languageValue = language === "all" ? undefined : language as string;
+      
+      const data = await storage.getReviewHubData(userId, languageValue, classId, selfDirectedOnly);
       res.json(data);
     } catch (error: any) {
       console.error("[Review Hub] Error:", error);
@@ -3839,6 +3842,24 @@ Return ONLY the ${targetLanguage} phrase:`;
     try {
       const userId = req.user.claims.sub;
       const progress = await storage.getOrCreateUserProgress(req.params.language, userId);
+      res.json(progress);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ACTFL Progress (FACT criteria tracking)
+  app.get("/api/actfl-progress/:language", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { language } = req.params;
+      
+      // Handle "all" language - return null (no aggregate ACTFL progress makes sense)
+      if (language === "all") {
+        return res.json(null);
+      }
+      
+      const progress = await storage.getOrCreateActflProgress(language, userId);
       res.json(progress);
     } catch (error: any) {
       res.status(500).json({ error: error.message });

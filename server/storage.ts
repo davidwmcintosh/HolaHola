@@ -379,7 +379,7 @@ export interface IStorage {
   generateWeeklyLesson(userId: string, language: string, weekStart: Date): Promise<UserLesson | null>;
 
   // Review Hub: Unified learning data aggregation
-  getReviewHubData(userId: string, language: string, classId?: string, selfDirectedOnly?: boolean): Promise<{
+  getReviewHubData(userId: string, language?: string, classId?: string, selfDirectedOnly?: boolean): Promise<{
     dueFlashcards: VocabularyWord[];
     recentConversations: Array<Conversation & { topics: Array<{ topic: Topic }> }>;
     culturalTips: CulturalTip[];
@@ -2830,7 +2830,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Review Hub: Unified learning data aggregation
-  async getReviewHubData(userId: string, language: string, classId?: string, selfDirectedOnly?: boolean): Promise<{
+  async getReviewHubData(userId: string, language?: string, classId?: string, selfDirectedOnly?: boolean): Promise<{
     dueFlashcards: VocabularyWord[];
     recentConversations: Array<Conversation & { topics: Array<{ topic: Topic }> }>;
     culturalTips: CulturalTip[];
@@ -2867,14 +2867,24 @@ export class DatabaseStorage implements IStorage {
       : selfDirectedOnly
         ? isNull(conversations.classId)
         : undefined;
+    
+    // Build language filter conditions (undefined = all languages)
+    const vocabLangFilter = language ? eq(vocabularyWords.language, language) : undefined;
+    const convLangFilter = language ? eq(conversations.language, language) : undefined;
+    
+    // Helper to filter out undefined conditions for and()
+    const buildAndConditions = (...conditions: (ReturnType<typeof eq> | ReturnType<typeof isNull> | ReturnType<typeof sql> | undefined)[]) => {
+      const validConditions = conditions.filter((c): c is Exclude<typeof c, undefined> => c !== undefined);
+      return validConditions.length > 0 ? and(...validConditions) : undefined;
+    };
 
-    // Get due flashcards (limit to 10 for daily review) - filtered by class
+    // Get due flashcards (limit to 10 for daily review) - filtered by class and language
     const dueFlashcardsQuery = db
       .select()
       .from(vocabularyWords)
-      .where(and(
+      .where(buildAndConditions(
         eq(vocabularyWords.userId, userId),
-        eq(vocabularyWords.language, language),
+        vocabLangFilter,
         sql`${vocabularyWords.nextReviewDate} <= ${now}`,
         vocabClassFilter
       ))
@@ -2882,13 +2892,13 @@ export class DatabaseStorage implements IStorage {
       .limit(10);
     const dueFlashcards = await dueFlashcardsQuery;
 
-    // Get recent conversations (last 7 days) with their topics - filtered by class
+    // Get recent conversations (last 7 days) with their topics - filtered by class and language
     const recentConvs = await db
       .select()
       .from(conversations)
-      .where(and(
+      .where(buildAndConditions(
         eq(conversations.userId, userId),
-        eq(conversations.language, language),
+        convLangFilter,
         gte(conversations.createdAt, weekAgo),
         convClassFilter
       ))
@@ -2917,8 +2927,18 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    // Get all tips for this language
-    const allTips = await this.getCulturalTips(language);
+    // Get all tips for this language (or aggregate from all user's languages)
+    let allTips: CulturalTip[] = [];
+    if (language) {
+      allTips = await this.getCulturalTips(language);
+    } else {
+      // Aggregate tips from all languages the user has content in
+      const userLanguages = await this.getUserLanguages(userId);
+      for (const lang of userLanguages) {
+        const langTips = await this.getCulturalTips(lang);
+        allTips.push(...langTips);
+      }
+    }
     
     // Filter tips that match recent conversation topics
     let relevantTips = allTips.filter(tip => {
@@ -2938,16 +2958,25 @@ export class DatabaseStorage implements IStorage {
 
     const culturalTips = relevantTips;
 
-    // Get active lessons
-    const activeLessons = await this.getUserLessons(userId, language);
+    // Get active lessons (language-filtered if specified, or aggregate from all)
+    let activeLessons: UserLesson[] = [];
+    if (language) {
+      activeLessons = await this.getUserLessons(userId, language);
+    } else {
+      const userLanguages = await this.getUserLanguages(userId);
+      for (const lang of userLanguages) {
+        const langLessons = await this.getUserLessons(userId, lang);
+        activeLessons.push(...langLessons);
+      }
+    }
 
-    // Get recently learned vocabulary (words with few repetitions = newly learned) - filtered by class
+    // Get recently learned vocabulary (words with few repetitions = newly learned) - filtered by class and language
     const recentVocabulary = await db
       .select()
       .from(vocabularyWords)
-      .where(and(
+      .where(buildAndConditions(
         eq(vocabularyWords.userId, userId),
-        eq(vocabularyWords.language, language),
+        vocabLangFilter,
         sql`${vocabularyWords.repetition} < 3`, // Words with fewer than 3 repetitions are "new"
         vocabClassFilter
       ))
@@ -2959,28 +2988,28 @@ export class DatabaseStorage implements IStorage {
     const topicsWithContent: Array<Topic & { conversationCount: number; vocabularyCount: number }> = [];
 
     for (const topic of allTopics) {
-      // Count conversations with this topic for this user - filtered by class
+      // Count conversations with this topic for this user - filtered by class and language
       const convTopicsQuery = db
         .select({ conversationId: conversationTopics.conversationId })
         .from(conversationTopics)
         .innerJoin(conversations, eq(conversationTopics.conversationId, conversations.id))
-        .where(and(
+        .where(buildAndConditions(
           eq(conversationTopics.topicId, topic.id),
           eq(conversations.userId, userId),
-          eq(conversations.language, language),
+          convLangFilter,
           convClassFilter
         ));
       const convTopics = await convTopicsQuery;
 
-      // Count vocabulary with this topic for this user - filtered by class
+      // Count vocabulary with this topic for this user - filtered by class and language
       const vocabTopicsQuery = db
         .select({ vocabularyWordId: vocabularyWordTopics.vocabularyWordId })
         .from(vocabularyWordTopics)
         .innerJoin(vocabularyWords, eq(vocabularyWordTopics.vocabularyWordId, vocabularyWords.id))
-        .where(and(
+        .where(buildAndConditions(
           eq(vocabularyWordTopics.topicId, topic.id),
           eq(vocabularyWords.userId, userId),
-          eq(vocabularyWords.language, language),
+          vocabLangFilter,
           vocabClassFilter
         ));
       const vocabTopics = await vocabTopicsQuery;
@@ -2999,38 +3028,42 @@ export class DatabaseStorage implements IStorage {
       (b.conversationCount + b.vocabularyCount) - (a.conversationCount + a.vocabularyCount)
     );
 
-    // Get total stats - filtered by class
+    // Get total stats - filtered by class and language
     const totalConvsResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(conversations)
-      .where(and(
+      .where(buildAndConditions(
         eq(conversations.userId, userId),
-        eq(conversations.language, language),
+        convLangFilter,
         convClassFilter
       ));
 
     const totalVocabResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(vocabularyWords)
-      .where(and(
+      .where(buildAndConditions(
         eq(vocabularyWords.userId, userId),
-        eq(vocabularyWords.language, language),
+        vocabLangFilter,
         vocabClassFilter
       ));
 
     const dueCountResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(vocabularyWords)
-      .where(and(
+      .where(buildAndConditions(
         eq(vocabularyWords.userId, userId),
-        eq(vocabularyWords.language, language),
+        vocabLangFilter,
         sql`${vocabularyWords.nextReviewDate} <= ${now}`,
         vocabClassFilter
       ));
 
     // Calculate streak (simplified - just check consecutive days with activity)
-    const progress = await this.getOrCreateUserProgress(language, userId);
-    const streakDays = progress.currentStreak || 0;
+    // When "all languages" is selected, use the first language user has progress in
+    let streakDays = 0;
+    if (language) {
+      const progress = await this.getOrCreateUserProgress(language, userId);
+      streakDays = progress.currentStreak || 0;
+    }
 
     // Find next lesson for enrolled students in this language
     let nextLesson: {
@@ -3045,7 +3078,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const enrollments = await this.getStudentEnrollments(userId);
       const activeEnrollments = enrollments.filter(e => 
-        e.isActive && e.class?.language === language
+        e.isActive && (!language || e.class?.language === language)
       );
 
       for (const enrollment of activeEnrollments) {

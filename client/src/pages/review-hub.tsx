@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { LearningContextFilter } from "@/components/LearningContextFilter";
+import { ActflFluencyDial } from "@/components/ActflFluencyDial";
 import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import {
   Trophy,
   Target,
   Mic,
+  Award,
 } from "lucide-react";
 import type { VocabularyWord, Conversation, CulturalTip, UserLesson, Topic } from "@shared/schema";
 
@@ -187,6 +189,9 @@ export default function ReviewHub() {
             </div>
           </Card>
         </div>
+
+        {/* ACTFL Fluency Gauge */}
+        <ActflFluencyDial compact />
       </div>
 
       {/* Daily Plan Section */}
