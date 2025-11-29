@@ -192,7 +192,7 @@ export default function ReviewHub() {
         <CardContent className="space-y-3">
           {/* Due Flashcards */}
           {hasDueCards ? (
-            <Link href="/flashcards">
+            <Link href="/vocabulary">
               <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 hover-elevate cursor-pointer" data-testid="link-due-flashcards">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-800">
@@ -222,7 +222,7 @@ export default function ReviewHub() {
 
           {/* Recent Vocabulary */}
           {data?.recentVocabulary && data.recentVocabulary.length > 0 && (
-            <Link href="/flashcards">
+            <Link href="/vocabulary">
               <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 hover-elevate cursor-pointer" data-testid="link-recent-vocab">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-800">
@@ -459,7 +459,7 @@ export default function ReviewHub() {
 
       {/* Mobile Floating "Next Up" CTA */}
       <div className="fixed bottom-4 left-4 right-4 md:hidden z-50" data-testid="mobile-next-up-cta">
-        <Link href={hasDueCards ? "/flashcards" : "/chat"}>
+        <Link href={hasDueCards ? "/vocabulary" : "/chat"}>
           <Button 
             size="lg" 
             className="w-full gap-2 shadow-lg"
