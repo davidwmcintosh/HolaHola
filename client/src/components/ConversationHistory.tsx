@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Calendar, Clock, Eye, Loader2, Star, Filter, ArrowLeft, Bot, User } from "lucide-react";
+import { Calendar, Clock, Eye, Loader2, Star, Filter, ArrowLeft, Bot, User, Play } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Conversation, Message } from "@shared/schema";
@@ -99,29 +100,37 @@ export function ConversationHistory({
   if (selectedConversationId) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onBack}
-            data-testid="button-back-to-list"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to list
-          </Button>
-          {selectedConversation && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="font-semibold" data-testid="text-conversation-detail-title">
-                {selectedConversation.title || "Untitled Conversation"}
-              </h2>
-              <Badge className={difficultyColors[selectedConversation.difficulty as keyof typeof difficultyColors]}>
-                {selectedConversation.difficulty}
-              </Badge>
-              <Badge variant="outline" className="capitalize">
-                {selectedConversation.language}
-              </Badge>
-            </div>
-          )}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onBack}
+              data-testid="button-back-to-list"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to list
+            </Button>
+            {selectedConversation && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-semibold" data-testid="text-conversation-detail-title">
+                  {selectedConversation.title || "Untitled Conversation"}
+                </h2>
+                <Badge className={difficultyColors[selectedConversation.difficulty as keyof typeof difficultyColors]}>
+                  {selectedConversation.difficulty}
+                </Badge>
+                <Badge variant="outline" className="capitalize">
+                  {selectedConversation.language}
+                </Badge>
+              </div>
+            )}
+          </div>
+          <Link href={`/chat?resume=${selectedConversationId}`}>
+            <Button data-testid="button-resume-chat">
+              <Play className="h-4 w-4 mr-2" />
+              Resume Chat
+            </Button>
+          </Link>
         </div>
 
         <Card className="p-4 md:p-6">

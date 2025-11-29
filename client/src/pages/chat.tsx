@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useSearch, useLocation } from "wouter";
 import { ChatInterface } from "@/components/ChatInterface";
 import { StreamingVoiceChat as VoiceChat } from "@/components/StreamingVoiceChat";
 import { Button } from "@/components/ui/button";
@@ -9,10 +10,13 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSidebar } from "@/components/ui/sidebar";
 
 export default function Chat() {
+  const search = useSearch();
+  const [, setLocation] = useLocation();
   const [mode, setMode] = useState<"text" | "voice">("voice");
   const { language, difficulty, userName } = useLanguage();
   const { setOpen, setOpenMobile } = useSidebar();
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const resumeHandledRef = useRef(false);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [currentConversationOnboarding, setCurrentConversationOnboarding] = useState<boolean | null>(null);
   const previousModeRef = useRef<"text" | "voice">("voice");
@@ -42,6 +46,22 @@ export default function Chat() {
       setOpenMobile(false); // Close mobile sidebar
     }
   }, [setOpen, setOpenMobile]);
+
+  // Handle resume parameter from URL - allows resuming a specific conversation
+  useEffect(() => {
+    if (resumeHandledRef.current) return;
+    
+    const params = new URLSearchParams(search);
+    const resumeId = params.get('resume');
+    
+    if (resumeId) {
+      console.log('[SHARED CHAT] Resuming conversation from URL:', resumeId);
+      resumeHandledRef.current = true;
+      setConversationId(resumeId);
+      // Clear the URL parameter to avoid re-resuming on refresh
+      setLocation('/chat', { replace: true });
+    }
+  }, [search, setLocation]);
 
   // Reset conversationId when language changes to trigger new conversation creation
   // BUT NOT if we're currently in onboarding (to prevent race condition)
