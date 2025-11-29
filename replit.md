@@ -1,7 +1,7 @@
 # LinguaFlow - Interactive Language Tutor
 
 ## Overview
-LinguaFlow is an AI-powered language learning application offering interactive conversation practice, vocabulary building, and grammar exercises across nine languages. It leverages AI for personalized chat, flashcards, and grammar modules, adapting to individual user progress. The project's vision is to provide personalized education using AI and expand into institutional markets, guided by a pedagogical philosophy that discovers user interests while adhering to ACTFL standards.
+LinguaFlow is an AI-powered language learning application providing interactive conversation practice, vocabulary building, and grammar exercises across nine languages. It offers personalized chat, flashcards, and grammar modules, adapting to individual user progress. The project aims to deliver personalized education using AI, expanding into institutional markets while adhering to ACTFL standards.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -9,83 +9,44 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### UI/UX Decisions
-The frontend uses a mobile-first, responsive design with Shadcn/ui (Radix UI) and Tailwind CSS, adhering to Material Design principles. It supports light/dark modes, PWA features, and native iOS/Android builds via Capacitor. Key UI elements include voice interaction controls and a hint bar, using Inter font for UI text and JetBrains Mono for code/phonetic content.
+The frontend utilizes a mobile-first, responsive design with Shadcn/ui (Radix UI) and Tailwind CSS, adhering to Material Design principles. It supports light/dark modes, PWA features, and native iOS/Android builds via Capacitor. Key UI elements include voice interaction controls and a hint bar.
 
 ### Technical Implementations
-The frontend is built with React and TypeScript (Vite), using Wouter for routing and React Context with TanStack Query for state management. The backend is an Express.js (Node.js) server with TypeScript, exposing a RESTful API. Data is stored using Drizzle ORM for PostgreSQL. AI integration for text chat uses Gemini 2.5 Flash. Session management uses `connect-pg-simple` with a PostgreSQL store. Authentication is handled by Replit Auth (OIDC). Stripe integration for subscriptions is managed by `stripe-replit-sync`. Form validation uses `react-hook-form` and `zodResolver`. Security includes multi-layered backend role-based authorization and frontend route guards.
+The frontend is built with React and TypeScript (Vite), using Wouter for routing and React Context with TanStack Query for state management. The backend is an Express.js (Node.js) server with TypeScript, exposing a RESTful API. Data is stored using Drizzle ORM for PostgreSQL. AI integration for text chat uses Gemini 2.5 Flash. Authentication is handled by Replit Auth (OIDC). Stripe integration for subscriptions is managed by `stripe-replit-sync`.
 
 ### Feature Specifications
-LinguaFlow offers conversational onboarding, an adaptive multi-phase conversation system, and AI-suggested topics. It features a streaming-only voice pipeline (Deepgram Nova-3 STT → Gemini 2.5 Flash → Cartesia Sonic-3 TTS) with push-to-talk recording and smart language handling. Enhanced voice chat includes word-level timestamps, smart phrase detection, foreign-language-only display, replay/slow repeat functions, and ACTFL advancement tracking. A 3-mode subtitle system (Off, Target, All) is available. Personalized learning features include scenario-based learning, slow pronunciation with phonetic breakdowns, automatic vocabulary extraction, spaced repetition, streak tracking, progress charts, and auto-difficulty adjustment. AI-generated educational images are displayed with caching. The application supports various subscription tiers and tracks atomic voice message usage, and tracks student proficiency using ACTFL World-Readiness Standards. Institutional features include teacher class management, student enrollment, curriculum systems, assignment workflows, and a Super Admin Backend with RBAC, user management, and audit logging.
+LinguaFlow offers conversational onboarding, an adaptive multi-phase conversation system, and AI-suggested topics. It features a streaming-only voice pipeline (Deepgram Nova-3 STT → Gemini 2.5 Flash → Cartesia Sonic-3 TTS) with push-to-talk recording and smart language handling. Personalized learning features include scenario-based learning, slow pronunciation with phonetic breakdowns, automatic vocabulary extraction, spaced repetition, streak tracking, progress charts, and auto-difficulty adjustment. AI-generated educational images are displayed with caching. The application supports various subscription tiers and tracks atomic voice message usage, and tracks student proficiency using ACTFL World-Readiness Standards. Institutional features include teacher class management, student enrollment, curriculum systems, assignment workflows, and a Super Admin Backend with RBAC.
 
 ### System Design Choices
-Core data models include Users, Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress, CulturalTips, and Topics. User learning preferences like `targetLanguage`, `nativeLanguage`, `difficultyLevel`, `actflLevel`, and `onboardingCompleted` are stored, alongside ACTFL progress.
+Core data models include Users, Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress, CulturalTips, and Topics. User learning preferences and ACTFL progress are stored.
 
-**Voice Validation Architecture**: Uses a two-tier prevention approach with Gemini structured output (strict JSON schema) and a safety net using `franc-min` language detection and per-language stoplists.
+**Voice Validation Architecture**: Uses a two-tier prevention approach with Gemini structured output and `franc-min` language detection.
 
-**Voice TTS Pronunciation Architecture**: Utilizes Cartesia Sonic-3's custom phoneme syntax with MFA-style IPA to correct pronunciation of foreign words in English responses.
+**Voice TTS Pronunciation Architecture**: Utilizes Cartesia Sonic-3's custom phoneme syntax with MFA-style IPA for pronunciation correction.
 
-**Subtitle System Architecture**: A 3-state subtitle system (`subtitleMode`: Off, Target, All) with karaoke-style word highlighting. Word timing estimation occurs server-side, with client-side rescaling for precise synchronization.
+**Subtitle System Architecture**: A 3-state subtitle system (`subtitleMode`: Off, Target, All) with karaoke-style word highlighting and server-side word timing estimation.
 
-**Streaming Voice Mode Architecture**: A WebSocket-based progressive audio delivery system with a pipeline involving Deepgram STT, Gemini streaming, sentence chunking, Cartesia WebSocket TTS, and progressive audio playback. The server streams various message types for client synchronization and feedback. Pedagogical integrations include content moderation, a "one-word rule" for beginner utterances, background vocabulary extraction, and real-time ACTFL advancement tracking.
+**Streaming Voice Mode Architecture**: A WebSocket-based progressive audio delivery system involving Deepgram STT, Gemini streaming, Cartesia WebSocket TTS, and progressive audio playback. Pedagogical integrations include content moderation, a "one-word rule" for beginners, background vocabulary extraction, and real-time ACTFL advancement tracking.
 
-**Dynamic Streaming Greeting System**: New conversations trigger an AI-generated personalized greeting that is ACTFL-aware, history-aware, and context-aware. A "Resume Conversation" feature allows users to continue past conversations with contextual "welcome back" greetings.
+**Dynamic Streaming Greeting System**: New conversations trigger an AI-generated personalized greeting that is ACTFL-aware, history-aware, and context-aware.
 
-**Conversation Tagging System**: An AI-powered topic tagging system for conversations and vocabulary, categorizing content into Subject, Grammar, and Function topics. Topics are auto-tagged in the background using Gemini, extracting covered subjects, grammar concepts, and language functions, and returning topic IDs with confidence scores and estimated ACTFL levels. Vocabulary extraction includes grammar classification.
+**Conversation Tagging System**: An AI-powered topic tagging system for conversations and vocabulary, categorizing content into Subject, Grammar, and Function topics using Gemini.
 
-**Language Hub (Primary Dashboard)**: The Language Hub (formerly Review Hub) is the main landing page, accessible at `/`, `/dashboard`, and `/review`. It serves as a unified learning dashboard that guides students through prioritized learning tasks. The hub aggregates:
-- **Daily Plan**: Due flashcards, recent vocabulary (repetition < 3), conversation continuation, next syllabus lesson, and quick practice start
-- **Topic Deep Dives**: Topics with associated conversations and vocabulary, organized by subject/grammar/function
-- **Quick Stats**: 5-column stats row with Streak, Words, Chats, Due Cards, and ACTFL progress (using MiniRing component)
+**Language Hub (Primary Dashboard)**: The main landing page (`/`, `/dashboard`, `/review`) serves as a unified learning dashboard guiding students through prioritized learning tasks. It aggregates Daily Plan, Topic Deep Dives, Quick Stats, and Course Overview (in class mode).
 
-The page header displays the LinguaFlow logo alongside the "Language Hub" title. The sidebar Dashboard item uses the Target icon and links directly to the Language Hub.
+**Course Overview Feature**: When in a class context, displays the full curriculum structure, including unit accordions, lesson status indicators, and navigation to start lessons.
 
-**Syllabus-Aware Competency System**: Recognizes when students organically cover curriculum topics during conversations, enabling early completion instead of redundant assignments. Key features:
-- **Competency Verification Service**: Analyzes topic coverage, vocabulary mastery, grammar demonstration, and pronunciation against lesson requirements with 80%+ weighted threshold (topics 40%, vocab 35%, grammar 25%)
-- **syllabusProgress Table**: Tracks completion method (organic_conversation, assignment, tutor_verified), competency scores, and evidence conversations
-- **Student Progress UI**: Shows early completions, coverage percentages, and quick review options via SyllabusProgress component
-- **Teacher Dashboard**: TeacherEarlyCompletions component displays organic vs assigned completion with tutor verification workflow and congratulatory messaging
-- **Tutor Acknowledgment**: Generates encouraging messages when students are ahead of syllabus, integrated into conversation prompts
-- **Full Documentation**: See `docs/syllabus-aware-competency-system.md` for comprehensive stakeholder documentation (developers, students, teachers, sales)
+**Syllabus-Aware Competency System**: Recognizes when students organically cover curriculum topics during conversations, enabling early completion. It uses a Competency Verification Service, tracks progress in `syllabusProgress` table, and provides student/teacher UIs for tracking and acknowledgment.
 
-**Conversational Syllabus Navigation**: Students can ask the tutor about their class progress, assignments, and next lessons during voice or text conversations. The system:
-- **Curriculum Context Service** (`server/services/curriculum-context.ts`): Builds comprehensive context about enrolled classes, curriculum progress, assignments, and due dates for each student
-- **System Prompt Integration**: Curriculum context is automatically included in AI tutor prompts for enrolled students
-- **Query Detection**: Recognizes syllabus-related questions like "what's next in my class?", "do I have assignments due?", and "how am I doing?"
-- **Tutor Switch Detection**: Detects language/tutor switch requests like "let me talk to my Spanish tutor" for mid-conversation switching
-- **Context Formatting**: Provides the tutor with class names, teacher names, curriculum paths, lesson progress, and upcoming assignments
-- **Output Limiting**: Context limited to max 3 classes and 3 assignments per class to prevent prompt bloat
-- **Error Handling**: Graceful fallbacks when data fetching fails, with null context filtering
+**Conversational Syllabus Navigation**: Students can ask the tutor about their class progress, assignments, and next lessons during voice or text conversations. A Curriculum Context Service builds context for AI tutor prompts, detecting syllabus-related questions and tutor switch requests.
 
-**Unified Learning Filter System**: A cross-page filtering system for consistent content filtering:
-- **LearningFilterContext** (`client/src/contexts/LearningFilterContext.tsx`): Provides shared filter state across pages, defaults to "self-directed" (no "All Learning" option)
-- **LearningContextFilter Component**: Consistent UI with language and class dropdowns
-- **Persistent State**: Filter settings saved to localStorage for session continuity
-- **Pages Supported**: Review Hub, Vocabulary, Grammar, Chat History
-- **API Integration**: Endpoints accept `?language=` and `?classId=` query parameters
-- **Tutor Selection**: When user has multiple learning contexts (self-directed + enrolled classes), the "Call Tutor" sidebar item shows a dropdown for selecting which tutor/class to practice with
+**Unified Learning Filter System**: A cross-page filtering system (`LearningFilterContext`) for consistent content filtering across Review Hub, Vocabulary, Grammar, and Chat History. Filter settings are saved to localStorage.
 
-**Usage & Credit System Architecture**: A comprehensive metering system for voice tutoring time:
-- **Database Schema**: `voiceSessions` tracks individual sessions with userId, duration, status; `usageLedger` records all credit transactions with entitlementType (class_allocation, purchase, bonus, trial), stripePaymentId for idempotency
-- **Usage Service** (`server/services/usage-service.ts`): Core accounting service with `getUserBalance()`, `checkCreditsAvailable()`, `startSession()`, `endSession()`, `addCredits()`, `checkExistingPayment()`
-- **Session Tracking**: WebSocket voice handler automatically tracks session start/end with `usageService.startSession()` and `usageService.endSession()`
-- **Balance Calculation**: Aggregates all ledger entries per user, respects expiration dates, separates personal vs class credits
-- **Backend Guards**: `checkCreditsAvailable()` called before voice sessions, blocks if < 5 minutes remaining
-- **Frontend Integration**: `UsageContext` provides `useCredits()` hook, `CreditBalance` component, `InsufficientCreditsDialog` for upsells
-- **Dashboard Components**: `UsageOverview` card with hours remaining/used, `SessionHistory` list, `LearningAlerts` for low balance warnings, `ActflFluencyDial` gauge visualization
+**Usage & Credit System Architecture**: A comprehensive metering system for voice tutoring time. It uses `voiceSessions` and `usageLedger` tables, a `UsageService` for accounting, and integrates with backend guards and frontend components for credit management and display.
 
-**Hour Package Purchase System**: Stripe-integrated one-time payment flow for independent learners:
-- **Package Tiers**: Try It (1hr @ $12), Starter (5hrs @ $50), Regular (10hrs @ $90), Committed (20hrs @ $160)
-- **Checkout Flow**: `stripeService.createHourPackageCheckoutSession()` creates one-time payment session with package metadata
-- **Fulfillment**: `stripeService.fulfillHourPackage()` with idempotency protection via `usageService.checkExistingPayment()`
-- **Security**: User ownership validation ensures requesting user matches session.metadata.userId, stripePaymentId recorded to prevent duplicate credits
-- **API Endpoints**: GET `/api/billing/hour-packages`, POST `/api/billing/hour-packages/checkout`, POST `/api/billing/hour-packages/fulfill`
-- **Frontend Component**: `HourPackageShop` with card-based package display, purchase buttons, compact variant for dashboard integration
+**Hour Package Purchase System**: Stripe-integrated one-time payment flow for independent learners, offering different package tiers and managing checkout/fulfillment via `stripeService`.
 
-**Class Hour Package System**: Institutional credit allocation for teachers:
-- **Package Management**: `classHourPackages` table stores package metadata (name, hoursPerStudent, totalPurchasedHours, status)
-- **Storage CRUD**: `createClassHourPackage()`, `getClassHourPackages()`, `updateClassHourPackage()`, `deleteClassHourPackage()`
-- **API Endpoints**: Full REST interface for package lifecycle management
-- **Credit Allocation**: Class enrollment triggers auto-allocation of hours from package to student ledger
+**Class Hour Package System**: Institutional credit allocation for teachers, using `classHourPackages` table for package management and automatic credit allocation upon class enrollment.
 
 ## External Dependencies
 
@@ -106,26 +67,3 @@ The page header displays the LinguaFlow logo alongside the "Language Hub" title.
 -   **State Management**: TanStack Query, React Context.
 -   **Billing**: `stripe-replit-sync`.
 -   **Utilities**: `date-fns`, Embla Carousel, `franc-min`.
-
-## Pricing & Cost Structure
-
-### Voice Pipeline Costs (November 2025)
-The voice tutoring pipeline costs **$2.47/hour** broken down as:
-- **TTS (Cartesia Sonic-3)**: $2.25/hr (91% of cost)
-- **STT (Deepgram Nova-3)**: $0.12/hr (5% of cost)
-- **LLM (Gemini 2.5 Flash)**: $0.10/hr (4% of cost)
-
-### Dual Pricing Model
-
-**1. Institutional (Class-Based)**
-- Classes purchase hour allocations per student per year
-- Based on ACTFL curriculum requirements (~10-30 hrs/student/year for language courses)
-- Packages: Basic (10 hrs @ $50), Standard (20 hrs @ $100), Premium (30 hrs @ $150) per student/year
-
-**2. Independent Study (Hourly Tutoring)**
-- Users purchase hour packages
-- Packages: Try It (1 hr @ $12), Starter (5 hrs @ $50), Regular (10 hrs @ $90), Committed (20 hrs @ $160)
-- 70-80% cheaper than human tutors ($40-60/hr)
-
-### Documentation
-See `docs/cost-analysis-2025.md` for detailed cost breakdown, curriculum requirements analysis, and margin calculations.
