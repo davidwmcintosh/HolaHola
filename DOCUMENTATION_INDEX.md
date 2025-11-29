@@ -247,6 +247,7 @@ project/
 ├── ADMIN_GUIDE.md                           # Administrator backend guide
 ├── docs/
 │   ├── voice-chat-setup.md                 # Voice chat architecture ⭐ UPDATED
+│   ├── syllabus-aware-competency-system.md # Organic progress feature ⭐ NEW
 │   ├── LLM-Migration-Analysis.md           # Migration history (Nov 2025)
 │   ├── Development-Cost-Projections.md     # Cost estimation reference
 │   └── institutional-standards-integration.md
@@ -323,6 +324,16 @@ project/
 - **Voice Console**: Admin/developer tool for voice audition and testing
 - **Automatic Failover**: Seamless fallback to Google Cloud if Cartesia unavailable
 - **Phoneme Pronunciation**: IPA-based pronunciation for foreign words in English responses
+
+### ✅ Syllabus-Aware Competency System (Nov 29, 2025)
+- **Organic Learning Detection**: System automatically recognizes when students cover curriculum topics through natural AI conversations
+- **Competency Verification**: Weighted scoring (topics 40%, vocab 35%, grammar 25%) with 80% threshold for early completion
+- **Early Completion Recognition**: Students can skip redundant lessons when they've already mastered content
+- **Teacher Verification Workflow**: "Organic Progress" tab in Class Management for reviewing and approving early completions
+- **Tutor Acknowledgment**: AI tutor congratulates students ahead of syllabus during voice conversations
+- **Evidence Tracking**: Links early completions to conversation evidence for accountability
+- **Files**: `server/services/competency-verifier.ts`, `client/src/components/teacher-early-completions.tsx`, `client/src/components/syllabus-progress.tsx`
+- **Documentation**: See `docs/syllabus-aware-competency-system.md` for full stakeholder documentation
 
 ### ✅ LLM Migration Completed (Nov 23)
 - **Text Chat**: OpenAI GPT-4o-mini → Gemini 2.5 Flash

@@ -14,7 +14,8 @@
 5. [Grading Student Work](#grading-student-work)
 6. [Using the Curriculum Builder](#using-the-curriculum-builder)
 7. [Viewing Student Progress](#viewing-student-progress)
-8. [Tips & Best Practices](#tips--best-practices)
+8. [Organic Progress & Early Completion](#organic-progress--early-completion)
+9. [Tips & Best Practices](#tips--best-practices)
 
 ---
 
@@ -339,6 +340,95 @@ Students receive real-time feedback when they're ready to advance to the next pr
 - Adequate pronunciation accuracy (70%+ threshold for Novice Low, higher for advanced levels)
 - Demonstrated communication tasks (greetings, introductions, questions)
 - Coverage of multiple topics
+
+---
+
+## Organic Progress & Early Completion
+
+### Overview
+
+LinguaFlow's Syllabus-Aware Competency System automatically recognizes when students cover curriculum topics through natural AI conversations. This enables "early completion" - students can skip lessons they've already mastered organically.
+
+### How It Works
+
+1. **Automatic Detection**: As students practice with the AI tutor, the system tracks which topics, vocabulary, and grammar they cover
+2. **Competency Scoring**: The system calculates a weighted competency score:
+   - **Topics Covered**: 40% weight
+   - **Vocabulary Mastery**: 35% weight  
+   - **Grammar Demonstration**: 25% weight
+3. **Early Completion Threshold**: When a student reaches 80%+ competency for a lesson, they're recommended for early completion
+4. **Teacher Verification**: You review and approve early completions
+
+### Accessing the Organic Progress Tab
+
+1. Navigate to your class page: `/teacher/classes/{classId}`
+2. Click the **"Organic Progress"** tab
+3. You'll see students who are ahead of syllabus
+
+### Understanding the Display
+
+For each student with organic progress, you'll see:
+- **Student Name**: The student who's ahead
+- **Lesson**: Which curriculum lesson they've covered
+- **Competency Score**: Their overall percentage (e.g., "92%")
+- **Score Breakdown**:
+  - Topics: How many curriculum topics they covered
+  - Vocabulary: How many required words they've mastered
+  - Grammar: Grammar concepts demonstrated
+- **Evidence Conversations**: Links to the actual conversations showing mastery
+
+### Verifying Early Completion
+
+1. **Review the Evidence**:
+   - Click "View Conversations" to see actual student conversations
+   - Verify the student genuinely covered the material
+   - Check vocabulary usage and grammar in context
+
+2. **Approve or Deny**:
+   - Click **"Verify"** to approve early completion
+   - The student can now skip this lesson in their curriculum
+   - Add optional feedback comments
+
+3. **After Verification**:
+   - The AI tutor automatically congratulates the student
+   - Progress is marked as "tutor_verified" in the system
+   - Student sees the lesson marked complete
+
+### AI Tutor Congratulatory Messages
+
+When students are ahead of syllabus, the AI tutor automatically:
+- Acknowledges their progress during voice conversations
+- Provides encouragement and positive reinforcement
+- References specific topics they've mastered
+
+Example: *"I noticed you've been making great progress with food and dining vocabulary! You're actually ahead of your class syllabus - great work!"*
+
+### Best Practices for Organic Progress
+
+✅ **DO:**
+- Review evidence conversations before verifying
+- Provide encouraging feedback when verifying
+- Use organic progress data to identify motivated students
+- Consider adjusting assignments for students who are ahead
+
+❌ **DON'T:**
+- Auto-approve without reviewing evidence
+- Ignore students who are behind (they may need extra support)
+- Override organic progress with unnecessary assignments
+
+### FAQ
+
+**Q: Can students "game" the system?**
+A: The system requires genuine topic coverage across multiple conversations with grammar and vocabulary demonstration. Gaming is difficult.
+
+**Q: What if I disagree with the competency score?**
+A: You have final say - don't verify if you believe the student needs more practice.
+
+**Q: How does this affect grades?**
+A: Early completion is separate from assignment grades. You can still assign and grade work.
+
+**Q: Can I turn off organic tracking for my class?**
+A: Contact your administrator if you want to disable this feature.
 
 ---
 

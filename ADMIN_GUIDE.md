@@ -678,6 +678,153 @@ GROUP BY a.id, a.title, a."classId";
 | isPublished | boolean | Visibility status |
 | createdAt | timestamp | Creation date |
 
+### Syllabus Progress Table
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | serial | Primary key |
+| userId | text | Foreign key to users |
+| lessonId | integer | Foreign key to curriculumLessons |
+| classId | integer | Foreign key to teacherClasses (nullable) |
+| topicsCovered | integer | Count of curriculum topics covered |
+| topicsRequired | integer | Total topics required for lesson |
+| vocabMastered | integer | Count of vocabulary words mastered |
+| vocabRequired | integer | Total vocabulary words required |
+| grammarDemonstrated | integer | Count of grammar concepts demonstrated |
+| grammarRequired | integer | Total grammar concepts required |
+| competencyScore | real | Overall weighted score (0-1 scale) |
+| evidenceConversationIds | integer[] | Array of conversation IDs as evidence |
+| evidenceType | varchar | organic_conversation, assignment, tutor_verified |
+| completedAt | timestamp | When competency was achieved |
+| verifiedByTeacherId | text | Teacher who verified (nullable) |
+| createdAt | timestamp | Record creation date |
+
+---
+
+## Syllabus-Aware Competency System
+
+**Added:** November 29, 2025  
+**Version:** 1.0
+
+### Overview
+
+The Syllabus-Aware Competency System automatically recognizes when students cover curriculum topics through natural AI conversations, enabling early lesson completion without redundant assignments.
+
+### How It Works
+
+1. **Automatic Detection**: System tracks topics, vocabulary, and grammar covered during AI conversations
+2. **Competency Scoring**: Weighted scoring algorithm:
+   - Topics: 40% weight
+   - Vocabulary: 35% weight
+   - Grammar: 25% weight
+3. **Threshold**: 80%+ competency recommends early completion
+4. **Teacher Verification**: Teachers review and approve via "Organic Progress" tab
+
+### SQL Queries
+
+**View All Syllabus Progress:**
+```sql
+SELECT 
+  sp.*,
+  u."fullName" as "studentName",
+  cl.name as "lessonName",
+  c.name as "className"
+FROM "syllabusProgress" sp
+JOIN users u ON sp."userId" = u.id
+JOIN "curriculumLessons" cl ON sp."lessonId" = cl.id
+LEFT JOIN "teacherClasses" c ON sp."classId" = c.id
+ORDER BY sp."createdAt" DESC
+LIMIT 50;
+```
+
+**View Early Completions for a Class:**
+```sql
+SELECT 
+  sp.*,
+  u."fullName" as "studentName",
+  cl.name as "lessonName"
+FROM "syllabusProgress" sp
+JOIN users u ON sp."userId" = u.id
+JOIN "curriculumLessons" cl ON sp."lessonId" = cl.id
+WHERE sp."classId" = 789
+AND sp."competencyScore" >= 0.8
+ORDER BY sp."competencyScore" DESC;
+```
+
+**View Verified vs Unverified Progress:**
+```sql
+SELECT 
+  "evidenceType",
+  COUNT(*) as count,
+  AVG("competencyScore") as avg_score
+FROM "syllabusProgress"
+WHERE "classId" = 789
+GROUP BY "evidenceType";
+```
+
+**Find Students Ahead of Syllabus:**
+```sql
+SELECT 
+  u.id,
+  u."fullName",
+  u.email,
+  COUNT(sp.id) as lessons_ahead,
+  AVG(sp."competencyScore") as avg_competency
+FROM users u
+JOIN "syllabusProgress" sp ON u.id = sp."userId"
+WHERE sp."classId" = 789
+AND sp."competencyScore" >= 0.8
+AND sp."evidenceType" = 'organic_conversation'
+GROUP BY u.id, u."fullName", u.email
+ORDER BY lessons_ahead DESC;
+```
+
+**Manually Verify Early Completion:**
+```sql
+-- Mark as teacher-verified
+UPDATE "syllabusProgress"
+SET "evidenceType" = 'tutor_verified',
+    "verifiedByTeacherId" = 'teacher-user-id',
+    "completedAt" = NOW()
+WHERE id = 123;
+```
+
+**View Evidence Conversations:**
+```sql
+-- Get conversations that serve as evidence for a syllabus progress entry
+SELECT c.*
+FROM conversations c
+WHERE c.id = ANY(
+  SELECT UNNEST("evidenceConversationIds")
+  FROM "syllabusProgress"
+  WHERE id = 123
+);
+```
+
+### Troubleshooting
+
+**Issue: Student doesn't see organic progress**
+
+**Diagnosis:**
+```sql
+-- Check if syllabusProgress exists for student
+SELECT * FROM "syllabusProgress"
+WHERE "userId" = 'student-user-id';
+```
+
+**Solution:** Ensure student is enrolled in a class with assigned curriculum and has completed voice conversations.
+
+**Issue: Teacher can't see Organic Progress tab**
+
+**Diagnosis:**
+```sql
+-- Check teacher owns the class
+SELECT * FROM "teacherClasses"
+WHERE id = 789 AND "teacherId" = 'teacher-user-id';
+```
+
+**Solution:** Teacher must be the class owner to see organic progress.
+
 ---
 
 ## Super Admin Backend (RBAC System)

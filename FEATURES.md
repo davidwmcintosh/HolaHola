@@ -183,6 +183,14 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 - Progress reports aligned with educational standards
 - Evidence-based proficiency assessment
 
+**Syllabus-Aware Competency Tracking**
+- Automatic detection of curriculum topics covered in student conversations
+- "Organic Progress" tab shows which students are ahead of syllabus
+- One-click verification for early completion approvals
+- Weighted competency scoring: topics (40%), vocabulary (35%), grammar (25%)
+- Link to evidence conversations for verification
+- Send congratulatory acknowledgments through AI tutor
+
 ### For Students
 
 **Seamless Joining**
@@ -199,6 +207,12 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 - See your own Can-Do Statement progress
 - Track vocabulary growth over time
 - View conversation history
+
+**Syllabus-Aware Early Completion**
+- Get credit for topics covered through natural conversations
+- See competency scores broken down by topic/vocab/grammar
+- Skip redundant lessons when you've already mastered content
+- AI tutor congratulates you when you're ahead of syllabus
 
 ### For Administrators
 
