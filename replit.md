@@ -32,14 +32,12 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Conversation Tagging System**: An AI-powered topic tagging system for conversations and vocabulary, categorizing content into Subject, Grammar, and Function topics. Topics are auto-tagged in the background using Gemini, extracting covered subjects, grammar concepts, and language functions, and returning topic IDs with confidence scores and estimated ACTFL levels. Vocabulary extraction includes grammar classification.
 
-**Review Hub (Primary Dashboard)**: The Review Hub is now the main landing page, accessible at `/`, `/dashboard`, and `/review`. It serves as a unified learning dashboard that guides students through prioritized learning tasks. The hub aggregates:
-- **Daily Plan**: Due flashcards, recent vocabulary (repetition < 3), conversation continuation, and quick practice start
+**Language Hub (Primary Dashboard)**: The Language Hub (formerly Review Hub) is the main landing page, accessible at `/`, `/dashboard`, and `/review`. It serves as a unified learning dashboard that guides students through prioritized learning tasks. The hub aggregates:
+- **Daily Plan**: Due flashcards, recent vocabulary (repetition < 3), conversation continuation, next syllabus lesson, and quick practice start
 - **Topic Deep Dives**: Topics with associated conversations and vocabulary, organized by subject/grammar/function
-- **Cultural Corner**: 3 randomly selected cultural tips for the current language (43 tips across 9 languages)
-- **Lesson Journeys**: Auto-generated weekly lessons and custom bundles
 - **Quick Stats**: 5-column stats row with Streak, Words, Chats, Due Cards, and ACTFL progress (using MiniRing component)
 
-The sidebar Dashboard item now uses the Target icon and links directly to the Review Hub.
+The page header displays the LinguaFlow logo alongside the "Language Hub" title. The sidebar Dashboard item uses the Target icon and links directly to the Language Hub.
 
 **Syllabus-Aware Competency System**: Recognizes when students organically cover curriculum topics during conversations, enabling early completion instead of redundant assignments. Key features:
 - **Competency Verification Service**: Analyzes topic coverage, vocabulary mastery, grammar demonstration, and pronunciation against lesson requirements with 80%+ weighted threshold (topics 40%, vocab 35%, grammar 25%)
