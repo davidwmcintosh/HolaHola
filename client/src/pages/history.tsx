@@ -1,7 +1,31 @@
+import { useEffect, useState } from "react";
+import { useLocation, useSearch } from "wouter";
 import { ConversationHistory } from "@/components/ConversationHistory";
 import { LanguageSelector } from "@/components/LanguageSelector";
 
 export default function History() {
+  const search = useSearch();
+  const [, setLocation] = useLocation();
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const conversationId = params.get('conversation');
+    if (conversationId) {
+      setSelectedConversationId(conversationId);
+    }
+  }, [search]);
+
+  const handleBack = () => {
+    setSelectedConversationId(null);
+    setLocation('/history');
+  };
+
+  const handleSelectConversation = (id: string) => {
+    setSelectedConversationId(id);
+    setLocation(`/history?conversation=${id}`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -12,7 +36,11 @@ export default function History() {
         <LanguageSelector compact />
       </div>
 
-      <ConversationHistory />
+      <ConversationHistory 
+        selectedConversationId={selectedConversationId}
+        onSelectConversation={handleSelectConversation}
+        onBack={handleBack}
+      />
     </div>
   );
 }
