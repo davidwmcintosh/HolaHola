@@ -11,6 +11,8 @@ This document provides an overview of all documentation files in the project.
 - Platform overview and value proposition
 - Key features (voice learning, 9 languages, adaptive difficulty)
 - Smart learning features (vocabulary extraction, flashcards, organization)
+- Conversation history & resume (view past conversations, resume with context-aware greeting)
+- Flashcard-to-conversation context linking
 - Institutional features (teacher tools, assignments, curriculum)
 - Subscription tiers (Free, Basic, Pro, Institutional)
 - Competitive positioning (vs Duolingo, tutors, other AI apps)

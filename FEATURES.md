@@ -128,6 +128,24 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 - Progress charts showing improvement over time
 - Vocabulary mastery metrics
 
+### Conversation History & Resume
+**Full Conversation History**
+- View all past conversations organized by date
+- See the complete message history for any conversation
+- Track your learning journey over time
+
+**Resume Past Conversations**
+- Pick up exactly where you left off with the "Resume Chat" button
+- AI generates a personalized welcome-back greeting that references what you were discussing
+- No need to re-explain context - the tutor remembers your conversation history
+- Seamless continuation of learning topics and vocabulary practice
+
+**Flashcard-to-Conversation Context**
+- Every vocabulary word is linked to the conversation where you learned it
+- Click "View in Conversation" on any flashcard to see the original context
+- Navigate directly from the History page to review specific conversations
+- Understand how words were used in real conversation practice
+
 ---
 
 ## Institutional Features
