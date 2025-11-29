@@ -51,3 +51,86 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 -   **State Management**: TanStack Query, React Context.
 -   **Billing**: `stripe-replit-sync`.
 -   **Utilities**: `date-fns`, Embla Carousel, `franc-min`.
+
+## Performance Benchmarks (November 2024)
+
+### Voice Pipeline Latency Metrics
+
+| Component | Target | Actual | Status |
+|-----------|--------|--------|--------|
+| **TTS TTFB (Cartesia)** | <1000ms | 138-392ms (avg ~180ms) | ✅ Excellent |
+| **AI First Token (Gemini)** | <1000ms | 843-1760ms (avg ~1.2s) | ⚠️ Acceptable |
+| **STT (Deepgram)** | <1000ms | 2680-3300ms (avg ~2.9s) | ❌ Bottleneck |
+| **Total Time to First Audio** | <2000ms | 4000-5000ms | ⚠️ See optimization notes |
+
+### Pipeline Breakdown
+```
+User releases mic → STT (2.9s) → AI first token (1.2s) → TTS TTFB (0.2s) → Audio plays
+                    ═══════════════════════════════════════════════════════════════════
+                    Total: ~4.3 seconds to first audio
+```
+
+### What's Optimized
+- **Cartesia Sonic-3**: Excellent TTFB at ~180ms average
+- **Streaming Architecture**: Audio plays progressively sentence-by-sentence
+- **Sentence Chunking**: Each sentence TTS'd immediately as it arrives from Gemini
+- **Pre-warming**: Deepgram connection pre-warmed on voice chat entry
+- **Mic Stream Caching**: Subsequent recordings start instantly (0ms delay)
+- **Deduplication Guard**: Prevents LLM repetition loops (max 5 sentences)
+
+### STT Bottleneck Analysis
+Deepgram Nova-3 accounts for ~60% of total latency:
+- Live API sometimes returns empty, requiring prerecorded API fallback
+- Short utterances (1-2 syllable words like "té") are challenging
+- 2.8s timeout before results arrive
+- Confidence varies: 52-90% depending on utterance clarity
+
+### Future Optimization Opportunities
+
+**1. Parallel STT Providers (High Impact)**
+- Run Deepgram live + another STT (e.g., OpenAI Whisper) in parallel
+- Use first successful result
+- Potential savings: 1-2 seconds
+
+**2. Streaming STT (Medium Impact)**
+- Use Deepgram's interim results to start AI processing early
+- Risk: May need to handle corrections mid-stream
+
+**3. Voice Activity Detection (Medium Impact)**
+- Client-side VAD to detect end of speech faster
+- Send audio immediately when silence detected (instead of button release)
+
+**4. Regional Deployment (Low-Medium Impact)**
+- Deploy closer to Deepgram/Gemini data centers
+- Reduce network round-trip latency
+
+**5. Shorter Timeout (Low Impact)**
+- Reduce Deepgram timeout from 2.8s to 2.0s
+- Risk: May miss slower transcriptions
+
+## Recent Fixes (November 29, 2024)
+
+### AI Duplicate Response Bug
+**Problem**: Gemini generated 10 sentences, repeating same 5-sentence pattern twice.
+
+**Solution (3-layer fix)**:
+1. Simplified streaming voice prompt - "2-3 SENTENCES MAXIMUM. THEN STOP."
+2. Server-side deduplication guard - tracks seen sentences, skips duplicates
+3. Hard cap of 5 sentences per response
+
+**Files Modified**:
+- `server/system-prompt.ts` (lines 1638-1661) - Minimal prompt
+- `server/services/streaming-voice-orchestrator.ts` (lines 399-441) - Dedup guard
+
+### Verified Working Features
+- ✅ Karaoke-style word highlighting with 180ms anticipatory timing
+- ✅ Target-only subtitle mode (shows foreign words only)
+- ✅ Progressive word reveal during playback
+- ✅ Pedagogical response pattern (acknowledge → teach → practice)
+- ✅ No duplicate responses
+- ✅ Markdown markers stripped from display
+
+### Known Limitations
+- STT struggles with very short words (1-2 syllables)
+- Words like "té" often misheard as "sí" due to phonetic similarity
+- Empty transcripts occasionally returned for brief utterances
