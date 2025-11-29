@@ -394,6 +394,12 @@ export function ImmersiveTutor({
             return null;
           }
           
+          // Hide subtitles while processing - prevents flash of old subtitles between mic release and reset
+          // This covers the brief window after mic release but before reset() is called
+          if (isProcessing && !streamingText) {
+            return null;
+          }
+          
           // STREAMING MODE: Use streaming text if available
           // When streaming text is set, we're in streaming mode - don't fall through to non-streaming path
           // This prevents showing accumulated target words from the database after streaming ends
