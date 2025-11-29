@@ -20,10 +20,11 @@ import { StreakIndicator } from "@/components/StreakIndicator";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
 
-const primaryMenuItems = [
+const dashboardItem = { title: "Dashboard", url: "/", icon: Home };
+
+const learnMenuItems = [
+  { title: "Call Tutor", url: "/chat", icon: MessageSquare },
   { title: "Review Hub", url: "/review", icon: Target },
-  { title: "Dashboard", url: "/", icon: Home },
-  { title: "Practice", url: "/chat", icon: MessageSquare },
 ];
 
 const libraryMenuItems = [
