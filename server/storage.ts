@@ -158,6 +158,7 @@ export interface IStorage {
   // User Progress
   getOrCreateUserProgress(language: string, userId: string): Promise<UserProgress>;
   updateUserProgress(id: string, data: Partial<UserProgress>): Promise<UserProgress | undefined>;
+  getUserLanguages(userId: string): Promise<string[]>;
 
   // ACTFL Progress (FACT criteria tracking for advancement)
   getOrCreateActflProgress(language: string, userId: string): Promise<ActflProgress>;
@@ -1320,6 +1321,18 @@ export class DatabaseStorage implements IStorage {
       .where(eq(userProgressTable.id, id))
       .returning();
     return updated;
+  }
+
+  async getUserLanguages(userId: string): Promise<string[]> {
+    const results = await db.select({ language: userProgressTable.language })
+      .from(userProgressTable)
+      .where(eq(userProgressTable.userId, userId));
+    
+    // Filter out invalid language entries (like UUIDs that got mistakenly stored)
+    const validLanguages = ['spanish', 'french', 'german', 'italian', 'portuguese', 'japanese', 'mandarin', 'korean'];
+    return results
+      .map(r => r.language.toLowerCase())
+      .filter(lang => validLanguages.includes(lang));
   }
 
   // ACTFL Progress Methods

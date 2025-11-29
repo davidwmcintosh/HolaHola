@@ -459,6 +459,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update user learning preferences
   // Note: tutorPersonality and tutorExpressiveness are super-admin only settings
   // Regular users can only update tutorGender (male/female) and other learning preferences
+  // Get all languages user has progress in
+  app.get('/api/user/languages', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const languages = await storage.getUserLanguages(userId);
+      res.json({ languages });
+    } catch (error: any) {
+      console.error('Error fetching user languages:', error);
+      res.status(500).json({ error: 'Failed to fetch languages' });
+    }
+  });
+
   app.put('/api/user/preferences', isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
