@@ -158,6 +158,7 @@ export interface IStorage {
   // User Progress
   getOrCreateUserProgress(language: string, userId: string): Promise<UserProgress>;
   updateUserProgress(id: string, data: Partial<UserProgress>): Promise<UserProgress | undefined>;
+  recordActivityAndUpdateStreak(userId: string, language: string, practiceMinutesToAdd?: number): Promise<UserProgress>;
   getUserLanguages(userId: string): Promise<string[]>;
 
   // ACTFL Progress (FACT criteria tracking for advancement)
@@ -1321,6 +1322,62 @@ export class DatabaseStorage implements IStorage {
       .where(eq(userProgressTable.id, id))
       .returning();
     return updated;
+  }
+
+  /**
+   * Record user activity and update the streak
+   * Call this when user completes a conversation, voice session, or any learning activity
+   */
+  async recordActivityAndUpdateStreak(userId: string, language: string, practiceMinutesToAdd: number = 0): Promise<UserProgress> {
+    const progress = await this.getOrCreateUserProgress(language, userId);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Midnight today
+    const lastPractice = progress.lastPracticeDate ? new Date(progress.lastPracticeDate) : null;
+    
+    let newStreak = progress.currentStreak || 0;
+    let totalPracticeDays = progress.totalPracticeDays || 0;
+    
+    if (lastPractice) {
+      const lastPracticeDay = new Date(lastPractice.getFullYear(), lastPractice.getMonth(), lastPractice.getDate());
+      const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+      
+      const daysDiff = Math.floor((today.getTime() - lastPracticeDay.getTime()) / (24 * 60 * 60 * 1000));
+      
+      if (daysDiff === 0) {
+        // Same day - streak stays the same, don't increment practice days
+      } else if (daysDiff === 1) {
+        // Yesterday - increment streak
+        newStreak += 1;
+        totalPracticeDays += 1;
+      } else {
+        // More than 1 day gap - reset streak to 1
+        newStreak = 1;
+        totalPracticeDays += 1;
+      }
+    } else {
+      // First time practicing
+      newStreak = 1;
+      totalPracticeDays = 1;
+    }
+    
+    // Update longest streak if current exceeds it
+    const longestStreak = Math.max(progress.longestStreak || 0, newStreak);
+    
+    // Update practice minutes
+    const practiceMinutes = (progress.practiceMinutes || 0) + practiceMinutesToAdd;
+    
+    const [updated] = await db.update(userProgressTable)
+      .set({
+        currentStreak: newStreak,
+        longestStreak,
+        totalPracticeDays,
+        practiceMinutes,
+        lastPracticeDate: now,
+      })
+      .where(eq(userProgressTable.id, progress.id))
+      .returning();
+    
+    return updated || progress;
   }
 
   async getUserLanguages(userId: string): Promise<string[]> {

@@ -2,6 +2,7 @@ import { db } from "../db";
 import { voiceSessions, usageLedger, classEnrollments, users, hourPackages, classHourPackages, teacherClasses } from "@shared/schema";
 import { eq, and, sql, gt, isNull, or, desc, sum } from "drizzle-orm";
 import type { VoiceSession, UsageLedger, InsertVoiceSession, InsertUsageLedger } from "@shared/schema";
+import { storage } from "../storage";
 
 // Minimum seconds required to start a voice session (5 minutes)
 const MIN_SESSION_SECONDS = 300;
@@ -258,6 +259,17 @@ export class UsageService {
     // Record consumption in ledger (negative value)
     if (durationSeconds > 0) {
       await this.consumeCredits(session.userId, durationSeconds, sessionId, session.classId || undefined);
+    }
+    
+    // Update user streak and practice minutes (any completed session counts toward streak)
+    if (session.language && durationSeconds > 0) {
+      const practiceMinutes = Math.max(1, Math.ceil(durationSeconds / 60));
+      try {
+        await storage.recordActivityAndUpdateStreak(session.userId, session.language, practiceMinutes);
+        console.log(`[UsageService] Updated streak for user ${session.userId}, language ${session.language}, +${practiceMinutes} minutes`);
+      } catch (err) {
+        console.error('[UsageService] Failed to update streak:', err);
+      }
     }
     
     return updatedSession;

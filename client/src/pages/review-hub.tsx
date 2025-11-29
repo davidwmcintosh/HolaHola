@@ -142,7 +142,7 @@ export default function ReviewHub() {
           </div>
         </div>
 
-        {/* Quick Stats */}
+        {/* Quick Stats Row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card className="p-3">
             <div className="flex items-center gap-2">
@@ -190,7 +190,7 @@ export default function ReviewHub() {
           </Card>
         </div>
 
-        {/* ACTFL Fluency Gauge */}
+        {/* ACTFL Fluency Gauge - compact version below stats */}
         <ActflFluencyDial compact language={language} />
       </div>
 

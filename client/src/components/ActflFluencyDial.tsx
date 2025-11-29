@@ -227,7 +227,89 @@ export function ActflFluencyDial({ compact = false, language: languageProp }: Ac
     );
   }
   
-  // When "All Languages" is selected, show a helpful message
+  // Compact mode handling - horizontal card layout
+  if (compact) {
+    if (isAllLanguages) {
+      return (
+        <Card className="overflow-hidden" data-testid="card-actfl-dial-all-languages">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-full bg-muted/50">
+                <Globe className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">ACTFL Fluency</p>
+                <p className="text-xs text-muted-foreground">Select a language to view level</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+    
+    if (!hasProgress) {
+      return (
+        <Card className="overflow-hidden" data-testid="card-actfl-dial-pending">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-full bg-muted/50">
+                <HelpCircle className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">ACTFL Fluency</p>
+                <p className="text-xs text-muted-foreground">Start practicing to unlock assessment</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+    
+    return (
+      <Card className="overflow-hidden" data-testid="card-actfl-dial-compact">
+        <CardContent className="p-3">
+          <div className="flex items-center gap-4">
+            <div className="relative flex-shrink-0">
+              <GaugeDial score={continuousScore} color={levelInfo.color} size={70} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xl font-bold" style={{ color: levelInfo.color }}>
+                  {continuousScore}
+                </span>
+                <Badge variant="secondary" className="text-xs" style={{ backgroundColor: `${levelInfo.color}20`, color: levelInfo.color }}>
+                  {levelInfo.shortLabel}
+                </Badge>
+                {readyForAdvancement && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Badge className="bg-green-500 hover:bg-green-600 gap-1 text-xs">
+                          <Zap className="h-3 w-3" />
+                          Ready!
+                        </Badge>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">{progress?.advancementReason || "Ready to advance!"}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">ACTFL Fluency Level</p>
+              {nextLevel && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {Math.round(progressWithinLevel * 100)}% toward {nextLevel.shortLabel}
+                </p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Non-compact mode: When "All Languages" is selected
   if (isAllLanguages) {
     return (
       <Card className="overflow-hidden" data-testid="card-actfl-dial-all-languages">
@@ -270,35 +352,6 @@ export function ActflFluencyDial({ compact = false, language: languageProp }: Ac
           <Badge variant="outline" className="mt-4">
             Complete a few conversations to unlock
           </Badge>
-        </CardContent>
-      </Card>
-    );
-  }
-  
-  if (compact) {
-    return (
-      <Card className="overflow-hidden" data-testid="card-actfl-dial-compact">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <GaugeDial score={continuousScore} color={levelInfo.color} size={100} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-2xl font-bold" style={{ color: levelInfo.color }}>
-                  {continuousScore}
-                </span>
-                <Badge variant="secondary" className="text-xs" style={{ backgroundColor: `${levelInfo.color}20`, color: levelInfo.color }}>
-                  {levelInfo.label}
-                </Badge>
-              </div>
-              {nextLevel && (
-                <p className="text-xs text-muted-foreground">
-                  {Math.round(progressWithinLevel * 100)}% to {nextLevel.shortLabel}
-                </p>
-              )}
-            </div>
-          </div>
         </CardContent>
       </Card>
     );
