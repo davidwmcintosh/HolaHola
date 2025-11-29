@@ -130,15 +130,17 @@ export default function ReviewHub() {
     <div className="container mx-auto p-4 max-w-4xl space-y-6">
       {/* Header with Stats */}
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="text-review-hub-title">
-              <img src={linguaflowLogo} alt="LinguaFlow" className="h-16 w-16" />
-              Language Hub
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Your personalized {getLanguageDisplayName(language)} learning dashboard
-            </p>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <img src={linguaflowLogo} alt="LinguaFlow" className="h-14 w-14" />
+            <div>
+              <h1 className="text-2xl font-bold" data-testid="text-review-hub-title">
+                Language Hub
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Your personalized {getLanguageDisplayName(language)} learning dashboard
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             <LearningContextFilter />
