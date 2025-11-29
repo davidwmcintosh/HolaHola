@@ -31,6 +31,13 @@ interface TutorVoicesResponse {
   male: VoiceOption | null;
 }
 
+// Helper to extract just the first name from voice name (e.g., "Daniela - Relaxed Woman" -> "Daniela")
+function getVoiceFirstName(fullName: string | undefined, fallback: string): string {
+  if (!fullName) return fallback;
+  const dashIndex = fullName.indexOf(' - ');
+  return dashIndex > 0 ? fullName.substring(0, dashIndex) : fullName;
+}
+
 export default function Chat() {
   const search = useSearch();
   const [, setLocation] = useLocation();
@@ -306,7 +313,7 @@ export default function Chat() {
                         disabled={isLoadingVoices}
                         data-testid="button-voice-female"
                       >
-                        {isLoadingVoices ? "..." : (tutorVoices?.female?.name || "Female")}
+                        {isLoadingVoices ? "..." : getVoiceFirstName(tutorVoices?.female?.name, "Female")}
                       </Button>
                       <Button
                         variant={tutorGender === "male" ? "default" : "outline"}
@@ -316,7 +323,7 @@ export default function Chat() {
                         disabled={isLoadingVoices}
                         data-testid="button-voice-male"
                       >
-                        {isLoadingVoices ? "..." : (tutorVoices?.male?.name || "Male")}
+                        {isLoadingVoices ? "..." : getVoiceFirstName(tutorVoices?.male?.name, "Male")}
                       </Button>
                     </div>
                   </div>
