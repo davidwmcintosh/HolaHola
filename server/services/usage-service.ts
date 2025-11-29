@@ -283,6 +283,19 @@ export class UsageService {
   }
   
   /**
+   * Check if a payment has already been processed (idempotency check)
+   */
+  async checkExistingPayment(stripePaymentId: string): Promise<UsageLedger | null> {
+    const [existing] = await db
+      .select()
+      .from(usageLedger)
+      .where(eq(usageLedger.stripePaymentId, stripePaymentId))
+      .limit(1);
+    
+    return existing || null;
+  }
+  
+  /**
    * Add credits to user's ledger
    */
   async addCredits(

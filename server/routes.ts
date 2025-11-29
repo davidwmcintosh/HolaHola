@@ -758,6 +758,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to create portal session" });
     }
   });
+  
+  // ===== Hour Package Purchase Flow =====
+  
+  // Get available hour packages
+  app.get('/api/billing/hour-packages', async (_req, res) => {
+    try {
+      const packages = stripeService.getHourPackages();
+      res.json({ packages });
+    } catch (error: any) {
+      console.error("Error fetching hour packages:", error);
+      res.status(500).json({ message: "Failed to fetch hour packages" });
+    }
+  });
+  
+  // Create checkout session for hour package purchase
+  app.post('/api/billing/hour-packages/checkout', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      let user = await storage.getUser(userId);
+      const { packageTier } = req.body;
+
+      if (!packageTier) {
+        return res.status(400).json({ message: "Package tier is required" });
+      }
+
+      // Validate package tier
+      const validTiers = ['try_it', 'starter', 'regular', 'committed'];
+      if (!validTiers.includes(packageTier)) {
+        return res.status(400).json({ message: "Invalid package tier" });
+      }
+
+      // Ensure user exists and has email
+      if (!user) {
+        user = await storage.upsertUser({
+          id: userId,
+          email: req.user.claims.email,
+          firstName: req.user.claims.first_name,
+          lastName: req.user.claims.last_name,
+          profileImageUrl: req.user.claims.profile_image_url,
+        });
+      }
+
+      if (!user.email) {
+        return res.status(400).json({ message: "User email is required for billing" });
+      }
+
+      // Create or get Stripe customer
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripeService.createCustomer(user.email, userId);
+        await storage.updateUserStripeInfo(userId, { stripeCustomerId: customer.id });
+        customerId = customer.id;
+      }
+
+      // Create hour package checkout session
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const session = await stripeService.createHourPackageCheckoutSession(
+        customerId,
+        userId,
+        packageTier,
+        `${baseUrl}/settings?purchase=success&session_id={CHECKOUT_SESSION_ID}`,
+        `${baseUrl}/settings?purchase=cancel`
+      );
+
+      res.json({ url: session.url });
+    } catch (error: any) {
+      console.error("Error creating hour package checkout session:", error);
+      if (error.message && (error.message.includes('connection not found') || error.message.includes('X_REPLIT_TOKEN'))) {
+        return res.status(503).json({ 
+          message: "Billing service is not configured. Please set up Stripe integration in Replit Secrets." 
+        });
+      }
+      res.status(500).json({ message: "Failed to create checkout session" });
+    }
+  });
+  
+  // Fulfill hour package after successful payment (called from frontend after redirect)
+  app.post('/api/billing/hour-packages/fulfill', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { sessionId } = req.body;
+      
+      if (!sessionId) {
+        return res.status(400).json({ message: "Session ID is required" });
+      }
+      
+      // Pass the requesting userId for security verification
+      const result = await stripeService.fulfillHourPackage(sessionId, userId);
+      
+      if (!result.success) {
+        return res.status(400).json({ message: result.error });
+      }
+      
+      // If already processed, return success but indicate no new hours
+      if (result.alreadyProcessed) {
+        return res.json({ 
+          success: true, 
+          hoursAdded: 0,
+          alreadyProcessed: true,
+          message: "Payment already processed"
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        hoursAdded: result.hoursAdded,
+        message: `Successfully added ${result.hoursAdded} hour(s) to your account!`
+      });
+    } catch (error: any) {
+      console.error("Error fulfilling hour package:", error);
+      res.status(500).json({ message: "Failed to process purchase" });
+    }
+  });
 
   // Realtime API capability check - actually tests API access
   // Cache the result for 5 minutes to avoid repeated checks
