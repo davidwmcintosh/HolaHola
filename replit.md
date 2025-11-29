@@ -48,6 +48,7 @@ The Dashboard includes a "What's Next?" card linking to Review Hub for easy navi
 - **Student Progress UI**: Shows early completions, coverage percentages, and quick review options via SyllabusProgress component
 - **Teacher Dashboard**: TeacherEarlyCompletions component displays organic vs assigned completion with tutor verification workflow and congratulatory messaging
 - **Tutor Acknowledgment**: Generates encouraging messages when students are ahead of syllabus, integrated into conversation prompts
+- **Full Documentation**: See `docs/syllabus-aware-competency-system.md` for comprehensive stakeholder documentation (developers, students, teachers, sales)
 
 ## External Dependencies
 
