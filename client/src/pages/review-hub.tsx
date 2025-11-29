@@ -133,7 +133,7 @@ export default function ReviewHub() {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="text-review-hub-title">
-              <img src={linguaflowLogo} alt="LinguaFlow" className="h-8 w-8" />
+              <img src={linguaflowLogo} alt="LinguaFlow" className="h-12 w-12" />
               Language Hub
             </h1>
             <p className="text-muted-foreground mt-1">
