@@ -180,7 +180,7 @@ export function LearningContextFilter({
                   <span>Self-Directed</span>
                 </div>
               </SelectItem>
-              {classesForLanguage.map((enrollment) => (
+              {classesToShow.map((enrollment) => (
                 <SelectItem 
                   key={enrollment.classId} 
                   value={enrollment.classId}
@@ -189,6 +189,11 @@ export function LearningContextFilter({
                   <div className="flex items-center gap-2">
                     <GraduationCap className="h-4 w-4 text-primary" />
                     <span>{enrollment.class.name}</span>
+                    {language === "all" && (
+                      <span className="text-xs text-muted-foreground ml-1">
+                        {getLanguageFlag(enrollment.class.language)}
+                      </span>
+                    )}
                   </div>
                 </SelectItem>
               ))}
