@@ -200,9 +200,9 @@ export default function ReviewHub() {
         </div>
       </div>
 
-      {/* Quick Stats Row - Integrated with ACTFL */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Card className="p-3">
+      {/* Quick Stats Row - Horizontal scroll on mobile, grid on desktop */}
+      <div className="flex md:grid md:grid-cols-5 gap-3 overflow-x-auto pb-2 md:pb-0 md:overflow-visible -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory md:snap-none">
+        <Card className="p-3 flex-shrink-0 w-[140px] md:w-auto snap-start">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-full bg-orange-100 dark:bg-orange-900/30">
               <Flame className="h-4 w-4 text-orange-600" />
@@ -213,7 +213,7 @@ export default function ReviewHub() {
             </div>
           </div>
         </Card>
-        <Card className="p-3">
+        <Card className="p-3 flex-shrink-0 w-[140px] md:w-auto snap-start">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
               <BookOpen className="h-4 w-4 text-blue-600" />
@@ -224,7 +224,7 @@ export default function ReviewHub() {
             </div>
           </div>
         </Card>
-        <Card className="p-3">
+        <Card className="p-3 flex-shrink-0 w-[140px] md:w-auto snap-start">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30">
               <MessageSquare className="h-4 w-4 text-green-600" />
@@ -235,7 +235,7 @@ export default function ReviewHub() {
             </div>
           </div>
         </Card>
-        <Card className="p-3">
+        <Card className="p-3 flex-shrink-0 w-[140px] md:w-auto snap-start">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-full bg-purple-100 dark:bg-purple-900/30">
               <Target className="h-4 w-4 text-purple-600" />
@@ -247,7 +247,11 @@ export default function ReviewHub() {
           </div>
         </Card>
         {/* ACTFL Fluency - only show when single language selected */}
-        {language !== "all" && <ActflFluencyDial stat language={language} />}
+        {language !== "all" && (
+          <div className="flex-shrink-0 w-[140px] md:w-auto snap-start">
+            <ActflFluencyDial stat language={language} />
+          </div>
+        )}
       </div>
 
       {/* Daily Plan Section */}
@@ -540,84 +544,140 @@ export default function ReviewHub() {
               </div>
             </CardHeader>
             <CardContent className="space-y-2">
-              {syllabus.units.map((unit, unitIndex) => {
-                const completedInUnit = unit.lessons.filter(l => l.status === 'completed').length;
-                const unitProgress = unit.lessons.length > 0 
-                  ? Math.round((completedInUnit / unit.lessons.length) * 100) 
-                  : 0;
-                const isComplete = unitProgress === 100;
-                const hasStarted = completedInUnit > 0;
-                
-                return (
-                  <Collapsible key={unit.id} defaultOpen={unitIndex === 0 || (!isComplete && hasStarted)} className="group">
-                    <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg border hover-elevate" data-testid={`unit-${unit.id}`}>
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-full ${isComplete ? 'bg-green-100 dark:bg-green-900' : hasStarted ? 'bg-blue-100 dark:bg-blue-900' : 'bg-muted'}`}>
-                          {isComplete ? (
-                            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                          ) : (
-                            <BookOpen className={`h-4 w-4 ${hasStarted ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`} />
+              {/* Mobile: Compact unit pills */}
+              <div className="md:hidden">
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {syllabus.units.map((unit) => {
+                    const completedInUnit = unit.lessons.filter(l => l.status === 'completed').length;
+                    const isComplete = completedInUnit === unit.lessons.length;
+                    const hasStarted = completedInUnit > 0;
+                    
+                    return (
+                      <Badge 
+                        key={unit.id}
+                        className={`text-xs ${
+                          isComplete 
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                            : hasStarted 
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' 
+                              : 'bg-muted text-muted-foreground'
+                        }`}
+                        data-testid={`unit-pill-${unit.id}`}
+                      >
+                        {isComplete && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                        {unit.name} ({completedInUnit}/{unit.lessons.length})
+                      </Badge>
+                    );
+                  })}
+                </div>
+                {/* Show next uncompleted lesson on mobile */}
+                {(() => {
+                  const nextLesson = syllabus.units
+                    .flatMap(u => u.lessons.map(l => ({ ...l, unitName: u.name })))
+                    .find(l => l.status !== 'completed');
+                  
+                  if (!nextLesson) return null;
+                  
+                  return (
+                    <Link href={`/chat?lesson=${nextLesson.id}&class=${syllabus.classId}`}>
+                      <div className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-full bg-primary/10">
+                            <BookOpen className="h-4 w-4 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">Continue: {nextLesson.name}</p>
+                            <p className="text-xs text-muted-foreground">{nextLesson.unitName}</p>
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </Link>
+                  );
+                })()}
+              </div>
+              
+              {/* Desktop: Full expandable units */}
+              <div className="hidden md:block space-y-2">
+                {syllabus.units.map((unit, unitIndex) => {
+                  const completedInUnit = unit.lessons.filter(l => l.status === 'completed').length;
+                  const unitProgress = unit.lessons.length > 0 
+                    ? Math.round((completedInUnit / unit.lessons.length) * 100) 
+                    : 0;
+                  const isComplete = unitProgress === 100;
+                  const hasStarted = completedInUnit > 0;
+                  
+                  return (
+                    <Collapsible key={unit.id} defaultOpen={unitIndex === 0 || (!isComplete && hasStarted)} className="group">
+                      <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg border hover-elevate" data-testid={`unit-${unit.id}`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-full ${isComplete ? 'bg-green-100 dark:bg-green-900' : hasStarted ? 'bg-blue-100 dark:bg-blue-900' : 'bg-muted'}`}>
+                            {isComplete ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            ) : (
+                              <BookOpen className={`h-4 w-4 ${hasStarted ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`} />
+                            )}
+                          </div>
+                          <div className="text-left">
+                            <p className="font-medium">{unit.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {completedInUnit} of {unit.lessons.length} lessons completed
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {isComplete && (
+                            <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              Complete
+                            </Badge>
                           )}
+                          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                         </div>
-                        <div className="text-left">
-                          <p className="font-medium">{unit.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {completedInUnit} of {unit.lessons.length} lessons completed
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {isComplete && (
-                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                            Complete
-                          </Badge>
-                        )}
-                        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                      </div>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <div className="pl-12 pr-3 py-2 space-y-1">
-                        {unit.lessons.map((lesson) => {
-                          const LessonStatusIcon = lesson.status === 'completed' 
-                            ? CheckCircle2 
-                            : lesson.status === 'in_progress' 
-                              ? Clock 
-                              : Circle;
-                          const statusColor = lesson.status === 'completed' 
-                            ? 'text-green-600 dark:text-green-400' 
-                            : lesson.status === 'in_progress' 
-                              ? 'text-blue-600 dark:text-blue-400' 
-                              : 'text-muted-foreground';
-                          
-                          return (
-                            <Link 
-                              key={lesson.id} 
-                              href={`/chat?lesson=${lesson.id}&class=${syllabus.classId}`}
-                            >
-                              <div 
-                                className="flex items-center gap-3 p-2 rounded hover-elevate cursor-pointer" 
-                                data-testid={`lesson-${lesson.id}`}
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="pl-12 pr-3 py-2 space-y-1">
+                          {unit.lessons.map((lesson) => {
+                            const LessonStatusIcon = lesson.status === 'completed' 
+                              ? CheckCircle2 
+                              : lesson.status === 'in_progress' 
+                                ? Clock 
+                                : Circle;
+                            const statusColor = lesson.status === 'completed' 
+                              ? 'text-green-600 dark:text-green-400' 
+                              : lesson.status === 'in_progress' 
+                                ? 'text-blue-600 dark:text-blue-400' 
+                                : 'text-muted-foreground';
+                            
+                            return (
+                              <Link 
+                                key={lesson.id} 
+                                href={`/chat?lesson=${lesson.id}&class=${syllabus.classId}`}
                               >
-                                <LessonStatusIcon className={`h-4 w-4 ${statusColor}`} />
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-sm truncate ${lesson.status === 'completed' ? 'text-muted-foreground' : ''}`}>
-                                    {lesson.name}
-                                  </p>
+                                <div 
+                                  className="flex items-center gap-3 p-2 rounded hover-elevate cursor-pointer" 
+                                  data-testid={`lesson-${lesson.id}`}
+                                >
+                                  <LessonStatusIcon className={`h-4 w-4 ${statusColor}`} />
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`text-sm truncate ${lesson.status === 'completed' ? 'text-muted-foreground' : ''}`}>
+                                      {lesson.name}
+                                    </p>
+                                  </div>
+                                  {lesson.estimatedMinutes && (
+                                    <span className="text-xs text-muted-foreground">
+                                      ~{lesson.estimatedMinutes}m
+                                    </span>
+                                  )}
                                 </div>
-                                {lesson.estimatedMinutes && (
-                                  <span className="text-xs text-muted-foreground">
-                                    ~{lesson.estimatedMinutes}m
-                                  </span>
-                                )}
-                              </div>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                );
-              })}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
         );
