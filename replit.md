@@ -85,3 +85,26 @@ The Dashboard includes a "What's Next?" card linking to Review Hub for easy navi
 -   **State Management**: TanStack Query, React Context.
 -   **Billing**: `stripe-replit-sync`.
 -   **Utilities**: `date-fns`, Embla Carousel, `franc-min`.
+
+## Pricing & Cost Structure
+
+### Voice Pipeline Costs (November 2025)
+The voice tutoring pipeline costs **$2.47/hour** broken down as:
+- **TTS (Cartesia Sonic-3)**: $2.25/hr (91% of cost)
+- **STT (Deepgram Nova-3)**: $0.12/hr (5% of cost)
+- **LLM (Gemini 2.5 Flash)**: $0.10/hr (4% of cost)
+
+### Dual Pricing Model
+
+**1. Institutional (Class-Based)**
+- Classes purchase hour allocations per student per year
+- Based on ACTFL curriculum requirements (~10-30 hrs/student/year for language courses)
+- Packages: Basic (10 hrs @ $50), Standard (20 hrs @ $100), Premium (30 hrs @ $150) per student/year
+
+**2. Independent Study (Hourly Tutoring)**
+- Users purchase hour packages
+- Packages: Try It (1 hr @ $12), Starter (5 hrs @ $50), Regular (10 hrs @ $90), Committed (20 hrs @ $160)
+- 70-80% cheaper than human tutors ($40-60/hr)
+
+### Documentation
+See `docs/cost-analysis-2025.md` for detailed cost breakdown, curriculum requirements analysis, and margin calculations.
