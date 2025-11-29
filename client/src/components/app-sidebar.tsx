@@ -1,4 +1,4 @@
-import { MessageSquare, BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck, Library, Shield, X, FolderOpen, Volume2, Target, ChevronDown, User } from "lucide-react";
+import { MessageSquare, BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck, Library, Shield, X, Volume2, Target, ChevronDown, User } from "lucide-react";
 import linguaflowLogo from "@assets/LF_no_words_no_background_1764099068542.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -41,7 +41,6 @@ const libraryMenuItems = [
 ];
 
 const resourceMenuItems = [
-  { title: "My Lessons", url: "/lessons", icon: FolderOpen },
   { title: "Cultural Tips", url: "/cultural-tips", icon: Globe },
   { title: "Chat Ideas", url: "/chat-ideas", icon: Lightbulb },
 ];
@@ -54,7 +53,6 @@ const teacherMenuItems = [
 
 const studentMenuItems = [
   { title: "Join Class", url: "/student/join-class", icon: Users },
-  { title: "My Assignments", url: "/student/assignments", icon: ClipboardList },
 ];
 
 const adminMenuItems = [

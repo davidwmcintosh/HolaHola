@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import linguaflowLogo from "@assets/LF_no_words_no_background_1764099068542.png";
 import {
   BookOpen,
@@ -26,8 +27,24 @@ import {
   Target,
   Mic,
   Calendar,
+  ClipboardList,
+  AlertCircle,
+  Clock,
+  CheckCircle2,
+  Globe,
 } from "lucide-react";
 import type { VocabularyWord, Conversation, CulturalTip, UserLesson, Topic } from "@shared/schema";
+
+interface UpcomingAssignment {
+  id: string;
+  title: string;
+  description: string | null;
+  dueDate: string | null;
+  classId: string;
+  className: string;
+  lessonId: string | null;
+  status: 'not_started' | 'in_progress' | 'submitted' | 'graded' | 'overdue';
+}
 
 interface ReviewHubData {
   dueFlashcards: VocabularyWord[];
@@ -44,6 +61,7 @@ interface ReviewHubData {
     lessonDescription: string | null;
     unitName: string;
   } | null;
+  upcomingAssignments: UpcomingAssignment[];
   stats: {
     totalConversations: number;
     totalVocabulary: number;
@@ -264,6 +282,70 @@ export default function ReviewHub() {
             </Link>
           )}
 
+          {/* Due/Upcoming Assignments - For enrolled students */}
+          {data?.upcomingAssignments && data.upcomingAssignments.length > 0 && (() => {
+            const urgentAssignment = data.upcomingAssignments[0];
+            const isOverdue = urgentAssignment.status === 'overdue';
+            const dueDate = urgentAssignment.dueDate ? new Date(urgentAssignment.dueDate) : null;
+            const daysUntilDue = dueDate 
+              ? Math.ceil((dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) 
+              : null;
+            const isDueSoon = daysUntilDue !== null && daysUntilDue <= 2 && daysUntilDue >= 0;
+            
+            const bgColor = isOverdue 
+              ? "bg-red-50 dark:bg-red-900/20" 
+              : isDueSoon 
+                ? "bg-orange-50 dark:bg-orange-900/20" 
+                : "bg-cyan-50 dark:bg-cyan-900/20";
+            const iconBgColor = isOverdue
+              ? "bg-red-100 dark:bg-red-800"
+              : isDueSoon
+                ? "bg-orange-100 dark:bg-orange-800"
+                : "bg-cyan-100 dark:bg-cyan-800";
+            const iconColor = isOverdue
+              ? "text-red-700 dark:text-red-300"
+              : isDueSoon
+                ? "text-orange-700 dark:text-orange-300"
+                : "text-cyan-700 dark:text-cyan-300";
+            
+            return (
+              <Link href={`/student/assignments?assignment=${urgentAssignment.id}`}>
+                <div className={`flex items-center justify-between p-3 rounded-lg ${bgColor} hover-elevate cursor-pointer`} data-testid="link-due-assignment">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-full ${iconBgColor}`}>
+                      {isOverdue ? (
+                        <AlertCircle className={`h-5 w-5 ${iconColor}`} />
+                      ) : (
+                        <ClipboardList className={`h-5 w-5 ${iconColor}`} />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium flex items-center gap-2">
+                        {isOverdue ? "Overdue: " : isDueSoon ? "Due soon: " : "Assignment: "}
+                        {urgentAssignment.title}
+                        {isOverdue && (
+                          <Badge variant="destructive" className="text-xs">Overdue</Badge>
+                        )}
+                        {isDueSoon && !isOverdue && (
+                          <Badge variant="secondary" className="text-xs bg-orange-200 dark:bg-orange-800">
+                            {daysUntilDue === 0 ? "Due today" : `${daysUntilDue} day${daysUntilDue === 1 ? '' : 's'}`}
+                          </Badge>
+                        )}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {urgentAssignment.className}
+                        {dueDate && !isOverdue && !isDueSoon && ` • Due ${dueDate.toLocaleDateString()}`}
+                      </p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon">
+                    <ChevronRight className="h-5 w-5" />
+                  </Button>
+                </div>
+              </Link>
+            );
+          })()}
+
           {/* Recent Vocabulary - Only show if there are new words NOT already in due cards */}
           {data?.recentVocabulary && data.recentVocabulary.length > 0 && (
             <Link href="/vocabulary">
@@ -340,58 +422,257 @@ export default function ReviewHub() {
         </CardContent>
       </Card>
 
-      {/* Topic Deep Dives */}
-      {hasTopics && (
+      {/* Coursework Section - For enrolled students with lessons or assignments */}
+      {((data?.activeLessons?.length ?? 0) > 0 || (data?.upcomingAssignments?.length ?? 0) > 0) && data && (
+        <Card data-testid="section-coursework">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <GraduationCap className="h-5 w-5 text-primary" />
+              Coursework
+            </CardTitle>
+            <CardDescription>Your lessons and assignments from enrolled classes</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue={(data.upcomingAssignments?.length ?? 0) > 0 ? "assignments" : "lessons"} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="lessons" className="gap-2" data-testid="tab-lessons">
+                  <BookOpen className="h-4 w-4" />
+                  Lessons ({data.activeLessons?.length ?? 0})
+                </TabsTrigger>
+                <TabsTrigger value="assignments" className="gap-2" data-testid="tab-assignments">
+                  <ClipboardList className="h-4 w-4" />
+                  Assignments ({data.upcomingAssignments?.length ?? 0})
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="lessons" className="space-y-2">
+                {(data.activeLessons?.length ?? 0) > 0 ? (
+                  <>
+                    {data.activeLessons?.slice(0, 5).map((lesson) => (
+                      <Link key={lesson.id} href={`/lessons/${lesson.id}`}>
+                        <div className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer" data-testid={`card-lesson-${lesson.id}`}>
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-800">
+                              <BookOpen className="h-4 w-4 text-indigo-700 dark:text-indigo-300" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{lesson.title}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {getLanguageDisplayName(lesson.language)}
+                              </p>
+                            </div>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      </Link>
+                    ))}
+                    {(data.activeLessons?.length ?? 0) > 5 && (
+                      <div className="text-center pt-2">
+                        <Link href="/lessons">
+                          <Button variant="ghost" size="sm" className="gap-1">
+                            View all lessons
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No lessons yet</p>
+                    <p className="text-sm">Create lessons from your conversations</p>
+                  </div>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="assignments" className="space-y-2">
+                {(data.upcomingAssignments?.length ?? 0) > 0 ? (
+                  <>
+                    {data.upcomingAssignments?.slice(0, 5).map((assignment) => {
+                      const dueDate = assignment.dueDate ? new Date(assignment.dueDate) : null;
+                      const isOverdue = assignment.status === 'overdue';
+                      const daysUntilDue = dueDate 
+                        ? Math.ceil((dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                        : null;
+                      const isDueSoon = daysUntilDue !== null && daysUntilDue <= 2 && daysUntilDue >= 0;
+                      
+                      const statusConfig = {
+                        not_started: { icon: Clock, color: "text-gray-500", label: "Not started" },
+                        in_progress: { icon: Clock, color: "text-blue-500", label: "In progress" },
+                        submitted: { icon: CheckCircle2, color: "text-green-500", label: "Submitted" },
+                        overdue: { icon: AlertCircle, color: "text-red-500", label: "Overdue" },
+                        graded: { icon: CheckCircle2, color: "text-green-500", label: "Graded" },
+                      };
+                      const status = statusConfig[assignment.status];
+                      const StatusIcon = status.icon;
+                      
+                      return (
+                        <Link key={assignment.id} href={`/student/assignments?assignment=${assignment.id}`}>
+                          <div 
+                            className={`flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer ${
+                              isOverdue ? "border-red-300 dark:border-red-800" : ""
+                            }`}
+                            data-testid={`card-assignment-${assignment.id}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`p-2 rounded-full ${
+                                isOverdue 
+                                  ? "bg-red-100 dark:bg-red-900/30" 
+                                  : "bg-cyan-100 dark:bg-cyan-900/30"
+                              }`}>
+                                <ClipboardList className={`h-4 w-4 ${
+                                  isOverdue 
+                                    ? "text-red-700 dark:text-red-300" 
+                                    : "text-cyan-700 dark:text-cyan-300"
+                                }`} />
+                              </div>
+                              <div>
+                                <p className="font-medium flex items-center gap-2">
+                                  {assignment.title}
+                                  {isOverdue && (
+                                    <Badge variant="destructive" className="text-xs">Overdue</Badge>
+                                  )}
+                                  {isDueSoon && !isOverdue && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      {daysUntilDue === 0 ? "Due today" : `${daysUntilDue}d`}
+                                    </Badge>
+                                  )}
+                                </p>
+                                <p className="text-xs text-muted-foreground flex items-center gap-2">
+                                  <span>{assignment.className}</span>
+                                  {dueDate && (
+                                    <>
+                                      <span>•</span>
+                                      <span>Due {dueDate.toLocaleDateString()}</span>
+                                    </>
+                                  )}
+                                  <span>•</span>
+                                  <StatusIcon className={`h-3 w-3 ${status.color}`} />
+                                  <span className={status.color}>{status.label}</span>
+                                </p>
+                              </div>
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        </Link>
+                      );
+                    })}
+                    {(data.upcomingAssignments?.length ?? 0) > 5 && (
+                      <div className="text-center pt-2">
+                        <Link href="/student/assignments">
+                          <Button variant="ghost" size="sm" className="gap-1">
+                            View all assignments
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <ClipboardList className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No assignments</p>
+                    <p className="text-sm">You're all caught up!</p>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Topic Deep Dives with Culture Insight */}
+      {(hasTopics || (data?.culturalTips?.length ?? 0) > 0) && (
         <Card data-testid="section-topic-deep-dives">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <Hash className="h-5 w-5 text-primary" />
-              Topic Deep Dives
+              Explore & Learn
             </CardTitle>
-            <CardDescription>Review content by topic - grammar, subjects, and language functions</CardDescription>
+            <CardDescription>Deep dive into topics, grammar, and cultural insights</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {data.topicsWithContent.slice(0, 6).map((topic) => {
-                const TopicIcon = topicTypeIcons[topic.topicType as keyof typeof topicTypeIcons] || Tag;
-                return (
-                  <Link key={topic.id} href={`/history?topic=${topic.id}`}>
-                    <Card className="p-3 hover-elevate cursor-pointer" data-testid={`card-topic-${topic.id}`}>
-                      <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-lg ${topicTypeColors[topic.topicType as keyof typeof topicTypeColors]}`}>
-                          <TopicIcon className="h-4 w-4" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{topic.name}</p>
-                          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <MessageSquare className="h-3 w-3" />
-                              {topic.conversationCount}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <BookOpen className="h-3 w-3" />
-                              {topic.vocabularyCount}
-                            </span>
-                          </div>
-                        </div>
-                        <Badge variant="outline" className="capitalize text-xs">
-                          {topic.topicType}
-                        </Badge>
+          <CardContent className="space-y-4">
+            {/* Featured Cultural Tip */}
+            {data?.culturalTips && data.culturalTips.length > 0 && (() => {
+              const tip = data.culturalTips[0];
+              return (
+                <Link href="/cultural-tips">
+                  <div 
+                    className="p-4 rounded-lg bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800 hover-elevate cursor-pointer"
+                    data-testid="card-cultural-tip"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-800 flex-shrink-0">
+                        <Globe className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
                       </div>
-                    </Card>
-                  </Link>
-                );
-              })}
-            </div>
-            {data.topicsWithContent.length > 6 && (
-              <div className="mt-3 text-center">
-                <Link href="/history">
-                  <Button variant="ghost" size="sm" className="gap-1">
-                    View all topics
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium">Cultural Insight</p>
+                          <Badge className="text-xs bg-emerald-100 text-emerald-800 dark:bg-emerald-800 dark:text-emerald-100">
+                            {getLanguageDisplayName(tip.language)}
+                          </Badge>
+                        </div>
+                        <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100 mb-1">
+                          {tip.title}
+                        </p>
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {tip.content}
+                        </p>
+                      </div>
+                      <ChevronRight className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+                    </div>
+                  </div>
                 </Link>
-              </div>
+              );
+            })()}
+
+            {/* Topic Grid */}
+            {hasTopics && data && (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {data.topicsWithContent.slice(0, 6).map((topic) => {
+                    const TopicIcon = topicTypeIcons[topic.topicType as keyof typeof topicTypeIcons] || Tag;
+                    return (
+                      <Link key={topic.id} href={`/history?topic=${topic.id}`}>
+                        <Card className="p-3 hover-elevate cursor-pointer" data-testid={`card-topic-${topic.id}`}>
+                          <div className="flex items-start gap-3">
+                            <div className={`p-2 rounded-lg ${topicTypeColors[topic.topicType as keyof typeof topicTypeColors]}`}>
+                              <TopicIcon className="h-4 w-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">{topic.name}</p>
+                              <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <MessageSquare className="h-3 w-3" />
+                                  {topic.conversationCount}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <BookOpen className="h-3 w-3" />
+                                  {topic.vocabularyCount}
+                                </span>
+                              </div>
+                            </div>
+                            <Badge variant="outline" className="capitalize text-xs">
+                              {topic.topicType}
+                            </Badge>
+                          </div>
+                        </Card>
+                      </Link>
+                    );
+                  })}
+                </div>
+                {data.topicsWithContent.length > 6 && (
+                  <div className="text-center">
+                    <Link href="/history">
+                      <Button variant="ghost" size="sm" className="gap-1">
+                        View all topics
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>

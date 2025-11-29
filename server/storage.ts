@@ -387,6 +387,24 @@ export interface IStorage {
     activeLessons: UserLesson[];
     recentVocabulary: VocabularyWord[];
     topicsWithContent: Array<Topic & { conversationCount: number; vocabularyCount: number }>;
+    nextLesson: {
+      classId: string;
+      className: string;
+      lessonId: string;
+      lessonName: string;
+      lessonDescription: string | null;
+      unitName: string;
+    } | null;
+    upcomingAssignments: Array<{
+      id: string;
+      title: string;
+      description: string | null;
+      dueDate: Date | null;
+      classId: string;
+      className: string;
+      lessonId: string | null;
+      status: 'not_started' | 'in_progress' | 'submitted' | 'graded' | 'overdue';
+    }>;
     stats: {
       totalConversations: number;
       totalVocabulary: number;
@@ -3191,6 +3209,82 @@ export class DatabaseStorage implements IStorage {
       console.error('[ReviewHub] Error finding next lesson:', error);
     }
 
+    // Fetch upcoming assignments for enrolled students
+    type AssignmentWithStatus = {
+      id: string;
+      title: string;
+      description: string | null;
+      dueDate: Date | null;
+      classId: string;
+      className: string;
+      lessonId: string | null;
+      status: 'not_started' | 'in_progress' | 'submitted' | 'graded' | 'overdue';
+    };
+    const upcomingAssignments: AssignmentWithStatus[] = [];
+    
+    try {
+      const enrollments = await this.getStudentEnrollments(userId);
+      const activeEnrollments = enrollments.filter(e => 
+        e.isActive && (!language || e.class?.language === language) && 
+        (!classId || e.classId === classId)
+      );
+      
+      for (const enrollment of activeEnrollments) {
+        const teacherClass = enrollment.class;
+        if (!teacherClass) continue;
+        
+        // Get assignments for this class
+        const classAssignments = await this.getClassAssignments(teacherClass.id);
+        
+        for (const assignment of classAssignments) {
+          // Get submission status for this student
+          const submission = await this.getAssignmentSubmission(assignment.id, userId);
+          
+          let status: AssignmentWithStatus['status'] = 'not_started';
+          if (submission) {
+            if (submission.grade !== null) {
+              status = 'graded';
+            } else if (submission.submittedAt) {
+              status = 'submitted';
+            } else {
+              status = 'in_progress';
+            }
+          } else if (assignment.dueDate && new Date(assignment.dueDate) < now) {
+            status = 'overdue';
+          }
+          
+          // Only show non-graded assignments (upcoming or in progress)
+          if (status !== 'graded') {
+            upcomingAssignments.push({
+              id: assignment.id,
+              title: assignment.title,
+              description: assignment.description,
+              dueDate: assignment.dueDate,
+              classId: teacherClass.id,
+              className: teacherClass.name,
+              lessonId: assignment.lessonId,
+              status
+            });
+          }
+        }
+      }
+      
+      // Sort by urgency: overdue first, then by due date (soonest first), null dates last
+      upcomingAssignments.sort((a, b) => {
+        // Overdue items come first
+        if (a.status === 'overdue' && b.status !== 'overdue') return -1;
+        if (a.status !== 'overdue' && b.status === 'overdue') return 1;
+        
+        // Then sort by due date
+        if (!a.dueDate && !b.dueDate) return 0;
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      });
+    } catch (error) {
+      console.error('[ReviewHub] Error fetching assignments:', error);
+    }
+
     return {
       dueFlashcards,
       recentConversations,
@@ -3199,6 +3293,7 @@ export class DatabaseStorage implements IStorage {
       recentVocabulary,
       topicsWithContent,
       nextLesson,
+      upcomingAssignments,
       stats: {
         totalConversations: Number(totalConvsResult[0]?.count || 0),
         totalVocabulary: Number(totalVocabResult[0]?.count || 0),
