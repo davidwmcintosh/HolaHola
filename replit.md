@@ -38,7 +38,6 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - **Cultural Corner**: 3 randomly selected cultural tips for the current language (43 tips across 9 languages)
 - **Lesson Journeys**: Auto-generated weekly lessons and custom bundles
 - **Quick Stats**: 5-column stats row with Streak, Words, Chats, Due Cards, and ACTFL progress (using MiniRing component)
-- **Mobile CTA**: Fixed "Next Up" button on mobile for primary action (review cards or start practice)
 
 The sidebar Dashboard item now uses the Target icon and links directly to the Review Hub.
 

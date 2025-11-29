@@ -500,32 +500,6 @@ export default function ReviewHub() {
         </Card>
       )}
 
-      {/* Add bottom padding for mobile floating button */}
-      <div className="h-20 md:hidden" />
-
-      {/* Mobile Floating "Next Up" CTA */}
-      <div className="fixed bottom-4 left-4 right-4 md:hidden z-50" data-testid="mobile-next-up-cta">
-        <Link href={hasDueCards ? "/vocabulary" : "/chat"}>
-          <Button 
-            size="lg" 
-            className="w-full gap-2 shadow-lg"
-            data-testid="button-mobile-next-up"
-          >
-            {hasDueCards ? (
-              <>
-                <BookOpen className="h-5 w-5" />
-                Review {data?.dueFlashcards.length} Cards
-              </>
-            ) : (
-              <>
-                <Mic className="h-5 w-5" />
-                Start Practice
-              </>
-            )}
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        </Link>
-      </div>
     </div>
   );
 }
