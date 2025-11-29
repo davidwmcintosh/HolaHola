@@ -32,6 +32,16 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Conversation Tagging System**: An AI-powered topic tagging system for conversations and vocabulary, categorizing content into Subject, Grammar, and Function topics. Topics are auto-tagged in the background using Gemini, extracting covered subjects, grammar concepts, and language functions, and returning topic IDs with confidence scores and estimated ACTFL levels. Vocabulary extraction includes grammar classification.
 
+**Review Hub**: A unified learning dashboard at `/review` that guides students through prioritized learning tasks rather than requiring them to navigate separate sections. The hub aggregates:
+- **Daily Plan**: Due flashcards, recent vocabulary (repetition < 3), conversation continuation, and quick practice start
+- **Topic Deep Dives**: Topics with associated conversations and vocabulary, organized by subject/grammar/function
+- **Cultural Corner**: 3 randomly selected cultural tips for the current language (43 tips across 9 languages)
+- **Lesson Journeys**: Auto-generated weekly lessons and custom bundles
+- **Quick Stats**: Streak days, words learned, conversations count, due cards
+- **Mobile CTA**: Fixed "Next Up" button on mobile for primary action (review cards or start practice)
+
+The Dashboard includes a "What's Next?" card linking to Review Hub for easy navigation.
+
 ## External Dependencies
 
 ### Third-Party Services
