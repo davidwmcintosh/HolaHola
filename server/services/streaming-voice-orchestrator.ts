@@ -1146,7 +1146,8 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
    */
   async processGreetingRequest(
     sessionId: string,
-    userName?: string
+    userName?: string,
+    isResumed?: boolean
   ): Promise<StreamingMetrics> {
     const session = this.sessions.get(sessionId);
     if (!session || !session.isActive) {
@@ -1243,7 +1244,8 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         actflLevel,
         wordsLearned,
         recentTopics,
-        classEnrollment
+        classEnrollment,
+        isResumed
       );
       
       // Notify client that greeting is being generated
@@ -1355,7 +1357,8 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
     actflLevel: string,
     wordsLearned: number,
     recentTopics: string[],
-    classEnrollment: { className: string; curriculumLesson?: string; curriculumUnit?: string } | null
+    classEnrollment: { className: string; curriculumLesson?: string; curriculumUnit?: string } | null,
+    isResumed?: boolean
   ): string {
     const name = userName ? `The student's name is ${userName}.` : '';
     const topicContext = recentTopics.length > 0 
@@ -1365,7 +1368,40 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       ? `The student has learned ${wordsLearned} vocabulary words so far.`
       : '';
     
-    // Determine learning path type
+    // Check if this is a resumed conversation with existing history
+    const hasConversationHistory = session.conversationHistory.length > 0;
+    const isResumedConversation = isResumed && hasConversationHistory;
+    
+    // For resumed conversations, summarize what was discussed
+    if (isResumedConversation) {
+      // Extract key context from conversation history
+      const historyPreview = session.conversationHistory
+        .slice(-4) // Last 4 turns (2 exchanges)
+        .map(h => `${h.role === 'user' ? 'Student' : 'Tutor'}: ${h.content.slice(0, 100)}${h.content.length > 100 ? '...' : ''}`)
+        .join('\n');
+      
+      return `The student is resuming a previous conversation. Generate a brief welcome-back greeting.
+
+Context:
+- Student's ACTFL level: ${actflLevel}
+- Target language: ${session.targetLanguage}
+- Native language: ${session.nativeLanguage}
+${name}
+
+Recent conversation history:
+${historyPreview}
+
+Instructions:
+1. Welcome them back warmly (in ${session.nativeLanguage})
+2. Briefly reference what you were discussing before (e.g., "Great to continue! We were practicing greetings..." or "Welcome back! Last time we worked on...")
+3. Offer to continue OR introduce the next topic naturally
+4. Keep it to 2 sentences MAX
+5. Include ONE ${session.targetLanguage} word or phrase as a refresher
+
+Generate the welcome-back greeting now (speak as the tutor directly):`;
+    }
+    
+    // Determine learning path type for new conversations
     const isEnrolledStudent = classEnrollment !== null;
     const isReturningOpenPath = !isEnrolledStudent && (wordsLearned > 0 || recentTopics.length > 0);
     const isNewOpenPath = !isEnrolledStudent && !isReturningOpenPath;

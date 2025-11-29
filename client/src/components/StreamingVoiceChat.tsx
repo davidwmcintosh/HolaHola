@@ -113,9 +113,17 @@ interface StreamingVoiceChatProps {
   conversationId: string | null;
   setConversationId: (id: string | null) => void;
   setCurrentConversationOnboarding: (isOnboarding: boolean | null) => void;
+  isResumedConversation?: boolean;
+  onResumeHandled?: () => void;
 }
 
-export function StreamingVoiceChat({ conversationId, setConversationId, setCurrentConversationOnboarding }: StreamingVoiceChatProps) {
+export function StreamingVoiceChat({ 
+  conversationId, 
+  setConversationId, 
+  setCurrentConversationOnboarding,
+  isResumedConversation,
+  onResumeHandled
+}: StreamingVoiceChatProps) {
   const { language, difficulty, setLanguage, subtitleMode } = useLanguage();
   const [isRecording, setIsRecording] = useState(false);
   const [isMicPreparing, setIsMicPreparing] = useState(false); // Show "Preparing mic..." before actual recording starts
@@ -398,7 +406,21 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
   // Request AI-generated streaming greeting for new conversations
   // When streaming mode is enabled, we use the streaming pipeline for dynamic greetings
   // that are ACTFL-aware, personalized, and context-aware
+  // Store the full lockKey (including -resumed suffix) to prevent duplicate triggers
   const greetingRequestedRef = useRef<string | null>(null);
+  
+  // Handle resume flag clearing even if connection isn't ready - prevents re-triggering
+  useEffect(() => {
+    if (isResumedConversation && conversationId && onResumeHandled) {
+      // Clear resume flag immediately when we detect a resume attempt
+      // This prevents duplicate welcome-back greetings on component remounts
+      const lockKey = `streaming-greeting-${conversationId}-resumed`;
+      if (greetingRequestedRef.current === lockKey) {
+        console.log('[STREAMING GREETING] Resume already handled for this conversation');
+        onResumeHandled();
+      }
+    }
+  }, [isResumedConversation, conversationId, onResumeHandled]);
   
   useEffect(() => {
     // Only for streaming mode
@@ -418,36 +440,47 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
     const aiMessages = messages.filter(m => m.role === 'assistant');
     const userMessages = messages.filter(m => m.role === 'user');
     
-    // Request greeting if: new conversation (no user messages) OR no messages at all
+    // Request greeting if: new conversation (no user messages) OR resuming a past conversation
     const isNewConversation = userMessages.length === 0 && aiMessages.length <= 1;
+    const shouldGreet = isNewConversation || isResumedConversation;
     
-    if (isNewConversation) {
-      // ATOMICALLY try to acquire lock (using conversation ID as the lock key)
+    if (shouldGreet) {
+      // ATOMICALLY try to acquire lock (using full lock key including -resumed suffix)
       // This prevents double-greetings on mobile reloads and fast switching
-      const lockKey = `streaming-greeting-${conversationId}`;
+      const lockKey = `streaming-greeting-${conversationId}${isResumedConversation ? '-resumed' : ''}`;
       
-      // Check if we already requested greeting for this conversation
-      if (greetingRequestedRef.current === conversationId) {
-        console.log('[STREAMING GREETING] Already requested for this conversation');
+      // Check if we already requested greeting for this exact lockKey (handles both new and resumed)
+      if (greetingRequestedRef.current === lockKey) {
+        console.log('[STREAMING GREETING] Already requested for this lock key:', lockKey);
         return;
       }
       
       // Try to acquire the lock
       if (!tryAcquireGreetingLock(lockKey)) {
         console.log('[STREAMING GREETING] Lock not acquired - skipping');
+        // Still clear resume flag to prevent retry loops
+        if (isResumedConversation && onResumeHandled) {
+          onResumeHandled();
+        }
         return;
       }
       
-      // Mark as requested
-      greetingRequestedRef.current = conversationId;
+      // Mark as requested using full lockKey to distinguish new vs resumed
+      greetingRequestedRef.current = lockKey;
       hasPlayedGreetingRef.current = lockKey;
       
-      console.log('[STREAMING GREETING] Requesting AI-generated personalized greeting...');
+      const greetingType = isResumedConversation ? 'RESUMED (welcome-back)' : 'NEW conversation';
+      console.log(`[STREAMING GREETING] Requesting ${greetingType} AI-generated personalized greeting...`);
       
       // Request greeting through the streaming pipeline
       // The server will generate an ACTFL-aware, history-aware greeting
-      // and stream it through the same pipeline as normal responses
-      streamingVoice.requestGreeting(user.firstName);
+      // For resumed conversations, it will generate a contextual "welcome back" message
+      streamingVoice.requestGreeting(user.firstName ?? undefined, isResumedConversation);
+      
+      // Mark resume as handled so we don't keep triggering it
+      if (isResumedConversation && onResumeHandled) {
+        onResumeHandled();
+      }
       
       // Clear lock after a delay to allow for the greeting to play
       setTimeout(() => {
@@ -462,7 +495,9 @@ export function StreamingVoiceChat({ conversationId, setConversationId, setCurre
     messages, 
     isRecording, 
     isProcessing, 
-    streamingVoice
+    streamingVoice,
+    isResumedConversation,
+    onResumeHandled
   ]);
   
   // Fallback: REST-based greeting for non-streaming mode only

@@ -296,13 +296,14 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             return;
           }
           
-          const greetingRequest = message as { type: 'request_greeting'; userName?: string };
-          console.log('[Streaming Voice] Generating AI greeting...');
+          const greetingRequest = message as { type: 'request_greeting'; userName?: string; isResumed?: boolean };
+          console.log(`[Streaming Voice] Generating AI greeting... (resumed: ${greetingRequest.isResumed || false})`);
           
           try {
             await orchestrator.processGreetingRequest(
               session.id, 
-              greetingRequest.userName
+              greetingRequest.userName,
+              greetingRequest.isResumed
             );
           } catch (greetingError: any) {
             console.error('[Streaming Voice] Greeting error:', greetingError.message);

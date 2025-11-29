@@ -59,7 +59,7 @@ export interface UseStreamingVoiceReturn {
   connect: (config: StreamingSessionConfig) => Promise<void>;
   disconnect: () => void;
   sendAudio: (audioData: ArrayBuffer) => Promise<void>;
-  requestGreeting: (userName?: string) => void;
+  requestGreeting: (userName?: string, isResumed?: boolean) => void;
   stop: () => void;
   isSupported: () => boolean;
   isReady: () => boolean;
@@ -364,15 +364,17 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   
   /**
    * Request AI-generated personalized greeting
-   * Called when starting a new conversation to get a streaming greeting
+   * Called when starting a new conversation or resuming a previous one
+   * @param userName - Optional student name for personalization
+   * @param isResumed - True if resuming a previous conversation (triggers context-aware welcome back)
    */
-  const requestGreeting = useCallback((userName?: string) => {
+  const requestGreeting = useCallback((userName?: string, isResumed?: boolean) => {
     if (!clientRef.current || !clientRef.current.isReady()) {
       console.error('[StreamingVoice] Cannot request greeting - not ready');
       return;
     }
     
-    console.log('[StreamingVoice] Requesting AI greeting...');
+    console.log(`[StreamingVoice] Requesting AI greeting... (resumed: ${isResumed || false})`);
     
     // Reset state for greeting
     responseCompleteRef.current = false;
@@ -385,7 +387,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     playerRef.current?.clearStoredAudio();
     
     // Request greeting from server
-    clientRef.current.requestGreeting(userName);
+    clientRef.current.requestGreeting(userName, isResumed);
   }, [subtitles]);
   
   /**

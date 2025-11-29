@@ -32,6 +32,13 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Dynamic Streaming Greeting System**: New conversations trigger an AI-generated personalized greeting through the streaming voice pipeline. The greeting is ACTFL-aware, history-aware, and context-aware.
 
+**Resume Conversation Greeting System** (Nov 29, 2024): Users can resume past conversations via `/chat?resume={conversationId}`. The system detects resumed conversations and generates a contextual "welcome back" greeting that references the last few messages from conversation history. The flow is:
+1. History page → "Resume Chat" button → `/chat?resume=<id>`
+2. Chat page detects `?resume=` param, sets `isResumedConversation=true`
+3. `StreamingVoiceChat` passes `isResumed=true` through the chain to server
+4. Server's `buildGreetingPrompt` generates a contextual welcome-back message
+5. After greeting plays, `onResumeHandled()` clears the flag to prevent re-triggering
+
 ## External Dependencies
 
 ### Third-Party Services

@@ -269,17 +269,20 @@ export class StreamingVoiceClient {
   
   /**
    * Request AI-generated personalized greeting
-   * Called when starting a new conversation
+   * Called when starting a new conversation or resuming a previous one
+   * @param userName - Optional student name for personalization
+   * @param isResumed - True if resuming a previous conversation (triggers context-aware welcome back)
    */
-  requestGreeting(userName?: string): void {
+  requestGreeting(userName?: string, isResumed?: boolean): void {
     if (!this.isReady()) {
       throw new Error('WebSocket not ready for greeting');
     }
     
-    console.log('[StreamingVoiceClient] Requesting AI greeting...');
+    console.log(`[StreamingVoiceClient] Requesting AI greeting... (resumed: ${isResumed || false})`);
     this.ws!.send(JSON.stringify({ 
       type: 'request_greeting',
       userName,
+      isResumed,
     }));
   }
   
