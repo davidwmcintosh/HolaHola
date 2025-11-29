@@ -5810,6 +5810,25 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // Get both male and female voice names for a given language (for settings UI)
+  app.get("/api/tutor-voices/:language", isAuthenticated, async (req: any, res) => {
+    try {
+      const language = req.params.language.toLowerCase();
+      
+      const femaleVoice = await storage.getTutorVoice(language, 'female');
+      const maleVoice = await storage.getTutorVoice(language, 'male');
+      
+      res.json({
+        language,
+        female: femaleVoice ? { name: femaleVoice.voiceName, voiceId: femaleVoice.voiceId } : null,
+        male: maleVoice ? { name: maleVoice.voiceName, voiceId: maleVoice.voiceId } : null,
+      });
+    } catch (error: any) {
+      console.error('Error fetching tutor voices:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Fetch available Cartesia voices from their API (admin/developer only)
   // Route accepts optional path params: /api/admin/cartesia-voices/:language?/:gender?
   app.get("/api/admin/cartesia-voices/:language?/:gender?", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
