@@ -40,6 +40,8 @@ import {
   type InsertAssignment,
   type AssignmentSubmission,
   type InsertAssignmentSubmission,
+  type SyllabusProgress,
+  type InsertSyllabusProgress,
   type AdminAuditLog,
   type ConversationTopic,
   type InsertConversationTopic,
@@ -72,6 +74,7 @@ import {
   curriculumLessons,
   assignments,
   assignmentSubmissions,
+  syllabusProgress,
   adminAuditLog,
   conversationTopics,
   vocabularyWordTopics,
@@ -255,6 +258,14 @@ export interface IStorage {
   getStudentSubmissions(studentId: string): Promise<Array<AssignmentSubmission & { assignment: Assignment }>>;
   getAssignmentSubmissions(assignmentId: string): Promise<Array<AssignmentSubmission & { student: User }>>;
   updateAssignmentSubmission(id: string, data: Partial<AssignmentSubmission>): Promise<AssignmentSubmission | undefined>;
+
+  // Syllabus Progress
+  createSyllabusProgress(data: InsertSyllabusProgress): Promise<SyllabusProgress>;
+  getSyllabusProgress(studentId: string, classId: string): Promise<SyllabusProgress[]>;
+  getSyllabusProgressByLesson(studentId: string, classId: string, lessonId: string): Promise<SyllabusProgress | undefined>;
+  updateSyllabusProgress(id: string, data: Partial<SyllabusProgress>): Promise<SyllabusProgress | undefined>;
+  getEarlyCompletions(classId: string): Promise<Array<SyllabusProgress & { student: User; lesson: CurriculumLesson }>>;
+  checkLessonCoverage(studentId: string, classId: string, lessonId: string, coveredTopics: string[]): Promise<{ covered: boolean; coveragePercent: number; missingTopics: string[] }>;
 
   // ===== Admin-Only Methods =====
   
@@ -1011,7 +1022,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createConversation(data: typeof conversations.$inferInsert): Promise<Conversation> {
-    const [conversation] = await db.insert(conversations).values(data).returning();
+    // Automatically set learningContext based on classId
+    const conversationData = {
+      ...data,
+      learningContext: data.classId ? 'class_assigned' : 'self_directed',
+    } as typeof conversations.$inferInsert;
+    
+    const [conversation] = await db.insert(conversations).values(conversationData).returning();
     return conversation;
   }
 
@@ -1942,6 +1959,95 @@ export class DatabaseStorage implements IStorage {
       .where(eq(assignmentSubmissions.id, id))
       .returning();
     return updated;
+  }
+
+  // ===== Syllabus Progress Methods =====
+
+  async createSyllabusProgress(data: InsertSyllabusProgress): Promise<SyllabusProgress> {
+    const [progress] = await db.insert(syllabusProgress).values(data).returning();
+    return progress;
+  }
+
+  async getSyllabusProgress(studentId: string, classId: string): Promise<SyllabusProgress[]> {
+    return await db
+      .select()
+      .from(syllabusProgress)
+      .where(and(
+        eq(syllabusProgress.studentId, studentId),
+        eq(syllabusProgress.classId, classId)
+      ))
+      .orderBy(syllabusProgress.createdAt);
+  }
+
+  async getSyllabusProgressByLesson(studentId: string, classId: string, lessonId: string): Promise<SyllabusProgress | undefined> {
+    const result = await db
+      .select()
+      .from(syllabusProgress)
+      .where(and(
+        eq(syllabusProgress.studentId, studentId),
+        eq(syllabusProgress.classId, classId),
+        eq(syllabusProgress.lessonId, lessonId)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async updateSyllabusProgress(id: string, data: Partial<SyllabusProgress>): Promise<SyllabusProgress | undefined> {
+    const [updated] = await db
+      .update(syllabusProgress)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(syllabusProgress.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getEarlyCompletions(classId: string): Promise<Array<SyllabusProgress & { student: User; lesson: CurriculumLesson }>> {
+    const result = await db
+      .select()
+      .from(syllabusProgress)
+      .leftJoin(users, eq(syllabusProgress.studentId, users.id))
+      .leftJoin(curriculumLessons, eq(syllabusProgress.lessonId, curriculumLessons.id))
+      .where(and(
+        eq(syllabusProgress.classId, classId),
+        eq(syllabusProgress.status, 'completed_early')
+      ))
+      .orderBy(desc(syllabusProgress.completedAt));
+    
+    return result.map(row => ({
+      ...row.syllabus_progress,
+      student: row.users!,
+      lesson: row.curriculum_lessons!
+    }));
+  }
+
+  async checkLessonCoverage(
+    studentId: string, 
+    classId: string, 
+    lessonId: string, 
+    coveredTopics: string[]
+  ): Promise<{ covered: boolean; coveragePercent: number; missingTopics: string[] }> {
+    // Get the lesson's required topics
+    const lessonResult = await db
+      .select()
+      .from(curriculumLessons)
+      .where(eq(curriculumLessons.id, lessonId))
+      .limit(1);
+    
+    const lesson = lessonResult[0];
+    if (!lesson || !lesson.requiredTopics || lesson.requiredTopics.length === 0) {
+      return { covered: true, coveragePercent: 100, missingTopics: [] };
+    }
+
+    const requiredTopics = lesson.requiredTopics;
+    const coveredSet = new Set(coveredTopics);
+    const missingTopics = requiredTopics.filter(topic => !coveredSet.has(topic));
+    const coveragePercent = Math.round(((requiredTopics.length - missingTopics.length) / requiredTopics.length) * 100);
+    
+    return {
+      covered: missingTopics.length === 0,
+      coveragePercent,
+      missingTopics
+    };
   }
 
   // ===== Admin-Only Methods =====

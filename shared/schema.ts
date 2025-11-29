@@ -8,6 +8,12 @@ import { z } from "zod";
 // User role enum for multi-role system
 export const userRoleEnum = pgEnum('user_role', ['student', 'teacher', 'developer', 'admin']);
 
+// Learning context enum - distinguishes self-directed vs class-directed learning
+export const learningContextEnum = pgEnum('learning_context', ['self_directed', 'class_assigned']);
+
+// Syllabus completion status enum
+export const syllabusStatusEnum = pgEnum('syllabus_status', ['not_started', 'in_progress', 'completed_early', 'completed_assigned', 'skipped']);
+
 // Replit Auth Integration - Session storage table
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const sessions = pgTable(
@@ -125,6 +131,7 @@ export const conversations = pgTable("conversations", {
   isStarred: boolean("is_starred").notNull().default(false), // User can star/favorite conversations
   // Institutional features - Class/Course assignment
   classId: varchar("class_id"), // Links to teacherClasses table for filtering by class (e.g., "Spanish 101")
+  learningContext: learningContextEnum("learning_context").default("self_directed"), // self_directed or class_assigned
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_conversations_user_id").on(table.userId),
@@ -405,6 +412,11 @@ export const curriculumLessons = pgTable("curriculum_lessons", {
   // Learning objectives
   objectives: text("objectives").array(), // What students should be able to do
   estimatedMinutes: integer("estimated_minutes"), // Expected completion time
+  // Competency mapping - links to topic slugs for automatic coverage detection
+  requiredTopics: text("required_topics").array(), // e.g., ["greetings-introductions", "making-requests"]
+  requiredVocabulary: text("required_vocabulary").array(), // Key words that must be mastered
+  requiredGrammar: text("required_grammar").array(), // Grammar concepts (e.g., "present_tense", "noun-adjective-agreement")
+  minPronunciationScore: real("min_pronunciation_score"), // Minimum pronunciation confidence (0-1)
 });
 
 // Teacher classes (for structured path)
@@ -471,6 +483,38 @@ export const assignmentSubmissions = pgTable("assignment_submissions", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+// Syllabus progress - tracks lesson completion per student with organic vs assigned completion
+export const syllabusProgress = pgTable("syllabus_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id").notNull().references(() => users.id),
+  classId: varchar("class_id").notNull().references(() => teacherClasses.id),
+  lessonId: varchar("lesson_id").notNull().references(() => curriculumLessons.id),
+  // Completion status
+  status: syllabusStatusEnum("status").default("not_started"), // not_started, in_progress, completed_early, completed_assigned, skipped
+  // Evidence of completion
+  evidenceConversationId: varchar("evidence_conversation_id").references(() => conversations.id), // Conversation that covered this lesson
+  evidenceType: text("evidence_type"), // organic_conversation, assigned_practice, quick_review
+  // Competency scores at time of completion
+  topicsCoveredCount: integer("topics_covered_count").default(0), // How many required topics were covered
+  vocabularyMastered: integer("vocabulary_mastered").default(0), // How many required words were mastered
+  grammarScore: real("grammar_score"), // Grammar accuracy during completion (0-1)
+  pronunciationScore: real("pronunciation_score"), // Avg pronunciation confidence (0-1)
+  // Tutor verification
+  tutorVerified: boolean("tutor_verified").default(false), // Did AI tutor confirm competency?
+  tutorNotes: text("tutor_notes"), // AI assessment notes
+  // Timing
+  completedAt: timestamp("completed_at"),
+  scheduledDate: timestamp("scheduled_date"), // When this lesson was supposed to be done (per syllabus)
+  daysAhead: integer("days_ahead"), // Positive = completed early, negative = late
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_syllabus_progress_student").on(table.studentId),
+  index("idx_syllabus_progress_class").on(table.classId),
+  index("idx_syllabus_progress_lesson").on(table.lessonId),
+  index("idx_syllabus_progress_status").on(table.status),
+]);
 
 // ===== Admin System Tables =====
 
@@ -865,6 +909,14 @@ export const insertAssignmentSubmissionSchema = createInsertSchema(assignmentSub
 }).extend({
   teacherFeedback: z.string().max(5000, "Feedback must be less than 5000 characters").optional(),
 });
+
+export const insertSyllabusProgressSchema = createInsertSchema(syllabusProgress).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSyllabusProgress = z.infer<typeof insertSyllabusProgressSchema>;
+export type SyllabusProgress = typeof syllabusProgress.$inferSelect;
 
 export const insertAdminAuditLogSchema = createInsertSchema(adminAuditLog).omit({
   id: true,
