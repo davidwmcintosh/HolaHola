@@ -20,17 +20,23 @@ import { StreakIndicator } from "@/components/StreakIndicator";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
 
-const menuItems = [
-  { title: "Dashboard", url: "/", icon: Home },
+const primaryMenuItems = [
   { title: "Review Hub", url: "/review", icon: Target },
-  { title: "Call Tutor", url: "/chat", icon: MessageSquare },
-  { title: "Chat Ideas", url: "/chat-ideas", icon: Lightbulb },
+  { title: "Dashboard", url: "/", icon: Home },
+  { title: "Practice", url: "/chat", icon: MessageSquare },
+];
+
+const libraryMenuItems = [
   { title: "Vocabulary", url: "/vocabulary", icon: BookOpen },
   { title: "Grammar", url: "/grammar", icon: Languages },
-  { title: "Can-Do Progress", url: "/can-do-progress", icon: Award },
   { title: "Past Chats", url: "/history", icon: History },
+  { title: "Can-Do Progress", url: "/can-do-progress", icon: Award },
+];
+
+const resourceMenuItems = [
   { title: "My Lessons", url: "/lessons", icon: FolderOpen },
   { title: "Cultural Tips", url: "/cultural-tips", icon: Globe },
+  { title: "Chat Ideas", url: "/chat-ideas", icon: Lightbulb },
 ];
 
 const teacherMenuItems = [
@@ -69,7 +75,7 @@ export function AppSidebar() {
   
   // Hide Chat Ideas until onboarding is complete
   const isOnboardingComplete = userName && userName.trim() !== "";
-  const visibleMenuItems = menuItems.filter(item => {
+  const visibleResourceItems = resourceMenuItems.filter(item => {
     if (item.title === "Chat Ideas" && !isOnboardingComplete) {
       return false;
     }
@@ -115,13 +121,13 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Learning</SidebarGroupLabel>
+          <SidebarGroupLabel>Learn</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {visibleMenuItems.map((item) => {
+              {primaryMenuItems.map((item) => {
                 const isActive = location === item.url;
-                const handleClick = (e: React.MouseEvent) => {
-                  if (item.title === "Call Tutor") {
+                const handleClick = () => {
+                  if (item.title === "Practice") {
                     localStorage.setItem('forceNewConversation', 'true');
                   }
                   closeSidebar();
@@ -135,6 +141,56 @@ export function AppSidebar() {
                       data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}
                     >
                       <Link href={item.url} onClick={handleClick}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Library</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {libraryMenuItems.map((item) => {
+                const isActive = location === item.url;
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton 
+                      asChild
+                      isActive={isActive}
+                      data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}
+                    >
+                      <Link href={item.url} onClick={closeSidebar}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Resources</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {visibleResourceItems.map((item) => {
+                const isActive = location === item.url;
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton 
+                      asChild
+                      isActive={isActive}
+                      data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}
+                    >
+                      <Link href={item.url} onClick={closeSidebar}>
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </Link>

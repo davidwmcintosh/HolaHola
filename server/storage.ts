@@ -182,6 +182,7 @@ export interface IStorage {
   getCulturalTips(language: string): Promise<CulturalTip[]>;
   getCulturalTip(id: string): Promise<CulturalTip | undefined>;
   createCulturalTip(data: InsertCulturalTip): Promise<CulturalTip>;
+  updateCulturalTip(id: string, data: Partial<InsertCulturalTip>): Promise<CulturalTip>;
 
   // Media Files
   createMediaFile(data: InsertMediaFile): Promise<MediaFile>;
@@ -1469,6 +1470,14 @@ export class DatabaseStorage implements IStorage {
     return culturalTip;
   }
 
+  async updateCulturalTip(id: string, data: Partial<InsertCulturalTip>): Promise<CulturalTip> {
+    const [updated] = await db.update(culturalTipsTable)
+      .set(data)
+      .where(eq(culturalTipsTable.id, id))
+      .returning();
+    return updated;
+  }
+
   // Media Files
   async createMediaFile(data: InsertMediaFile): Promise<MediaFile> {
     const [mediaFile] = await db.insert(mediaFiles).values(data).returning();
@@ -2701,10 +2710,38 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
-    // Get cultural tips for this language (randomly pick 3)
+    // Get cultural tips based on recent conversation topics (dynamic)
+    // First, collect topic slugs from recent conversations (convert name to slug format)
+    const nameToSlug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const recentTopicSlugs = new Set<string>();
+    for (const conv of recentConversations) {
+      for (const t of conv.topics) {
+        if (t.topic.name) {
+          recentTopicSlugs.add(nameToSlug(t.topic.name));
+        }
+      }
+    }
+
+    // Get all tips for this language
     const allTips = await this.getCulturalTips(language);
-    const shuffledTips = allTips.sort(() => Math.random() - 0.5);
-    const culturalTips = shuffledTips.slice(0, 3);
+    
+    // Filter tips that match recent conversation topics
+    let relevantTips = allTips.filter(tip => {
+      if (!tip.relatedTopics || tip.relatedTopics.length === 0) return false;
+      return tip.relatedTopics.some(topicSlug => recentTopicSlugs.has(topicSlug));
+    });
+
+    // If not enough topic-based tips, fill with random tips
+    if (relevantTips.length < 3) {
+      const remainingTips = allTips.filter(tip => !relevantTips.includes(tip));
+      const shuffledRemaining = remainingTips.sort(() => Math.random() - 0.5);
+      relevantTips = [...relevantTips, ...shuffledRemaining.slice(0, 3 - relevantTips.length)];
+    } else {
+      // Shuffle and pick 3 from relevant tips
+      relevantTips = relevantTips.sort(() => Math.random() - 0.5).slice(0, 3);
+    }
+
+    const culturalTips = relevantTips;
 
     // Get active lessons
     const activeLessons = await this.getUserLessons(userId, language);
