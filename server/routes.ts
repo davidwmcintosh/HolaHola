@@ -455,7 +455,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update user learning preferences
-  app.put('/api/user/preferences', isAuthenticated, async (req: any, res) => {
+  // Note: tutorPersonality and tutorExpressiveness are super-admin only settings
+  // Regular users can only update tutorGender (male/female) and other learning preferences
+  app.put('/api/user/preferences', isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       
@@ -470,14 +472,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { targetLanguage, nativeLanguage, difficultyLevel, onboardingCompleted, tutorGender, tutorPersonality, tutorExpressiveness } = validationResult.data;
       
+      // Check if user is a super admin (developer role)
+      // Only super admins can set tutorPersonality and tutorExpressiveness
+      const userRole = req.authenticatedUser?.role;
+      const isSuperAdmin = userRole === 'developer';
+      
       const updated = await storage.updateUserPreferences(userId, {
         targetLanguage,
         nativeLanguage,
         difficultyLevel,
         onboardingCompleted,
         tutorGender,
-        tutorPersonality,
-        tutorExpressiveness,
+        // Only allow super admins to update personality and expressiveness
+        // For regular users, these fields are undefined and won't be updated
+        tutorPersonality: isSuperAdmin ? tutorPersonality : undefined,
+        tutorExpressiveness: isSuperAdmin ? tutorExpressiveness : undefined,
       });
       
       if (!updated) {
