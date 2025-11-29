@@ -422,28 +422,34 @@ export default function ReviewHub() {
         </CardContent>
       </Card>
 
-      {/* Coursework Section - For enrolled students with lessons or assignments */}
-      {((data?.activeLessons?.length ?? 0) > 0 || (data?.upcomingAssignments?.length ?? 0) > 0) && data && (
+      {/* Coursework Section - Show based on context:
+          - Self-directed: Show personal lessons only (no assignments)
+          - Class context: Show class assignments only (personal lessons shown via dedicated Lessons page)
+      */}
+      {(() => {
+        const isSelfDirected = !learningContext || learningContext === "self-directed";
+        const hasPersonalLessons = isSelfDirected && (data?.activeLessons?.length ?? 0) > 0;
+        const hasClassAssignments = !isSelfDirected && (data?.upcomingAssignments?.length ?? 0) > 0;
+        
+        if (!hasPersonalLessons && !hasClassAssignments) return null;
+        
+        return (
         <Card data-testid="section-coursework">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <GraduationCap className="h-5 w-5 text-primary" />
-              Coursework
+              {isSelfDirected ? "My Lessons" : "Class Assignments"}
             </CardTitle>
-            <CardDescription>Your lessons and assignments from enrolled classes</CardDescription>
+            <CardDescription>
+              {isSelfDirected 
+                ? "Lessons created from your conversations" 
+                : "Assignments from your enrolled class"}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue={(data.upcomingAssignments?.length ?? 0) > 0 ? "assignments" : "lessons"} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-4">
-                <TabsTrigger value="lessons" className="gap-2" data-testid="tab-lessons">
-                  <BookOpen className="h-4 w-4" />
-                  Lessons ({data.activeLessons?.length ?? 0})
-                </TabsTrigger>
-                <TabsTrigger value="assignments" className="gap-2" data-testid="tab-assignments">
-                  <ClipboardList className="h-4 w-4" />
-                  Assignments ({data.upcomingAssignments?.length ?? 0})
-                </TabsTrigger>
-              </TabsList>
+            {isSelfDirected ? (
+              // Self-directed: Show personal lessons only
+              <div className="space-y-2">
               
               <TabsContent value="lessons" className="space-y-2">
                 {(data.activeLessons?.length ?? 0) > 0 ? (
