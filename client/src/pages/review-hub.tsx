@@ -1,12 +1,12 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useLearningFilter } from "@/contexts/LearningFilterContext";
+import { LearningContextFilter } from "@/components/LearningContextFilter";
 import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
 import {
   BookOpen,
   MessageSquare,
@@ -20,7 +20,6 @@ import {
   Clock,
   Hash,
   Tag,
-  Volume2,
   ArrowRight,
   Calendar,
   Trophy,
@@ -73,11 +72,16 @@ function getLanguageDisplayName(code: string): string {
 
 export default function ReviewHub() {
   const { language } = useLanguage();
+  const { learningContext } = useLearningFilter();
 
   const { data, isLoading } = useQuery<ReviewHubData>({
-    queryKey: ["/api/review-hub", { language }],
+    queryKey: ["/api/review-hub", { language, learningContext }],
     queryFn: async () => {
-      const response = await fetch(`/api/review-hub?language=${language}`, { credentials: 'include' });
+      const params = new URLSearchParams({ language });
+      if (learningContext !== "all") {
+        params.append("context", learningContext);
+      }
+      const response = await fetch(`/api/review-hub?${params}`, { credentials: 'include' });
       if (!response.ok) throw new Error('Failed to fetch review data');
       return response.json();
     },
@@ -116,12 +120,15 @@ export default function ReviewHub() {
               Your personalized {getLanguageDisplayName(language)} learning dashboard
             </p>
           </div>
-          <Link href="/chat">
-            <Button size="lg" className="gap-2" data-testid="button-start-practice">
-              <Mic className="h-5 w-5" />
-              Start Practice
-            </Button>
-          </Link>
+          <div className="flex items-center gap-3 flex-wrap">
+            <LearningContextFilter />
+            <Link href="/chat">
+              <Button size="lg" className="gap-2" data-testid="button-start-practice">
+                <Mic className="h-5 w-5" />
+                Start Practice
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Quick Stats */}

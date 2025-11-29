@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { ConversationHistory } from "@/components/ConversationHistory";
-import { LanguageSelector } from "@/components/LanguageSelector";
+import { LearningContextFilter } from "@/components/LearningContextFilter";
 
 export default function History() {
   const search = useSearch();
@@ -33,7 +33,7 @@ export default function History() {
           <h1 className="text-3xl font-semibold mb-2">Conversation History</h1>
           <p className="text-muted-foreground">Review your past practice sessions</p>
         </div>
-        <LanguageSelector compact />
+        <LearningContextFilter />
       </div>
 
       <ConversationHistory 

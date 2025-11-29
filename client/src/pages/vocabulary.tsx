@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { VocabularyFlashcard } from "@/components/VocabularyFlashcard";
-import { LanguageSelector } from "@/components/LanguageSelector";
+import { LearningContextFilter } from "@/components/LearningContextFilter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Filter } from "lucide-react";
@@ -31,7 +31,8 @@ export default function Vocabulary() {
           <h1 className="text-3xl font-semibold mb-2">Vocabulary Practice</h1>
           <p className="text-muted-foreground">Build your vocabulary with interactive flashcards</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <LearningContextFilter />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" data-testid="dropdown-vocabulary-time-filter">
@@ -51,7 +52,6 @@ export default function Vocabulary() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-          <LanguageSelector compact />
         </div>
       </div>
 

@@ -50,6 +50,13 @@ The Dashboard includes a "What's Next?" card linking to Review Hub for easy navi
 - **Tutor Acknowledgment**: Generates encouraging messages when students are ahead of syllabus, integrated into conversation prompts
 - **Full Documentation**: See `docs/syllabus-aware-competency-system.md` for comprehensive stakeholder documentation (developers, students, teachers, sales)
 
+**Conversational Syllabus Navigation**: Students can ask the tutor about their class progress, assignments, and next lessons during voice or text conversations. The system:
+- **Curriculum Context Service** (`server/services/curriculum-context.ts`): Builds comprehensive context about enrolled classes, curriculum progress, assignments, and due dates for each student
+- **System Prompt Integration**: Curriculum context is automatically included in AI tutor prompts for enrolled students
+- **Query Detection**: Recognizes syllabus-related questions like "what's next in my class?", "do I have assignments due?", and "how am I doing?"
+- **Tutor Switch Detection**: Detects language/tutor switch requests like "let me talk to my Spanish tutor" for mid-conversation switching
+- **Context Formatting**: Provides the tutor with class names, teacher names, curriculum paths, lesson progress, and upcoming assignments
+
 ## External Dependencies
 
 ### Third-Party Services

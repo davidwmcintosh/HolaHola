@@ -9,6 +9,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { LearningFilterProvider } from "@/contexts/LearningFilterContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useLogout } from "@/hooks/useLogout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -189,21 +190,23 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
   // Show full app with sidebar for authenticated users
   return (
     <LanguageProvider>
-      <SidebarProvider defaultOpen={true} style={style as React.CSSProperties}>
-        <div className="flex h-screen w-full">
-          {/* Sidebar renders as Sheet overlay on mobile, regular sidebar on desktop */}
-          <AppSidebar />
-          <div className="flex flex-col flex-1 relative">
-            <main className="flex-1 overflow-hidden">
-              <Router />
-            </main>
-            {/* Floating menu button - works on all screen sizes */}
-            <FloatingMenuButton />
+      <LearningFilterProvider>
+        <SidebarProvider defaultOpen={true} style={style as React.CSSProperties}>
+          <div className="flex h-screen w-full">
+            {/* Sidebar renders as Sheet overlay on mobile, regular sidebar on desktop */}
+            <AppSidebar />
+            <div className="flex flex-col flex-1 relative">
+              <main className="flex-1 overflow-hidden">
+                <Router />
+              </main>
+              {/* Floating menu button - works on all screen sizes */}
+              <FloatingMenuButton />
+            </div>
           </div>
-        </div>
-        <OfflineIndicator />
-        <PWAInstallPrompt />
-      </SidebarProvider>
+          <OfflineIndicator />
+          <PWAInstallPrompt />
+        </SidebarProvider>
+      </LearningFilterProvider>
     </LanguageProvider>
   );
 }

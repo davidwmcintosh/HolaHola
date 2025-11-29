@@ -1,5 +1,5 @@
 import { GrammarExercise } from "@/components/GrammarExercise";
-import { LanguageSelector } from "@/components/LanguageSelector";
+import { LearningContextFilter } from "@/components/LearningContextFilter";
 
 export default function Grammar() {
   return (
@@ -9,7 +9,7 @@ export default function Grammar() {
           <h1 className="text-3xl font-semibold mb-2">Grammar Exercises</h1>
           <p className="text-muted-foreground">Master grammar rules with interactive practice</p>
         </div>
-        <LanguageSelector compact />
+        <LearningContextFilter />
       </div>
 
       <div className="max-w-2xl mx-auto">

@@ -27,6 +27,7 @@ import {
   StreamingErrorMessage,
 } from '@shared/streaming-voice-types';
 import { generateCongratulatoryPromptAddition } from './services/competency-verifier';
+import { buildCurriculumContext, detectSyllabusQuery } from './services/curriculum-context';
 
 const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
 const REALTIME_PATH = '/api/realtime/ws';
@@ -187,6 +188,18 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
               content: m.content,
             }));
 
+          // Build curriculum context if user is enrolled in classes
+          let curriculumContext = null;
+          try {
+            const studentName = user.firstName || 'Student';
+            curriculumContext = await buildCurriculumContext(storage, userId!, studentName);
+            if (curriculumContext.enrolledClasses.length > 0) {
+              console.log(`[Streaming Voice] Built curriculum context for ${curriculumContext.enrolledClasses.length} classes`);
+            }
+          } catch (err) {
+            console.warn('[Streaming Voice] Could not build curriculum context:', err);
+          }
+
           // Use full system prompt with streaming voice mode flag
           // This preserves all teaching context (ACTFL, cultural guidelines, vocabulary)
           // while outputting plain text format for TTS
@@ -205,7 +218,8 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             messages.length,
             (user.tutorPersonality || 'warm') as any,
             user.tutorExpressiveness || 3,
-            true // isStreamingVoiceMode - outputs plain text with **bold** markers
+            true, // isStreamingVoiceMode - outputs plain text with **bold** markers
+            curriculumContext // Add curriculum context for syllabus awareness
           );
 
           // Add congratulatory messaging if student is ahead of syllabus

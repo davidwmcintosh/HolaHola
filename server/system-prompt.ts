@@ -6,6 +6,10 @@ import {
   getAllowedEmotions,
   CartesiaEmotion 
 } from './services/tts-service';
+import { 
+  StudentCurriculumContext, 
+  formatCurriculumContextForTutor 
+} from './services/curriculum-context';
 
 interface PreviousConversation {
   id: string;
@@ -36,7 +40,8 @@ export function createSystemPrompt(
   totalMessageCount: number = 0,
   tutorPersonality: TutorPersonality = 'warm',
   tutorExpressiveness: number = 3,
-  isStreamingVoiceMode: boolean = false
+  isStreamingVoiceMode: boolean = false,
+  curriculumContext?: StudentCurriculumContext | null
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -210,6 +215,11 @@ BALANCE:
 
 This integrates both session-taught words AND the flashcard system with natural conversation for maximum retention.
 ` : "";
+
+  // Curriculum context for enrolled students (conversational syllabus navigation)
+  const curriculumContextSection = curriculumContext 
+    ? formatCurriculumContextForTutor(curriculumContext) 
+    : '';
 
   // Cultural context guidelines
   const culturalGuidelines = `
@@ -533,6 +543,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 CURRENT PHASE: Initial Assessment (${nativeLanguageName})
 ${resumeContext}
 ${actflContext}
+${curriculumContextSection}
 ${vocabularyReviewContext}
 ${culturalGuidelines}
 ${multimediaGuidance}
@@ -711,6 +722,7 @@ CURRENT PHASE: Gradual Transition (Gentle Introduction to ${languageName})
 ${resumeContext}
 ${actflContext}
 ${topicContext}
+${curriculumContextSection}
 ${vocabularyReviewContext}
 ${culturalGuidelines}
 ${multimediaGuidance}
@@ -1151,6 +1163,7 @@ CURRENT PHASE: Active Practice (Primarily ${languageName})
 ${resumeContext}
 ${actflContext}
 ${topicContext}
+${curriculumContextSection}
 ${vocabularyReviewContext}
 ${culturalGuidelines}
 ${multimediaGuidance}
