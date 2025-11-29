@@ -199,8 +199,8 @@ export default function ReviewHub() {
                     <BookOpen className="h-5 w-5 text-amber-700 dark:text-amber-300" />
                   </div>
                   <div>
-                    <p className="font-medium">Review {data.dueFlashcards.length} flashcards</p>
-                    <p className="text-sm text-muted-foreground">Due for spaced repetition review</p>
+                    <p className="font-medium">Review {data.dueFlashcards.length} due flashcards</p>
+                    <p className="text-sm text-muted-foreground">Scheduled by spaced repetition - review now for best retention</p>
                   </div>
                 </div>
                 <Button variant="ghost" size="icon">
@@ -220,7 +220,7 @@ export default function ReviewHub() {
             </div>
           )}
 
-          {/* Recent Vocabulary */}
+          {/* Recent Vocabulary - Only show if there are new words NOT already in due cards */}
           {data?.recentVocabulary && data.recentVocabulary.length > 0 && (
             <Link href="/vocabulary">
               <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 hover-elevate cursor-pointer" data-testid="link-recent-vocab">
@@ -229,9 +229,9 @@ export default function ReviewHub() {
                     <Sparkles className="h-5 w-5 text-blue-700 dark:text-blue-300" />
                   </div>
                   <div>
-                    <p className="font-medium">{data.recentVocabulary.length} new words this week</p>
+                    <p className="font-medium">Reinforce {data.recentVocabulary.length} new words</p>
                     <p className="text-sm text-muted-foreground">
-                      {data.recentVocabulary.slice(0, 3).map(w => w.word).join(", ")}
+                      Recently learned: {data.recentVocabulary.slice(0, 3).map(w => w.word).join(", ")}
                       {data.recentVocabulary.length > 3 && "..."}
                     </p>
                   </div>
@@ -243,27 +243,38 @@ export default function ReviewHub() {
             </Link>
           )}
 
-          {/* Continue Conversation */}
-          {hasRecentConversations && (
-            <Link href={`/chat?resume=${data.recentConversations[0].id}`}>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-900/20 hover-elevate cursor-pointer" data-testid="link-continue-conversation">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-full bg-green-100 dark:bg-green-800">
-                    <MessageSquare className="h-5 w-5 text-green-700 dark:text-green-300" />
+          {/* Continue Conversation - Show topic context */}
+          {hasRecentConversations && (() => {
+            const conv = data.recentConversations[0];
+            const topicNames = (conv.topics ?? []).map(t => t.topic?.name).filter(Boolean).slice(0, 2);
+            const hasTopicContext = topicNames.length > 0;
+            const title = conv.title || (hasTopicContext ? `About ${topicNames.join(" & ")}` : null);
+            
+            return (
+              <Link href={`/chat?resume=${conv.id}`}>
+                <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-900/20 hover-elevate cursor-pointer" data-testid="link-continue-conversation">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-green-100 dark:bg-green-800">
+                      <MessageSquare className="h-5 w-5 text-green-700 dark:text-green-300" />
+                    </div>
+                    <div>
+                      <p className="font-medium">
+                        {title ? `Continue: ${title}` : "Continue recent conversation"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {hasTopicContext 
+                          ? `Keep practicing ${topicNames.join(", ")}`
+                          : "Pick up where you left off"}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">Continue conversation</p>
-                    <p className="text-sm text-muted-foreground">
-                      {data.recentConversations[0].title || "Pick up where you left off"}
-                    </p>
-                  </div>
+                  <Button variant="ghost" size="icon">
+                    <Play className="h-5 w-5" />
+                  </Button>
                 </div>
-                <Button variant="ghost" size="icon">
-                  <Play className="h-5 w-5" />
-                </Button>
-              </div>
-            </Link>
-          )}
+              </Link>
+            );
+          })()}
 
           {/* Start New Practice */}
           <Link href="/chat">
