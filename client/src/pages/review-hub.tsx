@@ -127,81 +127,79 @@ export default function ReviewHub() {
   const hasNextLesson = data?.nextLesson !== null && data?.nextLesson !== undefined;
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl space-y-6">
-      {/* Header with Stats */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <img src={linguaflowLogo} alt="LinguaFlow" className="h-32 w-32" />
-            <div>
-              <h1 className="text-2xl font-bold" data-testid="text-review-hub-title">
-                Language Hub
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Your personalized {getLanguageDisplayName(language)} learning dashboard
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <LearningContextFilter />
-            <Link href="/chat">
-              <Button size="lg" className="gap-2" data-testid="button-start-practice">
-                <Mic className="h-5 w-5" />
-                Start Practice
-              </Button>
-            </Link>
+    <div className="container mx-auto p-4 max-w-4xl space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <img src={linguaflowLogo} alt="LinguaFlow" className="h-16 w-16" />
+          <div>
+            <h1 className="text-2xl font-bold" data-testid="text-review-hub-title">
+              Language Hub
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Your personalized {getLanguageDisplayName(language)} learning dashboard
+            </p>
           </div>
         </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <LearningContextFilter />
+          <Link href="/chat">
+            <Button size="lg" className="gap-2" data-testid="button-start-practice">
+              <Mic className="h-5 w-5" />
+              Start Practice
+            </Button>
+          </Link>
+        </div>
+      </div>
 
-        {/* Quick Stats Row - Integrated with ACTFL */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <Card className="p-3">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-full bg-orange-100 dark:bg-orange-900/30">
-                <Flame className="h-4 w-4 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold" data-testid="text-streak">{data?.stats.streakDays || 0}</p>
-                <p className="text-xs text-muted-foreground">Streak</p>
-              </div>
+      {/* Quick Stats Row - Integrated with ACTFL */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <Card className="p-3">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-full bg-orange-100 dark:bg-orange-900/30">
+              <Flame className="h-4 w-4 text-orange-600" />
             </div>
-          </Card>
-          <Card className="p-3">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
-                <BookOpen className="h-4 w-4 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold" data-testid="text-vocab-count">{data?.stats.totalVocabulary || 0}</p>
-                <p className="text-xs text-muted-foreground">Words</p>
-              </div>
+            <div>
+              <p className="text-2xl font-bold" data-testid="text-streak">{data?.stats.streakDays || 0}</p>
+              <p className="text-xs text-muted-foreground">Streak</p>
             </div>
-          </Card>
-          <Card className="p-3">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30">
-                <MessageSquare className="h-4 w-4 text-green-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold" data-testid="text-conv-count">{data?.stats.totalConversations || 0}</p>
-                <p className="text-xs text-muted-foreground">Chats</p>
-              </div>
+          </div>
+        </Card>
+        <Card className="p-3">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
+              <BookOpen className="h-4 w-4 text-blue-600" />
             </div>
-          </Card>
-          <Card className="p-3">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-full bg-purple-100 dark:bg-purple-900/30">
-                <Target className="h-4 w-4 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold" data-testid="text-due-count">{data?.stats.dueCount || 0}</p>
-                <p className="text-xs text-muted-foreground">Due</p>
-              </div>
+            <div>
+              <p className="text-2xl font-bold" data-testid="text-vocab-count">{data?.stats.totalVocabulary || 0}</p>
+              <p className="text-xs text-muted-foreground">Words</p>
             </div>
-          </Card>
-          {/* ACTFL Fluency - only show when single language selected */}
-          {language !== "all" && <ActflFluencyDial stat language={language} />}
-        </div>
+          </div>
+        </Card>
+        <Card className="p-3">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30">
+              <MessageSquare className="h-4 w-4 text-green-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold" data-testid="text-conv-count">{data?.stats.totalConversations || 0}</p>
+              <p className="text-xs text-muted-foreground">Chats</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-3">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-full bg-purple-100 dark:bg-purple-900/30">
+              <Target className="h-4 w-4 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold" data-testid="text-due-count">{data?.stats.dueCount || 0}</p>
+              <p className="text-xs text-muted-foreground">Due</p>
+            </div>
+          </div>
+        </Card>
+        {/* ACTFL Fluency - only show when single language selected */}
+        {language !== "all" && <ActflFluencyDial stat language={language} />}
       </div>
 
       {/* Daily Plan Section */}
