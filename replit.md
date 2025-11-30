@@ -52,6 +52,14 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Hybrid Grammar System**: A research-backed grammar instruction approach combining conversational practice with targeted explicit instruction. Uses three database tables: `grammarCompetencies` (38 ACTFL-aligned topics), `grammarErrors` (error tracking for micro-coaching), and `userGrammarProgress` (mastery tracking). API routes: `/api/grammar/competencies?language=X` returns competencies organized by ACTFL level; `/api/grammar/exercises?language=X&competencyId=Y` returns practice exercises. The Grammar Hub page (`/grammar`) provides topic browser with ACTFL organization, competency cards with progress indicators, and practice drills.
 
+**Curriculum Content System**: Pre-built curricula across 9 languages (Spanish, French, German, Italian, Japanese, Korean, Mandarin, Portuguese, English) with 21 courses containing 524 lessons across 116 units. Four lesson types with visual indicators:
+- **Conversation** (green, MessageSquare icon) - 338 lessons: AI-guided conversation practice
+- **Vocabulary** (blue, Languages icon) - 90 lessons: Targeted vocabulary building
+- **Grammar** (purple, PencilLine icon) - 60 lessons: Explicit grammar instruction (2-3 per course)
+- **Cultural Exploration** (amber, Globe icon) - 36 lessons: Cultural immersion and context
+
+Curriculum progression: Level 1/2 courses (Novice) include 3 grammar lessons; Level 3/4 courses (Intermediate) include 2 grammar lessons. Grammar topics are ACTFL-aligned and language-specific (e.g., gender agreement for Romance languages, particles for Japanese/Korean, measure words for Mandarin).
+
 ---
 
 ## Role-Based Access Control (RBAC) Documentation
