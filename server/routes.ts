@@ -635,6 +635,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch balance" });
     }
   });
+  
+  // Get class-specific balance for a student enrollment
+  app.get('/api/usage/class/:classId/balance', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { classId } = req.params;
+      
+      // Check for developer bypass
+      const isDeveloper = await usageService.checkDeveloperBypass(userId);
+      if (isDeveloper) {
+        return res.json({
+          classId,
+          className: 'Developer Mode',
+          allocatedSeconds: 432000, // 120 hours
+          usedSeconds: 0,
+          remainingSeconds: 432000,
+          remainingHours: 120,
+          percentUsed: 0,
+          isExhausted: false,
+        });
+      }
+      
+      const classBalance = await usageService.getClassBalance(userId, classId);
+      if (!classBalance) {
+        return res.status(404).json({ message: "Not enrolled in this class" });
+      }
+      res.json(classBalance);
+    } catch (error) {
+      console.error("Error fetching class balance:", error);
+      res.status(500).json({ message: "Failed to fetch class balance" });
+    }
+  });
+  
+  // Get purchased hours balance (not tied to any class)
+  app.get('/api/usage/purchased', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Check for developer bypass
+      const isDeveloper = await usageService.checkDeveloperBypass(userId);
+      if (isDeveloper) {
+        return res.json({
+          remainingSeconds: 999999 * 3600,
+          remainingHours: 999999,
+        });
+      }
+      
+      const purchasedBalance = await usageService.getPurchasedBalance(userId);
+      res.json(purchasedBalance);
+    } catch (error) {
+      console.error("Error fetching purchased balance:", error);
+      res.status(500).json({ message: "Failed to fetch purchased balance" });
+    }
+  });
+  
+  // Check credits with class context (for starting sessions)
+  app.get('/api/usage/check/:classId?', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const classId = req.params.classId || req.query.classId;
+      
+      // Check for developer bypass first
+      const isDeveloper = await usageService.checkDeveloperBypass(userId);
+      if (isDeveloper) {
+        return res.json({
+          allowed: true,
+          remainingSeconds: 999999 * 3600,
+          remainingHours: 999999,
+          source: 'purchased',
+          message: "Developer mode - unlimited access",
+        });
+      }
+      
+      const result = await usageService.checkSufficientCredits(userId, classId);
+      res.json({
+        ...result,
+        remainingHours: result.remainingSeconds / 3600,
+      });
+    } catch (error) {
+      console.error("Error checking credits:", error);
+      res.status(500).json({ message: "Failed to check credits" });
+    }
+  });
 
   // ===== Stripe Billing Routes =====
   
@@ -4696,6 +4779,66 @@ Return ONLY the ${targetLanguage} phrase:`;
       res.json({ success: true });
     } catch (error: any) {
       console.error('Error removing student from class:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // ===== Class Usage Reporting =====
+  
+  // Get class usage report (teachers only)
+  app.get("/api/teacher/classes/:classId/usage", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { classId } = req.params;
+      const user = await storage.getUser(teacherId);
+      
+      if (!hasTeacherAccess(user?.role)) {
+        return res.status(403).json({ error: "Teacher access required" });
+      }
+      
+      // Verify teacher owns this class (or is admin)
+      const teacherClass = await storage.getTeacherClass(classId);
+      if (!teacherClass) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+      
+      if (user?.role !== 'admin' && teacherClass.teacherId !== teacherId) {
+        return res.status(403).json({ error: "Not authorized for this class" });
+      }
+      
+      const report = await usageService.getClassUsageReport(classId);
+      res.json(report);
+    } catch (error: any) {
+      console.error('Error fetching class usage report:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Reset class usage (admin only - for testing purposes)
+  app.post("/api/admin/classes/:classId/reset-usage", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { classId } = req.params;
+      const { resetAllStudents, studentId, hoursToAllocate } = req.body;
+      
+      const user = await storage.getUser(userId);
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const result = await usageService.resetClassUsage(classId, {
+        resetAllStudents,
+        studentId,
+        hoursToAllocate: hoursToAllocate || 120, // Default 120 hours
+      });
+      
+      res.json({
+        success: true,
+        ...result,
+        message: `Reset ${result.studentsReset} student(s) with ${result.hoursAllocated} hours each`,
+      });
+    } catch (error: any) {
+      console.error('Error resetting class usage:', error);
       res.status(500).json({ error: error.message });
     }
   });
