@@ -5,7 +5,7 @@ import type { User } from "@shared/schema";
 type DifficultyLevel = "beginner" | "intermediate" | "advanced";
 export type SubtitleMode = "off" | "target" | "all";
 export type TutorGender = "male" | "female";
-export type VoiceSpeed = "normal" | "slow";
+export type VoiceSpeed = "slower" | "slow" | "normal" | "fast" | "faster";
 
 interface LanguageContextType {
   language: string;
@@ -54,7 +54,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   });
   const [voiceSpeed, setVoiceSpeedState] = useState<VoiceSpeed>(() => {
     const saved = localStorage.getItem("voiceSpeed") as VoiceSpeed;
-    const speed = saved && ["normal", "slow"].includes(saved) ? saved : "normal";
+    const validSpeeds = ["slower", "slow", "normal", "fast", "faster"];
+    const speed = saved && validSpeeds.includes(saved) ? saved : "normal";
     console.log('[LanguageContext] Initializing with voiceSpeed:', speed, '(from localStorage)');
     return speed;
   });

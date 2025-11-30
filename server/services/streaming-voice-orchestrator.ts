@@ -98,6 +98,27 @@ function cleanTextForDisplay(text: string): string {
 const SESSION_IDLE_TIMEOUT_MS = 120000; // 2 minutes of inactivity before cleanup
 
 /**
+ * Voice speed options for speaking rate control
+ * Maps to numeric speaking rates for TTS
+ */
+export type VoiceSpeedOption = 'slower' | 'slow' | 'normal' | 'fast' | 'faster';
+
+/**
+ * Convert voice speed string to numeric speaking rate
+ * These values map to Cartesia's 0.6-1.5 range
+ */
+export function voiceSpeedToRate(speed: VoiceSpeedOption | undefined): number {
+  switch (speed) {
+    case 'slower': return 0.6;
+    case 'slow': return 0.75;
+    case 'normal': return 0.9;
+    case 'fast': return 1.1;
+    case 'faster': return 1.3;
+    default: return 0.9;
+  }
+}
+
+/**
  * Session state for a streaming voice connection
  */
 export interface StreamingSession {
@@ -110,6 +131,7 @@ export interface StreamingSession {
   subtitleMode: 'off' | 'target' | 'all';
   tutorPersonality: TutorPersonality;
   tutorExpressiveness: number;
+  voiceSpeed: VoiceSpeedOption;
   voiceId?: string;
   systemPrompt: string;
   conversationHistory: Array<{ role: 'user' | 'model'; content: string }>;
@@ -262,6 +284,7 @@ export class StreamingVoiceOrchestrator {
       subtitleMode: config.subtitleMode,
       tutorPersonality: (config.tutorPersonality as TutorPersonality) || 'warm',
       tutorExpressiveness: config.tutorExpressiveness || 3,
+      voiceSpeed: (config.voiceSpeed as VoiceSpeedOption) || 'normal',
       voiceId,
       systemPrompt,
       conversationHistory,
@@ -727,6 +750,7 @@ export class StreamingVoiceOrchestrator {
         language: session.targetLanguage,
         targetLanguage: session.targetLanguage, // For phoneme pronunciation
         voiceId: session.voiceId,
+        speakingRate: voiceSpeedToRate(session.voiceSpeed),
         emotion,
         personality: session.tutorPersonality,
         expressiveness: session.tutorExpressiveness,

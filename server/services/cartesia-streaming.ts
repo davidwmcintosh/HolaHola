@@ -261,12 +261,8 @@ export class CartesiaStreamingService extends EventEmitter {
     const constrainedEmotion = constrainEmotion(emotion, personality, expressiveness);
     
     // Map speaking rate to Cartesia's 0.6-1.5 range
-    let cartesiaSpeed = 0.9;
-    if (speakingRate <= 0.7) {
-      cartesiaSpeed = 0.7;
-    } else if (speakingRate >= 1.2) {
-      cartesiaSpeed = 1.3;
-    }
+    // Input rates: 0.6 (slower), 0.75 (slow), 0.9 (normal), 1.1 (fast), 1.3 (faster)
+    let cartesiaSpeed = Math.max(0.6, Math.min(1.5, speakingRate));
     
     // Apply phoneme tags for correct pronunciation of foreign words
     const phonemedText = addCartesiaPhonemesToText(text, targetLanguage);

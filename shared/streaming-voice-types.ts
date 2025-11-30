@@ -219,7 +219,7 @@ export interface ClientStartSessionMessage {
   tutorPersonality?: string;
   tutorExpressiveness?: number;
   tutorGender?: 'male' | 'female';
-  voiceSpeed?: 'normal' | 'slow';
+  voiceSpeed?: 'slower' | 'slow' | 'normal' | 'fast' | 'faster';
 }
 
 /**
