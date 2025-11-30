@@ -260,9 +260,11 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     console.log(`[StreamingSubtitles v2]   wordMapping: ${wordMappingArray ? JSON.stringify(wordMappingArray) : '(none)'}`);
     console.log(`[StreamingSubtitles v2]   displayText: "${text.substring(0, 60)}..."`);
     
-    // Clear waiting flag when first sentence arrives
-    isWaitingForContentRef.current = false;
-    setIsWaitingForContent(false);
+    // NOTE: Do NOT clear isWaitingForContent here!
+    // The waiting flag should only be cleared in startPlayback when the sentence ACTUALLY starts playing
+    // Clearing it here creates a race condition: isWaiting=false but streamingText is still empty
+    // because currentSentenceIndex hasn't been updated yet (that happens in startPlayback)
+    // This gap allows the fallback path in ImmersiveTutor to show OLD message text as phantom!
     
     // NOTE: Do NOT update hasTargetContent here!
     // hasTargetContent should only be updated in startPlayback when the sentence ACTUALLY starts playing
@@ -346,6 +348,13 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     }
     
     console.log(`[StreamingSubtitles v2] ▶ START PLAYBACK sentence ${sentenceIndex} (turn ${turnId})`);
+    
+    // CRITICAL: Clear waiting flag NOW, at playback start, not in addSentence
+    // This ensures isWaiting stays true until streamingText will actually have content
+    // (streamingText depends on currentSentenceIndex which is set below)
+    isWaitingForContentRef.current = false;
+    setIsWaitingForContent(false);
+    console.log(`[StreamingSubtitles v2]   Cleared isWaitingForContent at playback start`);
     
     // Get timings from cache
     const storedTimings = timingsBySentenceRef.current.get(sentenceIndex);

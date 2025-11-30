@@ -1,6 +1,6 @@
 # Subtitle Bug Tracking Document
 
-## Last Updated: November 30, 2025 (Late Evening Session - 11:50 PM)
+## Last Updated: December 1, 2025 (Early Morning Session - 12:05 AM)
 
 ---
 
@@ -182,12 +182,52 @@ if (isWaiting) {
 ### Why This Works:
 The `isWaitingForContent` flag is set immediately on mic release (sync with React batch) and stays true until new streaming content arrives. This covers the entire gap window.
 
+### Result: FIX #5 DID NOT WORK
+Phantom still appearing. Console log analysis showed: `isWaiting: false` but `hasStreamingText: false` at the same time - the fallback guard wasn't triggering because `isWaiting` was already false!
+
+---
+
+## Fix #6: isWaitingForContent Cleared Too Early (Dec 1, 2025 - 12:05 AM)
+
+### Root Cause FOUND!
+Analyzed console log and found that in `addSentence()` (useStreamingSubtitles.ts lines 264-265):
+```typescript
+// OLD CODE - CLEARED TOO EARLY:
+isWaitingForContentRef.current = false;
+setIsWaitingForContent(false);  // ← Cleared when sentence ADDED
+```
+
+But `streamingText` comes from `getCurrentSentenceText()` which depends on `currentSentenceIndex`, which is only set in `startPlayback()` - AFTER `addSentence()` completes!
+
+### Timeline of Bug:
+1. Mic released → `isWaitingForContent = true` ✓
+2. Sentence added → `isWaitingForContent = false` (TOO EARLY!)
+3. `streamingText` still empty (currentSentenceIndex not yet set)
+4. `hasStreamingText: false`, `isWaiting: false` → Guards don't block
+5. Fallback path shows `lastAssistantMessage.targetLanguageText`
+6. **PHANTOM**: Old "Hola" appears!
+
+### Fix Applied:
+Moved `isWaitingForContent` clearing from `addSentence()` to `startPlayback()`:
+```typescript
+// In startPlayback() - useStreamingSubtitles.ts
+console.log(`[StreamingSubtitles v2] ▶ START PLAYBACK sentence ${sentenceIndex}`);
+
+// CRITICAL: Clear waiting flag NOW, at playback start, not in addSentence
+// This ensures isWaiting stays true until streamingText will actually have content
+isWaitingForContentRef.current = false;
+setIsWaitingForContent(false);
+```
+
+### Why This Works:
+`startPlayback()` sets `currentSentenceIndex` (which `streamingText` depends on) in the SAME synchronous batch. So `isWaiting=false` and `hasStreamingText=true` happen together - no gap for the fallback to exploit!
+
 ---
 
 ## Current Open Bugs
 
 ### Bug #1: Phantom Subtitles
-**Status:** FIX #5 APPLIED - Root cause identified in fallback path  
+**Status:** FIX #6 APPLIED - Moved isWaitingForContent clearing to startPlayback  
 **Severity:** High  
 **First Reported:** November 2025  
 **Last Tested:** November 30, 2025 (Evening)
