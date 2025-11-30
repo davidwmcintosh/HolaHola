@@ -456,24 +456,37 @@ export function ImmersiveTutor({
           if (streamingText) {
             // For "target" mode, use streamingTargetText if available
             const isTargetMode = subtitleMode === "target";
+            
+            // CRITICAL: Use synchronous getter to check actual current fallback state
+            // The prop might be stale due to React batching - the ref is always up-to-date
+            const syncFallbackText = getLastNonEmptyTargetText ? getLastNonEmptyTargetText() : lastNonEmptyTargetText;
+            
+            // For target mode, determine what text to show
+            // Priority: current sentence target text > nothing (hide if no target)
+            // We explicitly do NOT use fallback text anymore to prevent phantoms
             const displayTextForStreaming = isTargetMode 
               ? (streamingTargetText || '') 
               : streamingText;
             
-            // DEBUG: Log streaming subtitle state
+            // DEBUG: Log streaming subtitle state (includes sync fallback check)
             console.log('[SUBTITLE DEBUG]', {
               mode: subtitleMode,
               streamingText: streamingText?.substring(0, 50),
               streamingTargetText: streamingTargetText?.substring(0, 50),
+              syncFallbackText: syncFallbackText?.substring(0, 30),
               streamingWordIndex,
               streamingTargetWordIndex,
               isProcessing,
             });
             
             // For "target" mode with no target text available, hide subtitles entirely
-            // Previously this showed fallback text, but that caused "phantom" subtitles
-            // where old Spanish words stayed visible during English sentences
+            // Check both the prop AND the synchronous getter to catch all phantom cases
+            // The sync getter reflects the latest ref value even if React state is batched
             if (isTargetMode && !streamingTargetText) {
+              // Also verify the fallback has been cleared (sync check)
+              if (syncFallbackText) {
+                console.log('[SUBTITLE DEBUG] PHANTOM DETECTED! Target text empty but fallback has value:', syncFallbackText);
+              }
               console.log('[SUBTITLE DEBUG] Target mode with no target text - hiding (no phantoms)');
               return null;
             }

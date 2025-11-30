@@ -177,15 +177,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   const startPlayback = useCallback((sentenceIndex: number) => {
     console.log(`[StreamingSubtitles] Start playback for sentence ${sentenceIndex}`);
     
-    setCurrentSentenceIndex(sentenceIndex);
-    setIsPlaying(true);
-    setVisibleWordCount(0);
-    setCurrentWordIndex(-1);
-    setMaxTargetWordIndex(-1);  // Reset max target index for new sentence
-    playbackStartTimeRef.current = Date.now();
-    actualDurationRef.current = undefined; // Reset actual duration
-    
-    // Get timings from ref map (immediate synchronous access for streaming playback)
+    // Get timings from ref map FIRST (immediate synchronous access for streaming playback)
     const storedTimings = timingsBySentenceRef.current.get(sentenceIndex);
     if (storedTimings) {
       currentTimingsRef.current = storedTimings.timings;
@@ -198,24 +190,36 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       expectedDurationRef.current = undefined;
     }
     
-    // Load word mapping for Target mode karaoke highlighting
-    // This is stored in the sentence data from addSentence
-    // ALSO: Clear fallback if this sentence has no target text (prevents phantom subtitles)
+    // Check the sentence's target text BEFORE any state updates
+    // This ensures we clear fallback synchronously in the same tick
     setSentences(prev => {
       const sentence = prev.find(s => s.index === sentenceIndex);
       currentWordMappingRef.current = sentence?.wordMapping;
       
-      // CRITICAL: If this sentence has no target text, clear the fallback immediately
-      // This prevents phantom subtitles from the previous sentence
+      // CRITICAL: If this sentence has no target text, clear the fallback SYNCHRONOUSLY
+      // Using the ref ensures immediate effect before any render
       if (!sentence?.targetLanguageText || sentence.targetLanguageText.trim().length === 0) {
-        console.log(`[StreamingSubtitles] Sentence ${sentenceIndex} has no target text - clearing fallback on playback start`);
-        lastNonEmptyTargetTextRef.current = '';
-        // Note: We use setTimeout to avoid state update during setState callback
-        setTimeout(() => setLastNonEmptyTargetText(''), 0);
+        console.log(`[StreamingSubtitles] Sentence ${sentenceIndex} has no target text - clearing fallback SYNC on playback start`);
+        lastNonEmptyTargetTextRef.current = '';  // Sync clear via ref
       }
       
-      return prev; // No actual state change, just loading the ref
+      return prev; // No state change, just reading
     });
+    
+    // Now batch all the state updates together
+    // React will batch these, but the ref is already cleared above
+    setCurrentSentenceIndex(sentenceIndex);
+    setIsPlaying(true);
+    setVisibleWordCount(0);
+    setCurrentWordIndex(-1);
+    setMaxTargetWordIndex(-1);
+    
+    // Also clear the state version (will be batched with above)
+    // The ref is the source of truth for sync access
+    setLastNonEmptyTargetText('');  // Always clear on new sentence start to prevent phantoms
+    
+    playbackStartTimeRef.current = Date.now();
+    actualDurationRef.current = undefined;
   }, []);
   
   /**
