@@ -1229,7 +1229,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Validate that the user is enrolled in this class
           const enrollments = await storage.getStudentEnrollments(userId);
           const validEnrollment = enrollments.find(e => 
-            e.classId === req.body.classId && e.status === 'enrolled'
+            e.classId === req.body.classId && e.isActive
           );
           if (validEnrollment) {
             classId = req.body.classId;
@@ -1244,7 +1244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const enrollments = await storage.getStudentEnrollments(userId);
           const activeEnrollment = enrollments.find(e => {
             const classLanguage = (e.class as any)?.language?.toLowerCase();
-            return classLanguage === data.language?.toLowerCase() && e.status === 'enrolled';
+            return classLanguage === data.language?.toLowerCase() && e.isActive;
           });
           if (activeEnrollment) {
             classId = activeEnrollment.classId;
