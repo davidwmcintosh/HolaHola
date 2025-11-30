@@ -1121,6 +1121,14 @@ export function StreamingVoiceChat({
     // Clear preparing state if still waiting for mic
     setIsMicPreparing(false);
     
+    // IMMEDIATELY reset subtitles to prevent phantom flash during the gap
+    // between stop() being called and onstop callback firing
+    // This must happen SYNCHRONOUSLY before any other async operations
+    if (streamingConnectedRef.current) {
+      console.log('[PUSH-TO-TALK] Resetting subtitles immediately on button release');
+      streamingVoice.subtitles.reset();
+    }
+    
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     } else {
