@@ -142,6 +142,7 @@ export interface StreamingSession {
   isActive: boolean;
   idleTimeoutId?: NodeJS.Timeout;  // Timer for idle cleanup
   lastActivityTime: number;         // Timestamp of last student activity
+  currentTurnId: number;            // Monotonic counter for subtitle packet ordering (prevents phantom subtitles)
 }
 
 /**
@@ -294,6 +295,7 @@ export class StreamingVoiceOrchestrator {
       startTime: Date.now(),
       isActive: true,
       lastActivityTime: Date.now(),
+      currentTurnId: 0,  // Start at 0, incremented on each new response
     };
     
     this.sessions.set(sessionId, session);
@@ -421,10 +423,15 @@ export class StreamingVoiceOrchestrator {
         console.log(`[Streaming Orchestrator] Matched phrase unit: "${oneWordValidation.matchedPhrase}"`);
       }
       
+      // NEW TURN: Increment turnId for this response (for subtitle packet ordering)
+      session.currentTurnId++;
+      const turnId = session.currentTurnId;
+      
       // Notify client that processing has started
       this.sendMessage(session.ws, {
         type: 'processing',
         timestamp: Date.now(),
+        turnId,
         userTranscript: transcript,
       } as StreamingProcessingMessage);
       
@@ -494,19 +501,25 @@ export class StreamingVoiceOrchestrator {
             ? Array.from(extraction.wordMapping.entries())
             : [];
           
+          // NEW ARCHITECTURE (v2): Explicit hasTargetContent flag eliminates phantom subtitles
+          // Client will hide subtitles immediately when hasTargetContent is false (no fallback needed)
+          const hasTargetContent = !!(extraction.targetText && extraction.targetText.trim().length > 0);
+          
           // Notify client of new sentence with cleaned text and word mapping
           this.sendMessage(session.ws, {
             type: 'sentence_start',
             timestamp: Date.now(),
+            turnId,
             sentenceIndex: chunk.index,
             text: displayText,
-            targetLanguageText: extraction.targetText || undefined,
-            wordMapping: wordMappingArray.length > 0 ? wordMappingArray : undefined,
+            hasTargetContent,
+            targetLanguageText: hasTargetContent ? extraction.targetText : undefined,
+            wordMapping: hasTargetContent && wordMappingArray.length > 0 ? wordMappingArray : undefined,
           } as StreamingSentenceStartMessage);
           
           // Synthesize and stream audio for this sentence (pass cleaned text for timing)
           const ttsStart = Date.now();
-          await this.streamSentenceAudio(session, chunk, displayText, metrics);
+          await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
           
           if (chunk.index === 0) {
             metrics.ttsFirstByteMs = Date.now() - ttsStart;
@@ -540,12 +553,13 @@ export class StreamingVoiceOrchestrator {
       this.sendMessage(session.ws, {
         type: 'response_complete',
         timestamp: Date.now(),
+        turnId,
         totalSentences: metrics.sentenceCount,
         totalDurationMs: metrics.totalLatencyMs,
         fullText: fullText.trim(),
       } as StreamingResponseCompleteMessage);
       
-      console.log(`[Streaming Orchestrator] Complete: ${metrics.sentenceCount} sentences in ${metrics.totalLatencyMs}ms`);
+      console.log(`[Streaming Orchestrator] Complete: ${metrics.sentenceCount} sentences in ${metrics.totalLatencyMs}ms (turnId: ${turnId})`);
       console.log(`[Streaming Orchestrator] Latencies: STT=${metrics.sttLatencyMs}ms, AI=${metrics.aiFirstTokenMs}ms, TTS=${metrics.ttsFirstByteMs}ms`);
       
       // Start idle timeout - tutor waiting for student response
@@ -725,12 +739,14 @@ export class StreamingVoiceOrchestrator {
    * @param chunk - The sentence chunk from Gemini
    * @param displayText - Cleaned text for display/timing (without markdown/emotion tags)
    * @param metrics - Metrics to update
+   * @param turnId - Turn ID for packet ordering (prevents phantom subtitles)
    */
   private async streamSentenceAudio(
     session: StreamingSession,
     chunk: SentenceChunk,
     displayText: string,
-    metrics: StreamingMetrics
+    metrics: StreamingMetrics,
+    turnId?: number
   ): Promise<void> {
     const { text: originalText, index } = chunk;
     
@@ -772,6 +788,9 @@ export class StreamingVoiceOrchestrator {
       const completeAudio = Buffer.concat(audioChunks);
       console.log(`[Streaming] Sentence ${index}: ${completeAudio.length} bytes, ${Math.round(totalDurationMs)}ms`);
       
+      // Use current turn ID if not explicitly passed
+      const effectiveTurnId = turnId ?? session.currentTurnId;
+      
       // Send word timings BEFORE audio so client has them ready when playback starts
       // Include the expected duration so client can rescale if actual duration differs
       if (session.subtitleMode !== 'off') {
@@ -779,6 +798,7 @@ export class StreamingVoiceOrchestrator {
         this.sendMessage(session.ws, {
           type: 'word_timing',
           timestamp: Date.now(),
+          turnId: effectiveTurnId,
           sentenceIndex: index,
           words: estimatedTimings,
           timings: estimatedTimings,
@@ -791,6 +811,7 @@ export class StreamingVoiceOrchestrator {
       this.sendMessage(session.ws, {
         type: 'audio_chunk',
         timestamp: Date.now(),
+        turnId: effectiveTurnId,
         sentenceIndex: index,
         chunkIndex: 0,
         isLast: true,
@@ -802,6 +823,7 @@ export class StreamingVoiceOrchestrator {
       this.sendMessage(session.ws, {
         type: 'sentence_end',
         timestamp: Date.now(),
+        turnId: effectiveTurnId,
         sentenceIndex: index,
         totalDurationMs,
       } as StreamingSentenceEndMessage);
@@ -1307,10 +1329,15 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         isResumed
       );
       
+      // NEW TURN: Increment turnId for this greeting response
+      session.currentTurnId++;
+      const turnId = session.currentTurnId;
+      
       // Notify client that greeting is being generated
       this.sendMessage(session.ws, {
         type: 'processing',
         timestamp: Date.now(),
+        turnId,
         userTranscript: '[Greeting]',  // Special marker for greeting
       } as StreamingProcessingMessage);
       
@@ -1340,19 +1367,24 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
             ? Array.from(extraction.wordMapping.entries())
             : [];
           
+          // NEW ARCHITECTURE (v2): Explicit hasTargetContent flag eliminates phantom subtitles
+          const hasTargetContent = !!(extraction.targetText && extraction.targetText.trim().length > 0);
+          
           // Notify client of new sentence
           this.sendMessage(session.ws, {
             type: 'sentence_start',
             timestamp: Date.now(),
+            turnId,
             sentenceIndex: chunk.index,
             text: displayText,
-            targetLanguageText: extraction.targetText || undefined,
-            wordMapping: wordMappingArray.length > 0 ? wordMappingArray : undefined,
+            hasTargetContent,
+            targetLanguageText: hasTargetContent ? extraction.targetText : undefined,
+            wordMapping: hasTargetContent && wordMappingArray.length > 0 ? wordMappingArray : undefined,
           } as StreamingSentenceStartMessage);
           
           // Synthesize and stream audio
           const ttsStart = Date.now();
-          await this.streamSentenceAudio(session, chunk, displayText, metrics);
+          await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
           
           if (chunk.index === 0) {
             metrics.ttsFirstByteMs = Date.now() - ttsStart;
@@ -1380,6 +1412,7 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       this.sendMessage(session.ws, {
         type: 'response_complete',
         timestamp: Date.now(),
+        turnId,
         totalSentences: metrics.sentenceCount,
         totalDurationMs: metrics.totalLatencyMs,
         fullText: fullText.trim(),
@@ -1653,13 +1686,19 @@ Generate the greeting now (speak as the tutor directly):`;
     // Create a brief, friendly introduction message
     const introText = `Hi! I'm ${tutorName}. Let's continue practicing together!`;
     
+    // NEW TURN: Increment turnId for voice switch intro
+    session.currentTurnId++;
+    const turnId = session.currentTurnId;
+    
     try {
-      // Send sentence start
+      // Send sentence start (no target language content in voice switch intro)
       this.sendMessage(session.ws, {
         type: 'sentence_start',
         timestamp: Date.now(),
+        turnId,
         sentenceIndex: 0,
         text: introText,
+        hasTargetContent: false,
         targetLanguageText: '',
       } as StreamingSentenceStartMessage);
       
@@ -1689,6 +1728,7 @@ Generate the greeting now (speak as the tutor directly):`;
       this.sendMessage(session.ws, {
         type: 'sentence_end',
         timestamp: Date.now(),
+        turnId,
         sentenceIndex: 0,
         totalDurationMs,
       } as StreamingSentenceEndMessage);
@@ -1697,9 +1737,9 @@ Generate the greeting now (speak as the tutor directly):`;
       this.sendMessage(session.ws, {
         type: 'response_complete',
         timestamp: Date.now(),
+        turnId,
         fullText: introText,
         totalSentences: 1,
-        sentenceCount: 1,
         totalDurationMs,
       } as StreamingResponseCompleteMessage);
       

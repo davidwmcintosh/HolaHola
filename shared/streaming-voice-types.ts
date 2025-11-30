@@ -69,20 +69,29 @@ export interface StreamingSessionStartedMessage extends StreamingVoiceMessage {
 
 /**
  * Processing started (STT received, AI generating)
+ * Includes turnId so client knows which response to expect
  */
 export interface StreamingProcessingMessage extends StreamingVoiceMessage {
   type: 'processing';
+  turnId: number;         // Monotonic ID for this response turn
   userTranscript: string;  // What the user said
 }
 
 /**
  * New sentence starting - prepare for audio
+ * 
+ * NEW ARCHITECTURE (v2): Server is the single source of truth for subtitle state.
+ * - turnId: Monotonic ID for each assistant response (increments on new user input)
+ * - hasTargetContent: Explicit flag - if false, client hides subtitles immediately (no fallback)
+ * - Client should discard any packet with older turnId than current render context
  */
 export interface StreamingSentenceStartMessage extends StreamingVoiceMessage {
   type: 'sentence_start';
+  turnId: number;         // Monotonic ID for this assistant turn (prevents phantom subtitles)
   sentenceIndex: number;
   text: string;           // The sentence text (for display)
-  targetLanguageText?: string;  // Target language only (parenthetical translations removed)
+  hasTargetContent: boolean;  // Explicit flag: true = show subtitles, false = hide immediately
+  targetLanguageText?: string;  // Target language only (if hasTargetContent is true)
   wordMapping?: [number, number][];  // Maps fullTextWordIndex -> targetTextWordIndex for karaoke in Target mode
 }
 
@@ -92,6 +101,7 @@ export interface StreamingSentenceStartMessage extends StreamingVoiceMessage {
  */
 export interface StreamingAudioChunkMessage extends StreamingVoiceMessage {
   type: 'audio_chunk';
+  turnId: number;         // For packet ordering/filtering
   sentenceIndex: number;
   chunkIndex: number;
   isLast: boolean;        // Last chunk for this sentence
@@ -104,6 +114,7 @@ export interface StreamingAudioChunkMessage extends StreamingVoiceMessage {
  */
 export interface StreamingWordTimingMessage extends StreamingVoiceMessage {
   type: 'word_timing';
+  turnId: number;         // For packet ordering/filtering
   sentenceIndex: number;
   words: WordTiming[];
   timings: WordTiming[];  // Alias for words
@@ -124,6 +135,7 @@ export interface WordTiming {
  */
 export interface StreamingSentenceEndMessage extends StreamingVoiceMessage {
   type: 'sentence_end';
+  turnId: number;         // For packet ordering/filtering
   sentenceIndex: number;
   totalDurationMs: number;
 }
@@ -133,6 +145,7 @@ export interface StreamingSentenceEndMessage extends StreamingVoiceMessage {
  */
 export interface StreamingResponseCompleteMessage extends StreamingVoiceMessage {
   type: 'response_complete';
+  turnId: number;         // Which turn this completes
   totalSentences: number;
   totalDurationMs: number;
   fullText: string;       // Complete AI response text
