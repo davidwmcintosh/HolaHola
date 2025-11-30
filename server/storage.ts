@@ -118,6 +118,12 @@ export interface IStorage {
     subscriptionTier?: string;
     subscriptionStatus?: string;
   }): Promise<User | undefined>;
+  updateUserActfl(userId: string, actflData: {
+    actflLevel?: string;
+    actflAssessed?: boolean;
+    assessmentSource?: string;
+    lastAssessmentDate?: Date;
+  }): Promise<User | undefined>;
 
   // Usage tracking for voice messages
   checkVoiceUsage(userId: string): Promise<{allowed: boolean, remaining: number, limit: number}>;
@@ -257,6 +263,7 @@ export interface IStorage {
   getStudentEnrollments(studentId: string): Promise<Array<ClassEnrollment & { class: TeacherClass }>>;
   unenrollStudent(classId: string, studentId: string): Promise<boolean>;
   isStudentEnrolled(classId: string, studentId: string): Promise<boolean>;
+  updateClassEnrollment(enrollmentId: string, data: Partial<ClassEnrollment>): Promise<ClassEnrollment | undefined>;
 
   // Curriculum Paths
   createCurriculumPath(data: InsertCurriculumPath): Promise<CurriculumPath>;
@@ -878,6 +885,19 @@ export class DatabaseStorage implements IStorage {
   }): Promise<User | undefined> {
     const [updated] = await db.update(users)
       .set({ ...stripeInfo, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  async updateUserActfl(userId: string, actflData: {
+    actflLevel?: string;
+    actflAssessed?: boolean;
+    assessmentSource?: string;
+    lastAssessmentDate?: Date;
+  }): Promise<User | undefined> {
+    const [updated] = await db.update(users)
+      .set({ ...actflData, updatedAt: new Date() })
       .where(eq(users.id, userId))
       .returning();
     return updated;
@@ -2106,6 +2126,15 @@ export class DatabaseStorage implements IStorage {
       )
       .limit(1);
     return result.length > 0;
+  }
+
+  async updateClassEnrollment(enrollmentId: string, data: Partial<ClassEnrollment>): Promise<ClassEnrollment | undefined> {
+    const [updated] = await db
+      .update(classEnrollments)
+      .set(data)
+      .where(eq(classEnrollments.id, enrollmentId))
+      .returning();
+    return updated;
   }
 
   // ===== Curriculum Paths =====

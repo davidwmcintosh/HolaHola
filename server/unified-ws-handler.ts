@@ -29,6 +29,7 @@ import {
 import { generateCongratulatoryPromptAddition } from './services/competency-verifier';
 import { buildCurriculumContext, detectSyllabusQuery } from './services/curriculum-context';
 import { usageService } from './services/usage-service';
+import { shouldRunPlacementAfterSession, completePlacementAssessment } from './services/placement-assessment-service';
 import type { VoiceSession as UsageVoiceSession } from '@shared/schema';
 
 const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
@@ -447,6 +448,21 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             }
             usageSession = null;
           }
+          // Check if placement assessment is needed for Level 2+ class enrollments
+          if (userId && conversationId) {
+            try {
+              const placementCheck = await shouldRunPlacementAfterSession(userId, conversationId);
+              if (placementCheck.shouldRun && placementCheck.enrollmentId) {
+                console.log(`[Streaming Voice] Running placement assessment for user ${userId}`);
+                const result = await completePlacementAssessment(userId, placementCheck.enrollmentId, conversationId);
+                if (result) {
+                  console.log(`[Streaming Voice] Placement complete: ${result.assessedLevel} (delta: ${result.delta})`);
+                }
+              }
+            } catch (placementErr: any) {
+              console.error('[Streaming Voice] Placement assessment error:', placementErr.message);
+            }
+          }
           ws.close(1000, 'Session ended');
           break;
       }
@@ -472,6 +488,21 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
         console.error('[Streaming Voice] Could not end usage session:', endErr.message);
       }
       usageSession = null;
+    }
+    // Check if placement assessment is needed for Level 2+ class enrollments
+    if (userId && conversationId) {
+      try {
+        const placementCheck = await shouldRunPlacementAfterSession(userId, conversationId);
+        if (placementCheck.shouldRun && placementCheck.enrollmentId) {
+          console.log(`[Streaming Voice] Running placement assessment on disconnect for user ${userId}`);
+          const result = await completePlacementAssessment(userId, placementCheck.enrollmentId, conversationId);
+          if (result) {
+            console.log(`[Streaming Voice] Placement complete on disconnect: ${result.assessedLevel} (delta: ${result.delta})`);
+          }
+        }
+      } catch (placementErr: any) {
+        console.error('[Streaming Voice] Placement assessment error on disconnect:', placementErr.message);
+      }
     }
   };
 

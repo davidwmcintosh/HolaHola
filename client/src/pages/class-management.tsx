@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Copy, Plus, Trash2, Users, ClipboardList, BookOpen, UserMinus, Sparkles } from "lucide-react";
+import { Copy, Plus, Trash2, Users, ClipboardList, BookOpen, UserMinus, Sparkles, AlertCircle, CheckCircle, TrendingDown, TrendingUp } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useParams, Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
@@ -30,11 +31,17 @@ interface ClassEnrollment {
   userId: string;
   enrolledAt: Date;
   isActive: boolean;
+  placementChecked: boolean | null;
+  placementActflResult: string | null;
+  placementDelta: number | null;
+  placementDate: Date | null;
   user?: {
     id: string;
     email: string | null;
     firstName: string | null;
     lastName: string | null;
+    actflLevel: string | null;
+    actflAssessed: boolean | null;
   };
 }
 
@@ -241,30 +248,74 @@ export default function ClassManagement() {
               ))}
             </div>
           ) : activeEnrollments.length > 0 ? (
-            <div className="space-y-4">
-              {activeEnrollments.map((enrollment) => {
-                const student = enrollment.user;
-                const displayName = student?.firstName && student?.lastName
-                  ? `${student.firstName} ${student.lastName}`
-                  : student?.firstName || student?.email || "Unknown Student";
-                const initials = student?.firstName && student?.lastName
-                  ? `${student.firstName[0]}${student.lastName[0]}`.toUpperCase()
-                  : student?.firstName?.[0]?.toUpperCase() || student?.email?.[0]?.toUpperCase() || "?";
+            <TooltipProvider>
+              <div className="space-y-4">
+                {activeEnrollments.map((enrollment) => {
+                  const student = enrollment.user;
+                  const displayName = student?.firstName && student?.lastName
+                    ? `${student.firstName} ${student.lastName}`
+                    : student?.firstName || student?.email || "Unknown Student";
+                  const initials = student?.firstName && student?.lastName
+                    ? `${student.firstName[0]}${student.lastName[0]}`.toUpperCase()
+                    : student?.firstName?.[0]?.toUpperCase() || student?.email?.[0]?.toUpperCase() || "?";
+                  
+                  const formatActflLevel = (level: string | null | undefined) => {
+                    if (!level) return 'Not assessed';
+                    return level.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                  };
+                  
+                  const getPlacementBadge = () => {
+                    if (!enrollment.placementChecked) {
+                      return { variant: 'outline' as const, label: 'Awaiting Placement', Icon: AlertCircle };
+                    }
+                    if (enrollment.placementDelta === null || enrollment.placementDelta === 0) {
+                      return { variant: 'secondary' as const, label: 'Level Verified', Icon: CheckCircle };
+                    }
+                    if (enrollment.placementDelta > 0) {
+                      return { variant: 'destructive' as const, label: `Overestimated by ${enrollment.placementDelta}`, Icon: TrendingDown };
+                    }
+                    return { variant: 'default' as const, label: `Underestimated by ${Math.abs(enrollment.placementDelta)}`, Icon: TrendingUp };
+                  };
+                  
+                  const placementBadge = getPlacementBadge();
 
-                return (
-                  <Card key={enrollment.id} data-testid={`card-student-${enrollment.userId}`}>
-                    <CardContent className="flex items-center justify-between p-6">
-                      <div className="flex items-center gap-4">
-                        <Avatar>
-                          <AvatarFallback>{initials}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium" data-testid={`text-student-name-${enrollment.userId}`}>{displayName}</p>
-                          {student?.email && (
-                            <p className="text-sm text-muted-foreground">{student.email}</p>
-                          )}
+                  return (
+                    <Card key={enrollment.id} data-testid={`card-student-${enrollment.userId}`}>
+                      <CardContent className="flex items-center justify-between p-6">
+                        <div className="flex items-center gap-4">
+                          <Avatar>
+                            <AvatarFallback>{initials}</AvatarFallback>
+                          </Avatar>
+                          <div className="space-y-2">
+                            <p className="font-medium" data-testid={`text-student-name-${enrollment.userId}`}>{displayName}</p>
+                            {student?.email && (
+                              <p className="text-sm text-muted-foreground">{student.email}</p>
+                            )}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge 
+                                  variant={placementBadge.variant} 
+                                  className="cursor-help"
+                                  data-testid={`badge-placement-${enrollment.userId}`}
+                                >
+                                  <placementBadge.Icon className="h-3 w-3 mr-1" />
+                                  {placementBadge.label}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <div className="space-y-1">
+                                  <p>ACTFL Level: {formatActflLevel(student?.actflLevel)}</p>
+                                  {enrollment.placementActflResult && (
+                                    <p>Placement Result: {formatActflLevel(enrollment.placementActflResult)}</p>
+                                  )}
+                                  {student?.actflAssessed && (
+                                    <p className="text-primary">AI Verified</p>
+                                  )}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
                         </div>
-                      </div>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button
@@ -297,7 +348,8 @@ export default function ClassManagement() {
                   </Card>
                 );
               })}
-            </div>
+              </div>
+            </TooltipProvider>
           ) : (
             <Card className="p-12">
               <div className="text-center space-y-4">

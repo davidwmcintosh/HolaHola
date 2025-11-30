@@ -712,6 +712,11 @@ export const classEnrollments = pgTable("class_enrollments", {
   studentId: varchar("student_id").notNull().references(() => users.id),
   enrolledAt: timestamp("enrolled_at").notNull().defaultNow(),
   isActive: boolean("is_active").default(true),
+  // Placement check for Level 2+ classes
+  placementChecked: boolean("placement_checked").default(false), // true = placement assessment completed
+  placementActflResult: varchar("placement_actfl_result"), // ACTFL level determined by placement assessment
+  placementDelta: integer("placement_delta"), // Difference between self-reported and assessed (positive = overestimated)
+  placementDate: timestamp("placement_date"), // When placement was completed
   // Hour allocation for this enrollment
   allocatedSeconds: integer("allocated_seconds").default(0), // Total hours allocated (in seconds, e.g., 36000 = 10 hrs)
   usedSeconds: integer("used_seconds").default(0), // Hours used so far

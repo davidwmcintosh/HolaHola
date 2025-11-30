@@ -4746,7 +4746,26 @@ Return ONLY the ${targetLanguage} phrase:`;
       }
 
       const enrollments = await storage.getClassEnrollments(classId);
-      res.json(enrollments);
+      const transformedEnrollments = enrollments.map(e => ({
+        id: e.id,
+        classId: e.classId,
+        userId: e.studentId,
+        enrolledAt: e.enrolledAt,
+        isActive: e.isActive,
+        placementChecked: e.placementChecked,
+        placementActflResult: e.placementActflResult,
+        placementDelta: e.placementDelta,
+        placementDate: e.placementDate,
+        user: e.student ? {
+          id: e.student.id,
+          email: e.student.email,
+          firstName: e.student.firstName,
+          lastName: e.student.lastName,
+          actflLevel: e.student.actflLevel,
+          actflAssessed: e.student.actflAssessed,
+        } : undefined,
+      }));
+      res.json(transformedEnrollments);
     } catch (error: any) {
       console.error('Error fetching class roster:', error);
       res.status(500).json({ error: error.message });
