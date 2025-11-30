@@ -50,6 +50,7 @@ interface ImmersiveTutorProps {
   setVoiceSpeed?: (speed: VoiceSpeed) => void; // Callback to change voice speed
   femaleVoiceName?: string; // Female voice name for display
   maleVoiceName?: string; // Male voice name for display
+  baseSpeakingRate?: number; // Base speaking rate from Cartesia voice config (e.g. 0.7)
 }
 
 export function ImmersiveTutor({
@@ -84,6 +85,7 @@ export function ImmersiveTutor({
   setVoiceSpeed,
   femaleVoiceName,
   maleVoiceName,
+  baseSpeakingRate = 1.0,
 }: ImmersiveTutorProps) {
   const [currentWordTimings, setCurrentWordTimings] = useState<WordTiming[]>([]);
   const [highlightedWordIndex, setHighlightedWordIndex] = useState<number>(-1);
@@ -796,20 +798,25 @@ export function ImmersiveTutor({
               </Button>
             </div>
             
-            {/* Voice Speed Control - 5 levels */}
+            {/* Voice Speed Control - 5 levels, showing actual Cartesia speed */}
             <div className="flex items-center gap-1">
               <Gauge className="h-4 w-4 text-muted-foreground mr-1" />
-              {(["slower", "slow", "normal", "fast", "faster"] as const).map((speed) => (
-                <Button
-                  key={speed}
-                  variant={voiceSpeed === speed ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setVoiceSpeed(speed)}
-                  data-testid={`button-speed-${speed}`}
-                >
-                  {speed === "slower" ? "0.6x" : speed === "slow" ? "0.8x" : speed === "normal" ? "1x" : speed === "fast" ? "1.25x" : "1.5x"}
-                </Button>
-              ))}
+              {(["slower", "slow", "normal", "fast", "faster"] as const).map((speed) => {
+                // Calculate actual effective speed based on base rate
+                const multiplier = speed === "slower" ? 0.6 : speed === "slow" ? 0.8 : speed === "normal" ? 1.0 : speed === "fast" ? 1.25 : 1.5;
+                const effectiveSpeed = (baseSpeakingRate * multiplier).toFixed(2).replace(/\.?0+$/, '');
+                return (
+                  <Button
+                    key={speed}
+                    variant={voiceSpeed === speed ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setVoiceSpeed(speed)}
+                    data-testid={`button-speed-${speed}`}
+                  >
+                    {effectiveSpeed}x
+                  </Button>
+                );
+              })}
             </div>
           </div>
         )}

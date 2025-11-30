@@ -127,7 +127,11 @@ export function StreamingVoiceChat({
   const { language, difficulty, setLanguage, subtitleMode, tutorGender, voiceSpeed, setTutorGender, setVoiceSpeed } = useLanguage();
   
   // Query voice names for the current language
-  const { data: tutorVoices } = useQuery<{ language: string; female: { name: string; voiceId: string } | null; male: { name: string; voiceId: string } | null }>({
+  const { data: tutorVoices } = useQuery<{ 
+    language: string; 
+    female: { name: string; voiceId: string; speakingRate: number } | null; 
+    male: { name: string; voiceId: string; speakingRate: number } | null 
+  }>({
     queryKey: ['/api/tutor-voices', language?.toLowerCase()],
     enabled: !!language,
   });
@@ -1572,6 +1576,9 @@ export function StreamingVoiceChat({
           setVoiceSpeed={setVoiceSpeed}
           femaleVoiceName={getVoiceFirstName(tutorVoices?.female?.name, "Female")}
           maleVoiceName={getVoiceFirstName(tutorVoices?.male?.name, "Male")}
+          baseSpeakingRate={tutorGender === 'male' 
+            ? (tutorVoices?.male?.speakingRate ?? 1.0) 
+            : (tutorVoices?.female?.speakingRate ?? 1.0)}
         />
       </div>
     </div>

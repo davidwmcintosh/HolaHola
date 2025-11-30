@@ -6401,8 +6401,16 @@ Return ONLY the ${targetLanguage} phrase:`;
       
       res.json({
         language,
-        female: femaleVoice ? { name: femaleVoice.voiceName, voiceId: femaleVoice.voiceId } : null,
-        male: maleVoice ? { name: maleVoice.voiceName, voiceId: maleVoice.voiceId } : null,
+        female: femaleVoice ? { 
+          name: femaleVoice.voiceName, 
+          voiceId: femaleVoice.voiceId,
+          speakingRate: femaleVoice.speakingRate || 1.0,
+        } : null,
+        male: maleVoice ? { 
+          name: maleVoice.voiceName, 
+          voiceId: maleVoice.voiceId,
+          speakingRate: maleVoice.speakingRate || 1.0,
+        } : null,
       });
     } catch (error: any) {
       console.error('Error fetching tutor voices:', error);

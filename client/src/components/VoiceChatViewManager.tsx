@@ -38,6 +38,7 @@ interface VoiceChatViewManagerProps {
   setVoiceSpeed?: (speed: VoiceSpeed) => void;
   femaleVoiceName?: string;
   maleVoiceName?: string;
+  baseSpeakingRate?: number; // Base speaking rate from Cartesia voice config
 }
 
 export function VoiceChatViewManager({
@@ -70,6 +71,7 @@ export function VoiceChatViewManager({
   setVoiceSpeed,
   femaleVoiceName,
   maleVoiceName,
+  baseSpeakingRate,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -209,6 +211,7 @@ export function VoiceChatViewManager({
                 setVoiceSpeed={setVoiceSpeed}
                 femaleVoiceName={femaleVoiceName}
                 maleVoiceName={maleVoiceName}
+                baseSpeakingRate={baseSpeakingRate}
               />
             </div>
           ) : (
