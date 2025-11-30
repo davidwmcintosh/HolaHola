@@ -4,13 +4,14 @@ import { ChatInterface } from "@/components/ChatInterface";
 import { StreamingVoiceChat as VoiceChat } from "@/components/StreamingVoiceChat";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Mic, Plus } from "lucide-react";
+import { MessageSquare, Mic, Plus, GraduationCap, User } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSidebar } from "@/components/ui/sidebar";
 import { CreditBalance } from "@/components/CreditBalance";
 import { useCredits } from "@/contexts/UsageContext";
 import { InsufficientCreditsDialog } from "@/components/InsufficientCreditsDialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function Chat() {
   const search = useSearch();
@@ -26,6 +27,7 @@ export default function Chat() {
   const previousModeRef = useRef<"text" | "voice">("voice");
   const [showInsufficientCreditsDialog, setShowInsufficientCreditsDialog] = useState(false);
   const { isExhausted, isLow, isCritical } = useCredits();
+  const [className, setClassName] = useState<string | null>(null);
   // Check localStorage to see if user clicked "New Chat" before page reload
   // Default to false so page reloads reuse existing conversations
   const [forceNewConversation, setForceNewConversation] = useState(() => {
@@ -108,19 +110,34 @@ export default function Chat() {
     }
   }, [mode, conversationId]);
   
-  // Track the current conversation's onboarding status
+  // Track the current conversation's onboarding status and class info
   useEffect(() => {
     if (conversationId) {
       apiRequest("GET", `/api/conversations/${conversationId}`)
         .then(res => res.json())
-        .then(data => {
+        .then(async (data) => {
           setCurrentConversationOnboarding(data.isOnboarding);
+          
+          // Fetch class info if conversation has a classId
+          if (data.classId) {
+            try {
+              const classRes = await apiRequest("GET", `/api/classes/${data.classId}`);
+              const classData = await classRes.json();
+              setClassName(classData.name || null);
+            } catch {
+              setClassName(null);
+            }
+          } else {
+            setClassName(null);
+          }
         })
         .catch(() => {
           setCurrentConversationOnboarding(null);
+          setClassName(null);
         });
     } else {
       setCurrentConversationOnboarding(null);
+      setClassName(null);
     }
   }, [conversationId]);
   
@@ -236,6 +253,34 @@ export default function Chat() {
         </div>
         
         <div className="flex items-center gap-2">
+          {/* Class or Self-Directed indicator */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge 
+                variant="outline" 
+                className="flex items-center gap-1 text-xs"
+                data-testid="badge-practice-mode"
+              >
+                {className ? (
+                  <>
+                    <GraduationCap className="h-3 w-3" />
+                    <span className="hidden sm:inline max-w-[120px] truncate">{className}</span>
+                    <span className="sm:hidden">Class</span>
+                  </>
+                ) : (
+                  <>
+                    <User className="h-3 w-3" />
+                    <span className="hidden sm:inline">Self-Directed</span>
+                    <span className="sm:hidden">Solo</span>
+                  </>
+                )}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{className ? `Practicing in: ${className}` : 'Self-Directed Practice'}</p>
+            </TooltipContent>
+          </Tooltip>
+          
           {/* Credit balance display - only in voice mode */}
           {mode === "voice" && (
             <CreditBalance 
