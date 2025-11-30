@@ -1,6 +1,6 @@
 # Subtitle Bug Tracking Document
 
-## Last Updated: November 30, 2025 (Late Evening Session - 11:35 PM)
+## Last Updated: November 30, 2025 (Late Evening Session - 11:50 PM)
 
 ---
 
@@ -136,27 +136,58 @@ isProcessingRef.current = true; // Update ref immediately for sync checks
 React 18 batches state updates in the same synchronous context. By setting both states together, there's no render cycle where neither guard is active.
 
 ### Result: FIX DID NOT WORK
-Phantom still appearing. Added aggressive debug logging at 11:35 PM:
+Phantom still appearing. Added aggressive debug logging at 11:35 PM.
+
+---
+
+## Fix #5: Fallback Path Missing Guard (Nov 30, 2025 - 11:50 PM)
+
+### Root Cause FOUND!
+Analyzed user's console log and discovered the phantom comes from the **FALLBACK PATH** (lines 631-660), NOT the streaming path!
+
+The streaming path at lines 474-629 has all guards:
+- `isWaitingForContent` ✓
+- `isRecording` ✓  
+- `isProcessing` ✓
+
+But the FALLBACK path (for non-streaming subtitles) only checked `isProcessing`:
 ```typescript
-// ImmersiveTutor.tsx - logs on EVERY render
-console.log('[SUBTITLE ENTRY] ━━━ Guard Check ━━━', {
-  isRecording,
-  isProcessing,
-  isWaiting,
-  isWaitingForContent,
-  hasStreamingText: !!streamingText,
-  streamingTextPreview: streamingText?.substring(0, 30),
-});
+// OLD CODE - MISSING GUARD:
+if (isProcessing) { return null; }
+
+// Get text from lastAssistantMessage  ← SHOWS OLD "Hola" AS BLACK TEXT!
+const currentMessage = currentPlayingMessageId ? ... : lastAssistantMessage;
 ```
 
-**Next step:** User to test and check browser console for the exact guard values when phantom appears.
+### Timeline of Bug:
+1. User releases mic
+2. `isRecording=false`, `isProcessing=true` briefly
+3. `isProcessing=false`, but `isWaitingForContent=true`
+4. `hasStreamingText=false` (streaming path skipped)
+5. Fallback path runs, shows `lastAssistantMessage.targetLanguageText`
+6. **PHANTOM**: Old "Hola" appears as BLACK text!
+
+### Fix Applied:
+Added missing guard to fallback path:
+```typescript
+// CRITICAL: Also hide during the "waiting for content" phase
+// This is the gap between mic release and new streaming text arriving
+// Without this guard, the fallback path shows OLD message text as phantom!
+if (isWaiting) {
+  console.log('[SUBTITLE FALLBACK GUARD] Hidden: isWaitingForContent=true');
+  return null;
+}
+```
+
+### Why This Works:
+The `isWaitingForContent` flag is set immediately on mic release (sync with React batch) and stays true until new streaming content arrives. This covers the entire gap window.
 
 ---
 
 ## Current Open Bugs
 
 ### Bug #1: Phantom Subtitles
-**Status:** UNDER INVESTIGATION - Debug logging added  
+**Status:** FIX #5 APPLIED - Root cause identified in fallback path  
 **Severity:** High  
 **First Reported:** November 2025  
 **Last Tested:** November 30, 2025 (Evening)

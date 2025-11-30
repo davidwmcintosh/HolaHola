@@ -634,6 +634,14 @@ export function ImmersiveTutor({
             return null;
           }
           
+          // CRITICAL: Also hide during the "waiting for content" phase
+          // This is the gap between mic release and new streaming text arriving
+          // Without this guard, the fallback path shows OLD message text as phantom!
+          if (isWaiting) {
+            console.log('[SUBTITLE FALLBACK GUARD] Hidden: isWaitingForContent=true');
+            return null;
+          }
+          
           // Get text from the current playing or last played message
           // Show subtitles during playback AND after playback for reading practice
           const currentMessage = currentPlayingMessageId 
