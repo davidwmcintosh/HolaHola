@@ -8,7 +8,8 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from "@/component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { BookOpen, Users, ArrowRight, Search, Sparkles, GraduationCap, Globe, ChevronRight, Languages, CheckCircle2 } from "lucide-react";
+import { BookOpen, Users, ArrowRight, Search, Sparkles, GraduationCap, ChevronRight, Languages, CheckCircle2 } from "lucide-react";
+import linguaflowLogo from "@assets/Full_linguaflow_monogram_ribbon_logo_No_background_1764099119582.png";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -155,8 +156,12 @@ export default function StudentJoinClass() {
             lessons to accelerate your fluency.
           </p>
         </div>
-        <div className="absolute right-0 top-0 w-1/3 h-full opacity-10">
-          <Globe className="w-full h-full" />
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 w-48 md:w-64 lg:w-80 opacity-20">
+          <img 
+            src={linguaflowLogo} 
+            alt="LinguaFlow" 
+            className="w-full h-auto object-contain"
+          />
         </div>
       </div>
 
