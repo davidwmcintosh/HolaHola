@@ -106,15 +106,16 @@ export type VoiceSpeedOption = 'slower' | 'slow' | 'normal' | 'fast' | 'faster';
 /**
  * Convert voice speed string to numeric speaking rate
  * These values map to Cartesia's 0.6-1.5 range
+ * UI labels: 0.6x, 0.8x, 1x, 1.25x, 1.5x
  */
 export function voiceSpeedToRate(speed: VoiceSpeedOption | undefined): number {
   switch (speed) {
-    case 'slower': return 0.6;
-    case 'slow': return 0.75;
-    case 'normal': return 0.9;
-    case 'fast': return 1.1;
-    case 'faster': return 1.3;
-    default: return 0.9;
+    case 'slower': return 0.6;   // 0.6x - slowest for pronunciation practice
+    case 'slow': return 0.8;     // 0.8x - slightly slower for beginners
+    case 'normal': return 1.0;   // 1x - natural conversation speed
+    case 'fast': return 1.25;    // 1.25x - faster for advanced learners
+    case 'faster': return 1.5;   // 1.5x - fastest available
+    default: return 1.0;
   }
 }
 

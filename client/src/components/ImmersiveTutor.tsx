@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Mic, MicOff, MessageSquare, RotateCcw, Turtle, Gauge } from "lucide-react";
 import { type Message } from "@shared/schema";
 import { type SubtitleMode, type VoiceSpeed } from "@/contexts/LanguageContext";
-import { Switch } from "@/components/ui/switch";
 
 // Female tutor avatars (default)
 import femaleTutorSpeakingUrl from "@assets/tutor-speaking-No-Background_1764099971093.png";
@@ -766,7 +765,7 @@ export function ImmersiveTutor({
         
         {/* Voice Settings Row - below the main controls */}
         {setTutorGender && setVoiceSpeed && (
-          <div className="flex items-center justify-center gap-3 mt-2">
+          <div className="flex flex-col items-center gap-2 mt-2">
             {/* Tutor Voice Toggle */}
             <div className="flex items-center gap-1">
               <Button
@@ -787,15 +786,20 @@ export function ImmersiveTutor({
               </Button>
             </div>
             
-            {/* Voice Speed Toggle */}
-            <div className="flex items-center gap-2">
-              <Gauge className="h-4 w-4 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Slow</span>
-              <Switch
-                checked={voiceSpeed === "slow"}
-                onCheckedChange={(checked) => setVoiceSpeed(checked ? "slow" : "normal")}
-                data-testid="switch-voice-speed"
-              />
+            {/* Voice Speed Control - 5 levels */}
+            <div className="flex items-center gap-1">
+              <Gauge className="h-4 w-4 text-muted-foreground mr-1" />
+              {(["slower", "slow", "normal", "fast", "faster"] as const).map((speed) => (
+                <Button
+                  key={speed}
+                  variant={voiceSpeed === speed ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setVoiceSpeed(speed)}
+                  data-testid={`button-speed-${speed}`}
+                >
+                  {speed === "slower" ? "0.6x" : speed === "slow" ? "0.8x" : speed === "normal" ? "1x" : speed === "fast" ? "1.25x" : "1.5x"}
+                </Button>
+              ))}
             </div>
           </div>
         )}
