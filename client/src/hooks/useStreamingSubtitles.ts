@@ -452,9 +452,17 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     ? (currentSentence?.targetLanguageText || '')
     : '';
   
-  // DEBUG: Log any time target text changes
+  // DEBUG: Log any time target text changes - especially catch duplicates!
   if (currentSentenceTargetText) {
-    console.log(`[StreamingSubtitles v2] TARGET TEXT: "${currentSentenceTargetText}" (sentence ${currentSentenceIndex}, hasTarget=${hasTargetContent})`);
+    const wordCount = currentSentenceTargetText.split(/\s+/).filter(w => w.length > 0).length;
+    console.log(`[StreamingSubtitles v2] TARGET TEXT: "${currentSentenceTargetText}" (sentence ${currentSentenceIndex}, ${wordCount} words, hasTarget=${hasTargetContent})`);
+    
+    // CRITICAL: Flag multi-word targets - this is where duplicates might originate
+    if (wordCount > 1) {
+      console.warn(`[StreamingSubtitles v2] ⚠️ MULTI-WORD TARGET DETECTED: "${currentSentenceTargetText}"`);
+      console.warn(`[StreamingSubtitles v2]   currentSentence.targetLanguageText: "${currentSentence?.targetLanguageText}"`);
+      console.warn(`[StreamingSubtitles v2]   sentences array:`, sentences.map(s => ({ idx: s.index, target: s.targetLanguageText, hasTarget: s.hasTargetContent })));
+    }
   }
   
   // Compute current target word index from word mapping
@@ -470,9 +478,11 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   // Progressive reveal for target words
   const currentTargetWordIndex = useMemo(() => {
     if (instantTargetWordIndex > maxTargetWordIndex) {
+      console.log(`[StreamingSubtitles v2] TargetWordIndex: instant=${instantTargetWordIndex} > max=${maxTargetWordIndex}, returning instant`);
       setTimeout(() => setMaxTargetWordIndex(instantTargetWordIndex), 0);
       return instantTargetWordIndex;
     }
+    console.log(`[StreamingSubtitles v2] TargetWordIndex: instant=${instantTargetWordIndex} <= max=${maxTargetWordIndex}, returning max`);
     return maxTargetWordIndex;
   }, [instantTargetWordIndex, maxTargetWordIndex]);
   
