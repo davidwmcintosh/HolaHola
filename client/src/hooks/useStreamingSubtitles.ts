@@ -165,9 +165,10 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     isWaitingForContentRef.current = false;
     setIsWaitingForContent(false);
     
-    // SERVER-DRIVEN: Set hasTargetContent from server's explicit flag
-    console.log(`[StreamingSubtitles v2]   Setting hasTargetContent: ${hasTarget}`);
-    setHasTargetContent(hasTarget);
+    // NOTE: Do NOT update hasTargetContent here!
+    // hasTargetContent should only be updated in startPlayback when the sentence ACTUALLY starts playing
+    // Setting it here causes race conditions where sentence N+1's hasTarget value is applied
+    // while sentence N is still playing, causing phantom subtitles
     
     setSentences(prev => {
       // Check if sentence already exists
@@ -226,6 +227,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   
   /**
    * Start playback for a sentence
+   * CRITICAL: All state updates must happen synchronously to prevent race conditions
    */
   const startPlayback = useCallback((sentenceIndex: number, turnId: number) => {
     // STALE PACKET FILTER
@@ -235,7 +237,6 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     }
     
     console.log(`[StreamingSubtitles v2] ▶ START PLAYBACK sentence ${sentenceIndex} (turn ${turnId})`);
-    console.log(`[StreamingSubtitles v2]   Current hasTargetContent state: ${hasTargetContent}`);
     
     // Get timings from cache
     const storedTimings = timingsBySentenceRef.current.get(sentenceIndex);
@@ -247,22 +248,39 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       expectedDurationRef.current = undefined;
     }
     
-    // Get sentence to update hasTargetContent and word mapping
+    // CRITICAL FIX: Look up sentence data SYNCHRONOUSLY before any state updates
+    // This prevents race conditions where hasTargetContent updates async inside setSentences
     setSentences(prev => {
       const sentence = prev.find(s => s.index === sentenceIndex && s.turnId === turnId);
       if (sentence) {
         currentWordMappingRef.current = sentence.wordMapping;
-        // Update hasTargetContent from the sentence's server-assigned flag
+        
+        // Log the transition for debugging
+        console.log(`[StreamingSubtitles v2]   Sentence ${sentenceIndex} hasTarget: ${sentence.hasTargetContent}`);
+        console.log(`[StreamingSubtitles v2]   Sentence ${sentenceIndex} targetText: "${sentence.targetLanguageText || '(none)'}"`);
+        
+        // CRITICAL: Update hasTargetContent FIRST, BEFORE returning from setSentences
+        // This ensures hasTargetContent is in sync with the sentence being played
+        // Previously this was a race condition because setHasTargetContent was async
         setHasTargetContent(sentence.hasTargetContent);
+        
+        // Also update sentence index and other state in same batch
+        setCurrentSentenceIndex(sentenceIndex);
+        setIsPlaying(true);
+        setVisibleWordCount(0);
+        setCurrentWordIndex(-1);
+        setMaxTargetWordIndex(-1);
+      } else {
+        console.warn(`[StreamingSubtitles v2] ⚠ Sentence ${sentenceIndex} not found in sentences array!`);
+        // Still update sentence index even if sentence not found
+        setCurrentSentenceIndex(sentenceIndex);
+        setIsPlaying(true);
+        setVisibleWordCount(0);
+        setCurrentWordIndex(-1);
+        setMaxTargetWordIndex(-1);
       }
       return prev;
     });
-    
-    setCurrentSentenceIndex(sentenceIndex);
-    setIsPlaying(true);
-    setVisibleWordCount(0);
-    setCurrentWordIndex(-1);
-    setMaxTargetWordIndex(-1);
     
     playbackStartTimeRef.current = Date.now();
     actualDurationRef.current = undefined;
