@@ -74,3 +74,19 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 -   **UI Components**: Radix UI, Shadcn/ui, Tailwind CSS.
 -   **State Management**: TanStack Query, React Context.
 -   **Billing**: `stripe-replit-sync`.
+
+## Recent Changes (November 30, 2025)
+
+### Subtitle System Bug Fix
+Fixed a critical bug causing duplicate/accumulated target words in streaming subtitles (e.g., "hola hola", "Excelente Gracias Gracias").
+
+**Root Cause:** The `currentSentence` lookup in `useStreamingSubtitles.ts` only checked sentence `index`, not `turnId`, causing cross-turn sentence contamination during React state batching.
+
+**Fix:** Updated lookup to match both `index` AND `turnId`:
+```typescript
+sentences.find(s => s.index === currentSentenceIndex && s.turnId === currentTurnId)
+```
+
+**Status:** Fix deployed, pending user verification.
+
+**Tracking:** See `docs/SUBTITLE_BUG_TRACKING.md` for full investigation details.

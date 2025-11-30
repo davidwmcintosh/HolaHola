@@ -1,6 +1,6 @@
 # Subtitle Bug Tracking Document
 
-## Last Updated: November 30, 2025 (Evening Session)
+## Last Updated: November 30, 2025 (Late Evening Session - 8:10 PM)
 
 ---
 
@@ -350,3 +350,111 @@ The v2 architecture improvements are partially working (stale packet filtering, 
 - Verify audio chunk delivery and playback
 - Add more granular logging at turn transitions
 - Check if hasTargetContent update races with sentence addition
+
+---
+
+## Session Log: November 30, 2025 (Late Evening - 7:50 PM - 8:10 PM)
+
+### New Bug Discovered: Duplicate/Accumulated Target Words
+
+**Symptoms Reported:**
+1. "hola hola" appearing on screen (duplicate)
+2. "Excelente Gracias Gracias" appearing (accumulation + duplicate)
+3. "All previous target words seem to be showing" (full accumulation)
+4. English words appearing in target-only subtitle mode
+
+**Investigation:**
+
+**Test 1 (7:54 PM):**
+- Greeting played: Sentences 0, 1, 2, 3 (turnId=1)
+  - Sentence 2: target = "Hola"
+  - Sentence 3: target = "Hola"
+- User said "Hola"
+- Response (turnId=2):
+  - Sentence 0: target = "Excelente" (5 target words total including Hola, Buenos días)
+  - Sentence 1: target = "Gracias"
+- **User saw:** "Excelente Gracias Gracias" - THREE words, with duplicate
+
+**Root Cause Analysis:**
+
+The `currentSentence` lookup in `useStreamingSubtitles.ts` only checked `index`, NOT `turnId`:
+
+```typescript
+// BEFORE (BUG):
+const currentSentence = useMemo(() => 
+  sentences.find(s => s.index === currentSentenceIndex),
+  [sentences, currentSentenceIndex]
+);
+```
+
+**Impact:** If sentences from multiple turns existed in the array (even briefly during state transitions), `find()` could return a sentence from the WRONG turn with the same index.
+
+### Fix Applied (8:07 PM)
+
+Updated `currentSentence` lookup to include `turnId` check:
+
+```typescript
+// AFTER (FIXED):
+const currentSentence = useMemo(() => {
+  const found = sentences.find(s => s.index === currentSentenceIndex && s.turnId === currentTurnId);
+  
+  // Debug logging for sentence not found
+  if (!found && sentences.length > 0 && currentSentenceIndex >= 0) {
+    console.warn(`[StreamingSubtitles v2] ⚠️ Sentence not found: idx=${currentSentenceIndex}, turnId=${currentTurnId}`);
+    console.warn(`[StreamingSubtitles v2]   Available:`, sentences.map(s => ({ idx: s.index, turnId: s.turnId })));
+  }
+  
+  return found;
+}, [sentences, currentSentenceIndex, currentTurnId]);
+```
+
+**File changed:** `client/src/hooks/useStreamingSubtitles.ts` (lines 443-455)
+
+### Additional Debug Logging Added
+
+During this session, added comprehensive logging:
+
+1. **TARGET TEXT logging** - Logs exact text and word count when target text is computed
+2. **MULTI-WORD TARGET warning** - Warns if target text has >1 word (potential accumulation)
+3. **SUBTITLE DISPLAY logging** - Logs exact words being rendered
+4. **TargetWordIndex tracking** - Logs instant vs max word index values
+
+### Status: PENDING TESTING
+
+The fix has been deployed. User needs to retest to verify:
+1. "hola hola" no longer appears (single "Hola" per sentence)
+2. Target words don't accumulate across sentences
+3. Target words from previous turns don't appear
+4. English words don't leak into target mode
+
+### Technical Notes
+
+**Why this bug wasn't caught before:**
+- The v2 architecture correctly clears sentences on new turn (`setSentences([])`)
+- BUT: React state updates are asynchronous and batched
+- During the brief window between:
+  1. Processing message received (new turnId set)
+  2. setSentences([]) effect applied
+  3. New sentences added
+  
+  ...the old lookup could still find old sentences with matching index
+
+**Why the fix works:**
+- Adding `turnId` to the lookup ensures we ONLY match sentences from the CURRENT turn
+- Even if old sentences briefly exist in the array, they won't be matched
+- The `turnId` check acts as a secondary filter alongside the existing stale packet filtering
+
+---
+
+## Updated Bug Status
+
+### Bug #1: Phantom Subtitles
+**Status:** LIKELY FIXED (pending verification)
+- Root cause identified: Missing turnId in currentSentence lookup
+- Fix applied to useStreamingSubtitles.ts
+
+### Bug #4: Duplicate/Accumulated Target Words (NEW)
+**Status:** LIKELY FIXED (pending verification)
+- Same root cause as Bug #1
+- Fix: Added turnId to currentSentence lookup
+- Symptoms: "hola hola", "Excelente Gracias Gracias", all previous words showing
