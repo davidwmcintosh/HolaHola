@@ -211,6 +211,13 @@ export function ImmersiveTutor({
     setVisibleWordCount(0);
     setHighlightedWordIndex(-1);
 
+    // IMPORTANT: Hide subtitles when user is recording or processing their speech
+    // This prevents "phantom subtitles" - showing the previous tutor's words when the user releases the mic
+    if (isRecording || isProcessing) {
+      setCurrentWordTimings([]);
+      return;
+    }
+
     if (subtitleMode === "off") {
       setCurrentWordTimings([]);
       return;
@@ -242,8 +249,9 @@ export function ImmersiveTutor({
       } else {
         setCurrentWordTimings([]);
       }
-    } else if (!isPlaying && currentPlayingMessageId) {
+    } else if (!isPlaying && currentPlayingMessageId && !isRecording && !isProcessing) {
       // Audio finished - Show all words for reading practice
+      // But NOT if user is recording/processing (prevents phantom subtitles)
       setVisibleWordCount(currentWordTimings.length);
       setHighlightedWordIndex(-1);
     }
@@ -253,7 +261,7 @@ export function ImmersiveTutor({
       subtitleTimersRef.current.forEach(timer => clearTimeout(timer));
       subtitleTimersRef.current = [];
     };
-  }, [currentPlayingMessageId, isPlaying, messages, subtitleMode, wordTimings]);
+  }, [currentPlayingMessageId, isPlaying, isRecording, isProcessing, messages, subtitleMode, wordTimings]);
 
   // Sync word highlighting with audio playback - progressive reveal
   useEffect(() => {
