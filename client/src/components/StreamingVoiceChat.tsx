@@ -1582,6 +1582,10 @@ export function StreamingVoiceChat({
           streamingTargetWordIndex={useStreamingMode ? streamingVoice.subtitles.state.currentTargetWordIndex : undefined}
           isWaitingForContent={useStreamingMode ? streamingVoice.subtitles.state.isWaitingForContent : undefined}
           getIsWaitingForContent={useStreamingMode ? streamingVoice.subtitles.getIsWaitingForContent : undefined}
+          activeBlockIndex={useStreamingMode ? streamingVoice.subtitles.state.activeBlockIndex : undefined}
+          activeBlockText={useStreamingMode ? streamingVoice.subtitles.state.activeBlockText : undefined}
+          teachingBlockText={useStreamingMode ? streamingVoice.subtitles.state.teachingBlockText : undefined}
+          hasShownTeachingBlock={useStreamingMode ? streamingVoice.subtitles.state.hasShownTeachingBlock : undefined}
           voiceSpeed={voiceSpeed}
           setTutorGender={(gender) => {
             setTutorGender(gender);

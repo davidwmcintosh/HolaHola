@@ -46,6 +46,11 @@ interface ImmersiveTutorProps {
   streamingTargetWordIndex?: number; // Current word index for target-only text (enables karaoke in Target mode)
   isWaitingForContent?: boolean; // True after subtitle reset, false when new content arrives
   getIsWaitingForContent?: () => boolean; // Synchronous getter for immediate access
+  // Block-based rendering for target mode
+  activeBlockIndex?: number; // Which target block is currently being spoken (-1 if none)
+  activeBlockText?: string; // Text of the currently active block
+  teachingBlockText?: string; // Text of the teaching block (persists until turn ends)
+  hasShownTeachingBlock?: boolean; // Whether teaching block has been spoken (for persistence)
   voiceSpeed?: VoiceSpeed; // Voice speed: normal or slow
   setTutorGender?: (gender: 'male' | 'female') => void; // Callback to change tutor gender
   setVoiceSpeed?: (speed: VoiceSpeed) => void; // Callback to change voice speed
@@ -82,6 +87,10 @@ export function ImmersiveTutor({
   streamingTargetWordIndex = -1,
   isWaitingForContent = false,
   getIsWaitingForContent,
+  activeBlockIndex = -1,
+  activeBlockText = '',
+  teachingBlockText = '',
+  hasShownTeachingBlock = false,
   voiceSpeed = "normal",
   setTutorGender,
   setVoiceSpeed,
@@ -508,41 +517,56 @@ export function ImmersiveTutor({
             });
             console.log('[SUBTITLE RENDER v2] ─────────────────────────────────────────');
             
-            // In Target mode, PROGRESSIVELY reveal target words as they're spoken
-            // Only show words that have been spoken (up to and including activeWordIndex)
-            // Don't show ANY words before playback starts (prevents spoilers)
+            // In Target mode, use BLOCK-BASED rendering
+            // - Encouragement blocks (earlier) appear when spoken, then fade
+            // - Teaching block (last block) persists after being shown
             if (isTargetMode) {
-              // If no target words, return null
-              if (allWords.length === 0) {
+              // Determine what to show:
+              // 1. If we're currently speaking a block, show that block
+              // 2. If teaching block has been shown, always show it (persistence)
+              // 3. Otherwise, show nothing
+              
+              let textToShow = '';
+              let isActiveBlock = false;
+              let isTeachingPersisting = false;
+              
+              if (activeBlockText) {
+                // Currently speaking a block - show it
+                textToShow = activeBlockText;
+                isActiveBlock = true;
+                console.log(`[SUBTITLE BLOCK] Active block: "${activeBlockText}"`);
+              } else if (hasShownTeachingBlock && teachingBlockText) {
+                // Teaching block was shown and should persist
+                textToShow = teachingBlockText;
+                isTeachingPersisting = true;
+                console.log(`[SUBTITLE BLOCK] Teaching persisting: "${teachingBlockText}"`);
+              }
+              
+              // Nothing to show
+              if (!textToShow) {
+                console.log(`[SUBTITLE BLOCK] Nothing to show (activeBlock="${activeBlockText}", teaching="${teachingBlockText}", shownTeaching=${hasShownTeachingBlock})`);
                 return null;
               }
               
-              // Only show words if playback has started (activeWordIndex >= 0)
-              // Before playback starts, don't show any target words
-              if (activeWordIndex < 0) {
-                return null;
-              }
+              const wordsToShow = textToShow.split(/\s+/).filter(w => w.length > 0);
               
-              // Only render words that have been spoken (progressive reveal)
-              // Include current word and all previously spoken words
-              const visibleWords = allWords.slice(0, activeWordIndex + 1);
-              
-              // CRITICAL DEBUG: Log exactly what will be displayed
-              console.log(`[SUBTITLE DISPLAY] Rendering ${visibleWords.length} words: "${visibleWords.join(' ')}"`);
+              console.log(`[SUBTITLE DISPLAY] Block-based: "${textToShow}" (active=${isActiveBlock}, persisting=${isTeachingPersisting})`);
               
               return (
                 <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
                   <div className="max-w-4xl mx-auto">
                     <div 
-                      className="text-xl md:text-3xl font-medium text-center leading-relaxed"
+                      className={`text-xl md:text-3xl font-medium text-center leading-relaxed transition-opacity duration-300 ${
+                        isTeachingPersisting ? 'opacity-90' : 'opacity-100'
+                      }`}
                       data-testid="text-subtitle-overlay-streaming"
                     >
-                      {visibleWords.map((word, index) => (
+                      {wordsToShow.map((word, index) => (
                         <span
                           key={index}
                           className={`inline-block mx-0.5 transition-all duration-150 ${
-                            index === activeWordIndex
-                              ? "text-primary scale-105 font-semibold"
+                            isActiveBlock
+                              ? "text-primary font-semibold"
                               : "text-foreground"
                           }`}
                           data-testid={`streaming-target-word-${index}`}

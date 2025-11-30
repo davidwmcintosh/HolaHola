@@ -1,6 +1,39 @@
 # Subtitle Bug Tracking Document
 
-## Last Updated: November 30, 2025 (Late Evening Session - 8:10 PM)
+## Last Updated: November 30, 2025 (Late Evening Session - 10:55 PM)
+
+---
+
+## Block-Based Subtitle System (Nov 30, 2025 - Latest)
+
+### Problem
+Non-contiguous target words in the same sentence (e.g., "¡Excelente!" at word 0 and "Buenas tardes" at words 22-23) were being concatenated into a single string, causing phantom subtitle accumulation.
+
+### Solution: Block-Based Rendering
+Implemented a block detection system that:
+1. Computes contiguous "blocks" of target words from the word mapping
+2. Shows each block independently when its words are being spoken
+3. Encouragement blocks (earlier blocks) appear and fade
+4. Teaching blocks (last block) persist until turn ends
+
+### Key Components
+
+**useStreamingSubtitles.ts:**
+- Added `TargetBlock` interface with `displayStartIndex`, `displayEndIndex`, `text`, `isTeachingBlock`
+- Added `computeTargetBlocks()` function to detect contiguous word groups from wordMapping
+- Added state: `activeBlockIndex`, `activeBlockText`, `teachingBlockText`, `hasShownTeachingBlock`
+- Teaching block (last block) marked with `isTeachingBlock: true` and persists after being shown
+
+**ImmersiveTutor.tsx:**
+- Target mode now uses block-based rendering instead of progressive accumulation
+- When `activeBlockText` is set, shows that block (currently being spoken)
+- When `hasShownTeachingBlock` is true, shows `teachingBlockText` (persistence)
+- No more `slice(0, activeWordIndex + 1)` accumulation
+
+### Expected Behavior
+- "¡Excelente!" shows when word 0 is spoken, disappears when we move past it
+- "Buenas tardes" shows when words 22-23 are spoken, and STAYS (teaching persistence)
+- No phantom accumulation of old Spanish words
 
 ---
 

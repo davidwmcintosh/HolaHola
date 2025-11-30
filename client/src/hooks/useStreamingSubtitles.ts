@@ -14,6 +14,19 @@ import { useState, useCallback, useRef, useMemo } from 'react';
 import { WordTiming } from '../../../shared/streaming-voice-types';
 
 /**
+ * A contiguous block of target language words
+ * Used to show encouragement vs teaching phrases separately
+ */
+export interface TargetBlock {
+  displayStartIndex: number;   // First display word index in this block
+  displayEndIndex: number;     // Last display word index in this block
+  targetStartIndex: number;    // First target word index in this block
+  targetEndIndex: number;      // Last target word index in this block
+  text: string;                // The target text for this block
+  isTeachingBlock: boolean;    // True if this is the last block (teaching target)
+}
+
+/**
  * Sentence with its word timings and server-driven metadata
  */
 export interface SubtitleSentence {
@@ -23,6 +36,7 @@ export interface SubtitleSentence {
   hasTargetContent: boolean;  // Server explicitly says if this has target language
   targetLanguageText?: string;
   wordMapping?: Map<number, number>;
+  targetBlocks?: TargetBlock[];  // Computed blocks for block-based rendering
   wordTimings: WordTiming[];
   expectedDurationMs?: number;
   actualDurationMs?: number;
@@ -47,6 +61,13 @@ export interface StreamingSubtitleState {
   currentTurnId: number;        // Current turn being rendered
   hasTargetContent: boolean;    // Whether current sentence has target content (server truth)
   visibleTargetText: string;
+  
+  // Block-based rendering for target mode
+  currentTargetBlocks: TargetBlock[];      // All blocks in current sentence
+  activeBlockIndex: number;                 // Which block is currently being spoken (-1 if none)
+  activeBlockText: string;                  // Text of the currently active block
+  teachingBlockText: string;                // Text of the teaching block (persists until turn ends)
+  hasShownTeachingBlock: boolean;           // Whether teaching block has been spoken
 }
 
 /**
@@ -67,6 +88,80 @@ export interface UseStreamingSubtitlesReturn {
 }
 
 /**
+ * Compute target blocks from word mapping
+ * Groups contiguous display word indices into blocks with their corresponding target text
+ * 
+ * Example: If wordMapping has displayIndex 0 → target 0, displayIndex 22 → target 1, displayIndex 23 → target 2
+ * This creates two blocks: Block 1 (display 0, "¡Excelente!"), Block 2 (display 22-23, "Buenas tardes")
+ */
+function computeTargetBlocks(
+  wordMapping: Map<number, number> | undefined,
+  targetText: string | undefined
+): TargetBlock[] {
+  if (!wordMapping || wordMapping.size === 0 || !targetText) {
+    return [];
+  }
+  
+  const targetWords = targetText.split(/\s+/).filter(w => w.length > 0);
+  if (targetWords.length === 0) {
+    return [];
+  }
+  
+  // Sort display indices
+  const displayIndices = Array.from(wordMapping.keys()).sort((a, b) => a - b);
+  
+  // Group into contiguous blocks
+  const blocks: TargetBlock[] = [];
+  let blockStart = displayIndices[0];
+  let prevDisplayIdx = displayIndices[0];
+  
+  for (let i = 1; i <= displayIndices.length; i++) {
+    const currentDisplayIdx = displayIndices[i];
+    
+    // Check if we hit a gap (non-consecutive) or end of array
+    const isGap = i < displayIndices.length && currentDisplayIdx - prevDisplayIdx > 1;
+    const isEnd = i === displayIndices.length;
+    
+    if (isGap || isEnd) {
+      // End the current block
+      const blockEnd = prevDisplayIdx;
+      const targetStart = wordMapping.get(blockStart)!;
+      const targetEnd = wordMapping.get(blockEnd)!;
+      
+      // Extract text for this block
+      const blockTargetWords = targetWords.slice(targetStart, targetEnd + 1);
+      const blockText = blockTargetWords.join(' ');
+      
+      blocks.push({
+        displayStartIndex: blockStart,
+        displayEndIndex: blockEnd,
+        targetStartIndex: targetStart,
+        targetEndIndex: targetEnd,
+        text: blockText,
+        isTeachingBlock: false,  // Will mark last block as teaching below
+      });
+      
+      // Start new block if there's more to process
+      if (i < displayIndices.length) {
+        blockStart = currentDisplayIdx;
+      }
+    }
+    
+    prevDisplayIdx = currentDisplayIdx;
+  }
+  
+  // Mark the last block as the teaching block (it should persist)
+  if (blocks.length > 0) {
+    blocks[blocks.length - 1].isTeachingBlock = true;
+  }
+  
+  console.log(`[TargetBlocks] Computed ${blocks.length} block(s) from "${targetText}":`, 
+    blocks.map(b => `"${b.text}" (display ${b.displayStartIndex}-${b.displayEndIndex}, ${b.isTeachingBlock ? 'TEACHING' : 'encouragement'})`));
+  
+  return blocks;
+}
+
+/**
  * Hook for managing streaming subtitles with server-driven state
  */
 export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
@@ -80,6 +175,9 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   
   // Server-driven: track if current sentence has target content
   const [hasTargetContent, setHasTargetContent] = useState(false);
+  
+  // Track if teaching block has been shown (for persistence)
+  const [hasShownTeachingBlock, setHasShownTeachingBlock] = useState(false);
   
   // Ref + state for waiting flag
   const isWaitingForContentRef = useRef(false);
@@ -109,6 +207,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     // Clear ALL state for new turn - prevents stale data from persisting
     setCurrentTurnId(turnId);
     setHasTargetContent(false);  // CRITICAL: Force immediate hiding of target subtitles
+    setHasShownTeachingBlock(false);  // Reset teaching block persistence
     setSentences([]);
     setCurrentSentenceIndex(-1);
     setCurrentWordIndex(-1);
@@ -170,6 +269,15 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     // Setting it here causes race conditions where sentence N+1's hasTarget value is applied
     // while sentence N is still playing, causing phantom subtitles
     
+    // Compute target blocks for block-based rendering
+    const targetBlocks = hasTarget 
+      ? computeTargetBlocks(wordMapping, targetLanguageText)
+      : [];
+    
+    if (targetBlocks.length > 0) {
+      console.log(`[StreamingSubtitles v2]   TargetBlocks:`, targetBlocks);
+    }
+    
     setSentences(prev => {
       // Check if sentence already exists
       const existing = prev.find(s => s.index === index && s.turnId === turnId);
@@ -186,6 +294,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
         hasTargetContent: hasTarget,
         targetLanguageText: hasTarget ? targetLanguageText : undefined,
         wordMapping: hasTarget ? wordMapping : undefined,
+        targetBlocks: targetBlocks.length > 0 ? targetBlocks : undefined,
         wordTimings: [],
         isComplete: false,
       }];
@@ -507,6 +616,54 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     return maxTargetWordIndex;
   }, [instantTargetWordIndex, maxTargetWordIndex]);
   
+  // Block-based rendering: Get target blocks for current sentence
+  const currentTargetBlocks = useMemo(() => {
+    return currentSentence?.targetBlocks || [];
+  }, [currentSentence?.targetBlocks]);
+  
+  // Determine which block is currently active based on display word index
+  const activeBlockIndex = useMemo(() => {
+    if (currentWordIndex < 0 || currentTargetBlocks.length === 0) return -1;
+    
+    const blockIdx = currentTargetBlocks.findIndex(block => 
+      currentWordIndex >= block.displayStartIndex && currentWordIndex <= block.displayEndIndex
+    );
+    
+    return blockIdx;
+  }, [currentWordIndex, currentTargetBlocks]);
+  
+  // Get the text of the currently active block
+  const activeBlockText = useMemo(() => {
+    if (activeBlockIndex < 0 || !currentTargetBlocks[activeBlockIndex]) return '';
+    return currentTargetBlocks[activeBlockIndex].text;
+  }, [activeBlockIndex, currentTargetBlocks]);
+  
+  // Get the teaching block text (last block in the sentence)
+  const teachingBlock = useMemo(() => {
+    const teaching = currentTargetBlocks.find(b => b.isTeachingBlock);
+    return teaching;
+  }, [currentTargetBlocks]);
+  
+  const teachingBlockText = teachingBlock?.text || '';
+  
+  // Track when teaching block has been reached (for persistence)
+  // Once shown, it stays until turn ends
+  useMemo(() => {
+    if (teachingBlock && currentWordIndex >= teachingBlock.displayStartIndex) {
+      if (!hasShownTeachingBlock) {
+        console.log(`[StreamingSubtitles v2] 📌 Teaching block reached: "${teachingBlockText}" - will persist`);
+        setTimeout(() => setHasShownTeachingBlock(true), 0);
+      }
+    }
+  }, [currentWordIndex, teachingBlock, hasShownTeachingBlock, teachingBlockText]);
+  
+  // Log block transitions for debugging
+  useMemo(() => {
+    if (currentTargetBlocks.length > 0) {
+      console.log(`[StreamingSubtitles v2] BLOCK STATE: wordIdx=${currentWordIndex}, activeBlock=${activeBlockIndex}, activeText="${activeBlockText}", teaching="${teachingBlockText}", shownTeaching=${hasShownTeachingBlock}`);
+    }
+  }, [currentWordIndex, activeBlockIndex, activeBlockText, teachingBlockText, hasShownTeachingBlock, currentTargetBlocks.length]);
+  
   return useMemo(() => ({
     state: {
       sentences,
@@ -523,6 +680,12 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       currentTurnId,
       hasTargetContent,  // SERVER-DRIVEN: Whether current sentence has target content
       visibleTargetText,
+      // Block-based rendering for target mode
+      currentTargetBlocks,
+      activeBlockIndex,
+      activeBlockText,
+      teachingBlockText,
+      hasShownTeachingBlock,
     },
     addSentence,
     setWordTimings,
@@ -549,6 +712,11 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     currentTurnId,
     hasTargetContent,
     visibleTargetText,
+    currentTargetBlocks,
+    activeBlockIndex,
+    activeBlockText,
+    teachingBlockText,
+    hasShownTeachingBlock,
     addSentence,
     setWordTimings,
     startPlayback,

@@ -34,6 +34,11 @@ interface VoiceChatViewManagerProps {
   streamingTargetWordIndex?: number;  // Word index in target-only text for Target mode karaoke
   isWaitingForContent?: boolean;  // True after subtitle reset, false when new content arrives
   getIsWaitingForContent?: () => boolean;  // Synchronous getter for immediate access
+  // Block-based rendering for target mode
+  activeBlockIndex?: number;
+  activeBlockText?: string;
+  teachingBlockText?: string;
+  hasShownTeachingBlock?: boolean;
   voiceSpeed?: VoiceSpeed;
   setTutorGender?: (gender: 'male' | 'female') => void;
   setVoiceSpeed?: (speed: VoiceSpeed) => void;
@@ -68,6 +73,10 @@ export function VoiceChatViewManager({
   streamingTargetWordIndex,
   isWaitingForContent,
   getIsWaitingForContent,
+  activeBlockIndex,
+  activeBlockText,
+  teachingBlockText,
+  hasShownTeachingBlock,
   voiceSpeed,
   setTutorGender,
   setVoiceSpeed,
@@ -212,6 +221,10 @@ export function VoiceChatViewManager({
                 streamingTargetWordIndex={streamingTargetWordIndex}
                 isWaitingForContent={isWaitingForContent}
                 getIsWaitingForContent={getIsWaitingForContent}
+                activeBlockIndex={activeBlockIndex}
+                activeBlockText={activeBlockText}
+                teachingBlockText={teachingBlockText}
+                hasShownTeachingBlock={hasShownTeachingBlock}
                 voiceSpeed={voiceSpeed}
                 setTutorGender={setTutorGender}
                 setVoiceSpeed={setVoiceSpeed}
