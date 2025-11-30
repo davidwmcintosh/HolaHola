@@ -392,6 +392,13 @@ export class StreamingVoiceClient {
           this.emit('feedback', feedbackMsg);
           break;
           
+        case 'voice_updated':
+          // Voice switch confirmation - the server has changed the tutor voice
+          const voiceMsg = message as { type: string; gender: string; voiceName: string; timestamp: number };
+          console.log(`[StreamingVoiceClient] Voice updated to ${voiceMsg.gender}: ${voiceMsg.voiceName}`);
+          this.emit('voiceUpdated', voiceMsg);
+          break;
+          
         default:
           console.warn('[StreamingVoiceClient] Unknown message type:', (message as any).type);
       }
