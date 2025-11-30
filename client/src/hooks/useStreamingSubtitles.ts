@@ -1,24 +1,31 @@
 /**
- * Streaming Subtitles Hook
+ * Streaming Subtitles Hook (v2 - Server-Driven Architecture)
  * 
- * Manages progressive subtitle display for streaming voice mode.
- * Handles sentence-by-sentence text arrival with karaoke-style word highlighting.
+ * NEW ARCHITECTURE: Server is the single source of truth for subtitle state.
+ * - turnId: Monotonic ID for each assistant response (prevents phantom subtitles)
+ * - hasTargetContent: Explicit flag from server - if false, hide subtitles immediately
+ * - No client-side fallback logic - eliminates all race conditions
+ * 
+ * The client is a "dumb renderer" that simply displays what the server says.
+ * Old packets (with older turnId) are discarded to prevent stale data.
  */
 
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { WordTiming } from '../../../shared/streaming-voice-types';
 
 /**
- * Sentence with its word timings
+ * Sentence with its word timings and server-driven metadata
  */
 export interface SubtitleSentence {
   index: number;
+  turnId: number;           // Server-assigned turn ID for packet ordering
   text: string;
-  targetLanguageText?: string;  // Target language only (for subtitle filtering)
-  wordMapping?: Map<number, number>;  // Maps fullTextWordIndex -> targetTextWordIndex
+  hasTargetContent: boolean;  // Server explicitly says if this has target language
+  targetLanguageText?: string;
+  wordMapping?: Map<number, number>;
   wordTimings: WordTiming[];
-  expectedDurationMs?: number;  // Expected duration from server (for rescaling)
-  actualDurationMs?: number;    // Actual audio duration (for rescaling)
+  expectedDurationMs?: number;
+  actualDurationMs?: number;
   isComplete: boolean;
 }
 
@@ -29,16 +36,17 @@ export interface StreamingSubtitleState {
   sentences: SubtitleSentence[];
   currentSentenceIndex: number;
   currentWordIndex: number;
-  currentTargetWordIndex: number;  // Word index in target-only text (for Target mode karaoke)
+  currentTargetWordIndex: number;
   visibleWordCount: number;
   isPlaying: boolean;
-  isWaitingForContent: boolean;  // True after reset(), false when first sentence arrives
+  isWaitingForContent: boolean;
   fullText: string;
-  targetFullText: string;  // Target language only (for subtitle mode filtering)
-  currentSentenceText: string;  // Current sentence text for karaoke display
-  currentSentenceTargetText: string;  // Current sentence target text for subtitle mode
-  lastNonEmptyTargetText: string;  // Last target text that had content (for fallback display)
-  visibleTargetText: string;  // Only target text from COMPLETED sentences (not pending ones)
+  targetFullText: string;
+  currentSentenceText: string;
+  currentSentenceTargetText: string;
+  currentTurnId: number;        // Current turn being rendered
+  hasTargetContent: boolean;    // Whether current sentence has target content (server truth)
+  visibleTargetText: string;
 }
 
 /**
@@ -46,21 +54,20 @@ export interface StreamingSubtitleState {
  */
 export interface UseStreamingSubtitlesReturn {
   state: StreamingSubtitleState;
-  addSentence: (index: number, text: string, targetLanguageText?: string, wordMapping?: [number, number][]) => void;
-  setWordTimings: (sentenceIndex: number, timings: WordTiming[], expectedDurationMs?: number) => void;
-  startPlayback: (sentenceIndex: number) => void;
+  addSentence: (index: number, text: string, turnId: number, hasTargetContent: boolean, targetLanguageText?: string, wordMapping?: [number, number][]) => void;
+  setWordTimings: (sentenceIndex: number, turnId: number, timings: WordTiming[], expectedDurationMs?: number) => void;
+  startPlayback: (sentenceIndex: number, turnId: number) => void;
   updatePlaybackTime: (currentTime: number, actualDuration?: number) => void;
   stopPlayback: () => void;
-  completeSentence: (sentenceIndex: number) => void;
+  completeSentence: (sentenceIndex: number, turnId: number) => void;
   reset: () => void;
-  beginAssistantTurn: () => void;  // Clear fallback text at start of new assistant turn (prevents phantom subtitles across turns)
+  setCurrentTurnId: (turnId: number) => void;  // Called when processing message arrives with new turnId
   getCurrentWordTimings: () => WordTiming[];
-  getIsWaitingForContent: () => boolean;  // Synchronous getter for immediate access
-  getLastNonEmptyTargetText: () => string;  // Synchronous getter to prevent phantom subtitles
+  getIsWaitingForContent: () => boolean;
 }
 
 /**
- * Hook for managing streaming subtitles with karaoke highlighting
+ * Hook for managing streaming subtitles with server-driven state
  */
 export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   const [sentences, setSentences] = useState<SubtitleSentence[]>([]);
@@ -68,220 +75,209 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   const [currentWordIndex, setCurrentWordIndex] = useState(-1);
   const [visibleWordCount, setVisibleWordCount] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  
-  // Track the maximum target word index reached during playback
-  // This enables progressive reveal in Target mode - once a target word is spoken,
-  // it stays visible even when subsequent English words are playing
+  const [currentTurnId, setCurrentTurnId] = useState(0);
   const [maxTargetWordIndex, setMaxTargetWordIndex] = useState(-1);
   
-  // Track the last non-empty target text for fallback display
-  // When a sentence has no target text (like "Give it a try!"), we show the last known target text
-  // Use ref + state pattern to ensure synchronous clearing during reset (prevents phantom subtitles)
-  const [lastNonEmptyTargetText, setLastNonEmptyTargetText] = useState('');
-  const lastNonEmptyTargetTextRef = useRef('');
+  // Server-driven: track if current sentence has target content
+  const [hasTargetContent, setHasTargetContent] = useState(false);
   
-  // Use ref + state pattern for isWaitingForContent to ensure:
-  // - Ref provides IMMEDIATE synchronous update for render guards
-  // - State triggers React re-render when content arrives
+  // Ref + state for waiting flag
   const isWaitingForContentRef = useRef(false);
   const [isWaitingForContent, setIsWaitingForContent] = useState(false);
   
-  // Ref for current timings (avoids closure issues in animation frame)
+  // Refs for animation and timing
   const currentTimingsRef = useRef<WordTiming[]>([]);
   const currentWordMappingRef = useRef<Map<number, number> | undefined>(undefined);
   const animationFrameRef = useRef<number | null>(null);
   const playbackStartTimeRef = useRef<number>(0);
-  const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const expectedDurationRef = useRef<number | undefined>(undefined);
   const actualDurationRef = useRef<number | undefined>(undefined);
   
-  // Store timings by sentence index for immediate synchronous access during streaming
-  // Word timings arrive before audio playback starts - this cache ensures they're available instantly
+  // Timing cache for immediate access during streaming
   const timingsBySentenceRef = useRef<Map<number, { timings: WordTiming[]; expectedDurationMs?: number }>>(new Map());
   
   /**
-   * Add a new sentence (called when server sends sentence_start)
+   * Set the current turn ID (called when 'processing' message arrives)
+   * This prepares the hook to accept only packets with this turnId or newer
+   * CRITICAL: All refs and state MUST be cleared to prevent stale data from persisting
    */
-  const addSentence = useCallback((index: number, text: string, targetLanguageText?: string, wordMappingArray?: [number, number][]) => {
-    // Convert array of tuples to Map for efficient lookup
+  const setTurnId = useCallback((turnId: number) => {
+    console.log(`[StreamingSubtitles v2] New turn: ${turnId}`);
+    
+    // Clear ALL state for new turn - prevents stale data from persisting
+    setCurrentTurnId(turnId);
+    setHasTargetContent(false);  // CRITICAL: Force immediate hiding of target subtitles
+    setSentences([]);
+    setCurrentSentenceIndex(-1);
+    setCurrentWordIndex(-1);
+    setVisibleWordCount(0);
+    setMaxTargetWordIndex(-1);
+    setIsPlaying(false);  // Also stop playback to prevent stale timing
+    
+    // Clear ALL refs to prevent stale data
+    timingsBySentenceRef.current.clear();
+    currentTimingsRef.current = [];
+    currentWordMappingRef.current = undefined;  // Clear word mapping to prevent stale target highlighting
+    expectedDurationRef.current = undefined;
+    actualDurationRef.current = undefined;
+    playbackStartTimeRef.current = 0;
+    
+    // Set waiting flag
+    isWaitingForContentRef.current = true;
+    setIsWaitingForContent(true);
+  }, []);
+  
+  /**
+   * Add a new sentence (called when server sends sentence_start)
+   * Now includes turnId and hasTargetContent from server
+   */
+  const addSentence = useCallback((
+    index: number, 
+    text: string, 
+    turnId: number,
+    hasTarget: boolean,
+    targetLanguageText?: string, 
+    wordMappingArray?: [number, number][]
+  ) => {
+    // STALE PACKET FILTER: Ignore packets from old turns
+    if (turnId < currentTurnId) {
+      console.log(`[StreamingSubtitles v2] Ignoring stale sentence (turnId ${turnId} < current ${currentTurnId})`);
+      return;
+    }
+    
     const wordMapping = wordMappingArray && wordMappingArray.length > 0
       ? new Map<number, number>(wordMappingArray)
       : undefined;
     
-    console.log(`[StreamingSubtitles] Add sentence ${index}: "${text.substring(0, 50)}..." (target: ${targetLanguageText?.substring(0, 30) || 'none'}, mapping: ${wordMapping?.size || 0} entries)`);
+    console.log(`[StreamingSubtitles v2] Add sentence ${index} (turn ${turnId}): hasTarget=${hasTarget}, text="${text.substring(0, 40)}..."`);
     
-    // Clear waiting flag when first sentence arrives (ref for immediate, state for re-render)
+    // Clear waiting flag when first sentence arrives
     isWaitingForContentRef.current = false;
     setIsWaitingForContent(false);
     
-    // CRITICAL: Clear fallback text when new sentence has NO target words
-    // This prevents "phantom subtitles" where old Spanish words stay visible
-    // during English-only sentences
-    if (!targetLanguageText || targetLanguageText.trim().length === 0) {
-      console.log(`[StreamingSubtitles] Sentence ${index} has no target text - clearing fallback to prevent phantoms`);
-      lastNonEmptyTargetTextRef.current = '';
-      setLastNonEmptyTargetText('');
-    }
+    // SERVER-DRIVEN: Set hasTargetContent from server's explicit flag
+    setHasTargetContent(hasTarget);
     
     setSentences(prev => {
       // Check if sentence already exists
-      const existing = prev.find(s => s.index === index);
-      if (existing) {
-        return prev;
-      }
+      const existing = prev.find(s => s.index === index && s.turnId === turnId);
+      if (existing) return prev;
       
       return [...prev, {
         index,
+        turnId,
         text,
-        targetLanguageText,
-        wordMapping,
+        hasTargetContent: hasTarget,
+        targetLanguageText: hasTarget ? targetLanguageText : undefined,
+        wordMapping: hasTarget ? wordMapping : undefined,
         wordTimings: [],
         isComplete: false,
       }];
     });
-  }, []);
+  }, [currentTurnId]);
   
   /**
    * Set word timings for a sentence (called when server sends word_timing)
    */
-  const setWordTimings = useCallback((sentenceIndex: number, timings: WordTiming[], expectedDurationMs?: number) => {
-    console.log(`[StreamingSubtitles] Set timings for sentence ${sentenceIndex}: ${timings.length} words, expected ${expectedDurationMs}ms`);
+  const setWordTimings = useCallback((sentenceIndex: number, turnId: number, timings: WordTiming[], expectedDurationMs?: number) => {
+    // STALE PACKET FILTER
+    if (turnId < currentTurnId) {
+      console.log(`[StreamingSubtitles v2] Ignoring stale timings (turnId ${turnId} < current ${currentTurnId})`);
+      return;
+    }
     
-    // Store in ref map for immediate synchronous access during streaming playback
+    console.log(`[StreamingSubtitles v2] Set timings for sentence ${sentenceIndex} (turn ${turnId}): ${timings.length} words`);
+    
+    // Store in ref for immediate access
     timingsBySentenceRef.current.set(sentenceIndex, { timings, expectedDurationMs });
     
-    // Also update React state for sentence data
+    // Update React state
     setSentences(prev => {
       return prev.map(s => {
-        if (s.index === sentenceIndex) {
-          return { 
-            ...s, 
-            wordTimings: timings,
-            expectedDurationMs,
-          };
+        if (s.index === sentenceIndex && s.turnId === turnId) {
+          return { ...s, wordTimings: timings, expectedDurationMs };
         }
         return s;
       });
     });
     
-    // Update current timings ref if this is the active sentence
+    // Update refs if this is the active sentence
     if (sentenceIndex === currentSentenceIndex) {
       currentTimingsRef.current = timings;
       expectedDurationRef.current = expectedDurationMs;
     }
-  }, [currentSentenceIndex]);
+  }, [currentTurnId, currentSentenceIndex]);
   
   /**
    * Start playback for a sentence
    */
-  const startPlayback = useCallback((sentenceIndex: number) => {
-    console.log(`[StreamingSubtitles] Start playback for sentence ${sentenceIndex}`);
+  const startPlayback = useCallback((sentenceIndex: number, turnId: number) => {
+    // STALE PACKET FILTER
+    if (turnId < currentTurnId) {
+      console.log(`[StreamingSubtitles v2] Ignoring stale playback start (turnId ${turnId} < current ${currentTurnId})`);
+      return;
+    }
     
-    // Get timings from ref map FIRST (immediate synchronous access for streaming playback)
+    console.log(`[StreamingSubtitles v2] Start playback for sentence ${sentenceIndex} (turn ${turnId})`);
+    
+    // Get timings from cache
     const storedTimings = timingsBySentenceRef.current.get(sentenceIndex);
     if (storedTimings) {
       currentTimingsRef.current = storedTimings.timings;
       expectedDurationRef.current = storedTimings.expectedDurationMs;
-      console.log(`[StreamingSubtitles] Loaded ${storedTimings.timings.length} word timings for sentence ${sentenceIndex}`);
     } else {
-      // Timings may arrive slightly after audio starts - this is a normal race condition
-      console.debug(`[StreamingSubtitles] No timings yet for sentence ${sentenceIndex}`);
       currentTimingsRef.current = [];
       expectedDurationRef.current = undefined;
     }
     
-    // Check the sentence's target text BEFORE any state updates
-    // This ensures we clear fallback synchronously in the same tick
+    // Get sentence to update hasTargetContent and word mapping
     setSentences(prev => {
-      const sentence = prev.find(s => s.index === sentenceIndex);
-      currentWordMappingRef.current = sentence?.wordMapping;
-      
-      // CRITICAL: If this sentence has no target text, clear the fallback SYNCHRONOUSLY
-      // Using the ref ensures immediate effect before any render
-      if (!sentence?.targetLanguageText || sentence.targetLanguageText.trim().length === 0) {
-        console.log(`[StreamingSubtitles] Sentence ${sentenceIndex} has no target text - clearing fallback SYNC on playback start`);
-        lastNonEmptyTargetTextRef.current = '';  // Sync clear via ref
+      const sentence = prev.find(s => s.index === sentenceIndex && s.turnId === turnId);
+      if (sentence) {
+        currentWordMappingRef.current = sentence.wordMapping;
+        // Update hasTargetContent from the sentence's server-assigned flag
+        setHasTargetContent(sentence.hasTargetContent);
       }
-      
-      return prev; // No state change, just reading
+      return prev;
     });
     
-    // Now batch all the state updates together
-    // React will batch these, but the ref is already cleared above
     setCurrentSentenceIndex(sentenceIndex);
     setIsPlaying(true);
     setVisibleWordCount(0);
     setCurrentWordIndex(-1);
     setMaxTargetWordIndex(-1);
     
-    // Also clear the state version (will be batched with above)
-    // The ref is the source of truth for sync access
-    setLastNonEmptyTargetText('');  // Always clear on new sentence start to prevent phantoms
-    
     playbackStartTimeRef.current = Date.now();
     actualDurationRef.current = undefined;
-  }, []);
+  }, [currentTurnId]);
   
   /**
    * Update playback time (called from high-precision timing loop)
-   * Uses performance.now() based timing from StreamingAudioPlayer for frame-accurate sync
-   * Supports rescaling when actual audio duration differs from expected
    */
   const updatePlaybackTime = useCallback((currentTime: number, actualDuration?: number) => {
-    // DEBUG: Log every call to verify RAF loop is running (only log periodically to avoid spam)
-    if (Math.floor(currentTime * 60) % 60 === 0) { // Log ~once per second
-      console.log(`[StreamingSubtitles] updatePlaybackTime: time=${currentTime.toFixed(2)}s, timings=${currentTimingsRef.current.length}`);
-    }
-    
     const timings = currentTimingsRef.current;
-    if (timings.length === 0) {
-      // DEBUG: Log when timings are empty (this would prevent word highlighting)
-      if (Math.floor(currentTime * 10) % 20 === 0) { // Log every 2 seconds
-        console.log(`[StreamingSubtitles] updatePlaybackTime called but NO timings loaded! currentTime: ${currentTime.toFixed(2)}s`);
-      }
-      return;
-    }
+    if (timings.length === 0) return;
     
-    // Pedagogical timing offset (in seconds)
-    // Research shows 100-150ms EARLY word appearance is optimal for language learning:
-    // - Primes the brain for incoming audio
-    // - Strengthens written-to-spoken word association  
-    // - Improves word recognition and memory retention
-    // Subtitle Timing Offset
-    // Words should appear ~100-150ms BEFORE audio for optimal learning (pedagogical timing).
-    // 
-    // TUNING: Increase this value if words appear too early
-    //         Decrease this value if words appear too late
-    // 
-    // Testing notes:
-    // - 3.5s was WAY too large - words never appeared for short audio clips
-    // - Starting with 0.18s (180ms pedagogical timing offset)
-    const SUBTITLE_OFFSET = 0.18; // Pedagogical timing - words appear slightly before audio
-    
-    // Apply timing offset (delays word appearance)
+    // Pedagogical timing offset - words appear slightly before audio
+    const SUBTITLE_OFFSET = 0.18;
     const adjustedTime = Math.max(0, currentTime - SUBTITLE_OFFSET);
     
-    // Store actual duration for rescaling calculations
-    // Only store if it's a valid, finite number (duration can be NaN before metadata loads)
+    // Store actual duration for rescaling
     const isValidDuration = actualDuration !== undefined && actualDuration > 0 && Number.isFinite(actualDuration);
     const needsUpdate = actualDurationRef.current === undefined || !Number.isFinite(actualDurationRef.current);
     
     if (isValidDuration && needsUpdate) {
-      actualDurationRef.current = actualDuration * 1000; // Convert to ms
-      console.log(`[StreamingSubtitles] Captured actual duration: ${actualDuration.toFixed(2)}s (expected: ${expectedDurationRef.current?.toFixed(0)}ms)`);
+      actualDurationRef.current = actualDuration * 1000;
     }
     
-    // Calculate rescaling factor if we have both expected and actual duration
+    // Calculate rescaling factor
     let scaleFactor = 1;
     const expected = expectedDurationRef.current;
     const actual = actualDurationRef.current;
     
     if (expected && actual && expected > 0 && Number.isFinite(actual)) {
       scaleFactor = actual / expected;
-      // Only apply rescaling if the difference is significant (> 5%)
-      if (Math.abs(scaleFactor - 1) < 0.05) {
-        scaleFactor = 1;
-      }
+      if (Math.abs(scaleFactor - 1) < 0.05) scaleFactor = 1;
     }
     
     let wordIndex = -1;
@@ -289,25 +285,11 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     
     for (let i = 0; i < timings.length; i++) {
       const timing = timings[i];
-      
-      // Apply rescaling to timing values
       const scaledStartTime = timing.startTime * scaleFactor;
       const scaledEndTime = timing.endTime * scaleFactor;
       
-      // Word is visible if we've reached its start time (using adjusted time)
-      if (adjustedTime >= scaledStartTime) {
-        maxVisibleIndex = i;
-      }
-      
-      // Word is highlighted if we're within its time range (using adjusted time)
-      if (adjustedTime >= scaledStartTime && adjustedTime < scaledEndTime) {
-        wordIndex = i;
-      }
-    }
-    
-    // DEBUG: Log word index updates periodically to verify RAF loop is running
-    if (wordIndex >= 0 && wordIndex !== currentWordIndex) {
-      console.log(`[StreamingSubtitles] Word ${wordIndex} at ${currentTime.toFixed(2)}s (visible: ${maxVisibleIndex + 1})`);
+      if (adjustedTime >= scaledStartTime) maxVisibleIndex = i;
+      if (adjustedTime >= scaledStartTime && adjustedTime < scaledEndTime) wordIndex = i;
     }
     
     setVisibleWordCount(maxVisibleIndex + 1);
@@ -318,7 +300,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
    * Stop playback
    */
   const stopPlayback = useCallback(() => {
-    console.log('[StreamingSubtitles] Stop playback');
+    console.log('[StreamingSubtitles v2] Stop playback');
     setIsPlaying(false);
     
     if (animationFrameRef.current) {
@@ -330,44 +312,45 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   /**
    * Mark sentence as complete
    */
-  const completeSentence = useCallback((sentenceIndex: number) => {
-    // Clean up timing cache entry for completed sentence to prevent memory leak
+  const completeSentence = useCallback((sentenceIndex: number, turnId: number) => {
+    // STALE PACKET FILTER
+    if (turnId < currentTurnId) return;
+    
+    // Clean up timing cache
     timingsBySentenceRef.current.delete(sentenceIndex);
     
     setSentences(prev => {
       return prev.map(s => {
-        if (s.index === sentenceIndex) {
+        if (s.index === sentenceIndex && s.turnId === turnId) {
           return { ...s, isComplete: true };
         }
         return s;
       });
     });
-  }, []);
+  }, [currentTurnId]);
   
   /**
    * Reset all state
    */
   const reset = useCallback(() => {
-    const prevFallback = lastNonEmptyTargetTextRef.current;
-    console.log('[StreamingSubtitles] Reset - clearing fallback:', prevFallback?.substring(0, 30) || '(empty)');
+    console.log('[StreamingSubtitles v2] Reset');
     
-    // IMMEDIATELY set flags via refs (synchronous - bypasses React batching)
-    // This ensures ImmersiveTutor guards work on the very next render
     isWaitingForContentRef.current = true;
-    lastNonEmptyTargetTextRef.current = '';  // Clear fallback text synchronously (prevents phantom subtitles)
     
-    setIsWaitingForContent(true);  // Also update state for React re-render
+    setIsWaitingForContent(true);
     setSentences([]);
     setCurrentSentenceIndex(-1);
     setCurrentWordIndex(-1);
     setVisibleWordCount(0);
     setIsPlaying(false);
-    setMaxTargetWordIndex(-1);  // Reset max target index
-    setLastNonEmptyTargetText('');  // Reset last target text
+    setMaxTargetWordIndex(-1);
+    setHasTargetContent(false);
+    // Don't reset currentTurnId - let setCurrentTurnId handle that
+    
     currentTimingsRef.current = [];
     expectedDurationRef.current = undefined;
     actualDurationRef.current = undefined;
-    timingsBySentenceRef.current.clear(); // Clear the timing cache
+    timingsBySentenceRef.current.clear();
     
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -376,54 +359,17 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   }, []);
   
   /**
-   * Begin a new assistant turn - clears fallback text from previous turn
-   * Call this when the FIRST sentence of a new assistant response arrives
-   * This prevents phantom subtitles from previous turns appearing in new turns
-   */
-  const beginAssistantTurn = useCallback(() => {
-    const prevFallback = lastNonEmptyTargetTextRef.current;
-    console.log('[StreamingSubtitles] Begin assistant turn - clearing previous fallback:', prevFallback?.substring(0, 30) || '(empty)');
-    
-    // Clear the fallback text from the previous turn
-    // This ensures that if the new turn starts with an English sentence,
-    // we don't show target text from the previous turn
-    lastNonEmptyTargetTextRef.current = '';
-    setLastNonEmptyTargetText('');
-    setMaxTargetWordIndex(-1);
-    
-    // CRITICAL: Also reset currentSentenceIndex to -1
-    // This prevents the useMemo that updates lastNonEmptyTargetText from
-    // re-populating the fallback with old sentence data from the previous turn
-    // (The useMemo runs after this function, and if currentSentenceIndex still
-    // points to an old sentence, it would re-set the fallback to the old value)
-    setCurrentSentenceIndex(-1);
-    
-    // Also clear sentences to ensure clean slate
-    setSentences([]);
-    timingsBySentenceRef.current.clear();
-  }, []);
-  
-  /**
-   * Get current word timings for the playing sentence
+   * Get current word timings
    */
   const getCurrentWordTimings = useCallback(() => {
     return currentTimingsRef.current;
   }, []);
   
   /**
-   * Get synchronous waiting flag (bypasses React batching)
-   * Use this for immediate checks in render guards
+   * Get synchronous waiting flag
    */
   const getIsWaitingForContent = useCallback(() => {
     return isWaitingForContentRef.current;
-  }, []);
-  
-  /**
-   * Get synchronous fallback target text (bypasses React batching)
-   * Use this for immediate checks to prevent phantom subtitles during reset
-   */
-  const getLastNonEmptyTargetText = useCallback(() => {
-    return lastNonEmptyTargetTextRef.current;
   }, []);
   
   // Compute full text from all sentences
@@ -435,9 +381,10 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     [sentences]
   );
   
-  // Compute target-language-only full text (for subtitle mode filtering)
+  // Compute target-language-only full text
   const targetFullText = useMemo(() => 
     sentences
+      .filter(s => s.hasTargetContent)  // Only sentences server marked as having target content
       .sort((a, b) => a.index - b.index)
       .map(s => s.targetLanguageText || '')
       .filter(t => t.length > 0)
@@ -445,66 +392,50 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     [sentences]
   );
   
-  // Compute VISIBLE target text - only from COMPLETED sentences
-  // This prevents showing target words before they've been spoken
+  // Compute visible target text - only from completed sentences with target content
   const visibleTargetText = useMemo(() => {
     return sentences
-      .filter(s => s.isComplete)  // Only completed sentences
+      .filter(s => s.isComplete && s.hasTargetContent)
       .sort((a, b) => a.index - b.index)
       .map(s => s.targetLanguageText || '')
       .filter(t => t.length > 0)
       .join(' ');
   }, [sentences]);
   
-  // Get current sentence text for karaoke display (word index is relative to this)
+  // Get current sentence for karaoke display
   const currentSentence = useMemo(() => 
     sentences.find(s => s.index === currentSentenceIndex),
     [sentences, currentSentenceIndex]
   );
   
   const currentSentenceText = currentSentence?.text || '';
-  const currentSentenceTargetText = currentSentence?.targetLanguageText || '';
   
-  // Update lastNonEmptyTargetText when we get a sentence with target content
-  // This enables fallback display when subsequent sentences have no target text
-  // Update both ref (for synchronous access) and state (for React re-renders)
-  useMemo(() => {
-    if (currentSentenceTargetText && currentSentenceTargetText.length > 0) {
-      lastNonEmptyTargetTextRef.current = currentSentenceTargetText;
-      setLastNonEmptyTargetText(currentSentenceTargetText);
-    }
-  }, [currentSentenceTargetText]);
+  // SERVER-DRIVEN: Gate target text on hasTargetContent flag
+  // This ensures immediate hiding when server says no target content, 
+  // preventing stale text from persisting during React state batching
+  const currentSentenceTargetText = (hasTargetContent && currentSentence?.hasTargetContent)
+    ? (currentSentence?.targetLanguageText || '')
+    : '';
   
-  // Compute current target word index from current word index using word mapping
-  // This enables karaoke highlighting in Target mode
-  // 
-  // IMPORTANT: We track the MAXIMUM target word index reached during playback.
-  // This enables progressive reveal - once a target word is spoken, it stays visible
-  // even when subsequent English words are playing.
+  // Compute current target word index from word mapping
   const instantTargetWordIndex = useMemo(() => {
     if (currentWordIndex < 0) return -1;
     
     const mapping = currentSentence?.wordMapping;
     if (!mapping) return -1;
     
-    // Look up the target word index for the current full-text word index
     return mapping.get(currentWordIndex) ?? -1;
   }, [currentWordIndex, currentSentence?.wordMapping]);
   
-  // Update max target word index when we reach a new target word
-  // This ensures progressive reveal works correctly
+  // Progressive reveal for target words
   const currentTargetWordIndex = useMemo(() => {
     if (instantTargetWordIndex > maxTargetWordIndex) {
-      // Use setTimeout to avoid state update during render
       setTimeout(() => setMaxTargetWordIndex(instantTargetWordIndex), 0);
       return instantTargetWordIndex;
     }
-    // Return the max reached so far (keeps words visible after English words play)
     return maxTargetWordIndex;
   }, [instantTargetWordIndex, maxTargetWordIndex]);
   
-  // Memoize the return value to prevent infinite re-render loops
-  // when this hook's return value is used as a dependency in other hooks
   return useMemo(() => ({
     state: {
       sentences,
@@ -518,7 +449,8 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       targetFullText,
       currentSentenceText,
       currentSentenceTargetText,
-      lastNonEmptyTargetText,
+      currentTurnId,
+      hasTargetContent,  // SERVER-DRIVEN: Whether current sentence has target content
       visibleTargetText,
     },
     addSentence,
@@ -528,10 +460,9 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     stopPlayback,
     completeSentence,
     reset,
-    beginAssistantTurn,
+    setCurrentTurnId: setTurnId,
     getCurrentWordTimings,
     getIsWaitingForContent,
-    getLastNonEmptyTargetText,
   }), [
     sentences,
     currentSentenceIndex,
@@ -544,7 +475,8 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     targetFullText,
     currentSentenceText,
     currentSentenceTargetText,
-    lastNonEmptyTargetText,
+    currentTurnId,
+    hasTargetContent,
     visibleTargetText,
     addSentence,
     setWordTimings,
@@ -553,9 +485,8 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     stopPlayback,
     completeSentence,
     reset,
-    beginAssistantTurn,
+    setTurnId,
     getCurrentWordTimings,
     getIsWaitingForContent,
-    getLastNonEmptyTargetText,
   ]);
 }

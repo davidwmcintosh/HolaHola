@@ -29,8 +29,7 @@ interface VoiceChatViewManagerProps {
   tutorGender?: 'male' | 'female';
   streamingText?: string;
   streamingTargetText?: string;
-  lastNonEmptyTargetText?: string;  // Fallback target text when current sentence has no target content
-  getLastNonEmptyTargetText?: () => string;  // Synchronous getter to prevent phantom subtitles
+  hasTargetContent?: boolean;  // Server-driven: whether current sentence has target language content
   streamingWordIndex?: number;
   streamingTargetWordIndex?: number;  // Word index in target-only text for Target mode karaoke
   isWaitingForContent?: boolean;  // True after subtitle reset, false when new content arrives
@@ -64,8 +63,7 @@ export function VoiceChatViewManager({
   tutorGender = "female",
   streamingText,
   streamingTargetText,
-  lastNonEmptyTargetText,
-  getLastNonEmptyTargetText,
+  hasTargetContent,
   streamingWordIndex,
   streamingTargetWordIndex,
   isWaitingForContent,
@@ -209,8 +207,7 @@ export function VoiceChatViewManager({
                 tutorGender={tutorGender}
                 streamingText={streamingText}
                 streamingTargetText={streamingTargetText}
-                lastNonEmptyTargetText={lastNonEmptyTargetText}
-                getLastNonEmptyTargetText={getLastNonEmptyTargetText}
+                hasTargetContent={hasTargetContent}
                 streamingWordIndex={streamingWordIndex}
                 streamingTargetWordIndex={streamingTargetWordIndex}
                 isWaitingForContent={isWaitingForContent}

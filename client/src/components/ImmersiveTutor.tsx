@@ -41,8 +41,7 @@ interface ImmersiveTutorProps {
   tutorGender?: 'male' | 'female'; // Tutor avatar gender preference
   streamingText?: string; // Text from streaming voice mode
   streamingTargetText?: string; // Target language only text from streaming mode
-  lastNonEmptyTargetText?: string; // Fallback target text when current sentence has no target content
-  getLastNonEmptyTargetText?: () => string; // Synchronous getter to prevent phantom subtitles
+  hasTargetContent?: boolean; // Server-driven: whether current sentence has target language content
   streamingWordIndex?: number; // Current word index for streaming subtitles
   streamingTargetWordIndex?: number; // Current word index for target-only text (enables karaoke in Target mode)
   isWaitingForContent?: boolean; // True after subtitle reset, false when new content arrives
@@ -78,8 +77,7 @@ export function ImmersiveTutor({
   tutorGender = "female",
   streamingText,
   streamingTargetText,
-  lastNonEmptyTargetText,
-  getLastNonEmptyTargetText,
+  hasTargetContent = false,
   streamingWordIndex = -1,
   streamingTargetWordIndex = -1,
   isWaitingForContent = false,
@@ -457,37 +455,27 @@ export function ImmersiveTutor({
             // For "target" mode, use streamingTargetText if available
             const isTargetMode = subtitleMode === "target";
             
-            // CRITICAL: Use synchronous getter to check actual current fallback state
-            // The prop might be stale due to React batching - the ref is always up-to-date
-            const syncFallbackText = getLastNonEmptyTargetText ? getLastNonEmptyTargetText() : lastNonEmptyTargetText;
-            
-            // For target mode, determine what text to show
-            // Priority: current sentence target text > nothing (hide if no target)
-            // We explicitly do NOT use fallback text anymore to prevent phantoms
+            // SERVER-DRIVEN: Use hasTargetContent flag from server - single source of truth
+            // No more client-side fallback logic (which caused phantom subtitles)
             const displayTextForStreaming = isTargetMode 
               ? (streamingTargetText || '') 
               : streamingText;
             
-            // DEBUG: Log streaming subtitle state (includes sync fallback check)
-            console.log('[SUBTITLE DEBUG]', {
+            // DEBUG: Log streaming subtitle state
+            console.log('[SUBTITLE DEBUG v2]', {
               mode: subtitleMode,
+              hasTargetContent,
               streamingText: streamingText?.substring(0, 50),
               streamingTargetText: streamingTargetText?.substring(0, 50),
-              syncFallbackText: syncFallbackText?.substring(0, 30),
               streamingWordIndex,
               streamingTargetWordIndex,
               isProcessing,
             });
             
-            // For "target" mode with no target text available, hide subtitles entirely
-            // Check both the prop AND the synchronous getter to catch all phantom cases
-            // The sync getter reflects the latest ref value even if React state is batched
-            if (isTargetMode && !streamingTargetText) {
-              // Also verify the fallback has been cleared (sync check)
-              if (syncFallbackText) {
-                console.log('[SUBTITLE DEBUG] PHANTOM DETECTED! Target text empty but fallback has value:', syncFallbackText);
-              }
-              console.log('[SUBTITLE DEBUG] Target mode with no target text - hiding (no phantoms)');
+            // SERVER-DRIVEN: For "target" mode, hide subtitles if server says no target content
+            // This eliminates phantom subtitles because we trust the server's explicit flag
+            if (isTargetMode && !hasTargetContent) {
+              console.log('[SUBTITLE DEBUG v2] Target mode with hasTargetContent=false - hiding');
               return null;
             }
             

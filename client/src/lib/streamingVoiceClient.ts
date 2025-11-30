@@ -417,10 +417,11 @@ export class StreamingVoiceClient {
   }
   
   private handleProcessing(message: StreamingProcessingMessage): void {
-    console.log('[StreamingVoiceClient] Processing:', message.userTranscript);
+    console.log(`[StreamingVoiceClient] Processing (turn ${message.turnId}):`, message.userTranscript);
     this.setState('processing');
     this.callbacks.onProcessing?.(message.userTranscript);
-    this.emit('processing', message.userTranscript);
+    // Emit full message so clients can access turnId for subtitle packet ordering
+    this.emit('processing', message);
   }
   
   private handleSentenceStart(message: StreamingSentenceStartMessage): void {

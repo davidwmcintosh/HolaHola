@@ -14,6 +14,7 @@ import { useStreamingSubtitles, UseStreamingSubtitlesReturn } from './useStreami
 import type { 
   StreamingClientState,
   StreamingMetrics,
+  StreamingProcessingMessage,
   StreamingSentenceStartMessage,
   StreamingAudioChunkMessage,
   StreamingWordTimingMessage,
@@ -98,6 +99,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   // Store current session config for callbacks
   const sessionConfigRef = useRef<StreamingSessionConfig | null>(null);
   
+  // Track current turn ID for subtitle packet ordering (prevents phantom subtitles)
+  const currentTurnIdRef = useRef(0);
+  
   // Helper to check if we can clear isProcessing
   // Note: Does NOT reset responseCompleteRef - that's done when new request starts
   const checkAndClearProcessing = useCallback(() => {
@@ -143,12 +147,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         subtitlesRef.current.updatePlaybackTime(currentTime, duration);
       },
       onSentenceStart: (sentenceIndex) => {
-        console.log(`[StreamingVoice] Sentence ${sentenceIndex} started`);
-        subtitlesRef.current.startPlayback(sentenceIndex);
+        console.log(`[StreamingVoice] Sentence ${sentenceIndex} started (turn ${currentTurnIdRef.current})`);
+        // Pass turnId for subtitle packet ordering (prevents phantom subtitles)
+        subtitlesRef.current.startPlayback(sentenceIndex, currentTurnIdRef.current);
       },
       onSentenceEnd: (sentenceIndex) => {
-        console.log(`[StreamingVoice] Sentence ${sentenceIndex} ended`);
-        subtitlesRef.current.completeSentence(sentenceIndex);
+        console.log(`[StreamingVoice] Sentence ${sentenceIndex} ended (turn ${currentTurnIdRef.current})`);
+        subtitlesRef.current.completeSentence(sentenceIndex, currentTurnIdRef.current);
       },
       onComplete: () => {
         console.log('[StreamingVoice] Playback queue empty');
@@ -183,18 +188,40 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   /**
+   * Handle processing message (new turn started)
+   * This sets the turnId for subtitle packet ordering, preventing phantom subtitles
+   */
+  const handleProcessing = useCallback((msg: StreamingProcessingMessage) => {
+    console.log(`[StreamingVoice] Processing turn ${msg.turnId}: "${msg.userTranscript.substring(0, 30)}..."`);
+    
+    // Store turnId for use in callbacks
+    currentTurnIdRef.current = msg.turnId;
+    
+    // Initialize subtitle state for new turn
+    subtitles.setCurrentTurnId(msg.turnId);
+  }, [subtitles]);
+  
+  /**
    * Handle sentence start message
+   * Now includes turnId and hasTargetContent for server-driven subtitle state
    */
   const handleSentenceStart = useCallback((msg: StreamingSentenceStartMessage) => {
-    console.log(`[StreamingVoice] Sentence ${msg.sentenceIndex}: "${msg.text.substring(0, 50)}..." (target: ${msg.targetLanguageText?.substring(0, 30) || 'none'}, mapping: ${msg.wordMapping?.length || 0} entries)`);
+    console.log(`[StreamingVoice] Sentence ${msg.sentenceIndex} (turn ${msg.turnId}): "${msg.text.substring(0, 40)}..." hasTarget=${msg.hasTargetContent}`);
     
-    // On first sentence of a new assistant turn, clear any fallback text from the previous turn
-    // This prevents phantom subtitles from appearing (old target text showing in a new turn)
-    if (msg.sentenceIndex === 0) {
-      subtitles.beginAssistantTurn();
+    // Store turnId for callbacks (in case processing message wasn't received)
+    if (msg.turnId > currentTurnIdRef.current) {
+      currentTurnIdRef.current = msg.turnId;
     }
     
-    subtitles.addSentence(msg.sentenceIndex, msg.text, msg.targetLanguageText, msg.wordMapping);
+    // Use new v2 API with turnId and hasTargetContent
+    subtitles.addSentence(
+      msg.sentenceIndex, 
+      msg.text, 
+      msg.turnId,
+      msg.hasTargetContent,
+      msg.targetLanguageText, 
+      msg.wordMapping
+    );
   }, [subtitles]);
   
   /**
@@ -222,9 +249,10 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   
   /**
    * Handle word timing message
+   * Now includes turnId for packet ordering
    */
   const handleWordTiming = useCallback((msg: StreamingWordTimingMessage) => {
-    subtitles.setWordTimings(msg.sentenceIndex, msg.timings, msg.expectedDurationMs);
+    subtitles.setWordTimings(msg.sentenceIndex, msg.turnId, msg.timings, msg.expectedDurationMs);
   }, [subtitles]);
   
   /**
@@ -273,6 +301,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       
       // Set up callbacks
       clientRef.current.on('stateChange', setConnectionState);
+      clientRef.current.on('processing', handleProcessing);
       clientRef.current.on('sentenceStart', handleSentenceStart);
       clientRef.current.on('audioChunk', handleAudioChunk);
       clientRef.current.on('wordTiming', handleWordTiming);
@@ -304,7 +333,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleSentenceStart, handleAudioChunk, handleWordTiming, handleResponseComplete, handleError]);
+  }, [handleProcessing, handleSentenceStart, handleAudioChunk, handleWordTiming, handleResponseComplete, handleError]);
   
   /**
    * Disconnect from streaming voice service
@@ -314,6 +343,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     if (clientRef.current) {
       clientRef.current.off('stateChange', setConnectionState);
+      clientRef.current.off('processing', handleProcessing);
       clientRef.current.off('sentenceStart', handleSentenceStart);
       clientRef.current.off('audioChunk', handleAudioChunk);
       clientRef.current.off('wordTiming', handleWordTiming);
@@ -332,7 +362,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     pendingAudioCountRef.current = 0;
     setConnectionState('disconnected');
     setIsProcessing(false);
-  }, [handleSentenceStart, handleAudioChunk, handleWordTiming, handleResponseComplete, handleError, subtitles]);
+  }, [handleProcessing, handleSentenceStart, handleAudioChunk, handleWordTiming, handleResponseComplete, handleError, subtitles]);
   
   /**
    * Send audio for processing

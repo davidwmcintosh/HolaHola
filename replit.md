@@ -20,7 +20,7 @@ LinguaFlow provides conversational onboarding, an adaptive multi-phase conversat
 ### System Design Choices
 Core data models include Users, Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress, CulturalTips, and Topics, storing user learning preferences and ACTFL progress.
 
-**Voice Architecture**: Implements a two-tier validation system and utilizes Cartesia Pronunciation Dictionaries for server-side TTS pronunciation correction (with MFA-style IPA as inline fallback). A 3-state subtitle system with karaoke-style word highlighting and server-side word timing estimation is also implemented.
+**Voice Architecture**: Implements a two-tier validation system and utilizes Cartesia Pronunciation Dictionaries for server-side TTS pronunciation correction (with MFA-style IPA as inline fallback). A server-driven subtitle system with karaoke-style word highlighting and server-side word timing estimation is implemented, using `turnId` and `hasTargetContent` flags in the streaming protocol for packet ordering (YouTube/Netflix caption architecture).
 
 **Cartesia Pronunciation Dictionary System**: Uses Cartesia's server-side pronunciation dictionaries to ensure correct pronunciation of foreign language words by the AI tutor, leveraging `MFA_IPA_PRONUNCIATIONS` for definition and `setup-cartesia-dictionaries.ts` for management.
 
