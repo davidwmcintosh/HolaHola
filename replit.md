@@ -51,6 +51,38 @@ Fallback behavior:
 - If no dictionary exists for a language, the system falls back to inline phoneme markers (`<<phonemes>>`)
 - This ensures pronunciation correction still works for any language
 
+**English Word Filter System** (IMPORTANT):
+Prevents common English words from incorrectly appearing as target language vocabulary in subtitles and vocabulary extraction.
+
+The problem:
+- When the AI tutor speaks mixed English/Spanish like "Good morning! Say buenos días"
+- The system extracts vocabulary words to display as subtitles
+- Without filtering, English words like "morning", "doing", "I'm" would appear as Spanish vocabulary
+
+The solution:
+- A comprehensive blocklist of 230+ common English words filters out false positives
+- Words are checked against this list before being treated as target language vocabulary
+
+Key file:
+- `server/text-utils.ts` → `ENGLISH_FILTER` Set
+
+Word categories in the filter:
+- Contractions: I'm, don't, won't, can't, I'll, you're, etc.
+- Common verbs: doing, going, having, making, trying, etc.
+- Time words: morning, afternoon, evening, today, tomorrow, etc.
+- Pronouns: myself, yourself, someone, anyone, etc.
+- Connectors: however, therefore, although, because, etc.
+- Common nouns: thing, something, nothing, everything, etc.
+
+To add words to the filter:
+1. Edit `server/text-utils.ts`
+2. Add words to the `ENGLISH_FILTER` Set
+3. Restart the server
+
+When to add words:
+- If you see English words appearing in the target language subtitles during voice sessions
+- These are false positives that need to be filtered out
+
 **Streaming Voice Mode**: A WebSocket-based progressive audio delivery system integrating Deepgram STT, Gemini streaming, Cartesia WebSocket TTS, and progressive audio playback. Pedagogical integrations include content moderation, a "one-word rule," background vocabulary extraction, and real-time ACTFL advancement tracking.
 
 **Dynamic Streaming Greeting System**: New conversations trigger an AI-generated personalized greeting that is ACTFL-aware, history-aware, and context-aware.
