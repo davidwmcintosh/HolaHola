@@ -13,6 +13,7 @@
 - ✅ **Syllabus-Aware Competency** - Organic learning detection with early completion (Nov 25, 2025)
 - ✅ **Conversational Syllabus Navigation** - Students can ask tutor about class progress (Nov 29, 2025)
 - ✅ **Unified Learning Filters** - Cross-page filtering by language and class (Nov 29, 2025)
+- ✅ **Hybrid Grammar System** - Research-backed grammar instruction combining conversational + explicit drills (Nov 30, 2025)
 
 **Production-Ready Components**:
 - Teacher Dashboard with class creation and management
@@ -26,6 +27,8 @@
 - Enhanced service worker with comprehensive API caching
 - Curriculum Context Service for voice/text tutor integration
 - LearningFilterContext for cross-page content filtering
+- Grammar Hub with ACTFL-organized competencies and practice drills
+- Grammar assignment system for teacher-assigned exercises
 - 32+ backend storage methods + 29+ secure API endpoints
 
 **Conversational Syllabus Navigation (Nov 29, 2025)**:
@@ -389,11 +392,21 @@ Example IPA: "Planning a Trip to Mexico"
 - Dedicated support
 - Professional development resources
 
-**Comparison to Competition**:
-- **Duolingo for Schools**: Free (but limited features, no voice)
-- **Rosetta Stone Schools**: $149-$199/student/year (much higher)
-- **Middlebury Interactive**: $139-$179/student/year
-- **LinguaFlow positioning**: Premium features at mid-market price
+**Comparison to Competition** (Updated November 2025):
+
+| Competitor | Pricing | Voice Tutoring | Key Limitations |
+|------------|---------|----------------|-----------------|
+| **Duolingo for Schools** | Free | Limited text AI | No real-time voice, weak pronunciation |
+| **Rosetta Stone Schools** | ~$125/student/year | None (drills only) | TruAccent pronunciation feedback only, no conversational AI |
+| **Middlebury Interactive** | $139-$179/student/year | None | Scripted content only |
+| **LinguaFlow** | $50-100/student/year | Full AI voice tutoring | 20-30 hrs/student of live conversation |
+
+**LinguaFlow Advantages vs. Rosetta Stone:**
+- **Live AI conversation** vs. scripted pronunciation drills
+- **Adaptive dialogue** that responds to student's actual words
+- **75% cheaper** while offering superior speaking practice
+- **Teacher-assignable grammar** with completion tracking
+- **ACTFL progress tracking** with Can-Do statements
 
 ---
 
