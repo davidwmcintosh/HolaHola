@@ -3,7 +3,6 @@ import { ImmersiveTutor } from "./ImmersiveTutor";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Radio, Captions, CaptionsOff } from "lucide-react";
-import linguaflowLogoUrl from "@assets/linguaflow_monogram_ribbon_logo_nobackground_1764098307883.png";
 import { type Message, type Conversation } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { type WordTiming } from "@/lib/restVoiceApi";
@@ -89,16 +88,14 @@ export function VoiceChatViewManager({
     setSubtitleMode(modes[nextIndex]);
   };
   
-  // Get display text and icon for current mode
-  // Uses LinguaFlow logo for Target mode, standard icons for others
-  const getSubtitleModeDisplay = () => {
+  // Get display text for current subtitle mode (no icons to save space)
+  const getSubtitleLabel = () => {
     switch (subtitleMode) {
-      case "off": return { label: "No Subtitles", Icon: CaptionsOff, useLogo: false };
-      case "target": return { label: "Target Subtitles", Icon: null, useLogo: true };
-      case "all": return { label: "All Subtitles", Icon: Captions, useLogo: false };
+      case "off": return "No Subtitles";
+      case "target": return "Target Subtitles";
+      case "all": return "All Subtitles";
     }
   };
-  const { label: subtitleLabel, Icon: SubtitleIcon, useLogo: useLogoIcon } = getSubtitleModeDisplay();
 
   // Fetch conversation metadata (includes resume info) - Week 1 Feature
   const { data: conversationData } = useQuery<Conversation & { resumeMetadata?: { 
@@ -159,19 +156,14 @@ export function VoiceChatViewManager({
           Live
         </Badge>
         
-        {/* Subtitles Button - White/secondary styling */}
+        {/* Subtitles Button - White/secondary styling, no icon to save space */}
         <Badge
           variant={subtitleMode !== "off" ? "secondary" : "outline"}
           className="cursor-pointer"
           onClick={cycleSubtitleMode}
           data-testid="badge-subtitles-toggle"
         >
-          {useLogoIcon ? (
-            <img src={linguaflowLogoUrl} alt="" className="h-3 w-3 mr-1" />
-          ) : (
-            SubtitleIcon && <SubtitleIcon className="h-3 w-3 mr-1" />
-          )}
-          {subtitleLabel}
+          {getSubtitleLabel()}
         </Badge>
         
         {/* History Button - Blue styling */}
