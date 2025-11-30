@@ -26,6 +26,7 @@ import { StreakIndicator } from "@/components/StreakIndicator";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { useAuth } from "@/hooks/useAuth";
+import { forceNewConversation } from "@/lib/queryClient";
 import { hasTeacherAccess, hasAdminAccess } from "@shared/permissions";
 
 const dashboardItem = { title: "Dashboard", url: "/", icon: Target };
@@ -91,7 +92,7 @@ export function AppSidebar() {
     // Set the learning context (self-directed or class ID)
     setLearningContext(context.type === "self-directed" ? "self-directed" : context.id);
     // Force new conversation
-    localStorage.setItem('forceNewConversation', 'true');
+    forceNewConversation();
     // Navigate to chat
     closeSidebar();
     setLocation("/chat");
@@ -211,7 +212,7 @@ export function AppSidebar() {
                   const isActive = location === item.url;
                   const handleClick = () => {
                     if (item.title === "Call Tutor") {
-                      localStorage.setItem('forceNewConversation', 'true');
+                      forceNewConversation();
                     }
                     closeSidebar();
                   };

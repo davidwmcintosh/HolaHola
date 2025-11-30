@@ -198,3 +198,11 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+/**
+ * Force a new conversation on next navigation to /chat
+ * Used by "Start Practice", "New Chat", "Call Tutor" buttons
+ */
+export function forceNewConversation() {
+  localStorage.setItem('forceNewConversation', 'true');
+}

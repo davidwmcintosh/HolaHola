@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Mic, Plus, GraduationCap, User } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, forceNewConversation as setForceNewFlag } from "@/lib/queryClient";
 import { useSidebar } from "@/components/ui/sidebar";
 import { CreditBalance } from "@/components/CreditBalance";
 import { useCredits } from "@/contexts/UsageContext";
@@ -212,8 +212,8 @@ export default function Chat() {
 
   const handleNewChat = () => {
     console.log('[SHARED CHAT] User requested new chat - forcing new conversation');
-    // Set flag in localStorage to force new conversation after reload
-    localStorage.setItem('forceNewConversation', 'true');
+    // Use shared utility to set force flag
+    setForceNewFlag();
     // Show smooth transition before reload
     setIsReloading(true);
     // Brief delay to show the transition, then reload

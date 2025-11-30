@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { forceNewConversation } from "@/lib/queryClient";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { LearningContextFilter } from "@/components/LearningContextFilter";
@@ -236,7 +237,7 @@ export default function ReviewHub() {
         </div>
         <div className="flex items-center gap-3 flex-wrap mt-1">
           <LearningContextFilter />
-          <Link href="/chat" onClick={() => localStorage.setItem('forceNewConversation', 'true')}>
+          <Link href="/chat" onClick={() => forceNewConversation()}>
             <Button size="lg" className="gap-2" data-testid="button-start-practice">
               <Mic className="h-5 w-5" />
               Start Practice
