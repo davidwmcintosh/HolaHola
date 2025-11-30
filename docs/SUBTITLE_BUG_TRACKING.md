@@ -1,270 +1,352 @@
 # Subtitle Bug Tracking Document
 
-## Last Updated: November 30, 2025
+## Last Updated: November 30, 2025 (Evening Session)
 
 ---
 
-## Current Open Bugs
+## Architecture Redesign (Nov 30, 2025)
 
-### Bug #1: Phantom Subtitles
-**Status:** OPEN - Partially Fixed  
-**Severity:** High  
-**First Reported:** November 2025
+### Previous Architecture (DEPRECATED)
+The old system used a client-side `lastNonEmptyTargetText` fallback pattern:
+- Client maintained fallback text for when current sentence had no target language
+- Race conditions between React state updates caused phantom subtitles
+- Multiple fixes attempted but timing issues persisted
 
-**Description:**  
-Old Spanish/target language words stay visible on screen when the tutor speaks English-only sentences. For example, if the tutor says "Buenos días" (sentence 1), then "Give it a try!" (sentence 2, English only), the words "Buenos días" remain visible during sentence 2.
+### New Architecture: Server-Driven Subtitle System (v2)
+**Philosophy:** Server is the single source of truth. Client is a "dumb renderer."
 
-**Root Cause Analysis:**  
-The subtitle system uses `lastNonEmptyTargetText` as a fallback to display when the current sentence has no target language content. The issue is a race condition between:
-1. When new sentence data arrives (`addSentence`)
-2. When audio playback starts (`startPlayback`)
-3. When the `currentSentenceIndex` updates
-4. When React batches state updates
-
-The `useMemo` at line 467 that updates `lastNonEmptyTargetText` runs AFTER state updates, and if `currentSentenceIndex` still points to an old sentence, it re-populates the fallback with old data.
-
-**Fixes Attempted:**
-
-1. **Clear fallback in `addSentence` when no target text** (lines 117-124)
-   ```typescript
-   if (!targetLanguageText || targetLanguageText.trim().length === 0) {
-     lastNonEmptyTargetTextRef.current = '';
-     setLastNonEmptyTargetText('');
-   }
-   ```
-   Result: Partial improvement, but timing issues remain
-
-2. **Clear fallback in `startPlayback` when no target text** (lines 203-215)
-   ```typescript
-   if (!sentence?.targetLanguageText || sentence.targetLanguageText.trim().length === 0) {
-     lastNonEmptyTargetTextRef.current = '';
-     setTimeout(() => setLastNonEmptyTargetText(''), 0);
-   }
-   ```
-   Result: Helped some cases, but `setTimeout` introduces its own race condition
-
-3. **Use ref + state pattern for synchronous clearing** (lines 80-81)
-   ```typescript
-   const [lastNonEmptyTargetText, setLastNonEmptyTargetText] = useState('');
-   const lastNonEmptyTargetTextRef = useRef('');
-   ```
-   Result: Refs provide synchronous access, but still not preventing phantom display
-
-4. **Added `beginAssistantTurn` function** (lines 379-400)
-   - Clears fallback at start of new turn
-   - Also resets `currentSentenceIndex` to -1 to prevent useMemo from repopulating
-   - Clears sentences array
-   Result: Helps with cross-turn phantoms, not within-turn phantoms
-
-5. **Hide subtitles in ImmersiveTutor when no target text** (lines 476-479)
-   ```typescript
-   if (isTargetMode && !streamingTargetText) {
-     console.log('[SUBTITLE DEBUG] Target mode with no target text - hiding (no phantoms)');
-     return null;
-   }
-   ```
-   Result: Should work but phantoms still appearing - suggests `streamingTargetText` may still have old data
-
-**Fixes Applied (Nov 30, 2025):**
-
-6. **Removed setTimeout race condition in startPlayback** 
-   - Changed from `setTimeout(() => setLastNonEmptyTargetText(''), 0)` to synchronous clearing
-   - Now clears ref first (sync), then batches state updates
-   
-7. **Always clear fallback on new sentence start**
-   - `setLastNonEmptyTargetText('')` called unconditionally in `startPlayback`
-   - Prevents any stale data from persisting
-
-8. **Added sync getter check in ImmersiveTutor rendering**
-   - Uses `getLastNonEmptyTargetText()` to check actual ref value
-   - Logs "PHANTOM DETECTED!" if mismatch is found for debugging
-
-**Next Steps to Try (if still occurring):**
-1. Check if sentences array lookup is finding wrong sentence
-2. Consider clearing subtitle state entirely between sentences, not just fallback
-3. Add explicit sentence version tracking to invalidate stale data
-4. Trace full data flow from WebSocket message to render
-
----
-
-### Bug #2: Words Displayed But Not Spoken ("Excelente" Bug)
-**Status:** OPEN  
-**Severity:** Medium  
-**First Reported:** November 30, 2025
-
-**Description:**  
-Target language words appear in subtitles that were never actually spoken by the tutor. Example: "Excelente" was displayed on screen but the tutor did not say it.
-
-**Root Cause Analysis:**  
-Likely caused by the target language extraction logic in `server/text-utils.ts`. The extraction:
-1. Uses `extractTargetLanguageText()` to find foreign words
-2. Has a list of `COMMON_SHORT_FOREIGN_WORDS` (line 157) that includes "excelente"
-3. May be matching words in the raw AI response that get filtered out before TTS
-
-The AI might include "Excelente" in its response with emotion tags or markdown that gets cleaned for display/TTS, but the extraction runs on the raw text and captures it anyway.
-
-**Relevant Code:**
-- `server/text-utils.ts`: `extractTargetLanguageText()` function
-- `server/services/streaming-voice-orchestrator.ts`: line 490 calls extraction
-
-**Fixes Attempted:**
-- None yet
-
-**Next Steps to Try:**
-1. Run extraction on the CLEANED display text, not raw text
-2. Add logging to compare what TTS receives vs what extraction returns
-3. Verify the word mapping indices are correct
-
----
-
-### Bug #3: Incomplete Word Display ("que bien" shows only "que")
-**Status:** FIXED  
-**Severity:** Medium  
-**First Reported:** November 30, 2025
-**Fixed:** November 30, 2025
-
-**Description:**  
-Multi-word phrases are being truncated. When the tutor says "que bien", only "que" appears in subtitles.
-
-**Root Cause:**  
-The `COMMON_PHRASES` list in `text-utils.ts` included "muy bien" but not "que bien" and other common phrases.
-
-**Fix Applied:**
-1. Added "Qué bien", "Qué tal", "Cómo estás", "Cómo te llamas", "Hasta pronto", "Con mucho gusto", "Mucho gusto", "Me llamo", "Nos vemos" to `COMMON_PHRASES`
-2. Added "bien", "muy", "que", "buenos", "buenas", "como", "estas", "llamo", "llamas", "gusto", "mucho" to `COMMON_SHORT_FOREIGN_WORDS`
-
-**Verification:**
-Test by saying something that triggers the tutor to respond with "que bien" - both words should now appear in subtitles.
-
----
-
-## Architecture Overview
-
-### Subtitle System Components
+Key changes:
+1. **turnId**: Monotonic ID for each assistant response turn
+2. **hasTargetContent**: Explicit boolean flag from server per sentence
+3. **No client-side fallback logic**: Eliminated all race conditions
+4. **Stale packet filtering**: Packets with old turnId are dropped
 
 ```
 Server Side:
 ┌──────────────────────────────────────────────────────────────────┐
 │ streaming-voice-orchestrator.ts                                  │
-│ ├── Gets AI response from Gemini                                 │
+│ ├── Tracks turnId (increments each response)                     │
 │ ├── Calls extractTargetLanguageWithMapping(displayText, rawText) │
-│ ├── Sends sentence_start with targetLanguageText + wordMapping   │
-│ └── Sends word_timing with timing data                           │
+│ ├── Sends sentence_start with:                                   │
+│ │   - turnId                                                     │
+│ │   - hasTargetContent (explicit boolean)                        │
+│ │   - targetLanguageText                                         │
+│ │   - wordMapping                                                │
+│ └── Sends word_timing with turnId                                │
 └──────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 Client Side:
 ┌──────────────────────────────────────────────────────────────────┐
 │ useStreamingVoice.ts                                             │
-│ ├── Receives WebSocket messages                                  │
-│ ├── Calls subtitles.addSentence(index, text, targetText, mapping)│
-│ ├── Calls subtitles.startPlayback(index)                         │
-│ └── Calls subtitles.updatePlaybackTime(time)                     │
+│ ├── On 'processing' message: calls setCurrentTurnId(turnId)      │
+│ ├── On 'sentence_start': passes turnId + hasTargetContent        │
+│ └── All callbacks include turnId for packet ordering             │
 └──────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│ useStreamingSubtitles.ts                                         │
-│ ├── Manages subtitle state (sentences, indices, timings)         │
-│ ├── Tracks currentSentenceIndex, currentWordIndex                │
-│ ├── Maintains lastNonEmptyTargetText for fallback                │
-│ └── Exports state to ImmersiveTutor component                    │
+│ useStreamingSubtitles.ts (v2 - Server-Driven)                    │
+│ ├── setCurrentTurnId(): Clears ALL state for new turn            │
+│ │   - setSentences([])                                           │
+│ │   - setHasTargetContent(false) ← CRITICAL: immediate hide      │
+│ │   - Clear all refs                                             │
+│ ├── addSentence(): Filters stale packets (turnId < currentTurnId)│
+│ ├── hasTargetContent: Server-driven flag (no fallback!)          │
+│ └── No lastNonEmptyTargetText (removed)                          │
 └──────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │ ImmersiveTutor.tsx (Rendering)                                   │
-│ ├── Receives streamingTargetText, streamingTargetWordIndex       │
 │ ├── Guards: isWaitingForContent, isRecording, isProcessing       │
-│ ├── Target mode: Only show words up to activeWordIndex           │
+│ ├── Target mode: Uses hasTargetContent flag from server          │
+│ ├── Double-gated: parent hasTargetContent && sentence.hasTarget  │
 │ └── Renders karaoke-style progressive reveal                     │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-### Key State Variables
+---
+
+## Current Open Bugs
+
+### Bug #1: Phantom Subtitles
+**Status:** OPEN - Under Investigation  
+**Severity:** High  
+**First Reported:** November 2025  
+**Last Tested:** November 30, 2025 (Evening)
+
+**Description:**  
+Old Spanish/target language words stay visible on screen when the tutor speaks English-only sentences. Despite the new server-driven architecture, phantoms are still being observed.
+
+**Testing Session (Nov 30, 2025 Evening):**
+
+| Turn | User Said | Tutor Response | Phantom? |
+|------|-----------|----------------|----------|
+| 1 | (greeting) | "Hi David!...Can you try saying Hola?" | No |
+| 2 | "Hola" | "¡Excelente!...Buenos días" | TBD |
+| 3 | "Buenos días" | "¡Fantástico!...Buenas tardes" | TBD |
+| 4 | "Buenas tardes" | "¡Estupendo!...Buenas noches" | TBD |
+| 5 | "Buenas noches" | "¡Increíble!...¿Cómo estás?" | **YES** |
+
+**Observations from Turn 5:**
+- Server generated: "¡Increíble! You're picking these up so quickly..."
+- Server synthesized: 126,686 bytes audio (7,918ms)
+- **User reports: Tutor did NOT say "Increíble"** ← Audio issue
+- **User reports: Phantom subtitles appeared**
+
+**Hypotheses for Current Bug:**
+
+1. **Audio Chunk Loss**: The audio for "¡Increíble!" may not have been received/played by client
+   - Server shows 126,686 bytes sent
+   - Need to verify client received and played all chunks
+
+2. **Turn Boundary State**: Despite new architecture, state may not be clearing correctly
+   - `setCurrentTurnId` should clear ALL state
+   - Possible: React batching still causing issues?
+
+3. **hasTargetContent Stale Value**: The flag might not update fast enough
+   - Double-gating should prevent this
+   - Need more logging at render time
+
+**Debug Logging Added (v2):**
+
+```
+[StreamingSubtitles v2] New turn: X
+[StreamingSubtitles v2] Add sentence X (turn Y): hasTarget=Z
+[StreamingSubtitles v2] Ignoring stale sentence (turnId X < current Y)
+[SUBTITLE DEBUG v2] { mode, hasTargetContent, streamingText, streamingTargetText, wordIndex }
+[SUBTITLE DEBUG] Target render check: { allWordsCount, activeWordIndex, willRender }
+[SUBTITLE GUARD] Hidden: reason
+```
+
+**Next Steps:**
+1. Add audio chunk receipt logging to verify all chunks arrive
+2. Add logging at exact moment of turn transition
+3. Verify `setCurrentTurnId` clears refs synchronously before any render
+4. Check if processing message arrives BEFORE old turn's last audio chunk finishes
+
+---
+
+### Bug #2: Words Displayed But Not Spoken ("Increíble" Bug)
+**Status:** OPEN - Confirmed in Testing  
+**Severity:** High  
+**First Reported:** November 30, 2025
+
+**Description:**  
+Target language words appear in subtitles that were never actually spoken by the tutor. 
+
+**Test Session Evidence (Nov 30 Evening):**
+- Turn 5: Subtitle showed "¡Increíble!" 
+- User confirms: Tutor did NOT say "Increíble"
+- Server logs show audio was synthesized (126,686 bytes)
+- **Possible: Audio chunk dropped/not played**
+
+**Root Cause Hypotheses:**
+
+1. **Audio Playback Failure**: TTS audio was generated but not all chunks played
+   - Check `StreamingAudioPlayer` for dropped chunks
+   - Check WebSocket for missing audio_chunk messages
+
+2. **Early Sentence Completion**: Sentence marked complete before audio finished
+   - Check `sentence_complete` timing vs audio playback
+
+3. **Buffer Underrun**: Audio queue exhausted before full playback
+   - Check for queue empty conditions during playback
+
+**Related Code:**
+- `client/src/lib/audioUtils.ts`: `StreamingAudioPlayer` class
+- `client/src/lib/streamingVoiceClient.ts`: Audio chunk handling
+- `server/services/streaming-voice-orchestrator.ts`: Audio streaming
+
+**Debug Logging Needed:**
+```javascript
+[AUDIO PLAYER] Audio chunk added to queue. Queue size: X
+[AUDIO PLAYER] Playing chunk, queue remaining: X
+[AUDIO PLAYER] Queue empty, stopping playback
+[AUDIO PLAYER] Chunk finished, playing next...
+```
+
+---
+
+### Bug #3: Duplicate Audio Playback ("That was perfect" twice)
+**Status:** OPEN - Reported  
+**Severity:** Medium  
+**First Reported:** November 30, 2025
+
+**Description:**  
+User reported hearing "that was perfect" spoken twice by the tutor in a single turn.
+
+**Investigation:**
+- Server logs showed only ONE instance of "That was perfect" generated
+- Possible causes:
+  1. Audio buffer cached from previous session
+  2. Network packet duplication
+  3. Audio queue double-play bug
+
+**Debug Logging Needed:**
+- Track audio chunk IDs to detect duplicates
+- Log when audio queue is cleared between turns
+
+---
+
+### Bug #3 (Original): Incomplete Word Display
+**Status:** FIXED  
+**Severity:** Medium  
+**Fixed:** November 30, 2025
+
+**Description:**  
+Multi-word phrases were being truncated. When the tutor says "que bien", only "que" appeared in subtitles.
+
+**Fix Applied:**
+Added missing phrases to `COMMON_PHRASES` and individual words to `COMMON_SHORT_FOREIGN_WORDS` in `server/text-utils.ts`.
+
+---
+
+## Key State Variables (v2 Architecture)
 
 | Variable | Location | Purpose |
 |----------|----------|---------|
+| `currentTurnId` | useStreamingSubtitles | Current turn being rendered |
+| `hasTargetContent` | useStreamingSubtitles | Server flag: does current sentence have target language |
+| `sentences` | useStreamingSubtitles | Array of sentences for current turn |
 | `currentSentenceIndex` | useStreamingSubtitles | Which sentence is currently playing |
-| `currentSentenceTargetText` | useStreamingSubtitles | Target text for current sentence |
-| `lastNonEmptyTargetText` | useStreamingSubtitles | Fallback when current has no target |
-| `streamingTargetText` | ImmersiveTutor props | What gets rendered |
-| `streamingTargetWordIndex` | ImmersiveTutor props | Current word for karaoke highlight |
-| `isWaitingForContent` | useStreamingSubtitles | Guard to hide subtitles after reset |
+| `currentSentenceTargetText` | useStreamingSubtitles | Target text (double-gated on hasTargetContent) |
+| `isWaitingForContent` | useStreamingSubtitles | Guard: hide subtitles after reset until content arrives |
 
-### Race Condition Timeline
+**Removed Variables (v2):**
+- ~~`lastNonEmptyTargetText`~~ - Removed, was source of race conditions
+- ~~`lastNonEmptyTargetTextRef`~~ - Removed with fallback logic
 
+---
+
+## Server Protocol (v2)
+
+### Message: `processing`
+```typescript
+{
+  type: 'processing',
+  turnId: number,      // NEW: Monotonic turn identifier
+  userTranscript: string
+}
 ```
-Time →
-────────────────────────────────────────────────────────────────────
+**Client action:** Call `subtitles.setCurrentTurnId(turnId)` to clear ALL state
 
-T1: Sentence 1 completes ("Buenos días")
-    - currentSentenceTargetText = "Buenos días"
-    - lastNonEmptyTargetText = "Buenos días" (set by useMemo)
+### Message: `sentence_start`
+```typescript
+{
+  type: 'sentence_start',
+  turnId: number,           // NEW: For stale packet filtering
+  sentenceIndex: number,
+  text: string,
+  hasTargetContent: boolean, // NEW: Explicit flag from server
+  targetLanguageText?: string,
+  wordMapping?: [number, number][]
+}
+```
+**Client action:** 
+1. Filter if `turnId < currentTurnId`
+2. Call `addSentence` with `hasTargetContent` flag
 
-T2: Sentence 2 arrives (English only: "Give it a try!")
-    - addSentence called with targetLanguageText = ""
-    - lastNonEmptyTargetTextRef.current = "" (cleared)
-    - setLastNonEmptyTargetText('') called
+### Message: `word_timing`
+```typescript
+{
+  type: 'word_timing',
+  turnId: number,           // NEW: For stale packet filtering
+  sentenceIndex: number,
+  timings: WordTiming[]
+}
+```
 
-T3: React batches state updates
-    - lastNonEmptyTargetText state update pending
-
-T4: startPlayback(2) called
-    - setCurrentSentenceIndex(2)
-    - Finds sentence has no target text, clears fallback again
-
-T5: React re-renders
-    - useMemo at line 467 runs
-    - currentSentenceTargetText is now "" (sentence 2)
-    - Condition fails, no update to lastNonEmptyTargetText
-    - BUT: If timing is off, old value may still render
-
-T6: ImmersiveTutor renders
-    - streamingTargetText may still have old value from T1
-    - Phantom subtitle appears
+### Message: `audio_chunk`
+```typescript
+{
+  type: 'audio_chunk',
+  turnId: number,           // NEW: For stale packet filtering
+  sentenceIndex: number,
+  data: string,             // Base64 audio
+  isFirst: boolean,
+  isLast: boolean
+}
 ```
 
 ---
 
-## Debug Logging
+## Debug Console Commands
 
-The following console logs are available for debugging:
+To trace subtitle issues in browser console:
 
-| Log Pattern | Location | Purpose |
-|-------------|----------|---------|
-| `[StreamingSubtitles] Add sentence` | useStreamingSubtitles | When new sentence arrives |
-| `[StreamingSubtitles] Sentence X has no target text` | useStreamingSubtitles | Fallback clearing |
-| `[StreamingSubtitles] Start playback` | useStreamingSubtitles | When audio playback begins |
-| `[StreamingSubtitles] Begin assistant turn` | useStreamingSubtitles | Turn boundary clearing |
-| `[SUBTITLE DEBUG]` | ImmersiveTutor | Rendering state |
-| `[SUBTITLE GUARD]` | ImmersiveTutor | Why subtitles are hidden |
-| `[TargetExtraction] Mapping` | text-utils.ts | Word index mapping |
+```javascript
+// Watch for phantom detection
+console.log = ((orig) => (...args) => {
+  if (args[0]?.includes?.('SUBTITLE') || args[0]?.includes?.('PHANTOM')) {
+    console.trace(...args);
+  }
+  return orig(...args);
+})(console.log);
 
----
-
-## Related Files
-
-| File | Purpose |
-|------|---------|
-| `client/src/hooks/useStreamingSubtitles.ts` | Core subtitle state management |
-| `client/src/components/ImmersiveTutor.tsx` | Subtitle rendering |
-| `client/src/hooks/useStreamingVoice.ts` | Voice session management, calls subtitle hooks |
-| `server/text-utils.ts` | Target language extraction |
-| `server/services/streaming-voice-orchestrator.ts` | Sends subtitle data to client |
-| `shared/streaming-voice-types.ts` | Type definitions for messages |
+// Check current subtitle state
+window.__subtitleState = () => {
+  // Add to useStreamingSubtitles if needed
+};
+```
 
 ---
 
-## Testing Checklist
+## Testing Checklist (v2)
 
 When testing subtitle fixes:
 
 - [ ] Say "hola" - tutor responds with Spanish, subtitles should show
-- [ ] Wait for English follow-up sentence - Spanish should disappear
+- [ ] Wait for English follow-up sentence - Spanish should IMMEDIATELY disappear
 - [ ] Release mic and speak again - no phantom subtitles from previous turn
-- [ ] Check for words that appear but weren't spoken
-- [ ] Check for incomplete multi-word phrases
+- [ ] Verify turnId increments with each response (check logs)
+- [ ] Verify hasTargetContent=false hides subtitles immediately
+- [ ] Check for words that appear but weren't spoken (audio vs subtitle mismatch)
 - [ ] Test with subtitle mode = "off" (no subtitles should show)
 - [ ] Test with subtitle mode = "all" (full text should show)
 - [ ] Test with subtitle mode = "target" (only Spanish should show)
+
+---
+
+## Related Files (v2)
+
+| File | Purpose |
+|------|---------|
+| `client/src/hooks/useStreamingSubtitles.ts` | Core subtitle state management (v2 server-driven) |
+| `client/src/hooks/useStreamingVoice.ts` | Voice session, passes turnId to subtitles |
+| `client/src/components/ImmersiveTutor.tsx` | Subtitle rendering with guards |
+| `client/src/lib/streamingVoiceClient.ts` | WebSocket message handling |
+| `client/src/lib/audioUtils.ts` | Audio playback (StreamingAudioPlayer) |
+| `server/services/streaming-voice-orchestrator.ts` | Sends subtitle data with turnId |
+| `server/text-utils.ts` | Target language extraction |
+| `shared/streaming-voice-types.ts` | Type definitions including turnId, hasTargetContent |
+
+---
+
+## Session Log: November 30, 2025 (Evening)
+
+**7:27 PM - 7:30 PM:** Live testing session
+
+**Environment:**
+- New v2 server-driven subtitle architecture active
+- `[SUBTITLE DEBUG v2]` logging enabled
+- Spanish 1 Demo Class
+
+**Observations:**
+1. Turns 1-4: Appeared to work correctly (subtitles showing/hiding appropriately)
+2. Turn 5: 
+   - "¡Increíble!" appeared in subtitles
+   - User reports audio did NOT include "¡Increíble!"
+   - Phantom subtitles observed
+   - Server logs show audio was generated (126,686 bytes)
+
+**Conclusion:**
+The v2 architecture improvements are partially working (stale packet filtering, turn boundaries), but there are still issues:
+1. Audio/subtitle mismatch (words shown but not spoken)
+2. Phantom subtitles still occurring
+
+**Next Investigation:**
+- Verify audio chunk delivery and playback
+- Add more granular logging at turn transitions
+- Check if hasTargetContent update races with sentence addition
