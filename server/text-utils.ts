@@ -380,12 +380,51 @@ export function extractTargetLanguageWithMapping(
     }
   }
   
+  // CRITICAL FIX: Detect non-contiguous target word groups and only keep the LAST group
+  // This prevents phantom subtitles where "¡Excelente! ... Buenas tardes" becomes a single subtitle
+  // Pedagogically, the last group is typically the new vocabulary being taught
+  if (result.wordMapping.size > 1) {
+    const mappedIndices = Array.from(result.wordMapping.keys()).sort((a, b) => a - b);
+    
+    // Find gaps: if display indices are not consecutive, we have multiple groups
+    let lastGroupStartIdx = 0;
+    for (let i = 1; i < mappedIndices.length; i++) {
+      // If there's a gap > 1 between consecutive mapped indices, a new group starts
+      if (mappedIndices[i] - mappedIndices[i - 1] > 1) {
+        lastGroupStartIdx = i;
+      }
+    }
+    
+    // If we found non-contiguous groups, keep only the last one
+    if (lastGroupStartIdx > 0) {
+      const lastGroupDisplayIndices = mappedIndices.slice(lastGroupStartIdx);
+      const firstDisplayIdxInLastGroup = lastGroupDisplayIndices[0];
+      const firstTargetIdxInLastGroup = result.wordMapping.get(firstDisplayIdxInLastGroup) || 0;
+      
+      // Extract only the target words from the last group
+      const lastGroupTargetWords = targetWordsForMapping.slice(firstTargetIdxInLastGroup);
+      
+      // Rebuild mapping with re-indexed target words (starting from 0)
+      const newMapping = new Map<number, number>();
+      lastGroupDisplayIndices.forEach((displayIdx, i) => {
+        newMapping.set(displayIdx, i);
+      });
+      
+      console.log(`[TargetExtraction] NON-CONTIGUOUS GROUPS detected! Keeping only last group.`);
+      console.log(`[TargetExtraction]   Original target: "${targetText}"`);
+      console.log(`[TargetExtraction]   Last group only: "${lastGroupTargetWords.join(' ')}"`);
+      
+      result.targetText = lastGroupTargetWords.join(' ');
+      result.wordMapping = newMapping;
+    }
+  }
+  
   // Log mapping for debugging
   if (result.wordMapping.size > 0) {
     const mappingStr = Array.from(result.wordMapping.entries())
       .map(([full, target]) => `${full}=>${target}`)
       .join(', ');
-    console.log(`[TargetExtraction] Mapping: ${mappingStr} (${displayWords.length} display -> ${targetWordsForMapping.length} target)`);
+    console.log(`[TargetExtraction] Mapping: ${mappingStr} (${displayWords.length} display -> ${result.wordMapping.size} target)`);
   }
   
   return result;
