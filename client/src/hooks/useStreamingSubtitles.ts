@@ -366,6 +366,17 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     lastNonEmptyTargetTextRef.current = '';
     setLastNonEmptyTargetText('');
     setMaxTargetWordIndex(-1);
+    
+    // CRITICAL: Also reset currentSentenceIndex to -1
+    // This prevents the useMemo that updates lastNonEmptyTargetText from
+    // re-populating the fallback with old sentence data from the previous turn
+    // (The useMemo runs after this function, and if currentSentenceIndex still
+    // points to an old sentence, it would re-set the fallback to the old value)
+    setCurrentSentenceIndex(-1);
+    
+    // Also clear sentences to ensure clean slate
+    setSentences([]);
+    timingsBySentenceRef.current.clear();
   }, []);
   
   /**

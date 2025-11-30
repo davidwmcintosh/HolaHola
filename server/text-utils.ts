@@ -270,7 +270,7 @@ export function extractTargetLanguageWithMapping(
   const ENGLISH_FILTER = new Set([
     'respond', 'with', 'that', 'thats', 'was', 'great', 'you', 'youve', 'youre', 'your', 'yours',
     'got', 'the', 'and', 'or', 'a', 'an', 'to', 'for', 'is', 'isnt', 'it', 'its', 'in', 'on', 'of',
-    'can', 'cant', 'try', 'saying', 'say', 'said', 'lets', 'now', 'i', 'im', 'ive', 'id',
+    'can', 'cant', 'try', 'trying', 'saying', 'say', 'said', 'lets', 'now', 'i', 'im', 'ive', 'id',
     'we', 'weve', 'were', 'wed', 'they', 'theyre', 'theyve', 'this', 'how', 'hows',
     'excellent', 'perfect', 'wonderful', 'amazing', 'fantastic', 'beautiful', 'awesome',
     'david', 'just', 'right', 'good', 'job', 'nice', 'work', 'well', 'done', 'keep', 'going',
@@ -279,6 +279,52 @@ export function extractTargetLanguageWithMapping(
     'almost', 'close', 'not', 'quite', 'but', 'here', 'there', 'listen', 'hear', 'sound',
     'sounds', 'like', 'word', 'words', 'pronounced', 'pronunciation', 'should', 'would',
     'could', 'couldnt', 'shouldnt', 'wouldnt', 'didnt', 'dont', 'doesnt', 'havent', 'hasnt',
+    // Common verbs that leak through when AI doesn't bold-mark properly
+    'doing', 'do', 'did', 'does', 'learn', 'learning', 'learned', 'teach', 'teaching', 'taught',
+    'morning', 'afternoon', 'evening', 'night', 'day', 'time', 'today', 'tomorrow', 'yesterday',
+    'give', 'giving', 'gave', 'take', 'taking', 'took', 'make', 'making', 'made',
+    'go', 'goes', 'went', 'come', 'coming', 'came', 'get', 'getting',
+    'know', 'knowing', 'knew', 'think', 'thinking', 'thought',
+    'want', 'wanting', 'wanted', 'need', 'needing', 'needed',
+    'see', 'seeing', 'saw', 'look', 'looking', 'looked',
+    'use', 'using', 'used', 'find', 'finding', 'found',
+    'tell', 'telling', 'told', 'ask', 'asking', 'asked',
+    'put', 'putting', 'call', 'calling', 'called',
+    'feel', 'feeling', 'felt', 'become', 'becoming', 'became',
+    'leave', 'leaving', 'left', 'begin', 'beginning', 'began',
+    'seem', 'seeming', 'seemed', 'help', 'helping', 'helped',
+    'show', 'showing', 'showed', 'move', 'moving', 'moved',
+    'live', 'living', 'lived', 'believe', 'believing', 'believed',
+    'bring', 'bringing', 'brought', 'happen', 'happening', 'happened',
+    'write', 'writing', 'wrote', 'provide', 'providing', 'provided',
+    'read', 'reading', 'sit', 'sitting', 'sat', 'stand', 'standing', 'stood',
+    'lose', 'losing', 'lost', 'pay', 'paying', 'paid',
+    'meet', 'meeting', 'met', 'include', 'including', 'included',
+    'continue', 'continuing', 'continued', 'set', 'setting',
+    'speak', 'speaking', 'spoke', 'spoken', 'repeat', 'repeating', 'repeated',
+    // Common nouns
+    'thing', 'things', 'way', 'ways', 'place', 'places', 'person', 'people',
+    'part', 'parts', 'case', 'cases', 'week', 'weeks', 'company', 'system',
+    'program', 'question', 'questions', 'home', 'country', 'countries',
+    'world', 'hand', 'hands', 'point', 'points', 'government', 'number', 'numbers',
+    // Common adjectives
+    'new', 'old', 'first', 'last', 'long', 'short', 'small', 'big', 'large',
+    'little', 'different', 'same', 'important', 'early', 'young', 'few', 'public',
+    'bad', 'sure', 'next', 'clear', 'best', 'better', 'high', 'low',
+    // Common prepositions/adverbs/conjunctions
+    'at', 'by', 'about', 'into', 'through', 'during', 'before', 'after',
+    'above', 'below', 'between', 'under', 'over', 'again', 'then', 'once',
+    'here', 'there', 'when', 'where', 'why', 'all', 'each', 'every',
+    'both', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'only',
+    'own', 'same', 'so', 'than', 'too', 'very', 'just', 'also', 'back',
+    'being', 'even', 'still', 'much', 'off', 'out', 'if', 'because', 'as',
+    'until', 'while', 'although', 'though', 'since', 'unless', 'whether',
+    // Student names and common words
+    'student', 'students', 'teacher', 'teachers', 'class', 'classes',
+    'lesson', 'lessons', 'practice', 'practicing', 'practiced',
+    'language', 'languages', 'phrase', 'phrases', 'sentence', 'sentences',
+    // Time-related
+    'minute', 'minutes', 'hour', 'hours', 'second', 'seconds',
   ]);
   
   const targetWords = targetText.split(/\s+/).filter(w => w.length > 0);
