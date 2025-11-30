@@ -1549,7 +1549,7 @@ export function StreamingVoiceChat({
           isMicPreparing={isMicPreparing}
           isProcessing={isProcessing}
           isPlaying={avatarState === 'speaking'}
-          isConnecting={useStreamingMode && streamingVoice.state.connectionState === 'connecting'}
+          isConnecting={useStreamingMode && (streamingVoice.state.connectionState === 'connecting' || streamingVoice.state.connectionState === 'connected')}
           currentPlayingMessageId={currentPlayingMessageId ?? undefined}
           audioElementRef={audioPlayerRef}
           onReplay={replayLastAudio}
