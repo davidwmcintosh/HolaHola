@@ -454,91 +454,163 @@ export const MFA_IPA_PRONUNCIATIONS: Record<string, Record<string, string>> = {
     'muy bien': 'm|u|i|b|j|e|n',        // muy bien
     'Muy bien': 'm|u|i|b|j|e|n',        // Capitalized
     'de nada': 'd|e|n|a|ð|a',           // de NA-da
+    'De nada': 'd|e|n|a|ð|a',           // Capitalized
     'lo siento': 'l|o|s|j|e|n|t|o',     // lo SIEN-to
+    'Lo siento': 'l|o|s|j|e|n|t|o',     // Capitalized
     'amigo': 'a|m|i|ɣ|o',               // friend
+    'Amigo': 'a|m|i|ɣ|o',               // Capitalized
     'amiga': 'a|m|i|ɣ|a',               // friend (f)
+    'Amiga': 'a|m|i|ɣ|a',               // Capitalized
     'español': 'e|s|p|a|ɲ|o|l',         // Spanish
+    'Español': 'e|s|p|a|ɲ|o|l',         // Capitalized
     'inglés': 'i|n|ɡ|l|e|s',            // English
+    'Inglés': 'i|n|ɡ|l|e|s',            // Capitalized
     'por qué': 'p|o|ɾ|k|e',             // why
+    'Por qué': 'p|o|ɾ|k|e',             // Capitalized
     'porque': 'p|o|ɾ|k|e',              // because
+    'Porque': 'p|o|ɾ|k|e',              // Capitalized
     'mucho': 'm|u|tʃ|o',                // much/many
+    'Mucho': 'm|u|tʃ|o',                // Capitalized
     'también': 't|a|m|b|j|e|n',         // also
+    'También': 't|a|m|b|j|e|n',         // Capitalized
     'siempre': 's|j|e|m|p|ɾ|e',         // always
+    'Siempre': 's|j|e|m|p|ɾ|e',         // Capitalized
     'ahora': 'a|o|ɾ|a',                 // now
+    'Ahora': 'a|o|ɾ|a',                 // Capitalized
     'y tú': 'i|t|u',                    // and you? (y = "ee", not "why")
     'tú': 't|u',                        // you (informal)
+    'Tú': 't|u',                        // Capitalized
     'usted': 'u|s|t|e|ð',               // you (formal)
+    'Usted': 'u|s|t|e|ð',               // Capitalized
     'estoy bien': 'e|s|t|o|i|b|j|e|n',  // I'm fine
+    'Estoy bien': 'e|s|t|o|i|b|j|e|n',  // Capitalized
     'estoy bien, gracias': 'e|s|t|o|i|b|j|e|n|ɡ|ɾ|a|s|j|a|s', // I'm fine, thanks
     'me llamo': 'm|e|ʝ|a|m|o',          // my name is
+    'Me llamo': 'm|e|ʝ|a|m|o',          // Capitalized
     'mucho gusto': 'm|u|tʃ|o|ɡ|u|s|t|o', // nice to meet you
+    'Mucho gusto': 'm|u|tʃ|o|ɡ|u|s|t|o', // Capitalized
     'hasta luego': 'a|s|t|a|l|w|e|ɣ|o', // see you later
+    'Hasta luego': 'a|s|t|a|l|w|e|ɣ|o', // Capitalized
     'hasta mañana': 'a|s|t|a|m|a|ɲ|a|n|a', // see you tomorrow
+    'Hasta mañana': 'a|s|t|a|m|a|ɲ|a|n|a', // Capitalized
   },
   'french': {
     'bonjour': 'b|ɔ̃|ʒ|u|ʁ',            // hello
+    'Bonjour': 'b|ɔ̃|ʒ|u|ʁ',            // Capitalized
     'merci': 'm|ɛ|ʁ|s|i',              // thank you
+    'Merci': 'm|ɛ|ʁ|s|i',              // Capitalized
     'oui': 'w|i',                       // yes
+    'Oui': 'w|i',                       // Capitalized
     'non': 'n|ɔ̃',                       // no
+    'Non': 'n|ɔ̃',                       // Capitalized
     's\'il vous plaît': 's|i|l|v|u|p|l|ɛ', // please
+    'S\'il vous plaît': 's|i|l|v|u|p|l|ɛ', // Capitalized
     'au revoir': 'o|ʁ|ə|v|w|a|ʁ',       // goodbye
+    'Au revoir': 'o|ʁ|ə|v|w|a|ʁ',       // Capitalized
     'comment': 'k|ɔ|m|ɑ̃',               // how
+    'Comment': 'k|ɔ|m|ɑ̃',               // Capitalized
     'très bien': 't|ʁ|ɛ|b|j|ɛ̃',         // very good
+    'Très bien': 't|ʁ|ɛ|b|j|ɛ̃',         // Capitalized
     'excusez-moi': 'ɛ|k|s|k|y|z|e|m|w|a', // excuse me
+    'Excusez-moi': 'ɛ|k|s|k|y|z|e|m|w|a', // Capitalized
     'je suis': 'ʒ|ə|s|ɥ|i',             // I am
+    'Je suis': 'ʒ|ə|s|ɥ|i',             // Capitalized
   },
   'german': {
     'hallo': 'h|a|l|o',                 // hello
+    'Hallo': 'h|a|l|o',                 // Capitalized
     'guten tag': 'ɡ|u|t|ə|n|t|a|k',     // good day
+    'Guten Tag': 'ɡ|u|t|ə|n|t|a|k',     // Capitalized
+    'Guten tag': 'ɡ|u|t|ə|n|t|a|k',     // Mixed case
     'danke': 'd|a|ŋ|k|ə',               // thank you
+    'Danke': 'd|a|ŋ|k|ə',               // Capitalized
     'bitte': 'b|ɪ|t|ə',                 // please
+    'Bitte': 'b|ɪ|t|ə',                 // Capitalized
     'ja': 'j|a',                        // yes
+    'Ja': 'j|a',                        // Capitalized
     'nein': 'n|aɪ|n',                   // no
+    'Nein': 'n|aɪ|n',                   // Capitalized
     'auf wiedersehen': 'a|ʊ|f|v|i|d|ɐ|z|e|ə|n', // goodbye
+    'Auf Wiedersehen': 'a|ʊ|f|v|i|d|ɐ|z|e|ə|n', // Capitalized
+    'Auf wiedersehen': 'a|ʊ|f|v|i|d|ɐ|z|e|ə|n', // Mixed case
     'ich': 'ɪ|ç',                       // I
+    'Ich': 'ɪ|ç',                       // Capitalized
     'spreche': 'ʃ|p|ʁ|ɛ|ç|ə',           // speak
+    'Spreche': 'ʃ|p|ʁ|ɛ|ç|ə',           // Capitalized
   },
   'italian': {
     'ciao': 'tʃ|a|o',                   // hello/goodbye
+    'Ciao': 'tʃ|a|o',                   // Capitalized
     'buongiorno': 'b|w|ɔ|n|dʒ|ɔ|r|n|o', // good morning
+    'Buongiorno': 'b|w|ɔ|n|dʒ|ɔ|r|n|o', // Capitalized
     'grazie': 'ɡ|r|a|t|s|j|e',          // thank you
+    'Grazie': 'ɡ|r|a|t|s|j|e',          // Capitalized
     'prego': 'p|r|e|ɡ|o',               // you're welcome
+    'Prego': 'p|r|e|ɡ|o',               // Capitalized
     'sì': 's|i',                        // yes
+    'Sì': 's|i',                        // Capitalized
     'no': 'n|o',                        // no
+    'No': 'n|o',                        // Capitalized
     'arrivederci': 'a|r|i|v|e|d|e|r|tʃ|i', // goodbye
+    'Arrivederci': 'a|r|i|v|e|d|e|r|tʃ|i', // Capitalized
     'per favore': 'p|e|r|f|a|v|o|r|e',  // please
+    'Per favore': 'p|e|r|f|a|v|o|r|e',  // Capitalized
   },
   'portuguese': {
     'olá': 'o|l|a',                     // hello
+    'Olá': 'o|l|a',                     // Capitalized
     'bom dia': 'b|õ|dʒ|i|ɐ',            // good morning
+    'Bom dia': 'b|õ|dʒ|i|ɐ',            // Capitalized
     'obrigado': 'o|b|ɾ|i|ɡ|a|d|u',      // thank you (m)
+    'Obrigado': 'o|b|ɾ|i|ɡ|a|d|u',      // Capitalized
     'obrigada': 'o|b|ɾ|i|ɡ|a|d|ɐ',      // thank you (f)
+    'Obrigada': 'o|b|ɾ|i|ɡ|a|d|ɐ',      // Capitalized
     'sim': 's|ĩ',                       // yes
+    'Sim': 's|ĩ',                       // Capitalized
     'não': 'n|ɐ̃|w̃',                    // no
+    'Não': 'n|ɐ̃|w̃',                    // Capitalized
     'por favor': 'p|o|ɾ|f|a|v|o|ɾ',     // please
+    'Por favor': 'p|o|ɾ|f|a|v|o|ɾ',     // Capitalized
     'tchau': 'tʃ|a|w',                  // bye
+    'Tchau': 'tʃ|a|w',                  // Capitalized
   },
   'japanese': {
     'konnichiwa': 'k|o|n|i|tʃ|i|w|a',   // hello
+    'Konnichiwa': 'k|o|n|i|tʃ|i|w|a',   // Capitalized
     'arigatou': 'a|ɾ|i|ɡ|a|t|o|ɯ',      // thank you
+    'Arigatou': 'a|ɾ|i|ɡ|a|t|o|ɯ',      // Capitalized
     'hai': 'h|a|i',                     // yes
+    'Hai': 'h|a|i',                     // Capitalized
     'iie': 'i|i|e',                     // no
+    'Iie': 'i|i|e',                     // Capitalized
     'sumimasen': 's|ɯ|m|i|m|a|s|e|n',   // excuse me
+    'Sumimasen': 's|ɯ|m|i|m|a|s|e|n',   // Capitalized
     'ohayou': 'o|h|a|j|o|ɯ',            // good morning
+    'Ohayou': 'o|h|a|j|o|ɯ',            // Capitalized
     'sayounara': 's|a|j|o|ɯ|n|a|ɾ|a',   // goodbye
+    'Sayounara': 's|a|j|o|ɯ|n|a|ɾ|a',   // Capitalized
   },
   'mandarin chinese': {
     'nǐ hǎo': 'n|i|x|a|o',              // hello
+    'Nǐ hǎo': 'n|i|x|a|o',              // Capitalized
     'xièxie': 'ɕ|j|e|ɕ|j|e',            // thank you
+    'Xièxie': 'ɕ|j|e|ɕ|j|e',            // Capitalized
     'shì': 'ʂ|ɨ',                       // yes/is
+    'Shì': 'ʂ|ɨ',                       // Capitalized
     'bù': 'p|u',                        // no/not
+    'Bù': 'p|u',                        // Capitalized
     'zàijiàn': 't|s|a|i|tɕ|j|e|n',      // goodbye
+    'Zàijiàn': 't|s|a|i|tɕ|j|e|n',      // Capitalized
   },
   'korean': {
     'annyeonghaseyo': 'a|n|j|ʌ|ŋ|h|a|s|e|j|o', // hello
+    'Annyeonghaseyo': 'a|n|j|ʌ|ŋ|h|a|s|e|j|o', // Capitalized
     'kamsahamnida': 'k|a|m|s|a|h|a|m|n|i|d|a', // thank you
+    'Kamsahamnida': 'k|a|m|s|a|h|a|m|n|i|d|a', // Capitalized
     'ne': 'n|e',                        // yes
+    'Ne': 'n|e',                        // Capitalized
     'aniyo': 'a|n|i|j|o',               // no
+    'Aniyo': 'a|n|i|j|o',               // Capitalized
   },
 };
 
