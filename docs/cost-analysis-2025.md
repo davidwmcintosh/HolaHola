@@ -231,4 +231,117 @@ The **Full Year** package (120 hours/student) is designed for schools requiring 
 
 ---
 
-*Last Updated: November 29, 2025*
+## 9. Competitive Analysis
+
+### Market Context (2025)
+
+LinguaFlow competes in the language learning technology market against established players with different approaches. Our key differentiator is **live AI voice tutoring** - conversational practice that approximates human tutor interaction at a fraction of the cost.
+
+### Rosetta Stone
+
+**Company Profile:**
+- Pioneer in language learning software (founded 1992)
+- Known for immersive, visual-based learning approach
+- Offers 25 languages including Spanish, French, German, Japanese, Arabic, Mandarin, Italian, Portuguese
+
+**Consumer Pricing (2025):**
+
+| Plan | Duration | Languages | Regular Price | Sale Price |
+|------|----------|-----------|---------------|------------|
+| 3-Month | 3 months | 1 language | $180-239 | **$45** ($15/mo) |
+| 12-Month | 12 months | 1 language | $239+ | **$131** ($11/mo) |
+| Lifetime | Forever | All 25 languages | $399 | **$149-199** |
+
+**Note:** Rosetta Stone runs frequent promotions (20-60% off), with best deals during Black Friday ($149 lifetime).
+
+**Institutional Pricing:**
+- Custom quotes required (contact sales)
+- Estimated ~$125/student/year (based on charter school reports)
+- Volume-based pricing varies by school/district size
+
+**Key Features:**
+- **TruAccent Speech Recognition** - Proprietary pronunciation feedback system
+- Visual immersion learning (image-based, no English translations)
+- Multi-device sync (desktop, mobile, tablet)
+- Offline mode for downloaded lessons
+- **Optional Live Tutoring** - Paid add-on (no longer included in base subscription)
+
+**Rosetta Stone Limitations:**
+- **No conversational AI** - Scripted speech exercises only
+- Limited speaking practice beyond pronunciation drills
+- Live tutoring costs extra (separate subscription)
+- Passive learning style (doesn't adapt to individual pace conversationally)
+- Mixed reviews on speech recognition accuracy
+
+### LinguaFlow vs. Rosetta Stone
+
+| Feature | LinguaFlow | Rosetta Stone |
+|---------|------------|---------------|
+| **Core Approach** | AI conversation-first | Visual immersion |
+| **Speaking Practice** | Live AI voice tutoring | Scripted pronunciation drills |
+| **Conversational Ability** | Real-time adaptive dialogue | None (pre-scripted only) |
+| **Speech Technology** | Deepgram STT + Cartesia TTS | TruAccent (pronunciation feedback only) |
+| **AI Tutor** | Gemini 2.5 (context-aware, personalized) | None (rule-based feedback) |
+| **ACTFL Alignment** | Full progress tracking | Claims standards alignment |
+| **Teacher Dashboard** | Yes (curriculum, assignments, grading) | Yes (reporting only) |
+| **Grammar System** | Hybrid (conversational + explicit drills) | Implicit only (immersion) |
+| **Vocabulary** | AI-extracted, spaced repetition | Fixed lesson vocabulary |
+| **Languages** | 9 languages | 25 languages |
+| **Offline Mode** | Limited | Yes |
+
+### Pricing Comparison
+
+**For Independent Learners:**
+
+| Provider | Cost | What You Get |
+|----------|------|--------------|
+| **LinguaFlow 5 hrs** | $50 | 5 hours live AI voice tutoring |
+| **Rosetta Stone 12-mo** | $131 | Unlimited drills (no voice tutoring) |
+| **Human Tutor (5 hrs)** | $200-300 | 5 hours 1-on-1 tutoring |
+
+**Value Proposition:** LinguaFlow offers conversational AI tutoring at ~75% less than human tutors. Rosetta Stone offers passive learning with pronunciation feedback - no live conversation.
+
+**For Schools (30 students, 1 year):**
+
+| Provider | Est. Cost | Voice Practice |
+|----------|-----------|----------------|
+| **LinguaFlow Standard** | $3,000 | 20 hrs/student AI tutoring |
+| **LinguaFlow Full Year** | $18,000 | 120 hrs/student AI tutoring |
+| **Rosetta Stone Est.** | ~$3,750 | 0 hrs (drills only) |
+| **Human Tutors** | $30,000+ | Limited group sessions |
+
+### Duolingo
+
+**Pricing:**
+- Free (ad-supported)
+- Duolingo Max/Super: $168/year (AI features, no ads, explanations)
+
+**Key Features:**
+- Gamified bite-sized lessons (5-10 min)
+- 40+ languages including fictional (Klingon, High Valyrian)
+- Streaks, XP, leagues for motivation
+- Duolingo Max includes AI conversation practice (text-based)
+
+**Limitations:**
+- Voice conversation is limited and AI-driven (text-based in Max tier)
+- Weak pronunciation feedback compared to dedicated speech tools
+- Passive learning that rarely reaches beyond A2 level
+- No teacher dashboard or curriculum alignment
+
+### Competitive Positioning
+
+**LinguaFlow's Unique Value:**
+1. **Only AI voice tutoring platform** - True conversational practice, not scripted drills
+2. **ACTFL standards-aligned** - Measurable progress tracking for institutions
+3. **Teacher tools** - Curriculum builder, assignments, student progress monitoring
+4. **Hybrid grammar system** - Combines conversational learning with explicit instruction
+5. **Cost-effective** - 70-80% cheaper than human tutors, more effective than passive apps
+
+**Target Segments:**
+- **Schools/Institutions:** Standards-aligned AI tutoring with teacher controls
+- **Serious learners:** Conversational practice focus for actual fluency
+- **Time-constrained adults:** 15-30 min voice sessions fit busy schedules
+
+---
+
+*Last Updated: November 30, 2025*
