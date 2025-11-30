@@ -1220,6 +1220,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       userNativeLanguage = data.nativeLanguage; // Already set from userRecord?.nativeLanguage on line 858
       console.log('[CONVERSATION CREATE] Using nativeLanguage from user record:', userNativeLanguage);
       
+      // Check if student is enrolled in an active class for this language
+      // This will link the conversation to their class for proper tracking
+      let classId: string | undefined;
+      if (!isOnboarding) {
+        const enrollments = await storage.getStudentEnrollments(userId);
+        const activeEnrollment = enrollments.find(e => {
+          const classLanguage = (e.class as any)?.language?.toLowerCase();
+          return classLanguage === data.language?.toLowerCase() && e.status === 'enrolled';
+        });
+        if (activeEnrollment) {
+          classId = activeEnrollment.classId;
+          console.log('[CONVERSATION CREATE] Linking to class:', (activeEnrollment.class as any)?.name || classId);
+        }
+      }
+      
       // REUSE EXISTING CONVERSATIONS: Check if a recent conversation exists for this user/language
       // Only create a new one if necessary (prevents creating 100+ conversations)
       const allConversations = await storage.getUserConversations(userId);
@@ -1227,7 +1242,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .filter(c => 
           c.language === data.language && 
           c.isOnboarding === isOnboarding &&
-          (!userName || c.userName === userName) // Match userName if provided
+          (!userName || c.userName === userName) && // Match userName if provided
+          (!classId || c.classId === classId) // Match classId if we have one
         )
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
       
@@ -1258,9 +1274,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           onboardingStep: isOnboarding ? "name" : null,
           userName: isOnboarding ? null : userName,
           nativeLanguage: userNativeLanguage || data.nativeLanguage || "english",
+          classId: classId, // Link to student's enrolled class if any
         } as typeof conversations.$inferInsert);
         
-        console.log('[CONVERSATION CREATE] Created new conversation:', conversation.id);
+        console.log('[CONVERSATION CREATE] Created new conversation:', conversation.id, classId ? `(class: ${classId})` : '(self-directed)');
         isNewConversation = true;
       }
       
