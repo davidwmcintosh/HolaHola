@@ -1038,6 +1038,14 @@ export function StreamingVoiceChat({
       mediaRecorder.onstop = async () => {
         console.log('[PUSH-TO-TALK] Stopped, processing audio...');
         
+        // IMMEDIATELY reset subtitles to prevent phantom subtitle flash
+        // This must happen FIRST, before any other state changes
+        // The ref-based isWaitingForContent flag ensures subtitles hide synchronously
+        if (streamingConnectedRef.current) {
+          console.log('[PUSH-TO-TALK] Resetting subtitles immediately');
+          streamingVoice.subtitles.reset();
+        }
+        
         // Check if this is still the active session
         const isActiveSession = mediaRecorderRef.current === sessionRecorder;
         
