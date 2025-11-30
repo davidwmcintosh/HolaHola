@@ -1,6 +1,6 @@
 # Subtitle Bug Tracking Document
 
-## Last Updated: November 30, 2025 (Late Evening Session - 11:20 PM)
+## Last Updated: November 30, 2025 (Late Evening Session - 11:35 PM)
 
 ---
 
@@ -135,12 +135,28 @@ isProcessingRef.current = true; // Update ref immediately for sync checks
 ### Why This Works
 React 18 batches state updates in the same synchronous context. By setting both states together, there's no render cycle where neither guard is active.
 
+### Result: FIX DID NOT WORK
+Phantom still appearing. Added aggressive debug logging at 11:35 PM:
+```typescript
+// ImmersiveTutor.tsx - logs on EVERY render
+console.log('[SUBTITLE ENTRY] ━━━ Guard Check ━━━', {
+  isRecording,
+  isProcessing,
+  isWaiting,
+  isWaitingForContent,
+  hasStreamingText: !!streamingText,
+  streamingTextPreview: streamingText?.substring(0, 30),
+});
+```
+
+**Next step:** User to test and check browser console for the exact guard values when phantom appears.
+
 ---
 
 ## Current Open Bugs
 
 ### Bug #1: Phantom Subtitles
-**Status:** FIX APPLIED - Pending Verification  
+**Status:** UNDER INVESTIGATION - Debug logging added  
 **Severity:** High  
 **First Reported:** November 2025  
 **Last Tested:** November 30, 2025 (Evening)
