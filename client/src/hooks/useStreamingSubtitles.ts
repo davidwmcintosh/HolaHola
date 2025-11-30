@@ -438,10 +438,18 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   }, [sentences]);
   
   // Get current sentence for karaoke display
-  const currentSentence = useMemo(() => 
-    sentences.find(s => s.index === currentSentenceIndex),
-    [sentences, currentSentenceIndex]
-  );
+  // CRITICAL: Must match BOTH index AND turnId to prevent cross-turn contamination
+  const currentSentence = useMemo(() => {
+    const found = sentences.find(s => s.index === currentSentenceIndex && s.turnId === currentTurnId);
+    
+    // Debug: Log if we can't find the sentence (indicates potential bug)
+    if (!found && sentences.length > 0 && currentSentenceIndex >= 0) {
+      console.warn(`[StreamingSubtitles v2] ⚠️ Sentence not found: idx=${currentSentenceIndex}, turnId=${currentTurnId}`);
+      console.warn(`[StreamingSubtitles v2]   Available:`, sentences.map(s => ({ idx: s.index, turnId: s.turnId })));
+    }
+    
+    return found;
+  }, [sentences, currentSentenceIndex, currentTurnId]);
   
   const currentSentenceText = currentSentence?.text || '';
   
