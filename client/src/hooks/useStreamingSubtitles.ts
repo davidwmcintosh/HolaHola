@@ -55,6 +55,7 @@ export interface UseStreamingSubtitlesReturn {
   reset: () => void;
   getCurrentWordTimings: () => WordTiming[];
   getIsWaitingForContent: () => boolean;  // Synchronous getter for immediate access
+  getLastNonEmptyTargetText: () => string;  // Synchronous getter to prevent phantom subtitles
 }
 
 /**
@@ -74,7 +75,9 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   
   // Track the last non-empty target text for fallback display
   // When a sentence has no target text (like "Give it a try!"), we show the last known target text
+  // Use ref + state pattern to ensure synchronous clearing during reset (prevents phantom subtitles)
   const [lastNonEmptyTargetText, setLastNonEmptyTargetText] = useState('');
+  const lastNonEmptyTargetTextRef = useRef('');
   
   // Use ref + state pattern for isWaitingForContent to ensure:
   // - Ref provides IMMEDIATE synchronous update for render guards
@@ -322,11 +325,12 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   const reset = useCallback(() => {
     console.log('[StreamingSubtitles] Reset');
     
-    // IMMEDIATELY set waiting flag via ref (synchronous - bypasses React batching)
-    // This ensures ImmersiveTutor.isWaitingForContent is true on the very next render
+    // IMMEDIATELY set flags via refs (synchronous - bypasses React batching)
+    // This ensures ImmersiveTutor guards work on the very next render
     isWaitingForContentRef.current = true;
-    setIsWaitingForContent(true);  // Also update state for React re-render
+    lastNonEmptyTargetTextRef.current = '';  // Clear fallback text synchronously (prevents phantom subtitles)
     
+    setIsWaitingForContent(true);  // Also update state for React re-render
     setSentences([]);
     setCurrentSentenceIndex(-1);
     setCurrentWordIndex(-1);
@@ -358,6 +362,14 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
    */
   const getIsWaitingForContent = useCallback(() => {
     return isWaitingForContentRef.current;
+  }, []);
+  
+  /**
+   * Get synchronous fallback target text (bypasses React batching)
+   * Use this for immediate checks to prevent phantom subtitles during reset
+   */
+  const getLastNonEmptyTargetText = useCallback(() => {
+    return lastNonEmptyTargetTextRef.current;
   }, []);
   
   // Compute full text from all sentences
@@ -401,8 +413,10 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   
   // Update lastNonEmptyTargetText when we get a sentence with target content
   // This enables fallback display when subsequent sentences have no target text
+  // Update both ref (for synchronous access) and state (for React re-renders)
   useMemo(() => {
     if (currentSentenceTargetText && currentSentenceTargetText.length > 0) {
+      lastNonEmptyTargetTextRef.current = currentSentenceTargetText;
       setLastNonEmptyTargetText(currentSentenceTargetText);
     }
   }, [currentSentenceTargetText]);
@@ -462,6 +476,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     reset,
     getCurrentWordTimings,
     getIsWaitingForContent,
+    getLastNonEmptyTargetText,
   }), [
     sentences,
     currentSentenceIndex,
@@ -485,5 +500,6 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     reset,
     getCurrentWordTimings,
     getIsWaitingForContent,
+    getLastNonEmptyTargetText,
   ]);
 }

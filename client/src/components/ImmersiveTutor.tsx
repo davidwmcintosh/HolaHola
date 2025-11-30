@@ -42,6 +42,7 @@ interface ImmersiveTutorProps {
   streamingText?: string; // Text from streaming voice mode
   streamingTargetText?: string; // Target language only text from streaming mode
   lastNonEmptyTargetText?: string; // Fallback target text when current sentence has no target content
+  getLastNonEmptyTargetText?: () => string; // Synchronous getter to prevent phantom subtitles
   streamingWordIndex?: number; // Current word index for streaming subtitles
   streamingTargetWordIndex?: number; // Current word index for target-only text (enables karaoke in Target mode)
   isWaitingForContent?: boolean; // True after subtitle reset, false when new content arrives
@@ -78,6 +79,7 @@ export function ImmersiveTutor({
   streamingText,
   streamingTargetText,
   lastNonEmptyTargetText,
+  getLastNonEmptyTargetText,
   streamingWordIndex = -1,
   streamingTargetWordIndex = -1,
   isWaitingForContent = false,
@@ -471,10 +473,13 @@ export function ImmersiveTutor({
             // For "target" mode with no target text available, show the last target text as a reference
             // This keeps "Buenas tardes" visible when the AI says "Give it a try!" (pure English)
             if (isTargetMode && !streamingTargetText) {
+              // Use synchronous getter if available (prevents phantom subtitles from stale state)
+              const fallbackText = getLastNonEmptyTargetText ? getLastNonEmptyTargetText() : lastNonEmptyTargetText;
+              
               // Show fallback target text if available (static display, no highlighting)
-              if (lastNonEmptyTargetText) {
-                console.log('[SUBTITLE DEBUG] Target mode with no target text - showing fallback:', lastNonEmptyTargetText);
-                const fallbackWords = lastNonEmptyTargetText.split(/\s+/).filter(w => w.length > 0);
+              if (fallbackText) {
+                console.log('[SUBTITLE DEBUG] Target mode with no target text - showing fallback:', fallbackText);
+                const fallbackWords = fallbackText.split(/\s+/).filter(w => w.length > 0);
                 return (
                   <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
                     <div className="max-w-4xl mx-auto">
