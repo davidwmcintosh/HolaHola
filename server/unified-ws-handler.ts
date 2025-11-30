@@ -425,6 +425,44 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           if (session) orchestrator.handleInterrupt(session.id);
           break;
 
+        case 'update_voice': {
+          // Update voice mid-session when user changes tutor
+          if (!isAuthenticated || !session) {
+            sendError(ws, 'UNKNOWN', 'Session not ready', true);
+            return;
+          }
+          
+          const updateMsg = message as { type: 'update_voice'; tutorGender?: 'male' | 'female' };
+          const newGender = updateMsg.tutorGender || 'female';
+          const effectiveLanguage = session.targetLanguage?.toLowerCase() || 'spanish';
+          
+          try {
+            const allVoices = await storage.getAllTutorVoices();
+            const matchingVoice = allVoices.find(
+              (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
+                          v.gender?.toLowerCase() === newGender &&
+                          v.isActive
+            );
+            
+            if (matchingVoice?.voiceId) {
+              orchestrator.updateSessionVoice(session.id, matchingVoice.voiceId);
+              console.log(`[Streaming Voice] Voice updated to ${newGender}: ${matchingVoice.voiceName}`);
+              
+              ws.send(JSON.stringify({
+                type: 'voice_updated',
+                timestamp: Date.now(),
+                gender: newGender,
+                voiceName: matchingVoice.voiceName,
+              }));
+            } else {
+              console.warn(`[Streaming Voice] No matching voice found for ${effectiveLanguage}/${newGender}`);
+            }
+          } catch (err: any) {
+            console.error('[Streaming Voice] Failed to update voice:', err.message);
+          }
+          break;
+        }
+
         case 'end_session':
           if (session) {
             orchestrator.endSession(session.id);

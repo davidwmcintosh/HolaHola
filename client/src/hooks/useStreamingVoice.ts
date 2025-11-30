@@ -62,6 +62,7 @@ export interface UseStreamingVoiceReturn {
   disconnect: () => void;
   sendAudio: (audioData: ArrayBuffer) => Promise<void>;
   requestGreeting: (userName?: string, isResumed?: boolean) => void;
+  updateVoice: (tutorGender: 'male' | 'female') => void;
   stop: () => void;
   isSupported: () => boolean;
   isReady: () => boolean;
@@ -395,6 +396,19 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, [subtitles]);
   
   /**
+   * Update voice mid-session (when user changes tutor)
+   */
+  const updateVoice = useCallback((tutorGender: 'male' | 'female') => {
+    if (!clientRef.current || !clientRef.current.isReady()) {
+      console.warn('[StreamingVoice] Cannot update voice - not connected');
+      return;
+    }
+    
+    console.log(`[StreamingVoice] Updating voice to ${tutorGender}`);
+    clientRef.current.updateVoice(tutorGender);
+  }, []);
+  
+  /**
    * Stop playback and processing
    */
   const stop = useCallback(() => {
@@ -450,6 +464,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     disconnect,
     sendAudio,
     requestGreeting,
+    updateVoice,
     stop,
     isSupported,
     isReady,

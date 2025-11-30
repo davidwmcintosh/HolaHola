@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import type { User } from "@shared/schema";
 
 type DifficultyLevel = "beginner" | "intermediate" | "advanced";
@@ -142,6 +143,15 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     console.log('[LanguageContext] Setting tutorGender:', gender);
     localStorage.setItem("tutorGender", gender);
     setTutorGenderState(gender);
+    
+    // Also save to database so server picks up the change
+    apiRequest("PUT", "/api/user/preferences", { tutorGender: gender })
+      .then(() => {
+        console.log('[LanguageContext] Saved tutorGender to database:', gender);
+      })
+      .catch((err) => {
+        console.error('[LanguageContext] Failed to save tutorGender to database:', err);
+      });
   };
 
   const setVoiceSpeed = (speed: VoiceSpeed) => {

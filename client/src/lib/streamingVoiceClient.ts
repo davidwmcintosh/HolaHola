@@ -298,6 +298,19 @@ export class StreamingVoiceClient {
   }
   
   /**
+   * Update the voice mid-session (when user changes tutor)
+   */
+  updateVoice(tutorGender: 'male' | 'female'): void {
+    if (this.isReady()) {
+      console.log(`[StreamingVoiceClient] Updating voice to ${tutorGender}`);
+      this.ws!.send(JSON.stringify({ 
+        type: 'update_voice',
+        tutorGender,
+      }));
+    }
+  }
+  
+  /**
    * Disconnect and cleanup
    */
   disconnect(): void {

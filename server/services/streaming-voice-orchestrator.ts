@@ -1621,6 +1621,22 @@ Generate the greeting now (speak as the tutor directly):`;
   }
   
   /**
+   * Update the voice for an active session
+   * Called when user changes tutor gender mid-session
+   */
+  updateSessionVoice(sessionId: string, voiceId: string): boolean {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      console.warn(`[Streaming Orchestrator] Cannot update voice - session ${sessionId} not found`);
+      return false;
+    }
+    
+    session.voiceId = voiceId;
+    console.log(`[Streaming Orchestrator] Updated voice for session ${sessionId}: ${voiceId.substring(0, 8)}...`);
+    return true;
+  }
+  
+  /**
    * Get active session count
    */
   getActiveSessionCount(): number {
