@@ -2,7 +2,8 @@ import { useState, useRef, TouchEvent } from "react";
 import { ImmersiveTutor } from "./ImmersiveTutor";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Radio, Captions, CaptionsOff, Languages } from "lucide-react";
+import { MessageSquare, Radio, Captions, CaptionsOff } from "lucide-react";
+import linguaflowLogoUrl from "@assets/linguaflow_monogram_ribbon_logo_nobackground_1764098307883.png";
 import { type Message, type Conversation } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { type WordTiming } from "@/lib/restVoiceApi";
@@ -89,14 +90,15 @@ export function VoiceChatViewManager({
   };
   
   // Get display text and icon for current mode
+  // Uses LinguaFlow logo for Target mode, standard icons for others
   const getSubtitleModeDisplay = () => {
     switch (subtitleMode) {
-      case "off": return { label: "Off", Icon: CaptionsOff };
-      case "target": return { label: "Target", Icon: Languages };
-      case "all": return { label: "All", Icon: Captions };
+      case "off": return { label: "No Subtitles", Icon: CaptionsOff, useLogo: false };
+      case "target": return { label: "Target Subtitles", Icon: null, useLogo: true };
+      case "all": return { label: "All Subtitles", Icon: Captions, useLogo: false };
     }
   };
-  const { label: subtitleLabel, Icon: SubtitleIcon } = getSubtitleModeDisplay();
+  const { label: subtitleLabel, Icon: SubtitleIcon, useLogo: useLogoIcon } = getSubtitleModeDisplay();
 
   // Fetch conversation metadata (includes resume info) - Week 1 Feature
   const { data: conversationData } = useQuery<Conversation & { resumeMetadata?: { 
@@ -144,8 +146,9 @@ export function VoiceChatViewManager({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {/* View Indicator Badges */}
+      {/* View Indicator Badges - Order: Live, Subtitles, History */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex gap-2">
+        {/* Live Button - Primary when active */}
         <Badge
           variant={view === "live" ? "default" : "outline"}
           className="cursor-pointer"
@@ -155,23 +158,31 @@ export function VoiceChatViewManager({
           <Radio className="h-3 w-3 mr-1" />
           Live
         </Badge>
+        
+        {/* Subtitles Button - White/secondary styling */}
+        <Badge
+          variant={subtitleMode !== "off" ? "secondary" : "outline"}
+          className="cursor-pointer"
+          onClick={cycleSubtitleMode}
+          data-testid="badge-subtitles-toggle"
+        >
+          {useLogoIcon ? (
+            <img src={linguaflowLogoUrl} alt="" className="h-3 w-3 mr-1" />
+          ) : (
+            SubtitleIcon && <SubtitleIcon className="h-3 w-3 mr-1" />
+          )}
+          {subtitleLabel}
+        </Badge>
+        
+        {/* History Button - Blue styling */}
         <Badge
           variant={view === "history" ? "default" : "outline"}
-          className="cursor-pointer"
+          className={`cursor-pointer ${view === "history" ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}`}
           onClick={() => setView("history")}
           data-testid="badge-history-view"
         >
           <MessageSquare className="h-3 w-3 mr-1" />
           History
-        </Badge>
-        <Badge
-          variant={subtitleMode !== "off" ? "default" : "outline"}
-          className="cursor-pointer"
-          onClick={cycleSubtitleMode}
-          data-testid="badge-subtitles-toggle"
-        >
-          <SubtitleIcon className="h-3 w-3 mr-1" />
-          {subtitleLabel}
         </Badge>
       </div>
 
