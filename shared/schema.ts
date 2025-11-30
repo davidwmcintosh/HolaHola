@@ -663,6 +663,7 @@ export const teacherClasses = pgTable("teacher_classes", {
   curriculumPathId: varchar("curriculum_path_id").references(() => curriculumPaths.id), // Optional: link to structured curriculum
   joinCode: varchar("join_code").unique().notNull(), // 6-digit code for students to join
   isActive: boolean("is_active").default(true),
+  isPublicCatalogue: boolean("is_public_catalogue").default(false), // If true, class is visible in public catalogue and allows self-enrollment
   hoursPerStudent: integer("hours_per_student"), // Legacy: base hours allocated (moved to classHourPackages)
   hourPackageId: varchar("hour_package_id").references(() => classHourPackages.id), // Link to purchased hour package
   hoursPerStudentOverride: integer("hours_per_student_override"), // Optional per-class override

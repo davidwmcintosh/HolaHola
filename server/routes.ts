@@ -4764,6 +4764,122 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Browse class catalogue - returns ONLY public classes marked with isPublicCatalogue=true
+  // SECURITY: Only returns public metadata (id, name, description, language) - NO join codes
+  // SECURITY: Only classes explicitly marked as public are visible - prevents institutional class leakage
+  app.get("/api/classes/catalogue", isAuthenticated, async (req: any, res) => {
+    try {
+      const { search, language } = req.query;
+      const studentId = req.user.claims.sub;
+      
+      // Get all active classes
+      const allClasses = await storage.getAllActiveClasses();
+      
+      // Get student's current enrollments to exclude already-enrolled classes
+      const enrollments = await storage.getStudentEnrollments(studentId);
+      const enrolledClassIds = new Set(enrollments.map(e => e.classId));
+      
+      // SECURITY: Only show classes explicitly marked as public catalogue
+      let filteredClasses = allClasses.filter(cls => {
+        // CRITICAL: Must be explicitly marked as public catalogue
+        if (!cls.isPublicCatalogue) return false;
+        // Exclude already enrolled classes
+        if (enrolledClassIds.has(cls.id)) return false;
+        // Must be active
+        if (!cls.isActive) return false;
+        return true;
+      });
+      
+      // Apply search filter if provided
+      if (search && typeof search === 'string') {
+        const searchLower = search.toLowerCase();
+        filteredClasses = filteredClasses.filter(cls => 
+          cls.name.toLowerCase().includes(searchLower) ||
+          (cls.description && cls.description.toLowerCase().includes(searchLower)) ||
+          cls.language.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      // Apply language filter if provided
+      if (language && typeof language === 'string' && language !== 'all') {
+        filteredClasses = filteredClasses.filter(cls => 
+          cls.language.toLowerCase() === language.toLowerCase()
+        );
+      }
+      
+      // Sort by language, then by class number (Spanish 1 before Spanish 2, etc.)
+      filteredClasses.sort((a, b) => {
+        const langCompare = a.language.localeCompare(b.language);
+        if (langCompare !== 0) return langCompare;
+        return a.name.localeCompare(b.name, undefined, { numeric: true });
+      });
+      
+      // SECURITY: Return only public metadata - strip sensitive fields like joinCode
+      const sanitizedClasses = filteredClasses.map(cls => ({
+        id: cls.id,
+        name: cls.name,
+        description: cls.description,
+        language: cls.language,
+        isActive: cls.isActive,
+      }));
+      
+      res.json(sanitizedClasses);
+    } catch (error: any) {
+      console.error('Error fetching class catalogue:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Self-enroll in a catalogue class by ID (for public classes only)
+  // SECURITY: Only allows enrollment in classes marked with isPublicCatalogue=true
+  app.post("/api/classes/catalogue/:classId/enroll", isAuthenticated, async (req: any, res) => {
+    try {
+      const studentId = req.user.claims.sub;
+      const { classId } = req.params;
+      
+      // Get the class
+      const cls = await storage.getTeacherClass(classId);
+      if (!cls || !cls.isActive) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+      
+      // SECURITY: Only allow self-enrollment in public catalogue classes
+      if (!cls.isPublicCatalogue) {
+        return res.status(403).json({ error: "This class requires a join code from your teacher" });
+      }
+      
+      // Check if already enrolled
+      const existingEnrollments = await storage.getStudentEnrollments(studentId);
+      if (existingEnrollments.some(e => e.classId === classId)) {
+        return res.status(400).json({ error: "You are already enrolled in this class" });
+      }
+      
+      // Create enrollment with default allocation
+      const enrollment = await storage.createClassEnrollment({
+        classId,
+        studentId,
+        isActive: true,
+        allocatedSeconds: 432000, // 120 hours default
+        usedSeconds: 0,
+        paceStatus: 'on_track',
+      });
+      
+      res.json({ 
+        success: true, 
+        enrollment,
+        class: {
+          id: cls.id,
+          name: cls.name,
+          language: cls.language,
+          description: cls.description,
+        }
+      });
+    } catch (error: any) {
+      console.error('Error enrolling in catalogue class:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Remove student from class
   app.delete("/api/teacher/classes/:classId/students/:studentId", isAuthenticated, async (req: any, res) => {
     try {

@@ -225,6 +225,7 @@ export interface IStorage {
   createTeacherClass(data: InsertTeacherClass): Promise<TeacherClass>;
   getTeacherClass(id: string): Promise<TeacherClass | undefined>;
   getTeacherClasses(teacherId: string): Promise<TeacherClass[]>;
+  getAllActiveClasses(): Promise<TeacherClass[]>;
   updateTeacherClass(id: string, data: Partial<TeacherClass>): Promise<TeacherClass | undefined>;
   deleteTeacherClass(id: string): Promise<boolean>;
   getClassByJoinCode(joinCode: string): Promise<TeacherClass | undefined>;
@@ -1829,6 +1830,10 @@ export class DatabaseStorage implements IStorage {
 
   async getTeacherClasses(teacherId: string): Promise<TeacherClass[]> {
     return await db.select().from(teacherClasses).where(eq(teacherClasses.teacherId, teacherId));
+  }
+
+  async getAllActiveClasses(): Promise<TeacherClass[]> {
+    return await db.select().from(teacherClasses).where(eq(teacherClasses.isActive, true));
   }
 
   async updateTeacherClass(id: string, data: Partial<TeacherClass>): Promise<TeacherClass | undefined> {
