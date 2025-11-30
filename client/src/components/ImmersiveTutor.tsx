@@ -400,6 +400,27 @@ export function ImmersiveTutor({
           </div>
         )}
         
+        {/* Thinking Indicator - shows when waiting for AI response after greeting/turn */}
+        {!isRecording && !isProcessing && !isConnecting && (() => {
+          const isWaiting = getIsWaitingForContent ? getIsWaitingForContent() : isWaitingForContent;
+          if (isWaiting) {
+            return (
+              <div 
+                className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-muted/90 text-muted-foreground rounded-full shadow-lg"
+                data-testid="indicator-thinking"
+              >
+                <div className="flex gap-1">
+                  <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+                <span className="text-sm font-medium">Thinking</span>
+              </div>
+            );
+          }
+          return null;
+        })()}
+        
         {/* Subtitle Overlay - Karaoke-style word highlighting with Cartesia estimated timings */}
         {(() => {
           // When subtitleMode is "off", don't show any overlay
