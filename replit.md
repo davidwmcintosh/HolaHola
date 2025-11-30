@@ -20,7 +20,36 @@ LinguaFlow provides conversational onboarding, an adaptive multi-phase conversat
 ### System Design Choices
 Core data models include Users, Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress, CulturalTips, and Topics. User learning preferences and ACTFL progress are stored.
 
-**Voice Architecture**: Includes a two-tier prevention for validation and utilizes Cartesia Pronunciation Dictionaries for server-side TTS pronunciation correction (with MFA-style IPA as inline fallback). Dictionary IDs stored in `CARTESIA_PRONUNCIATION_DICT_IDS` environment variable, managed by `server/scripts/setup-cartesia-dictionaries.ts`. A 3-state subtitle system with karaoke-style word highlighting and server-side word timing estimation is also implemented.
+**Voice Architecture**: Includes a two-tier prevention for validation and utilizes Cartesia Pronunciation Dictionaries for server-side TTS pronunciation correction (with MFA-style IPA as inline fallback). A 3-state subtitle system with karaoke-style word highlighting and server-side word timing estimation is also implemented.
+
+**Cartesia Pronunciation Dictionary System** (IMPORTANT):
+LinguaFlow uses Cartesia's server-side pronunciation dictionaries to ensure foreign language words are pronounced correctly by the AI tutor. This is a critical system for voice quality.
+
+How it works:
+- Pronunciation rules (IPA phonemes) for common words in each language are stored on Cartesia's servers as "dictionaries"
+- When the AI speaks, we tell Cartesia which dictionary to use based on the target language
+- Cartesia automatically applies correct pronunciations without us modifying the text
+
+Key files:
+- `server/scripts/setup-cartesia-dictionaries.ts` - Script to upload/update dictionaries to Cartesia
+- `server/services/cartesia-streaming.ts` - TTS service that references dictionaries
+- `server/services/tts-service.ts` - Contains `MFA_IPA_PRONUNCIATIONS` map with all pronunciation rules
+
+Environment variable:
+- `CARTESIA_PRONUNCIATION_DICT_IDS` - JSON map of language → dictionary ID (auto-populated by setup script)
+- Example: `{"spanish":"pdict_xxx","french":"pdict_yyy",...}`
+
+Currently configured languages (8 dictionaries):
+- Spanish (53 words), French (10), German (9), Italian (8), Portuguese (8), Japanese (7), Mandarin Chinese (5), Korean (4)
+
+To add/update pronunciations:
+1. Edit the `MFA_IPA_PRONUNCIATIONS` map in `server/services/tts-service.ts`
+2. Run `npx tsx server/scripts/setup-cartesia-dictionaries.ts` to upload changes
+3. The script will delete old dictionaries and create new ones with the updated words
+
+Fallback behavior:
+- If no dictionary exists for a language, the system falls back to inline phoneme markers (`<<phonemes>>`)
+- This ensures pronunciation correction still works for any language
 
 **Streaming Voice Mode**: A WebSocket-based progressive audio delivery system integrating Deepgram STT, Gemini streaming, Cartesia WebSocket TTS, and progressive audio playback. Pedagogical integrations include content moderation, a "one-word rule," background vocabulary extraction, and real-time ACTFL advancement tracking.
 
