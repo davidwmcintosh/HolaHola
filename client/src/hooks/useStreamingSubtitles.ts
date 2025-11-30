@@ -271,7 +271,14 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
         setCurrentWordIndex(-1);
         setMaxTargetWordIndex(-1);
       } else {
-        console.warn(`[StreamingSubtitles v2] ⚠ Sentence ${sentenceIndex} not found in sentences array!`);
+        console.warn(`[StreamingSubtitles v2] ⚠ Sentence ${sentenceIndex} (turn ${turnId}) not found in sentences array!`);
+        console.warn(`[StreamingSubtitles v2]   Available sentences:`, prev.map(s => ({ idx: s.index, turnId: s.turnId })));
+        
+        // CRITICAL: Set hasTargetContent to FALSE when sentence not found
+        // This prevents stale hasTargetContent=true from causing phantom subtitles
+        setHasTargetContent(false);
+        currentWordMappingRef.current = undefined;
+        
         // Still update sentence index even if sentence not found
         setCurrentSentenceIndex(sentenceIndex);
         setIsPlaying(true);
@@ -469,7 +476,13 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     if (wordCount > 1) {
       console.warn(`[StreamingSubtitles v2] ⚠️ MULTI-WORD TARGET DETECTED: "${currentSentenceTargetText}"`);
       console.warn(`[StreamingSubtitles v2]   currentSentence.targetLanguageText: "${currentSentence?.targetLanguageText}"`);
-      console.warn(`[StreamingSubtitles v2]   sentences array:`, sentences.map(s => ({ idx: s.index, target: s.targetLanguageText, hasTarget: s.hasTargetContent })));
+      console.warn(`[StreamingSubtitles v2]   currentTurnId: ${currentTurnId}`);
+      console.warn(`[StreamingSubtitles v2]   sentences array:`, sentences.map(s => ({ 
+        idx: s.index, 
+        turnId: s.turnId,  // CRITICAL: Include turnId to detect cross-turn contamination
+        target: s.targetLanguageText, 
+        hasTarget: s.hasTargetContent 
+      })));
     }
   }
   
