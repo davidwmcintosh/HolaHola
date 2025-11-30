@@ -14,6 +14,13 @@ export const learningContextEnum = pgEnum('learning_context', ['self_directed', 
 // Syllabus completion status enum
 export const syllabusStatusEnum = pgEnum('syllabus_status', ['not_started', 'in_progress', 'completed_early', 'completed_assigned', 'skipped']);
 
+// Tutor freedom level enum - controls how strictly the AI follows curriculum vs allows exploration
+// 1 = Guided: Strictly follows syllabus, redirects off-topic conversations
+// 2 = Flexible Goals: Student can choose topics within lesson objectives (e.g., pick travel destination)
+// 3 = Open Exploration: Student-led conversation, tutor suggests learning connections
+// 4 = Free Conversation: Minimal structure, maximum practice, still tracks progress
+export const tutorFreedomLevelEnum = pgEnum('tutor_freedom_level', ['guided', 'flexible_goals', 'open_exploration', 'free_conversation']);
+
 // Replit Auth Integration - Session storage table
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const sessions = pgTable(
@@ -682,6 +689,8 @@ export const teacherClasses = pgTable("teacher_classes", {
   classTypeId: varchar("class_type_id").references(() => classTypes.id), // Primary class type category
   isFeatured: boolean("is_featured").default(false), // If true, class appears in featured section
   featuredOrder: integer("featured_order"), // Order in featured carousel (lower = first)
+  // Tutor behavior settings
+  tutorFreedomLevel: tutorFreedomLevelEnum("tutor_freedom_level").default("flexible_goals"), // How strictly tutor follows curriculum
   hoursPerStudent: integer("hours_per_student"), // Legacy: base hours allocated (moved to classHourPackages)
   hourPackageId: varchar("hour_package_id").references(() => classHourPackages.id), // Link to purchased hour package
   hoursPerStudentOverride: integer("hours_per_student_override"), // Optional per-class override

@@ -49,9 +49,18 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - `teacherClasses.classTypeId` for class categorization and `isFeatured`/`featuredOrder` for marketing
 - Public catalogue at `/student/join-class` with featured carousel, class type filters, and language filters
 - Admin Class Types management page (`/admin/class-types`) for CRUD operations
-- Admin Classes page with featured toggle, public catalogue toggle, and class type selector
+- Admin Classes page with featured toggle, public catalogue toggle, class type selector, and tutor freedom level selector
 - Business rules: Featured classes must be public; setting a class to private automatically un-features it
 - Strict Zod validation with `.strict()` on admin class updates to prevent unauthorized field modifications
+
+**Tutor Freedom Level System**: Controls AI tutor behavior per class with 4 levels:
+- `guided`: Strictly follows syllabus, redirects off-topic conversations
+- `flexible_goals` (default): Students choose topics within learning objectives
+- `open_exploration`: Student-led conversation with gentle ACTFL nudges
+- `free_conversation`: Maximum practice freedom, maintains content moderation
+- `teacherClasses.tutorFreedomLevel` column with enum type
+- Admin UI selector in `/admin/classes` for configuring per-class AI behavior
+- All levels maintain morality/modesty guidelines regardless of flexibility setting
 
 ## External Dependencies
 

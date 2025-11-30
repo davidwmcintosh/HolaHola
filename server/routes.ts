@@ -5773,13 +5773,14 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
-  // Update class settings (admin only) - for featured, catalogue visibility, class type
+  // Update class settings (admin only) - for featured, catalogue visibility, class type, tutor freedom
   // Uses strict whitelist validation - only specific fields can be updated
   // .strict() rejects any unexpected fields to prevent bypass attacks
   const adminClassUpdateSchema = z.object({
     isFeatured: z.boolean().optional(),
     isPublicCatalogue: z.boolean().optional(),
     classTypeId: z.string().nullable().optional(),
+    tutorFreedomLevel: z.enum(['guided', 'flexible_goals', 'open_exploration', 'free_conversation']).optional(),
   }).strict();
   
   app.put("/api/admin/classes/:classId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
@@ -5796,7 +5797,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         });
       }
       
-      const { isFeatured, isPublicCatalogue, classTypeId } = parseResult.data;
+      const { isFeatured, isPublicCatalogue, classTypeId, tutorFreedomLevel } = parseResult.data;
       
       // Get current class to verify it exists
       const existingClass = await storage.getTeacherClass(classId);
@@ -5810,6 +5811,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         isPublicCatalogue: boolean;
         classTypeId: string | null;
         featuredOrder: number | null;
+        tutorFreedomLevel: 'guided' | 'flexible_goals' | 'open_exploration' | 'free_conversation';
       }> = {};
       
       // Determine the effective public catalogue state (current or new)
@@ -5857,6 +5859,11 @@ Return ONLY the ${targetLanguage} phrase:`;
           }
         }
         updates.classTypeId = classTypeId;
+      }
+      
+      // Handle tutorFreedomLevel
+      if (tutorFreedomLevel !== undefined) {
+        updates.tutorFreedomLevel = tutorFreedomLevel;
       }
       
       // Only call storage if we have updates

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { GraduationCap, Users, Star, Award, Briefcase, Zap, Plane, Globe } from "lucide-react";
+import { GraduationCap, Users, Star, Award, Briefcase, Zap, Plane, Globe, Compass } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 
@@ -28,12 +28,20 @@ interface AdminClass {
   isPublicCatalogue: boolean;
   isFeatured: boolean;
   classTypeId: string | null;
+  tutorFreedomLevel: 'guided' | 'flexible_goals' | 'open_exploration' | 'free_conversation' | null;
   enrollmentCount: number;
   teacher?: {
     firstName: string | null;
     email: string;
   };
 }
+
+const FREEDOM_LEVELS = [
+  { value: 'guided', label: 'Guided', description: 'Strictly follows syllabus' },
+  { value: 'flexible_goals', label: 'Flexible Goals', description: 'Choose topics within objectives' },
+  { value: 'open_exploration', label: 'Open Exploration', description: 'Student-led conversation' },
+  { value: 'free_conversation', label: 'Free Conversation', description: 'Maximum practice freedom' },
+];
 
 const CLASS_TYPE_ICONS: Record<string, typeof Award> = {
   "Award": Award,
@@ -101,6 +109,13 @@ export default function AdminClasses() {
     updateClassMutation.mutate({
       classId: cls.id,
       updates: { classTypeId: classTypeId === "none" ? null : classTypeId },
+    });
+  };
+
+  const handleFreedomLevelChange = (cls: AdminClass, level: string) => {
+    updateClassMutation.mutate({
+      classId: cls.id,
+      updates: { tutorFreedomLevel: level as AdminClass['tutorFreedomLevel'] },
     });
   };
 
@@ -235,6 +250,27 @@ export default function AdminClasses() {
                                   {classTypes?.map((type) => (
                                     <SelectItem key={type.id} value={type.id}>
                                       {type.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              <Compass className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm">Freedom:</span>
+                              <Select
+                                value={cls.tutorFreedomLevel || "flexible_goals"}
+                                onValueChange={(value) => handleFreedomLevelChange(cls, value)}
+                                disabled={updateClassMutation.isPending}
+                              >
+                                <SelectTrigger className="w-44" data-testid={`select-freedom-${cls.id}`}>
+                                  <SelectValue placeholder="Select level" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {FREEDOM_LEVELS.map((level) => (
+                                    <SelectItem key={level.value} value={level.value}>
+                                      {level.label}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
