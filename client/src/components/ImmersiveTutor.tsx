@@ -365,8 +365,8 @@ export function ImmersiveTutor({
       {/* Top spacer for vertical centering */}
       <div className="flex-1 min-h-4" />
       
-      {/* Fixed Tutor Visual - centered container with balanced max-h */}
-      <div className="flex-shrink-0 relative w-full max-w-2xl mx-auto aspect-square md:aspect-video max-h-[50vh] bg-gradient-to-b from-muted/30 to-background flex items-center justify-center">
+      {/* Fixed Tutor Visual - compact container, avatar stays same size */}
+      <div className="flex-shrink-0 relative w-full max-w-md mx-auto aspect-square max-h-[35vh] flex items-center justify-center">
         <img
           src={tutorImageUrl}
           alt="Language Tutor"

@@ -174,8 +174,8 @@ export default function Chat() {
         mode, // Pass current mode (text or voice) to backend for greeting logic
       })
         .then(res => res.json())
-        .then(data => {
-          console.log('[SHARED CHAT] Shared conversation created:', data.id, 'mode:', mode);
+        .then(async (data) => {
+          console.log('[SHARED CHAT] Shared conversation created:', data.id, 'classId:', data.classId, 'mode:', mode);
           setConversationId(data.id);
           setIsCreatingConversation(false);
           // NOTE: We intentionally do NOT reset creationInProgressRef here
@@ -183,6 +183,20 @@ export default function Chat() {
           // The ref will reset on page navigation or reload
           setForceNewConversation(false); // Reset forceNew flag after creating conversation
           queryClient.invalidateQueries({ queryKey: ["/api/conversations", data.id, "messages"] });
+          
+          // Immediately set class name if conversation has a classId
+          if (data.classId) {
+            try {
+              const classRes = await apiRequest("GET", `/api/classes/${data.classId}`);
+              const classData = await classRes.json();
+              console.log('[SHARED CHAT] Linked to class:', classData.name);
+              setClassName(classData.name || null);
+            } catch {
+              setClassName(null);
+            }
+          } else {
+            setClassName(null);
+          }
         })
         .catch(err => {
           console.error("[SHARED CHAT] Failed to create conversation:", err);
