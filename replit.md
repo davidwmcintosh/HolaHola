@@ -48,13 +48,139 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Class Hour Package System**: Institutional credit allocation for teachers, using `classHourPackages` table for package management and automatic credit allocation upon class enrollment.
 
-**Centralized Role-Based Access Control (RBAC)**: A hierarchical permission system using shared helpers in `shared/permissions.ts`:
-- **admin** (Super Admin): Full access to all features including Administration section
-- **developer**: Teacher + student permissions (can access Teaching section, NOT admin)
-- **teacher**: Teaching features only (class management, curriculum, assignments)
-- **student**: Learning features only (conversations, vocabulary, progress)
+**Centralized Role-Based Access Control (RBAC)**: A hierarchical permission system using shared helpers in `shared/permissions.ts`.
 
-Permission helpers: `hasAdminAccess()`, `hasDeveloperAccess()`, `hasTeacherAccess()`, `hasStudentAccess()` are used consistently across frontend (sidebar, page guards) and backend (API route guards). Backend uses `requireRole('admin')` middleware for admin-only endpoints.
+---
+
+## Role-Based Access Control (RBAC) Documentation
+
+### Role Hierarchy Overview
+
+The system implements a hierarchical permission model where higher roles inherit capabilities from lower roles:
+
+```
+admin (Super Admin)
+   ├── All developer permissions
+   ├── All teacher permissions  
+   ├── All student permissions
+   └── Administration features (exclusive)
+
+developer
+   ├── All teacher permissions
+   └── All student permissions
+
+teacher
+   └── Teaching features only
+
+student
+   └── Learning features only
+```
+
+### Role Privileges Matrix
+
+| Feature Category | Student | Teacher | Developer | Admin |
+|-----------------|---------|---------|-----------|-------|
+| **Learning Features** |||||
+| Voice conversations | Yes | Yes | Yes | Yes |
+| Text chat | Yes | Yes | Yes | Yes |
+| Vocabulary flashcards | Yes | Yes | Yes | Yes |
+| Grammar exercises | Yes | Yes | Yes | Yes |
+| Progress tracking | Yes | Yes | Yes | Yes |
+| ACTFL assessments | Yes | Yes | Yes | Yes |
+| Cultural tips | Yes | Yes | Yes | Yes |
+| Review hub | Yes | Yes | Yes | Yes |
+| Class enrollment (as student) | Yes | Yes | Yes | Yes |
+| **Teaching Features** |||||
+| Teacher Dashboard | No | Yes | Yes | Yes |
+| Class Management | No | Yes | Yes | Yes |
+| Create/Edit Classes | No | Yes | Yes | Yes |
+| Student Enrollment | No | Yes | Yes | Yes |
+| Curriculum Library | No | Yes | Yes | Yes |
+| Curriculum Builder | No | Yes | Yes | Yes |
+| Assignment Creation | No | Yes | Yes | Yes |
+| Assignment Grading | No | Yes | Yes | Yes |
+| Student Progress Reports | No | Yes | Yes | Yes |
+| **Administration Features** |||||
+| Admin Dashboard | No | No | No | Yes |
+| User Management | No | No | No | Yes |
+| Role Assignment | No | No | No | Yes |
+| All Classes Overview | No | No | No | Yes |
+| System Reports | No | No | No | Yes |
+| Voice Console (TTS Config) | No | No | No | Yes |
+| Audit Logs | No | No | No | Yes |
+| User Impersonation | No | No | No | Yes |
+| Hour Package Management | No | No | No | Yes |
+
+### Sidebar Section Visibility
+
+| Sidebar Section | Student | Teacher | Developer | Admin |
+|-----------------|---------|---------|-----------|-------|
+| Learning (Voice, Chat, Review, Vocabulary, Grammar) | Yes | Yes | Yes | Yes |
+| Teaching (Dashboard, Classes, Curriculum, Assignments) | No | Yes | Yes | Yes |
+| Administration (Dashboard, Users, Classes, Reports, Voice Console) | No | No | No | Yes |
+
+### API Endpoint Access
+
+**Student Endpoints** (`/api/*` - general learning):
+- All authenticated users can access
+
+**Teacher Endpoints** (`/api/teacher/*`):
+- Uses `hasTeacherAccess()` helper function
+- Accessible by: teacher, developer, admin roles
+
+**Admin Endpoints** (`/api/admin/*`):
+- Uses `requireRole('admin')` middleware
+- Accessible by: admin role only
+
+### Permission Helper Functions
+
+Located in `shared/permissions.ts`:
+
+```typescript
+hasAdminAccess(role)     // Returns true for: admin
+hasDeveloperAccess(role) // Returns true for: admin, developer
+hasTeacherAccess(role)   // Returns true for: admin, developer, teacher
+hasStudentAccess(role)   // Returns true for: admin, developer, student
+```
+
+### Files Modified for RBAC Implementation
+
+**Core Permission System:**
+- `shared/permissions.ts` - Centralized permission helper functions
+
+**Frontend Guards & Navigation:**
+- `client/src/components/app-sidebar.tsx` - Sidebar section visibility
+- `client/src/lib/auth.ts` - useUser hook with role flags
+
+**Frontend Teacher Pages (use `hasTeacherAccess`):**
+- `client/src/pages/teacher-dashboard.tsx`
+- `client/src/pages/curriculum-library.tsx`
+- `client/src/pages/curriculum-builder.tsx`
+- `client/src/pages/class-management.tsx`
+- `client/src/pages/assignment-grading.tsx`
+
+**Frontend Admin Pages (use `RoleGuard allowedRoles={['admin']}`):**
+- `client/src/pages/admin/Dashboard.tsx`
+- `client/src/pages/admin/Users.tsx`
+- `client/src/pages/admin/Classes.tsx`
+- `client/src/pages/admin/Reports.tsx`
+- `client/src/pages/admin/VoiceConsole.tsx`
+
+**Backend Route Guards:**
+- `server/routes.ts` - Teacher endpoints use `hasTeacherAccess()`, admin endpoints use `requireRole('admin')`
+- `server/middleware/rbac.ts` - Middleware functions `requireRole()`, `allowRoles()`, `loadAuthenticatedUser()`
+
+### Implementation Notes
+
+1. **Hierarchical Inheritance**: The `requireRole()` middleware uses a numeric hierarchy (student=0, teacher=1, developer=2, admin=3) to allow higher roles automatic access to lower-level features.
+
+2. **Frontend Consistency**: All teacher pages import and use `hasTeacherAccess()` from `@shared/permissions` to ensure developers and admins can access teaching features.
+
+3. **Admin Isolation**: Admin features are strictly limited to the admin role - developers cannot access administration features.
+
+4. **RoleGuard Component**: Frontend pages use `<RoleGuard allowedRoles={['admin']}>` for admin-only pages, which redirects unauthorized users.
+
+---
 
 ## External Dependencies
 
