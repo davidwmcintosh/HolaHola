@@ -527,6 +527,9 @@ export function ImmersiveTutor({
               // Include current word and all previously spoken words
               const visibleWords = allWords.slice(0, activeWordIndex + 1);
               
+              // CRITICAL DEBUG: Log exactly what will be displayed
+              console.log(`[SUBTITLE DISPLAY] Rendering ${visibleWords.length} words: "${visibleWords.join(' ')}"`);
+              
               return (
                 <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
                   <div className="max-w-4xl mx-auto">
