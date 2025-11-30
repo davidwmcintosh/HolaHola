@@ -236,7 +236,7 @@ export default function ReviewHub() {
         </div>
         <div className="flex items-center gap-3 flex-wrap mt-1">
           <LearningContextFilter />
-          <Link href="/chat">
+          <Link href="/chat" onClick={() => localStorage.setItem('forceNewConversation', 'true')}>
             <Button size="lg" className="gap-2" data-testid="button-start-practice">
               <Mic className="h-5 w-5" />
               Start Practice
