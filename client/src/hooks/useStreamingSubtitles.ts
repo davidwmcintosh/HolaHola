@@ -323,7 +323,8 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
    * Reset all state
    */
   const reset = useCallback(() => {
-    console.log('[StreamingSubtitles] Reset');
+    const prevFallback = lastNonEmptyTargetTextRef.current;
+    console.log('[StreamingSubtitles] Reset - clearing fallback:', prevFallback?.substring(0, 30) || '(empty)');
     
     // IMMEDIATELY set flags via refs (synchronous - bypasses React batching)
     // This ensures ImmersiveTutor guards work on the very next render

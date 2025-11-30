@@ -470,39 +470,12 @@ export function ImmersiveTutor({
               isProcessing,
             });
             
-            // For "target" mode with no target text available, show the last target text as a reference
-            // This keeps "Buenas tardes" visible when the AI says "Give it a try!" (pure English)
+            // For "target" mode with no target text in the current sentence, hide subtitles
+            // The user already saw the target word in the previous sentence - no need to persist it
+            // This prevents phantom subtitles where old target text ("Buenas tardes") appears
+            // during pure English sentences ("Can you give that a try?")
             if (isTargetMode && !streamingTargetText) {
-              // Use synchronous getter if available (prevents phantom subtitles from stale state)
-              const fallbackText = getLastNonEmptyTargetText ? getLastNonEmptyTargetText() : lastNonEmptyTargetText;
-              
-              // Show fallback target text if available (static display, no highlighting)
-              if (fallbackText) {
-                console.log('[SUBTITLE DEBUG] Target mode with no target text - showing fallback:', fallbackText);
-                const fallbackWords = fallbackText.split(/\s+/).filter(w => w.length > 0);
-                return (
-                  <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
-                    <div className="max-w-4xl mx-auto">
-                      <div 
-                        className="text-xl md:text-3xl font-medium text-center leading-relaxed text-foreground/70"
-                        data-testid="text-subtitle-overlay-fallback"
-                      >
-                        {fallbackWords.map((word, index) => (
-                          <span
-                            key={index}
-                            className="inline-block mx-0.5"
-                            data-testid={`fallback-target-word-${index}`}
-                          >
-                            {cleanForDisplay(word)}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
-              // No fallback available either - hide subtitles
-              console.log('[SUBTITLE DEBUG] Target mode with no target text and no fallback - hiding');
+              console.log('[SUBTITLE DEBUG] Target mode with no target text in current sentence - hiding subtitles');
               return null;
             }
             
