@@ -467,11 +467,17 @@ export function ImmersiveTutor({
               mode: subtitleMode,
               hasTargetContent,
               streamingText: streamingText?.substring(0, 50),
-              streamingTargetText: streamingTargetText?.substring(0, 50),
+              streamingTargetText,  // FULL VALUE for debugging
               streamingWordIndex,
               streamingTargetWordIndex,
               isProcessing,
             });
+            
+            // DEBUG: Check for phantom double words
+            if (streamingTargetText && streamingTargetText.includes(' ')) {
+              const words = streamingTargetText.split(/\s+/);
+              console.log('[SUBTITLE RENDER v2] ⚠ MULTI-WORD TARGET:', words);
+            }
             
             // SERVER-DRIVEN: For "target" mode, hide subtitles if server says no target content
             // This eliminates phantom subtitles because we trust the server's explicit flag

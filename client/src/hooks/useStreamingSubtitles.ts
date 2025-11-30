@@ -452,6 +452,11 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     ? (currentSentence?.targetLanguageText || '')
     : '';
   
+  // DEBUG: Log any time target text changes
+  if (currentSentenceTargetText) {
+    console.log(`[StreamingSubtitles v2] TARGET TEXT: "${currentSentenceTargetText}" (sentence ${currentSentenceIndex}, hasTarget=${hasTargetContent})`);
+  }
+  
   // Compute current target word index from word mapping
   const instantTargetWordIndex = useMemo(() => {
     if (currentWordIndex < 0) return -1;
