@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, MessageSquare, RotateCcw, Turtle, Gauge } from "lucide-react";
+import { Mic, MicOff, MessageSquare, RotateCcw, Turtle, Rabbit } from "lucide-react";
 import { type Message } from "@shared/schema";
 import { type SubtitleMode, type VoiceSpeed } from "@/contexts/LanguageContext";
 
@@ -770,7 +770,7 @@ export function ImmersiveTutor({
             >
               <Turtle style={{ width: 24, height: 24 }} />
             </Button>
-            <span className="text-[10px] text-muted-foreground">Slow</span>
+            <span className="text-[10px] text-muted-foreground whitespace-nowrap">Repeat Slowly</span>
           </div>
         )}
         </div>
@@ -798,25 +798,30 @@ export function ImmersiveTutor({
               </Button>
             </div>
             
-            {/* Voice Speed Control - 5 levels, showing actual Cartesia speed */}
-            <div className="flex items-center gap-1">
-              <Gauge className="h-4 w-4 text-muted-foreground mr-1" />
-              {(["slower", "slow", "normal", "fast", "faster"] as const).map((speed) => {
-                // Calculate actual effective speed based on base rate
-                const multiplier = speed === "slower" ? 0.6 : speed === "slow" ? 0.8 : speed === "normal" ? 1.0 : speed === "fast" ? 1.25 : 1.5;
-                const effectiveSpeed = (baseSpeakingRate * multiplier).toFixed(2).replace(/\.?0+$/, '');
-                return (
-                  <Button
-                    key={speed}
-                    variant={voiceSpeed === speed ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setVoiceSpeed(speed)}
-                    data-testid={`button-speed-${speed}`}
-                  >
-                    {effectiveSpeed}x
-                  </Button>
-                );
-              })}
+            {/* Voice Speed Control - Compact slider with turtle/rabbit icons */}
+            <div className="flex items-center gap-2">
+              <Turtle className="h-4 w-4 text-muted-foreground" />
+              <div className="flex items-center gap-0.5">
+                {(["slower", "slow", "normal", "fast", "faster"] as const).map((speed, index) => {
+                  const speeds: VoiceSpeed[] = ["slower", "slow", "normal", "fast", "faster"];
+                  const currentIndex = speeds.indexOf(voiceSpeed);
+                  const isActive = index <= currentIndex;
+                  return (
+                    <button
+                      key={speed}
+                      onClick={() => setVoiceSpeed(speed)}
+                      className={`h-2 w-4 rounded-sm transition-colors ${
+                        isActive 
+                          ? "bg-primary" 
+                          : "bg-muted-foreground/30"
+                      }`}
+                      data-testid={`button-speed-${speed}`}
+                      aria-label={`Set speed to ${speed}`}
+                    />
+                  );
+                })}
+              </div>
+              <Rabbit className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
         )}
