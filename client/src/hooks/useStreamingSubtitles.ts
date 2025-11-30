@@ -102,7 +102,9 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
    * CRITICAL: All refs and state MUST be cleared to prevent stale data from persisting
    */
   const setTurnId = useCallback((turnId: number) => {
-    console.log(`[StreamingSubtitles v2] New turn: ${turnId}`);
+    console.log(`[StreamingSubtitles v2] ═══════════════════════════════════════════`);
+    console.log(`[StreamingSubtitles v2] NEW TURN: ${turnId} (previous: ${currentTurnId})`);
+    console.log(`[StreamingSubtitles v2] Clearing all state and refs...`);
     
     // Clear ALL state for new turn - prevents stale data from persisting
     setCurrentTurnId(turnId);
@@ -125,7 +127,10 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     // Set waiting flag
     isWaitingForContentRef.current = true;
     setIsWaitingForContent(true);
-  }, []);
+    
+    console.log(`[StreamingSubtitles v2] State cleared: hasTargetContent=false, sentences=[], isWaitingForContent=true`);
+    console.log(`[StreamingSubtitles v2] ═══════════════════════════════════════════`);
+  }, [currentTurnId]);
   
   /**
    * Add a new sentence (called when server sends sentence_start)
@@ -141,7 +146,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   ) => {
     // STALE PACKET FILTER: Ignore packets from old turns
     if (turnId < currentTurnId) {
-      console.log(`[StreamingSubtitles v2] Ignoring stale sentence (turnId ${turnId} < current ${currentTurnId})`);
+      console.log(`[StreamingSubtitles v2] ⚠ DROPPING stale sentence (turnId ${turnId} < current ${currentTurnId})`);
       return;
     }
     
@@ -149,20 +154,30 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       ? new Map<number, number>(wordMappingArray)
       : undefined;
     
-    console.log(`[StreamingSubtitles v2] Add sentence ${index} (turn ${turnId}): hasTarget=${hasTarget}, text="${text.substring(0, 40)}..."`);
+    console.log(`[StreamingSubtitles v2] ───────────────────────────────────────────`);
+    console.log(`[StreamingSubtitles v2] ADD SENTENCE ${index} (turn ${turnId})`);
+    console.log(`[StreamingSubtitles v2]   hasTarget: ${hasTarget}`);
+    console.log(`[StreamingSubtitles v2]   targetText: "${targetLanguageText || '(none)'}"`);
+    console.log(`[StreamingSubtitles v2]   wordMapping: ${wordMappingArray ? JSON.stringify(wordMappingArray) : '(none)'}`);
+    console.log(`[StreamingSubtitles v2]   displayText: "${text.substring(0, 60)}..."`);
     
     // Clear waiting flag when first sentence arrives
     isWaitingForContentRef.current = false;
     setIsWaitingForContent(false);
     
     // SERVER-DRIVEN: Set hasTargetContent from server's explicit flag
+    console.log(`[StreamingSubtitles v2]   Setting hasTargetContent: ${hasTarget}`);
     setHasTargetContent(hasTarget);
     
     setSentences(prev => {
       // Check if sentence already exists
       const existing = prev.find(s => s.index === index && s.turnId === turnId);
-      if (existing) return prev;
+      if (existing) {
+        console.log(`[StreamingSubtitles v2]   Sentence already exists, skipping`);
+        return prev;
+      }
       
+      console.log(`[StreamingSubtitles v2]   Adding to sentences array (now ${prev.length + 1} sentences)`);
       return [...prev, {
         index,
         turnId,
@@ -174,6 +189,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
         isComplete: false,
       }];
     });
+    console.log(`[StreamingSubtitles v2] ───────────────────────────────────────────`);
   }, [currentTurnId]);
   
   /**
@@ -214,11 +230,12 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   const startPlayback = useCallback((sentenceIndex: number, turnId: number) => {
     // STALE PACKET FILTER
     if (turnId < currentTurnId) {
-      console.log(`[StreamingSubtitles v2] Ignoring stale playback start (turnId ${turnId} < current ${currentTurnId})`);
+      console.log(`[StreamingSubtitles v2] ⚠ DROPPING stale playback start (turnId ${turnId} < current ${currentTurnId})`);
       return;
     }
     
-    console.log(`[StreamingSubtitles v2] Start playback for sentence ${sentenceIndex} (turn ${turnId})`);
+    console.log(`[StreamingSubtitles v2] ▶ START PLAYBACK sentence ${sentenceIndex} (turn ${turnId})`);
+    console.log(`[StreamingSubtitles v2]   Current hasTargetContent state: ${hasTargetContent}`);
     
     // Get timings from cache
     const storedTimings = timingsBySentenceRef.current.get(sentenceIndex);

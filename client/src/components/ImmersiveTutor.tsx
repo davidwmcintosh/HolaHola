@@ -461,8 +461,9 @@ export function ImmersiveTutor({
               ? (streamingTargetText || '') 
               : streamingText;
             
-            // DEBUG: Log streaming subtitle state
-            console.log('[SUBTITLE DEBUG v2]', {
+            // DEBUG: Log streaming subtitle state with visual separator
+            console.log('[SUBTITLE RENDER v2] ─────────────────────────────────────────');
+            console.log('[SUBTITLE RENDER v2] Rendering decision:', {
               mode: subtitleMode,
               hasTargetContent,
               streamingText: streamingText?.substring(0, 50),
@@ -475,8 +476,11 @@ export function ImmersiveTutor({
             // SERVER-DRIVEN: For "target" mode, hide subtitles if server says no target content
             // This eliminates phantom subtitles because we trust the server's explicit flag
             if (isTargetMode && !hasTargetContent) {
-              console.log('[SUBTITLE DEBUG v2] Target mode with hasTargetContent=false - hiding');
+              console.log('[SUBTITLE RENDER v2] ❌ HIDING: Target mode with hasTargetContent=false');
+              console.log('[SUBTITLE RENDER v2] ─────────────────────────────────────────');
               return null;
+            } else if (isTargetMode) {
+              console.log('[SUBTITLE RENDER v2] ✓ SHOWING: Target mode with hasTargetContent=true');
             }
             
             const allWords = displayTextForStreaming.split(/\s+/).filter(w => w.length > 0);
@@ -490,12 +494,13 @@ export function ImmersiveTutor({
               ? rawActiveWordIndex 
               : -1;
             
-            console.log('[SUBTITLE DEBUG] Target render check:', {
+            console.log('[SUBTITLE RENDER v2] Words check:', {
               allWordsCount: allWords.length,
               rawActiveWordIndex,
               activeWordIndex,
               willRender: isTargetMode ? (allWords.length > 0 && activeWordIndex >= 0) : true
             });
+            console.log('[SUBTITLE RENDER v2] ─────────────────────────────────────────');
             
             // In Target mode, PROGRESSIVELY reveal target words as they're spoken
             // Only show words that have been spoken (up to and including activeWordIndex)

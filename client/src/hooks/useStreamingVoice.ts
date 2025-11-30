@@ -228,7 +228,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * Handle audio chunk message
    */
   const handleAudioChunk = useCallback((msg: StreamingAudioChunkMessage) => {
-    if (!playerRef.current) return;
+    if (!playerRef.current) {
+      console.warn('[StreamingVoice] Audio chunk received but no player - DROPPING AUDIO');
+      return;
+    }
+    
+    // DEBUG: Log audio chunk processing
+    console.log(`[StreamingVoice] Processing audio chunk: turn=${msg.turnId}, sentence=${msg.sentenceIndex}, base64Len=${msg.audio?.length || 0}, isFirst=${msg.isFirst}, isLast=${msg.isLast}`);
     
     // Decode base64 to ArrayBuffer
     const binaryString = atob(msg.audio);
@@ -236,6 +242,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
+    
+    // DEBUG: Log decoded size
+    console.log(`[StreamingVoice] Audio decoded: ${bytes.buffer.byteLength} bytes for sentence ${msg.sentenceIndex}`);
     
     const chunk: StreamingAudioChunk = {
       sentenceIndex: msg.sentenceIndex,

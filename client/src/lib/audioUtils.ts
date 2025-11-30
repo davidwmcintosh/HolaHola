@@ -263,7 +263,8 @@ export class StreamingAudioPlayer {
    * Will start playing immediately if not already playing
    */
   enqueue(chunk: StreamingAudioChunk): void {
-    console.log(`[StreamingAudioPlayer] Enqueue sentence ${chunk.sentenceIndex} (${chunk.audio.byteLength} bytes)`);
+    console.log(`[StreamingAudioPlayer] ▶ ENQUEUE sentence ${chunk.sentenceIndex}: ${chunk.audio.byteLength} bytes, isLast=${chunk.isLast}, duration=${chunk.durationMs}ms`);
+    console.log(`[StreamingAudioPlayer]   Queue before: ${this.queue.length} chunks, isPlaying=${this.isPlaying}`);
     
     // Store chunk for replay functionality
     this.allAudioChunks.push(chunk.audio);
@@ -273,9 +274,14 @@ export class StreamingAudioPlayer {
     this.queue.push(chunk);
     this.updatePendingCount(this.pendingAudioCount + 1);
     
+    console.log(`[StreamingAudioPlayer]   Queue after: ${this.queue.length} chunks, pending=${this.pendingAudioCount}`);
+    
     // Start playback if not already playing
     if (!this.isPlaying) {
+      console.log(`[StreamingAudioPlayer]   Starting playback (was idle)`);
       this.playNext();
+    } else {
+      console.log(`[StreamingAudioPlayer]   Already playing, chunk queued`);
     }
   }
   
@@ -381,6 +387,8 @@ export class StreamingAudioPlayer {
    * Play the next chunk in the queue
    */
   private async playNext(): Promise<void> {
+    console.log(`[StreamingAudioPlayer] ▶ PLAY_NEXT called, queue has ${this.queue.length} chunks`);
+    
     // Stop any existing precision timing
     this.stopPrecisionTiming();
     
@@ -388,7 +396,7 @@ export class StreamingAudioPlayer {
     const chunk = this.queue.shift();
     
     if (!chunk) {
-      console.log('[StreamingAudioPlayer] Queue empty');
+      console.log('[StreamingAudioPlayer] ⏹ Queue empty - stopping playback');
       this.isPlaying = false;
       this.setState('idle');
       this.callbacks.onComplete?.();
@@ -403,7 +411,7 @@ export class StreamingAudioPlayer {
     // This prevents race condition where isProcessing=false but playbackState still 'idle'
     this.setState('buffering');
     
-    console.log(`[StreamingAudioPlayer] Playing sentence ${chunk.sentenceIndex}`);
+    console.log(`[StreamingAudioPlayer] ▶ Playing sentence ${chunk.sentenceIndex}: ${chunk.audio.byteLength} bytes, expectedDuration=${(chunk.durationMs/1000).toFixed(2)}s, isLast=${chunk.isLast}`);
     // NOTE: onSentenceStart is now called from onplaying event for precise timing sync
     
     try {

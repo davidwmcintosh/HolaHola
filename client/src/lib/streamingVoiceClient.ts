@@ -435,6 +435,11 @@ export class StreamingVoiceClient {
   private handleAudioChunk(message: StreamingAudioChunkMessage): void {
     // Store metadata for the upcoming binary frame
     this.currentSentenceIndex = message.sentenceIndex;
+    
+    // DEBUG: Log audio chunk receipt with details
+    const audioSize = message.audio?.length || 0;
+    console.log(`[StreamingVoiceClient] Audio chunk received: turn=${message.turnId}, sentence=${message.sentenceIndex}, size=${audioSize} chars (base64), isFirst=${message.isFirst}, isLast=${message.isLast}`);
+    
     // Emit audio chunk with embedded base64 data
     this.emit('audioChunk', message);
   }
