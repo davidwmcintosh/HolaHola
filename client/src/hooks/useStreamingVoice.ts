@@ -187,6 +187,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    */
   const handleSentenceStart = useCallback((msg: StreamingSentenceStartMessage) => {
     console.log(`[StreamingVoice] Sentence ${msg.sentenceIndex}: "${msg.text.substring(0, 50)}..." (target: ${msg.targetLanguageText?.substring(0, 30) || 'none'}, mapping: ${msg.wordMapping?.length || 0} entries)`);
+    
+    // On first sentence of a new assistant turn, clear any fallback text from the previous turn
+    // This prevents phantom subtitles from appearing (old target text showing in a new turn)
+    if (msg.sentenceIndex === 0) {
+      subtitles.beginAssistantTurn();
+    }
+    
     subtitles.addSentence(msg.sentenceIndex, msg.text, msg.targetLanguageText, msg.wordMapping);
   }, [subtitles]);
   

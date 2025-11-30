@@ -53,6 +53,7 @@ export interface UseStreamingSubtitlesReturn {
   stopPlayback: () => void;
   completeSentence: (sentenceIndex: number) => void;
   reset: () => void;
+  beginAssistantTurn: () => void;  // Clear fallback text at start of new assistant turn (prevents phantom subtitles across turns)
   getCurrentWordTimings: () => WordTiming[];
   getIsWaitingForContent: () => boolean;  // Synchronous getter for immediate access
   getLastNonEmptyTargetText: () => string;  // Synchronous getter to prevent phantom subtitles
@@ -351,6 +352,23 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   }, []);
   
   /**
+   * Begin a new assistant turn - clears fallback text from previous turn
+   * Call this when the FIRST sentence of a new assistant response arrives
+   * This prevents phantom subtitles from previous turns appearing in new turns
+   */
+  const beginAssistantTurn = useCallback(() => {
+    const prevFallback = lastNonEmptyTargetTextRef.current;
+    console.log('[StreamingSubtitles] Begin assistant turn - clearing previous fallback:', prevFallback?.substring(0, 30) || '(empty)');
+    
+    // Clear the fallback text from the previous turn
+    // This ensures that if the new turn starts with an English sentence,
+    // we don't show target text from the previous turn
+    lastNonEmptyTargetTextRef.current = '';
+    setLastNonEmptyTargetText('');
+    setMaxTargetWordIndex(-1);
+  }, []);
+  
+  /**
    * Get current word timings for the playing sentence
    */
   const getCurrentWordTimings = useCallback(() => {
@@ -475,6 +493,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     stopPlayback,
     completeSentence,
     reset,
+    beginAssistantTurn,
     getCurrentWordTimings,
     getIsWaitingForContent,
     getLastNonEmptyTargetText,
@@ -499,6 +518,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     stopPlayback,
     completeSentence,
     reset,
+    beginAssistantTurn,
     getCurrentWordTimings,
     getIsWaitingForContent,
     getLastNonEmptyTargetText,
