@@ -141,7 +141,8 @@ export function extractTargetLanguageText(text: string): string {
   // PASS 2: Extract words with foreign characters (accents, ñ, ¡¿, etc.)
   const foreignCharPattern = /[¡¿ñáéíóúàâçéèêëîïôùûüäöüß]/i;
   // Using explicit character classes instead of Unicode properties for ES5 compatibility
-  const wordBoundaryPattern = /[a-zA-ZÀ-ÿñÑ¡¿0-9]+/g;
+  // Include ¡¿!? to capture complete Spanish exclamations like ¡Fantástico!
+  const wordBoundaryPattern = /[¡¿!?]?[a-zA-ZÀ-ÿñÑ0-9]+[!?]?/g;
   let wordMatch;
   while ((wordMatch = wordBoundaryPattern.exec(plainText)) !== null) {
     const word = wordMatch[0];
