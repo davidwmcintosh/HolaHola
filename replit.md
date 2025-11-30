@@ -70,6 +70,19 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - Freedom levels bind conversational complexity: guided=exact ACTFL, flexible_goals/open=±1 tier, free=any tier with scaffolding
 - System prompt includes freedom-aware ACTFL constraints with automatic complexity clamping
 
+**Placement Assessment System**: Adaptive proficiency verification for Level 2+ class enrollments:
+- `PlacementAssessmentService` (`server/services/placement-assessment-service.ts`) analyzes first voice session conversation
+- Enrollment schema fields: `placementChecked` (boolean), `placementActflResult` (assessed level), `placementDelta` (difference from self-selected), `placementDate`
+- Assessment triggers automatically at end of first voice session for classes with `requiresPlacementCheck=true`
+- Uses Gemini AI to analyze conversation complexity, vocabulary usage, and grammatical accuracy
+- Updates user's `actflLevel`, sets `actflAssessed=true`, and `assessmentSource='placement_test'`
+- Teacher dashboard displays placement status badges per student:
+  - "Awaiting Placement" (outline) - first session not yet completed
+  - "Level Verified" (secondary) - AI confirms self-selected level
+  - "Overestimated by X" (destructive) - student selected too high
+  - "Underestimated by X" (default) - student selected too low
+- Tooltips show detailed ACTFL information including current level, placement result, and AI verification status
+
 ## External Dependencies
 
 ### Third-Party Services
