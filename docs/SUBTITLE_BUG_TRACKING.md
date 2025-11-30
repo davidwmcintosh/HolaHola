@@ -556,3 +556,43 @@ If `⚠ Sentence not found` appears frequently, it indicates a race condition be
 1. `setCurrentTurnId()` clearing sentences
 2. `startPlayback()` trying to find sentences
 3. `addSentence()` populating new sentences
+
+---
+
+## Session Log: November 30, 2025 (Late Night - 11:00 PM)
+
+### Teaching Block Persistence Bug Fixed
+
+**Bug Discovered:**
+When sentence A has teaching block "Hola" and sentence B has teaching block "Buenos días", the "Buenos días" was showing immediately at word 0 of sentence B, even though it's supposed to be at word 5.
+
+**Root Cause:**
+`hasShownTeachingBlock` persisted across sentences within the same turn. When sentence A finished with `hasShownTeachingBlock=true`, sentence B started with that flag still true, causing the teaching block to display immediately before it was actually reached.
+
+**Fix Applied:**
+Added `setHasShownTeachingBlock(false)` to `startPlayback()` function:
+
+```typescript
+// In startPlayback(), when starting a new sentence:
+setCurrentSentenceIndex(sentenceIndex);
+setIsPlaying(true);
+setVisibleWordCount(0);
+setCurrentWordIndex(-1);
+setMaxTargetWordIndex(-1);
+// CRITICAL: Reset teaching block tracking per sentence
+// Prevents previous sentence's teaching block from showing before it's reached
+setHasShownTeachingBlock(false);
+```
+
+**Expected Behavior After Fix:**
+1. Sentence A plays, teaching block "Hola" appears at word N, persists until sentence ends
+2. Sentence B starts, `hasShownTeachingBlock` is reset to false
+3. Teaching block "Buenos días" only appears when word 5 is reached in sentence B
+4. No premature teaching block display
+
+**Files Changed:**
+- `client/src/hooks/useStreamingSubtitles.ts` (lines 385-387, 403)
+
+### Status: DEPLOYED
+- Workflow restarted with fix
+- Pending user verification
