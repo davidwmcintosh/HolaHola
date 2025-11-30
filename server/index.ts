@@ -52,6 +52,16 @@ const stripeInitPromise = (async function initStripe() {
       console.error('Failed to seed Can-Do statements:', error);
     }
     
+    // Seed Class Types (one-time)
+    try {
+      console.log('Seeding class types...');
+      const { storage } = await import('./storage');
+      await storage.seedClassTypes();
+      console.log('Class types ready');
+    } catch (error) {
+      console.error('Failed to seed class types:', error);
+    }
+    
     // Seed Topics (grammar, function, subject)
     try {
       console.log('Seeding topic categories...');

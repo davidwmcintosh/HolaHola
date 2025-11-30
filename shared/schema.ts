@@ -634,6 +634,20 @@ export const curriculumLessons = pgTable("curriculum_lessons", {
   minPronunciationScore: real("min_pronunciation_score"), // Minimum pronunciation confidence (0-1)
 });
 
+// Class types for categorizing classes (ACTFL-Led, Executive, Travel, etc.)
+export const classTypes = pgTable("class_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(), // "ACTFL-Led Classes", "Executive/Business", etc.
+  description: text("description"), // Longer description for marketing
+  slug: varchar("slug").notNull().unique(), // URL-friendly identifier
+  icon: varchar("icon"), // Lucide icon name for UI
+  displayOrder: integer("display_order").default(0), // For sorting in UI
+  isPreset: boolean("is_preset").default(false), // True for system-defined types
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Institutional hour packages for classes (tracks purchased allocations)
 export const classHourPackages = pgTable("class_hour_packages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -664,6 +678,10 @@ export const teacherClasses = pgTable("teacher_classes", {
   joinCode: varchar("join_code").unique().notNull(), // 6-digit code for students to join
   isActive: boolean("is_active").default(true),
   isPublicCatalogue: boolean("is_public_catalogue").default(false), // If true, class is visible in public catalogue and allows self-enrollment
+  // Class type and featured status for marketing catalogue
+  classTypeId: varchar("class_type_id").references(() => classTypes.id), // Primary class type category
+  isFeatured: boolean("is_featured").default(false), // If true, class appears in featured section
+  featuredOrder: integer("featured_order"), // Order in featured carousel (lower = first)
   hoursPerStudent: integer("hours_per_student"), // Legacy: base hours allocated (moved to classHourPackages)
   hourPackageId: varchar("hour_package_id").references(() => classHourPackages.id), // Link to purchased hour package
   hoursPerStudentOverride: integer("hours_per_student_override"), // Optional per-class override
@@ -1192,6 +1210,17 @@ export const insertCurriculumLessonSchema = createInsertSchema(curriculumLessons
   conversationPrompt: z.string().max(5000, "Prompt must be less than 5000 characters").optional(),
 });
 
+export const insertClassTypeSchema = createInsertSchema(classTypes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Name is required").max(100, "Name must be less than 100 characters").trim(),
+  slug: z.string().min(1, "Slug is required").max(50, "Slug must be less than 50 characters").toLowerCase().regex(/^[a-z0-9-]+$/, "Slug must contain only lowercase letters, numbers, and hyphens"),
+  description: z.string().max(500, "Description must be less than 500 characters").optional(),
+  icon: z.string().max(50, "Icon name must be less than 50 characters").optional(),
+});
+
 export const insertClassHourPackageSchema = createInsertSchema(classHourPackages).omit({
   id: true,
   createdAt: true,
@@ -1264,6 +1293,9 @@ export type CurriculumLesson = typeof curriculumLessons.$inferSelect;
 
 export type InsertClassHourPackage = z.infer<typeof insertClassHourPackageSchema>;
 export type ClassHourPackage = typeof classHourPackages.$inferSelect;
+
+export type InsertClassType = z.infer<typeof insertClassTypeSchema>;
+export type ClassType = typeof classTypes.$inferSelect;
 
 export type InsertTeacherClass = z.infer<typeof insertTeacherClassSchema>;
 export type TeacherClass = typeof teacherClasses.$inferSelect;

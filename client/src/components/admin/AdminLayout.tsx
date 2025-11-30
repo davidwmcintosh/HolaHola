@@ -1,7 +1,7 @@
 import { useUser } from "@/lib/auth";
 import { ImpersonationBanner } from "./ImpersonationBanner";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, GraduationCap, FileText, Shield, Mic } from "lucide-react";
+import { LayoutDashboard, Users, GraduationCap, FileText, Shield, Mic, Tags } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AdminLayoutProps {
@@ -12,6 +12,7 @@ const adminNavItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/classes", label: "Classes", icon: GraduationCap },
+  { href: "/admin/class-types", label: "Class Types", icon: Tags },
   { href: "/admin/reports", label: "Reports", icon: FileText },
   { href: "/admin/voices", label: "Voice Console", icon: Mic },
 ];

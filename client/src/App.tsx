@@ -46,6 +46,7 @@ const CurriculumLibrary = lazy(() => import("@/pages/curriculum-library"));
 const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
 const AdminUsers = lazy(() => import("@/pages/admin/Users"));
 const AdminClasses = lazy(() => import("@/pages/admin/Classes"));
+const AdminClassTypes = lazy(() => import("@/pages/admin/ClassTypes"));
 const AdminReports = lazy(() => import("@/pages/admin/Reports"));
 const AdminVoiceConsole = lazy(() => import("@/pages/admin/VoiceConsole"));
 const Lessons = lazy(() => import("@/pages/lessons"));
@@ -148,6 +149,7 @@ function Router() {
         <Route path="/admin" component={AdminDashboard} />
         <Route path="/admin/users" component={AdminUsers} />
         <Route path="/admin/classes" component={AdminClasses} />
+        <Route path="/admin/class-types" component={AdminClassTypes} />
         <Route path="/admin/reports" component={AdminReports} />
         <Route path="/admin/voices" component={AdminVoiceConsole} />
         

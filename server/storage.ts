@@ -56,7 +56,10 @@ import {
   type InsertActflProgress,
   type ClassHourPackage,
   type InsertClassHourPackage,
+  type ClassType,
+  type InsertClassType,
   classHourPackages,
+  classTypes,
   users,
   conversations,
   messages,
@@ -221,11 +224,22 @@ export interface IStorage {
   toggleCanDoProgress(userId: string, statementId: string): Promise<StudentCanDoProgress | null>;
   getCanDoProgressByStatement(userId: string, statementId: string): Promise<StudentCanDoProgress | undefined>;
 
+  // Class Types (for categorizing classes)
+  createClassType(data: InsertClassType): Promise<ClassType>;
+  getClassType(id: string): Promise<ClassType | undefined>;
+  getClassTypeBySlug(slug: string): Promise<ClassType | undefined>;
+  getAllClassTypes(): Promise<ClassType[]>;
+  getActiveClassTypes(): Promise<ClassType[]>;
+  updateClassType(id: string, data: Partial<ClassType>): Promise<ClassType | undefined>;
+  deleteClassType(id: string): Promise<boolean>;
+  seedClassTypes(): Promise<void>;
+
   // Teacher Classes
   createTeacherClass(data: InsertTeacherClass): Promise<TeacherClass>;
   getTeacherClass(id: string): Promise<TeacherClass | undefined>;
   getTeacherClasses(teacherId: string): Promise<TeacherClass[]>;
   getAllActiveClasses(): Promise<TeacherClass[]>;
+  getFeaturedClasses(): Promise<Array<TeacherClass & { classType?: ClassType }>>;
   updateTeacherClass(id: string, data: Partial<TeacherClass>): Promise<TeacherClass | undefined>;
   deleteTeacherClass(id: string): Promise<boolean>;
   getClassByJoinCode(joinCode: string): Promise<TeacherClass | undefined>;
@@ -1816,6 +1830,99 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  // ===== Class Types =====
+  
+  async createClassType(data: InsertClassType): Promise<ClassType> {
+    const [classType] = await db.insert(classTypes).values(data).returning();
+    return classType;
+  }
+
+  async getClassType(id: string): Promise<ClassType | undefined> {
+    const result = await db.select().from(classTypes).where(eq(classTypes.id, id));
+    return result[0];
+  }
+
+  async getClassTypeBySlug(slug: string): Promise<ClassType | undefined> {
+    const result = await db.select().from(classTypes).where(eq(classTypes.slug, slug));
+    return result[0];
+  }
+
+  async getAllClassTypes(): Promise<ClassType[]> {
+    return await db.select().from(classTypes).orderBy(classTypes.displayOrder);
+  }
+
+  async getActiveClassTypes(): Promise<ClassType[]> {
+    return await db.select().from(classTypes).where(eq(classTypes.isActive, true)).orderBy(classTypes.displayOrder);
+  }
+
+  async updateClassType(id: string, data: Partial<ClassType>): Promise<ClassType | undefined> {
+    const [updated] = await db
+      .update(classTypes)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(classTypes.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteClassType(id: string): Promise<boolean> {
+    // First check if it's a preset type - those cannot be deleted
+    const classType = await this.getClassType(id);
+    if (!classType) return false;
+    if (classType.isPreset) {
+      throw new Error("Cannot delete preset class types");
+    }
+    const result = await db.delete(classTypes).where(eq(classTypes.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async seedClassTypes(): Promise<void> {
+    const presetTypes = [
+      {
+        name: "ACTFL-Led Classes",
+        slug: "actfl-led",
+        description: "Structured courses following ACTFL World-Readiness Standards for Language Learning. Progress through Novice, Intermediate, Advanced, and Superior levels with comprehensive proficiency tracking.",
+        icon: "Award",
+        displayOrder: 1,
+        isPreset: true,
+        isActive: true,
+      },
+      {
+        name: "Executive & Business",
+        slug: "executive-business",
+        description: "Professional language training designed for business contexts. Master workplace communication, negotiations, presentations, and industry-specific terminology.",
+        icon: "Briefcase",
+        displayOrder: 2,
+        isPreset: true,
+        isActive: true,
+      },
+      {
+        name: "Quick Refresher",
+        slug: "quick-refresher",
+        description: "Fast-paced courses to brush up on language skills. Perfect for returning learners who need to reactivate dormant knowledge quickly.",
+        icon: "Zap",
+        displayOrder: 3,
+        isPreset: true,
+        isActive: true,
+      },
+      {
+        name: "Travel & Culture",
+        slug: "travel-culture",
+        description: "Practical language skills for travelers. Learn essential phrases, cultural etiquette, and situational vocabulary for real-world adventures.",
+        icon: "Plane",
+        displayOrder: 4,
+        isPreset: true,
+        isActive: true,
+      },
+    ];
+
+    for (const classType of presetTypes) {
+      const existing = await this.getClassTypeBySlug(classType.slug);
+      if (!existing) {
+        await db.insert(classTypes).values(classType);
+      }
+    }
+  }
+
   // ===== Teacher Classes =====
   
   async createTeacherClass(data: InsertTeacherClass): Promise<TeacherClass> {
@@ -1834,6 +1941,29 @@ export class DatabaseStorage implements IStorage {
 
   async getAllActiveClasses(): Promise<TeacherClass[]> {
     return await db.select().from(teacherClasses).where(eq(teacherClasses.isActive, true));
+  }
+
+  async getFeaturedClasses(): Promise<Array<TeacherClass & { classType?: ClassType }>> {
+    const result = await db
+      .select({
+        teacherClass: teacherClasses,
+        classType: classTypes,
+      })
+      .from(teacherClasses)
+      .leftJoin(classTypes, eq(teacherClasses.classTypeId, classTypes.id))
+      .where(
+        and(
+          eq(teacherClasses.isFeatured, true),
+          eq(teacherClasses.isActive, true),
+          eq(teacherClasses.isPublicCatalogue, true)
+        )
+      )
+      .orderBy(teacherClasses.featuredOrder);
+    
+    return result.map(r => ({
+      ...r.teacherClass,
+      classType: r.classType || undefined,
+    }));
   }
 
   async updateTeacherClass(id: string, data: Partial<TeacherClass>): Promise<TeacherClass | undefined> {
