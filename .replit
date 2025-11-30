@@ -105,3 +105,4 @@ integrations = ["javascript_openai_ai_integrations:1.0.0", "javascript_mem_db:1.
 
 [userenv.shared]
 TTS_PRIMARY_PROVIDER = "cartesia"
+CARTESIA_PRONUNCIATION_DICT_IDS = "{\"spanish\":\"pdict_eZt6F74PdM9QxH51BU2692\",\"french\":\"pdict_aLmf5eanRAcDZJq7f9f4Xo\",\"german\":\"pdict_2n1kMmu3xQHHz6Ts3ouHuo\",\"italian\":\"pdict_wX4BvJDp5ZgStFp5kkjm9K\",\"portuguese\":\"pdict_8Z6r1JtVzcfjjZ9UezzjYo\",\"japanese\":\"pdict_rbuot7B8GfTKSJeyJwoyfs\",\"mandarin chinese\":\"pdict_7KWv9VSUuZw5wf8H9uxF6K\",\"korean\":\"pdict_SQxRo48fSQBRH6gfwXwHKq\"}"
