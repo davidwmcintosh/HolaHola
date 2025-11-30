@@ -379,6 +379,9 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
         setVisibleWordCount(0);
         setCurrentWordIndex(-1);
         setMaxTargetWordIndex(-1);
+        // CRITICAL: Reset teaching block tracking per sentence
+        // Prevents previous sentence's teaching block from showing before it's reached in new sentence
+        setHasShownTeachingBlock(false);
       } else {
         console.warn(`[StreamingSubtitles v2] ⚠ Sentence ${sentenceIndex} (turn ${turnId}) not found in sentences array!`);
         console.warn(`[StreamingSubtitles v2]   Available sentences:`, prev.map(s => ({ idx: s.index, turnId: s.turnId })));
@@ -394,6 +397,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
         setVisibleWordCount(0);
         setCurrentWordIndex(-1);
         setMaxTargetWordIndex(-1);
+        setHasShownTeachingBlock(false);
       }
       return prev;
     });
