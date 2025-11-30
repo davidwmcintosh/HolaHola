@@ -314,33 +314,211 @@ LinguaFlow competes in the language learning technology market against establish
 
 **Pricing:**
 - Free (ad-supported)
-- Duolingo Max/Super: $168/year (AI features, no ads, explanations)
+- Duolingo Super: $84/year ($7/mo)
+- Duolingo Max: $168/year ($14/mo) - GPT-4 powered AI features
 
 **Key Features:**
 - Gamified bite-sized lessons (5-10 min)
 - 40+ languages including fictional (Klingon, High Valyrian)
 - Streaks, XP, leagues for motivation
-- Duolingo Max includes AI conversation practice (text-based)
+- Duolingo Max includes AI roleplay and explanations (text-based)
 
 **Limitations:**
-- Voice conversation is limited and AI-driven (text-based in Max tier)
+- Voice conversation is text-based AI chat (not voice tutoring)
 - Weak pronunciation feedback compared to dedicated speech tools
 - Passive learning that rarely reaches beyond A2 level
-- No teacher dashboard or curriculum alignment
+- No teacher dashboard or institutional curriculum alignment
+
+---
+
+### Jumpspeak
+
+**Company Profile:**
+- AI-first language learning app focused on conversational practice
+- Uses "Active Immersion Method" - claims 3.5x more effective than passive learning
+- Mobile-only platform (iOS/Android, no desktop)
+
+**Consumer Pricing (2025):**
+
+| Plan | Price | Notes |
+|------|-------|-------|
+| 7-Day Free Trial | $0 | Full access |
+| Annual | **$80/year** (~$6.67/mo) | Best value |
+| Lifetime | **$249** | One-time payment |
+| 3-Month | ~$69 | Short-term option |
+
+**Languages:** 
+- **Full courses + AI tutoring (7):** Spanish, French, German, Italian, English, Portuguese, Dutch
+- **AI tutoring only (13):** Korean, Japanese, Polish, Swedish, Danish, Hungarian, Turkish, Norwegian, Vietnamese, Greek, Bulgarian, Ukrainian, Russian
+
+**Key Features:**
+- 1,000+ bite-sized lessons (<5 min each)
+- AI tutor with real-time pronunciation feedback
+- 11 proficiency levels (beginner to advanced)
+- Non-linear learning - choose topics in any order
+- 100-day money-back guarantee
+
+**Jumpspeak Limitations:**
+- **Mobile-only** - No desktop/web version
+- Speech recognition can be too forgiving (accepts mispronunciations)
+- Limited grammar instruction (practice over theory)
+- Robotic-sounding voices in some reviews
+- No teacher dashboard or institutional features
+- No ACTFL alignment or standards tracking
+
+---
+
+### Babbel
+
+**Company Profile:**
+- Established language learning platform (founded 2007)
+- Focus on practical, real-world conversations
+- Structured curriculum with grammar explanations
+
+**Consumer Pricing (2025):**
+
+| Plan | Price | Notes |
+|------|-------|-------|
+| Monthly | $14/month | Most flexible |
+| 6-Month | $54 ($9/mo) | Save 36% |
+| 12-Month | $84-96/year ($7-8/mo) | Best recurring |
+| Lifetime (All 14 Languages) | **$130-299** | One-time (Black Friday: $130) |
+
+**Babbel Live (Human Tutors):**
+- 4 classes/month: $99/mo
+- Unlimited: $249/mo
+
+**Languages:** 14 languages (Spanish, French, German, Italian, Portuguese, Polish, Dutch, Indonesian, Swedish, Norwegian, Danish, Turkish, Russian, English)
+
+**Key Features:**
+- Professional, bite-sized lessons (10-15 min)
+- Strong grammar and cultural context
+- Speech recognition for pronunciation
+- Desktop + mobile apps
+- Offline mode available
+
+**Babbel Limitations:**
+- **No AI conversation** - Scripted exercises only
+- Live tutoring is expensive add-on ($99-249/mo extra)
+- Fewer languages than competitors
+- No institutional/school features
+- No standards alignment
+
+---
+
+### Pimsleur
+
+**Company Profile:**
+- Audio-focused language learning (founded 1963)
+- Uses scientifically-proven "Graduated Interval Recall" method
+- Owned by Simon & Schuster
+
+**Consumer Pricing (2025):**
+
+| Plan | Price | Languages |
+|------|-------|-----------|
+| Audio-Only | $15/month | 1 language |
+| Premium | $20/month | 1 language + visual tools |
+| All Access | **$21/month** | All 51 languages |
+| Lifetime (1 language) | **$475** | One-time |
+| Annual All Access | **$165/year** | All 51 languages |
+
+**Languages:** 51 languages (largest selection)
+
+**Key Features:**
+- 30-minute audio lessons (learn while commuting)
+- Spaced repetition for memory retention
+- Speak from day one approach
+- AI Voice Coach for pronunciation (Premium)
+- Offline downloads
+- Family sharing (All Access: 4 users)
+
+**Pimsleur Limitations:**
+- **Audio-only core method** - Limited visual/interactive learning
+- **No conversational AI** - Pre-recorded content only
+- Expensive for single language ($20/mo)
+- No teacher dashboard or institutional features
+- No standards alignment
+- Best for auditory learners only
+
+---
+
+### Talkpal AI
+
+**Company Profile:**
+- GPT-powered AI conversation app
+- Focus on immersive real-world scenarios
+- 57+ languages supported
+
+**Consumer Pricing (2025):**
+
+| Plan | Price | Notes |
+|------|-------|-------|
+| Free | $0 | 10 min/day, Chat Mode only |
+| Premium Monthly | $15/month | Unlimited |
+| Premium Annual | **$60-72/year** ($5-6/mo) | 60% savings |
+| Premium 2-Year | **$150** ($6.25/mo) | Best value |
+
+**Languages:** 57+ languages (largest AI selection)
+
+**Key Features:**
+- Multiple practice modes: Chat, Call, Roleplay, Debates, Characters
+- Real-time pronunciation feedback
+- 300+ immersive scenarios
+- GPT-powered adaptive conversations
+- iOS, Android, and web apps
+- Business/team dashboards available
+
+**Talkpal Limitations:**
+- Free plan very limited (10 min/day)
+- Best for intermediate+ learners (beginners may struggle)
+- Light on grammar explanations
+- Some reports of AI errors/nonsensical responses
+- No ACTFL standards alignment
+- No institutional curriculum integration
+
+---
+
+### Comprehensive Competitor Comparison
+
+| App | Monthly | Annual | AI Voice | Languages | Institutional | ACTFL |
+|-----|---------|--------|----------|-----------|---------------|-------|
+| **LinguaFlow** | N/A (hourly) | $50-600 | ✅ Full | 9 | ✅ Full | ✅ Full |
+| Rosetta Stone | $11-15 | $131 | ❌ Drills | 25 | ⚠️ Limited | ⚠️ Claims |
+| Duolingo Max | $14 | $168 | ❌ Text AI | 40+ | ❌ None | ❌ None |
+| Jumpspeak | ~$6.67 | $80 | ⚠️ Limited | 20 | ❌ None | ❌ None |
+| Babbel | $7-14 | $84-130 | ❌ None | 14 | ❌ None | ❌ None |
+| Pimsleur | $15-21 | $165 | ❌ Audio | 51 | ❌ None | ❌ None |
+| Talkpal | $5-15 | $60-72 | ✅ GPT | 57+ | ⚠️ Teams | ❌ None |
+
+---
 
 ### Competitive Positioning
 
 **LinguaFlow's Unique Value:**
-1. **Only AI voice tutoring platform** - True conversational practice, not scripted drills
-2. **ACTFL standards-aligned** - Measurable progress tracking for institutions
-3. **Teacher tools** - Curriculum builder, assignments, student progress monitoring
-4. **Hybrid grammar system** - Combines conversational learning with explicit instruction
-5. **Cost-effective** - 70-80% cheaper than human tutors, more effective than passive apps
+1. **True AI voice tutoring** - Real-time conversation with streaming audio, not scripted drills or text chat
+2. **ACTFL standards-aligned** - Only platform with full Can-Do statement tracking for institutions
+3. **Teacher tools** - Curriculum builder, assignments, student progress monitoring, grading
+4. **Hybrid grammar system** - Research-backed blend of conversational + explicit instruction
+5. **Institutional-first design** - Built for schools, not retrofitted from consumer apps
+6. **Cost-effective** - 70-80% cheaper than human tutors, superior to passive apps
+
+**LinguaFlow vs. Key Competitors:**
+
+| vs. | LinguaFlow Advantage |
+|-----|---------------------|
+| **Rosetta Stone** | Live AI conversation vs. scripted drills; 75% cheaper for schools |
+| **Duolingo** | True voice tutoring vs. text AI; full teacher controls vs. none |
+| **Jumpspeak** | Desktop/web access; ACTFL alignment; institutional features |
+| **Babbel** | AI voice tutoring included vs. $99-249/mo add-on |
+| **Pimsleur** | Interactive AI dialogue vs. passive audio; visual learning |
+| **Talkpal** | ACTFL standards; curriculum integration; teacher assignments |
 
 **Target Segments:**
-- **Schools/Institutions:** Standards-aligned AI tutoring with teacher controls
-- **Serious learners:** Conversational practice focus for actual fluency
+- **Schools/Institutions:** Only standards-aligned AI tutoring with full teacher controls
+- **Serious learners:** Conversational practice that actually builds fluency
 - **Time-constrained adults:** 15-30 min voice sessions fit busy schedules
+- **Schools replacing human tutors:** 70% cost savings with 24/7 availability
 
 ---
 

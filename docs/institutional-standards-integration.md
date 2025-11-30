@@ -394,19 +394,33 @@ Example IPA: "Planning a Trip to Mexico"
 
 **Comparison to Competition** (Updated November 2025):
 
-| Competitor | Pricing | Voice Tutoring | Key Limitations |
-|------------|---------|----------------|-----------------|
-| **Duolingo for Schools** | Free | Limited text AI | No real-time voice, weak pronunciation |
-| **Rosetta Stone Schools** | ~$125/student/year | None (drills only) | TruAccent pronunciation feedback only, no conversational AI |
-| **Middlebury Interactive** | $139-$179/student/year | None | Scripted content only |
-| **LinguaFlow** | $50-100/student/year | Full AI voice tutoring | 20-30 hrs/student of live conversation |
+| Competitor | Pricing | Voice Tutoring | ACTFL | Key Limitations |
+|------------|---------|----------------|-------|-----------------|
+| **LinguaFlow** | **$50-100/student/year** | ✅ Full AI voice | ✅ Full | - |
+| Rosetta Stone Schools | ~$125/student/year | ❌ Drills only | ⚠️ Claims | No conversational AI, TruAccent only |
+| Duolingo for Schools | Free | ❌ Text AI only | ❌ None | No real-time voice, no teacher controls |
+| Jumpspeak | $80/year (consumer) | ⚠️ Limited | ❌ None | Mobile-only, no institutional features |
+| Babbel | $84-130/year (consumer) | ❌ None | ❌ None | Live tutoring $99-249/mo extra |
+| Pimsleur | $165/year (consumer) | ❌ Audio only | ❌ None | Pre-recorded content, no interactivity |
+| Talkpal | $60-72/year (consumer) | ✅ GPT text/voice | ❌ None | No curriculum integration, teams only |
 
-**LinguaFlow Advantages vs. Rosetta Stone:**
-- **Live AI conversation** vs. scripted pronunciation drills
-- **Adaptive dialogue** that responds to student's actual words
-- **75% cheaper** while offering superior speaking practice
-- **Teacher-assignable grammar** with completion tracking
-- **ACTFL progress tracking** with Can-Do statements
+**LinguaFlow Competitive Advantages:**
+
+| vs. Competitor | LinguaFlow Advantage |
+|----------------|---------------------|
+| **Rosetta Stone** | Live AI conversation vs. scripted drills; 75% cheaper for schools |
+| **Duolingo** | True voice tutoring vs. text AI; full teacher controls and curriculum |
+| **Jumpspeak** | Desktop/web access; ACTFL standards; full institutional features |
+| **Babbel** | AI voice tutoring included vs. $99-249/mo add-on for live classes |
+| **Pimsleur** | Interactive AI dialogue vs. passive audio; teacher dashboards |
+| **Talkpal** | ACTFL alignment; curriculum integration; assignment grading system |
+
+**Key Differentiators:**
+- **Only platform** with full ACTFL Can-Do statement tracking
+- **Teacher-assignable grammar** with completion and score tracking
+- **Curriculum builder** with paths, units, and lessons
+- **Syllabus-aware AI** that recognizes organic learning during conversations
+- **75% cheaper** than human tutors with 24/7 availability
 
 ---
 
