@@ -20,7 +20,7 @@ LinguaFlow provides conversational onboarding, an adaptive multi-phase conversat
 ### System Design Choices
 Core data models include Users, Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress, CulturalTips, and Topics. User learning preferences and ACTFL progress are stored.
 
-**Voice Architecture**: Includes a two-tier prevention for validation and utilizes Cartesia Sonic-3's custom phoneme syntax with MFA-style IPA for TTS pronunciation correction. A 3-state subtitle system with karaoke-style word highlighting and server-side word timing estimation is also implemented.
+**Voice Architecture**: Includes a two-tier prevention for validation and utilizes Cartesia Pronunciation Dictionaries for server-side TTS pronunciation correction (with MFA-style IPA as inline fallback). Dictionary IDs stored in `CARTESIA_PRONUNCIATION_DICT_IDS` environment variable, managed by `server/scripts/setup-cartesia-dictionaries.ts`. A 3-state subtitle system with karaoke-style word highlighting and server-side word timing estimation is also implemented.
 
 **Streaming Voice Mode**: A WebSocket-based progressive audio delivery system integrating Deepgram STT, Gemini streaming, Cartesia WebSocket TTS, and progressive audio playback. Pedagogical integrations include content moderation, a "one-word rule," background vocabulary extraction, and real-time ACTFL advancement tracking.
 

@@ -25,6 +25,37 @@ import {
 } from './tts-service';
 
 /**
+ * Pronunciation dictionary IDs from Cartesia
+ * These are loaded from CARTESIA_PRONUNCIATION_DICT_IDS environment variable
+ */
+let pronunciationDictIds: Record<string, string> = {};
+
+function loadPronunciationDictIds(): void {
+  const dictIdsJson = process.env.CARTESIA_PRONUNCIATION_DICT_IDS;
+  if (dictIdsJson) {
+    try {
+      pronunciationDictIds = JSON.parse(dictIdsJson);
+      console.log(`[Cartesia Streaming] ✓ Loaded pronunciation dictionaries for ${Object.keys(pronunciationDictIds).length} languages`);
+    } catch (error) {
+      console.warn('[Cartesia Streaming] Failed to parse CARTESIA_PRONUNCIATION_DICT_IDS:', error);
+    }
+  }
+}
+
+// Load dictionary IDs on module init
+loadPronunciationDictIds();
+
+/**
+ * Get pronunciation dictionary ID for a language
+ * Returns undefined if no dictionary is available for this language
+ */
+export function getPronunciationDictId(targetLanguage: string | undefined): string | undefined {
+  if (!targetLanguage) return undefined;
+  const key = targetLanguage.toLowerCase();
+  return pronunciationDictIds[key];
+}
+
+/**
  * Cartesia voice mapping by language
  */
 const CARTESIA_VOICE_MAP: Record<string, { voiceId: string; languageCode: string; name: string }> = {
@@ -264,13 +295,24 @@ export class CartesiaStreamingService extends EventEmitter {
     // Input rates: 0.6 (slower), 0.75 (slow), 0.9 (normal), 1.1 (fast), 1.3 (faster)
     let cartesiaSpeed = Math.max(0.6, Math.min(1.5, speakingRate));
     
-    // Apply phoneme tags for correct pronunciation of foreign words
-    const phonemedText = addCartesiaPhonemesToText(text, targetLanguage);
+    // Check if we have a pronunciation dictionary for this language
+    const pronunciationDictId = getPronunciationDictId(targetLanguage);
+    
+    let processedText: string;
+    if (pronunciationDictId) {
+      // Use server-side dictionary - no need for inline phoneme markers
+      // This produces cleaner transcripts for better word timing
+      processedText = text;
+      console.log(`[Cartesia Streaming] Using pronunciation dictionary: ${pronunciationDictId} for ${targetLanguage}`);
+    } else {
+      // Fallback to inline phoneme processing if no dictionary available
+      processedText = addCartesiaPhonemesToText(text, targetLanguage);
+    }
     
     // Clean standalone quotes but PRESERVE apostrophes in contractions (I'm, don't, etc.)
     // Remove: "text", 'text', standalone quotes at word boundaries
     // Keep: I'm, don't, it's, you're (apostrophes between letters)
-    const cleanedText = phonemedText
+    const cleanedText = processedText
       .replace(/^["'"]+|["'"]+$/g, '')  // Remove leading/trailing quotes
       .replace(/\s["'"]+/g, ' ')         // Quote after space → just space
       .replace(/["'"]+\s/g, ' ')         // Quote before space → just space
@@ -291,25 +333,34 @@ export class CartesiaStreamingService extends EventEmitter {
       {
         console.log('[Cartesia Streaming] Using bytes API streaming');
         
-        const stream = await this.client.tts.bytes({
+        // Build request options
+        const requestOptions: any = {
           modelId: this.model,
           transcript: cleanedText,
           voice: {
             mode: 'id',
             id: effectiveVoiceId,
           },
-          language: voiceConfig.languageCode as any,
+          language: voiceConfig.languageCode,
           outputFormat: {
             container: 'mp3',
             sampleRate: AUDIO_STREAMING_CONFIG.SAMPLE_RATE,
             bitRate: AUDIO_STREAMING_CONFIG.BIT_RATE,
           },
-          // @ts-ignore
           generation_config: {
             speed: cartesiaSpeed,
             emotion: constrainedEmotion,
           },
-        });
+        };
+        
+        // Add pronunciation dictionary if available
+        // This allows Cartesia to apply correct pronunciations server-side
+        // Note: SDK uses camelCase property name
+        if (pronunciationDictId) {
+          requestOptions.pronunciationDictId = pronunciationDictId;
+        }
+        
+        const stream = await this.client.tts.bytes(requestOptions);
         
         for await (const chunk of stream) {
           if (!firstChunkTime) {
