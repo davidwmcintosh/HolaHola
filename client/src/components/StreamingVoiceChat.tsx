@@ -896,7 +896,8 @@ export function StreamingVoiceChat({
           streamRef.current = null;
           setIsRecording(false);
           isRecordingRef.current = false; // Update ref immediately
-          setAvatarState('idle');
+          // DON'T set avatarState to 'idle' here - let processRecording manage it
+          // This prevents flickering between listening → idle → speaking
           
         } else {
           console.log('[RECORDER] Session superseded - new recording already started');
@@ -913,6 +914,8 @@ export function StreamingVoiceChat({
           await processRecording(audioBlob, recordingConversationId);
         } else {
           console.log('[RECORDER] Discarding audio - conversation changed or session superseded');
+          // Only set idle when discarding - processRecording handles its own state
+          setAvatarState('idle');
         }
       };
       
@@ -1043,7 +1046,8 @@ export function StreamingVoiceChat({
           streamRef.current = null;
           setIsRecording(false);
           isRecordingRef.current = false;
-          setAvatarState('idle');
+          // DON'T set avatarState to 'idle' here - let processRecording manage it
+          // This prevents flickering between listening → idle → speaking
           
         } else {
           console.log('[PUSH-TO-TALK] Session superseded - new recording already started');
@@ -1072,6 +1076,8 @@ export function StreamingVoiceChat({
           await processRecording(audioBlob, recordingConversationId);
         } else {
           console.log('[PUSH-TO-TALK] Discarding audio - conversation changed or session superseded');
+          // Only set idle when discarding - processRecording handles its own state
+          setAvatarState('idle');
         }
       };
       

@@ -267,8 +267,15 @@ export class CartesiaStreamingService extends EventEmitter {
     // Apply phoneme tags for correct pronunciation of foreign words
     const phonemedText = addCartesiaPhonemesToText(text, targetLanguage);
     
-    // Clean quotes but preserve phoneme tags
-    const cleanedText = phonemedText.replace(/["'"]/g, '');
+    // Clean standalone quotes but PRESERVE apostrophes in contractions (I'm, don't, etc.)
+    // Remove: "text", 'text', standalone quotes at word boundaries
+    // Keep: I'm, don't, it's, you're (apostrophes between letters)
+    const cleanedText = phonemedText
+      .replace(/^["'"]+|["'"]+$/g, '')  // Remove leading/trailing quotes
+      .replace(/\s["'"]+/g, ' ')         // Quote after space → just space
+      .replace(/["'"]+\s/g, ' ')         // Quote before space → just space
+      .replace(/["'"]{2,}/g, '')         // Multiple consecutive quotes → remove
+      .replace(/(?<![a-zA-Z])["'"](?![a-zA-Z])/g, ''); // Standalone quotes not between letters
     
     console.log(`[Cartesia Streaming] Synthesizing: "${cleanedText.substring(0, 50)}..." (${cleanedText.length} chars)`);
     console.log(`[Cartesia Streaming] Voice: ${voiceConfig.name}, Emotion: ${constrainedEmotion}, Speed: ${cartesiaSpeed}`);

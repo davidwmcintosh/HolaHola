@@ -547,8 +547,8 @@ export function addCartesiaPhonemesToText(text: string, targetLanguage?: string)
   console.log(`[Streaming Phonemes] Processing text: "${processedText.substring(0, 80)}..." for ${targetLanguage}`);
   
   for (const [word, phonemes] of sortedEntries) {
-    // Simple approach: use word boundaries with manual handling of Spanish punctuation
-    // First try standard word boundaries
+    // Match words with flexible boundaries to handle punctuation like (adios) or adios.
+    // Use word boundaries but also handle cases where word is followed by punctuation
     const simpleRegex = new RegExp(
       `(?<!<)\\b(${escapeRegex(word)})\\b(?![^<]*>>)`,
       'gi'
@@ -561,17 +561,21 @@ export function addCartesiaPhonemesToText(text: string, targetLanguage?: string)
       return `<<${phonemes}>>`;
     });
     
-    // If no match with simple regex, try handling Spanish punctuation (¿, ¡)
+    // If no match with simple regex, try extended matching for edge cases:
+    // 1. After Spanish inverted punctuation (¿, ¡)
+    // 2. Before closing punctuation (., !, ?, ), ], etc.)
+    // IMPORTANT: Use word boundary at start to avoid matching substrings (e.g., "adios" in "estadios")
     if (processedText.length === beforeCount) {
-      // Match after ¿ or ¡ (inverted punctuation)
-      const spanishPuncRegex = new RegExp(
-        `(?<!<)([¿¡])(${escapeRegex(word)})(?=[?!.,;:\\s]|$)(?![^<]*>>)`,
+      // Match standalone word with optional Spanish inverted punctuation before
+      // and punctuation/space/end after. Must have word boundary at start.
+      const extendedRegex = new RegExp(
+        `(?<!<)(?<=^|[\\s¿¡])(${escapeRegex(word)})(?=[?!.,;:)\\]\\s]|$)(?![^<]*>>)`,
         'gi'
       );
-      processedText = processedText.replace(spanishPuncRegex, (match, punct, wordMatch) => {
+      processedText = processedText.replace(extendedRegex, (match) => {
         hasReplacements = true;
-        console.log(`[Streaming Phonemes] Spanish punct "${wordMatch}" → ${punct}<<${phonemes}>>`);
-        return `${punct}<<${phonemes}>>`;
+        console.log(`[Streaming Phonemes] Extended match "${match}" → <<${phonemes}>>`);
+        return `<<${phonemes}>>`;
       });
     }
   }
@@ -812,9 +816,15 @@ export class TTSService {
     // This uses <<phoneme1|phoneme2>> syntax for correct pronunciation
     const phonemedText = this.addCartesiaPhonemes(text, targetLanguage);
     
-    // Clean text: remove remaining quotes that might be pronounced (but keep [laughter] tags and <<phonemes>>!)
-    // Don't remove angle brackets since those are used for phoneme syntax
-    const cleanedText = phonemedText.replace(/["'"]/g, '');
+    // Clean standalone quotes but PRESERVE apostrophes in contractions (I'm, don't, etc.)
+    // Remove: "text", 'text', standalone quotes at word boundaries
+    // Keep: I'm, don't, it's, you're (apostrophes between letters)
+    const cleanedText = phonemedText
+      .replace(/^["'"]+|["'"]+$/g, '')  // Remove leading/trailing quotes
+      .replace(/\s["'"]+/g, ' ')         // Quote after space → just space
+      .replace(/["'"]+\s/g, ' ')         // Quote before space → just space
+      .replace(/["'"]{2,}/g, '')         // Multiple consecutive quotes → remove
+      .replace(/(?<![a-zA-Z])["'"](?![a-zA-Z])/g, ''); // Standalone quotes not between letters
 
     try {
       // Use Cartesia bytes API with Sonic-3 generation_config
