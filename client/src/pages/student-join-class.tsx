@@ -8,7 +8,7 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from "@/component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { BookOpen, Users, ArrowRight, Search, Sparkles, GraduationCap, Globe, ChevronRight, Languages } from "lucide-react";
+import { BookOpen, Users, ArrowRight, Search, Sparkles, GraduationCap, Globe, ChevronRight, Languages, CheckCircle2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -32,6 +32,7 @@ interface CatalogueClass {
   description: string | null;
   language: string;
   isActive: boolean;
+  isEnrolled: boolean;
 }
 
 const joinClassFormSchema = z.object({
@@ -263,7 +264,7 @@ export default function StudentJoinClass() {
             {catalogueClasses.map((cls) => (
               <Card 
                 key={cls.id} 
-                className="hover-elevate transition-all duration-200"
+                className={`transition-all duration-200 ${cls.isEnrolled ? 'opacity-75 border-primary/30 bg-primary/5' : 'hover-elevate'}`}
                 data-testid={`card-catalogue-class-${cls.id}`}
               >
                 <CardHeader className="pb-3">
@@ -275,9 +276,16 @@ export default function StudentJoinClass() {
                         <span className="capitalize">{cls.language}</span>
                       </CardDescription>
                     </div>
-                    <Badge variant="outline" className="shrink-0">
-                      ACTFL
-                    </Badge>
+                    {cls.isEnrolled ? (
+                      <Badge variant="default" className="shrink-0 bg-primary/80">
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                        Enrolled
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="shrink-0">
+                        ACTFL
+                      </Badge>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -286,15 +294,27 @@ export default function StudentJoinClass() {
                       {cls.description}
                     </p>
                   )}
-                  <Button
-                    className="w-full"
-                    onClick={() => enrollFromCatalogue.mutate(cls.id)}
-                    disabled={enrollFromCatalogue.isPending}
-                    data-testid={`button-enroll-${cls.id}`}
-                  >
-                    <ChevronRight className="w-4 h-4 mr-2" />
-                    Enroll Now
-                  </Button>
+                  {cls.isEnrolled ? (
+                    <Button
+                      variant="secondary"
+                      className="w-full"
+                      disabled
+                      data-testid={`button-enrolled-${cls.id}`}
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      Already Enrolled
+                    </Button>
+                  ) : (
+                    <Button
+                      className="w-full"
+                      onClick={() => enrollFromCatalogue.mutate(cls.id)}
+                      disabled={enrollFromCatalogue.isPending}
+                      data-testid={`button-enroll-${cls.id}`}
+                    >
+                      <ChevronRight className="w-4 h-4 mr-2" />
+                      Enroll Now
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ))}

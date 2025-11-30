@@ -4775,7 +4775,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       // Get all active classes
       const allClasses = await storage.getAllActiveClasses();
       
-      // Get student's current enrollments to exclude already-enrolled classes
+      // Get student's current enrollments to flag already-enrolled classes
       const enrollments = await storage.getStudentEnrollments(studentId);
       const enrolledClassIds = new Set(enrollments.map(e => e.classId));
       
@@ -4783,8 +4783,6 @@ Return ONLY the ${targetLanguage} phrase:`;
       let filteredClasses = allClasses.filter(cls => {
         // CRITICAL: Must be explicitly marked as public catalogue
         if (!cls.isPublicCatalogue) return false;
-        // Exclude already enrolled classes
-        if (enrolledClassIds.has(cls.id)) return false;
         // Must be active
         if (!cls.isActive) return false;
         return true;
@@ -4807,21 +4805,27 @@ Return ONLY the ${targetLanguage} phrase:`;
         );
       }
       
-      // Sort by language, then by class number (Spanish 1 before Spanish 2, etc.)
-      filteredClasses.sort((a, b) => {
-        const langCompare = a.language.localeCompare(b.language);
-        if (langCompare !== 0) return langCompare;
-        return a.name.localeCompare(b.name, undefined, { numeric: true });
-      });
-      
       // SECURITY: Return only public metadata - strip sensitive fields like joinCode
+      // Include isEnrolled flag to show which classes user is already in
       const sanitizedClasses = filteredClasses.map(cls => ({
         id: cls.id,
         name: cls.name,
         description: cls.description,
         language: cls.language,
         isActive: cls.isActive,
+        isEnrolled: enrolledClassIds.has(cls.id),
       }));
+      
+      // Sort: unenrolled classes first, then enrolled classes
+      sanitizedClasses.sort((a, b) => {
+        if (a.isEnrolled !== b.isEnrolled) {
+          return a.isEnrolled ? 1 : -1; // Unenrolled first
+        }
+        // Then by language and name
+        const langCompare = a.language.localeCompare(b.language);
+        if (langCompare !== 0) return langCompare;
+        return a.name.localeCompare(b.name, undefined, { numeric: true });
+      });
       
       res.json(sanitizedClasses);
     } catch (error: any) {
