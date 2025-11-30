@@ -432,13 +432,23 @@ export function ImmersiveTutor({
         
         {/* Subtitle Overlay - Karaoke-style word highlighting with Cartesia estimated timings */}
         {(() => {
+          // DEBUG: Log ALL guard state values on EVERY render to catch phantom
+          const isWaiting = getIsWaitingForContent ? getIsWaitingForContent() : isWaitingForContent;
+          console.log('[SUBTITLE ENTRY] ━━━ Guard Check ━━━', {
+            isRecording,
+            isProcessing,
+            isWaiting,
+            isWaitingForContent,
+            hasStreamingText: !!streamingText,
+            streamingTextPreview: streamingText?.substring(0, 30),
+          });
+          
           // When subtitleMode is "off", don't show any overlay
           if (subtitleMode === "off") return null;
           
           // Hide subtitles when waiting for new content after reset
           // Use synchronous getter (bypasses React batching) for immediate check
           // This prevents stale subtitles from flashing during the processing window
-          const isWaiting = getIsWaitingForContent ? getIsWaitingForContent() : isWaitingForContent;
           if (isWaiting) {
             console.log('[SUBTITLE GUARD] Hidden: isWaitingForContent=true');
             return null;
