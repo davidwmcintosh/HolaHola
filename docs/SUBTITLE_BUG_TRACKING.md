@@ -227,10 +227,12 @@ setIsWaitingForContent(false);
 ## Current Open Bugs
 
 ### Bug #1: Phantom Subtitles
-**Status:** FIX #6 APPLIED - Moved isWaitingForContent clearing to startPlayback  
+**Status:** ✅ RESOLVED by Fix #6  
 **Severity:** High  
 **First Reported:** November 2025  
-**Last Tested:** November 30, 2025 (Evening)
+**Resolution Date:** December 1, 2025 (12:05 AM)
+**Root Cause:** `isWaitingForContent` was cleared in `addSentence()` before `streamingText` was ready
+**Solution:** Moved clearing to `startPlayback()` where both states update together
 
 **Description:**  
 Old Spanish/target language words stay visible on screen when the tutor speaks English-only sentences. Despite the new server-driven architecture, phantoms are still being observed.

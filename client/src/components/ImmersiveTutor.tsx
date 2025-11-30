@@ -432,16 +432,8 @@ export function ImmersiveTutor({
         
         {/* Subtitle Overlay - Karaoke-style word highlighting with Cartesia estimated timings */}
         {(() => {
-          // DEBUG: Log ALL guard state values on EVERY render to catch phantom
+          // Get synchronous value for immediate check (bypasses React batching)
           const isWaiting = getIsWaitingForContent ? getIsWaitingForContent() : isWaitingForContent;
-          console.log('[SUBTITLE ENTRY] ━━━ Guard Check ━━━', {
-            isRecording,
-            isProcessing,
-            isWaiting,
-            isWaitingForContent,
-            hasStreamingText: !!streamingText,
-            streamingTextPreview: streamingText?.substring(0, 30),
-          });
           
           // When subtitleMode is "off", don't show any overlay
           if (subtitleMode === "off") return null;
@@ -450,13 +442,11 @@ export function ImmersiveTutor({
           // Use synchronous getter (bypasses React batching) for immediate check
           // This prevents stale subtitles from flashing during the processing window
           if (isWaiting) {
-            console.log('[SUBTITLE GUARD] Hidden: isWaitingForContent=true');
             return null;
           }
           
           // Hide subtitles while recording - user is speaking, not listening
           if (isRecording) {
-            console.log('[SUBTITLE GUARD] Hidden: isRecording=true');
             return null;
           }
           
@@ -464,7 +454,6 @@ export function ImmersiveTutor({
           // CRITICAL: Must hide even if old streamingText exists, otherwise stale text flashes briefly
           // The processing phase is when user's audio is being transcribed - no tutor audio playing
           if (isProcessing) {
-            console.log('[SUBTITLE GUARD] Hidden: isProcessing=true');
             return null;
           }
           
@@ -638,7 +627,6 @@ export function ImmersiveTutor({
           // This is the gap between mic release and new streaming text arriving
           // Without this guard, the fallback path shows OLD message text as phantom!
           if (isWaiting) {
-            console.log('[SUBTITLE FALLBACK GUARD] Hidden: isWaitingForContent=true');
             return null;
           }
           

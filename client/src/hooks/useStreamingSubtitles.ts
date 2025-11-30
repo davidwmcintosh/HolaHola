@@ -354,7 +354,6 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     // (streamingText depends on currentSentenceIndex which is set below)
     isWaitingForContentRef.current = false;
     setIsWaitingForContent(false);
-    console.log(`[StreamingSubtitles v2]   Cleared isWaitingForContent at playback start`);
     
     // Get timings from cache
     const storedTimings = timingsBySentenceRef.current.get(sentenceIndex);
