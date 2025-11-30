@@ -413,6 +413,18 @@ export const MFA_IPA_PRONUNCIATIONS: Record<string, Record<string, string>> = {
     'como estas': 'k|o|m|o|e|s|t|a|s',  // without accents
     'perfecto': 'p|e|ɾ|f|e|k|t|o',      // per-FEC-to
     'excelente': 'e|k|s|e|l|e|n|t|e',   // ex-ce-LEN-te
+    'maravilloso': 'm|a|ɾ|a|β|i|ʝ|o|s|o', // ma-ra-vi-LLO-so
+    'fantástico': 'f|a|n|t|a|s|t|i|k|o', // fan-TÁS-ti-co
+    'fantastico': 'f|a|n|t|a|s|t|i|k|o', // without accent
+    'estupendo': 'e|s|t|u|p|e|n|d|o',   // es-tu-PEN-do
+    'genial': 'x|e|n|j|a|l',            // ge-NIAL
+    'fenomenal': 'f|e|n|o|m|e|n|a|l',   // fe-no-me-NAL
+    'increíble': 'i|n|k|ɾ|e|i|β|l|e',   // in-cre-Í-ble
+    'increible': 'i|n|k|ɾ|e|i|β|l|e',   // without accent
+    'magnífico': 'm|a|ɣ|n|i|f|i|k|o',   // mag-NÍ-fi-co
+    'magnifico': 'm|a|ɣ|n|i|f|i|k|o',   // without accent
+    'correcto': 'k|o|r|e|k|t|o',        // co-RREC-to
+    'bueno': 'b|w|e|n|o',               // BUE-no
     'bien': 'b|j|e|n',                  // bien
     'muy bien': 'm|u|i|b|j|e|n',        // muy bien
     'de nada': 'd|e|n|a|ð|a',           // de NA-da
