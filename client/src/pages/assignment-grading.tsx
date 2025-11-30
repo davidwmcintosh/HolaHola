@@ -16,6 +16,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
+import { hasTeacherAccess } from "@shared/permissions";
 
 interface Assignment {
   id: string;
@@ -81,12 +82,12 @@ export default function AssignmentGrading() {
 
   // Protect teacher-only route
   useEffect(() => {
-    if (!isLoadingAuth && (!user || (user.role !== 'teacher' && user.role !== 'admin'))) {
+    if (!isLoadingAuth && (!user || !hasTeacherAccess(user.role))) {
       setLocation("/");
     }
   }, [user, isLoadingAuth, setLocation]);
 
-  if (isLoadingAuth || !user || (user.role !== 'teacher' && user.role !== 'admin')) {
+  if (isLoadingAuth || !user || !hasTeacherAccess(user.role)) {
     return <div className="flex items-center justify-center h-full">Loading...</div>;
   }
 

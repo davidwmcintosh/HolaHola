@@ -31,6 +31,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { hasTeacherAccess } from "@shared/permissions";
 
 export default function CurriculumLibrary() {
   const { user, isLoading: isLoadingAuth } = useAuth();
@@ -42,12 +43,12 @@ export default function CurriculumLibrary() {
 
   // Protect teacher-only route
   useEffect(() => {
-    if (!isLoadingAuth && (!user || (user.role !== 'teacher' && user.role !== 'admin'))) {
+    if (!isLoadingAuth && (!user || !hasTeacherAccess(user.role))) {
       setLocation("/");
     }
   }, [user, isLoadingAuth, setLocation]);
 
-  if (isLoadingAuth || !user || (user.role !== 'teacher' && user.role !== 'admin')) {
+  if (isLoadingAuth || !user || !hasTeacherAccess(user.role)) {
     return <div className="flex items-center justify-center h-full">Loading...</div>;
   }
 

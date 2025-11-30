@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { TeacherEarlyCompletions } from "@/components/teacher-early-completions";
+import { hasTeacherAccess } from "@shared/permissions";
 
 interface TeacherClass {
   id: string;
@@ -56,12 +57,12 @@ export default function ClassManagement() {
 
   // Protect teacher-only route
   useEffect(() => {
-    if (!isLoadingAuth && (!user || (user.role !== 'teacher' && user.role !== 'admin'))) {
+    if (!isLoadingAuth && (!user || !hasTeacherAccess(user.role))) {
       setLocation("/");
     }
   }, [user, isLoadingAuth, setLocation]);
 
-  if (isLoadingAuth || !user || (user.role !== 'teacher' && user.role !== 'admin')) {
+  if (isLoadingAuth || !user || !hasTeacherAccess(user.role)) {
     return <div className="flex items-center justify-center h-full">Loading...</div>;
   }
 
