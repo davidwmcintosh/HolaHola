@@ -37,10 +37,7 @@ export default function AdminUsers() {
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, newRole }: { userId: string; newRole: string }) => {
-      return apiRequest(`/api/admin/users/${userId}/role`, {
-        method: "PATCH",
-        body: JSON.stringify({ role: newRole }),
-      });
+      return apiRequest("PATCH", `/api/admin/users/${userId}/role`, { role: newRole });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
@@ -57,10 +54,7 @@ export default function AdminUsers() {
 
   const impersonateMutation = useMutation({
     mutationFn: async (targetUserId: string) => {
-      return apiRequest("/api/admin/impersonate", {
-        method: "POST",
-        body: JSON.stringify({ targetUserId, durationMinutes: 60 }),
-      });
+      return apiRequest("POST", "/api/admin/impersonate", { targetUserId, durationMinutes: 60 });
     },
     onSuccess: () => {
       toast({ title: "Impersonation started" });
@@ -77,10 +71,7 @@ export default function AdminUsers() {
 
   const resetLearningDataMutation = useMutation({
     mutationFn: async (targetUserId: string) => {
-      return apiRequest(`/api/admin/users/${targetUserId}/reset-learning-data`, {
-        method: "POST",
-        body: JSON.stringify({}),
-      });
+      return apiRequest("POST", `/api/admin/users/${targetUserId}/reset-learning-data`, {});
     },
     onSuccess: (data: any) => {
       toast({ 

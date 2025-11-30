@@ -44,6 +44,15 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Curriculum Content System**: Provides pre-built curricula across 9 languages, comprising 21 courses, 116 units, and 524 lessons. Lesson types include Conversation, Vocabulary, Grammar, and Cultural Exploration, with visual indicators and ACTFL-aligned progression.
 
+**Class Type Taxonomy System**: A marketing-first class categorization system with 4 preset types (ACTFL-Led, Executive/Business, Quick Refresher, Travel & Culture) and admin-extensible custom types. Features include:
+- `classTypes` table with preset protection (`isPreset` flag prevents deletion of core types)
+- `teacherClasses.classTypeId` for class categorization and `isFeatured`/`featuredOrder` for marketing
+- Public catalogue at `/student/join-class` with featured carousel, class type filters, and language filters
+- Admin Class Types management page (`/admin/class-types`) for CRUD operations
+- Admin Classes page with featured toggle, public catalogue toggle, and class type selector
+- Business rules: Featured classes must be public; setting a class to private automatically un-features it
+- Strict Zod validation with `.strict()` on admin class updates to prevent unauthorized field modifications
+
 ## External Dependencies
 
 ### Third-Party Services
