@@ -318,6 +318,7 @@ export function extractTargetLanguageWithMapping(
     'part', 'parts', 'case', 'cases', 'week', 'weeks', 'company', 'system',
     'program', 'question', 'questions', 'home', 'country', 'countries',
     'world', 'hand', 'hands', 'point', 'points', 'government', 'number', 'numbers',
+    'greeting', 'greetings', 'another', 'common', 'example', 'examples',
     // Common adjectives
     'new', 'old', 'first', 'last', 'long', 'short', 'small', 'big', 'large',
     'little', 'different', 'same', 'important', 'early', 'young', 'few', 'public',

@@ -451,9 +451,10 @@ export function ImmersiveTutor({
           }
           
           // Hide subtitles while processing - prevents flash of old subtitles between mic release and reset
-          // This covers the brief window after mic release but before reset() is called
-          if (isProcessing && !streamingText) {
-            console.log('[SUBTITLE GUARD] Hidden: isProcessing=true && no streamingText');
+          // CRITICAL: Must hide even if old streamingText exists, otherwise stale text flashes briefly
+          // The processing phase is when user's audio is being transcribed - no tutor audio playing
+          if (isProcessing) {
+            console.log('[SUBTITLE GUARD] Hidden: isProcessing=true');
             return null;
           }
           
