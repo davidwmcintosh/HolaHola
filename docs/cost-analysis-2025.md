@@ -107,14 +107,24 @@ Student speaks → Deepgram Nova-3 (STT) → Gemini 2.5 Flash (LLM) → Cartesia
 | **Basic** | 10 hrs | $24.70 | $741 | $50 | $1,500 | **$759** |
 | **Standard** | 20 hrs | $49.40 | $1,482 | $100 | $3,000 | **$1,518** |
 | **Premium** | 30 hrs | $74.10 | $2,223 | $150 | $4,500 | **$2,277** |
+| **Full Year** | 120 hrs | $296.40 | $8,892 | $600 | $18,000 | **$9,108** |
 
 ### Per-Seat Pricing (Alternative)
 
-| Package | Hours/Student/Year | Our Cost | Price/Student/Year | Profit/Student |
-|---------|-------------------|----------|-------------------|----------------|
-| **Basic** | 10 hrs | $24.70 | $50 | $25.30 |
-| **Standard** | 20 hrs | $49.40 | $100 | $50.60 |
-| **Premium** | 30 hrs | $74.10 | $150 | $75.90 |
+| Package | Hours/Student/Year | Our Cost | Price/Student/Year | Profit/Student | Margin |
+|---------|-------------------|----------|-------------------|----------------|--------|
+| **Basic** | 10 hrs | $24.70 | $50 | $25.30 | 102% |
+| **Standard** | 20 hrs | $49.40 | $100 | $50.60 | 102% |
+| **Premium** | 30 hrs | $74.10 | $150 | $75.90 | 102% |
+| **Full Year** | 120 hrs | $296.40 | $600 | $303.60 | 102% |
+
+### Full Year Package Details
+
+The **Full Year** package (120 hours/student) is designed for schools requiring comprehensive AI tutoring aligned with Carnegie unit standards:
+
+- **Target Use Case:** Full academic year language program with extensive AI practice
+- **Recommended:** Schools seeking to meet 25% speaking practice via AI tutoring
+- **Value Proposition:** Consistent 102% margin at scale, significant cost savings vs. human tutors ($40-60/hr equivalent)
 
 ### Implementation Notes
 - Classes have a **capped allocation** of tutoring hours
@@ -149,6 +159,7 @@ Student speaks → Deepgram Nova-3 (STT) → Gemini 2.5 Flash (LLM) → Cartesia
 | Model | Our Cost | Revenue | Profit | Margin |
 |-------|----------|---------|--------|--------|
 | **Class (Standard, 30 students)** | $1,482/year | $3,000/year | $1,518/year | 102% |
+| **Class (Full Year, 30 students)** | $8,892/year | $18,000/year | $9,108/year | 102% |
 | **Self-Paced (10 hr package)** | $24.70 | $90 | $65.30 | 264% |
 
 ---

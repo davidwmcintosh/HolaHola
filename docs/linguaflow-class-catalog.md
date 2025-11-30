@@ -6,9 +6,9 @@
 
 ## Overview
 
-LinguaFlow offers comprehensive language courses across 8 languages, designed for high school students following ACTFL World-Readiness Standards. All courses feature AI-powered voice tutoring with personalized conversation practice.
+LinguaFlow offers comprehensive language courses across 9 languages, designed for high school students following ACTFL World-Readiness Standards. All courses feature AI-powered voice tutoring with personalized conversation practice.
 
-**Total Curriculum:** 430 lessons across 105 units in 19 courses
+**Total Curriculum:** 474 lessons across 116 units in 21 courses
 
 ---
 
@@ -73,9 +73,16 @@ LinguaFlow offers comprehensive language courses across 8 languages, designed fo
 | **Korean 1** | Novice Low → Novice High | 120 | KO1-LF01 | 6 units, 24 lessons |
 | **Korean 2** | Novice High → Intermediate Low | 120 | KO2-LF02 | 5 units, 20 lessons |
 
+### English / ESL (2 Courses)
+
+| Course | ACTFL Levels | Hours | Join Code | Curriculum |
+|--------|--------------|-------|-----------|------------|
+| **English 1** | Novice Low → Novice High | 120 | EN1-LF01 | 6 units, 24 lessons |
+| **English 2** | Novice High → Intermediate Low | 120 | EN2-LF02 | 5 units, 20 lessons |
+
 ---
 
-## Total: 19 Courses
+## Total: 21 Courses
 
 | Language | Level 1 | Level 2 | Level 3 | Level 4 |
 |----------|---------|---------|---------|---------|
@@ -87,6 +94,7 @@ LinguaFlow offers comprehensive language courses across 8 languages, designed fo
 | Japanese | Yes (24) | Yes (20) | - | - |
 | Mandarin | Yes (24) | Yes (20) | - | - |
 | Korean | Yes (24) | Yes (20) | - | - |
+| English | Yes (24) | Yes (20) | - | - |
 
 ---
 
@@ -94,7 +102,7 @@ LinguaFlow offers comprehensive language courses across 8 languages, designed fo
 
 ### Complete (100%)
 
-All 19 courses now have complete curriculum content:
+All 21 courses now have complete curriculum content:
 
 - **Spanish:** 95 lessons across 22 units (4 courses)
 - **French:** 71 lessons across 17 units (3 courses)
@@ -104,6 +112,7 @@ All 19 courses now have complete curriculum content:
 - **Japanese:** 44 lessons across 11 units (2 courses)
 - **Mandarin:** 44 lessons across 11 units (2 courses)
 - **Korean:** 44 lessons across 11 units (2 courses)
+- **English:** 44 lessons across 11 units (2 courses)
 
 Each lesson includes:
 - Conversation topic for voice practice
@@ -133,8 +142,9 @@ All LinguaFlow courses include:
 ### Institutional (Per Student)
 | Package | Hours | Cost | Price | Margin |
 |---------|-------|------|-------|--------|
-| Starter | 10 hrs | $24.70 | $50 | 102% |
-| Standard | 30 hrs | $74.10 | $150 | 102% |
+| Basic | 10 hrs | $24.70 | $50 | 102% |
+| Standard | 20 hrs | $49.40 | $100 | 102% |
+| Premium | 30 hrs | $74.10 | $150 | 102% |
 | **Full Year** | **120 hrs** | **$296.40** | **$600** | **102%** |
 
 See `docs/cost-analysis-2025.md` for detailed pricing information.

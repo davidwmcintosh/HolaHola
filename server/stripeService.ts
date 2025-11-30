@@ -2,7 +2,7 @@ import { storage } from './storage';
 import { getUncachableStripeClient } from './stripeClient';
 import { usageService } from './services/usage-service';
 
-// Hour package configurations (matching docs/cost-analysis-2025.md)
+// Hour package configurations for independent learners (matching docs/cost-analysis-2025.md)
 export const HOUR_PACKAGES = {
   try_it: { hours: 1, priceUsd: 12, name: 'Try It', productId: 'hour_pkg_try_it' },
   starter: { hours: 5, priceUsd: 50, name: 'Starter', productId: 'hour_pkg_starter' },
@@ -11,6 +11,16 @@ export const HOUR_PACKAGES = {
 } as const;
 
 export type HourPackageTier = keyof typeof HOUR_PACKAGES;
+
+// Institutional class package configurations (per-student pricing, matching docs/cost-analysis-2025.md)
+export const INSTITUTIONAL_PACKAGES = {
+  basic: { hoursPerStudent: 10, pricePerStudentUsd: 50, name: 'Basic', productId: 'inst_pkg_basic' },
+  standard: { hoursPerStudent: 20, pricePerStudentUsd: 100, name: 'Standard', productId: 'inst_pkg_standard' },
+  premium: { hoursPerStudent: 30, pricePerStudentUsd: 150, name: 'Premium', productId: 'inst_pkg_premium' },
+  full_year: { hoursPerStudent: 120, pricePerStudentUsd: 600, name: 'Full Year', productId: 'inst_pkg_full_year' },
+} as const;
+
+export type InstitutionalPackageTier = keyof typeof INSTITUTIONAL_PACKAGES;
 
 export class StripeService {
   async createCustomer(email: string, userId: string) {
@@ -131,6 +141,17 @@ export class StripeService {
       tier,
       ...config,
       pricePerHour: Math.round(config.priceUsd / config.hours * 100) / 100,
+    }));
+  }
+
+  getInstitutionalPackages() {
+    return Object.entries(INSTITUTIONAL_PACKAGES).map(([tier, config]) => ({
+      tier,
+      ...config,
+      pricePerHour: Math.round(config.pricePerStudentUsd / config.hoursPerStudent * 100) / 100,
+      costPerStudent: Math.round(config.hoursPerStudent * 2.47 * 100) / 100,
+      profitPerStudent: Math.round((config.pricePerStudentUsd - config.hoursPerStudent * 2.47) * 100) / 100,
+      marginPercent: Math.round(((config.pricePerStudentUsd - config.hoursPerStudent * 2.47) / (config.hoursPerStudent * 2.47)) * 100),
     }));
   }
 
