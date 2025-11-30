@@ -200,9 +200,20 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     
     // Load word mapping for Target mode karaoke highlighting
     // This is stored in the sentence data from addSentence
+    // ALSO: Clear fallback if this sentence has no target text (prevents phantom subtitles)
     setSentences(prev => {
       const sentence = prev.find(s => s.index === sentenceIndex);
       currentWordMappingRef.current = sentence?.wordMapping;
+      
+      // CRITICAL: If this sentence has no target text, clear the fallback immediately
+      // This prevents phantom subtitles from the previous sentence
+      if (!sentence?.targetLanguageText || sentence.targetLanguageText.trim().length === 0) {
+        console.log(`[StreamingSubtitles] Sentence ${sentenceIndex} has no target text - clearing fallback on playback start`);
+        lastNonEmptyTargetTextRef.current = '';
+        // Note: We use setTimeout to avoid state update during setState callback
+        setTimeout(() => setLastNonEmptyTargetText(''), 0);
+      }
+      
       return prev; // No actual state change, just loading the ref
     });
   }, []);
