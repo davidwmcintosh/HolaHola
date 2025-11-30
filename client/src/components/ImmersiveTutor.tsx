@@ -431,17 +431,20 @@ export function ImmersiveTutor({
           // This prevents stale subtitles from flashing during the processing window
           const isWaiting = getIsWaitingForContent ? getIsWaitingForContent() : isWaitingForContent;
           if (isWaiting) {
+            console.log('[SUBTITLE GUARD] Hidden: isWaitingForContent=true');
             return null;
           }
           
           // Hide subtitles while recording - user is speaking, not listening
           if (isRecording) {
+            console.log('[SUBTITLE GUARD] Hidden: isRecording=true');
             return null;
           }
           
           // Hide subtitles while processing - prevents flash of old subtitles between mic release and reset
           // This covers the brief window after mic release but before reset() is called
           if (isProcessing && !streamingText) {
+            console.log('[SUBTITLE GUARD] Hidden: isProcessing=true && no streamingText');
             return null;
           }
           

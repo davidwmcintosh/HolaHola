@@ -71,9 +71,10 @@ function cleanTextForDisplay(text: string): string {
     .replace(/\[laughter\]/gi, '')
     // Remove [bracket] emotion/action tags like [happy], [excited]
     .replace(/\[(?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful|encouraging|patient)\]/gi, '')
-    // Remove BARE emotion words at start of text (AI sometimes outputs "happy\n" before actual text)
-    // Must be at the very start, followed by whitespace/newline (including \n, \r, space, tab)
-    .replace(/^(?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful|encouraging|patient)[\s\n\r]+/gi, '');
+    // Remove BARE emotion words at start of text (AI sometimes outputs "happy\n" or "friendly**text**")
+    // Must be at the very start, optionally followed by punctuation, whitespace/newline, or ** (markdown)
+    // Handles: "friendly\n", "friendly ", "friendly**Excelente**", "happyHola", "Happy! That was..."
+    .replace(/^(?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful|encouraging|patient)[!.,;:?]*(?:[\s\n\r]+|\*\*)?/gi, '');
   
   // Remove ALL parenthetical content (English translations like (Hello!), (Excellent!), (Perfect!))
   // These are distracting and redundant - the user heard the Spanish and doesn't need English in subtitles
