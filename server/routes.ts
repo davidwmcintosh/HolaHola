@@ -3840,6 +3840,37 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Grammar Competencies (ACTFL-aligned grammar topics)
+  app.get("/api/grammar/competencies", async (req, res) => {
+    try {
+      const { language } = req.query;
+      if (!language) {
+        return res.status(400).json({ error: "Language parameter is required" });
+      }
+      const competencies = await storage.getGrammarCompetencies(language as string);
+      res.json(competencies);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Grammar Exercises by Competency
+  app.get("/api/grammar/exercises", async (req, res) => {
+    try {
+      const { language, competencyId } = req.query;
+      if (!language) {
+        return res.status(400).json({ error: "Language parameter is required" });
+      }
+      const exercises = await storage.getGrammarExercisesByCompetency(
+        language as string,
+        competencyId as string | undefined
+      );
+      res.json(exercises);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // User Progress
   app.get("/api/progress/:language", isAuthenticated, async (req: any, res) => {
     try {

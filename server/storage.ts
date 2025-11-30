@@ -7,6 +7,7 @@ import {
   type InsertVocabularyWord,
   type GrammarExercise,
   type InsertGrammarExercise,
+  type GrammarCompetency,
   type UserProgress,
   type InsertUserProgress,
   type ProgressHistory,
@@ -61,6 +62,7 @@ import {
   messages,
   vocabularyWords,
   grammarExercises,
+  grammarCompetencies,
   userProgress as userProgressTable,
   progressHistory as progressHistoryTable,
   pronunciationScores,
@@ -154,6 +156,8 @@ export interface IStorage {
   // Grammar
   createGrammarExercise(data: InsertGrammarExercise): Promise<GrammarExercise>;
   getGrammarExercises(language: string, difficulty?: string): Promise<GrammarExercise[]>;
+  getGrammarCompetencies(language: string): Promise<GrammarCompetency[]>;
+  getGrammarExercisesByCompetency(language: string, competencyId?: string): Promise<GrammarExercise[]>;
 
   // User Progress
   getOrCreateUserProgress(language: string, userId: string): Promise<UserProgress>;
@@ -1348,6 +1352,24 @@ export class DatabaseStorage implements IStorage {
     if (difficulty) {
       return await db.select().from(grammarExercises)
         .where(and(eq(grammarExercises.language, language), eq(grammarExercises.difficulty, difficulty)));
+    }
+    return await db.select().from(grammarExercises)
+      .where(eq(grammarExercises.language, language));
+  }
+
+  async getGrammarCompetencies(language: string): Promise<GrammarCompetency[]> {
+    return await db.select().from(grammarCompetencies)
+      .where(eq(grammarCompetencies.language, language))
+      .orderBy(grammarCompetencies.actflLevelNumeric, grammarCompetencies.name);
+  }
+
+  async getGrammarExercisesByCompetency(language: string, competencyId?: string): Promise<GrammarExercise[]> {
+    if (competencyId) {
+      return await db.select().from(grammarExercises)
+        .where(and(
+          eq(grammarExercises.language, language),
+          eq(grammarExercises.competencyId, competencyId)
+        ));
     }
     return await db.select().from(grammarExercises)
       .where(eq(grammarExercises.language, language));

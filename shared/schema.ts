@@ -211,11 +211,226 @@ export const grammarExercises = pgTable("grammar_exercises", {
   difficulty: text("difficulty").notNull(),
   // ACTFL standards tracking
   actflLevel: text("actfl_level"), // novice_low, novice_mid, etc.
+  // Link to grammar competency for organized practice
+  competencyId: varchar("competency_id"), // References grammarCompetencies
   question: text("question").notNull(),
   options: text("options").array().notNull(),
   correctAnswer: integer("correct_answer").notNull(),
   explanation: text("explanation").notNull(),
+  // Exercise type for varied practice
+  exerciseType: text("exercise_type").default("multiple_choice"), // multiple_choice, fill_blank, error_correction, conjugation
+  // Hint for micro-coaching
+  hint: text("hint"), // Optional hint for struggling learners
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_grammar_exercises_language").on(table.language),
+  index("idx_grammar_exercises_competency").on(table.competencyId),
+]);
+
+// Grammar category enum for organizing competencies
+export const grammarCategoryEnum = pgEnum('grammar_category', [
+  'verb_tense',        // Present, Past, Future, Conditional, etc.
+  'verb_mood',         // Indicative, Subjunctive, Imperative
+  'verb_aspect',       // Simple, Progressive, Perfect
+  'verb_type',         // Regular, Irregular, Reflexive, Modal
+  'noun_agreement',    // Gender, Number
+  'pronoun',           // Subject, Object, Reflexive, Possessive
+  'adjective',         // Agreement, Placement, Comparison
+  'adverb',            // Formation, Placement
+  'preposition',       // Usage, Contractions
+  'article',           // Definite, Indefinite, Partitive
+  'sentence_structure', // Word order, Questions, Negation
+  'clause',            // Relative, Conditional, Temporal
+]);
+
+// Master grammar competencies - ACTFL-aligned grammar forms
+export const grammarCompetencies = pgTable("grammar_competencies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Core identification
+  name: text("name").notNull(), // e.g., "Present Tense - Regular Verbs"
+  slug: text("slug").notNull(), // e.g., "present-tense-regular"
+  language: text("language").notNull(), // spanish, french, etc.
+  // Categorization
+  category: grammarCategoryEnum("category").notNull(), // verb_tense, verb_mood, etc.
+  subcategory: text("subcategory"), // e.g., "regular", "irregular", "stem-changing"
+  // ACTFL alignment
+  actflLevel: text("actfl_level").notNull(), // novice_low through distinguished
+  actflLevelNumeric: integer("actfl_level_numeric").notNull(), // 1-11 for sorting
+  // Content
+  description: text("description").notNull(), // Full explanation for Grammar Hub
+  shortExplanation: text("short_explanation").notNull(), // 1-2 sentences for micro-coaching
+  examples: text("examples").array().notNull(), // Example sentences with translations
+  commonMistakes: text("common_mistakes").array(), // Typical errors to watch for
+  // Teaching metadata
+  prerequisiteIds: text("prerequisite_ids").array(), // Competencies that should be learned first
+  difficultyScore: integer("difficulty_score").notNull().default(1), // 1-10 relative difficulty
+  estimatedMinutes: integer("estimated_minutes").notNull().default(15), // Time to master
+  // Applicable verb/noun info (for conjugation drills)
+  paradigmJson: text("paradigm_json"), // JSON with full conjugation/declension table
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_grammar_competencies_language").on(table.language),
+  index("idx_grammar_competencies_actfl").on(table.actflLevel),
+  index("idx_grammar_competencies_category").on(table.category),
+  index("idx_grammar_competencies_slug").on(table.slug),
+]);
+
+// User progress on grammar competencies
+export const userGrammarProgress = pgTable("user_grammar_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  competencyId: varchar("competency_id").notNull(), // References grammarCompetencies
+  language: text("language").notNull(),
+  // Mastery tracking
+  masteryLevel: integer("mastery_level").notNull().default(0), // 0-100 percentage
+  exercisesCompleted: integer("exercises_completed").notNull().default(0),
+  exercisesCorrect: integer("exercises_correct").notNull().default(0),
+  // Spaced repetition for grammar
+  nextReviewDate: timestamp("next_review_date"),
+  repetition: integer("repetition").notNull().default(0), // Consecutive correct (SM-2)
+  easeFactor: real("ease_factor").notNull().default(2.5),
+  interval: integer("interval").notNull().default(1), // Days until next review
+  // Voice session usage
+  usedInConversation: boolean("used_in_conversation").notNull().default(false),
+  conversationUsageCount: integer("conversation_usage_count").notNull().default(0),
+  lastConversationUse: timestamp("last_conversation_use"),
+  // Timestamps
+  firstPracticed: timestamp("first_practiced"),
+  lastPracticed: timestamp("last_practiced"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_user_grammar_progress_user").on(table.userId),
+  index("idx_user_grammar_progress_user_lang").on(table.userId, table.language),
+  index("idx_user_grammar_progress_competency").on(table.competencyId),
+]);
+
+// Grammar errors detected during voice sessions (telemetry)
+export const grammarErrors = pgTable("grammar_errors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  conversationId: varchar("conversation_id").references(() => conversations.id),
+  messageId: varchar("message_id"), // References messages.id
+  language: text("language").notNull(),
+  // Error details
+  competencyId: varchar("competency_id"), // References grammarCompetencies if identifiable
+  errorCategory: grammarCategoryEnum("error_category"), // Which grammar area
+  errorType: text("error_type").notNull(), // Specific error type (e.g., "verb_conjugation", "gender_agreement")
+  // Context
+  userText: text("user_text").notNull(), // What the user said/wrote
+  correctedText: text("corrected_text"), // Correct version
+  explanation: text("explanation"), // Why it was wrong
+  // Tracking
+  wasAddressed: boolean("was_addressed").notNull().default(false), // Did we show micro-coaching?
+  wasPracticed: boolean("was_practiced").notNull().default(false), // Did user complete follow-up drill?
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_grammar_errors_user").on(table.userId),
+  index("idx_grammar_errors_user_lang").on(table.userId, table.language),
+  index("idx_grammar_errors_competency").on(table.competencyId),
+  index("idx_grammar_errors_conversation").on(table.conversationId),
+]);
+
+// Grammar assignments for teachers
+export const grammarAssignments = pgTable("grammar_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  classId: varchar("class_id").notNull(), // References teacherClasses
+  teacherId: varchar("teacher_id").notNull().references(() => users.id),
+  // Assignment details
+  title: text("title").notNull(),
+  description: text("description"),
+  competencyIds: text("competency_ids").array().notNull(), // Grammar topics to cover
+  // Requirements
+  minExercises: integer("min_exercises").notNull().default(10), // Minimum exercises to complete
+  minScore: integer("min_score").notNull().default(70), // Minimum % to pass
+  // Schedule
+  dueDate: timestamp("due_date"),
+  isPublished: boolean("is_published").notNull().default(false),
+  // Timestamps
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_grammar_assignments_class").on(table.classId),
+  index("idx_grammar_assignments_teacher").on(table.teacherId),
+]);
+
+// Student submissions for grammar assignments
+export const grammarAssignmentSubmissions = pgTable("grammar_assignment_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  assignmentId: varchar("assignment_id").notNull(), // References grammarAssignments
+  studentId: varchar("student_id").notNull().references(() => users.id),
+  // Progress
+  exercisesCompleted: integer("exercises_completed").notNull().default(0),
+  exercisesCorrect: integer("exercises_correct").notNull().default(0),
+  score: integer("score"), // Final percentage (null if incomplete)
+  // Status
+  status: text("status").notNull().default("not_started"), // not_started, in_progress, completed, graded
+  submittedAt: timestamp("submitted_at"),
+  gradedAt: timestamp("graded_at"),
+  teacherFeedback: text("teacher_feedback"),
+  // Timestamps
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_grammar_submissions_assignment").on(table.assignmentId),
+  index("idx_grammar_submissions_student").on(table.studentId),
+]);
+
+// Insert and Select schemas for grammar tables
+export const insertGrammarExerciseSchema = createInsertSchema(grammarExercises).omit({
+  id: true,
+  createdAt: true,
 });
+
+export const insertGrammarCompetencySchema = createInsertSchema(grammarCompetencies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserGrammarProgressSchema = createInsertSchema(userGrammarProgress).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertGrammarErrorSchema = createInsertSchema(grammarErrors).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertGrammarAssignmentSchema = createInsertSchema(grammarAssignments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertGrammarAssignmentSubmissionSchema = createInsertSchema(grammarAssignmentSubmissions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertGrammarExercise = z.infer<typeof insertGrammarExerciseSchema>;
+export type GrammarExercise = typeof grammarExercises.$inferSelect;
+
+export type InsertGrammarCompetency = z.infer<typeof insertGrammarCompetencySchema>;
+export type GrammarCompetency = typeof grammarCompetencies.$inferSelect;
+
+export type InsertUserGrammarProgress = z.infer<typeof insertUserGrammarProgressSchema>;
+export type UserGrammarProgress = typeof userGrammarProgress.$inferSelect;
+
+export type InsertGrammarError = z.infer<typeof insertGrammarErrorSchema>;
+export type GrammarError = typeof grammarErrors.$inferSelect;
+
+export type InsertGrammarAssignment = z.infer<typeof insertGrammarAssignmentSchema>;
+export type GrammarAssignment = typeof grammarAssignments.$inferSelect;
+
+export type InsertGrammarAssignmentSubmission = z.infer<typeof insertGrammarAssignmentSubmissionSchema>;
+export type GrammarAssignmentSubmission = typeof grammarAssignmentSubmissions.$inferSelect;
 
 export const userProgress = pgTable("user_progress", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -448,6 +663,7 @@ export const teacherClasses = pgTable("teacher_classes", {
   curriculumPathId: varchar("curriculum_path_id").references(() => curriculumPaths.id), // Optional: link to structured curriculum
   joinCode: varchar("join_code").unique().notNull(), // 6-digit code for students to join
   isActive: boolean("is_active").default(true),
+  hoursPerStudent: integer("hours_per_student"), // Legacy: base hours allocated (moved to classHourPackages)
   hourPackageId: varchar("hour_package_id").references(() => classHourPackages.id), // Link to purchased hour package
   hoursPerStudentOverride: integer("hours_per_student_override"), // Optional per-class override
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -894,10 +1110,6 @@ export const insertVocabularyWordSchema = createInsertSchema(vocabularyWords).om
   id: true,
 });
 
-export const insertGrammarExerciseSchema = createInsertSchema(grammarExercises).omit({
-  id: true,
-});
-
 export const insertUserProgressSchema = createInsertSchema(userProgress).omit({
   id: true,
 });
@@ -927,9 +1139,6 @@ export type Message = typeof messages.$inferSelect;
 
 export type InsertVocabularyWord = z.infer<typeof insertVocabularyWordSchema>;
 export type VocabularyWord = typeof vocabularyWords.$inferSelect;
-
-export type InsertGrammarExercise = z.infer<typeof insertGrammarExerciseSchema>;
-export type GrammarExercise = typeof grammarExercises.$inferSelect;
 
 export type InsertUserProgress = z.infer<typeof insertUserProgressSchema>;
 export type UserProgress = typeof userProgress.$inferSelect;

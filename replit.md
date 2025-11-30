@@ -50,6 +50,8 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Centralized Role-Based Access Control (RBAC)**: A hierarchical permission system using shared helpers in `shared/permissions.ts`.
 
+**Hybrid Grammar System**: A research-backed grammar instruction approach combining conversational practice with targeted explicit instruction. Uses three database tables: `grammarCompetencies` (38 ACTFL-aligned topics), `grammarErrors` (error tracking for micro-coaching), and `userGrammarProgress` (mastery tracking). API routes: `/api/grammar/competencies?language=X` returns competencies organized by ACTFL level; `/api/grammar/exercises?language=X&competencyId=Y` returns practice exercises. The Grammar Hub page (`/grammar`) provides topic browser with ACTFL organization, competency cards with progress indicators, and practice drills.
+
 ---
 
 ## Role-Based Access Control (RBAC) Documentation
