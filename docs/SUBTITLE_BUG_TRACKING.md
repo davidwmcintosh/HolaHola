@@ -458,3 +458,68 @@ The fix has been deployed. User needs to retest to verify:
 - Same root cause as Bug #1
 - Fix: Added turnId to currentSentence lookup
 - Symptoms: "hola hola", "Excelente Gracias Gracias", all previous words showing
+
+---
+
+## Session Log: November 30, 2025 (Late Evening - 10:27 PM - 10:31 PM)
+
+### Continued Investigation
+
+**User Report:** Still seeing phantom words after initial turnId fix
+
+**Architect Analysis:**
+The architect tool identified that `startPlayback` was still grabbing the sentence via index only in its internal lookup, causing stale `hasTargetContent=true` values to persist between turns.
+
+**Investigation Findings:**
+
+1. **startPlayback already fixed** - The code at line 254 already uses both `index` AND `turnId`:
+   ```typescript
+   const sentence = prev.find(s => s.index === sentenceIndex && s.turnId === turnId);
+   ```
+
+2. **Missing fallback protection** - If sentence NOT found (due to React state batching race), the code still proceeded but did NOT reset `hasTargetContent` to false, allowing phantom subtitles.
+
+3. **Debug logging gap** - The sentences array debug log didn't include `turnId`, making it impossible to detect cross-turn contamination.
+
+### Fixes Applied (10:30 PM)
+
+**Fix 1: Enhanced debug logging**
+Added `turnId` to sentences array debug output:
+```typescript
+sentences.map(s => ({ 
+  idx: s.index, 
+  turnId: s.turnId,  // CRITICAL: Now included
+  target: s.targetLanguageText, 
+  hasTarget: s.hasTargetContent 
+}))
+```
+
+**Fix 2: Sentence-not-found protection**
+When `startPlayback` can't find a sentence (race condition), now explicitly sets:
+```typescript
+setHasTargetContent(false);  // Prevent phantom subtitles
+currentWordMappingRef.current = undefined;
+```
+Plus enhanced warning logging showing available sentences.
+
+### Files Changed
+- `client/src/hooks/useStreamingSubtitles.ts` (lines 276-290, 472-482)
+
+### Status: PENDING TESTING
+User needs to verify:
+1. No duplicate words (hola hola)
+2. No accumulated words across sentences
+3. No phantom subtitles from previous turns
+4. Check browser console for `⚠ Sentence not found` warnings
+
+### Debug Logs to Watch For
+```
+[StreamingSubtitles v2] ⚠ Sentence X (turn Y) not found in sentences array!
+[StreamingSubtitles v2]   Available sentences: [{idx, turnId}...]
+[StreamingSubtitles v2]   sentences array: [{idx, turnId, target, hasTarget}...]
+```
+
+If `⚠ Sentence not found` appears frequently, it indicates a race condition between:
+1. `setCurrentTurnId()` clearing sentences
+2. `startPlayback()` trying to find sentences
+3. `addSentence()` populating new sentences
