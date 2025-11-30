@@ -1637,6 +1637,80 @@ Generate the greeting now (speak as the tutor directly):`;
   }
   
   /**
+   * Process a brief introduction when voice/tutor is switched
+   * The new tutor introduces themselves and continues the conversation
+   */
+  async processVoiceSwitchIntro(sessionId: string, tutorName: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session || !session.isActive) {
+      console.warn(`[Streaming Orchestrator] Cannot process voice switch - session not found: ${sessionId}`);
+      return;
+    }
+    
+    console.log(`[Voice Switch] New tutor ${tutorName} introducing themselves`);
+    
+    // Create a brief, friendly introduction message
+    const introText = `Hi! I'm ${tutorName}. Let's continue practicing together!`;
+    
+    try {
+      // Send sentence start
+      this.sendMessage(session.ws, {
+        type: 'sentence_start',
+        timestamp: Date.now(),
+        sentenceIndex: 0,
+        text: introText,
+        targetLanguageText: '',
+      } as StreamingSentenceStartMessage);
+      
+      // Synthesize with new voice using streaming
+      const speakingRate = voiceSpeedToRate(session.voiceSpeed);
+      
+      // Use streamSynthesize to get audio chunks
+      const chunks = await this.cartesiaService.streamSynthesize({
+        text: introText,
+        language: session.targetLanguage,
+        voiceId: session.voiceId,
+        emotion: 'friendly',
+        speakingRate,
+      });
+      
+      let totalDurationMs = 0;
+      
+      // Send each audio chunk
+      for await (const chunk of chunks) {
+        if (session.ws.readyState === 1) { // WebSocket.OPEN
+          session.ws.send(chunk.audio);
+          totalDurationMs += chunk.durationMs;
+        }
+      }
+      
+      // Send sentence end
+      this.sendMessage(session.ws, {
+        type: 'sentence_end',
+        timestamp: Date.now(),
+        sentenceIndex: 0,
+        totalDurationMs,
+      } as StreamingSentenceEndMessage);
+      
+      // Send response complete
+      this.sendMessage(session.ws, {
+        type: 'response_complete',
+        timestamp: Date.now(),
+        fullText: introText,
+        totalSentences: 1,
+        sentenceCount: 1,
+        totalDurationMs,
+      } as StreamingResponseCompleteMessage);
+      
+      console.log(`[Voice Switch] Introduction complete: ${tutorName} (${totalDurationMs}ms)`);
+      
+    } catch (err: any) {
+      console.error(`[Voice Switch] Failed to generate intro: ${err.message}`);
+      // Non-fatal - voice switch still happened, just no audio intro
+    }
+  }
+  
+  /**
    * Get active session count
    */
   getActiveSessionCount(): number {

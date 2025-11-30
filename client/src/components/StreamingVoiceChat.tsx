@@ -1561,7 +1561,13 @@ export function StreamingVoiceChat({
           isWaitingForContent={useStreamingMode ? streamingVoice.subtitles.state.isWaitingForContent : undefined}
           getIsWaitingForContent={useStreamingMode ? streamingVoice.subtitles.getIsWaitingForContent : undefined}
           voiceSpeed={voiceSpeed}
-          setTutorGender={setTutorGender}
+          setTutorGender={(gender) => {
+            setTutorGender(gender);
+            // Also update the voice in the active streaming session
+            if (useStreamingMode) {
+              streamingVoice.updateVoice(gender);
+            }
+          }}
           setVoiceSpeed={setVoiceSpeed}
           femaleVoiceName={getVoiceFirstName(tutorVoices?.female?.name, "Female")}
           maleVoiceName={getVoiceFirstName(tutorVoices?.male?.name, "Male")}

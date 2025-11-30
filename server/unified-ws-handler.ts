@@ -107,6 +107,7 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
   let sttSeconds = 0;
   
   let conversationId: string | null = null;
+  let pendingVoiceUpdate: 'male' | 'female' | null = null; // Queue voice update if received before session ready
   try {
     const url = new URL(req.url!, `http://${req.headers.host}`);
     conversationId = url.searchParams.get('conversationId');
@@ -326,6 +327,54 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             }));
             console.log('[Streaming Voice] session_started sent');
           }
+          
+          // Apply any pending voice update that was queued before session was ready
+          if (pendingVoiceUpdate && session) {
+            const pendingGender = pendingVoiceUpdate;
+            pendingVoiceUpdate = null; // Clear the pending update immediately
+            
+            try {
+              const allVoices = await storage.getAllTutorVoices();
+              const effectiveLanguage = session.targetLanguage?.toLowerCase() || 'spanish';
+              
+              const matchingVoice = allVoices.find(
+                (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
+                            v.gender?.toLowerCase() === pendingGender &&
+                            v.isActive
+              );
+              
+              if (matchingVoice?.voiceId) {
+                orchestrator.updateSessionVoice(session.id, matchingVoice.voiceId);
+                console.log(`[Streaming Voice] Applied pending voice update: ${pendingGender} (${matchingVoice.voiceName})`);
+                
+                ws.send(JSON.stringify({
+                  type: 'voice_updated',
+                  timestamp: Date.now(),
+                  gender: pendingGender,
+                  voiceName: matchingVoice.voiceName,
+                }));
+              } else {
+                // No matching DB voice found - log and continue with default voice
+                console.log(`[Streaming Voice] No matching ${pendingGender} voice found for ${effectiveLanguage}, using default voice`);
+                // Still send voice_updated to acknowledge the request even if we can't switch
+                ws.send(JSON.stringify({
+                  type: 'voice_updated',
+                  timestamp: Date.now(),
+                  gender: pendingGender,
+                  voiceName: `Default ${pendingGender}`,
+                }));
+              }
+            } catch (err: any) {
+              console.warn('[Streaming Voice] Could not apply pending voice update:', err.message);
+              // Still acknowledge the update attempt
+              ws.send(JSON.stringify({
+                type: 'voice_updated',
+                timestamp: Date.now(),
+                gender: pendingGender,
+                voiceName: `Default ${pendingGender}`,
+              }));
+            }
+          }
           break;
         }
 
@@ -427,13 +476,20 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
 
         case 'update_voice': {
           // Update voice mid-session when user changes tutor
-          if (!isAuthenticated || !session) {
-            sendError(ws, 'UNKNOWN', 'Session not ready', true);
+          if (!isAuthenticated) {
+            sendError(ws, 'UNAUTHORIZED', 'Not authenticated', true);
             return;
           }
           
           const updateMsg = message as { type: 'update_voice'; tutorGender?: 'male' | 'female' };
           const newGender = updateMsg.tutorGender || 'female';
+          
+          // If session isn't ready yet, queue the voice update for later
+          if (!session) {
+            pendingVoiceUpdate = newGender;
+            console.log(`[Streaming Voice] Session not ready - queued voice update: ${pendingVoiceUpdate}`);
+            return;
+          }
           const effectiveLanguage = session.targetLanguage?.toLowerCase() || 'spanish';
           
           try {
@@ -454,6 +510,16 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
                 gender: newGender,
                 voiceName: matchingVoice.voiceName,
               }));
+              
+              // Have the new tutor introduce themselves with a brief greeting
+              // Extract first name from voice name (e.g., "Daniela - Relaxed Woman" -> "Daniela")
+              // Voice names can be "Name - Description" or "Language Name" format
+              const voiceNameParts = matchingVoice.voiceName?.split(/\s*[-–]\s*/) || [];
+              const tutorFirstName = voiceNameParts[0]?.trim() || (newGender === 'male' ? 'your new tutor' : 'your new tutor');
+              console.log(`[Streaming Voice] New tutor introducing themselves: ${tutorFirstName}`);
+              
+              // Trigger a voice switch introduction
+              await orchestrator.processVoiceSwitchIntro(session.id, tutorFirstName);
             } else {
               console.warn(`[Streaming Voice] No matching voice found for ${effectiveLanguage}/${newGender}`);
             }
