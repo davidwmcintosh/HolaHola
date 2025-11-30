@@ -395,38 +395,64 @@ const FRANC_TO_LANGUAGE_MAP: Record<string, string> = {
 export const MFA_IPA_PRONUNCIATIONS: Record<string, Record<string, string>> = {
   'spanish': {
     // Common greetings - Spanish MFA phonemes
+    // Note: Include BOTH lowercase and Capitalized versions for dictionary matching
     'hola': 'o|l|a',                    // HO-la (2 syllables)
+    'Hola': 'o|l|a',                    // Capitalized version
     'adiós': 'a|ð|j|o|s',               // a-DIOS
+    'Adiós': 'a|ð|j|o|s',               // Capitalized
     'adios': 'a|ð|j|o|s',               // without accent
+    'Adios': 'a|ð|j|o|s',               // Capitalized without accent
     'gracias': 'ɡ|ɾ|a|s|j|a|s',         // GRA-cias
+    'Gracias': 'ɡ|ɾ|a|s|j|a|s',         // Capitalized
     'por favor': 'p|o|ɾ|f|a|β|o|ɾ',     // por fa-VOR
+    'Por favor': 'p|o|ɾ|f|a|β|o|ɾ',     // Capitalized
     'sí': 's|i',                         // sí (1 syllable)
+    'Sí': 's|i',                         // Capitalized
     'si': 's|i',                         // without accent
     'no': 'n|o',                         // no (1 syllable)
     'buenos días': 'b|w|e|n|o|s|ð|i|a|s', // BUE-nos DI-as
+    'Buenos días': 'b|w|e|n|o|s|ð|i|a|s', // Capitalized
     'buenos dias': 'b|w|e|n|o|s|ð|i|a|s', // without accent
+    'Buenos dias': 'b|w|e|n|o|s|ð|i|a|s', // Capitalized without accent
     'buenas tardes': 'b|w|e|n|a|s|t|a|ɾ|ð|e|s', // BUE-nas TAR-des
+    'Buenas tardes': 'b|w|e|n|a|s|t|a|ɾ|ð|e|s', // Capitalized
     'buenas noches': 'b|w|e|n|a|s|n|o|tʃ|e|s',  // BUE-nas NO-ches
+    'Buenas noches': 'b|w|e|n|a|s|n|o|tʃ|e|s',  // Capitalized
     'qué tal': 'k|e|t|a|l',             // qué TAL
+    'Qué tal': 'k|e|t|a|l',             // Capitalized
     'que tal': 'k|e|t|a|l',             // without accent
     'cómo estás': 'k|o|m|o|e|s|t|a|s',  // CÓ-mo es-TÁS
+    'Cómo estás': 'k|o|m|o|e|s|t|a|s',  // Capitalized
     'como estas': 'k|o|m|o|e|s|t|a|s',  // without accents
     'perfecto': 'p|e|ɾ|f|e|k|t|o',      // per-FEC-to
+    'Perfecto': 'p|e|ɾ|f|e|k|t|o',      // Capitalized
     'excelente': 'e|k|s|e|l|e|n|t|e',   // ex-ce-LEN-te
+    'Excelente': 'e|k|s|e|l|e|n|t|e',   // Capitalized
     'maravilloso': 'm|a|ɾ|a|β|i|ʝ|o|s|o', // ma-ra-vi-LLO-so
+    'Maravilloso': 'm|a|ɾ|a|β|i|ʝ|o|s|o', // Capitalized
     'fantástico': 'f|a|n|t|a|s|t|i|k|o', // fan-TÁS-ti-co
+    'Fantástico': 'f|a|n|t|a|s|t|i|k|o', // Capitalized
     'fantastico': 'f|a|n|t|a|s|t|i|k|o', // without accent
     'estupendo': 'e|s|t|u|p|e|n|d|o',   // es-tu-PEN-do
+    'Estupendo': 'e|s|t|u|p|e|n|d|o',   // Capitalized
     'genial': 'x|e|n|j|a|l',            // ge-NIAL
+    'Genial': 'x|e|n|j|a|l',            // Capitalized
     'fenomenal': 'f|e|n|o|m|e|n|a|l',   // fe-no-me-NAL
+    'Fenomenal': 'f|e|n|o|m|e|n|a|l',   // Capitalized
     'increíble': 'i|n|k|ɾ|e|i|β|l|e',   // in-cre-Í-ble
+    'Increíble': 'i|n|k|ɾ|e|i|β|l|e',   // Capitalized
     'increible': 'i|n|k|ɾ|e|i|β|l|e',   // without accent
     'magnífico': 'm|a|ɣ|n|i|f|i|k|o',   // mag-NÍ-fi-co
+    'Magnífico': 'm|a|ɣ|n|i|f|i|k|o',   // Capitalized
     'magnifico': 'm|a|ɣ|n|i|f|i|k|o',   // without accent
     'correcto': 'k|o|r|e|k|t|o',        // co-RREC-to
+    'Correcto': 'k|o|r|e|k|t|o',        // Capitalized
     'bueno': 'b|w|e|n|o',               // BUE-no
+    'Bueno': 'b|w|e|n|o',               // Capitalized
     'bien': 'b|j|e|n',                  // bien
+    'Bien': 'b|j|e|n',                  // Capitalized
     'muy bien': 'm|u|i|b|j|e|n',        // muy bien
+    'Muy bien': 'm|u|i|b|j|e|n',        // Capitalized
     'de nada': 'd|e|n|a|ð|a',           // de NA-da
     'lo siento': 'l|o|s|j|e|n|t|o',     // lo SIEN-to
     'amigo': 'a|m|i|ɣ|o',               // friend
