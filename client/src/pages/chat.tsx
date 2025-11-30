@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Mic, Plus, GraduationCap, User } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { apiRequest, queryClient, forceNewConversation as setForceNewFlag } from "@/lib/queryClient";
 import { useSidebar } from "@/components/ui/sidebar";
 import { CreditBalance } from "@/components/CreditBalance";
@@ -18,6 +19,7 @@ export default function Chat() {
   const [, setLocation] = useLocation();
   const [mode, setMode] = useState<"text" | "voice">("voice");
   const { language, difficulty, userName } = useLanguage();
+  const { learningContext, getSelectedClassName } = useLearningFilter();
   const { setOpen, setOpenMobile } = useSidebar();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isResumedConversation, setIsResumedConversation] = useState(false);
@@ -42,6 +44,12 @@ export default function Chat() {
   const [isReloading, setIsReloading] = useState(false); // Smooth transition for page reload
   const previousLanguageRef = useRef(language);
   const creationInProgressRef = useRef(false); // Prevent duplicate conversation creation
+  
+  // Check if we're in class mode (learning context is a class ID, not a filter option)
+  const isInClassMode = learningContext !== "self-directed" && 
+                        learningContext !== "all" && 
+                        learningContext !== "all-classes" && 
+                        learningContext !== "all-learning";
 
   // Auto-close sidebar when entering voice chat area
   // This runs ONLY ONCE on initial mount - works for Call Tutor, New Chat, and Start Practicing
@@ -160,7 +168,11 @@ export default function Chat() {
     if (needsConversation && !isCurrentlyOnboarding) {
       // Set ref FIRST before any async work to prevent race conditions
       creationInProgressRef.current = true;
-      console.log('[SHARED CHAT] Creating shared conversation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)', 'forceNew:', forceNewConversation, 'mode:', mode);
+      
+      // Use class ID from learning context if in class mode
+      const selectedClassId = isInClassMode ? learningContext : undefined;
+      
+      console.log('[SHARED CHAT] Creating shared conversation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)', 'forceNew:', forceNewConversation, 'mode:', mode, 'classId:', selectedClassId);
       setIsCreatingConversation(true);
       
       apiRequest("POST", "/api/conversations", {
@@ -172,6 +184,7 @@ export default function Chat() {
         includeConversationHistory: isOnboardingComplete,
         forceNew: forceNewConversation, // Force new conversation if user clicked "New Chat"
         mode, // Pass current mode (text or voice) to backend for greeting logic
+        classId: selectedClassId, // Pass selected class from learning context
       })
         .then(res => res.json())
         .then(async (data) => {
@@ -267,7 +280,7 @@ export default function Chat() {
         </div>
         
         <div className="flex items-center gap-2">
-          {/* Class or Self-Directed indicator */}
+          {/* Class or Self-Directed indicator - uses learning context for immediate display */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Badge 
@@ -275,10 +288,10 @@ export default function Chat() {
                 className="flex items-center gap-1 text-xs"
                 data-testid="badge-practice-mode"
               >
-                {className ? (
+                {isInClassMode ? (
                   <>
                     <GraduationCap className="h-3 w-3" />
-                    <span className="hidden sm:inline max-w-[120px] truncate">{className}</span>
+                    <span className="hidden sm:inline max-w-[120px] truncate">{getSelectedClassName()}</span>
                     <span className="sm:hidden">Class</span>
                   </>
                 ) : (
@@ -291,7 +304,9 @@ export default function Chat() {
               </Badge>
             </TooltipTrigger>
             <TooltipContent>
-              <p>{className ? `Practicing in: ${className}` : 'Self-Directed Practice'}</p>
+              <p>{isInClassMode 
+                  ? `Practicing in: ${getSelectedClassName()}` 
+                  : 'Self-Directed Practice'}</p>
             </TooltipContent>
           </Tooltip>
           

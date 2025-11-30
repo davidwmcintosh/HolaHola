@@ -1224,14 +1224,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // This will link the conversation to their class for proper tracking
       let classId: string | undefined;
       if (!isOnboarding) {
-        const enrollments = await storage.getStudentEnrollments(userId);
-        const activeEnrollment = enrollments.find(e => {
-          const classLanguage = (e.class as any)?.language?.toLowerCase();
-          return classLanguage === data.language?.toLowerCase() && e.status === 'enrolled';
-        });
-        if (activeEnrollment) {
-          classId = activeEnrollment.classId;
-          console.log('[CONVERSATION CREATE] Linking to class:', (activeEnrollment.class as any)?.name || classId);
+        // First, check if a specific classId was passed from the client (from learning context)
+        if (req.body.classId) {
+          // Validate that the user is enrolled in this class
+          const enrollments = await storage.getStudentEnrollments(userId);
+          const validEnrollment = enrollments.find(e => 
+            e.classId === req.body.classId && e.status === 'enrolled'
+          );
+          if (validEnrollment) {
+            classId = req.body.classId;
+            console.log('[CONVERSATION CREATE] Using client-provided classId:', classId, '- class:', (validEnrollment.class as any)?.name);
+          } else {
+            console.log('[CONVERSATION CREATE] Client provided classId', req.body.classId, 'but user is not enrolled');
+          }
+        }
+        
+        // If no valid classId from client, fall back to auto-detection by language
+        if (!classId) {
+          const enrollments = await storage.getStudentEnrollments(userId);
+          const activeEnrollment = enrollments.find(e => {
+            const classLanguage = (e.class as any)?.language?.toLowerCase();
+            return classLanguage === data.language?.toLowerCase() && e.status === 'enrolled';
+          });
+          if (activeEnrollment) {
+            classId = activeEnrollment.classId;
+            console.log('[CONVERSATION CREATE] Auto-detected class from language:', (activeEnrollment.class as any)?.name || classId);
+          }
         }
       }
       
