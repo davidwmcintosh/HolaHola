@@ -367,8 +367,8 @@ export function ImmersiveTutor({
       {/* Top spacer for vertical centering */}
       <div className="flex-1 min-h-4" />
       
-      {/* Fixed Tutor Visual - compact container, avatar stays same size */}
-      <div className="flex-shrink-0 relative w-full max-w-md mx-auto aspect-square max-h-[35vh] flex items-center justify-center">
+      {/* Fixed Tutor Visual - larger avatar container */}
+      <div className="flex-shrink-0 relative w-full max-w-lg mx-auto aspect-square max-h-[45vh] flex items-center justify-center">
         <img
           src={tutorImageUrl}
           alt="Language Tutor"
@@ -775,9 +775,9 @@ export function ImmersiveTutor({
         )}
         </div>
         
-        {/* Voice Settings Row - below the main controls */}
+        {/* Voice Settings Row - voice names and speed slider on one line */}
         {setTutorGender && setVoiceSpeed && (
-          <div className="flex flex-col items-center gap-2 mt-2">
+          <div className="flex items-center justify-center gap-3 mt-2 flex-wrap">
             {/* Tutor Voice Toggle */}
             <div className="flex items-center gap-1">
               <Button
@@ -799,7 +799,7 @@ export function ImmersiveTutor({
             </div>
             
             {/* Voice Speed Control - Compact slider with turtle/rabbit icons */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <Turtle className="h-4 w-4 text-muted-foreground" />
               <div className="flex items-center gap-0.5">
                 {(["slower", "slow", "normal", "fast", "faster"] as const).map((speed, index) => {
