@@ -26,6 +26,7 @@ import { StreakIndicator } from "@/components/StreakIndicator";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { useAuth } from "@/hooks/useAuth";
+import { hasTeacherAccess, hasAdminAccess } from "@shared/permissions";
 
 const dashboardItem = { title: "Dashboard", url: "/", icon: Target };
 
@@ -105,10 +106,10 @@ export function AppSidebar() {
     return true;
   });
 
-  // Check if user is a teacher (role is 'teacher', 'developer', or 'admin')
-  const isTeacher = user?.role === 'teacher' || user?.role === 'developer' || user?.role === 'admin';
-  // Check if user is admin or developer (for admin menu)
-  const isAdminOrDeveloper = user?.role === 'admin' || user?.role === 'developer';
+  // Check if user has teacher access (admin, developer, or teacher)
+  const isTeacher = hasTeacherAccess(user?.role);
+  // Check if user has admin access (admin only - for admin menu)
+  const isAdmin = hasAdminAccess(user?.role);
   // Show student features for all users (teachers can also be students)
   const showStudentFeatures = true;
 
@@ -339,7 +340,7 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {isAdminOrDeveloper && (
+        {isAdmin && (
           <SidebarGroup>
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
             <SidebarGroupContent>

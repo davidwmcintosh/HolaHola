@@ -39,7 +39,7 @@ export default function AdminDashboard() {
   });
 
   return (
-    <RoleGuard allowedRoles={['developer', 'admin']}>
+    <RoleGuard allowedRoles={['admin']}>
       <AdminLayout>
         <div className="space-y-6">
           <div>

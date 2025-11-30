@@ -48,6 +48,14 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 **Class Hour Package System**: Institutional credit allocation for teachers, using `classHourPackages` table for package management and automatic credit allocation upon class enrollment.
 
+**Centralized Role-Based Access Control (RBAC)**: A hierarchical permission system using shared helpers in `shared/permissions.ts`:
+- **admin** (Super Admin): Full access to all features including Administration section
+- **developer**: Teacher + student permissions (can access Teaching section, NOT admin)
+- **teacher**: Teaching features only (class management, curriculum, assignments)
+- **student**: Learning features only (conversations, vocabulary, progress)
+
+Permission helpers: `hasAdminAccess()`, `hasDeveloperAccess()`, `hasTeacherAccess()`, `hasStudentAccess()` are used consistently across frontend (sidebar, page guards) and backend (API route guards). Backend uses `requireRole('admin')` middleware for admin-only endpoints.
+
 ## External Dependencies
 
 ### Third-Party Services

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
+import { hasAdminAccess, hasDeveloperAccess, hasTeacherAccess } from "@shared/permissions";
 
 export function useUser() {
   const { data: user, isLoading, error } = useQuery<User>({
@@ -11,8 +12,8 @@ export function useUser() {
     isLoading,
     error,
     isAuthenticated: !!user,
-    isAdmin: user?.role === 'admin',
-    isDeveloper: user?.role === 'developer' || user?.role === 'admin',
-    isTeacher: user?.role === 'teacher' || user?.role === 'developer' || user?.role === 'admin',
+    isAdmin: hasAdminAccess(user?.role),
+    isDeveloper: hasDeveloperAccess(user?.role),
+    isTeacher: hasTeacherAccess(user?.role),
   };
 }

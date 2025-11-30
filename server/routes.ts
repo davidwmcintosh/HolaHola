@@ -13,6 +13,7 @@ import {
   insertClassHourPackageSchema,
   conversations,
 } from "@shared/schema";
+import { hasTeacherAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
 import { setupUnifiedWebSocketHandler } from "./unified-ws-handler";
 import {
@@ -4441,7 +4442,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const teacherId = req.user.claims.sub;
       const user = await storage.getUser(teacherId);
       
-      if (user?.role !== 'teacher' && user?.role !== 'admin') {
+      if (!hasTeacherAccess(user?.role)) {
         return res.status(403).json({ error: "Only teachers can create classes" });
       }
 
@@ -4476,7 +4477,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const teacherId = req.user.claims.sub;
       const user = await storage.getUser(teacherId);
       
-      if (user?.role !== 'teacher' && user?.role !== 'admin') {
+      if (!hasTeacherAccess(user?.role)) {
         return res.status(403).json({ error: "Only teachers can access this endpoint" });
       }
       
@@ -4705,7 +4706,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (user?.role !== 'teacher' && user?.role !== 'admin') {
+      if (!hasTeacherAccess(user?.role)) {
         return res.status(403).json({ error: "Only teachers can create curriculum paths" });
       }
 
@@ -4739,7 +4740,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (user?.role !== 'teacher' && user?.role !== 'admin') {
+      if (!hasTeacherAccess(user?.role)) {
         return res.status(403).json({ error: "Only teachers can create curriculum units" });
       }
 
@@ -4769,7 +4770,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (user?.role !== 'teacher' && user?.role !== 'admin') {
+      if (!hasTeacherAccess(user?.role)) {
         return res.status(403).json({ error: "Only teachers can create curriculum lessons" });
       }
 
@@ -4892,7 +4893,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const teacherId = req.user.claims.sub;
       const user = await storage.getUser(teacherId);
       
-      if (user?.role !== 'teacher' && user?.role !== 'admin') {
+      if (!hasTeacherAccess(user?.role)) {
         return res.status(403).json({ error: "Only teachers can create assignments" });
       }
 
@@ -5143,7 +5144,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       // Students can only view their own reports
       if (studentId !== userId) {
         const user = await storage.getUser(userId);
-        if (user?.role !== 'teacher' && user?.role !== 'admin') {
+        if (!hasTeacherAccess(user?.role)) {
           return res.status(403).json({ error: "Access denied" });
         }
         
@@ -5210,8 +5211,8 @@ Return ONLY the ${targetLanguage} phrase:`;
   
   // ===== User Management =====
   
-  // Get all users (admin/developer only)
-  app.get("/api/admin/users", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  // Get all users (admin only)
+  app.get("/api/admin/users", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { role, limit, offset } = req.query;
       const result = await storage.getAllUsers({
@@ -5263,7 +5264,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Reset user learning data (admin/developer only)
-  app.post("/api/admin/users/:userId/reset-learning-data", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  app.post("/api/admin/users/:userId/reset-learning-data", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const adminId = req.user.claims.sub;
       const { userId } = req.params;
@@ -5307,7 +5308,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ===== Class Management (Platform-wide) =====
   
   // Get all classes (admin/developer only)
-  app.get("/api/admin/classes", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  app.get("/api/admin/classes", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { limit, offset } = req.query;
       const result = await storage.getAllClasses({
@@ -5323,7 +5324,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Get class details (admin/developer only)
-  app.get("/api/admin/classes/:classId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  app.get("/api/admin/classes/:classId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { classId } = req.params;
       const classDetails = await storage.getClassWithDetails(classId);
@@ -5342,7 +5343,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ===== Class Hour Packages (Institutional) =====
   
   // Get all hour packages (admin/developer only)
-  app.get("/api/admin/hour-packages", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  app.get("/api/admin/hour-packages", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { purchaserId } = req.query;
       const packages = await storage.getClassHourPackages(purchaserId as string | undefined);
@@ -5354,7 +5355,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Create a new hour package (admin/developer only)
-  app.post("/api/admin/hour-packages", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  app.post("/api/admin/hour-packages", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const adminId = req.user?.claims?.sub;
       
@@ -5395,7 +5396,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Get a specific hour package
-  app.get("/api/admin/hour-packages/:packageId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  app.get("/api/admin/hour-packages/:packageId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { packageId } = req.params;
       const pkg = await storage.getClassHourPackage(packageId);
@@ -5412,7 +5413,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Update an hour package
-  app.patch("/api/admin/hour-packages/:packageId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  app.patch("/api/admin/hour-packages/:packageId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const adminId = req.user?.claims?.sub;
       const { packageId } = req.params;
@@ -5442,7 +5443,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Assign package to a class (link hourPackageId to teacherClasses)
-  app.post("/api/admin/hour-packages/:packageId/assign-class", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  app.post("/api/admin/hour-packages/:packageId/assign-class", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const adminId = req.user?.claims?.sub;
       const { packageId } = req.params;
@@ -5488,7 +5489,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ===== Assignment Management (Platform-wide) =====
   
   // Get all assignments (admin/developer only)
-  app.get("/api/admin/assignments", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  app.get("/api/admin/assignments", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { limit, offset } = req.query;
       const result = await storage.getAllAssignments({
@@ -5504,7 +5505,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Get all submissions (admin/developer only)
-  app.get("/api/admin/submissions", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  app.get("/api/admin/submissions", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { limit, offset } = req.query;
       const result = await storage.getAllSubmissions({
@@ -5522,7 +5523,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ===== Platform Metrics =====
   
   // Get platform metrics (admin/developer only)
-  app.get("/api/admin/metrics", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  app.get("/api/admin/metrics", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const metrics = await storage.getPlatformMetrics();
       res.json(metrics);
@@ -5533,7 +5534,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Get growth metrics (admin/developer only)
-  app.get("/api/admin/metrics/growth", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  app.get("/api/admin/metrics/growth", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { days = 30 } = req.query;
       const metrics = await storage.getGrowthMetrics(parseInt(days as string));
@@ -5545,7 +5546,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Get top teachers (admin/developer only)
-  app.get("/api/admin/top-teachers", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  app.get("/api/admin/top-teachers", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { limit = 10 } = req.query;
       const teachers = await storage.getTopTeachers(parseInt(limit as string));
@@ -5557,7 +5558,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Get top classes (admin/developer only)
-  app.get("/api/admin/top-classes", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  app.get("/api/admin/top-classes", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { limit = 10 } = req.query;
       const classes = await storage.getTopClasses(parseInt(limit as string));
@@ -5672,7 +5673,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ===== Tutor Voice Management (Admin Console) =====
   
   // Get all configured voices (admin/developer only)
-  app.get("/api/admin/tutor-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  app.get("/api/admin/tutor-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const voices = await storage.getAllTutorVoices();
       res.json(voices);
@@ -5684,7 +5685,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   
   // Create or update a voice configuration (developer/super admin only)
   // Only super admins can modify voice settings including personality, expressiveness, and emotion
-  app.post("/api/admin/tutor-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  app.post("/api/admin/tutor-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { language, gender, provider, voiceId, voiceName, languageCode, speakingRate, personality, expressiveness, emotion, isActive } = req.body;
       
@@ -5831,7 +5832,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   
   // Fetch available Cartesia voices from their API (admin/developer only)
   // Route accepts optional path params: /api/admin/cartesia-voices/:language?/:gender?
-  app.get("/api/admin/cartesia-voices/:language?/:gender?", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  app.get("/api/admin/cartesia-voices/:language?/:gender?", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const apiKey = process.env.CARTESIA_API_KEY;
       if (!apiKey) {
@@ -6009,7 +6010,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   
   // Get TTS emotion metadata for admin voice console (admin/developer only)
   // Returns personality presets, expressiveness levels, and allowed emotions
-  app.get("/api/admin/tts-meta", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  app.get("/api/admin/tts-meta", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { PERSONALITY_PRESETS, EXPRESSIVENESS_LEVELS, getAllowedEmotions, getDefaultEmotion } = await import('./services/tts-service');
       
@@ -6040,7 +6041,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   
   // Preview TTS for admin voice testing (admin/developer only)
   // This endpoint fully simulates production TTS with phoneme processing and emotion control
-  app.post("/api/admin/tutor-voices/preview", isAuthenticated, loadAuthenticatedUser(storage), requireRole('developer'), async (req: any, res) => {
+  app.post("/api/admin/tutor-voices/preview", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { voiceId, text, language, speakingRate, emotion } = req.body;
       
