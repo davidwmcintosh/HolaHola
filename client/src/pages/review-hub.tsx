@@ -35,6 +35,8 @@ import {
   Circle,
   Globe,
   ListTree,
+  PencilLine,
+  Languages,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { VocabularyWord, Conversation, CulturalTip, UserLesson, Topic } from "@shared/schema";
@@ -89,6 +91,7 @@ interface ReviewHubData {
     lessonName: string;
     lessonDescription: string | null;
     unitName: string;
+    lessonType: string;
   } | null;
   upcomingAssignments: UpcomingAssignment[];
   syllabusOverview: SyllabusOverview | null;
@@ -111,6 +114,48 @@ const topicTypeIcons = {
   grammar: Hash,
   function: MessageSquare,
 };
+
+const lessonTypeConfig = {
+  conversation: {
+    icon: MessageSquare,
+    label: "Conversation",
+    color: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+    borderColor: "border-green-200 dark:border-green-800",
+  },
+  vocabulary: {
+    icon: Languages,
+    label: "Vocabulary",
+    color: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+    borderColor: "border-blue-200 dark:border-blue-800",
+  },
+  grammar: {
+    icon: PencilLine,
+    label: "Grammar",
+    color: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
+    borderColor: "border-purple-200 dark:border-purple-800",
+  },
+  cultural_exploration: {
+    icon: Globe,
+    label: "Culture",
+    color: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+    borderColor: "border-amber-200 dark:border-amber-800",
+  },
+};
+
+function LessonTypeBadge({ lessonType, size = "sm" }: { lessonType: string; size?: "sm" | "xs" }) {
+  const config = lessonTypeConfig[lessonType as keyof typeof lessonTypeConfig] || lessonTypeConfig.conversation;
+  const Icon = config.icon;
+  
+  return (
+    <Badge 
+      variant="outline" 
+      className={`${config.color} ${config.borderColor} gap-1 ${size === "xs" ? "text-[10px] px-1.5 py-0" : "text-xs"}`}
+    >
+      <Icon className={size === "xs" ? "h-2.5 w-2.5" : "h-3 w-3"} />
+      {config.label}
+    </Badge>
+  );
+}
 
 function getLanguageDisplayName(code: string): string {
   const names: Record<string, string> = {
@@ -303,7 +348,10 @@ export default function ReviewHub() {
                     <GraduationCap className="h-5 w-5 text-indigo-700 dark:text-indigo-300" />
                   </div>
                   <div>
-                    <p className="font-medium">Begin: {data.nextLesson.lessonName}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium">Begin: {data.nextLesson.lessonName}</p>
+                      <LessonTypeBadge lessonType={data.nextLesson.lessonType} size="xs" />
+                    </div>
                     <p className="text-sm text-muted-foreground">
                       {data.nextLesson.className} - {data.nextLesson.unitName}
                     </p>
@@ -586,7 +634,10 @@ export default function ReviewHub() {
                             <BookOpen className="h-4 w-4 text-primary" />
                           </div>
                           <div>
-                            <p className="font-medium text-sm">Continue: {nextLesson.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-sm">Continue: {nextLesson.name}</p>
+                              <LessonTypeBadge lessonType={nextLesson.lessonType} size="xs" />
+                            </div>
                             <p className="text-xs text-muted-foreground">{nextLesson.unitName}</p>
                           </div>
                         </div>
@@ -657,17 +708,20 @@ export default function ReviewHub() {
                                   className="flex items-center gap-3 p-2 rounded hover-elevate cursor-pointer" 
                                   data-testid={`lesson-${lesson.id}`}
                                 >
-                                  <LessonStatusIcon className={`h-4 w-4 ${statusColor}`} />
+                                  <LessonStatusIcon className={`h-4 w-4 flex-shrink-0 ${statusColor}`} />
                                   <div className="flex-1 min-w-0">
                                     <p className={`text-sm truncate ${lesson.status === 'completed' ? 'text-muted-foreground' : ''}`}>
                                       {lesson.name}
                                     </p>
                                   </div>
-                                  {lesson.estimatedMinutes && (
-                                    <span className="text-xs text-muted-foreground">
-                                      ~{lesson.estimatedMinutes}m
-                                    </span>
-                                  )}
+                                  <div className="flex items-center gap-2 flex-shrink-0">
+                                    <LessonTypeBadge lessonType={lesson.lessonType} size="xs" />
+                                    {lesson.estimatedMinutes && (
+                                      <span className="text-xs text-muted-foreground">
+                                        ~{lesson.estimatedMinutes}m
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </Link>
                             );

@@ -398,6 +398,7 @@ export interface IStorage {
       lessonName: string;
       lessonDescription: string | null;
       unitName: string;
+      lessonType: string;
     } | null;
     upcomingAssignments: Array<{
       id: string;
@@ -2974,6 +2975,7 @@ export class DatabaseStorage implements IStorage {
       lessonName: string;
       lessonDescription: string | null;
       unitName: string;
+      lessonType: string;
     } | null;
     upcomingAssignments: Array<{
       id: string;
@@ -2985,6 +2987,26 @@ export class DatabaseStorage implements IStorage {
       lessonId: string | null;
       status: 'not_started' | 'in_progress' | 'submitted' | 'graded' | 'overdue';
     }>;
+    syllabusOverview: {
+      classId: string;
+      className: string;
+      curriculumName: string;
+      totalLessons: number;
+      completedLessons: number;
+      units: Array<{
+        id: string;
+        name: string;
+        orderIndex: number;
+        lessons: Array<{
+          id: string;
+          name: string;
+          orderIndex: number;
+          lessonType: string;
+          status: 'not_started' | 'in_progress' | 'completed';
+          estimatedMinutes: number | null;
+        }>;
+      }>;
+    } | null;
     stats: {
       totalConversations: number;
       totalVocabulary: number;
@@ -3213,6 +3235,7 @@ export class DatabaseStorage implements IStorage {
       lessonName: string;
       lessonDescription: string | null;
       unitName: string;
+      lessonType: string;
     } | null = null;
 
     try {
@@ -3248,7 +3271,8 @@ export class DatabaseStorage implements IStorage {
                 lessonId: lesson.id,
                 lessonName: lesson.name,
                 lessonDescription: lesson.description,
-                unitName: unit.name
+                unitName: unit.name,
+                lessonType: lesson.lessonType || 'conversation'
               };
               break;
             }
