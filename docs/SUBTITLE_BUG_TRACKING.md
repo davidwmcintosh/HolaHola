@@ -596,3 +596,59 @@ setHasShownTeachingBlock(false);
 ### Status: DEPLOYED
 - Workflow restarted with fix
 - Pending user verification
+
+---
+
+## Session Log: November 30, 2025 (Late Night - 11:05 PM)
+
+### English Word Leak Bug - "already" appearing in subtitles
+
+**User Report:**
+- Phantom "hola hola" still appearing
+- "perfect" (or "already") English word appearing on screen in Target mode
+
+**Server Log Evidence:**
+```
+[TargetExtraction] Mapping: 0=>0, 6=>1 (10 display -> 2 target)
+```
+
+**Browser Console Evidence:**
+```javascript
+sentences array: [
+  {"idx":0,"turnId":2,"target":"¡Excelente! already","hasTarget":true},
+  ...
+]
+```
+
+**Root Cause:**
+The word "already" was NOT in the ENGLISH_FILTER blocklist in `server/text-utils.ts`. When the AI generated:
+```
+"**¡Excelente!** That was perfect, David! You've already got **Hola** down!"
+```
+
+The extraction logic incorrectly included "already" in the target text, producing "¡Excelente! already" instead of "¡Excelente! Hola".
+
+**Fix Applied:**
+Added missing common English words to the ENGLISH_FILTER:
+```typescript
+'already', 'have', 'has', 'had', 'having', 'been', 'be', 'am', 'are', 'will', 'shall',
+```
+
+**Debug Logging Added:**
+Added trace logging in `streaming-voice-orchestrator.ts` to show:
+- Raw text (with bold markers)
+- Display text (cleaned for TTS)
+- Target text (extracted Spanish)
+
+```
+[TargetExtraction] Raw: "**¡Excelente!** That was perfect..."
+[TargetExtraction] Display: "¡Excelente! That was perfect..."
+[TargetExtraction] Target: "¡Excelente! Hola"
+```
+
+**Files Changed:**
+- `server/text-utils.ts` (line 286) - Added English words to filter
+- `server/services/streaming-voice-orchestrator.ts` (lines 502-507) - Added debug logging
+
+### Status: DEPLOYED
+- Pending user verification
