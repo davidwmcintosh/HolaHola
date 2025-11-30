@@ -17,6 +17,7 @@ interface VoiceChatViewManagerProps {
   isMicPreparing?: boolean;
   isProcessing?: boolean;
   isPlaying: boolean;
+  isConnecting?: boolean;  // True while WebSocket/Cartesia is warming up
   currentPlayingMessageId?: string;
   audioElementRef?: React.RefObject<HTMLAudioElement>;
   onReplay?: () => void;
@@ -48,6 +49,7 @@ export function VoiceChatViewManager({
   isMicPreparing = false,
   isProcessing,
   isPlaying,
+  isConnecting = false,
   currentPlayingMessageId,
   audioElementRef,
   onReplay,
@@ -185,6 +187,7 @@ export function VoiceChatViewManager({
                 isMicPreparing={isMicPreparing}
                 isProcessing={isProcessing}
                 isPlaying={isPlaying}
+                isConnecting={isConnecting}
                 currentPlayingMessageId={currentPlayingMessageId}
                 audioElementRef={audioElementRef}
                 onReplay={onReplay}
