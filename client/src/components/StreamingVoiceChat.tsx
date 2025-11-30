@@ -1056,8 +1056,13 @@ export function StreamingVoiceChat({
         if (isActiveSession) {
           mediaRecorderRef.current = null;
           streamRef.current = null;
+          // CRITICAL: Set both isRecording=false AND isProcessing=true in the SAME sync batch
+          // This prevents a render gap where neither guard is active (causing phantom subtitles)
+          // The phantom appears as black text when isRecording=false but isProcessing hasn't been set yet
           setIsRecording(false);
+          setIsProcessing(true); // Set immediately - no gap between recording and processing
           isRecordingRef.current = false;
+          isProcessingRef.current = true; // Update ref immediately for sync checks
           // DON'T set avatarState to 'idle' here - let processRecording manage it
           // This prevents flickering between listening → idle → speaking
           

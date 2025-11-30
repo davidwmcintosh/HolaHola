@@ -1,6 +1,6 @@
 # Subtitle Bug Tracking Document
 
-## Last Updated: November 30, 2025 (Late Evening Session - 10:55 PM)
+## Last Updated: November 30, 2025 (Late Evening Session - 11:20 PM)
 
 ---
 
@@ -101,10 +101,46 @@ Client Side:
 
 ---
 
+## Fix #4: React State Gap Race Condition (Nov 30, 2025 - 11:20 PM)
+
+### Problem: BLACK Phantom Subtitles
+User observed "hola hola?" appearing as BLACK text (not blue/highlighted like normal streaming subtitles) between mic release and tutor speaking. This phantom:
+- Appears AFTER normal subtitle flow ends
+- Flashes BEFORE new subtitle flow starts  
+- Does NOT highlight/animate (static black text)
+- Described as "words from the dead" - old content reappearing
+
+### Root Cause: React State Transition Gap
+In `StreamingVoiceChat.tsx`, the `onstop` callback:
+1. Line 1059: `setIsRecording(false)` - queued for render
+2. ... async code runs (Blob creation, function calls) ...
+3. Line 1146: `setIsProcessing(true)` - queued later in processRecording
+
+**The Problem:** Between these two state updates, React could render with:
+- `isRecording = false`
+- `isProcessing = false` (not yet set)
+
+Neither guard would block subtitle rendering, causing phantom to appear!
+
+### Fix Applied
+Set BOTH state transitions in the same synchronous batch:
+```typescript
+// Line 1065-1068 in StreamingVoiceChat.tsx
+setIsRecording(false);
+setIsProcessing(true); // Set immediately - no gap between recording and processing
+isRecordingRef.current = false;
+isProcessingRef.current = true; // Update ref immediately for sync checks
+```
+
+### Why This Works
+React 18 batches state updates in the same synchronous context. By setting both states together, there's no render cycle where neither guard is active.
+
+---
+
 ## Current Open Bugs
 
 ### Bug #1: Phantom Subtitles
-**Status:** OPEN - Under Investigation  
+**Status:** FIX APPLIED - Pending Verification  
 **Severity:** High  
 **First Reported:** November 2025  
 **Last Tested:** November 30, 2025 (Evening)
