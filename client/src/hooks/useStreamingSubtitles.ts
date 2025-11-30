@@ -114,6 +114,15 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     isWaitingForContentRef.current = false;
     setIsWaitingForContent(false);
     
+    // CRITICAL: Clear fallback text when new sentence has NO target words
+    // This prevents "phantom subtitles" where old Spanish words stay visible
+    // during English-only sentences
+    if (!targetLanguageText || targetLanguageText.trim().length === 0) {
+      console.log(`[StreamingSubtitles] Sentence ${index} has no target text - clearing fallback to prevent phantoms`);
+      lastNonEmptyTargetTextRef.current = '';
+      setLastNonEmptyTargetText('');
+    }
+    
     setSentences(prev => {
       // Check if sentence already exists
       const existing = prev.find(s => s.index === index);
