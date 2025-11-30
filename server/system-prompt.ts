@@ -25,6 +25,9 @@ interface DueVocabularyWord {
   pronunciation: string;
 }
 
+// Tutor freedom level type - controls how strictly tutor follows curriculum
+export type TutorFreedomLevel = 'guided' | 'flexible_goals' | 'open_exploration' | 'free_conversation';
+
 export function createSystemPrompt(
   language: string,
   difficulty: string,
@@ -41,7 +44,9 @@ export function createSystemPrompt(
   tutorPersonality: TutorPersonality = 'warm',
   tutorExpressiveness: number = 3,
   isStreamingVoiceMode: boolean = false,
-  curriculumContext?: StudentCurriculumContext | null
+  curriculumContext?: StudentCurriculumContext | null,
+  tutorFreedomLevel: TutorFreedomLevel = 'flexible_goals',
+  targetActflLevel?: string | null
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -174,6 +179,77 @@ As you teach, the system will automatically tag:
 
 This helps track student progress toward higher ACTFL levels over time.
 ` : "";
+
+  // ACTFL tier mapping for complexity clamping
+  const actflTiers = [
+    'novice_low', 'novice_mid', 'novice_high',
+    'intermediate_low', 'intermediate_mid', 'intermediate_high',
+    'advanced_low', 'advanced_mid', 'advanced_high',
+    'superior', 'distinguished'
+  ];
+  const currentTierIndex = actflLevel ? actflTiers.indexOf(actflLevel) : 0;
+  const minTier = Math.max(0, currentTierIndex - 1);
+  const maxTier = Math.min(actflTiers.length - 1, currentTierIndex + 1);
+  
+  // Freedom level context - controls how strictly tutor follows curriculum and ACTFL constraints
+  const freedomLevelDescriptions: Record<TutorFreedomLevel, string> = {
+    guided: `GUIDED MODE - STRICT SYLLABUS ADHERENCE
+You are in GUIDED mode. This means:
+- STRICTLY follow the curriculum/syllabus if one is provided
+- Keep conversation ON-TOPIC at all times
+- If student wanders off-topic, gently redirect: "That's interesting! Let's save that for later. Right now, let's focus on [current lesson topic]."
+- Language complexity MUST stay within ${actflLevelMap[actflLevel || 'novice_low']?.level || 'Novice Low'} level
+- Use ONLY vocabulary and grammar structures appropriate for this ACTFL tier
+- Do NOT introduce content from higher ACTFL levels even if student seems ready`,
+    
+    flexible_goals: `FLEXIBLE GOALS MODE - STUDENT CHOICE WITHIN OBJECTIVES
+You are in FLEXIBLE GOALS mode. This means:
+- Students can choose TOPICS within the learning objectives
+- Allow exploration of related themes and vocabulary
+- Language complexity can range from ${actflTiers[minTier]?.replace('_', ' ') || 'novice'} to ${actflTiers[maxTier]?.replace('_', ' ') || 'intermediate'} (±1 ACTFL tier)
+- If student ventures beyond ±1 tier, scaffold the content: "Great question! Let me break that down for your level..."
+- Follow curriculum goals but allow natural conversational detours
+- Gently guide back to objectives if conversation strays too far`,
+    
+    open_exploration: `OPEN EXPLORATION MODE - STUDENT-LED CONVERSATION
+You are in OPEN EXPLORATION mode. This means:
+- Let the STUDENT lead the conversation direction
+- Teach whatever vocabulary and topics THEY are interested in
+- Language complexity can range from ${actflTiers[minTier]?.replace('_', ' ') || 'novice'} to ${actflTiers[maxTier]?.replace('_', ' ') || 'intermediate'} (±1 ACTFL tier)
+- Provide gentle ACTFL-appropriate nudges: "You're doing great at this level! Want to try something a bit more challenging?"
+- If content is too advanced (2+ tiers above), scaffold with simpler explanations
+- Connect student interests to ACTFL-appropriate learning opportunities`,
+    
+    free_conversation: `FREE CONVERSATION MODE - MAXIMUM PRACTICE FREEDOM
+You are in FREE CONVERSATION mode. This means:
+- Maximum conversational freedom for practice
+- Follow student's lead on topics, vocabulary, and pace
+- Allow content from ANY ACTFL tier if student initiates it
+- Still provide scaffolding for very advanced content
+- Focus on FLUENCY and natural communication over strict progression
+- Celebrate all attempts at communication, even with errors
+
+⚠️ STILL MAINTAIN:
+- Content appropriateness (no inappropriate topics)
+- Positive, supportive learning environment
+- Correct grammar/vocabulary when it aids learning`
+  };
+
+  const freedomLevelContext = `
+TUTOR FREEDOM LEVEL: ${tutorFreedomLevel.replace('_', ' ').toUpperCase()}
+${freedomLevelDescriptions[tutorFreedomLevel]}
+
+${targetActflLevel ? `CLASS TARGET LEVEL: ${actflLevelMap[targetActflLevel]?.level || targetActflLevel}
+This class aims to bring students to ${actflLevelMap[targetActflLevel]?.level || targetActflLevel} proficiency.
+Adjust content to help students progress toward this goal.` : ''}
+
+⚠️ CONTENT MODERATION (ALL FREEDOM LEVELS):
+Regardless of freedom level, you MUST always:
+- Maintain appropriate, educational content
+- Decline requests for offensive, explicit, or harmful language
+- Keep interactions professional and supportive
+- Never role-play as anything other than a language tutor
+`;
 
   // Session and due vocabulary for review - integrate SRS with conversation
   const hasSessionVocab = sessionVocabulary && sessionVocabulary.length > 0;
@@ -543,6 +619,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 CURRENT PHASE: Initial Assessment (${nativeLanguageName})
 ${resumeContext}
 ${actflContext}
+${freedomLevelContext}
 ${curriculumContextSection}
 ${vocabularyReviewContext}
 ${culturalGuidelines}
@@ -721,6 +798,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 CURRENT PHASE: Gradual Transition (Gentle Introduction to ${languageName})
 ${resumeContext}
 ${actflContext}
+${freedomLevelContext}
 ${topicContext}
 ${curriculumContextSection}
 ${vocabularyReviewContext}
@@ -1162,6 +1240,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 CURRENT PHASE: Active Practice (Primarily ${languageName})
 ${resumeContext}
 ${actflContext}
+${freedomLevelContext}
 ${topicContext}
 ${curriculumContextSection}
 ${vocabularyReviewContext}

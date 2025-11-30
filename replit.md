@@ -62,6 +62,14 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - Admin UI selector in `/admin/classes` for configuring per-class AI behavior
 - All levels maintain morality/modesty guidelines regardless of flexibility setting
 
+**Unified ACTFL Assessment System**: ACTFL proficiency serves as the single source of truth for learner levels, replacing the dual onboarding/ACTFL system:
+- User schema fields: `actflLevel` (proficiency), `actflAssessed` (AI-verified vs cold-start), `assessmentSource` (onboarding_hint, ai_conversation, placement_test, teacher_override), `lastAssessmentDate`
+- Onboarding difficulty selection serves as "cold-start hint" that seeds initial ACTFL level (beginner→novice_low, intermediate→intermediate_low, advanced→advanced_low)
+- AI tutor dynamically assesses and updates ACTFL level through conversation
+- Class schema fields: `targetActflLevel` (class goal), `classLevel` (1-4 tier), `requiresPlacementCheck` (adaptive assessment for Level 2+ enrollees)
+- Freedom levels bind conversational complexity: guided=exact ACTFL, flexible_goals/open=±1 tier, free=any tier with scaffolding
+- System prompt includes freedom-aware ACTFL constraints with automatic complexity clamping
+
 ## External Dependencies
 
 ### Third-Party Services

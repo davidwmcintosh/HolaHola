@@ -102,7 +102,7 @@ export default function Onboarding() {
           ...prev,
           {
             role: "assistant",
-            content: `Perfect! I'll explain things in ${userInput}. Now, what's your current level? Are you a beginner (just starting out), intermediate (can have basic conversations), or advanced (fluent but want to improve)?`,
+            content: `Perfect! I'll explain things in ${userInput}. Now, what's your starting level? This helps me know where to begin - don't worry about being exact, I'll adapt as we practice together! Are you a beginner (just starting), intermediate (can hold basic conversations), or advanced (comfortable but want to improve)?`,
           },
         ]);
         setStep("difficulty");
@@ -121,7 +121,7 @@ export default function Onboarding() {
             ...prev,
             {
               role: "assistant",
-              content: `Excellent! You're all set up as a ${difficulty} learner. Let's start your language learning adventure! 🎉`,
+              content: `Excellent! I'll start at the ${difficulty} level and adjust as we practice together. Your AI tutor will adapt to your actual ability as you have conversations. Let's begin your language learning journey!`,
             },
           ]);
           setStep("complete");

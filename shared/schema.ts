@@ -61,8 +61,11 @@ export const users = pgTable("users", {
   tutorPersonality: varchar("tutor_personality").default("warm"), // warm, calm, energetic, professional
   // Tutor expressiveness - how much the AI deviates from baseline (1=subtle, 5=very expressive)
   tutorExpressiveness: integer("tutor_expressiveness").default(3), // 1-5 scale
-  // ACTFL proficiency tracking
+  // ACTFL proficiency tracking (unified assessment system)
   actflLevel: varchar("actfl_level"), // novice_low, novice_mid, novice_high, intermediate_low, intermediate_mid, intermediate_high, advanced_low, advanced_mid, advanced_high, superior, distinguished
+  actflAssessed: boolean("actfl_assessed").default(false), // true = AI-verified, false = cold-start hint from onboarding
+  assessmentSource: varchar("assessment_source").default("onboarding_hint"), // onboarding_hint, ai_conversation, placement_test, teacher_override
+  lastAssessmentDate: timestamp("last_assessment_date"), // When ACTFL level was last updated
   // Stripe billing integration
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
@@ -691,6 +694,10 @@ export const teacherClasses = pgTable("teacher_classes", {
   featuredOrder: integer("featured_order"), // Order in featured carousel (lower = first)
   // Tutor behavior settings
   tutorFreedomLevel: tutorFreedomLevelEnum("tutor_freedom_level").default("flexible_goals"), // How strictly tutor follows curriculum
+  // Class-level ACTFL expectations for unified assessment
+  targetActflLevel: varchar("target_actfl_level"), // Expected proficiency level for this class (novice_low, intermediate_mid, etc.)
+  classLevel: integer("class_level").default(1), // Class difficulty tier (1=beginner, 2=intermediate, 3=advanced, 4=superior)
+  requiresPlacementCheck: boolean("requires_placement_check").default(false), // If true, new enrollees get adaptive placement
   hoursPerStudent: integer("hours_per_student"), // Legacy: base hours allocated (moved to classHourPackages)
   hourPackageId: varchar("hour_package_id").references(() => classHourPackages.id), // Link to purchased hour package
   hoursPerStudentOverride: integer("hours_per_student_override"), // Optional per-class override
