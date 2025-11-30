@@ -265,25 +265,31 @@ export function extractTargetLanguageWithMapping(
     .trim();
   
   // Filter out common English words that may have leaked through
+  // Note: Words are normalized (lowercase, no punctuation) before checking
   const ENGLISH_FILTER = new Set([
-    'respond', 'with', 'that', 'was', 'great', 'you', 'got', 'the', 'and',
-    'or', 'a', 'an', 'to', 'for', 'is', 'it', 'in', 'on', 'of', 'can', 'try',
-    'saying', 'say', 'said', 'lets', 'now', 'your', 'i', 'we', 'they', 'this', 'how',
-    'excellent', 'perfect', 'wonderful', 'amazing', 'fantastic', 'beautiful',
-    'david', 'just', 'right', 'good', 'job', 'nice', 'work', 'well', 'done',
-    'remember', 'means', 'mean', 'english', 'spanish', 'french', 'german',
-    'italian', 'portuguese', 'japanese', 'korean', 'chinese', 'arabic'
+    'respond', 'with', 'that', 'thats', 'was', 'great', 'you', 'youve', 'youre', 'your', 'yours',
+    'got', 'the', 'and', 'or', 'a', 'an', 'to', 'for', 'is', 'isnt', 'it', 'its', 'in', 'on', 'of',
+    'can', 'cant', 'try', 'saying', 'say', 'said', 'lets', 'now', 'i', 'im', 'ive', 'id',
+    'we', 'weve', 'were', 'wed', 'they', 'theyre', 'theyve', 'this', 'how', 'hows',
+    'excellent', 'perfect', 'wonderful', 'amazing', 'fantastic', 'beautiful', 'awesome',
+    'david', 'just', 'right', 'good', 'job', 'nice', 'work', 'well', 'done', 'keep', 'going',
+    'remember', 'means', 'mean', 'english', 'spanish', 'french', 'german', 'again',
+    'italian', 'portuguese', 'japanese', 'korean', 'chinese', 'arabic', 'down', 'up',
+    'almost', 'close', 'not', 'quite', 'but', 'here', 'there', 'listen', 'hear', 'sound',
+    'sounds', 'like', 'word', 'words', 'pronounced', 'pronunciation', 'should', 'would',
+    'could', 'couldnt', 'shouldnt', 'wouldnt', 'didnt', 'dont', 'doesnt', 'havent', 'hasnt',
   ]);
   
   const targetWords = targetText.split(/\s+/).filter(w => w.length > 0);
   const filteredWords = targetWords.filter(word => {
-    // Strip punctuation to get the core word for checking
-    const stripped = word.replace(/^[^a-zA-ZÀ-ÿ]+|[^a-zA-ZÀ-ÿ]+$/g, '');
+    // Strip ALL punctuation (not just edges) to get core word for checking
+    // This catches words like "That's" -> "thats" for proper English filtering
+    const stripped = word.replace(/[^a-zA-ZÀ-ÿñ]/gi, '');
     const normalized = stripped.toLowerCase();
     
     // Check for actual foreign characters (not just punctuation)
     // Foreign chars: accented letters, ñ, inverted punctuation ¡¿, etc.
-    const hasForeignChars = /[À-ÿñ¡¿]/.test(stripped);
+    const hasForeignChars = /[À-ÿñ¡¿]/.test(word); // Check original word for ¡¿
     
     // Keep if it has genuine foreign characters OR isn't in English filter
     return hasForeignChars || !ENGLISH_FILTER.has(normalized);
