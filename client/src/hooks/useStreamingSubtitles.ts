@@ -37,6 +37,7 @@ export interface StreamingSubtitleState {
   targetFullText: string;  // Target language only (for subtitle mode filtering)
   currentSentenceText: string;  // Current sentence text for karaoke display
   currentSentenceTargetText: string;  // Current sentence target text for subtitle mode
+  lastNonEmptyTargetText: string;  // Last target text that had content (for fallback display)
   visibleTargetText: string;  // Only target text from COMPLETED sentences (not pending ones)
 }
 
@@ -70,6 +71,10 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   // This enables progressive reveal in Target mode - once a target word is spoken,
   // it stays visible even when subsequent English words are playing
   const [maxTargetWordIndex, setMaxTargetWordIndex] = useState(-1);
+  
+  // Track the last non-empty target text for fallback display
+  // When a sentence has no target text (like "Give it a try!"), we show the last known target text
+  const [lastNonEmptyTargetText, setLastNonEmptyTargetText] = useState('');
   
   // Use ref + state pattern for isWaitingForContent to ensure:
   // - Ref provides IMMEDIATE synchronous update for render guards
@@ -328,6 +333,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     setVisibleWordCount(0);
     setIsPlaying(false);
     setMaxTargetWordIndex(-1);  // Reset max target index
+    setLastNonEmptyTargetText('');  // Reset last target text
     currentTimingsRef.current = [];
     expectedDurationRef.current = undefined;
     actualDurationRef.current = undefined;
@@ -393,6 +399,14 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   const currentSentenceText = currentSentence?.text || '';
   const currentSentenceTargetText = currentSentence?.targetLanguageText || '';
   
+  // Update lastNonEmptyTargetText when we get a sentence with target content
+  // This enables fallback display when subsequent sentences have no target text
+  useMemo(() => {
+    if (currentSentenceTargetText && currentSentenceTargetText.length > 0) {
+      setLastNonEmptyTargetText(currentSentenceTargetText);
+    }
+  }, [currentSentenceTargetText]);
+  
   // Compute current target word index from current word index using word mapping
   // This enables karaoke highlighting in Target mode
   // 
@@ -436,6 +450,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       targetFullText,
       currentSentenceText,
       currentSentenceTargetText,
+      lastNonEmptyTargetText,
       visibleTargetText,
     },
     addSentence,
@@ -459,6 +474,7 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     targetFullText,
     currentSentenceText,
     currentSentenceTargetText,
+    lastNonEmptyTargetText,
     visibleTargetText,
     addSentence,
     setWordTimings,

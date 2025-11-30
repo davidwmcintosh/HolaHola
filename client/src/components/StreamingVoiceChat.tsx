@@ -1561,6 +1561,7 @@ export function StreamingVoiceChat({
           tutorGender={tutorGender}
           streamingText={useStreamingMode ? streamingVoice.subtitles.state.currentSentenceText : undefined}
           streamingTargetText={useStreamingMode ? streamingVoice.subtitles.state.currentSentenceTargetText : undefined}
+          lastNonEmptyTargetText={useStreamingMode ? streamingVoice.subtitles.state.lastNonEmptyTargetText : undefined}
           streamingWordIndex={useStreamingMode ? streamingVoice.subtitles.state.currentWordIndex : undefined}
           streamingTargetWordIndex={useStreamingMode ? streamingVoice.subtitles.state.currentTargetWordIndex : undefined}
           isWaitingForContent={useStreamingMode ? streamingVoice.subtitles.state.isWaitingForContent : undefined}

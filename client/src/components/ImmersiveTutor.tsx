@@ -41,6 +41,7 @@ interface ImmersiveTutorProps {
   tutorGender?: 'male' | 'female'; // Tutor avatar gender preference
   streamingText?: string; // Text from streaming voice mode
   streamingTargetText?: string; // Target language only text from streaming mode
+  lastNonEmptyTargetText?: string; // Fallback target text when current sentence has no target content
   streamingWordIndex?: number; // Current word index for streaming subtitles
   streamingTargetWordIndex?: number; // Current word index for target-only text (enables karaoke in Target mode)
   isWaitingForContent?: boolean; // True after subtitle reset, false when new content arrives
@@ -76,6 +77,7 @@ export function ImmersiveTutor({
   tutorGender = "female",
   streamingText,
   streamingTargetText,
+  lastNonEmptyTargetText,
   streamingWordIndex = -1,
   streamingTargetWordIndex = -1,
   isWaitingForContent = false,
@@ -442,10 +444,36 @@ export function ImmersiveTutor({
               isProcessing,
             });
             
-            // For "target" mode with no target text available, don't show subtitles
+            // For "target" mode with no target text available, show the last target text as a reference
+            // This keeps "Buenas tardes" visible when the AI says "Give it a try!" (pure English)
             if (isTargetMode && !streamingTargetText) {
-              // No target language content in streaming - skip display
-              console.log('[SUBTITLE DEBUG] Target mode with no target text - hiding');
+              // Show fallback target text if available (static display, no highlighting)
+              if (lastNonEmptyTargetText) {
+                console.log('[SUBTITLE DEBUG] Target mode with no target text - showing fallback:', lastNonEmptyTargetText);
+                const fallbackWords = lastNonEmptyTargetText.split(/\s+/).filter(w => w.length > 0);
+                return (
+                  <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
+                    <div className="max-w-4xl mx-auto">
+                      <div 
+                        className="text-xl md:text-3xl font-medium text-center leading-relaxed text-foreground/70"
+                        data-testid="text-subtitle-overlay-fallback"
+                      >
+                        {fallbackWords.map((word, index) => (
+                          <span
+                            key={index}
+                            className="inline-block mx-0.5"
+                            data-testid={`fallback-target-word-${index}`}
+                          >
+                            {cleanForDisplay(word)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              // No fallback available either - hide subtitles
+              console.log('[SUBTITLE DEBUG] Target mode with no target text and no fallback - hiding');
               return null;
             }
             
