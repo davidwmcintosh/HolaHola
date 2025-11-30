@@ -496,6 +496,13 @@ export class StreamingVoiceOrchestrator {
           // This provides both targetLanguageText AND a mapping for karaoke highlighting
           const extraction = extractTargetLanguageWithMapping(displayText, chunk.text);
           
+          // DEBUG: Trace extraction
+          if (extraction.targetText) {
+            console.log(`[TargetExtraction] Raw: "${chunk.text.substring(0, 80)}..."`);
+            console.log(`[TargetExtraction] Display: "${displayText.substring(0, 80)}..."`);
+            console.log(`[TargetExtraction] Target: "${extraction.targetText}"`);
+          }
+          
           // Convert Map to array of tuples for JSON serialization
           const wordMappingArray: [number, number][] = extraction.wordMapping.size > 0
             ? Array.from(extraction.wordMapping.entries())

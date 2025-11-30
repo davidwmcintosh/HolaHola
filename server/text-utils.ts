@@ -280,6 +280,7 @@ export function extractTargetLanguageWithMapping(
   const ENGLISH_FILTER = new Set([
     'respond', 'with', 'that', 'thats', 'was', 'great', 'you', 'youve', 'youre', 'your', 'yours',
     'got', 'the', 'and', 'or', 'a', 'an', 'to', 'for', 'is', 'isnt', 'it', 'its', 'in', 'on', 'of',
+    'already', 'have', 'has', 'had', 'having', 'been', 'be', 'am', 'are', 'will', 'shall',
     'can', 'cant', 'try', 'trying', 'saying', 'say', 'said', 'lets', 'now', 'i', 'im', 'ive', 'id',
     'we', 'weve', 'were', 'wed', 'they', 'theyre', 'theyve', 'this', 'how', 'hows',
     'excellent', 'perfect', 'wonderful', 'amazing', 'fantastic', 'beautiful', 'awesome',
