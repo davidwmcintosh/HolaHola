@@ -727,7 +727,7 @@ export function ImmersiveTutor({
       <div className="flex-shrink-0 pt-2 pb-16 flex flex-col items-center gap-2">
         {/* Instruction text */}
         <p className="text-xs text-muted-foreground" data-testid="text-mic-instruction">
-          {isConnecting ? "Connecting..." : isRecording ? "Release to send" : isMicPreparing ? "Preparing mic..." : isProcessing ? "Processing..." : "Hold to speak"}
+          {isConnecting ? `Calling ${tutorGender === 'male' ? maleVoiceName : femaleVoiceName}...` : isRecording ? "Release to send" : isMicPreparing ? "Preparing mic..." : isProcessing ? "Processing..." : "Hold to speak"}
         </p>
         
         <div className="flex justify-center items-center gap-3">
