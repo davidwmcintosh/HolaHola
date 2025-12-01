@@ -6096,6 +6096,81 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Create custom lesson for a unit
+  const createCustomLessonSchema = z.object({
+    name: z.string().min(1, "Lesson name is required").max(200, "Lesson name must be less than 200 characters").trim(),
+    description: z.string().max(2000, "Description must be less than 2000 characters").default(""),
+    lessonType: z.enum(["conversation", "vocabulary", "grammar", "cultural_exploration"]).default("conversation"),
+    actflLevel: z.enum([
+      "novice_low", "novice_mid", "novice_high",
+      "intermediate_low", "intermediate_mid", "intermediate_high",
+      "advanced_low", "advanced_mid", "advanced_high"
+    ]).optional().nullable(),
+    estimatedMinutes: z.number().int().min(5).max(180).default(30),
+  });
+
+  app.post("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons", mutationLimiter, isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { classId, unitId } = req.params;
+      
+      // Validate request body FIRST before any database operations
+      const parseResult = createCustomLessonSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        const fieldErrors = parseResult.error.flatten().fieldErrors;
+        const errorMessages = Object.entries(fieldErrors)
+          .map(([field, messages]) => `${field}: ${(messages as string[]).join(", ")}`)
+          .join("; ");
+        return res.status(400).json({ 
+          error: errorMessages || "Validation failed"
+        });
+      }
+      const validatedData = parseResult.data;
+      
+      // Verify teacher owns this class
+      const teacherClass = await storage.getTeacherClass(classId);
+      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      // Verify the unit exists and belongs to this class
+      const unit = await storage.getClassCurriculumUnit(unitId);
+      if (!unit || unit.classId !== classId) {
+        return res.status(404).json({ error: "Unit not found in this class" });
+      }
+
+      // Get existing lessons to determine next orderIndex (only after validation)
+      const existingLessons = await storage.getClassCurriculumLessons(unitId);
+      const maxOrderIndex = existingLessons.reduce((max, lesson) => Math.max(max, lesson.orderIndex), -1);
+
+      const lessonData = {
+        classUnitId: unitId,
+        name: validatedData.name,
+        description: validatedData.description,
+        lessonType: validatedData.lessonType,
+        actflLevel: validatedData.actflLevel || null,
+        orderIndex: maxOrderIndex + 1,
+        isCustom: true,
+        isRemoved: false,
+        objectives: [],
+        estimatedMinutes: validatedData.estimatedMinutes,
+        conversationTopic: null,
+        conversationPrompt: null,
+      };
+
+      const lesson = await storage.createClassCurriculumLesson(lessonData);
+      
+      if (!lesson) {
+        return res.status(500).json({ error: "Failed to create lesson" });
+      }
+      
+      res.json(lesson);
+    } catch (error: any) {
+      console.error('Error creating custom lesson:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Batch update unit order
   app.post("/api/teacher/classes/:classId/curriculum/units/reorder", isAuthenticated, async (req: any, res) => {
     try {

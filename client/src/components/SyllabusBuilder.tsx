@@ -4,8 +4,13 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   ChevronDown,
@@ -17,12 +22,22 @@ import {
   MessageSquare,
   Book,
   Globe,
-  Target
+  Target,
+  Plus,
+  Sparkles
 } from "lucide-react";
 import type { ClassCurriculumUnit, ClassCurriculumLesson } from "@shared/schema";
 
 interface SyllabusBuilderProps {
   classId: string;
+}
+
+interface CreateLessonData {
+  name: string;
+  description: string;
+  lessonType: string;
+  actflLevel?: string;
+  estimatedMinutes?: number;
 }
 
 const ACTFL_LABELS: Record<string, string> = {
@@ -126,6 +141,30 @@ export function SyllabusBuilder({ classId }: SyllabusBuilderProps) {
       toast({
         title: "Error",
         description: error.message || "Failed to remove lesson",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createLessonMutation = useMutation({
+    mutationFn: async ({ unitId, lessonData, onDialogClose }: { unitId: string; lessonData: CreateLessonData; onDialogClose?: () => void }) => {
+      const response = await apiRequest("POST", `/api/teacher/classes/${classId}/curriculum/units/${unitId}/lessons`, lessonData);
+      return { response, unitId, onDialogClose };
+    },
+    onSuccess: ({ unitId, onDialogClose }) => {
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/teacher/classes", classId, "curriculum", "units", unitId, "lessons"]
+      });
+      toast({
+        title: "Lesson Created",
+        description: "Your custom lesson has been added to the unit.",
+      });
+      onDialogClose?.();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to create lesson",
         variant: "destructive",
       });
     },
@@ -255,6 +294,8 @@ export function SyllabusBuilder({ classId }: SyllabusBuilderProps) {
             onDrop={(e) => handleUnitDrop(e, unit.id)}
             onDragEnd={handleUnitDragEnd}
             onDeleteLesson={(lessonId, unitId) => deleteLessonMutation.mutate({ lessonId, unitId })}
+            onAddLesson={(unitId, lessonData, onDialogClose) => createLessonMutation.mutate({ unitId, lessonData, onDialogClose })}
+            isCreatingLesson={createLessonMutation.isPending}
             reorderLessonsMutation={reorderLessonsMutation}
           />
         ))}
@@ -276,6 +317,8 @@ interface UnitCardProps {
   onDrop: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onDeleteLesson: (lessonId: string, unitId: string) => void;
+  onAddLesson: (unitId: string, lessonData: CreateLessonData, onDialogClose: () => void) => void;
+  isCreatingLesson: boolean;
   reorderLessonsMutation: any;
 }
 
@@ -292,8 +335,36 @@ function UnitCard({
   onDrop,
   onDragEnd,
   onDeleteLesson,
+  onAddLesson,
+  isCreatingLesson,
   reorderLessonsMutation,
 }: UnitCardProps) {
+  const [addLessonDialogOpen, setAddLessonDialogOpen] = useState(false);
+  const [newLessonName, setNewLessonName] = useState("");
+  const [newLessonDescription, setNewLessonDescription] = useState("");
+  const [newLessonType, setNewLessonType] = useState("conversation");
+  const [newLessonActflLevel, setNewLessonActflLevel] = useState("");
+
+  const handleAddLesson = () => {
+    if (!newLessonName.trim()) return;
+    
+    const resetForm = () => {
+      setNewLessonName("");
+      setNewLessonDescription("");
+      setNewLessonType("conversation");
+      setNewLessonActflLevel("");
+      setAddLessonDialogOpen(false);
+    };
+    
+    onAddLesson(unit.id, {
+      name: newLessonName.trim(),
+      description: newLessonDescription.trim(),
+      lessonType: newLessonType,
+      actflLevel: newLessonActflLevel || undefined,
+      estimatedMinutes: 30,
+    }, resetForm);
+  };
+
   const { data: lessons = [], isLoading: lessonsLoading } = useQuery<ClassCurriculumLesson[]>({
     queryKey: ["/api/teacher/classes", classId, "curriculum", "units", unit.id, "lessons"],
     queryFn: async () => {
@@ -417,9 +488,106 @@ function UnitCard({
                 ))}
               </div>
             ) : sortedLessons.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No lessons in this unit.
-              </p>
+              <div className="text-center py-4 space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  No lessons in this unit.
+                </p>
+                <Dialog open={addLessonDialogOpen} onOpenChange={setAddLessonDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" data-testid={`button-add-first-lesson-${unit.id}`}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Your First Lesson
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <Sparkles className="w-5 h-5" />
+                        Create Custom Lesson
+                      </DialogTitle>
+                      <DialogDescription>
+                        Add a custom lesson to "{unit.name}". You can customize the content later.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor={`lesson-name-${unit.id}`}>Lesson Name</Label>
+                        <Input
+                          id={`lesson-name-${unit.id}`}
+                          value={newLessonName}
+                          onChange={(e) => setNewLessonName(e.target.value)}
+                          placeholder="e.g., Ordering at a Restaurant"
+                          data-testid={`input-lesson-name-${unit.id}`}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={`lesson-desc-${unit.id}`}>Description (optional)</Label>
+                        <Textarea
+                          id={`lesson-desc-${unit.id}`}
+                          value={newLessonDescription}
+                          onChange={(e) => setNewLessonDescription(e.target.value)}
+                          placeholder="What will students learn in this lesson?"
+                          className="resize-none"
+                          rows={2}
+                          data-testid={`input-lesson-description-${unit.id}`}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Lesson Type</Label>
+                          <Select value={newLessonType} onValueChange={setNewLessonType}>
+                            <SelectTrigger data-testid={`select-lesson-type-${unit.id}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="conversation">Conversation</SelectItem>
+                              <SelectItem value="vocabulary">Vocabulary</SelectItem>
+                              <SelectItem value="grammar">Grammar</SelectItem>
+                              <SelectItem value="cultural_exploration">Cultural</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>ACTFL Level (optional)</Label>
+                          <Select value={newLessonActflLevel} onValueChange={setNewLessonActflLevel}>
+                            <SelectTrigger data-testid={`select-lesson-actfl-${unit.id}`}>
+                              <SelectValue placeholder="Select level" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">Not specified</SelectItem>
+                              <SelectItem value="novice_low">Novice Low</SelectItem>
+                              <SelectItem value="novice_mid">Novice Mid</SelectItem>
+                              <SelectItem value="novice_high">Novice High</SelectItem>
+                              <SelectItem value="intermediate_low">Intermediate Low</SelectItem>
+                              <SelectItem value="intermediate_mid">Intermediate Mid</SelectItem>
+                              <SelectItem value="intermediate_high">Intermediate High</SelectItem>
+                              <SelectItem value="advanced_low">Advanced Low</SelectItem>
+                              <SelectItem value="advanced_mid">Advanced Mid</SelectItem>
+                              <SelectItem value="advanced_high">Advanced High</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setAddLessonDialogOpen(false)}
+                        data-testid={`button-cancel-add-lesson-${unit.id}`}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleAddLesson}
+                        disabled={!newLessonName.trim() || isCreatingLesson}
+                        data-testid={`button-confirm-add-lesson-${unit.id}`}
+                      >
+                        {isCreatingLesson ? "Creating..." : "Create Lesson"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
             ) : (
               <div className="space-y-2">
                 {sortedLessons.map((lesson, lessonIndex) => {
@@ -446,6 +614,12 @@ function UnitCard({
                         </span>
                         <Icon className="w-4 h-4 text-muted-foreground" />
                         <span className="text-sm font-medium">{lesson.name}</span>
+                        {lesson.isCustom && (
+                          <Badge variant="default" className="text-xs bg-primary/10 text-primary border-primary/20">
+                            <Sparkles className="w-3 h-3 mr-1" />
+                            Custom
+                          </Badge>
+                        )}
                         {lesson.lessonType && (
                           <Badge variant="outline" className="text-xs">
                             {LESSON_TYPE_LABELS[lesson.lessonType] || lesson.lessonType}
@@ -489,6 +663,106 @@ function UnitCard({
                     </div>
                   );
                 })}
+                <Dialog open={addLessonDialogOpen} onOpenChange={setAddLessonDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full mt-3 border-dashed border"
+                      data-testid={`button-add-lesson-${unit.id}`}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Custom Lesson
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <Sparkles className="w-5 h-5" />
+                        Create Custom Lesson
+                      </DialogTitle>
+                      <DialogDescription>
+                        Add a custom lesson to "{unit.name}". You can customize the content later.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor={`new-lesson-name-${unit.id}`}>Lesson Name</Label>
+                        <Input
+                          id={`new-lesson-name-${unit.id}`}
+                          value={newLessonName}
+                          onChange={(e) => setNewLessonName(e.target.value)}
+                          placeholder="e.g., Ordering at a Restaurant"
+                          data-testid={`input-new-lesson-name-${unit.id}`}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={`new-lesson-desc-${unit.id}`}>Description (optional)</Label>
+                        <Textarea
+                          id={`new-lesson-desc-${unit.id}`}
+                          value={newLessonDescription}
+                          onChange={(e) => setNewLessonDescription(e.target.value)}
+                          placeholder="What will students learn in this lesson?"
+                          className="resize-none"
+                          rows={2}
+                          data-testid={`input-new-lesson-description-${unit.id}`}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Lesson Type</Label>
+                          <Select value={newLessonType} onValueChange={setNewLessonType}>
+                            <SelectTrigger data-testid={`select-new-lesson-type-${unit.id}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="conversation">Conversation</SelectItem>
+                              <SelectItem value="vocabulary">Vocabulary</SelectItem>
+                              <SelectItem value="grammar">Grammar</SelectItem>
+                              <SelectItem value="cultural_exploration">Cultural</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>ACTFL Level (optional)</Label>
+                          <Select value={newLessonActflLevel} onValueChange={setNewLessonActflLevel}>
+                            <SelectTrigger data-testid={`select-new-lesson-actfl-${unit.id}`}>
+                              <SelectValue placeholder="Select level" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">Not specified</SelectItem>
+                              <SelectItem value="novice_low">Novice Low</SelectItem>
+                              <SelectItem value="novice_mid">Novice Mid</SelectItem>
+                              <SelectItem value="novice_high">Novice High</SelectItem>
+                              <SelectItem value="intermediate_low">Intermediate Low</SelectItem>
+                              <SelectItem value="intermediate_mid">Intermediate Mid</SelectItem>
+                              <SelectItem value="intermediate_high">Intermediate High</SelectItem>
+                              <SelectItem value="advanced_low">Advanced Low</SelectItem>
+                              <SelectItem value="advanced_mid">Advanced Mid</SelectItem>
+                              <SelectItem value="advanced_high">Advanced High</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setAddLessonDialogOpen(false)}
+                        data-testid={`button-cancel-new-lesson-${unit.id}`}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleAddLesson}
+                        disabled={!newLessonName.trim() || isCreatingLesson}
+                        data-testid={`button-confirm-new-lesson-${unit.id}`}
+                      >
+                        {isCreatingLesson ? "Creating..." : "Create Lesson"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
             )}
           </CardContent>
