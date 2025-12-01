@@ -16,7 +16,9 @@ import {
   getSubtitlePolicy, 
   getWordHighlightOffset, 
   shouldRevealProgressively,
-  shouldShowFullSentenceBeforeAudio 
+  shouldShowFullSentenceBeforeAudio,
+  logTimingEvent,
+  difficultyToProficiencyBand
 } from '../lib/subtitlePolicies';
 
 /**
@@ -454,6 +456,18 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     
     playbackStartTimeRef.current = Date.now();
     actualDurationRef.current = undefined;
+    
+    // Log telemetry for playback start
+    logTimingEvent({
+      event: 'playback_start',
+      turnId,
+      sentenceIndex,
+      audioTime: 0,
+      wallClockTime: Date.now(),
+      timingSource: 'perf',
+      difficulty: difficultyRef.current,
+      proficiencyBand: difficultyToProficiencyBand(difficultyRef.current),
+    });
   }, [currentTurnId]);
   
   /**
@@ -520,8 +534,33 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       setVisibleWordCount(maxVisibleIndex + 1);
     }
     // Always update the current word highlight (for karaoke effect)
-    setCurrentWordIndex(wordIndex);
-  }, []);
+    setCurrentWordIndex(prevIndex => {
+      // Only log telemetry when word index changes
+      if (prevIndex !== wordIndex && wordIndex >= 0) {
+        const timing = timings[wordIndex];
+        const scaledStartTime = timing.startTime * scaleFactor;
+        // CRITICAL: Use adjustedTime for drift calculation, not raw currentTime
+        // This accounts for the ACTFL-level-aware offset, so drift=0 means perfect sync
+        const drift = adjustedTime - scaledStartTime;
+        
+        logTimingEvent({
+          event: 'word_highlight',
+          turnId: currentTurnId,
+          sentenceIndex: currentSentenceIndex,
+          audioTime: currentTime,
+          wallClockTime: Date.now(),
+          timingSource: 'audio',
+          wordIndex,
+          wordText: timing.word,
+          expectedTime: scaledStartTime,
+          drift,
+          difficulty: difficultyRef.current,
+          proficiencyBand: difficultyToProficiencyBand(difficultyRef.current),
+        });
+      }
+      return wordIndex;
+    });
+  }, [currentTurnId, currentSentenceIndex]);
   
   /**
    * Stop playback
@@ -542,6 +581,18 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
   const completeSentence = useCallback((sentenceIndex: number, turnId: number) => {
     // STALE PACKET FILTER
     if (turnId < currentTurnId) return;
+    
+    // Log telemetry for sentence completion
+    logTimingEvent({
+      event: 'sentence_complete',
+      turnId,
+      sentenceIndex,
+      audioTime: actualDurationRef.current ? actualDurationRef.current / 1000 : 0,
+      wallClockTime: Date.now(),
+      timingSource: 'perf',
+      difficulty: difficultyRef.current,
+      proficiencyBand: difficultyToProficiencyBand(difficultyRef.current),
+    });
     
     // Clean up timing cache
     timingsBySentenceRef.current.delete(sentenceIndex);

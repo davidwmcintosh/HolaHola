@@ -262,3 +262,168 @@ export function getTargetEmphasisStyle(difficulty: string | undefined | null): '
   const policy = getSubtitlePolicy(difficulty);
   return policy.modes.targetEmphasisStyle;
 }
+
+/* =============================================================================
+   TIMING TELEMETRY - Instrumentation for subtitle sync diagnostics
+   ============================================================================= */
+
+export interface SubtitleTelemetryEntry {
+  timestamp: number;
+  event: 'playback_start' | 'word_highlight' | 'sentence_complete' | 'timing_error';
+  turnId: number;
+  sentenceIndex: number;
+  audioTime: number;
+  wallClockTime: number;
+  timingSource: 'audio' | 'perf';
+  wordIndex?: number;
+  wordText?: string;
+  expectedTime?: number;
+  drift?: number;
+  difficulty?: string;
+  proficiencyBand?: ProficiencyBand;
+}
+
+/**
+ * Telemetry buffer - stores timing events for analysis
+ * Limited to last 500 entries to prevent memory issues
+ */
+const telemetryBuffer: SubtitleTelemetryEntry[] = [];
+const MAX_TELEMETRY_ENTRIES = 500;
+let telemetryEnabled = true;
+
+/**
+ * Enable or disable timing telemetry
+ */
+export function setTelemetryEnabled(enabled: boolean): void {
+  telemetryEnabled = enabled;
+  console.log(`[SubtitleTelemetry] Telemetry ${enabled ? 'enabled' : 'disabled'}`);
+}
+
+/**
+ * Log a timing event for diagnostics
+ */
+export function logTimingEvent(entry: Omit<SubtitleTelemetryEntry, 'timestamp'>): void {
+  if (!telemetryEnabled) return;
+  
+  const fullEntry: SubtitleTelemetryEntry = {
+    ...entry,
+    timestamp: Date.now(),
+  };
+  
+  telemetryBuffer.push(fullEntry);
+  
+  // Keep buffer bounded
+  if (telemetryBuffer.length > MAX_TELEMETRY_ENTRIES) {
+    telemetryBuffer.shift();
+  }
+  
+  // Log errors and significant drift to console
+  if (entry.event === 'timing_error') {
+    console.warn('[SubtitleTelemetry] Timing error:', entry);
+  } else if (entry.drift !== undefined && Math.abs(entry.drift) > 0.2) {
+    console.log(`[SubtitleTelemetry] Drift detected: ${entry.drift.toFixed(3)}s at word "${entry.wordText}" (turn ${entry.turnId})`);
+  }
+}
+
+/**
+ * Get telemetry summary for a specific turn
+ */
+export function getTurnTelemetry(turnId: number): {
+  avgDrift: number;
+  maxDrift: number;
+  timingErrors: number;
+  wordCount: number;
+  driftByIndex: { index: number; drift: number }[];
+} {
+  const turnEntries = telemetryBuffer.filter(e => e.turnId === turnId && e.event === 'word_highlight');
+  
+  if (turnEntries.length === 0) {
+    return { avgDrift: 0, maxDrift: 0, timingErrors: 0, wordCount: 0, driftByIndex: [] };
+  }
+  
+  const drifts = turnEntries
+    .filter(e => e.drift !== undefined)
+    .map(e => ({ index: e.wordIndex || 0, drift: e.drift! }));
+  
+  const driftValues = drifts.map(d => d.drift);
+  const avgDrift = driftValues.reduce((a, b) => a + b, 0) / driftValues.length;
+  const maxDrift = Math.max(...driftValues.map(Math.abs));
+  const timingErrors = telemetryBuffer.filter(e => e.turnId === turnId && e.event === 'timing_error').length;
+  
+  return {
+    avgDrift,
+    maxDrift,
+    timingErrors,
+    wordCount: turnEntries.length,
+    driftByIndex: drifts,
+  };
+}
+
+/**
+ * Get overall telemetry summary
+ */
+export function getTelemetrySummary(): {
+  totalEvents: number;
+  avgDrift: number;
+  maxDrift: number;
+  timingErrors: number;
+  byProficiency: Record<ProficiencyBand, { avgDrift: number; count: number }>;
+} {
+  const wordEvents = telemetryBuffer.filter(e => e.event === 'word_highlight' && e.drift !== undefined);
+  
+  if (wordEvents.length === 0) {
+    return {
+      totalEvents: telemetryBuffer.length,
+      avgDrift: 0,
+      maxDrift: 0,
+      timingErrors: 0,
+      byProficiency: {
+        novice: { avgDrift: 0, count: 0 },
+        intermediate: { avgDrift: 0, count: 0 },
+        advanced: { avgDrift: 0, count: 0 },
+      },
+    };
+  }
+  
+  const driftValues = wordEvents.map(e => e.drift!);
+  const avgDrift = driftValues.reduce((a, b) => a + b, 0) / driftValues.length;
+  const maxDrift = Math.max(...driftValues.map(Math.abs));
+  const timingErrors = telemetryBuffer.filter(e => e.event === 'timing_error').length;
+  
+  const byProficiency: Record<ProficiencyBand, { avgDrift: number; count: number }> = {
+    novice: { avgDrift: 0, count: 0 },
+    intermediate: { avgDrift: 0, count: 0 },
+    advanced: { avgDrift: 0, count: 0 },
+  };
+  
+  const bands: ProficiencyBand[] = ['novice', 'intermediate', 'advanced'];
+  for (const band of bands) {
+    const bandEvents = wordEvents.filter(e => e.proficiencyBand === band);
+    if (bandEvents.length > 0) {
+      byProficiency[band] = {
+        count: bandEvents.length,
+        avgDrift: bandEvents.map(e => e.drift!).reduce((a, b) => a + b, 0) / bandEvents.length,
+      };
+    }
+  }
+  
+  return { totalEvents: telemetryBuffer.length, avgDrift, maxDrift, timingErrors, byProficiency };
+}
+
+/**
+ * Clear telemetry buffer
+ */
+export function clearTelemetry(): void {
+  telemetryBuffer.length = 0;
+  console.log('[SubtitleTelemetry] Buffer cleared');
+}
+
+/**
+ * Export telemetry as JSON for debugging
+ */
+export function exportTelemetry(): string {
+  return JSON.stringify({
+    summary: getTelemetrySummary(),
+    entries: telemetryBuffer,
+  }, null, 2);
+}
