@@ -165,7 +165,7 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 - Track individual student progress and activity
 - View conversation history and vocabulary growth
 - Filter student conversations by class to see course-specific practice
-- Vocabulary words linked to classes for curriculum-aligned tracking
+- Vocabulary words linked to classes for syllabus-aligned tracking
 
 **Assignment System**
 - Create practice, homework, quiz, or project assignments
@@ -173,10 +173,11 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 - Grade submissions with detailed feedback
 - Track completion rates across classes
 
-**Curriculum Builder**
-- Build learning paths with units and lessons
-- Assign curriculum to classes
-- Track student progression through materials
+**Syllabus Templates**
+- Pre-built ACTFL-aligned syllabus templates across 9 languages
+- Browse 21 syllabi with 116 units and 524 lessons
+- Assign syllabus templates to classes for structured learning
+- Track student progression through syllabus materials
 
 **Standards Alignment**
 - ACTFL Can-Do Statement tracking per student
@@ -184,7 +185,7 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 - Evidence-based proficiency assessment
 
 **Syllabus-Aware Competency Tracking**
-- Automatic detection of curriculum topics covered in student conversations
+- Automatic detection of syllabus topics covered in student conversations
 - "Organic Progress" tab shows which students are ahead of syllabus
 - One-click verification for early completion approvals
 - Weighted competency scoring: topics (40%), vocabulary (35%), grammar (25%)
@@ -344,7 +345,7 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 2. Create your teacher account
 3. Set up classes with join codes
 4. Create assignments and track progress
-5. Build custom curriculum paths
+5. Browse and assign syllabus templates
 
 ---
 
@@ -358,4 +359,4 @@ LinguaFlow is a next-generation language learning platform that uses advanced AI
 
 *LinguaFlow - Where AI Meets Language Learning*
 
-*Last Updated: November 29, 2025*
+*Last Updated: December 1, 2025*

@@ -1,6 +1,6 @@
 # LinguaFlow Teacher Guide
 
-**Last Updated:** November 28, 2025  
+**Last Updated:** December 1, 2025  
 **For:** Teachers and Educators using LinguaFlow
 
 ---
@@ -12,7 +12,7 @@
 3. [Adding Students to Your Class](#adding-students-to-your-class)
 4. [Creating Assignments](#creating-assignments)
 5. [Grading Student Work](#grading-student-work)
-6. [Using the Curriculum Builder](#using-the-curriculum-builder)
+6. [Browsing Syllabus Templates](#browsing-syllabus-templates)
 7. [Viewing Student Progress](#viewing-student-progress)
 8. [Organic Progress & Early Completion](#organic-progress--early-completion)
 9. [Tips & Best Practices](#tips--best-practices)
@@ -25,26 +25,57 @@
 
 1. Go to your LinguaFlow instance URL
 2. Click **"Log in with Replit"** or use your existing credentials
-3. Once logged in, if you're a teacher, you'll see the **Teacher Dashboard** option
+3. Once logged in, if you're a teacher, you'll see the **Teaching** section in the sidebar
 
-### Accessing the Teacher Dashboard
+### Navigating as a Teacher
 
-- Click on your profile or navigate to `/teacher/dashboard`
-- You'll see an overview of all your classes
+The sidebar is organized into sections:
+- **Learning**: Call Tutor (for your own practice)
+- **Library**: Vocabulary, Grammar, Past Chats, Can-Do Progress
+- **Resources**: Find a Class, Cultural Tips, Chat Ideas
+- **Teaching**: My Classes, Class Creation Hub
+- **Administration**: Command Center (for admins/developers)
 
-**Note:** If you don't see teacher features, contact your administrator to grant teacher access.
+**Note:** If you don't see the Teaching section, contact your administrator to grant teacher access.
 
 ---
 
 ## Creating Your First Class
 
-### Step-by-Step Process
+### Using the Class Creation Hub
 
-1. **Navigate to Teacher Dashboard**
-   - Go to `/teacher/dashboard` or click "Teacher Dashboard" in the navigation
+The Class Creation Hub (`/teacher/create-class`) offers two ways to create a class:
 
-2. **Click "Create New Class"**
-   - Look for the create class button (usually prominent on the dashboard)
+#### Option 1: Start from Template (Recommended)
+Use our pre-built ACTFL-aligned syllabi to quickly set up a structured class.
+
+1. **Navigate to Class Creation Hub**
+   - Click "Class Creation Hub" in the Teaching section of the sidebar
+   - Or go directly to `/teacher/create-class`
+
+2. **Click "Start from Template"**
+   - You'll see statistics showing available syllabi (e.g., "21 Syllabi, 116 Units, 524 Lessons, 9 Languages")
+   - Browse the syllabus library below
+
+3. **Browse Syllabus Templates**
+   - Use the search bar to find specific topics
+   - Filter by language using the dropdown
+   - View by "All Templates" or "By Language" tabs
+
+4. **Select a Template**
+   - Click on a template to expand and see its units and lessons
+   - Review the ACTFL level range (e.g., "Novice Low → Novice High")
+   - Check the estimated hours
+
+5. **Create Class from Template**
+   - Click "Create Class from This" button
+   - The form will pre-fill with the template name and settings
+
+#### Option 2: Start from Scratch
+Create a blank class and build your own syllabus.
+
+1. **Click "Start from Scratch"**
+   - This opens the class creation form with no pre-selected syllabus
 
 3. **Fill Out the Class Form:**
    - **Class Name** (required, max 200 characters)
@@ -188,14 +219,14 @@ LinguaFlow supports 4 assignment types:
 
 ---
 
-## Using the Curriculum Builder
+## Browsing Syllabus Templates
 
-The Curriculum Builder allows you to create structured learning paths with units and lessons.
+LinguaFlow provides pre-built syllabus templates across 9 languages that you can use when creating classes.
 
-### Curriculum Hierarchy
+### Syllabus Hierarchy
 
 ```
-Curriculum Path (e.g., "Spanish 1")
+Syllabus Template (e.g., "Spanish 1")
   └─ Unit 1 (e.g., "Greetings and Introductions")
       └─ Lesson 1 (e.g., "Saying Hello")
       └─ Lesson 2 (e.g., "Introducing Yourself")
@@ -204,70 +235,44 @@ Curriculum Path (e.g., "Spanish 1")
       └─ Lesson 2 (e.g., "Describing People")
 ```
 
-### Creating a Curriculum Path
+### Browsing Available Templates
 
-1. **Navigate to Curriculum Builder:**
-   - Go to `/teacher/curriculum`
+1. **Navigate to Class Creation Hub:**
+   - Go to `/teacher/create-class`
 
-2. **Create New Path:**
-   - Click "Create Curriculum Path"
+2. **View Template Library:**
+   - Scroll to the "Browse Syllabus Templates" section
+   - Use the search bar to find specific topics
+   - Filter by language using the dropdown
 
-3. **Fill Out Path Form:**
-   - **Name** (required, max 200 characters)
-     - Example: "Spanish 1 - High School"
-   - **Description** (required, max 2000 characters)
-     - Example: "Complete beginner Spanish aligned to ACTFL Novice Low-Mid standards"
-   - **Language** (required)
-     - Select target language
-   - **Target Level** (required)
-     - Choose: beginner, intermediate, or advanced
-   - **Is Published** - Toggle ON to make visible
+3. **View Template Details:**
+   - Click on any template to expand it
+   - See the full unit and lesson structure
+   - Review ACTFL level progression
+   - Check estimated hours
 
-4. **Click "Create Path"**
+### Template Information
 
-### Adding Units to a Path
+Each template shows:
+- **Language** - Target language being taught
+- **Duration** - Estimated hours to complete
+- **ACTFL Range** - Starting and ending proficiency levels
+- **Units** - Number of units in the syllabus
+- **Lessons** - Detailed lesson content within each unit
 
-1. **Open Your Path:**
-   - Click on the path in the curriculum list
+### Using Templates
 
-2. **Create Unit:**
-   - Click "Add Unit"
+Templates are read-only and managed by administrators. To use a template:
+1. Click "Create Class from This" on any template
+2. The class creation form opens with the template pre-selected
+3. Your class will be linked to that syllabus for progress tracking
 
-3. **Fill Out Unit Form:**
-   - **Name** (max 200 characters)
-     - Example: "Unit 1: Greetings"
-   - **Description** (max 2000 characters)
-     - Overview of unit objectives
+### Template Lesson Details
 
-4. **Order Index:**
-   - Automatically assigned (units appear in creation order)
-   - Can be reordered later
-
-### Adding Lessons to a Unit
-
-1. **Open Your Unit:**
-   - Click on unit to expand
-
-2. **Create Lesson:**
-   - Click "Add Lesson"
-
-3. **Fill Out Lesson Form:**
-   - **Name** (max 200 characters)
-     - Example: "Lesson 1: Formal vs. Informal Greetings"
-   - **Description** (max 2000 characters)
-     - Lesson objectives and overview
-   - **Content** (max 10000 characters)
-     - Full lesson content, activities, vocabulary lists
-     - Can include formatted text
-
-4. **Order Index:**
-   - Automatically assigned (lessons appear in creation order)
-
-### Publishing Curriculum
-
-- **Draft Mode:** Keep "Is Published" OFF while building
-- **Published Mode:** Toggle ON when ready for students
-- **Updates:** Edit published curriculum anytime
+Click on a unit to see its lessons. Each lesson includes:
+- **Name** - Lesson title
+- **Description** - Learning objectives
+- **Content** - Full lesson material
 
 ---
 
@@ -347,7 +352,7 @@ Students receive real-time feedback when they're ready to advance to the next pr
 
 ### Overview
 
-LinguaFlow's Syllabus-Aware Competency System automatically recognizes when students cover curriculum topics through natural AI conversations. This enables "early completion" - students can skip lessons they've already mastered organically.
+LinguaFlow's Syllabus-Aware Competency System automatically recognizes when students cover syllabus topics through natural AI conversations. This enables "early completion" - students can skip lessons they've already mastered organically.
 
 ### How It Works
 
@@ -369,10 +374,10 @@ LinguaFlow's Syllabus-Aware Competency System automatically recognizes when stud
 
 For each student with organic progress, you'll see:
 - **Student Name**: The student who's ahead
-- **Lesson**: Which curriculum lesson they've covered
+- **Lesson**: Which syllabus lesson they've covered
 - **Competency Score**: Their overall percentage (e.g., "92%")
 - **Score Breakdown**:
-  - Topics: How many curriculum topics they covered
+  - Topics: How many syllabus topics they covered
   - Vocabulary: How many required words they've mastered
   - Grammar: Grammar concepts demonstrated
 - **Evidence Conversations**: Links to the actual conversations showing mastery
@@ -386,7 +391,7 @@ For each student with organic progress, you'll see:
 
 2. **Approve or Deny**:
    - Click **"Verify"** to approve early completion
-   - The student can now skip this lesson in their curriculum
+   - The student can now skip this lesson in their syllabus
    - Add optional feedback comments
 
 3. **After Verification**:
@@ -473,18 +478,18 @@ A: Contact your administrator if you want to disable this feature.
 - Grade too late (students forget context)
 - Use only high or only low scores
 
-### Curriculum Building
+### Using Syllabus Templates
 
 ✅ **DO:**
-- Build curriculum incrementally
-- Test lessons before publishing
-- Align with ACTFL standards
-- Organize by theme/difficulty
+- Browse available templates before creating a class
+- Choose templates that match your students' ACTFL level
+- Review template content before assigning to a class
+- Use the Class Creation Hub for easy class setup
 
 ❌ **DON'T:**
-- Publish incomplete curriculum
-- Skip descriptions (they help students navigate)
-- Create overly long lessons (break into smaller parts)
+- Skip reviewing template lessons (know what you're assigning!)
+- Choose templates too advanced for your students
+- Forget to track student progress against syllabus goals
 
 ---
 

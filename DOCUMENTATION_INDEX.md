@@ -13,7 +13,7 @@ This document provides an overview of all documentation files in the project.
 - Smart learning features (vocabulary extraction, flashcards, organization)
 - Conversation history & resume (view past conversations, resume with context-aware greeting)
 - Flashcard-to-conversation context linking
-- Institutional features (teacher tools, assignments, curriculum)
+- Institutional features (teacher tools, assignments, syllabus templates)
 - Subscription tiers (Free, Basic, Pro, Institutional)
 - Competitive positioning (vs Duolingo, tutors, other AI apps)
 - Getting started guides for learners and institutions
@@ -40,15 +40,18 @@ This document provides an overview of all documentation files in the project.
 
 ## User Guides
 
-### TEACHER_GUIDE.md ⭐ NEW
+### TEACHER_GUIDE.md ⭐ UPDATED
 **Complete teacher user manual**
-- Getting started and logging in
-- Step-by-step class creation process
+- Getting started and sidebar navigation
+- Class Creation Hub with dual-path creation:
+  - "Start from Template" (pre-built ACTFL syllabi)
+  - "Start from Scratch" (custom classes)
 - Adding students (6-character code system)
 - Creating assignments (practice, homework, quiz, project)
 - Grading student submissions
-- Using the curriculum builder (paths/units/lessons)
-- Viewing student progress and analytics
+- Browsing syllabus templates (21 syllabi, 116 units, 524 lessons)
+- Viewing student progress and ACTFL analytics
+- Organic progress and early completion verification
 - Tips, best practices, and troubleshooting
 - Quick reference tables
 
@@ -56,20 +59,22 @@ This document provides an overview of all documentation files in the project.
 
 ---
 
-### ADMIN_GUIDE.md ⭐ NEW
+### ADMIN_GUIDE.md ⭐ UPDATED
 **Backend administrator manual**
 - Granting teacher access via SQL
 - PostgreSQL database management
 - User account administration
 - Class and enrollment management
 - Subscription/tier configuration
+- Command Center (unified admin interface with role-based tabs)
+- RBAC system (admin > developer > teacher > student)
 - System configuration and environment variables
 - Troubleshooting common backend issues
 - Security best practices
 - SQL query reference library
 - Database schema documentation
 
-**When to use**: Backend administration, database management, troubleshooting system-level issues.
+**When to use**: Backend administration, database management, Command Center access, troubleshooting system-level issues.
 
 ---
 
@@ -213,15 +218,16 @@ The following files reference the old OpenAI-based architecture and are preserve
 
 ### New Teacher Onboarding?
 1. Read `TEACHER_GUIDE.md` (complete user manual)
-2. Review class creation workflow
-3. Learn assignment and grading processes
-4. Understand curriculum builder
+2. Use Class Creation Hub for easy class setup
+3. Browse syllabus templates before creating classes
+4. Learn assignment and grading processes
 
 ### New Administrator Setup?
 1. Read `ADMIN_GUIDE.md` (backend administration)
-2. Learn how to grant teacher access
-3. Review database management procedures
-4. Understand security best practices
+2. Access Command Center at `/admin`
+3. Learn how to grant teacher access via RBAC
+4. Review database management procedures
+5. Understand security best practices
 
 ### New Developer Onboarding?
 1. Read `replit.md` (overview, architecture, features)
@@ -265,6 +271,27 @@ project/
     ├── API_KEY_*.md                        # Old OpenAI key docs
     └── test-openai-key.ts                  # Old test script
 ```
+
+---
+
+## Recent Updates (Dec 1, 2025)
+
+### ✅ Command Center Consolidation (Dec 1)
+- **Unified Admin Interface**: 7 separate admin pages consolidated into single tab-based Command Center at `/admin`
+- **Role-Based Tab Visibility**: Tabs shown/hidden based on user role (admin > developer > teacher > student)
+- **Test Account Isolation**: `isTestAccount` and `isTestSession` flags separate test data from production analytics
+- **Developer Tools Tab**: Comprehensive usage analytics with test/production separation
+
+### ✅ Class Creation Hub Redesign (Dec 1)
+- **Dual Creation Paths**: "Start from Template" and "Start from Scratch" cards
+- **Dynamic Stats API**: `/api/curriculum/stats` endpoint returns live counts (21 syllabi, 116 units, 524 lessons, 9 languages)
+- **Syllabus Template Browser**: Accordion-based navigation with search and language filtering
+- **Simplified Sidebar**: Teaching section now shows only "My Classes" and "Class Creation Hub"
+
+### ✅ Terminology Standardization (Dec 1)
+- **User-Facing**: "Curriculum" → "Syllabus" throughout UI
+- **Database**: Tables remain `curriculum*` for safety (curriculumPaths, curriculumUnits, curriculumLessons)
+- **Hierarchy**: Class → Syllabus Template → Units → Lessons
 
 ---
 
@@ -326,7 +353,7 @@ project/
 - **Phoneme Pronunciation**: IPA-based pronunciation for foreign words in English responses
 
 ### ✅ Syllabus-Aware Competency System (Nov 29, 2025)
-- **Organic Learning Detection**: System automatically recognizes when students cover curriculum topics through natural AI conversations
+- **Organic Learning Detection**: System automatically recognizes when students cover syllabus topics through natural AI conversations
 - **Competency Verification**: Weighted scoring (topics 40%, vocab 35%, grammar 25%) with 80% threshold for early completion
 - **Early Completion Recognition**: Students can skip redundant lessons when they've already mastered content
 - **Teacher Verification Workflow**: "Organic Progress" tab in Class Management for reviewing and approving early completions
@@ -387,8 +414,9 @@ project/
 
 ---
 
-**Last Updated**: November 29, 2025  
+**Last Updated**: December 1, 2025  
 **Current AI Stack**: Gemini 2.5 Flash/Pro (text), Parallel Deepgram Nova-3 (STT - dual Live+Prerecorded), Cartesia Sonic-3 (Primary TTS), Google Cloud Chirp HD (Fallback TTS), Gemini Flash-Image (images)  
-**Production Status**: Production-ready with voice mode (<2s latency), ACTFL advancement tracking, and emotionally expressive AI tutors  
+**Production Status**: Production-ready with voice mode (<2s latency), ACTFL advancement tracking, emotionally expressive AI tutors, Command Center, and Class Creation Hub  
 **Performance**: Total response time ~1.85s (STT 450ms + AI 1.2s + TTS 200ms)  
+**Terminology**: "Syllabus" in user-facing text, "curriculum*" in database tables  
 **Maintainer**: LinguaFlow Development Team

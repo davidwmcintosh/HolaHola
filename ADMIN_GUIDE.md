@@ -1,6 +1,6 @@
 # LinguaFlow Administrator Backend Guide
 
-**Last Updated:** November 26, 2025  
+**Last Updated:** December 1, 2025  
 **For:** System Administrators and Backend Database Managers
 
 ---
@@ -812,7 +812,7 @@ SELECT * FROM "syllabusProgress"
 WHERE "userId" = 'student-user-id';
 ```
 
-**Solution:** Ensure student is enrolled in a class with assigned curriculum and has completed voice conversations.
+**Solution:** Ensure student is enrolled in a class with an assigned syllabus and has completed voice conversations.
 
 **Issue: Teacher can't see Organic Progress tab**
 
@@ -854,7 +854,7 @@ Higher roles automatically inherit permissions from lower roles.
 **Teacher (Extends Student)**
 - Create/manage classes
 - Create assignments, grade submissions
-- Access curriculum library
+- Access syllabus template library
 - View student progress in their classes
 
 **Developer (Extends Teacher)**
@@ -868,15 +868,26 @@ Higher roles automatically inherit permissions from lower roles.
 - Full audit log access
 - Platform-wide administrative control
 
-### Admin UI Access
+### Admin UI Access - Command Center
 
-**Admin Dashboard:** `/admin`  
-**User Management:** `/admin/users`  
-**Class Management:** `/admin/classes`  
-**Reports & Audit:** `/admin/reports`  
-**Voice Console:** `/admin/voices`
+The **Command Center** (`/admin`) is a unified tab-based administrative interface that consolidates all admin functionality into a single page with role-based tab visibility.
 
-Only users with `role = 'developer'` or `role = 'admin'` can access these pages.
+**Command Center Tabs:**
+
+| Tab | Access Level | Description |
+|-----|--------------|-------------|
+| Overview | Developer+ | Platform metrics and quick stats |
+| Users | Developer+ | User management and role assignment |
+| Classes | Developer+ | All classes across the platform |
+| Developer Tools | Developer+ | Testing controls, usage analytics |
+| Voice Console | Developer+ | Voice audition and TTS settings |
+| System | Admin only | System configuration and audit logs |
+
+**Navigation:**
+- Access via sidebar: Administration → Command Center
+- Or navigate directly to `/admin`
+
+Only users with `role = 'developer'` or `role = 'admin'` can access the Command Center.
 
 ### Managing User Roles
 
