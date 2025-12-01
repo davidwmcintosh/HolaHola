@@ -43,6 +43,7 @@ const libraryMenuItems = [
 ];
 
 const resourceMenuItems = [
+  { title: "Find a Class", url: "/student/join-class", icon: Search },
   { title: "Cultural Tips", url: "/cultural-tips", icon: Globe },
   { title: "Chat Ideas", url: "/chat-ideas", icon: Lightbulb },
 ];
@@ -53,9 +54,6 @@ const teacherMenuItems = [
   { title: "Curriculum Builder", url: "/teacher/curriculum/builder", icon: BookOpenCheck },
 ];
 
-const studentMenuItems = [
-  { title: "Find a Class", url: "/student/join-class", icon: Search },
-];
 
 const adminMenuItems = [
   { title: "Command Center", url: "/admin", icon: Shield },
@@ -108,7 +106,6 @@ export function AppSidebar() {
   // Check if user has admin access (admin or developer - for admin menu)
   const isAdmin = hasAdminAccess(user?.role) || user?.role === 'developer';
   // Show student features for all users (teachers can also be students)
-  const showStudentFeatures = true;
 
   return (
     <Sidebar>
@@ -283,32 +280,6 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {showStudentFeatures && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Classes</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {studentMenuItems.map((item) => {
-                  const isActive = location === item.url;
-                  return (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton 
-                        asChild
-                        isActive={isActive}
-                        data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
-                      >
-                        <Link href={item.url} onClick={closeSidebar}>
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
 
         {isTeacher && (
           <SidebarGroup>

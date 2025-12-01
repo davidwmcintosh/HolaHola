@@ -396,8 +396,12 @@ function UsersTab() {
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
+  const queryUrl = roleFilter === "all" 
+    ? "/api/admin/users" 
+    : `/api/admin/users?role=${roleFilter}`;
+
   const { data, isLoading } = useQuery<{ users: Array<any>; total: number }>({
-    queryKey: ["/api/admin/users", { role: roleFilter === "all" ? undefined : roleFilter }],
+    queryKey: [queryUrl],
   });
 
   const updateRoleMutation = useMutation({
@@ -405,7 +409,9 @@ function UsersTab() {
       return apiRequest("PATCH", `/api/admin/users/${userId}/role`, { role: newRole });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        typeof query.queryKey[0] === 'string' && query.queryKey[0].startsWith('/api/admin/users')
+      });
       toast({ title: "Role updated successfully" });
     },
     onError: (error: any) => {
