@@ -49,6 +49,7 @@ const AdminClasses = lazy(() => import("@/pages/admin/Classes"));
 const AdminClassTypes = lazy(() => import("@/pages/admin/ClassTypes"));
 const AdminReports = lazy(() => import("@/pages/admin/Reports"));
 const AdminVoiceConsole = lazy(() => import("@/pages/admin/VoiceConsole"));
+const DeveloperDashboard = lazy(() => import("@/pages/admin/DeveloperDashboard"));
 const Lessons = lazy(() => import("@/pages/lessons"));
 const ReviewHub = lazy(() => import("@/pages/review-hub"));
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -152,6 +153,7 @@ function Router() {
         <Route path="/admin/class-types" component={AdminClassTypes} />
         <Route path="/admin/reports" component={AdminReports} />
         <Route path="/admin/voices" component={AdminVoiceConsole} />
+        <Route path="/admin/developer" component={DeveloperDashboard} />
         
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
