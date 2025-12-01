@@ -3603,12 +3603,27 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
       const targetLanguage = conversation.language || 'spanish';
       const nativeLanguage = conversation.nativeLanguage || 'english';
       
-      // Extract JUST the target language phrase - no explanations, no pronunciation guides
-      // The slow speed will help the student hear it clearly
-      const simplifyPrompt = `Extract ONLY the ${targetLanguage} word or phrase from this message. Return JUST the ${targetLanguage} words - nothing else. No English, no labels, no pronunciation guide, no explanation.
+      // First try to extract bold-marked target phrases directly (faster, no AI call)
+      const boldPattern = /\*\*([^*]+)\*\*/g;
+      const boldMatches: string[] = [];
+      let match;
+      while ((match = boldPattern.exec(lastAssistantMessage.content)) !== null) {
+        boldMatches.push(match[1].trim());
+      }
+      
+      let simplifiedText: string;
+      
+      if (boldMatches.length > 0) {
+        // Use the LAST bold phrase (most recent teaching point)
+        simplifiedText = boldMatches[boldMatches.length - 1];
+        console.log(`[SLOW REPEAT] Extracted from bold markers: "${simplifiedText}"`);
+      } else {
+        // No bold markers - use AI to extract the target phrase
+        const simplifyPrompt = `Extract ONLY the ${targetLanguage} word or phrase being taught in this message. Return JUST the ${targetLanguage} words - nothing else. No English, no labels, no pronunciation guide, no explanation.
 
 Message: "${lastAssistantMessage.content}"
 
+If the message contains multiple ${targetLanguage} phrases, return only the MAIN one being taught.
 Examples of correct output:
 - "Buenas tardes"
 - "Hola"  
@@ -3616,15 +3631,17 @@ Examples of correct output:
 
 Return ONLY the ${targetLanguage} phrase:`;
 
-      // Generate simplified response using Gemini
-      const response = await gemini.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: simplifyPrompt,
-      });
+        // Generate simplified response using Gemini
+        const response = await gemini.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: simplifyPrompt,
+        });
+        
+        simplifiedText = response.text?.trim() || lastAssistantMessage.content;
+        console.log(`[SLOW REPEAT] AI extracted: "${simplifiedText}"`);
+      }
       
-      const simplifiedText = response.text?.trim() || lastAssistantMessage.content;
-      
-      console.log(`[SLOW REPEAT] Simplified to: ${simplifiedText}`);
+      console.log(`[SLOW REPEAT] Final text to speak: "${simplifiedText}"`);
 
       // Get user's tutor gender preference for voice selection
       const user = await storage.getUser(userId);

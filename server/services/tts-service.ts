@@ -901,10 +901,12 @@ export class TTSService {
     
     // Map speaking rate to Cartesia's 0.6-1.5 range
     // Google uses 0.25-4.0 with default 1.0
-    // Our slow mode uses 0.7, normal is 0.9
+    // Our slow mode uses 0.7, normal is 0.9, extra slow (slow repeat) is 0.5
     let cartesiaSpeed = 1.0; // Default speed
     if (speakingRate !== undefined) {
-      if (speakingRate <= 0.7) {
+      if (speakingRate <= 0.5) {
+        cartesiaSpeed = 0.6; // Extra slow for slow repeat (Cartesia minimum)
+      } else if (speakingRate <= 0.7) {
         cartesiaSpeed = 0.7; // Slow for pronunciation practice
       } else if (speakingRate <= 0.9) {
         cartesiaSpeed = 0.9; // Slightly slower than normal
