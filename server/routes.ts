@@ -2899,6 +2899,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
                     pronunciation: vocab.pronunciation,
                     difficulty: enrichmentConversation.difficulty,
                     sourceConversationId: conversationId,
+                    classId: enrichmentConversation.classId || undefined,
                   });
                 } catch (vocabError) {
                   console.error('[VOICE BACKGROUND] Failed to save vocabulary:', vocabError);
@@ -3269,6 +3270,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
                     pronunciation: vocab.pronunciation,
                     difficulty: updatedConversation.difficulty,
                     sourceConversationId: conversationId,
+                    classId: updatedConversation.classId || undefined,
                   });
                 } catch (vocabError) {
                   console.error('[BACKGROUND ENRICHMENT] Failed to save vocabulary:', vocabError);
@@ -3719,6 +3721,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
             example: vocab.example,
             pronunciation: vocab.pronunciation || "",
             sourceConversationId: conversationId,
+            classId: updatedConversation.classId || undefined,
           });
           console.log('[TEXT MODE] ✓ Saved vocabulary:', vocab.word);
         } else {
