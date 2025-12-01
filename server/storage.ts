@@ -98,11 +98,14 @@ import {
   actflProgress as actflProgressTable,
   type TutorVoice,
   type InsertTutorVoice,
+  lessonCanDoStatements,
+  type LessonCanDoStatement,
+  type CanDoStatement,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
 import { db } from "./db";
-import { eq, and, desc, gte, lte, sql, isNull } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql, isNull, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (Replit Auth Integration)
@@ -297,12 +300,17 @@ export interface IStorage {
   deleteClassCurriculumUnit(id: string): Promise<boolean>;
   reorderClassCurriculumUnits(classId: string, unitIds: string[]): Promise<ClassCurriculumUnit[]>;
   getClassCurriculumLessons(classUnitId: string): Promise<ClassCurriculumLesson[]>;
+  getClassCurriculumLessonsForUnits(classUnitIds: string[]): Promise<ClassCurriculumLesson[]>;
   getClassCurriculumLesson(id: string): Promise<ClassCurriculumLesson | undefined>;
   createClassCurriculumLesson(data: InsertClassCurriculumLesson): Promise<ClassCurriculumLesson>;
   updateClassCurriculumLesson(id: string, data: Partial<ClassCurriculumLesson>): Promise<ClassCurriculumLesson | undefined>;
   deleteClassCurriculumLesson(id: string): Promise<boolean>;
   reorderClassCurriculumLessons(classUnitId: string, lessonIds: string[]): Promise<ClassCurriculumLesson[]>;
   getClassSyllabus(classId: string): Promise<{ units: Array<ClassCurriculumUnit & { lessons: ClassCurriculumLesson[] }> }>;
+
+  // Can-Do Statements
+  getCanDoStatementsByLanguage(language: string): Promise<CanDoStatement[]>;
+  getLessonCanDoStatements(lessonIds: string[]): Promise<LessonCanDoStatement[]>;
 
   // Assignments
   createAssignment(data: InsertAssignment): Promise<Assignment>;
@@ -2392,6 +2400,18 @@ export class DatabaseStorage implements IStorage {
       .orderBy(classCurriculumLessons.orderIndex);
   }
 
+  async getClassCurriculumLessonsForUnits(classUnitIds: string[]): Promise<ClassCurriculumLesson[]> {
+    if (classUnitIds.length === 0) return [];
+    return await db
+      .select()
+      .from(classCurriculumLessons)
+      .where(and(
+        inArray(classCurriculumLessons.classUnitId, classUnitIds),
+        eq(classCurriculumLessons.isRemoved, false)
+      ))
+      .orderBy(classCurriculumLessons.classUnitId, classCurriculumLessons.orderIndex);
+  }
+
   async getClassCurriculumLesson(id: string): Promise<ClassCurriculumLesson | undefined> {
     const result = await db.select().from(classCurriculumLessons).where(eq(classCurriculumLessons.id, id));
     return result[0];
@@ -2446,6 +2466,24 @@ export class DatabaseStorage implements IStorage {
       })
     );
     return { units: unitsWithLessons };
+  }
+
+  // ===== Can-Do Statements =====
+  
+  async getCanDoStatementsByLanguage(language: string): Promise<CanDoStatement[]> {
+    return await db
+      .select()
+      .from(canDoStatements)
+      .where(eq(canDoStatements.language, language))
+      .orderBy(canDoStatements.actflLevel, canDoStatements.category);
+  }
+
+  async getLessonCanDoStatements(lessonIds: string[]): Promise<LessonCanDoStatement[]> {
+    if (lessonIds.length === 0) return [];
+    return await db
+      .select()
+      .from(lessonCanDoStatements)
+      .where(inArray(lessonCanDoStatements.lessonId, lessonIds));
   }
 
   // ===== Assignments =====

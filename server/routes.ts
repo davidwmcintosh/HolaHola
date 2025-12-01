@@ -6001,6 +6001,125 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // ===== Class Syllabus Management (Teachers) =====
   
+  // Get ACTFL analysis for class curriculum
+  app.get("/api/teacher/classes/:classId/curriculum/actfl-analysis", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { classId } = req.params;
+      
+      const teacherClass = await storage.getTeacherClass(classId);
+      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      // Get all units and lessons for this class (batched query)
+      const units = await storage.getClassCurriculumUnits(classId);
+      const activeUnits = units.filter(u => !u.isRemoved);
+      
+      // Batch fetch all lessons for all active units in a single query
+      const activeUnitIds = activeUnits.map(u => u.id);
+      const allLessons = await storage.getClassCurriculumLessonsForUnits(activeUnitIds);
+      
+      // Get Can-Do statements for the class language
+      const canDoStatements = await storage.getCanDoStatementsByLanguage(teacherClass.language);
+      
+      // Get lesson-to-Can-Do mappings for source lessons
+      const sourceLessonIds = allLessons
+        .filter(l => l.sourceLessonId)
+        .map(l => l.sourceLessonId);
+      const lessonCanDoMappings = await storage.getLessonCanDoStatements(sourceLessonIds);
+      
+      // Build a set of covered Can-Do statement IDs
+      const coveredStatementIds = new Set<string>();
+      lessonCanDoMappings.forEach(mapping => {
+        coveredStatementIds.add(mapping.canDoStatementId);
+      });
+      
+      // Calculate coverage by level and category
+      const levelCoverage: Record<string, { total: number; covered: number; statements: any[] }> = {};
+      const categoryCoverage: Record<string, { total: number; covered: number }> = {
+        interpersonal: { total: 0, covered: 0 },
+        interpretive: { total: 0, covered: 0 },
+        presentational: { total: 0, covered: 0 },
+      };
+      
+      // Analyze coverage
+      for (const statement of canDoStatements) {
+        const isCovered = coveredStatementIds.has(statement.id);
+        
+        // Update level coverage
+        if (!levelCoverage[statement.actflLevel]) {
+          levelCoverage[statement.actflLevel] = { total: 0, covered: 0, statements: [] };
+        }
+        levelCoverage[statement.actflLevel].total++;
+        if (isCovered) {
+          levelCoverage[statement.actflLevel].covered++;
+        }
+        levelCoverage[statement.actflLevel].statements.push({
+          id: statement.id,
+          statement: statement.statement,
+          category: statement.category,
+          mode: statement.mode,
+          isCovered,
+        });
+        
+        // Update category coverage
+        if (categoryCoverage[statement.category]) {
+          categoryCoverage[statement.category].total++;
+          if (isCovered) {
+            categoryCoverage[statement.category].covered++;
+          }
+        }
+      }
+      
+      // Calculate lesson breakdown by type
+      const lessonsByType: Record<string, number> = {};
+      for (const lesson of allLessons) {
+        lessonsByType[lesson.lessonType] = (lessonsByType[lesson.lessonType] || 0) + 1;
+      }
+      
+      // Calculate lesson breakdown by ACTFL level
+      const lessonsByLevel: Record<string, number> = {};
+      for (const lesson of allLessons) {
+        if (lesson.actflLevel) {
+          lessonsByLevel[lesson.actflLevel] = (lessonsByLevel[lesson.actflLevel] || 0) + 1;
+        }
+      }
+      
+      // Find level range from units
+      const actflLevelOrder = [
+        'novice_low', 'novice_mid', 'novice_high',
+        'intermediate_low', 'intermediate_mid', 'intermediate_high',
+        'advanced_low', 'advanced_mid', 'advanced_high'
+      ];
+      
+      const unitLevels = activeUnits
+        .map(u => u.actflLevel)
+        .filter(Boolean)
+        .sort((a, b) => actflLevelOrder.indexOf(a!) - actflLevelOrder.indexOf(b!));
+      
+      const levelRange = {
+        start: unitLevels[0] || 'novice_low',
+        end: unitLevels[unitLevels.length - 1] || 'novice_high',
+      };
+      
+      res.json({
+        totalUnits: activeUnits.length,
+        totalLessons: allLessons.length,
+        levelRange,
+        lessonsByType,
+        lessonsByLevel,
+        levelCoverage,
+        categoryCoverage,
+        totalStatements: canDoStatements.length,
+        coveredStatements: coveredStatementIds.size,
+      });
+    } catch (error: any) {
+      console.error('Error fetching class curriculum ACTFL analysis:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Get class curriculum units (syllabus)
   app.get("/api/teacher/classes/:classId/curriculum/units", isAuthenticated, async (req: any, res) => {
     try {

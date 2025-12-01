@@ -11,6 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import {
   ChevronDown,
@@ -25,13 +28,51 @@ import {
   Target,
   Plus,
   Sparkles,
-  Pencil
+  Pencil,
+  CheckCircle2,
+  Users,
+  Mic,
+  Eye
 } from "lucide-react";
 import type { ClassCurriculumUnit, ClassCurriculumLesson } from "@shared/schema";
 
 interface SyllabusBuilderProps {
   classId: string;
 }
+
+interface ActflAnalysis {
+  totalUnits: number;
+  totalLessons: number;
+  levelRange: { start: string; end: string };
+  lessonsByType: Record<string, number>;
+  lessonsByLevel: Record<string, number>;
+  levelCoverage: Record<string, { 
+    total: number; 
+    covered: number; 
+    statements: Array<{
+      id: string;
+      statement: string;
+      category: string;
+      mode: string;
+      isCovered: boolean;
+    }>;
+  }>;
+  categoryCoverage: Record<string, { total: number; covered: number }>;
+  totalStatements: number;
+  coveredStatements: number;
+}
+
+const CATEGORY_ICONS: Record<string, typeof Users> = {
+  interpersonal: Users,
+  interpretive: Eye,
+  presentational: Mic,
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  interpersonal: "Interpersonal",
+  interpretive: "Interpretive",
+  presentational: "Presentational",
+};
 
 interface CreateLessonData {
   name: string;
@@ -75,6 +116,9 @@ export function SyllabusBuilder({ classId }: SyllabusBuilderProps) {
   const [dragOverUnitId, setDragOverUnitId] = useState<string | null>(null);
   const [dragOverLessonId, setDragOverLessonId] = useState<string | null>(null);
 
+  const [showActflDetails, setShowActflDetails] = useState(false);
+  const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
+
   const { data: units = [], isLoading: unitsLoading } = useQuery<ClassCurriculumUnit[]>({
     queryKey: ["/api/teacher/classes", classId, "curriculum", "units"],
     queryFn: async () => {
@@ -82,6 +126,17 @@ export function SyllabusBuilder({ classId }: SyllabusBuilderProps) {
         credentials: 'include',
       });
       if (!response.ok) throw new Error('Failed to fetch curriculum units');
+      return response.json();
+    },
+  });
+
+  const { data: actflAnalysis } = useQuery<ActflAnalysis>({
+    queryKey: ["/api/teacher/classes", classId, "curriculum", "actfl-analysis"],
+    queryFn: async () => {
+      const response = await fetch(`/api/teacher/classes/${classId}/curriculum/actfl-analysis`, {
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to fetch ACTFL analysis');
       return response.json();
     },
   });
@@ -302,6 +357,136 @@ export function SyllabusBuilder({ classId }: SyllabusBuilderProps) {
           </p>
         </div>
       </div>
+
+      {/* ACTFL Standards Progress Panel */}
+      {actflAnalysis && actflAnalysis.totalStatements > 0 && (
+        <Card className="border-primary/20">
+          <Collapsible open={showActflDetails} onOpenChange={setShowActflDetails}>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-primary" />
+                  <CardTitle className="text-lg">ACTFL Standards Coverage</CardTitle>
+                </div>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" data-testid="button-toggle-actfl-details">
+                    {showActflDetails ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    <span className="ml-1">{showActflDetails ? "Hide" : "Show"} Details</span>
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+              <CardDescription>
+                {actflAnalysis.levelRange.start && actflAnalysis.levelRange.end 
+                  ? `${ACTFL_LABELS[actflAnalysis.levelRange.start] || actflAnalysis.levelRange.start} to ${ACTFL_LABELS[actflAnalysis.levelRange.end] || actflAnalysis.levelRange.end}`
+                  : "No proficiency levels defined"}
+              </CardDescription>
+            </CardHeader>
+            
+            <CardContent className="pt-2">
+              {/* Overall Progress */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between text-sm mb-1">
+                  <span className="text-muted-foreground">Overall Can-Do Statement Coverage</span>
+                  <span className="font-medium">
+                    {actflAnalysis.coveredStatements} / {actflAnalysis.totalStatements} standards
+                  </span>
+                </div>
+                <Progress 
+                  value={(actflAnalysis.coveredStatements / actflAnalysis.totalStatements) * 100} 
+                  className="h-2"
+                />
+              </div>
+
+              {/* Category breakdown badges */}
+              <div className="flex flex-wrap gap-2 mb-3">
+                {Object.entries(actflAnalysis.categoryCoverage).map(([category, { total, covered }]) => {
+                  const CategoryIcon = CATEGORY_ICONS[category] || Target;
+                  return (
+                    <Badge 
+                      key={category} 
+                      variant={covered === total ? "default" : "secondary"}
+                      className="flex items-center gap-1"
+                    >
+                      <CategoryIcon className="w-3 h-3" />
+                      {CATEGORY_LABELS[category] || category}: {covered}/{total}
+                    </Badge>
+                  );
+                })}
+              </div>
+
+              <CollapsibleContent>
+                {/* Level-by-level breakdown */}
+                <div className="space-y-3 mt-4 pt-4 border-t">
+                  <h4 className="font-medium text-sm text-muted-foreground">Standards by Proficiency Level</h4>
+                  {Object.entries(actflAnalysis.levelCoverage).map(([level, { total, covered, statements }]) => (
+                    <div key={level} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto p-0 hover:bg-transparent"
+                          onClick={() => setSelectedLevel(selectedLevel === level ? null : level)}
+                          data-testid={`button-expand-level-${level}`}
+                        >
+                          {selectedLevel === level ? <ChevronDown className="w-4 h-4 mr-1" /> : <ChevronRight className="w-4 h-4 mr-1" />}
+                          <span className="font-medium">{ACTFL_LABELS[level] || level}</span>
+                        </Button>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">
+                            {covered}/{total} standards
+                          </span>
+                          <Progress 
+                            value={total > 0 ? (covered / total) * 100 : 0} 
+                            className="w-24 h-2"
+                          />
+                        </div>
+                      </div>
+                      
+                      {selectedLevel === level && statements.length > 0 && (
+                        <ScrollArea className="max-h-48 ml-5">
+                          <div className="space-y-2">
+                            {statements.map((stmt) => {
+                              const ModeIcon = CATEGORY_ICONS[stmt.category] || Target;
+                              return (
+                                <div 
+                                  key={stmt.id}
+                                  className={`flex items-start gap-2 p-2 rounded-md text-sm ${
+                                    stmt.isCovered ? "bg-green-500/10" : "bg-muted/50"
+                                  }`}
+                                >
+                                  {stmt.isCovered ? (
+                                    <CheckCircle2 className="w-4 h-4 mt-0.5 text-green-500 shrink-0" />
+                                  ) : (
+                                    <div className="w-4 h-4 mt-0.5 rounded-full border-2 border-muted-foreground/30 shrink-0" />
+                                  )}
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-1 mb-1">
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Badge variant="outline" className="h-5 text-xs">
+                                            <ModeIcon className="w-3 h-3 mr-1" />
+                                            {CATEGORY_LABELS[stmt.category] || stmt.category}
+                                          </Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent>{stmt.mode}</TooltipContent>
+                                      </Tooltip>
+                                    </div>
+                                    <p className="text-muted-foreground">{stmt.statement}</p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </ScrollArea>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </CardContent>
+          </Collapsible>
+        </Card>
+      )}
 
       <div className="space-y-3">
         {sortedUnits.map((unit, index) => (
