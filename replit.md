@@ -77,6 +77,31 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 ## Recent Changes (December 1, 2025)
 
+### Developer Usage Analytics Dashboard - NEW
+Added comprehensive developer analytics and credit management system for realistic testing of the usage/credit flow.
+
+**Key Features:**
+- Developer Usage Dashboard at `/admin/developer` with analytics, cost breakdown, and credit reload functionality
+- Developers now get full usage tracking (sessions, practice time, credits consumed) just like regular users
+- Reload Credits endpoint (`POST /api/developer/reload-credits`) to reset class hours for testing "out of credits" state
+- Analytics endpoints (`GET /api/developer/analytics`, `GET /api/developer/class-estimates`) for cost modeling
+
+**Cost Estimation (per API provider):**
+- Deepgram STT: $0.0043/minute
+- Cartesia TTS: $0.015/1K characters
+- Gemini LLM: ~$0.0001/exchange
+
+**Key Files:**
+- `client/src/pages/admin/DeveloperDashboard.tsx` - Developer analytics UI
+- `server/routes.ts` - Developer analytics endpoints (lines 728-900)
+- `server/unified-ws-handler.ts` - Developer session tracking (line 315)
+- `client/src/components/app-sidebar.tsx` - Updated to show admin menu for developers
+
+**OIDC Role Assignment:**
+- Roles from OIDC claims (`claims["roles"]`) are now persisted to the database
+- Role upgrades only (student → teacher → developer → admin), never downgrades
+- See `server/replitAuth.ts` upsertUser function and `server/storage.ts`
+
 ### Phantom Subtitle Bug - RESOLVED
 Fixed black "ghost" text from previous turns appearing in subtitles.
 
