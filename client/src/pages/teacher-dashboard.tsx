@@ -30,6 +30,8 @@ interface TeacherClass {
   isActive: boolean;
   curriculumPathId: string | null;
   createdAt: Date;
+  studentCount?: number;
+  assignmentCount?: number;
 }
 
 // Use schema directly from shared/schema.ts - it already has proper validation
@@ -323,11 +325,15 @@ export default function TeacherDashboard() {
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Users className="w-4 h-4" />
-                          <span>Students</span>
+                          <span data-testid={`text-student-count-${classItem.id}`}>
+                            {classItem.studentCount ?? 0} Students
+                          </span>
                         </div>
                         <div className="flex items-center gap-1">
                           <ClipboardList className="w-4 h-4" />
-                          <span>Assignments</span>
+                          <span data-testid={`text-assignment-count-${classItem.id}`}>
+                            {classItem.assignmentCount ?? 0} Assignments
+                          </span>
                         </div>
                       </div>
                       <div className="pt-4 border-t">

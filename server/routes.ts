@@ -5182,7 +5182,27 @@ Return ONLY the ${targetLanguage} phrase:`;
       }
       
       const classes = await storage.getTeacherClasses(teacherId);
-      res.json(classes);
+      
+      // Aggregate counts for each class
+      const classesWithCounts = await Promise.all(
+        classes.map(async (classItem) => {
+          const [enrollments, classAssignments] = await Promise.all([
+            storage.getClassEnrollments(classItem.id),
+            storage.getClassAssignments(classItem.id),
+          ]);
+          
+          // Filter for active enrollments only
+          const activeStudentCount = enrollments.filter((e: any) => e.isActive).length;
+          
+          return {
+            ...classItem,
+            studentCount: activeStudentCount,
+            assignmentCount: classAssignments.length,
+          };
+        })
+      );
+      
+      res.json(classesWithCounts);
     } catch (error: any) {
       console.error('Error fetching teacher classes:', error);
       res.status(500).json({ error: error.message });

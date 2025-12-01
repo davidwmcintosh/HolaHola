@@ -29,7 +29,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { forceNewConversation } from "@/lib/queryClient";
 import { hasTeacherAccess, hasAdminAccess } from "@shared/permissions";
 
-const dashboardItem = { title: "Dashboard", url: "/", icon: Target };
+const dashboardItem = { title: "Language Hub", url: "/", icon: Target };
 
 const learnMenuItems = [
   { title: "Call Tutor", url: "/chat", icon: MessageSquare },
