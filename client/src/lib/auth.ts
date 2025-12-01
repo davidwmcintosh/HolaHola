@@ -15,5 +15,6 @@ export function useUser() {
     isAdmin: hasAdminAccess(user?.role),
     isDeveloper: hasDeveloperAccess(user?.role),
     isTeacher: hasTeacherAccess(user?.role),
+    isTestAccount: user?.isTestAccount ?? false, // Test accounts for developer testing
   };
 }

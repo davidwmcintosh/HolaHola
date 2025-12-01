@@ -381,6 +381,13 @@ export class UsageService {
     // End any existing active sessions for this user
     await this.endAllActiveSessions(userId);
     
+    // Check if this is a test account session
+    const [user] = await db
+      .select({ isTestAccount: users.isTestAccount })
+      .from(users)
+      .where(eq(users.id, userId));
+    const isTestSession = user?.isTestAccount ?? false;
+    
     // Create new session
     const [session] = await db
       .insert(voiceSessions)
@@ -390,6 +397,7 @@ export class UsageService {
         language,
         classId,
         status: 'active',
+        isTestSession,
       })
       .returning();
     

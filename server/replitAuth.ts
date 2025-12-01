@@ -68,6 +68,10 @@ async function upsertUser(
     else if (claimedRoles.includes('student')) roleToSet = 'student';
   }
   
+  // Extract test account flag from claims (for developer testing)
+  // Test accounts have their usage excluded from production analytics
+  const isTestAccount = claims["is_test_account"] === true;
+  
   await storage.upsertUser({
     id: claims["sub"],
     email: claims["email"],
@@ -75,6 +79,7 @@ async function upsertUser(
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
     role: roleToSet,
+    isTestAccount: isTestAccount || undefined, // Only set if explicitly true
   });
 }
 

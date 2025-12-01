@@ -745,6 +745,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Class ID is required" });
       }
       
+      // Get current enrollment to capture previous hours
+      const [currentEnrollment] = await db
+        .select()
+        .from(classEnrollments)
+        .where(
+          and(
+            eq(classEnrollments.classId, classId),
+            eq(classEnrollments.studentId, userId)
+          )
+        );
+      
+      if (!currentEnrollment) {
+        return res.status(404).json({ message: "Enrollment not found" });
+      }
+      
+      // Calculate previous remaining hours
+      const previousRemainingSeconds = (currentEnrollment.allocatedSeconds || 0) - (currentEnrollment.usedSeconds || 0);
+      const previousHours = previousRemainingSeconds / 3600;
+      
       // Reset class credits for this user
       const seconds = hours * 3600;
       
@@ -764,24 +783,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         )
         .returning();
       
-      if (!enrollment) {
-        return res.status(404).json({ message: "Enrollment not found" });
-      }
-      
       // Add ledger entry for audit trail
       await usageService.addCredits(
         userId,
         seconds,
         'bonus',
-        `Developer credit reload: ${hours} hours`,
+        `Developer credit reload: ${hours} hours (was ${previousHours.toFixed(1)} hours)`,
         { classId }
       );
       
-      console.log(`[Developer] Reloaded ${hours} hours for user ${userId} in class ${classId}`);
+      console.log(`[Developer] Reloaded ${hours} hours for user ${userId} in class ${classId} (was ${previousHours.toFixed(1)} hours)`);
       
       res.json({
         success: true,
-        allocatedHours: hours,
+        hours,
+        previousHours: parseFloat(previousHours.toFixed(1)),
         usedSeconds: 0,
         message: `Reloaded ${hours} hours for testing`,
       });
@@ -996,18 +1012,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         default: startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       }
       
-      // Get users by role for filtering
-      let developerUserIds: string[] = [];
-      let productionUserIds: string[] = [];
-      
-      if (userType !== 'all') {
-        const allUsers = await db.select({ id: users.id, role: users.role }).from(users);
-        developerUserIds = allUsers.filter(u => u.role === 'developer' || u.role === 'admin').map(u => u.id);
-        productionUserIds = allUsers.filter(u => u.role === 'student' || u.role === 'teacher').map(u => u.id);
-      }
-      
       // Get all voice sessions in period
-      let sessionsQuery = db
+      let sessions = await db
         .select()
         .from(voiceSessions)
         .where(
@@ -1018,13 +1024,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         )
         .orderBy(desc(voiceSessions.startedAt));
       
-      let sessions = await sessionsQuery;
+      // Calculate test vs production breakdown BEFORE filtering
+      const testSessions = sessions.filter(s => s.isTestSession === true);
+      const productionSessions = sessions.filter(s => s.isTestSession !== true);
+      const testBreakdown = {
+        testSessionCount: testSessions.length,
+        productionSessionCount: productionSessions.length,
+        testDurationMinutes: Math.round(testSessions.reduce((sum, s) => sum + (s.durationSeconds || 0), 0) / 60),
+        productionDurationMinutes: Math.round(productionSessions.reduce((sum, s) => sum + (s.durationSeconds || 0), 0) / 60),
+        testPercentage: sessions.length > 0 ? Math.round((testSessions.length / sessions.length) * 100) : 0,
+      };
       
-      // Filter by user type
-      if (userType === 'developer') {
-        sessions = sessions.filter(s => developerUserIds.includes(s.userId));
+      // Filter by user type (now uses isTestSession flag)
+      if (userType === 'developer' || userType === 'test') {
+        sessions = sessions.filter(s => s.isTestSession === true);
       } else if (userType === 'production') {
-        sessions = sessions.filter(s => productionUserIds.includes(s.userId));
+        sessions = sessions.filter(s => s.isTestSession !== true);
       }
       
       // Calculate aggregate statistics
@@ -1098,6 +1113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           avgSessionDurationMinutes: Math.round(avgSessionDuration / 60 * 10) / 10,
           avgExchangesPerSession: Math.round(avgExchangesPerSession * 10) / 10,
         },
+        testBreakdown,
         byLanguage,
         byClass,
         durationDistribution: durationBuckets,

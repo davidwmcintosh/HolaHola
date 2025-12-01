@@ -871,6 +871,11 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
+    // Update test account flag if provided
+    if (user.isTestAccount !== undefined) {
+      updateSet.isTestAccount = user.isTestAccount;
+    }
+    
     const [upserted] = await db
       .insert(users)
       .values(user)

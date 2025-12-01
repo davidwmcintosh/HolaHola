@@ -13,6 +13,7 @@ import { CreditBalance } from "@/components/CreditBalance";
 import { useCredits } from "@/contexts/UsageContext";
 import { InsufficientCreditsDialog } from "@/components/InsufficientCreditsDialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { DevToolsFloatingMenu } from "@/components/DevToolsFloatingMenu";
 
 export default function Chat() {
   const search = useSearch();
@@ -373,6 +374,18 @@ export default function Chat() {
           />
         )}
       </div>
+      
+      {/* Developer testing tools - only visible to developers/admins */}
+      <DevToolsFloatingMenu 
+        classId={isInClassMode ? learningContext : null}
+        onCreditsReloaded={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/usage/status"] });
+        }}
+        onDataReset={() => {
+          setConversationId(null);
+          setForceNewConversation(true);
+        }}
+      />
     </div>
   );
 }

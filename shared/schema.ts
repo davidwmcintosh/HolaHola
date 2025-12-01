@@ -50,6 +50,8 @@ export const users = pgTable("users", {
   impersonatedUserId: varchar("impersonated_user_id"), // If admin is impersonating, this is the original admin's ID
   impersonatedBy: varchar("impersonated_by"), // The admin ID who initiated impersonation
   impersonationExpiresAt: timestamp("impersonation_expires_at"), // Impersonation session expiry
+  // Test account flag - for developer testing without polluting production analytics
+  isTestAccount: boolean("is_test_account").default(false), // True = test account (dev testing), sessions excluded from production analytics
   // Learning preferences
   targetLanguage: varchar("target_language"), // english, spanish, french, german, italian, portuguese, japanese, mandarin, korean
   nativeLanguage: varchar("native_language").default("english"), // Language for explanations
@@ -831,10 +833,13 @@ export const voiceSessions = pgTable("voice_sessions", {
   status: voiceSessionStatusEnum("status").default("active"),
   // Class context (if enrolled)
   classId: varchar("class_id").references(() => teacherClasses.id),
+  // Test session flag - sessions from test accounts excluded from production analytics
+  isTestSession: boolean("is_test_session").default(false),
 }, (table) => [
   index("idx_voice_sessions_user").on(table.userId),
   index("idx_voice_sessions_started").on(table.startedAt),
   index("idx_voice_sessions_class").on(table.classId),
+  index("idx_voice_sessions_test").on(table.isTestSession),
 ]);
 
 // Usage ledger - credit transactions (earned and consumed)
