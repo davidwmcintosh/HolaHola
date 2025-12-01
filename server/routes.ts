@@ -2,6 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
 import { storage } from "./storage";
+import { db } from "./db";
+import { eq, and, gte, desc, sql } from "drizzle-orm";
 import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter } from "./middleware/rate-limiter";
 import { requireRole, allowRoles, loadAuthenticatedUser } from "./middleware/rbac";
@@ -13,6 +15,9 @@ import {
   updateUserPreferencesSchema,
   insertClassHourPackageSchema,
   conversations,
+  classEnrollments,
+  teacherClasses,
+  voiceSessions,
 } from "@shared/schema";
 import { hasTeacherAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
@@ -717,6 +722,263 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error checking credits:", error);
       res.status(500).json({ message: "Failed to check credits" });
+    }
+  });
+
+  // ===== Developer Usage Analytics Routes =====
+  
+  // Reload credits for a class (developer only)
+  app.post('/api/developer/reload-credits', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Verify user is a developer
+      const isDeveloper = await usageService.checkDeveloperBypass(userId);
+      if (!isDeveloper) {
+        return res.status(403).json({ message: "Developer access required" });
+      }
+      
+      const { classId, hours = 120 } = req.body;
+      
+      if (!classId) {
+        return res.status(400).json({ message: "Class ID is required" });
+      }
+      
+      // Reset class credits for this user
+      const seconds = hours * 3600;
+      
+      // Update enrollment record to reset used seconds
+      const [enrollment] = await db
+        .update(classEnrollments)
+        .set({
+          allocatedSeconds: seconds,
+          usedSeconds: 0,
+          paceStatus: 'on_track',
+        })
+        .where(
+          and(
+            eq(classEnrollments.classId, classId),
+            eq(classEnrollments.studentId, userId)
+          )
+        )
+        .returning();
+      
+      if (!enrollment) {
+        return res.status(404).json({ message: "Enrollment not found" });
+      }
+      
+      // Add ledger entry for audit trail
+      await usageService.addCredits(
+        userId,
+        seconds,
+        'bonus',
+        `Developer credit reload: ${hours} hours`,
+        { classId }
+      );
+      
+      console.log(`[Developer] Reloaded ${hours} hours for user ${userId} in class ${classId}`);
+      
+      res.json({
+        success: true,
+        allocatedHours: hours,
+        usedSeconds: 0,
+        message: `Reloaded ${hours} hours for testing`,
+      });
+    } catch (error: any) {
+      console.error("Error reloading credits:", error);
+      res.status(500).json({ message: "Failed to reload credits" });
+    }
+  });
+  
+  // Get developer usage analytics
+  app.get('/api/developer/analytics', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Verify user is a developer
+      const isDeveloper = await usageService.checkDeveloperBypass(userId);
+      if (!isDeveloper) {
+        return res.status(403).json({ message: "Developer access required" });
+      }
+      
+      const { period = '30d' } = req.query;
+      
+      // Calculate date range
+      const now = new Date();
+      let startDate: Date;
+      switch (period) {
+        case '7d': startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); break;
+        case '30d': startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); break;
+        case '90d': startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000); break;
+        default: startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+      
+      // Get all voice sessions in period
+      const sessions = await db
+        .select()
+        .from(voiceSessions)
+        .where(
+          and(
+            gte(voiceSessions.startedAt, startDate),
+            eq(voiceSessions.status, 'completed')
+          )
+        )
+        .orderBy(desc(voiceSessions.startedAt));
+      
+      // Calculate aggregate statistics
+      const totalSessions = sessions.length;
+      const totalDurationSeconds = sessions.reduce((sum, s) => sum + (s.durationSeconds || 0), 0);
+      const totalExchanges = sessions.reduce((sum, s) => sum + (s.exchangeCount || 0), 0);
+      const totalTtsChars = sessions.reduce((sum, s) => sum + (s.ttsCharacters || 0), 0);
+      
+      const avgSessionDuration = totalSessions > 0 ? totalDurationSeconds / totalSessions : 0;
+      const avgExchangesPerSession = totalSessions > 0 ? totalExchanges / totalSessions : 0;
+      
+      // Group by language
+      const byLanguage: Record<string, { sessions: number; durationSeconds: number; exchanges: number }> = {};
+      for (const s of sessions) {
+        const lang = s.language || 'unknown';
+        if (!byLanguage[lang]) {
+          byLanguage[lang] = { sessions: 0, durationSeconds: 0, exchanges: 0 };
+        }
+        byLanguage[lang].sessions++;
+        byLanguage[lang].durationSeconds += s.durationSeconds || 0;
+        byLanguage[lang].exchanges += s.exchangeCount || 0;
+      }
+      
+      // Group by class
+      const byClass: Record<string, { sessions: number; durationSeconds: number; exchanges: number }> = {};
+      for (const s of sessions) {
+        const classKey = s.classId || 'no-class';
+        if (!byClass[classKey]) {
+          byClass[classKey] = { sessions: 0, durationSeconds: 0, exchanges: 0 };
+        }
+        byClass[classKey].sessions++;
+        byClass[classKey].durationSeconds += s.durationSeconds || 0;
+        byClass[classKey].exchanges += s.exchangeCount || 0;
+      }
+      
+      // Cost estimates (rough - based on typical API pricing)
+      const estimatedCosts = {
+        deepgramStt: (totalDurationSeconds / 60) * 0.0043, // $0.0043/min for Nova-3
+        cartesiaTts: (totalTtsChars / 1000) * 0.015, // $0.015 per 1K chars
+        geminiLlm: totalExchanges * 0.0001, // ~$0.0001 per exchange estimate
+        total: 0,
+      };
+      estimatedCosts.total = estimatedCosts.deepgramStt + estimatedCosts.cartesiaTts + estimatedCosts.geminiLlm;
+      
+      // Session length distribution
+      const durationBuckets = {
+        '0-2min': 0,
+        '2-5min': 0,
+        '5-10min': 0,
+        '10-20min': 0,
+        '20+min': 0,
+      };
+      for (const s of sessions) {
+        const mins = (s.durationSeconds || 0) / 60;
+        if (mins < 2) durationBuckets['0-2min']++;
+        else if (mins < 5) durationBuckets['2-5min']++;
+        else if (mins < 10) durationBuckets['5-10min']++;
+        else if (mins < 20) durationBuckets['10-20min']++;
+        else durationBuckets['20+min']++;
+      }
+      
+      res.json({
+        period,
+        dateRange: { start: startDate.toISOString(), end: now.toISOString() },
+        summary: {
+          totalSessions,
+          totalDurationMinutes: Math.round(totalDurationSeconds / 60),
+          totalDurationHours: Math.round(totalDurationSeconds / 3600 * 100) / 100,
+          totalExchanges,
+          totalTtsCharacters: totalTtsChars,
+          avgSessionDurationMinutes: Math.round(avgSessionDuration / 60 * 10) / 10,
+          avgExchangesPerSession: Math.round(avgExchangesPerSession * 10) / 10,
+        },
+        byLanguage,
+        byClass,
+        durationDistribution: durationBuckets,
+        estimatedCosts: {
+          ...estimatedCosts,
+          deepgramStt: Math.round(estimatedCosts.deepgramStt * 100) / 100,
+          cartesiaTts: Math.round(estimatedCosts.cartesiaTts * 100) / 100,
+          geminiLlm: Math.round(estimatedCosts.geminiLlm * 100) / 100,
+          total: Math.round(estimatedCosts.total * 100) / 100,
+        },
+      });
+    } catch (error: any) {
+      console.error("Error fetching developer analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+  
+  // Get class completion estimates
+  app.get('/api/developer/class-estimates', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Verify user is a developer
+      const isDeveloper = await usageService.checkDeveloperBypass(userId);
+      if (!isDeveloper) {
+        return res.status(403).json({ message: "Developer access required" });
+      }
+      
+      // Get all classes with their usage data
+      const classes = await db
+        .select({
+          classId: teacherClasses.id,
+          className: teacherClasses.name,
+          language: teacherClasses.language,
+          level: teacherClasses.classLevel,
+          curriculumPathId: teacherClasses.curriculumPathId,
+        })
+        .from(teacherClasses);
+      
+      // Get usage per class
+      const classEstimates = await Promise.all(classes.map(async (cls) => {
+        // Get sessions for this class
+        const sessions = await db
+          .select()
+          .from(voiceSessions)
+          .where(
+            and(
+              eq(voiceSessions.classId, cls.classId),
+              eq(voiceSessions.status, 'completed')
+            )
+          );
+        
+        const totalDurationSeconds = sessions.reduce((sum, s) => sum + (s.durationSeconds || 0), 0);
+        const totalExchanges = sessions.reduce((sum, s) => sum + (s.exchangeCount || 0), 0);
+        
+        // Get enrollment count
+        const enrollments = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(classEnrollments)
+          .where(
+            and(
+              eq(classEnrollments.classId, cls.classId),
+              eq(classEnrollments.isActive, true)
+            )
+          );
+        const enrolledStudents = enrollments[0]?.count || 0;
+        
+        return {
+          ...cls,
+          totalSessions: sessions.length,
+          totalDurationHours: Math.round(totalDurationSeconds / 3600 * 100) / 100,
+          totalExchanges,
+          enrolledStudents,
+          avgHoursPerStudent: enrolledStudents > 0 
+            ? Math.round((totalDurationSeconds / 3600) / enrolledStudents * 100) / 100 
+            : 0,
+        };
+      }));
+      
+      res.json({ classEstimates });
+    } catch (error: any) {
+      console.error("Error fetching class estimates:", error);
+      res.status(500).json({ message: "Failed to fetch class estimates" });
     }
   });
 
