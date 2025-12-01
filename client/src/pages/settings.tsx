@@ -97,6 +97,57 @@ export default function Settings() {
     setTutorGender(gender);
     tutorGenderMutation.mutate(gender);
   };
+
+  // Self-directed flexibility update mutation
+  const flexibilityMutation = useMutation({
+    mutationFn: async (flexibility: string) => {
+      return apiRequest("PUT", "/api/user/preferences", { selfDirectedFlexibility: flexibility });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast({
+        title: "Learning style updated",
+        description: "Your self-directed tutor style has been saved",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update learning style",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleFlexibilityChange = (flexibility: string) => {
+    setSelfDirectedFlexibility(flexibility);
+    flexibilityMutation.mutate(flexibility);
+  };
+
+  // Check if user has any class enrollments (to determine if placement should be shown)
+  const { data: enrollmentsData } = useQuery<{ enrollments: any[] }>({
+    queryKey: ["/api/student/enrollments"],
+    enabled: !!user,
+  });
+
+  // Determine if user is eligible for placement assessment
+  // Only show if: no ACTFL level AND no class enrollments
+  const hasNoActflLevel = !user?.actflLevel;
+  const hasNoClassEnrollments = !enrollmentsData?.enrollments?.length;
+  const isEligibleForPlacement = hasNoActflLevel && hasNoClassEnrollments;
+
+  // Get recommended flexibility based on ACTFL level
+  const getRecommendedFlexibility = (actflLevel: string | null): string => {
+    if (!actflLevel) return 'flexible_goals';
+    const level = actflLevel.toLowerCase();
+    if (level.startsWith('novice_low') || level.startsWith('novice_mid')) return 'guided';
+    if (level.startsWith('novice_high') || level.startsWith('intermediate_low') || level.startsWith('intermediate_mid')) return 'flexible_goals';
+    if (level.startsWith('intermediate_high')) return 'open_exploration';
+    return 'free_conversation'; // Advanced+
+  };
+
+  const recommendedFlexibility = getRecommendedFlexibility(user?.actflLevel || null);
+  const isUsingRecommended = selfDirectedFlexibility === recommendedFlexibility;
   
   // Initialize theme from localStorage
   useEffect(() => {
@@ -362,6 +413,153 @@ export default function Settings() {
               </Select>
             </div>
             
+          </CardContent>
+        </Card>
+
+        {/* Self-Directed Tutor Style - Only for personal practice, not class chats */}
+        <Card data-testid="card-self-directed-style">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <GraduationCap className="h-5 w-5" />
+              Self-Directed Tutor Style
+            </CardTitle>
+            <CardDescription>
+              How your AI tutor behaves during personal practice sessions (not class assignments)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Current proficiency display */}
+            {user?.actflLevel && (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Your Proficiency Level</p>
+                  <p className="text-lg font-medium capitalize" data-testid="text-actfl-level">
+                    {user.actflLevel.replace(/_/g, ' ')}
+                  </p>
+                </div>
+                <Badge variant="secondary">ACTFL</Badge>
+              </div>
+            )}
+
+            {/* Flexibility selector */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-0.5 flex-1">
+                  <Label htmlFor="flexibility-select" className="text-base">Teaching Style</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Choose how much freedom you want during self-directed practice
+                  </p>
+                </div>
+                <Select
+                  value={selfDirectedFlexibility}
+                  onValueChange={handleFlexibilityChange}
+                  disabled={flexibilityMutation.isPending}
+                >
+                  <SelectTrigger className="w-48" id="flexibility-select" data-testid="select-flexibility">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="guided" data-testid="select-flexibility-guided">
+                      Guided (Structured)
+                    </SelectItem>
+                    <SelectItem value="flexible_goals" data-testid="select-flexibility-flexible">
+                      Flexible Goals
+                    </SelectItem>
+                    <SelectItem value="open_exploration" data-testid="select-flexibility-open">
+                      Open Exploration
+                    </SelectItem>
+                    <SelectItem value="free_conversation" data-testid="select-flexibility-free">
+                      Free Conversation
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Description of selected style */}
+              <div className="rounded-lg bg-muted/50 p-3 text-sm">
+                {selfDirectedFlexibility === 'guided' && (
+                  <p>The tutor follows a structured approach, keeps you on topic, and provides clear corrections. Best for building a strong foundation.</p>
+                )}
+                {selfDirectedFlexibility === 'flexible_goals' && (
+                  <p>You can choose topics within learning goals. The tutor guides you but allows exploration within your level.</p>
+                )}
+                {selfDirectedFlexibility === 'open_exploration' && (
+                  <p>You lead the conversation direction. The tutor suggests learning connections but follows your interests.</p>
+                )}
+                {selfDirectedFlexibility === 'free_conversation' && (
+                  <p>Maximum practice freedom. Natural conversation with minimal structure, great for building fluency.</p>
+                )}
+              </div>
+
+              {/* Recommendation indicator */}
+              {user?.actflLevel && (
+                <div className={`flex items-center gap-2 text-sm ${isUsingRecommended ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                  {isUsingRecommended ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>This is the recommended style for your level</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="h-4 w-4" />
+                      <span>
+                        Recommended for {user.actflLevel.replace(/_/g, ' ')}: {' '}
+                        <button 
+                          className="underline hover:no-underline"
+                          onClick={() => handleFlexibilityChange(recommendedFlexibility)}
+                          data-testid="button-use-recommended"
+                        >
+                          {recommendedFlexibility === 'guided' ? 'Guided' : 
+                           recommendedFlexibility === 'flexible_goals' ? 'Flexible Goals' :
+                           recommendedFlexibility === 'open_exploration' ? 'Open Exploration' : 'Free Conversation'}
+                        </button>
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Placement assessment option - only for eligible users */}
+            {isEligibleForPlacement && (
+              <div className="border-t pt-4 mt-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-0.5 flex-1">
+                    <Label className="text-base">Quick Placement Assessment</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Take a brief 3-5 minute assessment to determine your proficiency level and get personalized recommendations
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsRunningPlacement(true);
+                      toast({
+                        title: "Coming soon",
+                        description: "The quick placement assessment will be available in a future update",
+                      });
+                      setIsRunningPlacement(false);
+                    }}
+                    disabled={isRunningPlacement}
+                    data-testid="button-start-placement"
+                  >
+                    {isRunningPlacement ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Assessing...
+                      </>
+                    ) : (
+                      'Start Assessment'
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Note about class chats */}
+            <p className="text-xs text-muted-foreground italic">
+              Note: Class assignments use the teaching style set by your teacher, not this preference.
+            </p>
           </CardContent>
         </Card>
 
