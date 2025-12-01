@@ -102,6 +102,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   // Track current turn ID for subtitle packet ordering (prevents phantom subtitles)
   const currentTurnIdRef = useRef(0);
   
+  // Track difficulty level for ACTFL-aware subtitle timing
+  const [difficultyLevel, setDifficultyLevel] = useState<string>('beginner');
+  
   // Helper to check if we can clear isProcessing
   // Note: Does NOT reset responseCompleteRef - that's done when new request starts
   const checkAndClearProcessing = useCallback(() => {
@@ -117,8 +120,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
   }, []);
   
-  // Subtitle management
-  const subtitles = useStreamingSubtitles();
+  // Subtitle management with ACTFL-level-aware timing
+  const subtitles = useStreamingSubtitles({ difficultyLevel });
   
   // Keep a ref to subtitles to avoid stale closure issues in audio player callbacks
   // The audio player callbacks are set once on mount but need access to latest subtitles methods
@@ -303,6 +306,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     // Store config for callbacks (e.g., onResponseComplete)
     sessionConfigRef.current = config;
+    
+    // Update difficulty level for ACTFL-aware subtitle timing
+    setDifficultyLevel(config.difficultyLevel);
     
     try {
       // Get or create client

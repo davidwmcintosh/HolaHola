@@ -12,6 +12,7 @@
 
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { WordTiming } from '../../../shared/streaming-voice-types';
+import { getSubtitlePolicy, getWordHighlightOffset, shouldRevealProgressively } from '../lib/subtitlePolicies';
 
 /**
  * A contiguous block of target language words
@@ -162,9 +163,17 @@ function computeTargetBlocks(
 }
 
 /**
- * Hook for managing streaming subtitles with server-driven state
+ * Configuration for the streaming subtitles hook
  */
-export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
+export interface UseStreamingSubtitlesConfig {
+  difficultyLevel?: string;
+}
+
+/**
+ * Hook for managing streaming subtitles with server-driven state
+ * Now supports ACTFL-level-aware timing policies
+ */
+export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): UseStreamingSubtitlesReturn {
   const [sentences, setSentences] = useState<SubtitleSentence[]>([]);
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(-1);
   const [currentWordIndex, setCurrentWordIndex] = useState(-1);
@@ -183,6 +192,9 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   const isWaitingForContentRef = useRef(false);
   const [isWaitingForContent, setIsWaitingForContent] = useState(false);
   
+  // ACTFL-level-aware timing: store difficulty for policy lookups
+  const difficultyRef = useRef<string>(config?.difficultyLevel || 'beginner');
+  
   // Refs for animation and timing
   const currentTimingsRef = useRef<WordTiming[]>([]);
   const currentWordMappingRef = useRef<Map<number, number> | undefined>(undefined);
@@ -193,6 +205,11 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   
   // Timing cache for immediate access during streaming
   const timingsBySentenceRef = useRef<Map<number, { timings: WordTiming[]; expectedDurationMs?: number }>>(new Map());
+  
+  // Update difficulty ref when config changes
+  if (config?.difficultyLevel && config.difficultyLevel !== difficultyRef.current) {
+    difficultyRef.current = config.difficultyLevel;
+  }
   
   /**
    * Set the current turn ID (called when 'processing' message arrives)
@@ -416,16 +433,25 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
   
   /**
    * Update playback time (called from high-precision timing loop)
+   * 
+   * ACTFL-level-aware timing:
+   * - Novice: 100ms offset (words appear slightly before audio for processing time)
+   * - Intermediate: 50ms offset (faster processing, less lead time needed)
+   * - Advanced: 0ms offset (natural rhythm, no artificial delay)
+   * 
+   * CRITICAL: currentTime now comes directly from audio.currentTime,
+   * ensuring subtitles stay locked to actual playback position.
    */
   const updatePlaybackTime = useCallback((currentTime: number, actualDuration?: number) => {
     const timings = currentTimingsRef.current;
     if (timings.length === 0) return;
     
-    // Timing offset - words appear slightly before audio for readability
-    const SUBTITLE_OFFSET = 0.15;
-    const adjustedTime = Math.max(0, currentTime - SUBTITLE_OFFSET);
+    // ACTFL-level-aware timing offset
+    // Lower levels get more lead time to process text before hearing it
+    const policyOffset = getWordHighlightOffset(difficultyRef.current);
+    const adjustedTime = Math.max(0, currentTime - policyOffset);
     
-    // Store actual duration for rescaling
+    // Store actual duration for rescaling server estimates
     const isValidDuration = actualDuration !== undefined && actualDuration > 0 && Number.isFinite(actualDuration);
     const needsUpdate = actualDurationRef.current === undefined || !Number.isFinite(actualDurationRef.current);
     
@@ -433,13 +459,15 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
       actualDurationRef.current = actualDuration * 1000;
     }
     
-    // Calculate rescaling factor
+    // Calculate rescaling factor to recalibrate server estimates with actual duration
+    // This corrects for discrepancies between estimated and actual audio length
     let scaleFactor = 1;
     const expected = expectedDurationRef.current;
     const actual = actualDurationRef.current;
     
     if (expected && actual && expected > 0 && Number.isFinite(actual)) {
       scaleFactor = actual / expected;
+      // Only apply rescaling if difference is significant (>5%)
       if (Math.abs(scaleFactor - 1) < 0.05) scaleFactor = 1;
     }
     

@@ -335,32 +335,49 @@ export class StreamingAudioPlayer {
   /**
    * Start high-precision timing loop using requestAnimationFrame
    * This provides ~60fps updates instead of the coarse timeupdate (~4fps)
+   * 
+   * CRITICAL: Uses audio.currentTime directly when available, falling back to
+   * performance.now() timing when audio element is temporarily unavailable.
+   * This keeps subtitles synced with actual audio while handling edge cases.
    */
   private startPrecisionTiming(): void {
     // Cancel any existing timing loop
     this.stopPrecisionTiming();
     
-    console.log('[StreamingAudioPlayer] Starting precision timing loop');
+    console.log('[StreamingAudioPlayer] Starting precision timing loop (audio.currentTime anchored)');
     
     let frameCount = 0;
     const tick = () => {
-      if (!this.isPlaying || this.playbackStartTime === null) {
-        console.log('[StreamingAudioPlayer] RAF loop exiting: isPlaying=', this.isPlaying, 'startTime=', this.playbackStartTime);
+      // Exit only if we've explicitly stopped playback
+      if (!this.isPlaying) {
+        console.log('[StreamingAudioPlayer] RAF loop exiting: isPlaying=false');
         return;
       }
       
-      // Calculate elapsed time since audio started playing
-      // Using performance.now() for sub-millisecond precision
-      const elapsedMs = performance.now() - this.playbackStartTime;
-      const currentTime = elapsedMs / 1000; // Convert to seconds
+      // Use audio.currentTime when available, fall back to performance.now() timing
+      // This handles edge cases where currentAudio is temporarily null (resume/stop flows)
+      let currentTime: number;
+      if (this.currentAudio && !this.currentAudio.paused) {
+        // Primary: Use actual audio playback position for perfect sync
+        currentTime = this.currentAudio.currentTime;
+      } else if (this.playbackStartTime !== null) {
+        // Fallback: Calculate from performance.now() when audio temporarily unavailable
+        const elapsedMs = performance.now() - this.playbackStartTime;
+        currentTime = elapsedMs / 1000;
+      } else {
+        // No timing source available, continue loop but don't fire callback
+        this.rafId = requestAnimationFrame(tick);
+        return;
+      }
       
-      // Fire progress callback with precise timing
+      // Fire progress callback with timing
       this.callbacks.onProgress?.(currentTime, this.currentDuration);
       
       // DEBUG: Log periodically to verify loop is running
       frameCount++;
       if (frameCount % 60 === 0) { // Every ~1 second at 60fps
-        console.log(`[StreamingAudioPlayer] RAF frame ${frameCount}, time: ${currentTime.toFixed(2)}s`);
+        const source = this.currentAudio && !this.currentAudio.paused ? 'audio' : 'perf';
+        console.log(`[StreamingAudioPlayer] RAF frame ${frameCount}, time: ${currentTime.toFixed(3)}s (${source})`);
       }
       
       // Continue the loop
