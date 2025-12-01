@@ -1052,8 +1052,11 @@ Higher roles automatically inherit permissions from lower roles.
 - Platform-wide read access (users, classes, assignments)
 - Platform metrics and analytics
 - View audit logs
+- Edit syllabi for any class via Command Center
 
 **Admin (Full Access)**
+- All developer capabilities
+- Edit syllabi for any class via Command Center
 - User role management
 - Impersonation capabilities
 - Full audit log access
@@ -1069,7 +1072,7 @@ The **Command Center** (`/admin`) is a unified tab-based administrative interfac
 |-----|--------------|-------------|
 | Overview | Developer+ | Platform metrics and quick stats |
 | Users | Developer+ | User management and role assignment |
-| Classes | Developer+ | All classes across the platform |
+| Classes | Developer+ | All classes across the platform with syllabus editing |
 | Developer Tools | Developer+ | Testing controls, usage analytics |
 | Voice Console | Developer+ | Voice audition and TTS settings |
 | System | Admin only | System configuration and audit logs |
@@ -1079,6 +1082,32 @@ The **Command Center** (`/admin`) is a unified tab-based administrative interfac
 - Or navigate directly to `/admin`
 
 Only users with `role = 'developer'` or `role = 'admin'` can access the Command Center.
+
+### Syllabus Editing from Command Center
+
+Admins and developers can edit syllabi for **any class** directly from the Command Center, without needing to be the class owner.
+
+**How to Access:**
+1. Navigate to Command Center (`/admin`)
+2. Click the "Classes" tab
+3. Find the class you want to edit
+4. Click the "Manage Syllabus" button on the class card
+
+**Available Actions:**
+- View all units and lessons in the class syllabus
+- Add, edit, or remove lessons
+- Create custom lessons
+- Reorder units and lessons via drag-and-drop
+- View ACTFL Standards Coverage analysis
+- Toggle lessons on/off without deleting them
+
+**Use Cases:**
+- Fixing syllabus issues reported by teachers
+- Standardizing syllabi across multiple classes
+- Adding institutional content to existing classes
+- Quality assurance and curriculum review
+
+**Note:** Teachers can only edit syllabi for their own classes via Class Management. Admins/developers have platform-wide syllabus access through the Command Center.
 
 ### Managing User Roles
 
