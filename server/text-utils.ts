@@ -141,10 +141,8 @@ export function extractTargetLanguageText(text: string): string {
   while ((match = boldPattern.exec(cleanedInput)) !== null) {
     const boldText = match[1].trim();
     const expanded = expandToPhrase(boldText, cleanedInput);
-    console.log(`[Extract DEBUG] PASS 1 bold: "${boldText}" -> expanded: "${expanded}" at ${match.index}`);
     addSegment(expanded, match.index, match.index + match[0].length);
   }
-  console.log(`[Extract DEBUG] After PASS 1, segments:`, segments.map(s => `"${s.text}" @${s.startIndex}-${s.endIndex}`));
   
   // Create a plain text version for subsequent detection (strip bold markers)
   const plainText = cleanedInput.replace(/\*\*/g, '');
@@ -206,7 +204,6 @@ export function extractTargetLanguageText(text: string): string {
   // Sort segments by position and deduplicate
   if (segments.length > 0) {
     segments.sort((a, b) => a.startIndex - b.startIndex);
-    console.log(`[Extract DEBUG] After all passes, sorted segments:`, segments.map(s => `"${s.text}" @${s.startIndex}-${s.endIndex}`));
     // Return unique segment texts in order
     const seen = new Set<string>();
     const result = segments
@@ -218,7 +215,6 @@ export function extractTargetLanguageText(text: string): string {
       })
       .map(s => s.text);
     
-    console.log(`[Extract DEBUG] Final result:`, result.join(' '));
     if (result.length > 0) {
       return result.join(' ');
     }
