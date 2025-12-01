@@ -398,6 +398,8 @@ function UsersTab() {
   const { toast } = useToast();
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState({ firstName: "", lastName: "", email: "" });
 
   const queryUrl = roleFilter === "all" 
     ? "/api/admin/users" 
@@ -419,6 +421,22 @@ function UsersTab() {
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to update role", variant: "destructive" });
+    },
+  });
+
+  const updateUserDetailsMutation = useMutation({
+    mutationFn: async ({ userId, data }: { userId: string; data: { firstName?: string; lastName?: string; email?: string; isTestAccount?: boolean } }) => {
+      return apiRequest("PATCH", `/api/admin/users/${userId}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ predicate: (query) => 
+        typeof query.queryKey[0] === 'string' && query.queryKey[0].startsWith('/api/admin/users')
+      });
+      toast({ title: "User updated successfully" });
+      setEditingUser(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update user", variant: "destructive" });
     },
   });
 
@@ -454,6 +472,34 @@ function UsersTab() {
         user.lastName?.toLowerCase().includes(searchQuery.toLowerCase()))
       : true
   );
+
+  const openEditDialog = (user: any) => {
+    setEditingUser(user);
+    setEditForm({
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      email: user.email || "",
+    });
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingUser) return;
+    updateUserDetailsMutation.mutate({
+      userId: editingUser.id,
+      data: {
+        firstName: editForm.firstName,
+        lastName: editForm.lastName,
+        email: editForm.email,
+      },
+    });
+  };
+
+  const handleToggleTestUser = (userId: string, currentValue: boolean) => {
+    updateUserDetailsMutation.mutate({
+      userId,
+      data: { isTestAccount: !currentValue },
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -507,16 +553,34 @@ function UsersTab() {
                         <User className="h-5 w-5 text-primary" />
                       </div>
                       <div>
-                        <div className="font-medium">
-                          {user.firstName || user.lastName
-                            ? `${user.firstName || ""} ${user.lastName || ""}`.trim()
-                            : user.email}
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">
+                            {user.firstName || user.lastName
+                              ? `${user.firstName || ""} ${user.lastName || ""}`.trim()
+                              : user.email}
+                          </span>
+                          {user.isTestAccount && (
+                            <Badge variant="secondary" className="text-xs">
+                              <Zap className="h-3 w-3 mr-1" />
+                              Test
+                            </Badge>
+                          )}
                         </div>
                         <div className="text-sm text-muted-foreground">{user.email}</div>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-muted/50">
+                        <span className="text-xs text-muted-foreground">Test User</span>
+                        <Switch
+                          checked={user.isTestAccount || false}
+                          onCheckedChange={() => handleToggleTestUser(user.id, user.isTestAccount || false)}
+                          disabled={updateUserDetailsMutation.isPending}
+                          data-testid={`switch-test-user-${user.id}`}
+                        />
+                      </div>
+                      
                       <Select
                         value={user.role}
                         onValueChange={(newRole) => updateRoleMutation.mutate({ userId: user.id, newRole })}
@@ -532,6 +596,16 @@ function UsersTab() {
                           <SelectItem value="admin">Admin</SelectItem>
                         </SelectContent>
                       </Select>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openEditDialog(user)}
+                        data-testid={`button-edit-${user.id}`}
+                      >
+                        <Pencil className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
 
                       {user.role !== 'admin' && (
                         <Button
@@ -592,6 +666,59 @@ function UsersTab() {
           )}
         </div>
       </CollapsibleSection>
+
+      <AlertDialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Edit User Details</AlertDialogTitle>
+            <AlertDialogDescription>
+              Update user information for {editingUser?.email}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">First Name</label>
+              <Input
+                value={editForm.firstName}
+                onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
+                placeholder="First Name"
+                data-testid="input-edit-firstName"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Last Name</label>
+              <Input
+                value={editForm.lastName}
+                onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })}
+                placeholder="Last Name"
+                data-testid="input-edit-lastName"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Email</label>
+              <Input
+                value={editForm.email}
+                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                placeholder="Email"
+                type="email"
+                data-testid="input-edit-email"
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleSaveEdit}
+              disabled={updateUserDetailsMutation.isPending}
+            >
+              {updateUserDetailsMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : null}
+              Save Changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

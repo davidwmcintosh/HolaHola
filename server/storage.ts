@@ -341,6 +341,7 @@ export interface IStorage {
   // User Management
   getAllUsers(options?: { role?: string; limit?: number; offset?: number }): Promise<{ users: User[]; total: number }>;
   updateUserRole(userId: string, newRole: 'student' | 'teacher' | 'developer' | 'admin'): Promise<User | undefined>;
+  updateUserDetails(userId: string, data: { firstName?: string; lastName?: string; email?: string; isTestAccount?: boolean }): Promise<User | undefined>;
   
   // Class Management (Platform-wide)
   getAllClasses(options?: { limit?: number; offset?: number }): Promise<{ classes: Array<TeacherClass & { teacher: User; enrollmentCount: number }>; total: number }>;
@@ -2708,6 +2709,22 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db
       .update(users)
       .set({ role: newRole, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  async updateUserDetails(userId: string, data: { firstName?: string; lastName?: string; email?: string; isTestAccount?: boolean }): Promise<User | undefined> {
+    const updateSet: Record<string, any> = { updatedAt: new Date() };
+    
+    if (data.firstName !== undefined) updateSet.firstName = data.firstName;
+    if (data.lastName !== undefined) updateSet.lastName = data.lastName;
+    if (data.email !== undefined) updateSet.email = data.email;
+    if (data.isTestAccount !== undefined) updateSet.isTestAccount = data.isTestAccount;
+    
+    const [updated] = await db
+      .update(users)
+      .set(updateSet)
       .where(eq(users.id, userId))
       .returning();
     return updated;

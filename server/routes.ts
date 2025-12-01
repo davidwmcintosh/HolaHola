@@ -6831,6 +6831,47 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Update user details (admin only) - firstName, lastName, email, isTestAccount
+  app.patch("/api/admin/users/:userId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const adminId = req.user.claims.sub;
+      const { userId } = req.params;
+      const { firstName, lastName, email, isTestAccount } = req.body;
+      
+      // Validate at least one field to update
+      if (firstName === undefined && lastName === undefined && email === undefined && isTestAccount === undefined) {
+        return res.status(400).json({ error: "No fields to update provided" });
+      }
+      
+      const updated = await storage.updateUserDetails(userId, {
+        firstName,
+        lastName,
+        email,
+        isTestAccount,
+      });
+      
+      if (!updated) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Log the action
+      await storage.logAdminAction({
+        actorId: adminId,
+        action: 'update_user_details',
+        targetType: 'user',
+        targetId: userId,
+        metadata: { firstName, lastName, email, isTestAccount },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error('Error updating user details:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Reset user learning data (admin/developer only)
   app.post("/api/admin/users/:userId/reset-learning-data", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
