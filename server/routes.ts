@@ -5999,6 +5999,153 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ===== Class Syllabus Management (Teachers) =====
+  
+  // Get class curriculum units (syllabus)
+  app.get("/api/teacher/classes/:classId/curriculum/units", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { classId } = req.params;
+      
+      const teacherClass = await storage.getTeacherClass(classId);
+      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      const units = await storage.getClassCurriculumUnits(classId);
+      res.json(units);
+    } catch (error: any) {
+      console.error('Error fetching class curriculum units:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get lessons for a class curriculum unit
+  app.get("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { classId, unitId } = req.params;
+      
+      const teacherClass = await storage.getTeacherClass(classId);
+      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      const lessons = await storage.getClassCurriculumLessons(unitId);
+      res.json(lessons);
+    } catch (error: any) {
+      console.error('Error fetching class curriculum lessons:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update class curriculum unit (for reordering)
+  app.patch("/api/teacher/classes/:classId/curriculum/units/:unitId", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { classId, unitId } = req.params;
+      
+      const teacherClass = await storage.getTeacherClass(classId);
+      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      const updatedUnit = await storage.updateClassCurriculumUnit(unitId, req.body);
+      res.json(updatedUnit);
+    } catch (error: any) {
+      console.error('Error updating class curriculum unit:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update class curriculum lesson (for reordering/editing)
+  app.patch("/api/teacher/classes/:classId/curriculum/lessons/:lessonId", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { classId, lessonId } = req.params;
+      
+      const teacherClass = await storage.getTeacherClass(classId);
+      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      const updatedLesson = await storage.updateClassCurriculumLesson(lessonId, req.body);
+      res.json(updatedLesson);
+    } catch (error: any) {
+      console.error('Error updating class curriculum lesson:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete class curriculum lesson (soft delete by setting isRemoved = true)
+  app.delete("/api/teacher/classes/:classId/curriculum/lessons/:lessonId", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { classId, lessonId } = req.params;
+      
+      const teacherClass = await storage.getTeacherClass(classId);
+      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      const updatedLesson = await storage.updateClassCurriculumLesson(lessonId, { isRemoved: true });
+      res.json({ success: true, lesson: updatedLesson });
+    } catch (error: any) {
+      console.error('Error deleting class curriculum lesson:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Batch update unit order
+  app.post("/api/teacher/classes/:classId/curriculum/units/reorder", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { classId } = req.params;
+      const { unitOrders } = req.body; // Array of { id, orderIndex }
+      
+      const teacherClass = await storage.getTeacherClass(classId);
+      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      // Update each unit's order
+      for (const { id, orderIndex } of unitOrders) {
+        await storage.updateClassCurriculumUnit(id, { orderIndex });
+      }
+
+      const units = await storage.getClassCurriculumUnits(classId);
+      res.json(units);
+    } catch (error: any) {
+      console.error('Error reordering class curriculum units:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Batch update lesson order within a unit
+  app.post("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons/reorder", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { classId, unitId } = req.params;
+      const { lessonOrders } = req.body; // Array of { id, orderIndex }
+      
+      const teacherClass = await storage.getTeacherClass(classId);
+      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      // Update each lesson's order
+      for (const { id, orderIndex } of lessonOrders) {
+        await storage.updateClassCurriculumLesson(id, { orderIndex });
+      }
+
+      const lessons = await storage.getClassCurriculumLessons(unitId);
+      res.json(lessons);
+    } catch (error: any) {
+      console.error('Error reordering class curriculum lessons:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== Assignments =====
   
   // Create assignment (teachers only)

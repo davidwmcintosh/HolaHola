@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Copy, Plus, Trash2, Users, ClipboardList, BookOpen, UserMinus, Sparkles, AlertCircle, CheckCircle, TrendingDown, TrendingUp } from "lucide-react";
+import { Copy, Plus, Trash2, Users, ClipboardList, BookOpen, UserMinus, Sparkles, AlertCircle, CheckCircle, TrendingDown, TrendingUp, Layers } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useParams, Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +21,7 @@ import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
 import { TeacherEarlyCompletions } from "@/components/teacher-early-completions";
 import { hasTeacherAccess } from "@shared/permissions";
+import { SyllabusBuilder } from "@/components/SyllabusBuilder";
 
 const cloneClassFormSchema = z.object({
   name: z.string().min(1, "Class name is required"),
@@ -358,6 +359,10 @@ export default function ClassManagement() {
       <Tabs defaultValue="students" className="space-y-6">
         <TabsList>
           <TabsTrigger value="students" data-testid="tab-students">Students</TabsTrigger>
+          <TabsTrigger value="syllabus" data-testid="tab-syllabus" className="gap-1">
+            <Layers className="h-4 w-4" />
+            Syllabus
+          </TabsTrigger>
           <TabsTrigger value="assignments" data-testid="tab-assignments">Assignments</TabsTrigger>
           <TabsTrigger value="progress" data-testid="tab-progress" className="gap-1">
             <Sparkles className="h-4 w-4" />
@@ -580,6 +585,10 @@ export default function ClassManagement() {
               </div>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="syllabus">
+          <SyllabusBuilder classId={classId || ''} />
         </TabsContent>
 
         <TabsContent value="progress">
