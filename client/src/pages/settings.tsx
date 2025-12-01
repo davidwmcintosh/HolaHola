@@ -6,7 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Subtitles, CaptionsOff, Languages, Captions, Palette, Moon, Sun, Monitor, User as UserIcon } from "lucide-react";
+import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Subtitles, CaptionsOff, Languages, Captions, Palette, Moon, Sun, Monitor, User as UserIcon, GraduationCap, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +53,8 @@ export default function Settings() {
   const [isResetting, setIsResetting] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark" | "system">("light");
   const [tutorGender, setTutorGender] = useState<"male" | "female">((user?.tutorGender as "male" | "female") || "female");
+  const [selfDirectedFlexibility, setSelfDirectedFlexibility] = useState<string>((user?.selfDirectedFlexibility as string) || "flexible_goals");
+  const [isRunningPlacement, setIsRunningPlacement] = useState(false);
   const { toast } = useToast();
   const logoutMutation = useLogout();
 
@@ -62,6 +64,13 @@ export default function Settings() {
       setTutorGender(user.tutorGender as "male" | "female");
     }
   }, [user?.tutorGender]);
+
+  // Initialize self-directed flexibility from user when loaded
+  useEffect(() => {
+    if (user?.selfDirectedFlexibility) {
+      setSelfDirectedFlexibility(user.selfDirectedFlexibility as string);
+    }
+  }, [user?.selfDirectedFlexibility]);
 
   // Tutor gender update mutation
   const tutorGenderMutation = useMutation({
