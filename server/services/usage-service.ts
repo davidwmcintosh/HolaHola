@@ -381,12 +381,12 @@ export class UsageService {
     // End any existing active sessions for this user
     await this.endAllActiveSessions(userId);
     
-    // Check if this is a test account session
+    // Check if this is a test account or beta tester session (both excluded from production analytics)
     const [user] = await db
-      .select({ isTestAccount: users.isTestAccount })
+      .select({ isTestAccount: users.isTestAccount, isBetaTester: users.isBetaTester })
       .from(users)
       .where(eq(users.id, userId));
-    const isTestSession = user?.isTestAccount ?? false;
+    const isTestSession = (user?.isTestAccount || user?.isBetaTester) ?? false;
     
     // Create new session
     const [session] = await db

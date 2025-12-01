@@ -6831,15 +6831,15 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  // Update user details (admin only) - firstName, lastName, email, isTestAccount
+  // Update user details (admin only) - firstName, lastName, email, isTestAccount, isBetaTester
   app.patch("/api/admin/users/:userId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const adminId = req.user.claims.sub;
       const { userId } = req.params;
-      const { firstName, lastName, email, isTestAccount } = req.body;
+      const { firstName, lastName, email, isTestAccount, isBetaTester } = req.body;
       
       // Validate at least one field to update
-      if (firstName === undefined && lastName === undefined && email === undefined && isTestAccount === undefined) {
+      if (firstName === undefined && lastName === undefined && email === undefined && isTestAccount === undefined && isBetaTester === undefined) {
         return res.status(400).json({ error: "No fields to update provided" });
       }
       
@@ -6848,6 +6848,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         lastName,
         email,
         isTestAccount,
+        isBetaTester,
       });
       
       if (!updated) {
@@ -6860,7 +6861,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         action: 'update_user_details',
         targetType: 'user',
         targetId: userId,
-        metadata: { firstName, lastName, email, isTestAccount },
+        metadata: { firstName, lastName, email, isTestAccount, isBetaTester },
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
       });
@@ -6868,6 +6869,53 @@ Return ONLY the ${targetLanguage} phrase:`;
       res.json(updated);
     } catch (error: any) {
       console.error('Error updating user details:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Grant credits to a user (admin only) - for beta testers and special allocations
+  app.post("/api/admin/users/:userId/grant-credits", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const adminId = req.user.claims.sub;
+      const { userId } = req.params;
+      const { creditHours, description, expiresAt } = req.body;
+      
+      // Validate creditHours
+      if (!creditHours || typeof creditHours !== 'number' || creditHours <= 0) {
+        return res.status(400).json({ error: "creditHours must be a positive number" });
+      }
+      
+      // Verify user exists
+      const targetUser = await storage.getUser(userId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Grant credits
+      await storage.grantCredits(
+        userId, 
+        creditHours, 
+        description || `Admin granted ${creditHours} hours`,
+        expiresAt ? new Date(expiresAt) : undefined
+      );
+      
+      // Log the action
+      await storage.logAdminAction({
+        actorId: adminId,
+        action: 'grant_credits',
+        targetType: 'user',
+        targetId: userId,
+        metadata: { creditHours, description, expiresAt },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      res.json({ 
+        success: true, 
+        message: `Successfully granted ${creditHours} hours to ${targetUser.email || targetUser.firstName || userId}` 
+      });
+    } catch (error: any) {
+      console.error('Error granting credits:', error);
       res.status(500).json({ error: error.message });
     }
   });

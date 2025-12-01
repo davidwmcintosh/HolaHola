@@ -100,7 +100,7 @@ import {
   type InsertTutorVoice,
   lessonCanDoStatements,
   type LessonCanDoStatement,
-  type CanDoStatement,
+  usageLedger,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -341,7 +341,8 @@ export interface IStorage {
   // User Management
   getAllUsers(options?: { role?: string; limit?: number; offset?: number }): Promise<{ users: User[]; total: number }>;
   updateUserRole(userId: string, newRole: 'student' | 'teacher' | 'developer' | 'admin'): Promise<User | undefined>;
-  updateUserDetails(userId: string, data: { firstName?: string; lastName?: string; email?: string; isTestAccount?: boolean }): Promise<User | undefined>;
+  updateUserDetails(userId: string, data: { firstName?: string; lastName?: string; email?: string; isTestAccount?: boolean; isBetaTester?: boolean }): Promise<User | undefined>;
+  grantCredits(userId: string, creditHours: number, description: string, expiresAt?: Date): Promise<void>;
   
   // Class Management (Platform-wide)
   getAllClasses(options?: { limit?: number; offset?: number }): Promise<{ classes: Array<TeacherClass & { teacher: User; enrollmentCount: number }>; total: number }>;
@@ -2714,13 +2715,14 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async updateUserDetails(userId: string, data: { firstName?: string; lastName?: string; email?: string; isTestAccount?: boolean }): Promise<User | undefined> {
+  async updateUserDetails(userId: string, data: { firstName?: string; lastName?: string; email?: string; isTestAccount?: boolean; isBetaTester?: boolean }): Promise<User | undefined> {
     const updateSet: Record<string, any> = { updatedAt: new Date() };
     
     if (data.firstName !== undefined) updateSet.firstName = data.firstName;
     if (data.lastName !== undefined) updateSet.lastName = data.lastName;
     if (data.email !== undefined) updateSet.email = data.email;
     if (data.isTestAccount !== undefined) updateSet.isTestAccount = data.isTestAccount;
+    if (data.isBetaTester !== undefined) updateSet.isBetaTester = data.isBetaTester;
     
     const [updated] = await db
       .update(users)
@@ -2728,6 +2730,19 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return updated;
+  }
+
+  async grantCredits(userId: string, creditHours: number, description: string, expiresAt?: Date): Promise<void> {
+    // Convert hours to seconds
+    const creditSeconds = Math.round(creditHours * 3600);
+    
+    await db.insert(usageLedger).values({
+      userId,
+      creditSeconds,
+      entitlementType: 'bonus',
+      description: description || `Admin granted ${creditHours} hours`,
+      expiresAt: expiresAt || null,
+    });
   }
   
   // Class Management (Platform-wide)

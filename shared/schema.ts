@@ -52,6 +52,8 @@ export const users = pgTable("users", {
   impersonationExpiresAt: timestamp("impersonation_expires_at"), // Impersonation session expiry
   // Test account flag - for developer testing without polluting production analytics
   isTestAccount: boolean("is_test_account").default(false), // True = test account (dev testing), sessions excluded from production analytics
+  // Beta tester flag - for beta testers who get granted credits but data excluded from production analytics
+  isBetaTester: boolean("is_beta_tester").default(false), // True = beta tester, sessions excluded from production analytics
   // Learning preferences
   targetLanguage: varchar("target_language"), // english, spanish, french, german, italian, portuguese, japanese, mandarin, korean
   nativeLanguage: varchar("native_language").default("english"), // Language for explanations

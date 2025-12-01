@@ -400,6 +400,9 @@ function UsersTab() {
   const [searchQuery, setSearchQuery] = useState("");
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [editForm, setEditForm] = useState({ firstName: "", lastName: "", email: "" });
+  const [grantCreditsUser, setGrantCreditsUser] = useState<any | null>(null);
+  const [creditAmount, setCreditAmount] = useState<number>(1);
+  const [creditDescription, setCreditDescription] = useState<string>("");
 
   const queryUrl = roleFilter === "all" 
     ? "/api/admin/users" 
@@ -425,7 +428,7 @@ function UsersTab() {
   });
 
   const updateUserDetailsMutation = useMutation({
-    mutationFn: async ({ userId, data }: { userId: string; data: { firstName?: string; lastName?: string; email?: string; isTestAccount?: boolean } }) => {
+    mutationFn: async ({ userId, data }: { userId: string; data: { firstName?: string; lastName?: string; email?: string; isTestAccount?: boolean; isBetaTester?: boolean } }) => {
       return apiRequest("PATCH", `/api/admin/users/${userId}`, data);
     },
     onSuccess: () => {
@@ -437,6 +440,21 @@ function UsersTab() {
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to update user", variant: "destructive" });
+    },
+  });
+
+  const grantCreditsMutation = useMutation({
+    mutationFn: async ({ userId, creditHours, description }: { userId: string; creditHours: number; description: string }) => {
+      return apiRequest("POST", `/api/admin/users/${userId}/grant-credits`, { creditHours, description });
+    },
+    onSuccess: (data: any) => {
+      toast({ title: "Credits Granted", description: data.message || "Credits have been added to user's account" });
+      setGrantCreditsUser(null);
+      setCreditAmount(1);
+      setCreditDescription("");
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to grant credits", variant: "destructive" });
     },
   });
 
@@ -501,6 +519,22 @@ function UsersTab() {
     });
   };
 
+  const handleToggleBetaTester = (userId: string, currentValue: boolean) => {
+    updateUserDetailsMutation.mutate({
+      userId,
+      data: { isBetaTester: !currentValue },
+    });
+  };
+
+  const handleGrantCredits = () => {
+    if (!grantCreditsUser || creditAmount <= 0) return;
+    grantCreditsMutation.mutate({
+      userId: grantCreditsUser.id,
+      creditHours: creditAmount,
+      description: creditDescription || `Beta tester allocation: ${creditAmount} hours`,
+    });
+  };
+
   return (
     <div className="space-y-4">
       <CollapsibleSection 
@@ -562,7 +596,13 @@ function UsersTab() {
                           {user.isTestAccount && (
                             <Badge variant="secondary" className="text-xs">
                               <Zap className="h-3 w-3 mr-1" />
-                              Test
+                              Dev Test
+                            </Badge>
+                          )}
+                          {user.isBetaTester && (
+                            <Badge variant="outline" className="text-xs border-primary/50">
+                              <Star className="h-3 w-3 mr-1" />
+                              Beta
                             </Badge>
                           )}
                         </div>
@@ -570,16 +610,42 @@ function UsersTab() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-muted/50">
-                        <span className="text-xs text-muted-foreground">Test User</span>
-                        <Switch
-                          checked={user.isTestAccount || false}
-                          onCheckedChange={() => handleToggleTestUser(user.id, user.isTestAccount || false)}
-                          disabled={updateUserDetailsMutation.isPending}
-                          data-testid={`switch-test-user-${user.id}`}
-                        />
-                      </div>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {(user.role === 'developer' || user.role === 'admin') && (
+                        <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-muted/50">
+                          <span className="text-xs text-muted-foreground">Dev Test</span>
+                          <Switch
+                            checked={user.isTestAccount || false}
+                            onCheckedChange={() => handleToggleTestUser(user.id, user.isTestAccount || false)}
+                            disabled={updateUserDetailsMutation.isPending}
+                            data-testid={`switch-test-user-${user.id}`}
+                          />
+                        </div>
+                      )}
+
+                      {(user.role === 'student' || user.role === 'teacher') && (
+                        <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-muted/50">
+                          <span className="text-xs text-muted-foreground">Beta Tester</span>
+                          <Switch
+                            checked={user.isBetaTester || false}
+                            onCheckedChange={() => handleToggleBetaTester(user.id, user.isBetaTester || false)}
+                            disabled={updateUserDetailsMutation.isPending}
+                            data-testid={`switch-beta-tester-${user.id}`}
+                          />
+                        </div>
+                      )}
+
+                      {(user.isBetaTester || user.role === 'student' || user.role === 'teacher') && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setGrantCreditsUser(user)}
+                          data-testid={`button-grant-credits-${user.id}`}
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Grant Credits
+                        </Button>
+                      )}
                       
                       <Select
                         value={user.role}
@@ -715,6 +781,58 @@ function UsersTab() {
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : null}
               Save Changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!grantCreditsUser} onOpenChange={(open) => !open && setGrantCreditsUser(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Grant Voice Tutoring Credits</AlertDialogTitle>
+            <AlertDialogDescription>
+              Add voice tutoring hours to {grantCreditsUser?.firstName || grantCreditsUser?.email}'s account.
+              These credits will count down as they use the voice tutor.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Hours to Grant</label>
+              <Input
+                type="number"
+                min="0.5"
+                step="0.5"
+                value={creditAmount}
+                onChange={(e) => setCreditAmount(parseFloat(e.target.value) || 1)}
+                placeholder="Number of hours"
+                data-testid="input-credit-hours"
+              />
+              <p className="text-xs text-muted-foreground">
+                Common amounts: 1 hour, 2 hours, 5 hours, 10 hours
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description (Optional)</label>
+              <Input
+                value={creditDescription}
+                onChange={(e) => setCreditDescription(e.target.value)}
+                placeholder="e.g., Beta testing allocation, Promotional credit"
+                data-testid="input-credit-description"
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleGrantCredits}
+              disabled={grantCreditsMutation.isPending || creditAmount <= 0}
+            >
+              {grantCreditsMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
+              )}
+              Grant {creditAmount} Hour{creditAmount !== 1 ? 's' : ''}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
