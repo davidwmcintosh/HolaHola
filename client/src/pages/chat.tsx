@@ -45,6 +45,22 @@ export default function Chat() {
   const previousLanguageRef = useRef(language);
   const creationInProgressRef = useRef(false); // Prevent duplicate conversation creation
   
+  // Session-level lock for conversation creation (survives remounts/HMR)
+  // Uses timestamp to auto-expire after 10 seconds (handles stale locks from crashes)
+  const isSessionLocked = () => {
+    const lock = sessionStorage.getItem('conversationCreationLock');
+    if (!lock) return false;
+    const lockTime = parseInt(lock, 10);
+    // Lock expires after 10 seconds
+    return Date.now() - lockTime < 10000;
+  };
+  const acquireSessionLock = () => {
+    sessionStorage.setItem('conversationCreationLock', Date.now().toString());
+  };
+  const releaseSessionLock = () => {
+    sessionStorage.removeItem('conversationCreationLock');
+  };
+  
   // Check if we're in class mode (learning context is a class ID, not a filter option)
   const isInClassMode = learningContext !== "self-directed" && 
                         learningContext !== "all" && 
@@ -154,10 +170,11 @@ export default function Chat() {
     const isOnboardingComplete = userName && userName.trim() !== "";
     const isCurrentlyOnboarding = currentConversationOnboarding === true;
     
-    // ATOMIC check-and-set: We must set the ref BEFORE checking other conditions
-    // to prevent race conditions when React batches multiple useEffect calls
-    if (creationInProgressRef.current) {
-      console.log('[SHARED CHAT] Auto-create check - skipped (already in progress)');
+    // ATOMIC check-and-set: Check both ref AND session lock to handle:
+    // 1. Same component instance (ref)
+    // 2. Vite HMR remounts / React StrictMode double-mounts (sessionStorage)
+    if (creationInProgressRef.current || isSessionLocked()) {
+      console.log('[SHARED CHAT] Auto-create check - skipped (already in progress or session locked)');
       return;
     }
     
@@ -166,8 +183,9 @@ export default function Chat() {
     console.log('[SHARED CHAT] Auto-create check - userName:', userName, 'conversationId:', conversationId, 'isCreating:', isCreatingConversation, 'mode:', mode);
     
     if (needsConversation && !isCurrentlyOnboarding) {
-      // Set ref FIRST before any async work to prevent race conditions
+      // Set BOTH locks FIRST before any async work to prevent race conditions
       creationInProgressRef.current = true;
+      acquireSessionLock();
       
       // Use class ID from learning context if in class mode
       const selectedClassId = isInClassMode ? learningContext : undefined;
@@ -191,9 +209,9 @@ export default function Chat() {
           console.log('[SHARED CHAT] Shared conversation created:', data.id, 'classId:', data.classId, 'mode:', mode);
           setConversationId(data.id);
           setIsCreatingConversation(false);
-          // NOTE: We intentionally do NOT reset creationInProgressRef here
+          // NOTE: We intentionally do NOT reset creationInProgressRef or session lock here
           // This ensures only ONE conversation is created per page load
-          // The ref will reset on page navigation or reload
+          // The ref will reset on page navigation, session lock expires after 10s
           setForceNewConversation(false); // Reset forceNew flag after creating conversation
           queryClient.invalidateQueries({ queryKey: ["/api/conversations", data.id, "messages"] });
           
@@ -215,6 +233,7 @@ export default function Chat() {
           console.error("[SHARED CHAT] Failed to create conversation:", err);
           setIsCreatingConversation(false);
           creationInProgressRef.current = false; // Only clear on error to allow retry
+          releaseSessionLock(); // Release session lock on error to allow retry
           setForceNewConversation(false); // Reset forceNew flag on error
         });
     }
@@ -225,6 +244,8 @@ export default function Chat() {
 
   const handleNewChat = () => {
     console.log('[SHARED CHAT] User requested new chat - forcing new conversation');
+    // Clear session lock to allow new conversation creation after reload
+    releaseSessionLock();
     // Use shared utility to set force flag
     setForceNewFlag();
     // Show smooth transition before reload

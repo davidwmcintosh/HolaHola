@@ -424,7 +424,15 @@ export function StreamingVoiceChat({
   // When streaming mode is enabled, we use the streaming pipeline for dynamic greetings
   // that are ACTFL-aware, personalized, and context-aware
   // Store the full lockKey (including -resumed suffix) to prevent duplicate triggers
-  const greetingRequestedRef = useRef<string | null>(null);
+  // Initialize from sessionStorage to survive HMR/remounts
+  const getStoredGreetingKey = (): string | null => {
+    try {
+      return sessionStorage.getItem(GREETING_MESSAGE_KEY);
+    } catch {
+      return null;
+    }
+  };
+  const greetingRequestedRef = useRef<string | null>(getStoredGreetingKey());
   
   // Handle resume flag clearing even if connection isn't ready - prevents re-triggering
   useEffect(() => {
