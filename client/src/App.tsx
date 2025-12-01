@@ -43,13 +43,8 @@ const StudentJoinClass = lazy(() => import("@/pages/student-join-class"));
 const StudentAssignments = lazy(() => import("@/pages/student-assignments"));
 const CurriculumBuilder = lazy(() => import("@/pages/curriculum-builder"));
 const CurriculumLibrary = lazy(() => import("@/pages/curriculum-library"));
-const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
-const AdminUsers = lazy(() => import("@/pages/admin/Users"));
-const AdminClasses = lazy(() => import("@/pages/admin/Classes"));
-const AdminClassTypes = lazy(() => import("@/pages/admin/ClassTypes"));
-const AdminReports = lazy(() => import("@/pages/admin/Reports"));
+const CommandCenter = lazy(() => import("@/pages/admin/CommandCenter"));
 const AdminVoiceConsole = lazy(() => import("@/pages/admin/VoiceConsole"));
-const DeveloperDashboard = lazy(() => import("@/pages/admin/DeveloperDashboard"));
 const Lessons = lazy(() => import("@/pages/lessons"));
 const ReviewHub = lazy(() => import("@/pages/review-hub"));
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -146,14 +141,9 @@ function Router() {
         <Route path="/student/join-class" component={StudentJoinClass} />
         <Route path="/student/assignments" component={StudentAssignments} />
         
-        {/* Admin Routes - Protected */}
-        <Route path="/admin" component={AdminDashboard} />
-        <Route path="/admin/users" component={AdminUsers} />
-        <Route path="/admin/classes" component={AdminClasses} />
-        <Route path="/admin/class-types" component={AdminClassTypes} />
-        <Route path="/admin/reports" component={AdminReports} />
+        {/* Admin Routes - Command Center consolidates all admin features */}
+        <Route path="/admin" component={CommandCenter} />
         <Route path="/admin/voices" component={AdminVoiceConsole} />
-        <Route path="/admin/developer" component={DeveloperDashboard} />
         
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />

@@ -1,4 +1,4 @@
-import { MessageSquare, BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Users, ClipboardList, BookOpenCheck, Library, Shield, X, Volume2, Target, ChevronDown, User, Search } from "lucide-react";
+import { MessageSquare, BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, BookOpenCheck, Library, Shield, X, Target, ChevronDown, User, Search } from "lucide-react";
 import linguaflowLogo from "@assets/LF_no_words_no_background_1764099068542.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -58,11 +58,7 @@ const studentMenuItems = [
 ];
 
 const adminMenuItems = [
-  { title: "Admin Dashboard", url: "/admin", icon: Shield },
-  { title: "User Management", url: "/admin/users", icon: Users },
-  { title: "Class Management", url: "/admin/classes", icon: GraduationCap },
-  { title: "Reports & Audit", url: "/admin/reports", icon: ClipboardList },
-  { title: "Voice Console", url: "/admin/voices", icon: Volume2 },
+  { title: "Command Center", url: "/admin", icon: Shield },
 ];
 
 export function AppSidebar() {
@@ -341,7 +337,7 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {isAdmin && (
+        {(isAdmin || isTeacher) && (
           <SidebarGroup>
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
             <SidebarGroupContent>
