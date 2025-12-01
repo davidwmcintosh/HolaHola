@@ -10,12 +10,14 @@
 1. [Getting Started](#getting-started)
 2. [Creating Your First Class](#creating-your-first-class)
 3. [Adding Students to Your Class](#adding-students-to-your-class)
-4. [Creating Assignments](#creating-assignments)
-5. [Grading Student Work](#grading-student-work)
-6. [Browsing Syllabus Templates](#browsing-syllabus-templates)
-7. [Viewing Student Progress](#viewing-student-progress)
-8. [Organic Progress & Early Completion](#organic-progress--early-completion)
-9. [Tips & Best Practices](#tips--best-practices)
+4. [Customizing Your Class Syllabus](#customizing-your-class-syllabus)
+5. [ACTFL Standards Coverage](#actfl-standards-coverage)
+6. [Creating Assignments](#creating-assignments)
+7. [Grading Student Work](#grading-student-work)
+8. [Browsing Syllabus Templates](#browsing-syllabus-templates)
+9. [Viewing Student Progress](#viewing-student-progress)
+10. [Organic Progress & Early Completion](#organic-progress--early-completion)
+11. [Tips & Best Practices](#tips--best-practices)
 
 ---
 
@@ -120,6 +122,155 @@ Create a blank class and build your own syllabus.
 ### Method 2: Manual Enrollment (Backend Only)
 
 If students have trouble joining, contact your administrator to manually add them via the database.
+
+---
+
+## Customizing Your Class Syllabus
+
+When you create a class from a template, LinguaFlow gives you a copy of the syllabus that you can fully customize for your students.
+
+### Accessing the Syllabus Builder
+
+1. **Navigate to your class page:**
+   - Go to `/teacher/classes/{classId}`
+   - Or click on your class from "My Classes" in the sidebar
+
+2. **Click "Edit Syllabus"**
+   - This opens the Syllabus Builder for your class
+
+### What You Can Do in the Syllabus Builder
+
+#### Reorder Units
+- Drag and drop units to change the order your students will encounter topics
+- Units are numbered automatically based on their position
+
+#### Reorder Lessons Within Units
+- Expand any unit to see its lessons
+- Drag and drop lessons to change the teaching order
+- Lesson numbers update automatically
+
+#### Remove Lessons
+- Click the **X** button next to any lesson to remove it
+- Removed lessons can be restored by clicking "Show Removed" and then "Restore"
+- This is useful for skipping content that doesn't fit your class needs
+
+#### Add Custom Lessons
+- Click **"+ Add Lesson"** within any unit
+- Fill in the lesson details:
+  - **Name** (required): The lesson title students will see
+  - **Description** (optional): Learning objectives or overview
+  - **Content** (optional): Detailed lesson content or instructions
+- Custom lessons are marked with a "Custom" badge so you can identify them
+
+#### Edit Existing Lessons
+- Click the **pencil icon** next to any lesson to edit it
+- Modify the name, description, or content as needed
+- Perfect for adapting template content to your students' needs
+
+### Saving Your Changes
+
+All changes are saved automatically as you make them. You'll see a confirmation message after each action.
+
+### Best Practices
+
+✅ **DO:**
+- Review the template content before making changes
+- Remove lessons that don't fit your teaching timeline
+- Add custom lessons for topics specific to your school or community
+- Reorder units to match your textbook or district curriculum
+
+❌ **DON'T:**
+- Delete core vocabulary/grammar lessons without replacement
+- Remove too many lessons (may affect ACTFL coverage)
+- Forget to check ACTFL Standards Coverage after making changes
+
+---
+
+## ACTFL Standards Coverage
+
+The Syllabus Builder includes a powerful **ACTFL Standards Coverage** panel that shows how well your class syllabus covers the ACTFL World-Readiness Standards.
+
+### Accessing ACTFL Coverage
+
+1. Open the Syllabus Builder for your class
+2. Look at the top of the page for the **ACTFL Standards Coverage** panel
+3. Click to expand and see detailed coverage information
+
+### Understanding the Coverage Display
+
+#### Overall Progress Bar
+- Shows the percentage of Can-Do statements covered by your syllabus
+- Example: "ACTFL Standards Coverage: 85%" means your syllabus addresses 85% of relevant Can-Do statements
+
+#### Category Breakdown
+
+Your coverage is broken down into three communication categories:
+
+| Category | Icon | Description |
+|----------|------|-------------|
+| **Interpersonal** | 💬 | Face-to-face communication (conversations, discussions) |
+| **Interpretive** | 📖 | Reading and listening comprehension |
+| **Presentational** | 🎤 | Speaking and writing to an audience |
+
+Each category shows its own coverage percentage, helping you identify gaps.
+
+#### Level-by-Level Details
+
+Expand any proficiency level to see specific Can-Do statements:
+
+**Proficiency Levels:**
+- Novice Low, Mid, High
+- Intermediate Low, Mid, High  
+- Advanced Low, Mid, High
+
+For each level, you'll see:
+- ✅ **Covered** (checkmark) - Lessons in your syllabus address this Can-Do statement
+- ⚪ **Not Covered** (empty circle) - No lessons currently address this statement
+
+### How Coverage Is Calculated
+
+Coverage is based on lessons in your syllabus that are linked to ACTFL Can-Do statements:
+
+1. **Template Lessons**: Pre-built lessons from LinguaFlow templates have Can-Do statements already mapped
+2. **Cloned Lessons**: When you create a class from a template, these mappings are preserved
+3. **Custom Lessons**: Lessons you create yourself don't automatically contribute to coverage (they may address standards not in our database)
+
+### Using Coverage Data
+
+**Identify Gaps:**
+- If Interpretive coverage is low, consider adding reading/listening lessons
+- If a specific proficiency level has few checkmarks, add content targeting that level
+
+**Plan Your Year:**
+- Use coverage data to ensure your syllabus addresses state standards requirements
+- Helpful for curriculum review meetings with administrators
+
+**Support Assessment:**
+- Coverage data shows which Can-Do statements students will practice
+- Use this to align your assessments with syllabus content
+
+### Example Workflow
+
+1. Create a class from "Spanish 1" template
+2. Open Syllabus Builder
+3. Review ACTFL Standards Coverage (probably 90%+)
+4. Remove 3 lessons that don't fit your timeline
+5. Check coverage again - it might drop to 75%
+6. Add 2 custom lessons targeting uncovered statements
+7. Final coverage: 82% - well-balanced for your class needs
+
+### Tips for Maximizing Coverage
+
+✅ **DO:**
+- Check coverage after removing lessons
+- Balance coverage across all three communication categories
+- Focus on your students' target proficiency level
+- Use coverage gaps to inspire custom lesson ideas
+
+❌ **DON'T:**
+- Obsess over 100% coverage (not always realistic or necessary)
+- Ignore categories with low coverage
+- Remove too many template lessons without considering impact
 
 ---
 

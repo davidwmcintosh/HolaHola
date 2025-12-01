@@ -16,6 +16,9 @@
 7. [System Configuration](#system-configuration)
 8. [Troubleshooting](#troubleshooting)
 9. [Security Best Practices](#security-best-practices)
+10. [Syllabus-Aware Competency System](#syllabus-aware-competency-system)
+11. [Syllabus Builder & ACTFL Standards Coverage](#syllabus-builder--actfl-standards-coverage)
+12. [Super Admin Backend (RBAC System)](#super-admin-backend-rbac-system)
 
 ---
 
@@ -824,6 +827,194 @@ WHERE id = 789 AND "teacherId" = 'teacher-user-id';
 ```
 
 **Solution:** Teacher must be the class owner to see organic progress.
+
+---
+
+## Syllabus Builder & ACTFL Standards Coverage
+
+**Added:** December 1, 2025  
+**Version:** 1.0
+
+### Overview
+
+The Syllabus Builder allows teachers to customize class-specific syllabi cloned from templates. The ACTFL Standards Coverage feature provides real-time analysis of how well a syllabus covers ACTFL World-Readiness Standards.
+
+### Database Schema
+
+**Class-Specific Syllabus Tables:**
+
+| Table | Description |
+|-------|-------------|
+| `classCurriculumUnits` | Units copied from templates, customizable per class |
+| `classCurriculumLessons` | Lessons copied from templates, customizable per class |
+
+**Key Fields in `classCurriculumLessons`:**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | varchar | Primary key (UUID) |
+| classUnitId | varchar | Foreign key to classCurriculumUnits |
+| sourceLessonId | integer | Original template lesson ID (null for custom) |
+| name | varchar(200) | Lesson title |
+| description | text | Learning objectives |
+| content | text | Lesson content |
+| orderIndex | integer | Display order within unit |
+| isCustom | boolean | True if teacher-created |
+| isRemoved | boolean | True if soft-deleted |
+
+### API Endpoints
+
+**Get ACTFL Analysis:**
+```bash
+GET /api/teacher/classes/:classId/curriculum/actfl-analysis
+```
+
+**Response:**
+```json
+{
+  "totalUnits": 8,
+  "totalLessons": 42,
+  "levelsRange": {
+    "start": "novice_low",
+    "end": "intermediate_low"
+  },
+  "coverage": {
+    "total": 85,
+    "interpersonal": 90,
+    "interpretive": 78,
+    "presentational": 82
+  },
+  "statements": [
+    {
+      "id": "1",
+      "level": "novice_low",
+      "category": "interpersonal",
+      "statement": "I can greet and introduce myself",
+      "covered": true
+    }
+  ]
+}
+```
+
+**Syllabus Management Endpoints:**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/teacher/classes/:classId/curriculum/units` | Get all units for class |
+| PATCH | `/api/teacher/classes/:classId/curriculum/units/:unitId` | Update unit (reorder) |
+| GET | `/api/teacher/classes/:classId/curriculum/units/:unitId/lessons` | Get lessons for unit |
+| POST | `/api/teacher/classes/:classId/curriculum/units/:unitId/lessons` | Add custom lesson |
+| PATCH | `/api/teacher/classes/:classId/curriculum/lessons/:lessonId` | Update lesson |
+| DELETE | `/api/teacher/classes/:classId/curriculum/lessons/:lessonId` | Soft-delete lesson |
+| PATCH | `/api/teacher/classes/:classId/curriculum/lessons/:lessonId/restore` | Restore deleted lesson |
+
+### SQL Queries
+
+**View Class Syllabus Structure:**
+```sql
+SELECT 
+  u.id as "unitId",
+  u.name as "unitName",
+  u."orderIndex" as "unitOrder",
+  l.id as "lessonId",
+  l.name as "lessonName",
+  l."orderIndex" as "lessonOrder",
+  l."isCustom",
+  l."isRemoved"
+FROM "classCurriculumUnits" u
+LEFT JOIN "classCurriculumLessons" l ON l."classUnitId" = u.id
+WHERE u."classId" = 'class-uuid-here'
+ORDER BY u."orderIndex", l."orderIndex";
+```
+
+**View ACTFL Coverage for a Class:**
+```sql
+SELECT 
+  cds.level,
+  cds.category,
+  cds.statement,
+  CASE WHEN lcds.id IS NOT NULL THEN true ELSE false END as covered
+FROM "canDoStatements" cds
+LEFT JOIN "lessonCanDoStatements" lcds ON lcds."canDoStatementId" = cds.id
+LEFT JOIN "classCurriculumLessons" ccl ON ccl."sourceLessonId" = lcds."lessonId"
+LEFT JOIN "classCurriculumUnits" ccu ON ccu.id = ccl."classUnitId"
+WHERE ccu."classId" = 'class-uuid-here'
+  AND ccl."isRemoved" = false
+  AND cds.language = 'spanish'
+ORDER BY cds.level, cds.category;
+```
+
+**Count Custom vs Template Lessons:**
+```sql
+SELECT 
+  SUM(CASE WHEN "isCustom" = true THEN 1 ELSE 0 END) as "customLessons",
+  SUM(CASE WHEN "isCustom" = false THEN 1 ELSE 0 END) as "templateLessons",
+  COUNT(*) as "totalLessons"
+FROM "classCurriculumLessons" ccl
+JOIN "classCurriculumUnits" ccu ON ccu.id = ccl."classUnitId"
+WHERE ccu."classId" = 'class-uuid-here'
+  AND ccl."isRemoved" = false;
+```
+
+**Find Classes with Low ACTFL Coverage:**
+```sql
+-- Classes with less than 70% Can-Do coverage
+WITH class_coverage AS (
+  SELECT 
+    tc.id as "classId",
+    tc.name as "className",
+    tc."teacherId",
+    COUNT(DISTINCT cds.id) as "totalStatements",
+    COUNT(DISTINCT CASE WHEN lcds.id IS NOT NULL THEN cds.id END) as "coveredStatements"
+  FROM "teacherClasses" tc
+  CROSS JOIN "canDoStatements" cds
+  LEFT JOIN "lessonCanDoStatements" lcds ON lcds."canDoStatementId" = cds.id
+  LEFT JOIN "classCurriculumLessons" ccl ON ccl."sourceLessonId" = lcds."lessonId"
+  LEFT JOIN "classCurriculumUnits" ccu ON ccu.id = ccl."classUnitId" AND ccu."classId" = tc.id
+  WHERE tc.language = cds.language
+    AND (ccl."isRemoved" = false OR ccl."isRemoved" IS NULL)
+  GROUP BY tc.id, tc.name, tc."teacherId"
+)
+SELECT 
+  "classId",
+  "className",
+  "totalStatements",
+  "coveredStatements",
+  ROUND(100.0 * "coveredStatements" / NULLIF("totalStatements", 0), 1) as "coveragePercent"
+FROM class_coverage
+WHERE "coveredStatements" < 0.7 * "totalStatements"
+ORDER BY "coveragePercent";
+```
+
+### Troubleshooting
+
+**Issue: ACTFL Coverage shows 0% after cloning template**
+
+**Diagnosis:**
+```sql
+-- Check if lessons have sourceLessonId set
+SELECT id, name, "sourceLessonId", "isCustom"
+FROM "classCurriculumLessons" ccl
+JOIN "classCurriculumUnits" ccu ON ccu.id = ccl."classUnitId"
+WHERE ccu."classId" = 'class-uuid-here'
+LIMIT 10;
+```
+
+**Solution:** Lessons need `sourceLessonId` pointing to original template lessons. If null, the template cloning may have failed.
+
+**Issue: Teacher can't see ACTFL panel**
+
+**Diagnosis:**
+- Check teacher owns the class
+- Verify class has a syllabus (classCurriculumUnits exist)
+
+```sql
+SELECT EXISTS(
+  SELECT 1 FROM "classCurriculumUnits" WHERE "classId" = 'class-uuid-here'
+) as "hasSyllabus";
+```
+
+**Solution:** If no syllabus exists, teacher needs to create the class from a template.
 
 ---
 

@@ -276,6 +276,21 @@ project/
 
 ## Recent Updates (Dec 1, 2025)
 
+### ✅ Syllabus Builder & ACTFL Standards Coverage (Dec 1)
+- **Syllabus Builder**: Teachers can fully customize class syllabi after creating from templates
+  - Drag-and-drop reordering for units and lessons
+  - Add custom lessons with name, description, and content
+  - Edit existing lesson content for local needs
+  - Remove/restore lessons with soft-delete functionality
+- **ACTFL Standards Coverage Panel**: Real-time analysis of syllabus coverage
+  - Overall coverage percentage with progress bar
+  - Category breakdown: Interpersonal, Interpretive, Presentational
+  - Level-by-level Can-Do statement tracking (Novice through Advanced)
+  - Visual indicators for covered vs uncovered statements
+  - API: `GET /api/teacher/classes/:classId/curriculum/actfl-analysis`
+- **Database Tables**: `classCurriculumUnits`, `classCurriculumLessons` for class-specific copies
+- **Documentation**: See `TEACHER_GUIDE.md` → Customizing Your Class Syllabus, ACTFL Standards Coverage
+
 ### ✅ Command Center Consolidation (Dec 1)
 - **Unified Admin Interface**: 7 separate admin pages consolidated into single tab-based Command Center at `/admin`
 - **Role-Based Tab Visibility**: Tabs shown/hidden based on user role (admin > developer > teacher > student)
@@ -416,7 +431,8 @@ project/
 
 **Last Updated**: December 1, 2025  
 **Current AI Stack**: Gemini 2.5 Flash/Pro (text), Parallel Deepgram Nova-3 (STT - dual Live+Prerecorded), Cartesia Sonic-3 (Primary TTS), Google Cloud Chirp HD (Fallback TTS), Gemini Flash-Image (images)  
-**Production Status**: Production-ready with voice mode (<2s latency), ACTFL advancement tracking, emotionally expressive AI tutors, Command Center, and Class Creation Hub  
+**Production Status**: Production-ready with voice mode (<2s latency), ACTFL advancement tracking, emotionally expressive AI tutors, Command Center, Class Creation Hub, and Syllabus Builder with ACTFL Standards Coverage  
 **Performance**: Total response time ~1.85s (STT 450ms + AI 1.2s + TTS 200ms)  
 **Terminology**: "Syllabus" in user-facing text, "curriculum*" in database tables  
+**New Features (Dec 1)**: Syllabus Builder, ACTFL Standards Coverage panel with Can-Do statement tracking  
 **Maintainer**: LinguaFlow Development Team

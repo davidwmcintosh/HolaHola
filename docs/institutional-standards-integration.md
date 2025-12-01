@@ -1,6 +1,6 @@
 # LinguaFlow B2B Institutional Standards Integration Plan
 
-## ✅ Implementation Status (Updated November 29, 2025)
+## ✅ Implementation Status (Updated December 1, 2025)
 
 **Completed Features**:
 - ✅ **Milestone 1: Standards Mapping** - ACTFL proficiency levels integrated across all content
@@ -14,6 +14,8 @@
 - ✅ **Conversational Syllabus Navigation** - Students can ask tutor about class progress (Nov 29, 2025)
 - ✅ **Unified Learning Filters** - Cross-page filtering by language and class (Nov 29, 2025)
 - ✅ **Hybrid Grammar System** - Research-backed grammar instruction combining conversational + explicit drills (Nov 30, 2025)
+- ✅ **Syllabus Builder** - Full syllabus customization with drag-and-drop reordering (Dec 1, 2025)
+- ✅ **ACTFL Standards Coverage** - Real-time Can-Do statement coverage tracking with category breakdown (Dec 1, 2025)
 
 **Production-Ready Components**:
 - Teacher Dashboard with class creation and management
@@ -22,6 +24,8 @@
 - Student Join Class flow (6-character code system)
 - Student Assignments view with submission dialog
 - Curriculum Builder (3-level hierarchy: paths/units/lessons)
+- Syllabus Builder (class-specific syllabus customization)
+- ACTFL Standards Coverage panel (real-time Can-Do tracking)
 - ProtectedRoute component for teacher-only pages
 - OfflineIndicator component with reconnection handling
 - Enhanced service worker with comprehensive API caching
@@ -29,7 +33,26 @@
 - LearningFilterContext for cross-page content filtering
 - Grammar Hub with ACTFL-organized competencies and practice drills
 - Grammar assignment system for teacher-assigned exercises
-- 32+ backend storage methods + 29+ secure API endpoints
+- 35+ backend storage methods + 32+ secure API endpoints
+
+**Syllabus Builder (Dec 1, 2025)**:
+- Teachers can fully customize class syllabi after creating from templates
+- Drag-and-drop reordering for units and lessons
+- Add custom lessons with name, description, and content
+- Edit existing lesson content to adapt for local needs
+- Remove/restore lessons with soft-delete functionality
+- All changes are class-specific (templates remain unchanged)
+- `classCurriculumUnits` and `classCurriculumLessons` tables store class copies
+
+**ACTFL Standards Coverage (Dec 1, 2025)**:
+- Real-time analysis of how well syllabus covers ACTFL World-Readiness Standards
+- Overall coverage percentage with progress bar
+- Category breakdown: Interpersonal, Interpretive, Presentational
+- Level-by-level Can-Do statement tracking (Novice through Advanced)
+- Visual indicators: covered (checkmark) vs uncovered (empty circle)
+- Expandable/collapsible UI for detailed exploration
+- API endpoint: `GET /api/teacher/classes/:classId/curriculum/actfl-analysis`
+- Coverage tracked via `sourceLessonId` linking class lessons to template Can-Do mappings
 
 **Conversational Syllabus Navigation (Nov 29, 2025)**:
 - Students can ask AI tutor about class progress during voice or text conversations
