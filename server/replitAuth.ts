@@ -55,12 +55,26 @@ function updateUserSession(
 async function upsertUser(
   claims: any,
 ) {
+  // Extract role from claims if present (for testing OIDC flow)
+  // Only allow role upgrade (student -> teacher -> developer -> admin), never downgrade
+  type UserRole = 'admin' | 'developer' | 'teacher' | 'student';
+  let roleToSet: UserRole | undefined;
+  if (claims["roles"] && Array.isArray(claims["roles"])) {
+    const claimedRoles = claims["roles"] as string[];
+    // Priority order: admin > developer > teacher > student
+    if (claimedRoles.includes('admin')) roleToSet = 'admin';
+    else if (claimedRoles.includes('developer')) roleToSet = 'developer';
+    else if (claimedRoles.includes('teacher')) roleToSet = 'teacher';
+    else if (claimedRoles.includes('student')) roleToSet = 'student';
+  }
+  
   await storage.upsertUser({
     id: claims["sub"],
     email: claims["email"],
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
+    role: roleToSet,
   });
 }
 

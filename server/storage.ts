@@ -840,18 +840,43 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(user: UpsertUser): Promise<User> {
+    // Build the update set - always update profile info
+    const updateSet: Record<string, any> = {
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      profileImageUrl: user.profileImageUrl,
+      updatedAt: new Date(),
+    };
+    
+    // Only update role if provided (for OIDC claims that include roles)
+    // Role priority: admin > developer > teacher > student
+    // We only upgrade roles, never downgrade
+    if (user.role && user.id) {
+      const rolePriority: Record<string, number> = {
+        student: 1,
+        teacher: 2,
+        developer: 3,
+        admin: 4,
+      };
+      
+      // Check existing user's role to avoid downgrade
+      const existingUser = await this.getUser(user.id);
+      const existingPriority = existingUser?.role ? rolePriority[existingUser.role] || 0 : 0;
+      const newPriority = rolePriority[user.role] || 0;
+      
+      // Only upgrade role, never downgrade
+      if (newPriority > existingPriority) {
+        updateSet.role = user.role;
+      }
+    }
+    
     const [upserted] = await db
       .insert(users)
       .values(user)
       .onConflictDoUpdate({
         target: users.id,
-        set: {
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          profileImageUrl: user.profileImageUrl,
-          updatedAt: new Date(),
-        },
+        set: updateSet,
       })
       .returning();
     return upserted;

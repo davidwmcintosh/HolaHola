@@ -109,8 +109,8 @@ export function AppSidebar() {
 
   // Check if user has teacher access (admin, developer, or teacher)
   const isTeacher = hasTeacherAccess(user?.role);
-  // Check if user has admin access (admin only - for admin menu)
-  const isAdmin = hasAdminAccess(user?.role);
+  // Check if user has admin access (admin or developer - for admin menu)
+  const isAdmin = hasAdminAccess(user?.role) || user?.role === 'developer';
   // Show student features for all users (teachers can also be students)
   const showStudentFeatures = true;
 
