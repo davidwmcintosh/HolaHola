@@ -18,6 +18,7 @@ import {
   classEnrollments,
   teacherClasses,
   voiceSessions,
+  users,
 } from "@shared/schema";
 import { hasTeacherAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
@@ -790,6 +791,188 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Create a test class for developers (quick setup for testing)
+  app.post('/api/developer/create-test-class', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Verify user is a developer
+      const isDeveloper = await usageService.checkDeveloperBypass(userId);
+      if (!isDeveloper) {
+        return res.status(403).json({ message: "Developer access required" });
+      }
+      
+      const { language = 'Spanish', className, hours = 120 } = req.body;
+      
+      // Generate a unique class name if not provided
+      const finalClassName = className || `Dev Test Class - ${language} (${Date.now().toString(36)})`;
+      
+      // Create the class as the developer being the teacher
+      // Generate a join code (6 alphanumeric characters)
+      const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      const [newClass] = await db
+        .insert(teacherClasses)
+        .values({
+          teacherId: userId,
+          name: finalClassName,
+          language,
+          joinCode,
+          classLevel: 1,
+          maxStudents: 100,
+          isPublic: false,
+          isActive: true,
+          tutorFreedomLevel: 'flexible_goals',
+          enrollmentMode: 'code',
+          allocatedSeconds: hours * 3600,
+          createdAt: new Date(),
+        })
+        .returning();
+      
+      // Auto-enroll the developer as a student in this class
+      await db
+        .insert(classEnrollments)
+        .values({
+          classId: newClass.id,
+          studentId: userId,
+          isActive: true,
+          allocatedSeconds: hours * 3600,
+          usedSeconds: 0,
+          paceStatus: 'on_track',
+          enrolledAt: new Date(),
+        });
+      
+      console.log(`[Developer] Created test class "${finalClassName}" for user ${userId}`);
+      
+      res.json({
+        success: true,
+        class: {
+          id: newClass.id,
+          name: newClass.name,
+          language: newClass.language,
+          allocatedHours: hours,
+        },
+        message: `Created test class "${finalClassName}" with ${hours} hours`,
+      });
+    } catch (error: any) {
+      console.error("Error creating test class:", error);
+      res.status(500).json({ message: "Failed to create test class" });
+    }
+  });
+  
+  // Get platform-wide reports for developers (DAU, language popularity, etc.)
+  app.get('/api/developer/platform-stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Verify user is a developer
+      const isDeveloper = await usageService.checkDeveloperBypass(userId);
+      if (!isDeveloper) {
+        return res.status(403).json({ message: "Developer access required" });
+      }
+      
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+      
+      // Daily Active Users (unique users with sessions today)
+      const todaySessions = await db
+        .select({ userId: voiceSessions.userId })
+        .from(voiceSessions)
+        .where(gte(voiceSessions.startedAt, today));
+      const dau = new Set(todaySessions.map(s => s.userId)).size;
+      
+      // Weekly Active Users
+      const weekSessions = await db
+        .select({ userId: voiceSessions.userId })
+        .from(voiceSessions)
+        .where(gte(voiceSessions.startedAt, weekAgo));
+      const wau = new Set(weekSessions.map(s => s.userId)).size;
+      
+      // Monthly Active Users
+      const monthSessions = await db
+        .select({ userId: voiceSessions.userId })
+        .from(voiceSessions)
+        .where(gte(voiceSessions.startedAt, monthAgo));
+      const mau = new Set(monthSessions.map(s => s.userId)).size;
+      
+      // Total registered users by role
+      const userCounts = await db
+        .select({ role: users.role, count: sql<number>`count(*)` })
+        .from(users)
+        .groupBy(users.role);
+      
+      // Language popularity (sessions in last 30 days)
+      const langSessions = await db
+        .select({
+          language: voiceSessions.language,
+          sessions: sql<number>`count(*)`,
+          durationSeconds: sql<number>`sum(${voiceSessions.durationSeconds})`,
+          uniqueUsers: sql<number>`count(distinct ${voiceSessions.userId})`,
+        })
+        .from(voiceSessions)
+        .where(gte(voiceSessions.startedAt, monthAgo))
+        .groupBy(voiceSessions.language);
+      
+      // Error rate (failed sessions vs total)
+      const allMonthSessions = await db
+        .select({
+          status: voiceSessions.status,
+          count: sql<number>`count(*)`,
+        })
+        .from(voiceSessions)
+        .where(gte(voiceSessions.startedAt, monthAgo))
+        .groupBy(voiceSessions.status);
+      
+      const totalMonthSessions = allMonthSessions.reduce((sum, s) => sum + Number(s.count), 0);
+      const failedSessions = allMonthSessions.find(s => s.status === 'error')?.count || 0;
+      const errorRate = totalMonthSessions > 0 ? (Number(failedSessions) / totalMonthSessions * 100) : 0;
+      
+      // Daily session trend (last 7 days)
+      const dailyTrend: { date: string; sessions: number; durationMinutes: number }[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const dayStart = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
+        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+        
+        const daySessions = await db
+          .select({
+            count: sql<number>`count(*)`,
+            duration: sql<number>`coalesce(sum(${voiceSessions.durationSeconds}), 0)`,
+          })
+          .from(voiceSessions)
+          .where(
+            and(
+              gte(voiceSessions.startedAt, dayStart),
+              sql`${voiceSessions.startedAt} < ${dayEnd}`
+            )
+          );
+        
+        dailyTrend.push({
+          date: dayStart.toISOString().split('T')[0],
+          sessions: Number(daySessions[0]?.count || 0),
+          durationMinutes: Math.round(Number(daySessions[0]?.duration || 0) / 60),
+        });
+      }
+      
+      res.json({
+        activeUsers: { dau, wau, mau },
+        usersByRole: Object.fromEntries(userCounts.map(r => [r.role || 'unknown', Number(r.count)])),
+        languagePopularity: langSessions.map(l => ({
+          language: l.language || 'unknown',
+          sessions: Number(l.sessions),
+          durationHours: Math.round(Number(l.durationSeconds || 0) / 3600 * 100) / 100,
+          uniqueUsers: Number(l.uniqueUsers),
+        })),
+        errorRate: Math.round(errorRate * 100) / 100,
+        dailyTrend,
+      });
+    } catch (error: any) {
+      console.error("Error fetching platform stats:", error);
+      res.status(500).json({ message: "Failed to fetch platform stats" });
+    }
+  });
+  
   // Get developer usage analytics
   app.get('/api/developer/analytics', isAuthenticated, async (req: any, res) => {
     try {
@@ -801,7 +984,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Developer access required" });
       }
       
-      const { period = '30d' } = req.query;
+      const { period = '30d', userType = 'all' } = req.query;
       
       // Calculate date range
       const now = new Date();
@@ -813,8 +996,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         default: startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       }
       
+      // Get users by role for filtering
+      let developerUserIds: string[] = [];
+      let productionUserIds: string[] = [];
+      
+      if (userType !== 'all') {
+        const allUsers = await db.select({ id: users.id, role: users.role }).from(users);
+        developerUserIds = allUsers.filter(u => u.role === 'developer' || u.role === 'admin').map(u => u.id);
+        productionUserIds = allUsers.filter(u => u.role === 'student' || u.role === 'teacher').map(u => u.id);
+      }
+      
       // Get all voice sessions in period
-      const sessions = await db
+      let sessionsQuery = db
         .select()
         .from(voiceSessions)
         .where(
@@ -824,6 +1017,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           )
         )
         .orderBy(desc(voiceSessions.startedAt));
+      
+      let sessions = await sessionsQuery;
+      
+      // Filter by user type
+      if (userType === 'developer') {
+        sessions = sessions.filter(s => developerUserIds.includes(s.userId));
+      } else if (userType === 'production') {
+        sessions = sessions.filter(s => productionUserIds.includes(s.userId));
+      }
       
       // Calculate aggregate statistics
       const totalSessions = sessions.length;
