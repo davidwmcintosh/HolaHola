@@ -12,7 +12,12 @@
 
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { WordTiming } from '../../../shared/streaming-voice-types';
-import { getSubtitlePolicy, getWordHighlightOffset, shouldRevealProgressively } from '../lib/subtitlePolicies';
+import { 
+  getSubtitlePolicy, 
+  getWordHighlightOffset, 
+  shouldRevealProgressively,
+  shouldShowFullSentenceBeforeAudio 
+} from '../lib/subtitlePolicies';
 
 /**
  * A contiguous block of target language words
@@ -356,6 +361,11 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
   /**
    * Start playback for a sentence
    * CRITICAL: All state updates must happen synchronously to prevent race conditions
+   * 
+   * ACTFL-level-aware text reveal:
+   * - Novice: Progressive reveal (words appear one by one as audio plays)
+   * - Intermediate: Full sentence visible before audio, highlighting moves through
+   * - Advanced: Full sentence visible, natural rhythm highlighting
    */
   const startPlayback = useCallback((sentenceIndex: number, turnId: number) => {
     // STALE PACKET FILTER
@@ -382,6 +392,20 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       expectedDurationRef.current = undefined;
     }
     
+    // ACTFL-level-aware text reveal policy
+    // - If progressiveReveal is false, show all words immediately
+    // - If showFullSentenceBeforeAudio is true, also show all words
+    // This allows intermediate/advanced learners to see full context
+    const useProgressiveReveal = shouldRevealProgressively(difficultyRef.current);
+    const showFullSentence = shouldShowFullSentenceBeforeAudio(difficultyRef.current);
+    
+    // Determine initial visible word count based on policy
+    const initialVisibleCount = (!useProgressiveReveal || showFullSentence) 
+      ? currentTimingsRef.current.length 
+      : 0;
+    
+    console.log(`[StreamingSubtitles v2]   Policy: progressive=${useProgressiveReveal}, fullSentence=${showFullSentence}, initialVisible=${initialVisibleCount}`);
+    
     // CRITICAL FIX: Look up sentence data SYNCHRONOUSLY before any state updates
     // This prevents race conditions where hasTargetContent updates async inside setSentences
     setSentences(prev => {
@@ -401,7 +425,8 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
         // Also update sentence index and other state in same batch
         setCurrentSentenceIndex(sentenceIndex);
         setIsPlaying(true);
-        setVisibleWordCount(0);
+        // ACTFL-aware initial visibility: show all words for non-progressive modes
+        setVisibleWordCount(initialVisibleCount);
         setCurrentWordIndex(-1);
         setMaxTargetWordIndex(-1);
         // CRITICAL: Reset teaching block tracking per sentence
@@ -438,6 +463,10 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
    * - Novice: 100ms offset (words appear slightly before audio for processing time)
    * - Intermediate: 50ms offset (faster processing, less lead time needed)
    * - Advanced: 0ms offset (natural rhythm, no artificial delay)
+   * 
+   * ACTFL-level-aware text reveal:
+   * - Progressive reveal: Words become visible as timing reaches them
+   * - Non-progressive: All words visible, only highlighting moves
    * 
    * CRITICAL: currentTime now comes directly from audio.currentTime,
    * ensuring subtitles stay locked to actual playback position.
@@ -483,7 +512,14 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       if (adjustedTime >= scaledStartTime && adjustedTime < scaledEndTime) wordIndex = i;
     }
     
-    setVisibleWordCount(maxVisibleIndex + 1);
+    // ACTFL-level-aware text reveal:
+    // - Progressive mode: Update visibleWordCount based on timing
+    // - Non-progressive mode: Keep all words visible, only update highlight
+    const useProgressiveReveal = shouldRevealProgressively(difficultyRef.current);
+    if (useProgressiveReveal) {
+      setVisibleWordCount(maxVisibleIndex + 1);
+    }
+    // Always update the current word highlight (for karaoke effect)
     setCurrentWordIndex(wordIndex);
   }, []);
   

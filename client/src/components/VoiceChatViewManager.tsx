@@ -1,4 +1,4 @@
-import { useState, useRef, TouchEvent } from "react";
+import { useState, useRef, TouchEvent, useMemo } from "react";
 import { ImmersiveTutor } from "./ImmersiveTutor";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { type Message, type Conversation } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { type WordTiming } from "@/lib/restVoiceApi";
 import { useLanguage, type SubtitleMode, type VoiceSpeed } from "@/contexts/LanguageContext";
+import { getEffectiveSubtitleMode } from "@/lib/subtitlePolicies";
 
 interface VoiceChatViewManagerProps {
   conversationId: string | null;
@@ -101,8 +102,14 @@ export function VoiceChatViewManager({
   const touchStartX = useRef<number>(0);
   const touchStartY = useRef<number>(0);
   
-  // Get subtitles toggle from context (3 states: off, target, all)
-  const { subtitleMode, setSubtitleMode } = useLanguage();
+  // Get subtitles toggle and difficulty from context (3 states: off, target, all)
+  const { subtitleMode, setSubtitleMode, difficulty } = useLanguage();
+  
+  // ACTFL-level-aware mode convergence: At higher levels, Target and All modes converge
+  // This reduces cognitive load for advanced learners where the distinction is minimal
+  const effectiveSubtitleMode = useMemo(() => {
+    return getEffectiveSubtitleMode(subtitleMode, difficulty);
+  }, [subtitleMode, difficulty]);
   
   // Cycle through subtitle modes: off → target → all → off
   const cycleSubtitleMode = () => {
@@ -113,10 +120,13 @@ export function VoiceChatViewManager({
   };
   
   // Get display text for current subtitle mode (no icons to save space)
+  // Shows raw user selection, but indicates when mode is converged (advanced learners)
   const getSubtitleLabel = () => {
     switch (subtitleMode) {
       case "off": return "No Subtitles";
-      case "target": return "Target Subtitles";
+      case "target": 
+        // If mode converged to "all", show a hint but preserve user's preference
+        return effectiveSubtitleMode === "all" ? "All (Auto)" : "Target Subtitles";
       case "all": return "All Subtitles";
     }
   };
@@ -181,8 +191,9 @@ export function VoiceChatViewManager({
         </Badge>
         
         {/* Subtitles Button - White/secondary styling, no icon to save space */}
+        {/* Use effectiveSubtitleMode for visual state to match actual behavior */}
         <Badge
-          variant={subtitleMode !== "off" ? "secondary" : "outline"}
+          variant={effectiveSubtitleMode !== "off" ? "secondary" : "outline"}
           className="cursor-pointer"
           onClick={cycleSubtitleMode}
           data-testid="badge-subtitles-toggle"
@@ -225,7 +236,7 @@ export function VoiceChatViewManager({
                 canSlowRepeat={canSlowRepeat}
                 isSlowRepeatLoading={isSlowRepeatLoading}
                 wordTimings={wordTimings}
-                subtitleMode={subtitleMode}
+                subtitleMode={effectiveSubtitleMode}
                 tutorGender={tutorGender}
                 streamingText={streamingText}
                 streamingTargetText={streamingTargetText}
