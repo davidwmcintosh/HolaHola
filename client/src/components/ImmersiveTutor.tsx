@@ -832,7 +832,7 @@ export function ImmersiveTutor({
               <Mic className="h-7 w-7 md:h-8 md:w-8" />
             )}
           </Button>
-          <span className="text-[10px] text-transparent select-none" aria-hidden="true">Hold to talk</span>
+          <span className="text-[10px] text-muted-foreground">Hold or ENTER</span>
         </div>
 
         {/* Slow Repeat Button with label - Ask AI to simplify and speak slowly */}
