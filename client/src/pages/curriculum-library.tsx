@@ -113,7 +113,7 @@ export default function CurriculumLibrary() {
           </div>
           <Button
             variant="outline"
-            onClick={() => setLocation("/teacher/curriculum")}
+            onClick={() => setLocation("/teacher/curriculum/builder")}
             data-testid="button-create-custom"
           >
             <Plus className="w-4 h-4 mr-2" />
