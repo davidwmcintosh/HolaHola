@@ -43,6 +43,7 @@ const StudentJoinClass = lazy(() => import("@/pages/student-join-class"));
 const StudentAssignments = lazy(() => import("@/pages/student-assignments"));
 const CurriculumBuilder = lazy(() => import("@/pages/curriculum-builder"));
 const CurriculumLibrary = lazy(() => import("@/pages/curriculum-library"));
+const ClassCreationHub = lazy(() => import("@/pages/class-creation-hub"));
 const CommandCenter = lazy(() => import("@/pages/admin/CommandCenter"));
 const AdminVoiceConsole = lazy(() => import("@/pages/admin/VoiceConsole"));
 const Lessons = lazy(() => import("@/pages/lessons"));
@@ -130,10 +131,12 @@ function Router() {
         
         {/* Teacher Routes - Protected */}
         <Route path="/teacher/dashboard" component={TeacherDashboard} />
+        <Route path="/teacher" component={TeacherDashboard} />
         <Route path="/teacher/classes/:classId" component={ClassManagement} />
         <Route path="/teacher/assignments/new" component={AssignmentCreator} />
         <Route path="/teacher/assignments/create" component={AssignmentCreator} />
         <Route path="/teacher/assignments/:assignmentId/grade" component={AssignmentGrading} />
+        <Route path="/teacher/create-class" component={ClassCreationHub} />
         <Route path="/teacher/curriculum" component={CurriculumLibrary} />
         <Route path="/teacher/curriculum/builder" component={CurriculumBuilder} />
         

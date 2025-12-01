@@ -1,0 +1,701 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { 
+  BookOpen, 
+  Clock, 
+  Target, 
+  GraduationCap, 
+  Plus, 
+  Search,
+  Layers,
+  FileText,
+  ChevronRight,
+  Sparkles,
+  FolderOpen
+} from "lucide-react";
+import type { CurriculumPath, CurriculumUnit, CurriculumLesson } from "@shared/schema";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
+import { hasTeacherAccess } from "@shared/permissions";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useEffect } from "react";
+
+const createClassSchema = z.object({
+  name: z.string().min(1, "Class name is required"),
+  description: z.string().optional(),
+  language: z.string().min(1, "Language is required"),
+  curriculumPathId: z.string().optional(),
+});
+
+type CreateClassFormValues = z.infer<typeof createClassSchema>;
+
+export default function ClassCreationHub() {
+  const { user, isLoading: isLoadingAuth } = useAuth();
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const [selectedLanguage, setSelectedLanguage] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedPath, setExpandedPath] = useState<string | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [selectedCurriculum, setSelectedCurriculum] = useState<CurriculumPath | null>(null);
+
+  const form = useForm<CreateClassFormValues>({
+    resolver: zodResolver(createClassSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      language: "",
+      curriculumPathId: undefined,
+    },
+  });
+
+  useEffect(() => {
+    if (!isLoadingAuth && (!user || !hasTeacherAccess(user.role))) {
+      setLocation("/");
+    }
+  }, [user, isLoadingAuth, setLocation]);
+
+  const { data: paths = [], isLoading: pathsLoading } = useQuery<CurriculumPath[]>({
+    queryKey: ["/api/curriculum/paths"],
+    enabled: !!user && hasTeacherAccess(user.role),
+  });
+
+  const { data: stats } = useQuery<{ pathCount: number; unitCount: number; lessonCount: number; languageCount: number }>({
+    queryKey: ["/api/curriculum/stats"],
+    enabled: !!user && hasTeacherAccess(user.role),
+  });
+
+  const createClassMutation = useMutation({
+    mutationFn: async (data: CreateClassFormValues) => {
+      return apiRequest("POST", "/api/teacher/classes", data);
+    },
+    onSuccess: (newClass: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/teacher/classes"] });
+      setCreateDialogOpen(false);
+      form.reset();
+      setSelectedCurriculum(null);
+      toast({
+        title: "Class Created",
+        description: "Your new class is ready for students to join.",
+      });
+      if (newClass?.id) {
+        setLocation(`/teacher/classes/${newClass.id}`);
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create class",
+        variant: "destructive",
+      });
+    },
+  });
+
+  if (isLoadingAuth || !user || !hasTeacherAccess(user.role)) {
+    return <div className="flex items-center justify-center h-full">Loading...</div>;
+  }
+
+  const languages = [
+    { value: "all", label: "All Languages" },
+    { value: "spanish", label: "Spanish" },
+    { value: "french", label: "French" },
+    { value: "german", label: "German" },
+    { value: "italian", label: "Italian" },
+    { value: "portuguese", label: "Portuguese" },
+    { value: "japanese", label: "Japanese" },
+    { value: "mandarin", label: "Mandarin Chinese" },
+    { value: "korean", label: "Korean" },
+    { value: "english", label: "English" },
+  ];
+
+  const getActflLabel = (level: string) => {
+    const labels: Record<string, string> = {
+      novice_low: "Novice Low",
+      novice_mid: "Novice Mid",
+      novice_high: "Novice High",
+      intermediate_low: "Intermediate Low",
+      intermediate_mid: "Intermediate Mid",
+      intermediate_high: "Intermediate High",
+      advanced_low: "Advanced Low",
+      advanced_mid: "Advanced Mid",
+      advanced_high: "Advanced High",
+    };
+    return labels[level] || level;
+  };
+
+  const filteredPaths = paths.filter(p => {
+    const matchesLanguage = selectedLanguage === "all" || p.language === selectedLanguage;
+    const matchesSearch = !searchQuery || 
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.description?.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesLanguage && matchesSearch;
+  });
+
+  const groupedByLanguage = filteredPaths.reduce((acc, path) => {
+    const lang = path.language;
+    if (!acc[lang]) acc[lang] = [];
+    acc[lang].push(path);
+    return acc;
+  }, {} as Record<string, CurriculumPath[]>);
+
+  const openCreateDialog = (curriculum?: CurriculumPath) => {
+    if (curriculum) {
+      setSelectedCurriculum(curriculum);
+      form.reset({
+        name: `${curriculum.name} Class`,
+        description: curriculum.description || "",
+        language: curriculum.language,
+        curriculumPathId: curriculum.id,
+      });
+    } else {
+      setSelectedCurriculum(null);
+      form.reset({
+        name: "",
+        description: "",
+        language: "",
+        curriculumPathId: undefined,
+      });
+    }
+    setCreateDialogOpen(true);
+  };
+
+  const handleCreateClass = (values: CreateClassFormValues) => {
+    createClassMutation.mutate(values);
+  };
+
+  return (
+    <div className="container mx-auto p-6 max-w-7xl">
+      <div className="flex flex-col gap-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold" data-testid="text-page-title">Class Creation Hub</h1>
+            <p className="text-muted-foreground mt-1">
+              Browse our curriculum library and create classes for your students
+            </p>
+          </div>
+          <Button
+            onClick={() => openCreateDialog()}
+            data-testid="button-create-blank-class"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create Blank Class
+          </Button>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <BookOpen className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold" data-testid="stat-path-count">{stats?.pathCount ?? paths.length}</p>
+                  <p className="text-sm text-muted-foreground">Curriculum Paths</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-500/10">
+                  <Layers className="w-5 h-5 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold" data-testid="stat-unit-count">{stats?.unitCount ?? "—"}</p>
+                  <p className="text-sm text-muted-foreground">Units</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-green-500/10">
+                  <FileText className="w-5 h-5 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold" data-testid="stat-lesson-count">{stats?.lessonCount ?? "—"}</p>
+                  <p className="text-sm text-muted-foreground">Lessons</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-purple-500/10">
+                  <GraduationCap className="w-5 h-5 text-purple-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold" data-testid="stat-language-count">{stats?.languageCount ?? "—"}</p>
+                  <p className="text-sm text-muted-foreground">Languages</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Search and Filter */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search curriculum paths..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+              data-testid="input-search-curriculum"
+            />
+          </div>
+          <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+            <SelectTrigger className="w-full sm:w-48" data-testid="select-language-filter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {languages.map(lang => (
+                <SelectItem key={lang.value} value={lang.value}>
+                  {lang.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Curriculum Browser */}
+        <Tabs defaultValue="browse" className="w-full">
+          <TabsList>
+            <TabsTrigger value="browse" data-testid="tab-browse-curriculum">
+              <FolderOpen className="w-4 h-4 mr-2" />
+              Browse Curriculum
+            </TabsTrigger>
+            <TabsTrigger value="by-language" data-testid="tab-by-language">
+              <Layers className="w-4 h-4 mr-2" />
+              By Language
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="browse" className="mt-6">
+            {pathsLoading ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {[1, 2, 3, 4].map(i => (
+                  <Card key={i} className="animate-pulse">
+                    <CardHeader>
+                      <div className="h-6 bg-muted rounded w-3/4 mb-2" />
+                      <div className="h-4 bg-muted rounded w-full" />
+                    </CardHeader>
+                  </Card>
+                ))}
+              </div>
+            ) : filteredPaths.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <BookOpen className="w-12 h-12 text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">No curriculum paths found</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Try adjusting your search or filter
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Accordion 
+                type="single" 
+                collapsible 
+                value={expandedPath || undefined}
+                onValueChange={(value) => setExpandedPath(value || null)}
+                className="space-y-3"
+              >
+                {filteredPaths.map(path => (
+                  <AccordionItem
+                    key={path.id}
+                    value={path.id}
+                    className="border rounded-lg px-4 bg-card"
+                    data-testid={`accordion-path-${path.id}`}
+                  >
+                    <AccordionTrigger className="hover:no-underline py-4">
+                      <div className="flex items-start justify-between w-full pr-4">
+                        <div className="flex flex-col items-start gap-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-left">{path.name}</span>
+                            <Badge variant="outline" className="capitalize text-xs">
+                              {path.language}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground text-left line-clamp-1">
+                            {path.description}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground shrink-0">
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-4 h-4" />
+                            <span>{path.estimatedHours}h</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Target className="w-4 h-4" />
+                            <span>{getActflLabel(path.startLevel)} → {getActflLabel(path.endLevel)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <CurriculumPathDetails 
+                        path={path} 
+                        onCreateClass={() => openCreateDialog(path)}
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            )}
+          </TabsContent>
+
+          <TabsContent value="by-language" className="mt-6">
+            <div className="space-y-8">
+              {Object.entries(groupedByLanguage).sort().map(([language, langPaths]) => (
+                <div key={language}>
+                  <h3 className="text-lg font-semibold capitalize mb-4 flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5" />
+                    {language}
+                    <Badge variant="secondary">{langPaths.length} paths</Badge>
+                  </h3>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {langPaths.map(path => (
+                      <Card
+                        key={path.id}
+                        className="hover-elevate cursor-pointer"
+                        onClick={() => setExpandedPath(path.id)}
+                        data-testid={`card-path-${path.id}`}
+                      >
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base">{path.name}</CardTitle>
+                          <CardDescription className="line-clamp-2 text-xs">
+                            {path.description}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center justify-between text-sm text-muted-foreground">
+                            <span>{path.estimatedHours} hours</span>
+                            <span>{getActflLabel(path.startLevel)}</span>
+                          </div>
+                          <Button
+                            size="sm"
+                            className="w-full mt-3"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openCreateDialog(path);
+                            }}
+                            data-testid={`button-create-from-${path.id}`}
+                          >
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            Create Class
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Create Class Dialog */}
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedCurriculum ? "Create Class from Curriculum" : "Create New Class"}
+              </DialogTitle>
+              <DialogDescription>
+                {selectedCurriculum 
+                  ? `Based on "${selectedCurriculum.name}"`
+                  : "Create a blank class and configure it later"
+                }
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleCreateClass)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Class Name</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Spanish 101 - Period 3"
+                          data-testid="input-class-name"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description (Optional)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Brief description of your class"
+                          data-testid="input-class-description"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="language"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Language</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        value={field.value}
+                        disabled={!!selectedCurriculum}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-class-language">
+                            <SelectValue placeholder="Select language" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {languages.filter(l => l.value !== "all").map(lang => (
+                            <SelectItem key={lang.value} value={lang.value}>
+                              {lang.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {selectedCurriculum && (
+                  <div className="p-3 rounded-lg bg-muted/50 text-sm">
+                    <p className="font-medium mb-1">Linked Curriculum:</p>
+                    <p className="text-muted-foreground">{selectedCurriculum.name}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {selectedCurriculum.estimatedHours} hours • {getActflLabel(selectedCurriculum.startLevel)} to {getActflLabel(selectedCurriculum.endLevel)}
+                    </p>
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCreateDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={createClassMutation.isPending}
+                    data-testid="button-confirm-create-class"
+                  >
+                    {createClassMutation.isPending ? "Creating..." : "Create Class"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  );
+}
+
+function CurriculumPathDetails({ path, onCreateClass }: { path: CurriculumPath; onCreateClass: () => void }) {
+  const { data: units = [], isLoading: unitsLoading } = useQuery<CurriculumUnit[]>({
+    queryKey: ["/api/curriculum/paths", path.id, "units"],
+  });
+
+  const getActflLabel = (level: string) => {
+    const labels: Record<string, string> = {
+      novice_low: "Novice Low",
+      novice_mid: "Novice Mid", 
+      novice_high: "Novice High",
+      intermediate_low: "Intermediate Low",
+      intermediate_mid: "Intermediate Mid",
+      intermediate_high: "Intermediate High",
+      advanced_low: "Advanced Low",
+      advanced_mid: "Advanced Mid",
+      advanced_high: "Advanced High",
+    };
+    return labels[level] || level;
+  };
+
+  return (
+    <div className="pb-4 space-y-4">
+      {/* Path Info */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-lg bg-muted/30">
+        <div>
+          <p className="text-xs font-medium text-muted-foreground">Duration</p>
+          <p className="text-sm font-medium">{path.estimatedHours} hours</p>
+        </div>
+        <div>
+          <p className="text-xs font-medium text-muted-foreground">Start Level</p>
+          <p className="text-sm font-medium">{getActflLabel(path.startLevel)}</p>
+        </div>
+        <div>
+          <p className="text-xs font-medium text-muted-foreground">End Level</p>
+          <p className="text-sm font-medium">{getActflLabel(path.endLevel)}</p>
+        </div>
+        <div>
+          <p className="text-xs font-medium text-muted-foreground">Audience</p>
+          <p className="text-sm font-medium">{path.targetAudience || "All Levels"}</p>
+        </div>
+      </div>
+
+      {/* Units */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="font-medium flex items-center gap-2">
+            <Layers className="w-4 h-4" />
+            Units & Lessons
+          </h4>
+          <Button onClick={onCreateClass} data-testid={`button-create-class-from-${path.id}`}>
+            <Sparkles className="w-4 h-4 mr-2" />
+            Create Class from This
+          </Button>
+        </div>
+
+        {unitsLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-12 bg-muted rounded animate-pulse" />
+            ))}
+          </div>
+        ) : units.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No units defined yet</p>
+        ) : (
+          <ScrollArea className="h-[300px] pr-4">
+            <Accordion type="multiple" className="space-y-2">
+              {units.map((unit, index) => (
+                <AccordionItem
+                  key={unit.id}
+                  value={unit.id}
+                  className="border rounded-lg px-3 bg-background"
+                >
+                  <AccordionTrigger className="hover:no-underline py-3">
+                    <div className="flex items-center gap-3 text-left">
+                      <Badge variant="secondary" className="shrink-0">{index + 1}</Badge>
+                      <div>
+                        <p className="font-medium text-sm">{unit.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {unit.estimatedHours}h • {unit.actflLevel && getActflLabel(unit.actflLevel)}
+                        </p>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="pl-10 pb-2">
+                      {unit.description && (
+                        <p className="text-sm text-muted-foreground mb-3">{unit.description}</p>
+                      )}
+                      {unit.culturalTheme && (
+                        <p className="text-sm mb-3">
+                          <span className="font-medium">Cultural Theme:</span> {unit.culturalTheme}
+                        </p>
+                      )}
+                      <UnitLessons unitId={unit.id} />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </ScrollArea>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function UnitLessons({ unitId }: { unitId: string }) {
+  const { data: lessons = [], isLoading } = useQuery<CurriculumLesson[]>({
+    queryKey: ["/api/curriculum/units", unitId, "lessons"],
+  });
+
+  if (isLoading) {
+    return <div className="text-sm text-muted-foreground">Loading lessons...</div>;
+  }
+
+  if (lessons.length === 0) {
+    return <div className="text-sm text-muted-foreground">No lessons defined</div>;
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Lessons</p>
+      {lessons.map((lesson, index) => (
+        <div
+          key={lesson.id}
+          className="flex items-start gap-3 p-2 rounded-md bg-muted/50"
+          data-testid={`lesson-${lesson.id}`}
+        >
+          <span className="text-xs font-medium text-muted-foreground mt-0.5 w-5">
+            {index + 1}.
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium">{lesson.name}</p>
+            {lesson.description && (
+              <p className="text-xs text-muted-foreground line-clamp-2">{lesson.description}</p>
+            )}
+            <div className="flex gap-2 mt-1 flex-wrap">
+              <Badge variant="outline" className="text-xs capitalize">
+                {lesson.lessonType.replace(/_/g, " ")}
+              </Badge>
+              {lesson.estimatedMinutes && (
+                <Badge variant="secondary" className="text-xs">
+                  {lesson.estimatedMinutes} min
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}

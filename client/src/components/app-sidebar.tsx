@@ -1,4 +1,4 @@
-import { MessageSquare, BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, BookOpenCheck, Library, Shield, X, Target, ChevronDown, User, Search } from "lucide-react";
+import { MessageSquare, BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, BookOpenCheck, Library, Shield, X, Target, ChevronDown, User, Search, Sparkles } from "lucide-react";
 import linguaflowLogo from "@assets/LF_no_words_no_background_1764099068542.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -49,9 +49,10 @@ const resourceMenuItems = [
 ];
 
 const teacherMenuItems = [
-  { title: "Teacher Dashboard", url: "/teacher/dashboard", icon: GraduationCap },
-  { title: "Curriculum Library", url: "/teacher/curriculum", icon: Library },
-  { title: "Curriculum Builder", url: "/teacher/curriculum/builder", icon: BookOpenCheck },
+  { title: "My Classes", url: "/teacher/dashboard", icon: GraduationCap },
+  { title: "Class Creation Hub", url: "/teacher/create-class", icon: Sparkles },
+  { title: "Curriculum Browser", url: "/teacher/curriculum", icon: Library },
+  { title: "Build Custom Curriculum", url: "/teacher/curriculum/builder", icon: BookOpenCheck },
 ];
 
 

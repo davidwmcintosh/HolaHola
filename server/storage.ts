@@ -269,6 +269,7 @@ export interface IStorage {
   createCurriculumPath(data: InsertCurriculumPath): Promise<CurriculumPath>;
   getCurriculumPath(id: string): Promise<CurriculumPath | undefined>;
   getCurriculumPaths(language?: string): Promise<CurriculumPath[]>;
+  getCurriculumStats(): Promise<{ pathCount: number; unitCount: number; lessonCount: number; languageCount: number }>;
   updateCurriculumPath(id: string, data: Partial<CurriculumPath>): Promise<CurriculumPath | undefined>;
 
   // Curriculum Units
@@ -2184,6 +2185,20 @@ export class DatabaseStorage implements IStorage {
       return await db.select().from(curriculumPaths).where(eq(curriculumPaths.language, language));
     }
     return await db.select().from(curriculumPaths);
+  }
+
+  async getCurriculumStats(): Promise<{ pathCount: number; unitCount: number; lessonCount: number; languageCount: number }> {
+    const [pathResult] = await db.select({ count: sql<number>`count(*)::int` }).from(curriculumPaths);
+    const [unitResult] = await db.select({ count: sql<number>`count(*)::int` }).from(curriculumUnits);
+    const [lessonResult] = await db.select({ count: sql<number>`count(*)::int` }).from(curriculumLessons);
+    const [languageResult] = await db.select({ count: sql<number>`count(distinct ${curriculumPaths.language})::int` }).from(curriculumPaths);
+    
+    return {
+      pathCount: pathResult?.count || 0,
+      unitCount: unitResult?.count || 0,
+      lessonCount: lessonResult?.count || 0,
+      languageCount: languageResult?.count || 0,
+    };
   }
 
   async updateCurriculumPath(id: string, data: Partial<CurriculumPath>): Promise<CurriculumPath | undefined> {

@@ -5698,6 +5698,17 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // ===== Curriculum Paths =====
   
+  // Get curriculum statistics
+  app.get("/api/curriculum/stats", isAuthenticated, async (req: any, res) => {
+    try {
+      const stats = await storage.getCurriculumStats();
+      res.json(stats);
+    } catch (error: any) {
+      console.error('Error fetching curriculum stats:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get all curriculum paths
   app.get("/api/curriculum/paths", isAuthenticated, async (req: any, res) => {
     try {
