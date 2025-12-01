@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { hasAdminAccess, hasTeacherAccess } from "@shared/permissions";
 import { ImpersonationBanner } from "@/components/admin/ImpersonationBanner";
 import { useUser } from "@/lib/auth";
+import { SyllabusBuilder } from "@/components/SyllabusBuilder";
 import { 
   LayoutDashboard,
   Users,
@@ -47,7 +48,9 @@ import {
   Trash2,
   Briefcase,
   Zap,
-  Plane
+  Plane,
+  BookOpen,
+  X
 } from "lucide-react";
 import {
   AlertDialog,
@@ -595,6 +598,8 @@ function UsersTab() {
 
 function ClassesTab() {
   const { toast } = useToast();
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [selectedClassName, setSelectedClassName] = useState<string>("");
 
   const { data: classesData, isLoading: classesLoading } = useQuery<{ classes: any[]; total: number }>({
     queryKey: ["/api/admin/classes"],
@@ -625,6 +630,49 @@ function ClassesTab() {
     { value: 'open_exploration', label: 'Open Exploration' },
     { value: 'free_conversation', label: 'Free Conversation' },
   ];
+
+  const handleManageSyllabus = (cls: any) => {
+    setSelectedClassId(cls.id);
+    setSelectedClassName(cls.name);
+  };
+
+  const handleCloseSyllabus = () => {
+    setSelectedClassId(null);
+    setSelectedClassName("");
+  };
+
+  // Master-detail layout when a class is selected
+  if (selectedClassId) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-4 pb-4 border-b">
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={handleCloseSyllabus}
+              data-testid="button-close-syllabus"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <div>
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-primary" />
+                Syllabus Editor
+              </h2>
+              <p className="text-sm text-muted-foreground">{selectedClassName}</p>
+            </div>
+          </div>
+          <Badge variant="outline" className="gap-1">
+            <GraduationCap className="h-3 w-3" />
+            Class Management
+          </Badge>
+        </div>
+        
+        <SyllabusBuilder classId={selectedClassId} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -685,6 +733,16 @@ function ClassesTab() {
                   </div>
 
                   <div className="flex items-center gap-6 pt-2 border-t flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => handleManageSyllabus(cls)}
+                      data-testid={`button-manage-syllabus-${cls.id}`}
+                    >
+                      <BookOpen className="h-4 w-4" />
+                      Manage Syllabus
+                    </Button>
                     <div className="flex items-center gap-2">
                       <Switch
                         checked={cls.isPublicCatalogue}

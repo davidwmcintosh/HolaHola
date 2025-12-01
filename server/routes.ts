@@ -20,7 +20,7 @@ import {
   voiceSessions,
   users,
 } from "@shared/schema";
-import { hasTeacherAccess } from "@shared/permissions";
+import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
 import { setupUnifiedWebSocketHandler } from "./unified-ws-handler";
 import {
@@ -5999,16 +5999,40 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  // ===== Class Syllabus Management (Teachers) =====
+  // ===== Class Syllabus Management (Teachers + Admins/Developers) =====
+  
+  // Helper: Check if user can access class for curriculum editing
+  // Teachers can only access their own classes
+  // Admins/Developers can access any class
+  async function canAccessClassCurriculum(userId: string, classId: string): Promise<{ allowed: boolean; teacherClass: any }> {
+    const user = await storage.getUser(userId);
+    const teacherClass = await storage.getTeacherClass(classId);
+    
+    if (!teacherClass) {
+      return { allowed: false, teacherClass: null };
+    }
+    
+    // Admins and developers can access any class
+    if (hasDeveloperAccess(user?.role)) {
+      return { allowed: true, teacherClass };
+    }
+    
+    // Teachers can only access their own classes
+    if (teacherClass.teacherId === userId) {
+      return { allowed: true, teacherClass };
+    }
+    
+    return { allowed: false, teacherClass: null };
+  }
   
   // Get ACTFL analysis for class curriculum
   app.get("/api/teacher/classes/:classId/curriculum/actfl-analysis", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const userId = req.user.claims.sub;
       const { classId } = req.params;
       
-      const teacherClass = await storage.getTeacherClass(classId);
-      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+      const { allowed, teacherClass } = await canAccessClassCurriculum(userId, classId);
+      if (!allowed || !teacherClass) {
         return res.status(404).json({ error: "Class not found" });
       }
 
@@ -6123,11 +6147,11 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get class curriculum units (syllabus)
   app.get("/api/teacher/classes/:classId/curriculum/units", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const userId = req.user.claims.sub;
       const { classId } = req.params;
       
-      const teacherClass = await storage.getTeacherClass(classId);
-      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+      const { allowed } = await canAccessClassCurriculum(userId, classId);
+      if (!allowed) {
         return res.status(404).json({ error: "Class not found" });
       }
 
@@ -6142,11 +6166,11 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get lessons for a class curriculum unit
   app.get("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const userId = req.user.claims.sub;
       const { classId, unitId } = req.params;
       
-      const teacherClass = await storage.getTeacherClass(classId);
-      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+      const { allowed } = await canAccessClassCurriculum(userId, classId);
+      if (!allowed) {
         return res.status(404).json({ error: "Class not found" });
       }
 
@@ -6161,11 +6185,11 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Update class curriculum unit (for reordering)
   app.patch("/api/teacher/classes/:classId/curriculum/units/:unitId", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const userId = req.user.claims.sub;
       const { classId, unitId } = req.params;
       
-      const teacherClass = await storage.getTeacherClass(classId);
-      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+      const { allowed } = await canAccessClassCurriculum(userId, classId);
+      if (!allowed) {
         return res.status(404).json({ error: "Class not found" });
       }
 
@@ -6180,11 +6204,11 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Update class curriculum lesson (for reordering/editing)
   app.patch("/api/teacher/classes/:classId/curriculum/lessons/:lessonId", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const userId = req.user.claims.sub;
       const { classId, lessonId } = req.params;
       
-      const teacherClass = await storage.getTeacherClass(classId);
-      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+      const { allowed } = await canAccessClassCurriculum(userId, classId);
+      if (!allowed) {
         return res.status(404).json({ error: "Class not found" });
       }
 
@@ -6199,11 +6223,11 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Delete class curriculum lesson (soft delete by setting isRemoved = true)
   app.delete("/api/teacher/classes/:classId/curriculum/lessons/:lessonId", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const userId = req.user.claims.sub;
       const { classId, lessonId } = req.params;
       
-      const teacherClass = await storage.getTeacherClass(classId);
-      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+      const { allowed } = await canAccessClassCurriculum(userId, classId);
+      if (!allowed) {
         return res.status(404).json({ error: "Class not found" });
       }
 
@@ -6230,7 +6254,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   app.post("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const userId = req.user.claims.sub;
       const { classId, unitId } = req.params;
       
       // Validate request body FIRST before any database operations
@@ -6246,9 +6270,9 @@ Return ONLY the ${targetLanguage} phrase:`;
       }
       const validatedData = parseResult.data;
       
-      // Verify teacher owns this class
-      const teacherClass = await storage.getTeacherClass(classId);
-      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+      // Verify user can access this class (teacher owns it, or is admin/developer)
+      const { allowed } = await canAccessClassCurriculum(userId, classId);
+      if (!allowed) {
         return res.status(404).json({ error: "Class not found" });
       }
 
@@ -6308,7 +6332,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   app.patch("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons/:lessonId", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const userId = req.user.claims.sub;
       const { classId, unitId, lessonId } = req.params;
       
       // Validate request body FIRST before any database operations
@@ -6324,9 +6348,9 @@ Return ONLY the ${targetLanguage} phrase:`;
       }
       const validatedData = parseResult.data;
       
-      // Verify teacher owns this class
-      const teacherClass = await storage.getTeacherClass(classId);
-      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+      // Verify user can access this class (teacher owns it, or is admin/developer)
+      const { allowed } = await canAccessClassCurriculum(userId, classId);
+      if (!allowed) {
         return res.status(404).json({ error: "Class not found" });
       }
 
@@ -6359,12 +6383,12 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Batch update unit order
   app.post("/api/teacher/classes/:classId/curriculum/units/reorder", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const userId = req.user.claims.sub;
       const { classId } = req.params;
       const { unitOrders } = req.body; // Array of { id, orderIndex }
       
-      const teacherClass = await storage.getTeacherClass(classId);
-      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+      const { allowed } = await canAccessClassCurriculum(userId, classId);
+      if (!allowed) {
         return res.status(404).json({ error: "Class not found" });
       }
 
@@ -6384,12 +6408,12 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Batch update lesson order within a unit
   app.post("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons/reorder", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const userId = req.user.claims.sub;
       const { classId, unitId } = req.params;
       const { lessonOrders } = req.body; // Array of { id, orderIndex }
       
-      const teacherClass = await storage.getTeacherClass(classId);
-      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+      const { allowed } = await canAccessClassCurriculum(userId, classId);
+      if (!allowed) {
         return res.status(404).json({ error: "Class not found" });
       }
 
