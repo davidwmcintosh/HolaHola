@@ -171,6 +171,7 @@ export function extractTargetLanguageText(text: string): string {
     'hola', 'gracias', 'adios', 'vamos', 'claro', 'bueno', 'vale', 'perfecto',
     'amigo', 'amiga', 'por', 'favor', 'bien', 'muy', 'que', 'si', 'no',
     'buenos', 'buenas', 'como', 'estas', 'llamo', 'llamas', 'gusto', 'mucho',
+    'saludos', 'despedidas', 'saludo', 'despedida',
     // French
     'bonjour', 'merci', 'salut', 'parfait', 'voila', 'madame', 'monsieur', 'oui',
     'magnifique', 'formidable', 'superbe',
