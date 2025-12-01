@@ -40,7 +40,10 @@ import {
   FileText,
   ChevronRight,
   Sparkles,
-  FolderOpen
+  FolderOpen,
+  Library,
+  PenTool,
+  ArrowRight
 } from "lucide-react";
 import type { CurriculumPath, CurriculumUnit, CurriculumLesson } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -200,76 +203,83 @@ export default function ClassCreationHub() {
     <div className="container mx-auto p-6 max-w-7xl">
       <div className="flex flex-col gap-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold" data-testid="text-page-title">Class Creation Hub</h1>
-            <p className="text-muted-foreground mt-1">
-              Browse our curriculum library and create classes for your students
-            </p>
-          </div>
-          <Button
-            onClick={() => openCreateDialog()}
-            data-testid="button-create-blank-class"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Create Blank Class
-          </Button>
+        <div>
+          <h1 className="text-3xl font-bold" data-testid="text-page-title">Class Creation Hub</h1>
+          <p className="text-muted-foreground mt-1">
+            Create a new class for your students
+          </p>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardContent className="pt-6">
+        {/* Two Creation Paths */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="hover-elevate cursor-pointer border-2 border-transparent hover:border-primary/20 transition-colors" onClick={() => document.getElementById('curriculum-section')?.scrollIntoView({ behavior: 'smooth' })} data-testid="card-start-from-curriculum">
+            <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <BookOpen className="w-5 h-5 text-primary" />
+                <div className="p-3 rounded-lg bg-primary/10">
+                  <Library className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold" data-testid="stat-path-count">{stats?.pathCount ?? paths.length}</p>
-                  <p className="text-sm text-muted-foreground">Curriculum Paths</p>
+                  <CardTitle className="text-lg">Start from Curriculum</CardTitle>
+                  <CardDescription>Use our pre-built ACTFL-aligned content</CardDescription>
                 </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2 mb-4">
+                <Badge variant="secondary">{stats?.pathCount ?? "—"} Curricula</Badge>
+                <Badge variant="secondary">{stats?.unitCount ?? "—"} Units</Badge>
+                <Badge variant="secondary">{stats?.lessonCount ?? "—"} Lessons</Badge>
+                <Badge variant="secondary">{stats?.languageCount ?? "—"} Languages</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">
+                Browse our library of ready-to-use curriculum paths. Each includes units, lessons, and activities aligned to ACTFL proficiency standards.
+              </p>
+              <div className="flex items-center text-sm text-primary font-medium">
+                Browse curriculum below
+                <ArrowRight className="w-4 h-4 ml-1" />
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="pt-6">
+
+          <Card className="hover-elevate cursor-pointer border-2 border-transparent hover:border-primary/20 transition-colors" onClick={() => openCreateDialog()} data-testid="card-start-from-scratch">
+            <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <Layers className="w-5 h-5 text-blue-500" />
+                <div className="p-3 rounded-lg bg-orange-500/10">
+                  <PenTool className="w-6 h-6 text-orange-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold" data-testid="stat-unit-count">{stats?.unitCount ?? "—"}</p>
-                  <p className="text-sm text-muted-foreground">Units</p>
+                  <CardTitle className="text-lg">Start from Scratch</CardTitle>
+                  <CardDescription>Build your own custom class</CardDescription>
                 </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2 mb-4">
+                <Badge variant="outline">Custom Syllabus</Badge>
+                <Badge variant="outline">Your Content</Badge>
+                <Badge variant="outline">Flexible Structure</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">
+                Create a blank class and design your own syllabus. Add custom units and lessons, or mix in content from our library later.
+              </p>
+              <div className="flex items-center text-sm text-orange-600 dark:text-orange-400 font-medium">
+                Create blank class
+                <ArrowRight className="w-4 h-4 ml-1" />
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-500/10">
-                  <FileText className="w-5 h-5 text-green-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold" data-testid="stat-lesson-count">{stats?.lessonCount ?? "—"}</p>
-                  <p className="text-sm text-muted-foreground">Lessons</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-purple-500/10">
-                  <GraduationCap className="w-5 h-5 text-purple-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold" data-testid="stat-language-count">{stats?.languageCount ?? "—"}</p>
-                  <p className="text-sm text-muted-foreground">Languages</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        </div>
+
+        {/* Divider */}
+        <div className="relative" id="curriculum-section">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-4 text-muted-foreground font-medium">
+              Browse Curriculum Library
+            </span>
+          </div>
         </div>
 
         {/* Search and Filter */}
