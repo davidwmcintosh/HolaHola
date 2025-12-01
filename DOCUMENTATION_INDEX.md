@@ -83,6 +83,17 @@ This document provides an overview of all documentation files in the project.
 ⚠️ **ACTIVE SYSTEM**: RestVoiceChat.tsx (REST-based)  
 ⚠️ **DEPRECATED**: VoiceChat.tsx (WebSocket-based) - DO NOT USE
 
+### docs/NATIVE_SUBTITLE_TIMESTAMPS.md ⭐ NEW
+**Native Cartesia word-level timestamp implementation**
+- WebSocket API with `add_timestamps: true` for precise subtitle synchronization
+- Atomic timestamp retrieval (`consumeNativeTimestamps()`) to prevent race conditions
+- Numeric voice speed control (0.6-1.5 range)
+- ACTFL-level-aware timing policies integration
+- Automatic fallback to Bytes API with estimation when WebSocket unavailable
+- Troubleshooting guide for subtitle sync issues
+
+**When to use**: Debugging subtitle timing, understanding voice pipeline, implementing subtitle improvements.
+
 ### docs/voice-chat-setup.md ⭐ CURRENT SYSTEM
 **Complete REST voice chat architecture documentation**
 - **Component**: `RestVoiceChat.tsx` (client/src/components/RestVoiceChat.tsx)
@@ -252,8 +263,9 @@ project/
 ├── TEACHER_GUIDE.md                         # Teacher user manual
 ├── ADMIN_GUIDE.md                           # Administrator backend guide
 ├── docs/
+│   ├── NATIVE_SUBTITLE_TIMESTAMPS.md       # Native Cartesia timestamps ⭐ NEW
 │   ├── voice-chat-setup.md                 # Voice chat architecture ⭐ UPDATED
-│   ├── syllabus-aware-competency-system.md # Organic progress feature ⭐ NEW
+│   ├── syllabus-aware-competency-system.md # Organic progress feature
 │   ├── LLM-Migration-Analysis.md           # Migration history (Nov 2025)
 │   ├── Development-Cost-Projections.md     # Cost estimation reference
 │   └── institutional-standards-integration.md
@@ -275,6 +287,15 @@ project/
 ---
 
 ## Recent Updates (Dec 1, 2025)
+
+### ✅ Native Cartesia Subtitle Timestamps (Dec 1)
+- **WebSocket API Integration**: `add_timestamps: true` for native word-level timing from TTS synthesis
+- **Atomic Timestamp Retrieval**: `consumeNativeTimestamps()` method prevents race conditions between sentences
+- **Speed Parameter Fix**: Numeric 0.6-1.5 range instead of string values ("slow"/"fast")
+- **Automatic Fallback**: Bytes API with bitrate estimation when WebSocket unavailable
+- **ACTFL Integration**: Novice 300ms preview, Intermediate 150ms, Advanced 0ms policies maintained
+- **Files**: `server/services/cartesia-streaming.ts`, `server/services/streaming-voice-orchestrator.ts`
+- **Documentation**: See `docs/NATIVE_SUBTITLE_TIMESTAMPS.md` for full implementation details
 
 ### ✅ Syllabus Builder & ACTFL Standards Coverage (Dec 1)
 - **Syllabus Builder**: Teachers can fully customize class syllabi after creating from templates
