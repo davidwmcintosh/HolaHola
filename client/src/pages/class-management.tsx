@@ -6,14 +6,28 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Copy, Plus, Trash2, Users, ClipboardList, BookOpen, UserMinus, Sparkles, AlertCircle, CheckCircle, TrendingDown, TrendingUp } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useParams, Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
 import { TeacherEarlyCompletions } from "@/components/teacher-early-completions";
 import { hasTeacherAccess } from "@shared/permissions";
+
+const cloneClassFormSchema = z.object({
+  name: z.string().min(1, "Class name is required"),
+  description: z.string().optional(),
+});
+
+type CloneClassFormValues = z.infer<typeof cloneClassFormSchema>;
 
 interface TeacherClass {
   id: string;
@@ -22,6 +36,7 @@ interface TeacherClass {
   language: string;
   joinCode: string;
   isActive: boolean;
+  curriculumPathId: string | null;
   createdAt: Date;
 }
 
@@ -61,6 +76,15 @@ export default function ClassManagement() {
   const { classId } = useParams();
   const { toast } = useToast();
   const [copiedCode, setCopiedCode] = useState(false);
+  const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
+
+  const cloneForm = useForm<CloneClassFormValues>({
+    resolver: zodResolver(cloneClassFormSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+    },
+  });
 
   // Protect teacher-only route
   useEffect(() => {
@@ -120,6 +144,45 @@ export default function ClassManagement() {
     }
   };
 
+  const cloneClassMutation = useMutation({
+    mutationFn: async (data: CloneClassFormValues) => {
+      return apiRequest("POST", `/api/teacher/classes/${classId}/clone`, data);
+    },
+    onSuccess: (response: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/teacher/classes"] });
+      setCloneDialogOpen(false);
+      cloneForm.reset();
+      toast({
+        title: "Class Cloned",
+        description: "A new class has been created based on this one.",
+      });
+      if (response?.id) {
+        setLocation(`/teacher/classes/${response.id}`);
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to clone class",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const openCloneDialog = () => {
+    if (classData) {
+      cloneForm.reset({
+        name: `${classData.name} (Copy)`,
+        description: classData.description || "",
+      });
+      setCloneDialogOpen(true);
+    }
+  };
+
+  const handleCloneClass = (values: CloneClassFormValues) => {
+    cloneClassMutation.mutate(values);
+  };
+
   if (isLoadingClass) {
     return (
       <div className="space-y-6">
@@ -166,11 +229,85 @@ export default function ClassManagement() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={openCloneDialog}
+            data-testid="button-clone-class"
+          >
+            <Copy className="w-4 h-4 mr-2" />
+            Clone Class
+          </Button>
           <Badge variant={classData.isActive ? "default" : "secondary"}>
             {classData.isActive ? "Active" : "Inactive"}
           </Badge>
         </div>
       </div>
+
+      {/* Clone Class Dialog */}
+      <Dialog open={cloneDialogOpen} onOpenChange={setCloneDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clone Class</DialogTitle>
+            <DialogDescription>
+              Create a new class based on "{classData.name}". The new class will have the same settings but no students.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...cloneForm}>
+            <form onSubmit={cloneForm.handleSubmit(handleCloneClass)} className="space-y-4">
+              <FormField
+                control={cloneForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>New Class Name</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Spanish 101 - Period 4"
+                        data-testid="input-clone-class-name"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={cloneForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="A copy of the class for a different period"
+                        data-testid="input-clone-class-description"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCloneDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={cloneClassMutation.isPending}
+                  data-testid="button-confirm-clone-class"
+                >
+                  {cloneClassMutation.isPending ? "Cloning..." : "Clone Class"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       {classData.description && (
         <p className="text-muted-foreground">{classData.description}</p>

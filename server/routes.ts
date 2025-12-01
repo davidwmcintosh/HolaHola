@@ -5118,6 +5118,49 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Clone an existing class (teachers only)
+  app.post("/api/teacher/classes/:classId/clone", mutationLimiter, isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { classId } = req.params;
+      const { name, description } = req.body;
+      const user = await storage.getUser(teacherId);
+      
+      if (!hasTeacherAccess(user?.role)) {
+        return res.status(403).json({ error: "Only teachers can clone classes" });
+      }
+
+      // Get the original class
+      const originalClass = await storage.getTeacherClass(classId);
+      if (!originalClass) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      // Verify ownership (teachers can only clone their own classes, admins can clone any)
+      if (originalClass.teacherId !== teacherId && user?.role !== 'admin') {
+        return res.status(403).json({ error: "You can only clone your own classes" });
+      }
+
+      // Generate new join code
+      const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+      // Create new class with same settings
+      const clonedClass = await storage.createTeacherClass({
+        teacherId,
+        name: name || `${originalClass.name} (Copy)`,
+        description: description || originalClass.description,
+        language: originalClass.language,
+        curriculumPathId: originalClass.curriculumPathId,
+        joinCode,
+      });
+
+      res.json(clonedClass);
+    } catch (error: any) {
+      console.error('Error cloning teacher class:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get all classes for a teacher (teachers only)
   app.get("/api/teacher/classes", isAuthenticated, async (req: any, res) => {
     try {
