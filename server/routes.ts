@@ -492,7 +492,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      const { targetLanguage, nativeLanguage, difficultyLevel, onboardingCompleted, tutorGender, tutorPersonality, tutorExpressiveness } = validationResult.data;
+      const { targetLanguage, nativeLanguage, difficultyLevel, onboardingCompleted, tutorGender, tutorPersonality, tutorExpressiveness, selfDirectedFlexibility, selfDirectedPlacementDone } = validationResult.data;
       
       // Check if user is a super admin (developer role)
       // Only super admins can set tutorPersonality and tutorExpressiveness
@@ -509,6 +509,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // For regular users, these fields are undefined and won't be updated
         tutorPersonality: isSuperAdmin ? tutorPersonality : undefined,
         tutorExpressiveness: isSuperAdmin ? tutorExpressiveness : undefined,
+        // Self-directed learners can set their own flexibility level
+        selfDirectedFlexibility,
+        selfDirectedPlacementDone,
       });
       
       if (!updated) {

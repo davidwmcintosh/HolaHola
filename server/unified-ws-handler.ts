@@ -237,6 +237,30 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             console.warn('[Streaming Voice] Could not build curriculum context:', err);
           }
 
+          // Determine tutor freedom/flexibility level
+          // For class-assigned learning: use the class's tutorFreedomLevel
+          // For self-directed learning: use the user's selfDirectedFlexibility preference
+          let tutorFreedomLevel: 'guided' | 'flexible_goals' | 'open_exploration' | 'free_conversation' = 'flexible_goals';
+          let targetActflLevel: string | null = null;
+          
+          if (conversation.classId && conversation.learningContext === 'class_assigned') {
+            // Get class settings for class-assigned learning
+            try {
+              const classInfo = await storage.getTeacherClass(conversation.classId);
+              if (classInfo?.tutorFreedomLevel) {
+                tutorFreedomLevel = classInfo.tutorFreedomLevel as typeof tutorFreedomLevel;
+              }
+              if (classInfo?.targetActflLevel) {
+                targetActflLevel = classInfo.targetActflLevel;
+              }
+            } catch (err) {
+              console.warn('[Streaming Voice] Could not get class freedom level:', err);
+            }
+          } else {
+            // Self-directed learning: use user's preference
+            tutorFreedomLevel = (user.selfDirectedFlexibility as typeof tutorFreedomLevel) || 'flexible_goals';
+          }
+
           // Use full system prompt with streaming voice mode flag
           // This preserves all teaching context (ACTFL, cultural guidelines, vocabulary)
           // while outputting plain text format for TTS
@@ -256,7 +280,9 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             (user.tutorPersonality || 'warm') as any,
             user.tutorExpressiveness || 3,
             true, // isStreamingVoiceMode - outputs plain text with **bold** markers
-            curriculumContext // Add curriculum context for syllabus awareness
+            curriculumContext, // Add curriculum context for syllabus awareness
+            tutorFreedomLevel, // Use determined flexibility level
+            targetActflLevel // Target proficiency level
           );
 
           // Add congratulatory messaging if student is ahead of syllabus
