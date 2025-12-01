@@ -2,7 +2,37 @@
 
 **CONFIDENTIAL - For Tester Distribution Only**
 
-Last Updated: November 30, 2025
+Last Updated: December 1, 2025
+
+---
+
+## Dual Testing System
+
+LinguaFlow implements a **two-tier testing architecture** to separate internal QA from external beta testing:
+
+### Internal Dev/QA Accounts (`isTestAccount`)
+- **Purpose**: Internal development and quality assurance testing
+- **Features**: Unlimited voice tutoring credits, never decrement
+- **Analytics**: All sessions flagged as `isTestSession`, excluded from production metrics
+- **Access**: Only developers and admins can toggle this flag
+- **UI Indicator**: "Dev Test" badge on user profile
+
+### External Beta Testers (`isBetaTester`)
+- **Purpose**: Real users testing new features before general release
+- **Features**: Admin-granted credits that count down during usage
+- **Analytics**: All sessions flagged as `isTestSession`, excluded from production metrics
+- **Access**: Admins can grant credits via Command Center (hours/minutes with optional expiration)
+- **UI Indicator**: "Beta" badge on user profile
+
+### Key Differences
+
+| Feature | Dev Test Account | Beta Tester |
+|---------|------------------|-------------|
+| Credit Limits | Unlimited | Admin-granted (counts down) |
+| Target Role | Developer/Admin | Student/Teacher |
+| Toggle Location | Command Center Users tab | Command Center Users tab |
+| Analytics | Excluded from production | Excluded from production |
+| Credit Management | N/A (unlimited) | Grant Credits dialog |
 
 ---
 
@@ -86,6 +116,21 @@ All student demo accounts are pre-enrolled in these 19 classes:
 - Passwords should be changed if accounts are shared publicly
 - Accounts have no subscription limits or credit restrictions
 - All activity is logged for testing purposes
+
+## Setting Up Test Accounts
+
+### Via Command Center (/admin)
+
+1. Navigate to `/admin` and click the **Users** tab
+2. Find the user you want to configure
+3. For internal testers (developers/admins):
+   - Toggle the **Dev Test** switch (appears only for developer/admin roles)
+   - Account now has unlimited credits and is excluded from analytics
+4. For external beta testers (students/teachers):
+   - Toggle the **Beta Tester** switch (appears only for student/teacher roles)
+   - Click **Grant Credits** to assign voice tutoring hours
+   - Enter hours/minutes and optional expiration date
+   - Credits will count down during usage but exclude from production analytics
 
 ---
 

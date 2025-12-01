@@ -16,6 +16,9 @@
 - ✅ **Hybrid Grammar System** - Research-backed grammar instruction combining conversational + explicit drills (Nov 30, 2025)
 - ✅ **Syllabus Builder** - Full syllabus customization with drag-and-drop reordering (Dec 1, 2025)
 - ✅ **ACTFL Standards Coverage** - Real-time Can-Do statement coverage tracking with category breakdown (Dec 1, 2025)
+- ✅ **Unified Command Center** - Tab-based admin experience with RBAC (Dec 1, 2025)
+- ✅ **Dual Testing System** - Dev Test accounts (unlimited) vs Beta Testers (granted credits) (Dec 1, 2025)
+- ✅ **Native Subtitle Timestamps** - Cartesia WebSocket API word-level timestamps for voice subtitles (Dec 1, 2025)
 
 **Production-Ready Components**:
 - Teacher Dashboard with class creation and management
@@ -53,6 +56,26 @@
 - Expandable/collapsible UI for detailed exploration
 - API endpoint: `GET /api/teacher/classes/:classId/curriculum/actfl-analysis`
 - Coverage tracked via `sourceLessonId` linking class lessons to template Can-Do mappings
+
+**Unified Command Center (Dec 1, 2025)**:
+- Tab-based admin experience at `/admin` consolidating 7 admin pages
+- Role-based tab visibility (admin > developer > teacher > student)
+- **Overview Tab**: Platform metrics, growth charts, top performers
+- **Users Tab**: User management with role changes, test/beta toggles, credit grants
+- **Classes Tab**: Platform-wide class management with syllabus editing
+- **Analytics Tab**: Usage reports with test/production separation
+- **Voice Lab Tab**: Voice preview and configuration
+- **Dev Tools Tab**: Developer usage analytics with cost estimates
+- **Audit Tab**: Admin action audit logs
+
+**Dual Testing System (Dec 1, 2025)**:
+- Two-tier testing architecture for analytics segmentation
+- `isTestAccount`: Internal dev/QA with unlimited credits (developers/admins)
+- `isBetaTester`: External beta users with admin-granted credits (students/teachers)
+- Both account types set `isTestSession` flag on voice sessions
+- All test/beta sessions excluded from production analytics
+- Credit granting via Command Center with hours/minutes input and optional expiration
+- Usage ledger entries store granted credits with audit logging
 
 **Conversational Syllabus Navigation (Nov 29, 2025)**:
 - Students can ask AI tutor about class progress during voice or text conversations

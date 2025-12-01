@@ -1,6 +1,6 @@
 # LinguaFlow Development Metrics & Cost Analysis
 
-**Last Updated:** November 25, 2025  
+**Last Updated:** December 1, 2025  
 **Purpose:** Track actual development costs, time, and scope to improve future project estimates
 
 ---
@@ -81,6 +81,80 @@ Enterprise-grade B2B institutional learning platform:
 **Actual Cost:** $6.00  
 **Actual Time:** 25 minutes (0.42 hours)  
 **Agent Model:** Claude 4.5 Sonnet (via Replit Agent)
+
+---
+
+### Project #4: Dual Testing System & Command Center Enhancements (December 1, 2025)
+
+**Actual Cost:** ~$4.00  
+**Actual Time:** ~20 minutes (0.33 hours)  
+**Agent Model:** Claude 4.5 Opus (via Replit Agent)
+
+#### Scope Delivered
+
+Complete dual testing architecture with admin credit management:
+
+1. **Database Schema Updates**
+   - `isBetaTester` boolean field on users table
+   - Usage ledger integration for granted credits
+
+2. **Storage Layer**
+   - Updated `updateUserDetails` for beta tester toggle
+   - New `grantCredits` method with audit logging
+   - Ledger entries for bonus/trial credits
+
+3. **API Endpoints**
+   - `PATCH /api/admin/users/:userId` - includes isBetaTester
+   - `POST /api/admin/users/:userId/grant-credits` - hours/minutes/expiration
+
+4. **Usage Service Updates**
+   - `isTestSession` flag now checks both `isTestAccount` AND `isBetaTester`
+   - All test/beta sessions excluded from production analytics
+
+5. **Command Center UI Enhancements**
+   - Dev Test toggle (developer/admin roles only)
+   - Beta Tester toggle (student/teacher roles only)
+   - Grant Credits button and dialog
+   - Hours/minutes input with optional expiration
+   - Dev Test and Beta badges on user rows
+
+6. **E2E Testing**
+   - Playwright test confirming role-based visibility
+   - Verified all toggles and buttons render correctly
+
+7. **Documentation Updates**
+   - Updated `replit.md` with dual testing system
+   - Updated `demo-accounts.md` with setup instructions
+   - Updated `institutional-standards-integration.md`
+   - Updated `voice-chat-setup.md` with test account tracking
+
+#### Complexity Metrics
+
+- **Files Modified:** 6 files
+  - Schema: `shared/schema.ts`
+  - Storage: `server/storage.ts`
+  - Routes: `server/routes.ts`
+  - Usage Service: `server/services/usage-service.ts`
+  - Frontend: `client/src/pages/admin/CommandCenter.tsx`
+  - Documentation: 4 markdown files
+- **Lines of Code:** ~200+ lines
+- **Database Changes:** 1 new column
+- **Storage Methods:** 2 methods updated/added
+- **API Endpoints:** 2 endpoints
+- **E2E Tests:** 1 comprehensive test
+
+#### Efficiency Metrics
+
+**Cost Efficiency:**
+- Very low cost ($4) for complete feature
+- Reused existing Command Center infrastructure
+- Leveraged existing usage ledger system
+
+**Key Success Factors:**
+1. Clear requirements with well-defined user roles
+2. Existing infrastructure (Command Center, usage ledger)
+3. Pattern reuse from isTestAccount implementation
+4. Comprehensive E2E testing caught visibility issues
 
 #### Scope Delivered
 
@@ -388,14 +462,14 @@ Actual: $6.00 (82% more efficient!)
 
 ### Average ROI Across All Projects
 
-**Replit Agent Total:** $103 (for 3 major projects)  
-**Traditional Development Total:** ~$5,700-9,850  
-**Average ROI:** ~55x-95x return on investment
+**Replit Agent Total:** $107 (for 4 major projects)  
+**Traditional Development Total:** ~$6,000-10,200  
+**Average ROI:** ~56x-95x return on investment
 
 **Time Savings:**
-- Estimated traditional time: ~50-70 hours
-- Actual Replit Agent time: ~14.5 hours
-- **Time saved:** 35-55 hours (78-80% faster)
+- Estimated traditional time: ~52-74 hours
+- Actual Replit Agent time: ~15 hours
+- **Time saved:** 37-59 hours (78-80% faster)
 
 ---
 

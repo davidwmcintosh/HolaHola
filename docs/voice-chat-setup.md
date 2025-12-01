@@ -232,6 +232,27 @@ Voice features use the following API keys (managed automatically via Replit AI I
 3. **Network Dependency**: Requires stable internet connection
 4. **Mobile**: iOS requires Safari for best compatibility
 
+## Test Account Usage Tracking
+
+### Dev Test Accounts (`isTestAccount`)
+- Developers and admins can be marked as Dev Test accounts
+- **Unlimited voice credits** - never decrement
+- All sessions flagged as `isTestSession` for analytics segmentation
+- Toggle via Command Center Users tab (developer/admin roles only)
+
+### Beta Tester Accounts (`isBetaTester`)
+- Students and teachers can be designated as beta testers
+- **Granted credits** - admins assign hours via Command Center
+- Credits count down during usage but exclude from production analytics
+- All sessions flagged as `isTestSession` for analytics segmentation
+- Toggle via Command Center Users tab (student/teacher roles only)
+
+### Analytics Segmentation
+- Both test types set `isTestSession = true` on voice sessions
+- Developer analytics can filter by test vs production sessions
+- Production metrics exclude all test/beta activity
+- Cost estimates separated for internal testing vs real usage
+
 ## Migration History
 
 ### November 2025: OpenAI → Gemini/Deepgram Migration
