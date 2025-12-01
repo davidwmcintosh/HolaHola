@@ -65,6 +65,11 @@ export const users = pgTable("users", {
   tutorPersonality: varchar("tutor_personality").default("warm"), // warm, calm, energetic, professional
   // Tutor expressiveness - how much the AI deviates from baseline (1=subtle, 5=very expressive)
   tutorExpressiveness: integer("tutor_expressiveness").default(3), // 1-5 scale
+  // Self-directed tutor flexibility - controls how structured vs free-form conversations are
+  // For class-assigned learning, this is overridden by the class's tutorFreedomLevel setting
+  selfDirectedFlexibility: tutorFreedomLevelEnum("self_directed_flexibility").default("flexible_goals"), // guided, flexible_goals, open_exploration, free_conversation
+  // Placement assessment for self-directed learners - determines if user has completed quick assessment
+  selfDirectedPlacementDone: boolean("self_directed_placement_done").default(false), // true = user has done placement chat
   // ACTFL proficiency tracking (unified assessment system)
   actflLevel: varchar("actfl_level"), // novice_low, novice_mid, novice_high, intermediate_low, intermediate_mid, intermediate_high, advanced_low, advanced_mid, advanced_high, superior, distinguished
   actflAssessed: boolean("actfl_assessed").default(false), // true = AI-verified, false = cold-start hint from onboarding
@@ -92,7 +97,12 @@ export const updateUserPreferencesSchema = z.object({
   tutorGender: z.enum(['male', 'female']).optional(),
   tutorPersonality: z.enum(['warm', 'calm', 'energetic', 'professional']).optional(),
   tutorExpressiveness: z.number().min(1).max(5).optional(),
+  selfDirectedFlexibility: z.enum(['guided', 'flexible_goals', 'open_exploration', 'free_conversation']).optional(),
+  selfDirectedPlacementDone: z.boolean().optional(),
 });
+
+// Type for tutor freedom/flexibility levels
+export type TutorFreedomLevel = 'guided' | 'flexible_goals' | 'open_exploration' | 'free_conversation';
 
 export type UpdateUserPreferences = z.infer<typeof updateUserPreferencesSchema>;
 export type UpsertUser = typeof users.$inferInsert;

@@ -928,6 +928,8 @@ export class DatabaseStorage implements IStorage {
     tutorGender?: 'male' | 'female';
     tutorPersonality?: 'warm' | 'calm' | 'energetic' | 'professional';
     tutorExpressiveness?: number;
+    selfDirectedFlexibility?: 'guided' | 'flexible_goals' | 'open_exploration' | 'free_conversation';
+    selfDirectedPlacementDone?: boolean;
   }): Promise<User | undefined> {
     const [updated] = await db
       .update(users)
