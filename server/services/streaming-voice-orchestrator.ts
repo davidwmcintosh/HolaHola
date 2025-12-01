@@ -763,10 +763,6 @@ export class StreamingVoiceOrchestrator {
     let totalDurationMs = 0;
     const audioChunks: Buffer[] = [];
     
-    // Note: We intentionally DON'T use Cartesia's word timestamps
-    // because they're for phoneme-processed text (e.g., "<<o|l|a>>")
-    // We always estimate timings using the original display text
-    
     try {
       // Collect all audio chunks from Cartesia (MP3 fragments need concatenation)
       // IMPORTANT: Use displayText (cleaned) for TTS, not originalText (which may have emotion tags)
@@ -799,16 +795,28 @@ export class StreamingVoiceOrchestrator {
       const effectiveTurnId = turnId ?? session.currentTurnId;
       
       // Send word timings BEFORE audio so client has them ready when playback starts
-      // Include the expected duration so client can rescale if actual duration differs
+      // Use native Cartesia timestamps if available (more accurate), otherwise estimate
       if (session.subtitleMode !== 'off') {
-        const estimatedTimings = this.estimateWordTimings(displayText, totalDurationMs / 1000);
+        // Consume native timestamps from Cartesia (clears after retrieval to prevent reuse)
+        const nativeTimestamps = this.cartesiaService.consumeNativeTimestamps();
+        let finalTimings: WordTiming[];
+        
+        if (nativeTimestamps.length > 0) {
+          // Use native timestamps from Cartesia WebSocket API
+          console.log(`[Streaming] Using ${nativeTimestamps.length} native Cartesia timestamps for sentence ${index}`);
+          finalTimings = nativeTimestamps;
+        } else {
+          // Fall back to estimation (when WebSocket not connected or timestamps not returned)
+          finalTimings = this.estimateWordTimings(displayText, totalDurationMs / 1000);
+        }
+        
         this.sendMessage(session.ws, {
           type: 'word_timing',
           timestamp: Date.now(),
           turnId: effectiveTurnId,
           sentenceIndex: index,
-          words: estimatedTimings,
-          timings: estimatedTimings,
+          words: finalTimings,
+          timings: finalTimings,
           expectedDurationMs: totalDurationMs, // For client-side rescaling
         } as StreamingWordTimingMessage);
       }

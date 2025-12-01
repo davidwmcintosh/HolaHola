@@ -149,6 +149,10 @@ export class CartesiaStreamingService extends EventEmitter {
   private model: string;
   private connected: boolean = false;
   
+  // Store timestamps from the most recent streamSynthesize call
+  // Allows orchestrator to retrieve native timestamps after streaming completes
+  private lastNativeTimestamps: WordTiming[] = [];
+  
   constructor() {
     super();
     this.model = process.env.TTS_CARTESIA_MODEL || 'sonic-3';
@@ -168,6 +172,18 @@ export class CartesiaStreamingService extends EventEmitter {
    */
   isAvailable(): boolean {
     return this.client !== null;
+  }
+  
+  /**
+   * Get and clear native timestamps from the most recent streamSynthesize call
+   * Returns empty array if no native timestamps were received (bytes API fallback)
+   * Atomically clears timestamps after retrieval to prevent reuse
+   */
+  consumeNativeTimestamps(): WordTiming[] {
+    // Clone array to prevent caller mutation, then clear
+    const timestamps = [...this.lastNativeTimestamps];
+    this.lastNativeTimestamps = [];
+    return timestamps;
   }
   
   /**
@@ -252,8 +268,9 @@ export class CartesiaStreamingService extends EventEmitter {
   }
   
   /**
-   * Stream synthesis of text
+   * Stream synthesis of text using WebSocket API with native word timestamps
    * Returns an async generator that yields audio chunks
+   * Emits 'timestamps' event with word-level timing from Cartesia
    */
   async *streamSynthesize(request: StreamingSynthesisRequest): AsyncGenerator<StreamingAudioChunk> {
     if (!this.client) {
@@ -327,13 +344,97 @@ export class CartesiaStreamingService extends EventEmitter {
     let totalBytes = 0;
     let chunkCount = 0;
     
+    // Try WebSocket API first for native timestamps, fall back to bytes API
+    const useWebSocket = this.isConnected();
+    
+    // Clear any previous timestamps before starting new synthesis
+    this.lastNativeTimestamps = [];
+    
     try {
-      // Use the bytes API for reliable streaming
-      // The WebSocket API has compatibility issues, bytes API works reliably
-      {
-        console.log('[Cartesia Streaming] Using bytes API streaming');
+      if (useWebSocket) {
+        // Use WebSocket API with native word timestamps
+        console.log('[Cartesia Streaming] Using WebSocket API with native timestamps');
         
-        // Build request options
+        const response = await this.websocket.send({
+          model_id: this.model,
+          transcript: cleanedText,
+          voice: {
+            mode: 'id',
+            id: effectiveVoiceId,
+            __experimental_controls: {
+              speed: cartesiaSpeed, // Numeric speed in 0.6-1.5 range
+              emotion: constrainedEmotion ? [constrainedEmotion] : undefined,
+            },
+          },
+          language: voiceConfig.languageCode,
+          output_format: {
+            container: 'mp3',
+            sample_rate: AUDIO_STREAMING_CONFIG.SAMPLE_RATE,
+            bit_rate: AUDIO_STREAMING_CONFIG.BIT_RATE,
+          },
+          ...(pronunciationDictId && { pronunciation_dict_id: pronunciationDictId }),
+          add_timestamps: true, // Enable native word-level timestamps
+        });
+        
+        // Collect timestamps as they arrive
+        const collectedTimestamps: WordTiming[] = [];
+        
+        // Process all events from the response
+        for await (const message of response) {
+          // Handle audio chunks
+          if (message.audio) {
+            if (!firstChunkTime) {
+              firstChunkTime = Date.now();
+              console.log(`[Cartesia Streaming] TTFB (WebSocket): ${firstChunkTime - startTime}ms`);
+            }
+            
+            const buffer = Buffer.from(message.audio);
+            totalBytes += buffer.length;
+            chunkCount++;
+            
+            yield {
+              audio: buffer,
+              durationMs: this.estimateDuration(buffer.length),
+              isLast: false,
+            };
+          }
+          
+          // Handle word timestamps from Cartesia
+          if (message.word_timestamps) {
+            const { words, start, end } = message.word_timestamps;
+            if (words && start && end) {
+              // Convert parallel arrays to WordTiming objects
+              for (let i = 0; i < words.length; i++) {
+                collectedTimestamps.push({
+                  word: words[i],
+                  startTime: start[i], // Already in seconds
+                  endTime: end[i],
+                });
+              }
+              console.log(`[Cartesia Streaming] Received ${words.length} native word timestamps`);
+            }
+          }
+        }
+        
+        // Store collected timestamps for orchestrator retrieval
+        // Also emit for backward compatibility with synthesizeSentence
+        if (collectedTimestamps.length > 0) {
+          console.log(`[Cartesia Streaming] ✓ Storing ${collectedTimestamps.length} native timestamps`);
+          this.lastNativeTimestamps = collectedTimestamps;
+          this.emit('timestamps', collectedTimestamps);
+        }
+        
+        // Signal completion
+        yield {
+          audio: Buffer.alloc(0),
+          durationMs: 0,
+          isLast: true,
+        };
+        
+      } else {
+        // Fallback to bytes API (no native timestamps)
+        console.log('[Cartesia Streaming] Using bytes API (WebSocket not connected)');
+        
         const requestOptions: any = {
           modelId: this.model,
           transcript: cleanedText,
@@ -353,9 +454,6 @@ export class CartesiaStreamingService extends EventEmitter {
           },
         };
         
-        // Add pronunciation dictionary if available
-        // This allows Cartesia to apply correct pronunciations server-side
-        // Note: SDK uses camelCase property name
         if (pronunciationDictId) {
           requestOptions.pronunciationDictId = pronunciationDictId;
         }
@@ -388,10 +486,24 @@ export class CartesiaStreamingService extends EventEmitter {
       }
       
       const elapsed = Date.now() - startTime;
-      console.log(`[Cartesia Streaming] ✓ Complete: ${chunkCount} chunks, ${totalBytes} bytes in ${elapsed}ms`);
+      const apiType = useWebSocket ? 'WebSocket' : 'bytes';
+      console.log(`[Cartesia Streaming] ✓ Complete (${apiType}): ${chunkCount} chunks, ${totalBytes} bytes in ${elapsed}ms`);
       
     } catch (error: any) {
       console.error('[Cartesia Streaming] Error:', error.message);
+      
+      // If WebSocket failed, try falling back to bytes API
+      if (useWebSocket && this.client) {
+        console.log('[Cartesia Streaming] WebSocket failed, falling back to bytes API');
+        // Fully reset connection state to ensure fallback works
+        this.connected = false;
+        this.websocket = null; // Clear WebSocket reference so isConnected() returns false
+        
+        // Recursive call will use bytes API since WebSocket is now marked disconnected
+        yield* this.streamSynthesize(request);
+        return;
+      }
+      
       throw error;
     }
   }
