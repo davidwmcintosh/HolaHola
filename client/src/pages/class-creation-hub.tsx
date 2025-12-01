@@ -55,6 +55,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useEffect } from "react";
+import { ActflIndicators } from "@/components/ActflIndicators";
 
 const createClassSchema = z.object({
   name: z.string().min(1, "Class name is required"),
@@ -598,6 +599,9 @@ function SyllabusTemplateDetails({ path, onCreateClass }: { path: CurriculumPath
           <p className="text-sm font-medium">{path.targetAudience || "All Levels"}</p>
         </div>
       </div>
+
+      {/* ACTFL Framework Indicators */}
+      <ActflIndicators curriculumPathId={path.id} language={path.language} />
 
       {/* Units */}
       <div>

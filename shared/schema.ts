@@ -731,6 +731,57 @@ export const classEnrollments = pgTable("class_enrollments", {
   index("idx_class_enrollments_class").on(table.classId),
 ]);
 
+// ===== Class-Specific Curriculum (Teacher's Customizable Copy) =====
+
+// Class-specific units (cloned from templates or custom-created by teacher)
+export const classCurriculumUnits = pgTable("class_curriculum_units", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  classId: varchar("class_id").notNull().references(() => teacherClasses.id),
+  sourceUnitId: varchar("source_unit_id").references(() => curriculumUnits.id), // Original template unit (null if custom)
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  orderIndex: integer("order_index").notNull(), // Order within the class
+  actflLevel: text("actfl_level"), // Target proficiency level
+  culturalTheme: text("cultural_theme"),
+  estimatedHours: integer("estimated_hours"),
+  isCustom: boolean("is_custom").default(false), // true if teacher created this unit
+  isRemoved: boolean("is_removed").default(false), // soft delete for cloned units
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_class_curriculum_units_class").on(table.classId),
+]);
+
+// Class-specific lessons (cloned from templates or custom-created by teacher)
+export const classCurriculumLessons = pgTable("class_curriculum_lessons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  classUnitId: varchar("class_unit_id").notNull().references(() => classCurriculumUnits.id),
+  sourceLessonId: varchar("source_lesson_id").references(() => curriculumLessons.id), // Original template lesson (null if custom)
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  orderIndex: integer("order_index").notNull(), // Order within the unit
+  lessonType: text("lesson_type").notNull(), // conversation, vocabulary, grammar, cultural_exploration
+  actflLevel: text("actfl_level"),
+  // Lesson content
+  conversationTopic: text("conversation_topic"),
+  conversationPrompt: text("conversation_prompt"),
+  // Learning objectives
+  objectives: text("objectives").array(),
+  estimatedMinutes: integer("estimated_minutes"),
+  // Competency mapping
+  requiredTopics: text("required_topics").array(),
+  requiredVocabulary: text("required_vocabulary").array(),
+  requiredGrammar: text("required_grammar").array(),
+  minPronunciationScore: real("min_pronunciation_score"),
+  // Teacher customization flags
+  isCustom: boolean("is_custom").default(false), // true if teacher created this lesson
+  isRemoved: boolean("is_removed").default(false), // soft delete for cloned lessons
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_class_curriculum_lessons_unit").on(table.classUnitId),
+]);
+
 // Teacher assignments
 export const assignments = pgTable("assignments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1267,6 +1318,26 @@ export const insertClassEnrollmentSchema = createInsertSchema(classEnrollments).
   enrolledAt: true,
 });
 
+// Class-specific curriculum schemas
+export const insertClassCurriculumUnitSchema = createInsertSchema(classCurriculumUnits).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Name is required").max(200, "Name must be less than 200 characters").trim(),
+  description: z.string().min(1, "Description is required").max(2000, "Description must be less than 2000 characters").trim(),
+});
+
+export const insertClassCurriculumLessonSchema = createInsertSchema(classCurriculumLessons).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Name is required").max(200, "Name must be less than 200 characters").trim(),
+  description: z.string().min(1, "Description is required").max(2000, "Description must be less than 2000 characters").trim(),
+  conversationPrompt: z.string().max(5000, "Prompt must be less than 5000 characters").optional(),
+});
+
 export const insertAssignmentSchema = createInsertSchema(assignments).omit({
   id: true,
   createdAt: true,
@@ -1328,6 +1399,12 @@ export type TeacherClass = typeof teacherClasses.$inferSelect;
 
 export type InsertClassEnrollment = z.infer<typeof insertClassEnrollmentSchema>;
 export type ClassEnrollment = typeof classEnrollments.$inferSelect;
+
+export type InsertClassCurriculumUnit = z.infer<typeof insertClassCurriculumUnitSchema>;
+export type ClassCurriculumUnit = typeof classCurriculumUnits.$inferSelect;
+
+export type InsertClassCurriculumLesson = z.infer<typeof insertClassCurriculumLessonSchema>;
+export type ClassCurriculumLesson = typeof classCurriculumLessons.$inferSelect;
 
 export type InsertAssignment = z.infer<typeof insertAssignmentSchema>;
 export type Assignment = typeof assignments.$inferSelect;

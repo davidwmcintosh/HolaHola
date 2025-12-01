@@ -5111,6 +5111,16 @@ Return ONLY the ${targetLanguage} phrase:`;
         joinCode,
       });
 
+      // If a curriculum template was selected, clone it to the class
+      if (curriculumPathId) {
+        try {
+          await storage.cloneCurriculumToClass(teacherClass.id, curriculumPathId);
+        } catch (cloneError) {
+          console.error('Error cloning curriculum to class:', cloneError);
+          // Don't fail the class creation, just log the error
+        }
+      }
+
       res.json(teacherClass);
     } catch (error: any) {
       console.error('Error creating teacher class:', error);
@@ -5768,6 +5778,72 @@ Return ONLY the ${targetLanguage} phrase:`;
       res.json(units);
     } catch (error: any) {
       console.error('Error fetching curriculum units:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get ACTFL analysis for a curriculum path
+  app.get("/api/curriculum/paths/:pathId/actfl-analysis", isAuthenticated, async (req: any, res) => {
+    try {
+      const { pathId } = req.params;
+      const path = await storage.getCurriculumPath(pathId);
+      
+      if (!path) {
+        return res.status(404).json({ error: "Curriculum path not found" });
+      }
+
+      const units = await storage.getCurriculumUnits(pathId);
+      
+      // Get all lessons and count by ACTFL level
+      const lessonsByLevel: Record<string, number> = {};
+      let totalLessons = 0;
+      const canDoCategories = {
+        interpersonal: 0,
+        interpretive: 0,
+        presentational: 0,
+      };
+
+      for (const unit of units) {
+        const lessons = await storage.getCurriculumLessons(unit.id);
+        totalLessons += lessons.length;
+        
+        for (const lesson of lessons) {
+          const level = lesson.actflLevel || unit.actflLevel || path.startLevel;
+          lessonsByLevel[level] = (lessonsByLevel[level] || 0) + 1;
+          
+          // Count lesson types for Can-Do categories
+          if (lesson.lessonType === 'conversation') {
+            canDoCategories.interpersonal++;
+            canDoCategories.presentational++;
+          } else if (lesson.lessonType === 'vocabulary') {
+            canDoCategories.interpretive++;
+          } else if (lesson.lessonType === 'grammar') {
+            canDoCategories.presentational++;
+          } else if (lesson.lessonType === 'cultural_exploration') {
+            canDoCategories.interpretive++;
+            canDoCategories.interpersonal++;
+          }
+        }
+      }
+
+      // Estimate Can-Do statements covered based on lesson coverage
+      const estimatedStatementsCovered = Math.round(
+        (canDoCategories.interpersonal + canDoCategories.interpretive + canDoCategories.presentational) * 0.4
+      );
+
+      res.json({
+        levelRange: {
+          start: path.startLevel,
+          end: path.endLevel,
+        },
+        lessonsByLevel,
+        totalLessons,
+        totalUnits: units.length,
+        canDoCategories,
+        estimatedStatementsCovered,
+      });
+    } catch (error: any) {
+      console.error('Error fetching curriculum ACTFL analysis:', error);
       res.status(500).json({ error: error.message });
     }
   });

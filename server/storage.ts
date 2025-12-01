@@ -58,8 +58,14 @@ import {
   type InsertClassHourPackage,
   type ClassType,
   type InsertClassType,
+  type ClassCurriculumUnit,
+  type InsertClassCurriculumUnit,
+  type ClassCurriculumLesson,
+  type InsertClassCurriculumLesson,
   classHourPackages,
   classTypes,
+  classCurriculumUnits,
+  classCurriculumLessons,
   users,
   conversations,
   messages,
@@ -281,6 +287,22 @@ export interface IStorage {
   createCurriculumLesson(data: InsertCurriculumLesson): Promise<CurriculumLesson>;
   getCurriculumLessons(curriculumUnitId: string): Promise<CurriculumLesson[]>;
   getCurriculumLesson(id: string): Promise<CurriculumLesson | undefined>;
+
+  // Class-Specific Curriculum (Teacher's Customizable Syllabi)
+  cloneCurriculumToClass(classId: string, curriculumPathId: string): Promise<{ units: ClassCurriculumUnit[]; lessons: ClassCurriculumLesson[] }>;
+  getClassCurriculumUnits(classId: string): Promise<ClassCurriculumUnit[]>;
+  getClassCurriculumUnit(id: string): Promise<ClassCurriculumUnit | undefined>;
+  createClassCurriculumUnit(data: InsertClassCurriculumUnit): Promise<ClassCurriculumUnit>;
+  updateClassCurriculumUnit(id: string, data: Partial<ClassCurriculumUnit>): Promise<ClassCurriculumUnit | undefined>;
+  deleteClassCurriculumUnit(id: string): Promise<boolean>;
+  reorderClassCurriculumUnits(classId: string, unitIds: string[]): Promise<ClassCurriculumUnit[]>;
+  getClassCurriculumLessons(classUnitId: string): Promise<ClassCurriculumLesson[]>;
+  getClassCurriculumLesson(id: string): Promise<ClassCurriculumLesson | undefined>;
+  createClassCurriculumLesson(data: InsertClassCurriculumLesson): Promise<ClassCurriculumLesson>;
+  updateClassCurriculumLesson(id: string, data: Partial<ClassCurriculumLesson>): Promise<ClassCurriculumLesson | undefined>;
+  deleteClassCurriculumLesson(id: string): Promise<boolean>;
+  reorderClassCurriculumLessons(classUnitId: string, lessonIds: string[]): Promise<ClassCurriculumLesson[]>;
+  getClassSyllabus(classId: string): Promise<{ units: Array<ClassCurriculumUnit & { lessons: ClassCurriculumLesson[] }> }>;
 
   // Assignments
   createAssignment(data: InsertAssignment): Promise<Assignment>;
@@ -2248,6 +2270,182 @@ export class DatabaseStorage implements IStorage {
   async getCurriculumLesson(id: string): Promise<CurriculumLesson | undefined> {
     const result = await db.select().from(curriculumLessons).where(eq(curriculumLessons.id, id));
     return result[0];
+  }
+
+  // ===== Class-Specific Curriculum (Teacher's Customizable Syllabi) =====
+
+  async cloneCurriculumToClass(classId: string, curriculumPathId: string): Promise<{ units: ClassCurriculumUnit[]; lessons: ClassCurriculumLesson[] }> {
+    // Get all units from the template
+    const templateUnits = await this.getCurriculumUnits(curriculumPathId);
+    const clonedUnits: ClassCurriculumUnit[] = [];
+    const clonedLessons: ClassCurriculumLesson[] = [];
+
+    for (const templateUnit of templateUnits) {
+      // Clone the unit
+      const [clonedUnit] = await db.insert(classCurriculumUnits).values({
+        classId,
+        sourceUnitId: templateUnit.id,
+        name: templateUnit.name,
+        description: templateUnit.description,
+        orderIndex: templateUnit.orderIndex,
+        actflLevel: templateUnit.actflLevel,
+        culturalTheme: templateUnit.culturalTheme,
+        estimatedHours: templateUnit.estimatedHours,
+        isCustom: false,
+        isRemoved: false,
+      }).returning();
+      clonedUnits.push(clonedUnit);
+
+      // Get and clone all lessons for this unit
+      const templateLessons = await this.getCurriculumLessons(templateUnit.id);
+      for (const templateLesson of templateLessons) {
+        const [clonedLesson] = await db.insert(classCurriculumLessons).values({
+          classUnitId: clonedUnit.id,
+          sourceLessonId: templateLesson.id,
+          name: templateLesson.name,
+          description: templateLesson.description,
+          orderIndex: templateLesson.orderIndex,
+          lessonType: templateLesson.lessonType,
+          actflLevel: templateLesson.actflLevel,
+          conversationTopic: templateLesson.conversationTopic,
+          conversationPrompt: templateLesson.conversationPrompt,
+          objectives: templateLesson.objectives,
+          estimatedMinutes: templateLesson.estimatedMinutes,
+          requiredTopics: templateLesson.requiredTopics,
+          requiredVocabulary: templateLesson.requiredVocabulary,
+          requiredGrammar: templateLesson.requiredGrammar,
+          minPronunciationScore: templateLesson.minPronunciationScore,
+          isCustom: false,
+          isRemoved: false,
+        }).returning();
+        clonedLessons.push(clonedLesson);
+      }
+    }
+
+    return { units: clonedUnits, lessons: clonedLessons };
+  }
+
+  async getClassCurriculumUnits(classId: string): Promise<ClassCurriculumUnit[]> {
+    return await db
+      .select()
+      .from(classCurriculumUnits)
+      .where(and(
+        eq(classCurriculumUnits.classId, classId),
+        eq(classCurriculumUnits.isRemoved, false)
+      ))
+      .orderBy(classCurriculumUnits.orderIndex);
+  }
+
+  async getClassCurriculumUnit(id: string): Promise<ClassCurriculumUnit | undefined> {
+    const result = await db.select().from(classCurriculumUnits).where(eq(classCurriculumUnits.id, id));
+    return result[0];
+  }
+
+  async createClassCurriculumUnit(data: InsertClassCurriculumUnit): Promise<ClassCurriculumUnit> {
+    const [unit] = await db.insert(classCurriculumUnits).values(data).returning();
+    return unit;
+  }
+
+  async updateClassCurriculumUnit(id: string, data: Partial<ClassCurriculumUnit>): Promise<ClassCurriculumUnit | undefined> {
+    const [updated] = await db
+      .update(classCurriculumUnits)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(classCurriculumUnits.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteClassCurriculumUnit(id: string): Promise<boolean> {
+    // Soft delete by marking as removed
+    const [updated] = await db
+      .update(classCurriculumUnits)
+      .set({ isRemoved: true, updatedAt: new Date() })
+      .where(eq(classCurriculumUnits.id, id))
+      .returning();
+    return !!updated;
+  }
+
+  async reorderClassCurriculumUnits(classId: string, unitIds: string[]): Promise<ClassCurriculumUnit[]> {
+    const updated: ClassCurriculumUnit[] = [];
+    for (let i = 0; i < unitIds.length; i++) {
+      const [unit] = await db
+        .update(classCurriculumUnits)
+        .set({ orderIndex: i, updatedAt: new Date() })
+        .where(and(
+          eq(classCurriculumUnits.id, unitIds[i]),
+          eq(classCurriculumUnits.classId, classId)
+        ))
+        .returning();
+      if (unit) updated.push(unit);
+    }
+    return updated;
+  }
+
+  async getClassCurriculumLessons(classUnitId: string): Promise<ClassCurriculumLesson[]> {
+    return await db
+      .select()
+      .from(classCurriculumLessons)
+      .where(and(
+        eq(classCurriculumLessons.classUnitId, classUnitId),
+        eq(classCurriculumLessons.isRemoved, false)
+      ))
+      .orderBy(classCurriculumLessons.orderIndex);
+  }
+
+  async getClassCurriculumLesson(id: string): Promise<ClassCurriculumLesson | undefined> {
+    const result = await db.select().from(classCurriculumLessons).where(eq(classCurriculumLessons.id, id));
+    return result[0];
+  }
+
+  async createClassCurriculumLesson(data: InsertClassCurriculumLesson): Promise<ClassCurriculumLesson> {
+    const [lesson] = await db.insert(classCurriculumLessons).values(data).returning();
+    return lesson;
+  }
+
+  async updateClassCurriculumLesson(id: string, data: Partial<ClassCurriculumLesson>): Promise<ClassCurriculumLesson | undefined> {
+    const [updated] = await db
+      .update(classCurriculumLessons)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(classCurriculumLessons.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteClassCurriculumLesson(id: string): Promise<boolean> {
+    // Soft delete by marking as removed
+    const [updated] = await db
+      .update(classCurriculumLessons)
+      .set({ isRemoved: true, updatedAt: new Date() })
+      .where(eq(classCurriculumLessons.id, id))
+      .returning();
+    return !!updated;
+  }
+
+  async reorderClassCurriculumLessons(classUnitId: string, lessonIds: string[]): Promise<ClassCurriculumLesson[]> {
+    const updated: ClassCurriculumLesson[] = [];
+    for (let i = 0; i < lessonIds.length; i++) {
+      const [lesson] = await db
+        .update(classCurriculumLessons)
+        .set({ orderIndex: i, updatedAt: new Date() })
+        .where(and(
+          eq(classCurriculumLessons.id, lessonIds[i]),
+          eq(classCurriculumLessons.classUnitId, classUnitId)
+        ))
+        .returning();
+      if (lesson) updated.push(lesson);
+    }
+    return updated;
+  }
+
+  async getClassSyllabus(classId: string): Promise<{ units: Array<ClassCurriculumUnit & { lessons: ClassCurriculumLesson[] }> }> {
+    const units = await this.getClassCurriculumUnits(classId);
+    const unitsWithLessons = await Promise.all(
+      units.map(async (unit) => {
+        const lessons = await this.getClassCurriculumLessons(unit.id);
+        return { ...unit, lessons };
+      })
+    );
+    return { units: unitsWithLessons };
   }
 
   // ===== Assignments =====
