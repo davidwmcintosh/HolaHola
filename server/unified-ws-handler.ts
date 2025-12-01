@@ -302,21 +302,19 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
 
           console.log(`[Streaming Voice] Session created: ${session.id}`);
           
-          // Start usage tracking session (skip for developers)
-          if (!isDeveloper) {
-            try {
-              // Get class ID from conversation if any
-              const classId = conversation.classId || undefined;
-              usageSession = await usageService.startSession(
-                userId!,
-                conversationId!,
-                config.targetLanguage,
-                classId
-              );
-              console.log(`[Streaming Voice] Usage session started: ${usageSession.id}`);
-            } catch (usageErr: any) {
-              console.warn('[Streaming Voice] Could not start usage session:', usageErr.message);
-            }
+          // Start usage tracking session (developers also tracked for testing/analytics)
+          try {
+            // Get class ID from conversation if any
+            const classId = conversation.classId || undefined;
+            usageSession = await usageService.startSession(
+              userId!,
+              conversationId!,
+              config.targetLanguage,
+              classId
+            );
+            console.log(`[Streaming Voice] Usage session started: ${usageSession.id}${isDeveloper ? ' (developer)' : ''}`);
+          } catch (usageErr: any) {
+            console.warn('[Streaming Voice] Could not start usage session:', usageErr.message);
           }
           
           if (ws.readyState === WS.OPEN) {
