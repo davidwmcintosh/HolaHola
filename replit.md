@@ -75,18 +75,48 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 -   **State Management**: TanStack Query, React Context.
 -   **Billing**: `stripe-replit-sync`.
 
-## Recent Changes (November 30, 2025)
+## Recent Changes (December 1, 2025)
+
+### Phantom Subtitle Bug - RESOLVED
+Fixed black "ghost" text from previous turns appearing in subtitles.
+
+**Root Cause:** `isWaitingForContent` flag was cleared in `addSentence()` before `streamingText` was computed in `startPlayback()`, creating a timing gap where the fallback subtitle path showed old message content.
+
+**Fix:** Moved `isWaitingForContent` clearing to `startPlayback()` for synchronous state batching.
+
+**Status:** RESOLVED after 6 fix attempts. See `docs/SUBTITLE_BUG_TRACKING.md` for full investigation.
+
+### Target Language Extraction - VERIFIED WORKING
+Multi-word phrases like "Buenos días", "Buenas tardes", "Buenas noches" are being correctly extracted from bold-marked text (`**Buenos días**`).
+
+**Key Files:**
+- `server/text-utils.ts` - `extractTargetLanguageText()` and `extractTargetLanguageWithMapping()`
+- Multi-pass extraction: PASS 1 (bold patterns), PASS 2 (foreign chars), PASS 3 (common words), PASS 4 (multi-word phrases)
+- COMMON_PHRASES array at line 66-101 defines phrase patterns
+
+### Subtitle Timing Offset
+Words appear 150ms before audio for readability.
+
+**Location:** `client/src/hooks/useStreamingSubtitles.ts` line 428
+```typescript
+const SUBTITLE_OFFSET = 0.15;  // seconds
+```
+
+**Tuning:** Can be adjusted 0-0.2s based on user preference.
+
+### Debug Logging Cleanup
+Removed temporary extraction debug logging from `server/text-utils.ts` that was added during investigation.
+
+---
+
+## Previous Changes (November 30, 2025)
 
 ### Subtitle System Bug Fix
-Fixed a critical bug causing duplicate/accumulated target words in streaming subtitles (e.g., "hola hola", "Excelente Gracias Gracias").
+Fixed duplicate/accumulated target words in streaming subtitles (e.g., "hola hola").
 
-**Root Cause:** The `currentSentence` lookup in `useStreamingSubtitles.ts` only checked sentence `index`, not `turnId`, causing cross-turn sentence contamination during React state batching.
+**Root Cause:** The `currentSentence` lookup only checked sentence `index`, not `turnId`.
 
 **Fix:** Updated lookup to match both `index` AND `turnId`:
 ```typescript
 sentences.find(s => s.index === currentSentenceIndex && s.turnId === currentTurnId)
 ```
-
-**Status:** Fix deployed, pending user verification.
-
-**Tracking:** See `docs/SUBTITLE_BUG_TRACKING.md` for full investigation details.

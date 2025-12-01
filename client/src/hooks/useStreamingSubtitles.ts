@@ -421,8 +421,8 @@ export function useStreamingSubtitles(): UseStreamingSubtitlesReturn {
     const timings = currentTimingsRef.current;
     if (timings.length === 0) return;
     
-    // Timing offset - reduced for tighter audio-subtitle sync
-    const SUBTITLE_OFFSET = 0.05;
+    // Timing offset - words appear slightly before audio for readability
+    const SUBTITLE_OFFSET = 0.15;
     const adjustedTime = Math.max(0, currentTime - SUBTITLE_OFFSET);
     
     // Store actual duration for rescaling
