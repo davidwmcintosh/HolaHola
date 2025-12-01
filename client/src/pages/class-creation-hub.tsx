@@ -174,14 +174,14 @@ export default function ClassCreationHub() {
     return acc;
   }, {} as Record<string, CurriculumPath[]>);
 
-  const openCreateDialog = (curriculum?: CurriculumPath) => {
-    if (curriculum) {
-      setSelectedCurriculum(curriculum);
+  const openCreateDialog = (syllabus?: CurriculumPath) => {
+    if (syllabus) {
+      setSelectedCurriculum(syllabus);
       form.reset({
-        name: `${curriculum.name} Class`,
-        description: curriculum.description || "",
-        language: curriculum.language,
-        curriculumPathId: curriculum.id,
+        name: `${syllabus.name} Class`,
+        description: syllabus.description || "",
+        language: syllabus.language,
+        curriculumPathId: syllabus.id,
       });
     } else {
       setSelectedCurriculum(null);
@@ -212,30 +212,30 @@ export default function ClassCreationHub() {
 
         {/* Two Creation Paths */}
         <div className="grid gap-4 md:grid-cols-2">
-          <Card className="hover-elevate cursor-pointer border-2 border-transparent hover:border-primary/20 transition-colors" onClick={() => document.getElementById('curriculum-section')?.scrollIntoView({ behavior: 'smooth' })} data-testid="card-start-from-curriculum">
+          <Card className="hover-elevate cursor-pointer border-2 border-transparent hover:border-primary/20 transition-colors" onClick={() => document.getElementById('syllabus-section')?.scrollIntoView({ behavior: 'smooth' })} data-testid="card-start-from-syllabus">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
                 <div className="p-3 rounded-lg bg-primary/10">
                   <Library className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg">Start from Curriculum</CardTitle>
-                  <CardDescription>Use our pre-built ACTFL-aligned content</CardDescription>
+                  <CardTitle className="text-lg">Start from Template</CardTitle>
+                  <CardDescription>Use our pre-built ACTFL-aligned syllabi</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2 mb-4">
-                <Badge variant="secondary">{stats?.pathCount ?? "—"} Curricula</Badge>
-                <Badge variant="secondary">{stats?.unitCount ?? "—"} Units</Badge>
-                <Badge variant="secondary">{stats?.lessonCount ?? "—"} Lessons</Badge>
-                <Badge variant="secondary">{stats?.languageCount ?? "—"} Languages</Badge>
+                <Badge variant="secondary" className="no-default-hover-elevate no-default-active-elevate cursor-default">{stats?.pathCount ?? "—"} Syllabi</Badge>
+                <Badge variant="secondary" className="no-default-hover-elevate no-default-active-elevate cursor-default">{stats?.unitCount ?? "—"} Units</Badge>
+                <Badge variant="secondary" className="no-default-hover-elevate no-default-active-elevate cursor-default">{stats?.lessonCount ?? "—"} Lessons</Badge>
+                <Badge variant="secondary" className="no-default-hover-elevate no-default-active-elevate cursor-default">{stats?.languageCount ?? "—"} Languages</Badge>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
-                Browse our library of ready-to-use curriculum paths. Each includes units, lessons, and activities aligned to ACTFL proficiency standards.
+                Browse our library of ready-to-use syllabus templates. Each includes units, lessons, and activities aligned to ACTFL proficiency standards.
               </p>
               <div className="flex items-center text-sm text-primary font-medium">
-                Browse curriculum below
+                Browse templates below
                 <ArrowRight className="w-4 h-4 ml-1" />
               </div>
             </CardContent>
@@ -249,15 +249,15 @@ export default function ClassCreationHub() {
                 </div>
                 <div>
                   <CardTitle className="text-lg">Start from Scratch</CardTitle>
-                  <CardDescription>Build your own custom class</CardDescription>
+                  <CardDescription>Build your own custom syllabus</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2 mb-4">
-                <Badge variant="outline">Custom Syllabus</Badge>
-                <Badge variant="outline">Your Content</Badge>
-                <Badge variant="outline">Flexible Structure</Badge>
+                <Badge variant="outline" className="no-default-hover-elevate no-default-active-elevate cursor-default">Custom Syllabus</Badge>
+                <Badge variant="outline" className="no-default-hover-elevate no-default-active-elevate cursor-default">Your Content</Badge>
+                <Badge variant="outline" className="no-default-hover-elevate no-default-active-elevate cursor-default">Flexible Structure</Badge>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
                 Create a blank class and design your own syllabus. Add custom units and lessons, or mix in content from our library later.
@@ -271,13 +271,13 @@ export default function ClassCreationHub() {
         </div>
 
         {/* Divider */}
-        <div className="relative" id="curriculum-section">
+        <div className="relative" id="syllabus-section">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-background px-4 text-muted-foreground font-medium">
-              Browse Curriculum Library
+              Browse Syllabus Templates
             </span>
           </div>
         </div>
@@ -287,11 +287,11 @@ export default function ClassCreationHub() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search curriculum paths..."
+              placeholder="Search syllabus templates..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
-              data-testid="input-search-curriculum"
+              data-testid="input-search-syllabus"
             />
           </div>
           <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
@@ -308,12 +308,12 @@ export default function ClassCreationHub() {
           </Select>
         </div>
 
-        {/* Curriculum Browser */}
+        {/* Syllabus Browser */}
         <Tabs defaultValue="browse" className="w-full">
           <TabsList>
-            <TabsTrigger value="browse" data-testid="tab-browse-curriculum">
+            <TabsTrigger value="browse" data-testid="tab-browse-syllabus">
               <FolderOpen className="w-4 h-4 mr-2" />
-              Browse Curriculum
+              Browse All
             </TabsTrigger>
             <TabsTrigger value="by-language" data-testid="tab-by-language">
               <Layers className="w-4 h-4 mr-2" />
@@ -337,7 +337,7 @@ export default function ClassCreationHub() {
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <BookOpen className="w-12 h-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">No curriculum paths found</p>
+                  <p className="text-muted-foreground">No syllabus templates found</p>
                   <p className="text-sm text-muted-foreground mt-1">
                     Try adjusting your search or filter
                   </p>
@@ -384,7 +384,7 @@ export default function ClassCreationHub() {
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <CurriculumPathDetails 
+                      <SyllabusTemplateDetails 
                         path={path} 
                         onCreateClass={() => openCreateDialog(path)}
                       />
@@ -402,7 +402,7 @@ export default function ClassCreationHub() {
                   <h3 className="text-lg font-semibold capitalize mb-4 flex items-center gap-2">
                     <GraduationCap className="w-5 h-5" />
                     {language}
-                    <Badge variant="secondary">{langPaths.length} paths</Badge>
+                    <Badge variant="secondary" className="no-default-hover-elevate no-default-active-elevate cursor-default">{langPaths.length} {langPaths.length === 1 ? 'syllabus' : 'syllabi'}</Badge>
                   </h3>
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {langPaths.map(path => (
@@ -450,12 +450,12 @@ export default function ClassCreationHub() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>
-                {selectedCurriculum ? "Create Class from Curriculum" : "Create New Class"}
+                {selectedCurriculum ? "Create Class from Template" : "Create New Class"}
               </DialogTitle>
               <DialogDescription>
                 {selectedCurriculum 
-                  ? `Based on "${selectedCurriculum.name}"`
-                  : "Create a blank class and configure it later"
+                  ? `Using the "${selectedCurriculum.name}" syllabus`
+                  : "Create a blank class and build your own syllabus"
                 }
               </DialogDescription>
             </DialogHeader>
@@ -525,7 +525,7 @@ export default function ClassCreationHub() {
                 />
                 {selectedCurriculum && (
                   <div className="p-3 rounded-lg bg-muted/50 text-sm">
-                    <p className="font-medium mb-1">Linked Curriculum:</p>
+                    <p className="font-medium mb-1">Syllabus Template:</p>
                     <p className="text-muted-foreground">{selectedCurriculum.name}</p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {selectedCurriculum.estimatedHours} hours • {getActflLabel(selectedCurriculum.startLevel)} to {getActflLabel(selectedCurriculum.endLevel)}
@@ -557,7 +557,7 @@ export default function ClassCreationHub() {
   );
 }
 
-function CurriculumPathDetails({ path, onCreateClass }: { path: CurriculumPath; onCreateClass: () => void }) {
+function SyllabusTemplateDetails({ path, onCreateClass }: { path: CurriculumPath; onCreateClass: () => void }) {
   const { data: units = [], isLoading: unitsLoading } = useQuery<CurriculumUnit[]>({
     queryKey: ["/api/curriculum/paths", path.id, "units"],
   });
