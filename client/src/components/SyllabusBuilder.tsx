@@ -24,7 +24,8 @@ import {
   Globe,
   Target,
   Plus,
-  Sparkles
+  Sparkles,
+  Pencil
 } from "lucide-react";
 import type { ClassCurriculumUnit, ClassCurriculumLesson } from "@shared/schema";
 
@@ -170,6 +171,30 @@ export function SyllabusBuilder({ classId }: SyllabusBuilderProps) {
     },
   });
 
+  const updateLessonMutation = useMutation({
+    mutationFn: async ({ lessonId, unitId, lessonData, onDialogClose }: { lessonId: string; unitId: string; lessonData: Partial<CreateLessonData>; onDialogClose?: () => void }) => {
+      const response = await apiRequest("PATCH", `/api/teacher/classes/${classId}/curriculum/units/${unitId}/lessons/${lessonId}`, lessonData);
+      return { response, unitId, onDialogClose };
+    },
+    onSuccess: ({ unitId, onDialogClose }) => {
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/teacher/classes", classId, "curriculum", "units", unitId, "lessons"]
+      });
+      toast({
+        title: "Lesson Updated",
+        description: "The lesson has been updated successfully.",
+      });
+      onDialogClose?.();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to update lesson",
+        variant: "destructive",
+      });
+    },
+  });
+
   const toggleUnit = useCallback((unitId: string) => {
     setExpandedUnits((prev) => {
       const next = new Set(prev);
@@ -295,7 +320,9 @@ export function SyllabusBuilder({ classId }: SyllabusBuilderProps) {
             onDragEnd={handleUnitDragEnd}
             onDeleteLesson={(lessonId, unitId) => deleteLessonMutation.mutate({ lessonId, unitId })}
             onAddLesson={(unitId, lessonData, onDialogClose) => createLessonMutation.mutate({ unitId, lessonData, onDialogClose })}
+            onUpdateLesson={(lessonId, unitId, lessonData, onDialogClose) => updateLessonMutation.mutate({ lessonId, unitId, lessonData, onDialogClose })}
             isCreatingLesson={createLessonMutation.isPending}
+            isUpdatingLesson={updateLessonMutation.isPending}
             reorderLessonsMutation={reorderLessonsMutation}
           />
         ))}
@@ -318,7 +345,9 @@ interface UnitCardProps {
   onDragEnd: () => void;
   onDeleteLesson: (lessonId: string, unitId: string) => void;
   onAddLesson: (unitId: string, lessonData: CreateLessonData, onDialogClose: () => void) => void;
+  onUpdateLesson: (lessonId: string, unitId: string, lessonData: Partial<CreateLessonData>, onDialogClose: () => void) => void;
   isCreatingLesson: boolean;
+  isUpdatingLesson: boolean;
   reorderLessonsMutation: any;
 }
 
@@ -336,7 +365,9 @@ function UnitCard({
   onDragEnd,
   onDeleteLesson,
   onAddLesson,
+  onUpdateLesson,
   isCreatingLesson,
+  isUpdatingLesson,
   reorderLessonsMutation,
 }: UnitCardProps) {
   const [addLessonDialogOpen, setAddLessonDialogOpen] = useState(false);
@@ -344,6 +375,39 @@ function UnitCard({
   const [newLessonDescription, setNewLessonDescription] = useState("");
   const [newLessonType, setNewLessonType] = useState("conversation");
   const [newLessonActflLevel, setNewLessonActflLevel] = useState("");
+  
+  const [editingLesson, setEditingLesson] = useState<ClassCurriculumLesson | null>(null);
+  const [editLessonName, setEditLessonName] = useState("");
+  const [editLessonDescription, setEditLessonDescription] = useState("");
+  const [editLessonType, setEditLessonType] = useState("conversation");
+  const [editLessonActflLevel, setEditLessonActflLevel] = useState("");
+  
+  const openEditDialog = (lesson: ClassCurriculumLesson) => {
+    setEditingLesson(lesson);
+    setEditLessonName(lesson.name);
+    setEditLessonDescription(lesson.description || "");
+    setEditLessonType(lesson.lessonType);
+    setEditLessonActflLevel(lesson.actflLevel || "");
+  };
+  
+  const closeEditDialog = () => {
+    setEditingLesson(null);
+    setEditLessonName("");
+    setEditLessonDescription("");
+    setEditLessonType("conversation");
+    setEditLessonActflLevel("");
+  };
+  
+  const handleUpdateLesson = () => {
+    if (!editingLesson || !editLessonName.trim()) return;
+    
+    onUpdateLesson(editingLesson.id, unit.id, {
+      name: editLessonName.trim(),
+      description: editLessonDescription.trim(),
+      lessonType: editLessonType,
+      actflLevel: editLessonActflLevel || undefined,
+    }, closeEditDialog);
+  };
 
   const handleAddLesson = () => {
     if (!newLessonName.trim()) return;
@@ -631,6 +695,15 @@ function UnitCard({
                           </Badge>
                         )}
                       </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => openEditDialog(lesson)}
+                        data-testid={`button-edit-lesson-${lesson.id}`}
+                      >
+                        <Pencil className="w-4 h-4 text-muted-foreground" />
+                      </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button
@@ -759,6 +832,96 @@ function UnitCard({
                         data-testid={`button-confirm-new-lesson-${unit.id}`}
                       >
                         {isCreatingLesson ? "Creating..." : "Create Lesson"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+                
+                <Dialog open={!!editingLesson} onOpenChange={(open) => !open && closeEditDialog()}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <Pencil className="w-5 h-5" />
+                        Edit Lesson
+                      </DialogTitle>
+                      <DialogDescription>
+                        Update the lesson details for "{editingLesson?.name}"
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor={`edit-lesson-name-${unit.id}`}>Lesson Name</Label>
+                        <Input
+                          id={`edit-lesson-name-${unit.id}`}
+                          value={editLessonName}
+                          onChange={(e) => setEditLessonName(e.target.value)}
+                          placeholder="e.g., Ordering at a Restaurant"
+                          data-testid={`input-edit-lesson-name-${unit.id}`}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={`edit-lesson-desc-${unit.id}`}>Description (optional)</Label>
+                        <Textarea
+                          id={`edit-lesson-desc-${unit.id}`}
+                          value={editLessonDescription}
+                          onChange={(e) => setEditLessonDescription(e.target.value)}
+                          placeholder="What will students learn in this lesson?"
+                          className="resize-none"
+                          rows={2}
+                          data-testid={`input-edit-lesson-description-${unit.id}`}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Lesson Type</Label>
+                          <Select value={editLessonType} onValueChange={setEditLessonType}>
+                            <SelectTrigger data-testid={`select-edit-lesson-type-${unit.id}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="conversation">Conversation</SelectItem>
+                              <SelectItem value="vocabulary">Vocabulary</SelectItem>
+                              <SelectItem value="grammar">Grammar</SelectItem>
+                              <SelectItem value="cultural_exploration">Cultural</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>ACTFL Level (optional)</Label>
+                          <Select value={editLessonActflLevel} onValueChange={setEditLessonActflLevel}>
+                            <SelectTrigger data-testid={`select-edit-lesson-actfl-${unit.id}`}>
+                              <SelectValue placeholder="Select level" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">Not specified</SelectItem>
+                              <SelectItem value="novice_low">Novice Low</SelectItem>
+                              <SelectItem value="novice_mid">Novice Mid</SelectItem>
+                              <SelectItem value="novice_high">Novice High</SelectItem>
+                              <SelectItem value="intermediate_low">Intermediate Low</SelectItem>
+                              <SelectItem value="intermediate_mid">Intermediate Mid</SelectItem>
+                              <SelectItem value="intermediate_high">Intermediate High</SelectItem>
+                              <SelectItem value="advanced_low">Advanced Low</SelectItem>
+                              <SelectItem value="advanced_mid">Advanced Mid</SelectItem>
+                              <SelectItem value="advanced_high">Advanced High</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={closeEditDialog}
+                        data-testid={`button-cancel-edit-lesson-${unit.id}`}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleUpdateLesson}
+                        disabled={!editLessonName.trim() || isUpdatingLesson}
+                        data-testid={`button-confirm-edit-lesson-${unit.id}`}
+                      >
+                        {isUpdatingLesson ? "Saving..." : "Save Changes"}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
