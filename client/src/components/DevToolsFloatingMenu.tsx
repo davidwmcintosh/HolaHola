@@ -74,6 +74,7 @@ export function DevToolsFloatingMenu({
       queryClient.invalidateQueries({ queryKey: ["/api/grammar"] });
       queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
       queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/review-hub"] }); // Invalidate language hub stats
       toast({
         title: "Learning Data Reset",
         description: `Cleared: ${data.deletedVocabulary || 0} words, ${data.deletedGrammar || 0} exercises, ${data.deletedConversations || 0} conversations`,

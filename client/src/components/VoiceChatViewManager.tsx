@@ -45,6 +45,13 @@ interface VoiceChatViewManagerProps {
   femaleVoiceName?: string;
   maleVoiceName?: string;
   baseSpeakingRate?: number; // Base speaking rate from Cartesia voice config
+  // Dev tools props
+  isDeveloper?: boolean;
+  classId?: string | null;
+  onReloadCredits?: () => void;
+  onResetData?: () => void;
+  isReloadingCredits?: boolean;
+  isResettingData?: boolean;
 }
 
 export function VoiceChatViewManager({
@@ -83,6 +90,12 @@ export function VoiceChatViewManager({
   femaleVoiceName,
   maleVoiceName,
   baseSpeakingRate,
+  isDeveloper = false,
+  classId,
+  onReloadCredits,
+  onResetData,
+  isReloadingCredits = false,
+  isResettingData = false,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -231,6 +244,12 @@ export function VoiceChatViewManager({
                 femaleVoiceName={femaleVoiceName}
                 maleVoiceName={maleVoiceName}
                 baseSpeakingRate={baseSpeakingRate}
+                isDeveloper={isDeveloper}
+                classId={classId}
+                onReloadCredits={onReloadCredits}
+                onResetData={onResetData}
+                isReloadingCredits={isReloadingCredits}
+                isResettingData={isResettingData}
               />
             </div>
           ) : (

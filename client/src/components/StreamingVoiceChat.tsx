@@ -17,15 +17,18 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Message, type User } from "@shared/schema";
 import { processVoiceMessage, synthesizeSpeech, requestSlowRepeat, type WordTiming } from "@/lib/restVoiceApi";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 import { CompactDifficultyControl } from "@/components/CompactDifficultyControl";
 import { LanguageSelector } from "@/components/LanguageSelector";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { VoiceChatViewManager } from "@/components/VoiceChatViewManager";
 import { useStreamingVoice } from "@/hooks/useStreamingVoice";
+import { useUser } from "@/lib/auth";
+import { useLearningFilter } from "@/contexts/LearningFilterContext";
+import { useToast } from "@/hooks/use-toast";
 
 // ============================================================================
 // STREAMING MODE CONFIGURATION
@@ -125,6 +128,76 @@ export function StreamingVoiceChat({
   onResumeHandled
 }: StreamingVoiceChatProps) {
   const { language, difficulty, setLanguage, subtitleMode, tutorGender, voiceSpeed, setTutorGender, setVoiceSpeed } = useLanguage();
+  const { isDeveloper, isAdmin, user } = useUser();
+  const { learningContext } = useLearningFilter();
+  const { toast } = useToast();
+  
+  // Check if we're in class mode
+  const isInClassMode = learningContext !== "self-directed" && 
+                        learningContext !== "all" && 
+                        learningContext !== "all-classes" && 
+                        learningContext !== "all-learning";
+  const classId = isInClassMode ? learningContext : null;
+  
+  // Developer tools mutations
+  const reloadCreditsMutation = useMutation({
+    mutationFn: async () => {
+      if (!classId) throw new Error("No class selected");
+      const res = await apiRequest("POST", "/api/developer/reload-credits", { 
+        classId,
+        hours: 120 
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/usage/status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/student/classes"] });
+      toast({
+        title: "Credits Reloaded",
+        description: `Reset to ${data.hours || 120} hours`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to reload credits",
+        description: error.message || "Unknown error",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resetDataMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.id) throw new Error("User not found");
+      const res = await apiRequest("POST", `/api/admin/users/${user.id}/reset-learning-data`, {
+        resetVocabulary: true,
+        resetGrammar: true,
+        resetProgress: true,
+        resetConversations: true,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/vocabulary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/grammar"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/review-hub"] }); // Invalidate language hub stats
+      toast({
+        title: "Learning Data Reset",
+        description: `Cleared: ${data.deletedVocabulary || 0} words, ${data.deletedGrammar || 0} exercises`,
+      });
+      // Force new conversation after reset
+      setConversationId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to reset data",
+        description: error.message || "Unknown error",
+        variant: "destructive",
+      });
+    },
+  });
   
   // Query voice names for the current language
   const { data: tutorVoices } = useQuery<{ 
@@ -232,14 +305,14 @@ export function StreamingVoiceChat({
     enabled: !!conversationId,
   });
   
-  // Fetch user to get tutor gender preference
-  const { data: user } = useQuery<User>({
+  // Fetch user details to get tutor gender preference
+  const { data: userDetails } = useQuery<User>({
     queryKey: ["/api/auth/user"],
   });
   
   // Connect streaming voice when conversation and user data are available
   useEffect(() => {
-    if (!useStreamingMode || !conversationId || !user) return;
+    if (!useStreamingMode || !conversationId || !userDetails) return;
     
     const connectStreaming = async () => {
       try {
@@ -247,11 +320,11 @@ export function StreamingVoiceChat({
         await streamingVoice.connect({
           conversationId,
           targetLanguage: language,
-          nativeLanguage: user.nativeLanguage || 'english',
+          nativeLanguage: userDetails.nativeLanguage || 'english',
           difficultyLevel: difficulty,
           subtitleMode,
-          tutorPersonality: user.tutorPersonality || 'warm',
-          tutorExpressiveness: user.tutorExpressiveness || 3,
+          tutorPersonality: userDetails.tutorPersonality || 'warm',
+          tutorExpressiveness: userDetails.tutorExpressiveness || 3,
           // Invalidate messages query when streaming completes to show persisted messages
           onResponseComplete: (convId: string) => {
             console.log('[STREAMING] Response complete - refreshing messages for', convId);
@@ -456,7 +529,7 @@ export function StreamingVoiceChat({
     if (connectionState !== 'ready') return;
     
     // Need conversation and user data
-    if (!conversationId || !user) return;
+    if (!conversationId || !userDetails) return;
     
     // Don't request if recording or processing
     if (isRecording || isProcessing) return;
@@ -500,7 +573,7 @@ export function StreamingVoiceChat({
       // Request greeting through the streaming pipeline
       // The server will generate an ACTFL-aware, history-aware greeting
       // For resumed conversations, it will generate a contextual "welcome back" message
-      streamingVoice.requestGreeting(user.firstName ?? undefined, isResumedConversation);
+      streamingVoice.requestGreeting(userDetails.firstName ?? undefined, isResumedConversation);
       
       // Mark resume as handled so we don't keep triggering it
       if (isResumedConversation && onResumeHandled) {
@@ -516,7 +589,7 @@ export function StreamingVoiceChat({
     useStreamingMode, 
     streamingVoice.state.connectionState, 
     conversationId, 
-    user, 
+    userDetails, 
     messages, 
     isRecording, 
     isProcessing, 
@@ -1613,6 +1686,12 @@ export function StreamingVoiceChat({
           baseSpeakingRate={tutorGender === 'male' 
             ? (tutorVoices?.male?.speakingRate ?? 1.0) 
             : (tutorVoices?.female?.speakingRate ?? 1.0)}
+          isDeveloper={isDeveloper || isAdmin}
+          classId={classId}
+          onReloadCredits={() => reloadCreditsMutation.mutate()}
+          onResetData={() => resetDataMutation.mutate()}
+          isReloadingCredits={reloadCreditsMutation.isPending}
+          isResettingData={resetDataMutation.isPending}
         />
       </div>
     </div>

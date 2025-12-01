@@ -375,17 +375,19 @@ export default function Chat() {
         )}
       </div>
       
-      {/* Developer testing tools - only visible to developers/admins */}
-      <DevToolsFloatingMenu 
-        classId={isInClassMode ? learningContext : null}
-        onCreditsReloaded={() => {
-          queryClient.invalidateQueries({ queryKey: ["/api/usage/status"] });
-        }}
-        onDataReset={() => {
-          setConversationId(null);
-          setForceNewConversation(true);
-        }}
-      />
+      {/* Developer testing tools - only visible in text mode (voice mode has integrated dev tools) */}
+      {mode === "text" && (
+        <DevToolsFloatingMenu 
+          classId={isInClassMode ? learningContext : null}
+          onCreditsReloaded={() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/usage/status"] });
+          }}
+          onDataReset={() => {
+            setConversationId(null);
+            setForceNewConversation(true);
+          }}
+        />
+      )}
     </div>
   );
 }

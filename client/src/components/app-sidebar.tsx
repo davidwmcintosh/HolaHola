@@ -63,7 +63,7 @@ export function AppSidebar() {
   const { userName, language, setLanguage } = useLanguage();
   const { user } = useAuth();
   const { setOpenMobile, setOpen, isMobile } = useSidebar();
-  const { getTutorContexts, setLearningContext } = useLearningFilter();
+  const { getTutorContexts, setLearningContext, learningContext } = useLearningFilter();
   
   // Get available tutor contexts
   const tutorContexts = getTutorContexts();
@@ -80,12 +80,23 @@ export function AppSidebar() {
   
   // Handle tutor selection from dropdown
   const handleTutorSelect = (context: { id: string; language: string; type: "self-directed" | "class" }) => {
+    // Determine new context ID
+    const newContextId = context.type === "self-directed" ? "self-directed" : context.id;
+    
+    // Only force new conversation when actually switching contexts
+    // This allows resuming conversations when re-entering the same class
+    const isContextChange = newContextId !== learningContext || context.language !== language;
+    
     // Set the language context
     setLanguage(context.language);
     // Set the learning context (self-directed or class ID)
-    setLearningContext(context.type === "self-directed" ? "self-directed" : context.id);
-    // Force new conversation
-    forceNewConversation();
+    setLearningContext(newContextId);
+    
+    // Only force new conversation when switching contexts
+    if (isContextChange) {
+      forceNewConversation();
+    }
+    
     // Navigate to chat
     closeSidebar();
     setLocation("/chat");
@@ -203,9 +214,8 @@ export function AppSidebar() {
                 learnMenuItems.map((item) => {
                   const isActive = location === item.url;
                   const handleClick = () => {
-                    if (item.title === "Call Tutor") {
-                      forceNewConversation();
-                    }
+                    // Don't force new conversation when already on chat page
+                    // This allows resuming existing conversations
                     closeSidebar();
                   };
                   

@@ -1,8 +1,16 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, MessageSquare, RotateCcw, Turtle, Rabbit } from "lucide-react";
+import { Mic, MicOff, MessageSquare, RotateCcw, Turtle, Rabbit, RefreshCw, Trash2, Loader2 } from "lucide-react";
 import { type Message } from "@shared/schema";
 import { type SubtitleMode, type VoiceSpeed } from "@/contexts/LanguageContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Female tutor avatars (default)
 import femaleTutorSpeakingUrl from "@assets/tutor-speaking-No-Background_1764099971093.png";
@@ -57,6 +65,13 @@ interface ImmersiveTutorProps {
   femaleVoiceName?: string; // Female voice name for display
   maleVoiceName?: string; // Male voice name for display
   baseSpeakingRate?: number; // Base speaking rate from Cartesia voice config (e.g. 0.7)
+  // Dev tools props
+  isDeveloper?: boolean; // Show dev tools
+  classId?: string | null; // Class ID for reload credits
+  onReloadCredits?: () => void; // Callback to reload credits
+  onResetData?: () => void; // Callback to reset learning data
+  isReloadingCredits?: boolean; // Loading state for reload credits
+  isResettingData?: boolean; // Loading state for reset data
 }
 
 export function ImmersiveTutor({
@@ -97,6 +112,12 @@ export function ImmersiveTutor({
   femaleVoiceName,
   maleVoiceName,
   baseSpeakingRate = 1.0,
+  isDeveloper = false,
+  classId,
+  onReloadCredits,
+  onResetData,
+  isReloadingCredits = false,
+  isResettingData = false,
 }: ImmersiveTutorProps) {
   const [currentWordTimings, setCurrentWordTimings] = useState<WordTiming[]>([]);
   const [highlightedWordIndex, setHighlightedWordIndex] = useState<number>(-1);
@@ -850,6 +871,66 @@ export function ImmersiveTutor({
               <Turtle style={{ width: 24, height: 24 }} />
             </Button>
             <span className="text-[10px] text-muted-foreground whitespace-nowrap">Repeat Slowly</span>
+          </div>
+        )}
+
+        {/* Developer Tools - Reload Credits and Reset Data */}
+        {isDeveloper && (onReloadCredits || onResetData) && (
+          <div className="flex flex-col items-center gap-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="h-10 w-10 md:h-12 md:w-12 bg-yellow-500 hover:bg-yellow-600 text-yellow-950"
+                  data-testid="button-dev-tools-tutor"
+                  title="Developer Tools"
+                >
+                  {(isReloadingCredits || isResettingData) ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-5 w-5" />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-48">
+                <DropdownMenuLabel>Dev Tools</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {onReloadCredits && (
+                  <DropdownMenuItem
+                    onClick={onReloadCredits}
+                    disabled={!classId || isReloadingCredits}
+                    className="cursor-pointer"
+                    data-testid="button-reload-credits-tutor"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    <div className="flex flex-col">
+                      <span>Reload Credits</span>
+                      {classId ? (
+                        <span className="text-xs text-muted-foreground">Reset to 120 hrs</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No class</span>
+                      )}
+                    </div>
+                  </DropdownMenuItem>
+                )}
+                {onResetData && (
+                  <DropdownMenuItem
+                    onClick={onResetData}
+                    disabled={isResettingData}
+                    className="cursor-pointer text-destructive focus:text-destructive"
+                    data-testid="button-reset-data-tutor"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    <div className="flex flex-col">
+                      <span>Reset Data</span>
+                      <span className="text-xs opacity-70">Clear all progress</span>
+                    </div>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <span className="text-[10px] text-muted-foreground whitespace-nowrap">Dev Tools</span>
           </div>
         )}
         </div>
