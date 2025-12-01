@@ -77,14 +77,52 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 ## Recent Changes (December 1, 2025)
 
+### Command Center - Unified Admin Experience
+Consolidated 7 separate admin pages into a single tab-based interface at `/admin` with role-based visibility.
+
+**Navigation:**
+1. Login as admin, developer, or teacher (role set via OIDC claims)
+2. Open sidebar → "Administration" section → "Command Center"
+3. View tabs based on your role (see Role-Based Access below)
+
+**Tab Structure:**
+| Tab | Admin | Developer | Teacher |
+|-----|-------|-----------|---------|
+| Overview | ✓ | ✓ | ✓ |
+| Users | ✓ | - | - |
+| Classes | ✓ | ✓ | - |
+| Analytics | ✓ | ✓ | - |
+| Voice Lab | ✓ | ✓ | - |
+| Dev Tools | ✓ | ✓ | - |
+| Audit | ✓ | - | - |
+
+**Tab Contents:**
+1. **Overview**: Platform Metrics (users, classes, assignments, conversations), Leaderboards (top teachers, popular classes). Teachers see welcome message with links to teaching features.
+2. **Users**: User management with search, role filter (all/student/teacher/developer/admin), impersonate, reset learning data
+3. **Classes**: All classes with toggle switches (public, featured), Class Types management
+4. **Analytics**: Usage analytics (period/user-type filters), Platform Statistics (DAU/WAU/MAU, error rate)
+5. **Voice Lab**: Link to Voice Console for TTS testing
+6. **Dev Tools**: Create test class (120h), view enrolled classes, reload credits, usage analytics
+7. **Audit**: Recent assignments, submissions, audit logs
+
+**Key Files:**
+- `client/src/pages/admin/CommandCenter.tsx` - Unified admin interface
+- `client/src/App.tsx` - Route: `/admin` → CommandCenter
+- `client/src/components/app-sidebar.tsx` - Administration section visible to (isAdmin || isTeacher)
+
+**Technical Notes:**
+- CollapsibleSection component for expandable sections within tabs
+- Role-based query gating (teachers don't fetch admin metrics, preventing 403 errors)
+- SelectItem values use "all" instead of empty string (Radix UI requirement)
+
 ### Developer Usage Analytics Dashboard - ENHANCED
 Comprehensive developer analytics and credit management system for realistic testing of the usage/credit flow.
 
 **Navigation:**
 1. Login as a developer (role set via OIDC claims)
-2. Open sidebar → "Administration" section → "Admin Dashboard"
-3. Click "Developer" tab in admin navigation
-4. Dashboard has 3 tabs: Testing Tools, Usage Analytics, Platform Stats
+2. Open sidebar → "Administration" section → "Command Center"
+3. Click "Dev Tools" tab
+4. Dashboard has 3 collapsible sections: Quick Test Setup, My Test Classes, Usage Analytics
 
 **Tab 1 - Testing Tools:**
 - **Create Test Class**: Quickly spin up a class with 120 hours and auto-enroll as student
