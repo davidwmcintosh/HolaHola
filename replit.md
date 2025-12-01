@@ -77,14 +77,42 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 ## Recent Changes (December 1, 2025)
 
-### Developer Usage Analytics Dashboard - NEW
-Added comprehensive developer analytics and credit management system for realistic testing of the usage/credit flow.
+### Developer Usage Analytics Dashboard - ENHANCED
+Comprehensive developer analytics and credit management system for realistic testing of the usage/credit flow.
 
-**Key Features:**
-- Developer Usage Dashboard at `/admin/developer` with analytics, cost breakdown, and credit reload functionality
-- Developers now get full usage tracking (sessions, practice time, credits consumed) just like regular users
-- Reload Credits endpoint (`POST /api/developer/reload-credits`) to reset class hours for testing "out of credits" state
-- Analytics endpoints (`GET /api/developer/analytics`, `GET /api/developer/class-estimates`) for cost modeling
+**Navigation:**
+1. Login as a developer (role set via OIDC claims)
+2. Open sidebar → "Administration" section → "Admin Dashboard"
+3. Click "Developer" tab in admin navigation
+4. Dashboard has 3 tabs: Testing Tools, Usage Analytics, Platform Stats
+
+**Tab 1 - Testing Tools:**
+- **Create Test Class**: Quickly spin up a class with 120 hours and auto-enroll as student
+- **My Test Classes**: View all classes you're enrolled in with credit usage bars
+- **Reload Credits**: Reset any class back to 120 hours for re-testing
+
+**Tab 2 - Usage Analytics:**
+- **User Type Filter**: Filter by "All Users", "Production Only" (students/teachers), or "Developers/Testers" (developers/admins)
+- **Period Filter**: Last 7/30/90 days
+- Summary cards: Sessions, Practice Time, TTS Characters, Estimated Cost
+- Cost breakdown by API provider (Deepgram, Cartesia, Gemini)
+- Session duration distribution
+- Usage by language
+- Class usage estimates table
+
+**Tab 3 - Platform Stats:**
+- DAU/WAU/MAU (Daily/Weekly/Monthly Active Users)
+- Registered users by role (admin, developer, teacher, student)
+- Session error rate with severity badge
+- Language popularity rankings
+- 7-day session trend chart
+
+**API Endpoints:**
+- `POST /api/developer/create-test-class` - Create test class with auto-enrollment
+- `POST /api/developer/reload-credits` - Reset class hours for testing
+- `GET /api/developer/analytics?period=30d&userType=all` - Usage analytics with filters
+- `GET /api/developer/class-estimates` - Class completion time estimates
+- `GET /api/developer/platform-stats` - Platform-wide DAU/WAU/MAU stats
 
 **Cost Estimation (per API provider):**
 - Deepgram STT: $0.0043/minute
@@ -92,8 +120,8 @@ Added comprehensive developer analytics and credit management system for realist
 - Gemini LLM: ~$0.0001/exchange
 
 **Key Files:**
-- `client/src/pages/admin/DeveloperDashboard.tsx` - Developer analytics UI
-- `server/routes.ts` - Developer analytics endpoints (lines 728-900)
+- `client/src/pages/admin/DeveloperDashboard.tsx` - Developer analytics UI (3 tabs)
+- `server/routes.ts` - Developer analytics endpoints (lines 796-1075)
 - `server/unified-ws-handler.ts` - Developer session tracking (line 315)
 - `client/src/components/app-sidebar.tsx` - Updated to show admin menu for developers
 
