@@ -763,73 +763,77 @@ export function ImmersiveTutor({
 
         {/* Main Recording Button (Push-to-Talk) */}
         {/* Uses explicit touch AND pointer events for reliable mobile support */}
-        <Button
-          variant={isRecording ? "destructive" : isMicPreparing ? "secondary" : "default"}
-          size="icon"
-          onTouchStart={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('[MIC BUTTON] Touch start');
-            if (!isRecording && !isMicPreparing && !isProcessing && !isPointerRecordingRef.current) {
-              isPointerRecordingRef.current = true;
-              onRecordingStart();
-            }
-          }}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('[MIC BUTTON] Touch end');
-            if (isPointerRecordingRef.current || isMicPreparing) {
-              isPointerRecordingRef.current = false;
-              onRecordingStop();
-            }
-          }}
-          onTouchCancel={(e) => {
-            e.preventDefault();
-            console.log('[MIC BUTTON] Touch cancel');
-            if (isPointerRecordingRef.current || isMicPreparing) {
-              isPointerRecordingRef.current = false;
-              onRecordingStop();
-            }
-          }}
-          onMouseDown={(e) => {
-            e.preventDefault();
-            console.log('[MIC BUTTON] Mouse down');
-            if (!isRecording && !isMicPreparing && !isProcessing && !isPointerRecordingRef.current) {
-              isPointerRecordingRef.current = true;
-              onRecordingStart();
-            }
-          }}
-          onMouseUp={(e) => {
-            e.preventDefault();
-            console.log('[MIC BUTTON] Mouse up');
-            if (isPointerRecordingRef.current || isMicPreparing) {
-              isPointerRecordingRef.current = false;
-              onRecordingStop();
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (isPointerRecordingRef.current || isMicPreparing) {
-              console.log('[MIC BUTTON] Mouse leave while recording/preparing');
-              isPointerRecordingRef.current = false;
-              onRecordingStop();
-            }
-          }}
-          disabled={isProcessing || isConnecting}
-          className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none ${isMicPreparing ? 'animate-pulse' : ''}`}
-          style={{ touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
-          data-testid={isRecording ? "button-stop-recording" : isMicPreparing ? "button-preparing" : "button-start-recording"}
-          aria-pressed={isRecording || isMicPreparing}
-          aria-label={isMicPreparing ? "Preparing microphone..." : "Press and hold to speak"}
-        >
-          {isRecording ? (
-            <MicOff className="h-7 w-7 md:h-8 md:w-8" />
-          ) : isMicPreparing ? (
-            <Mic className="h-7 w-7 md:h-8 md:w-8 animate-pulse" />
-          ) : (
-            <Mic className="h-7 w-7 md:h-8 md:w-8" />
-          )}
-        </Button>
+        {/* Wrapped in flex-col to match Repeat/Slow Repeat button structure for alignment */}
+        <div className="flex flex-col items-center gap-1">
+          <Button
+            variant={isRecording ? "destructive" : isMicPreparing ? "secondary" : "default"}
+            size="icon"
+            onTouchStart={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('[MIC BUTTON] Touch start');
+              if (!isRecording && !isMicPreparing && !isProcessing && !isPointerRecordingRef.current) {
+                isPointerRecordingRef.current = true;
+                onRecordingStart();
+              }
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('[MIC BUTTON] Touch end');
+              if (isPointerRecordingRef.current || isMicPreparing) {
+                isPointerRecordingRef.current = false;
+                onRecordingStop();
+              }
+            }}
+            onTouchCancel={(e) => {
+              e.preventDefault();
+              console.log('[MIC BUTTON] Touch cancel');
+              if (isPointerRecordingRef.current || isMicPreparing) {
+                isPointerRecordingRef.current = false;
+                onRecordingStop();
+              }
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              console.log('[MIC BUTTON] Mouse down');
+              if (!isRecording && !isMicPreparing && !isProcessing && !isPointerRecordingRef.current) {
+                isPointerRecordingRef.current = true;
+                onRecordingStart();
+              }
+            }}
+            onMouseUp={(e) => {
+              e.preventDefault();
+              console.log('[MIC BUTTON] Mouse up');
+              if (isPointerRecordingRef.current || isMicPreparing) {
+                isPointerRecordingRef.current = false;
+                onRecordingStop();
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (isPointerRecordingRef.current || isMicPreparing) {
+                console.log('[MIC BUTTON] Mouse leave while recording/preparing');
+                isPointerRecordingRef.current = false;
+                onRecordingStop();
+              }
+            }}
+            disabled={isProcessing || isConnecting}
+            className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none ${isMicPreparing ? 'animate-pulse' : ''}`}
+            style={{ touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
+            data-testid={isRecording ? "button-stop-recording" : isMicPreparing ? "button-preparing" : "button-start-recording"}
+            aria-pressed={isRecording || isMicPreparing}
+            aria-label={isMicPreparing ? "Preparing microphone..." : "Press and hold to speak"}
+          >
+            {isRecording ? (
+              <MicOff className="h-7 w-7 md:h-8 md:w-8" />
+            ) : isMicPreparing ? (
+              <Mic className="h-7 w-7 md:h-8 md:w-8 animate-pulse" />
+            ) : (
+              <Mic className="h-7 w-7 md:h-8 md:w-8" />
+            )}
+          </Button>
+          <span className="text-[10px] text-transparent select-none" aria-hidden="true">Hold to talk</span>
+        </div>
 
         {/* Slow Repeat Button with label - Ask AI to simplify and speak slowly */}
         {onSlowRepeat && (
