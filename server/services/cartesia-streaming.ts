@@ -357,7 +357,7 @@ export class CartesiaStreamingService extends EventEmitter {
         
         const contextId = `ctx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const response = await this.websocket.send({
-          model_id: this.model,
+          modelId: this.model,
           transcript: cleanedText,
           voice: {
             mode: 'id',
@@ -368,14 +368,9 @@ export class CartesiaStreamingService extends EventEmitter {
             },
           },
           language: voiceConfig.languageCode,
-          context_id: contextId,
-          output_format: {
-            container: 'mp3',
-            sample_rate: AUDIO_STREAMING_CONFIG.SAMPLE_RATE,
-            bit_rate: AUDIO_STREAMING_CONFIG.BIT_RATE,
-          },
-          ...(pronunciationDictId && { pronunciation_dict_id: pronunciationDictId }),
-          add_timestamps: true, // Enable native word-level timestamps
+          contextId: contextId,
+          ...(pronunciationDictId && { pronunciationDictId: pronunciationDictId }),
+          addTimestamps: true, // Enable native word-level timestamps
         });
         
         // Collect timestamps as they arrive
