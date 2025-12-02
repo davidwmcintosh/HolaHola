@@ -392,7 +392,7 @@ export class StreamingAudioPlayer {
       }
       // Otherwise, new sentence will naturally follow previous
       
-      this.progressivePlaybackStartCtxTime = this.progressiveScheduledTime; // Track when this sentence starts
+      // DON'T set progressivePlaybackStartCtxTime here - it will be set when first chunk is scheduled below
       this.progressiveTotalDuration = 0; // Reset duration for new sentence
       this.isPlaying = true;
       this.setState('buffering');
@@ -437,8 +437,11 @@ export class StreamingAudioPlayer {
     if (!this.progressiveFirstChunkStarted && chunkIndex === 0) {
       this.progressiveFirstChunkStarted = true;
       this.playbackStartTime = performance.now();
+      // CRITICAL: Set the AudioContext start time for this sentence's timing
+      this.progressivePlaybackStartCtxTime = playTime; // When this sentence's audio actually starts
       this.setState('playing');
       console.error(`[AUDIO DEBUG] >>> Firing onSentenceStart(${sentenceIndex}) <<<`);
+      console.error(`[AUDIO DEBUG] progressivePlaybackStartCtxTime=${playTime.toFixed(3)}, ctx.currentTime=${ctx.currentTime.toFixed(3)}`);
       this.callbacks.onSentenceStart?.(sentenceIndex);
       this.startProgressivePrecisionTiming(); // Use progressive-specific timing
       console.log(`[StreamingAudioPlayer] [Progressive] First chunk playing at ${playTime.toFixed(3)}s (ctx.currentTime=${ctx.currentTime.toFixed(3)}s)`);
