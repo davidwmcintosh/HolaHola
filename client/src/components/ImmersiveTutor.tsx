@@ -604,6 +604,9 @@ export function ImmersiveTutor({
             // "All" mode: show all words with karaoke highlighting
             const useKaraokeInStreaming = activeWordIndex >= 0;
             
+            // DEBUG: Log karaoke state
+            console.log(`[KARAOKE] All mode: wordCount=${allWords.length}, rawIdx=${rawActiveWordIndex}, activeIdx=${activeWordIndex}, useKaraoke=${useKaraokeInStreaming}`);
+            
             return (
               <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
                 <div className="max-w-4xl mx-auto">
