@@ -28,6 +28,15 @@ import {
   WordTiming,
   LATENCY_TARGETS,
 } from "@shared/streaming-voice-types";
+
+/**
+ * Lightweight metrics logger for performance monitoring
+ * Uses structured JSON format for easy parsing by log aggregators
+ * Non-blocking: just console.log, no DB writes or network calls
+ */
+function logMetric(type: string, data: Record<string, number | string | boolean>) {
+  console.log(`[METRICS] ${JSON.stringify({ type, ...data, ts: Date.now() })}`);
+}
 import { constrainEmotion, TutorPersonality, CartesiaEmotion } from "./tts-service";
 import { extractTargetLanguageText, extractTargetLanguageWithMapping, hasSignificantTargetLanguageContent } from "../text-utils";
 import { storage } from "../storage";
@@ -303,14 +312,31 @@ export class StreamingVoiceOrchestrator {
     // - Cartesia: Eliminates WebSocket handshake latency (~150-200ms)
     // - Gemini: Eliminates cold-start penalty (~3-4 seconds on first request)
     // Store promise so greeting can await completion (guarantees warmup before first AI call)
+    const warmupStart = Date.now();
+    let cartesiaWarmupMs = 0;
+    let geminiWarmupMs = 0;
     session.warmupPromise = Promise.all([
       this.cartesiaService.ensureConnection()
-        .then(time => console.log(`[Streaming Orchestrator] Cartesia pre-warmed: ${time}ms`))
+        .then(time => {
+          cartesiaWarmupMs = time;
+          console.log(`[Streaming Orchestrator] Cartesia pre-warmed: ${time}ms`);
+        })
         .catch((err: Error) => console.warn(`[Streaming Orchestrator] Cartesia warmup failed: ${err.message}`)),
       this.geminiService.warmup()
-        .then(time => console.log(`[Streaming Orchestrator] Gemini pre-warmed: ${time}ms`))
+        .then(time => {
+          geminiWarmupMs = time;
+          console.log(`[Streaming Orchestrator] Gemini pre-warmed: ${time}ms`);
+        })
         .catch((err: Error) => console.warn(`[Streaming Orchestrator] Gemini warmup failed: ${err.message}`)),
-    ]).then(() => {});
+    ]).then(() => {
+      const totalWarmup = Date.now() - warmupStart;
+      logMetric('warmup', { 
+        sessionId, 
+        cartesiaMs: cartesiaWarmupMs, 
+        geminiMs: geminiWarmupMs, 
+        totalMs: totalWarmup 
+      });
+    });
     
     this.sessions.set(sessionId, session);
     
@@ -572,6 +598,19 @@ export class StreamingVoiceOrchestrator {
       
       console.log(`[Streaming Orchestrator] Complete: ${metrics.sentenceCount} sentences in ${metrics.totalLatencyMs}ms (turnId: ${turnId})`);
       console.log(`[Streaming Orchestrator] Latencies: STT=${metrics.sttLatencyMs}ms, AI=${metrics.aiFirstTokenMs}ms, TTS=${metrics.ttsFirstByteMs}ms`);
+      
+      // Log structured metrics for monitoring (non-blocking, just console.log)
+      const timeToFirstAudio = metrics.sttLatencyMs + metrics.aiFirstTokenMs + metrics.ttsFirstByteMs;
+      logMetric('chat_response', {
+        sessionId: session.id,
+        sttMs: metrics.sttLatencyMs,
+        aiFirstTokenMs: metrics.aiFirstTokenMs,
+        ttsFirstByteMs: metrics.ttsFirstByteMs,
+        timeToFirstAudioMs: timeToFirstAudio,
+        totalMs: metrics.totalLatencyMs,
+        sentences: metrics.sentenceCount,
+        targetMet: timeToFirstAudio <= 3000,
+      });
       
       // Start idle timeout - tutor waiting for student response
       this.startIdleTimeout(session);
@@ -1454,6 +1493,19 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       } as StreamingResponseCompleteMessage);
       
       console.log(`[Streaming Greeting] Complete: ${metrics.sentenceCount} sentences in ${metrics.totalLatencyMs}ms`);
+      
+      // Log structured metrics for monitoring (non-blocking, just console.log)
+      // Note: greeting has no STT, so time-to-first-audio is AI + TTS
+      const timeToFirstAudio = metrics.aiFirstTokenMs + metrics.ttsFirstByteMs;
+      logMetric('greeting', {
+        sessionId: session.id,
+        aiFirstTokenMs: metrics.aiFirstTokenMs,
+        ttsFirstByteMs: metrics.ttsFirstByteMs,
+        timeToFirstAudioMs: timeToFirstAudio,
+        totalMs: metrics.totalLatencyMs,
+        sentences: metrics.sentenceCount,
+        targetMet: timeToFirstAudio <= 3000,
+      });
       
       // Start idle timeout - tutor waiting for student's first response
       this.startIdleTimeout(session);
