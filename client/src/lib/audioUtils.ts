@@ -437,8 +437,6 @@ export class StreamingAudioPlayer {
     console.log(`[AUDIO DEBUG] chunk=${chunkIndex}, firstChunkStarted=${this.progressiveFirstChunkStarted}, sentence=${sentenceIndex}`);
     if (!this.progressiveFirstChunkStarted && chunkIndex === 0) {
       this.progressiveFirstChunkStarted = true;
-      // CRITICAL: Set the AudioContext start time for this sentence's timing
-      this.progressivePlaybackStartCtxTime = playTime; // When this sentence's audio actually starts
       
       // Calculate delay until this sentence's audio actually starts playing
       // playTime is when the audio is SCHEDULED to play (AudioContext time)
@@ -465,7 +463,9 @@ export class StreamingAudioPlayer {
             return;
           }
           
-          // Update timing state for THIS sentence when it starts playing
+          // CRITICAL: Set the AudioContext start time for THIS sentence's timing
+          // This MUST be done in the delayed callback, not earlier, otherwise
+          // later sentences will overwrite this value before we fire the callback
           this.progressivePlaybackStartCtxTime = scheduledPlayTime;
           this.playbackStartTime = performance.now();
           
@@ -473,15 +473,17 @@ export class StreamingAudioPlayer {
           this.currentSentenceIndex = scheduledSentenceIndex;
           
           this.setState('playing');
-          console.log(`[AUDIO DEBUG] >>> FIRING DELAYED onSentenceStart(${scheduledSentenceIndex}) <<<`);
+          console.log(`[AUDIO DEBUG] >>> FIRING DELAYED onSentenceStart(${scheduledSentenceIndex}), progressivePlaybackStartCtxTime=${scheduledPlayTime.toFixed(3)} <<<`);
           this.callbacks.onSentenceStart?.(scheduledSentenceIndex);
           this.startProgressivePrecisionTiming(); // Use progressive-specific timing
         }, delayUntilPlayMs);
       } else {
         // Sentence is playing immediately (or very soon)
+        // Set timing state immediately since audio plays now
+        this.progressivePlaybackStartCtxTime = playTime;
         this.playbackStartTime = performance.now();
         this.setState('playing');
-        console.log(`[AUDIO DEBUG] >>> Firing onSentenceStart(${sentenceIndex}) IMMEDIATELY <<<`);
+        console.log(`[AUDIO DEBUG] >>> Firing onSentenceStart(${sentenceIndex}) IMMEDIATELY, progressivePlaybackStartCtxTime=${playTime.toFixed(3)} <<<`);
         this.callbacks.onSentenceStart?.(sentenceIndex);
         this.startProgressivePrecisionTiming(); // Use progressive-specific timing
       }
