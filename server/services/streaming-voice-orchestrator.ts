@@ -987,6 +987,7 @@ export class StreamingVoiceOrchestrator {
           
           // Forward word timings incrementally (delta messages)
           onWordTimestamp: (timing, wordIdx, estimatedTotal) => {
+            console.log(`[Progressive] Sending word_timing_delta: sentence=${index}, word=${wordIdx} "${timing.word}"`);
             if (session.subtitleMode !== 'off') {
               this.sendMessage(session.ws, {
                 type: 'word_timing_delta',
@@ -999,6 +1000,8 @@ export class StreamingVoiceOrchestrator {
                 endTime: timing.endTime,
                 estimatedTotalDuration: estimatedTotal,
               } as StreamingWordTimingDeltaMessage);
+            } else {
+              console.log(`[Progressive] Skipping delta (subtitleMode=${session.subtitleMode})`);
             }
           },
           
