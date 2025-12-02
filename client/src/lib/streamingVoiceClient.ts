@@ -453,6 +453,11 @@ export class StreamingVoiceClient {
           
         case 'word_timing_delta':
           console.error(`[WS RECV] >>> WORD_TIMING_DELTA CASE HIT <<<`);
+          // CRITICAL DEBUG: Track that case was hit
+          if (typeof window !== 'undefined') {
+            (window as any)._deltaHits = ((window as any)._deltaHits || 0) + 1;
+            (window as any)._lastDelta = message;
+          }
           this.handleWordTimingDelta(message as StreamingWordTimingDeltaMessage);
           break;
           
