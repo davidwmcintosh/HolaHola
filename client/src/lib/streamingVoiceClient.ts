@@ -435,6 +435,9 @@ export class StreamingVoiceClient {
         });
       }
       
+      // DEBUG: Log right before switch
+      console.log('%c[SVC] ABOUT TO SWITCH ON: ' + message.type, 'color: orange; background: black; font-weight: bold');
+      
       switch (message.type) {
         case 'connected':
           // Initial connection confirmed (no session yet)
