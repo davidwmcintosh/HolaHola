@@ -75,6 +75,36 @@ export class GeminiStreamingService {
   }
   
   /**
+   * Warm up the Gemini connection with a minimal request
+   * This primes the model and eliminates cold-start latency on subsequent calls
+   * 
+   * @returns Time taken for warm-up in milliseconds
+   */
+  async warmup(): Promise<number> {
+    const startTime = Date.now();
+    try {
+      const result = await this.client.models.generateContentStream({
+        model: this.defaultModel,
+        contents: [{ role: 'user', parts: [{ text: 'Hi' }] }],
+        config: {
+          temperature: 0,
+          maxOutputTokens: 1,
+        },
+      });
+      for await (const chunk of result) {
+        break;
+      }
+      const latency = Date.now() - startTime;
+      console.log(`[Gemini Streaming] ✓ Warmed up in ${latency}ms`);
+      return latency;
+    } catch (error: any) {
+      const latency = Date.now() - startTime;
+      console.warn(`[Gemini Streaming] Warmup failed after ${latency}ms: ${error.message}`);
+      return latency;
+    }
+  }
+  
+  /**
    * Stream generation with sentence-level chunking
    * 
    * @returns Promise that resolves when streaming is complete

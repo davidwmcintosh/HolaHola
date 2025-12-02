@@ -300,15 +300,20 @@ export class StreamingVoiceOrchestrator {
     
     this.sessions.set(sessionId, session);
     
-    // CONNECTION POOLING: Pre-warm Cartesia WebSocket connection
-    // This eliminates handshake latency (~150-200ms) from first TTS request
-    try {
-      const warmupTime = await this.cartesiaService.ensureConnection();
-      console.log(`[Streaming Orchestrator] Cartesia pre-warmed: ${warmupTime}ms`);
-    } catch (error: any) {
-      console.warn(`[Streaming Orchestrator] Cartesia warmup failed (will retry on demand): ${error.message}`);
-      // Non-fatal - will fallback to bytes API if WebSocket unavailable
-    }
+    // PARALLEL WARMUP: Pre-warm both Cartesia and Gemini connections concurrently
+    // - Cartesia: Eliminates WebSocket handshake latency (~150-200ms)
+    // - Gemini: Eliminates cold-start penalty (~3-4 seconds on first request)
+    const warmupPromises: Promise<void>[] = [
+      this.cartesiaService.ensureConnection()
+        .then(time => console.log(`[Streaming Orchestrator] Cartesia pre-warmed: ${time}ms`))
+        .catch((err: Error) => console.warn(`[Streaming Orchestrator] Cartesia warmup failed: ${err.message}`)),
+      this.geminiService.warmup()
+        .then(time => console.log(`[Streaming Orchestrator] Gemini pre-warmed: ${time}ms`))
+        .catch((err: Error) => console.warn(`[Streaming Orchestrator] Gemini warmup failed: ${err.message}`)),
+    ];
+    
+    // Fire warmups in parallel but don't block session creation
+    Promise.all(warmupPromises).catch(() => {});
     
     // Send connected message
     this.sendMessage(ws, {
@@ -1275,64 +1280,63 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
     try {
       console.log(`[Streaming Greeting] Generating personalized greeting for user ${session.userId}`);
       
-      // Fetch student's ACTFL progress for personalized greeting
+      // PARALLEL DATA FETCH: Run all independent DB queries concurrently
+      // This reduces greeting latency by ~500-800ms compared to sequential fetches
       let actflLevel = 'Novice Low';
       let recentTopics: string[] = [];
       let wordsLearned = 0;
       let classEnrollment: { className: string; curriculumLesson?: string; curriculumUnit?: string } | null = null;
       
       try {
-        // Note: getOrCreateActflProgress expects (language, userId) order
-        const actflProgress = await storage.getOrCreateActflProgress(
-          session.targetLanguage,
-          String(session.userId)
-        );
+        const [actflProgress, userProgress, enrollments, recentConversations] = await Promise.all([
+          storage.getOrCreateActflProgress(session.targetLanguage, String(session.userId))
+            .catch(() => null),
+          storage.getOrCreateUserProgress(session.targetLanguage, String(session.userId))
+            .catch(() => null),
+          storage.getStudentEnrollments(String(session.userId))
+            .catch(() => []),
+          storage.getUserConversations(String(session.userId))
+            .catch(() => []),
+        ]);
+        
+        // Process ACTFL progress
         actflLevel = actflProgress?.currentActflLevel || 'Novice Low';
         
-        // Get user progress for additional context
-        const userProgress = await storage.getOrCreateUserProgress(
-          session.targetLanguage, 
-          String(session.userId)
-        );
+        // Process user progress
         if (userProgress) {
           wordsLearned = userProgress.wordsLearned || 0;
         }
         
-        // Check if student is enrolled in an organized class
-        try {
-          const enrollments = await storage.getStudentEnrollments(String(session.userId));
-          // Find an active class for this language
-          const activeClass = enrollments.find(e => 
-            e.isActive && 
-            e.class?.isActive && 
-            e.class?.language === session.targetLanguage
-          );
+        // Process enrollments - find active class for this language
+        const activeClass = enrollments.find(e => 
+          e.isActive && 
+          e.class?.isActive && 
+          e.class?.language === session.targetLanguage
+        );
+        
+        if (activeClass?.class) {
+          classEnrollment = { className: activeClass.class.name };
           
-          if (activeClass?.class) {
-            classEnrollment = { className: activeClass.class.name };
-            
-            // If class has a curriculum, get current lesson context
-            if (activeClass.class.curriculumPathId) {
+          // If class has a curriculum, get current lesson context (sequential, but fast)
+          if (activeClass.class.curriculumPathId) {
+            try {
               const units = await storage.getCurriculumUnits(activeClass.class.curriculumPathId);
               if (units.length > 0) {
-                // Get first unit's lessons (simplified - could enhance with progress tracking)
                 const lessons = await storage.getCurriculumLessons(units[0].id);
                 if (lessons.length > 0) {
                   classEnrollment.curriculumUnit = units[0].name;
                   classEnrollment.curriculumLesson = lessons[0].name;
                 }
               }
+            } catch (curriculumError: any) {
+              console.log(`[Streaming Greeting] Could not fetch curriculum: ${curriculumError.message}`);
             }
-            console.log(`[Streaming Greeting] Student enrolled in class: ${activeClass.class.name}`);
           }
-        } catch (enrollmentError: any) {
-          console.log(`[Streaming Greeting] Could not check enrollments: ${enrollmentError.message}`);
+          console.log(`[Streaming Greeting] Student enrolled in class: ${activeClass.class.name}`);
         }
         
-        // Get recent conversations for topic continuity (for open-path learners)
-        const recentConversations = await storage.getUserConversations(String(session.userId));
+        // Process recent conversations for topic continuity
         if (recentConversations.length > 1) {
-          // Get the previous conversation's title/topic if available
           const prevConversation = recentConversations[1]; // [0] is current, [1] is previous
           if (prevConversation.title) {
             recentTopics.push(prevConversation.title);
@@ -1341,7 +1345,7 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
           }
         }
       } catch (error: any) {
-        console.log(`[Streaming Greeting] Could not fetch ACTFL data: ${error.message}`);
+        console.log(`[Streaming Greeting] Could not fetch context data: ${error.message}`);
       }
       
       // Build greeting prompt with full context
