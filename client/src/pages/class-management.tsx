@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Copy, Plus, Trash2, Users, ClipboardList, BookOpen, UserMinus, Sparkles, AlertCircle, CheckCircle, TrendingDown, TrendingUp, Layers } from "lucide-react";
+import { Copy, Plus, Trash2, Users, ClipboardList, BookOpen, UserMinus, Sparkles, AlertCircle, CheckCircle, TrendingDown, TrendingUp, Layers, Pencil, RotateCcw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useParams, Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +29,14 @@ const cloneClassFormSchema = z.object({
 });
 
 type CloneClassFormValues = z.infer<typeof cloneClassFormSchema>;
+
+const editStudentFormSchema = z.object({
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  email: z.string().email("Invalid email address").optional().or(z.literal("")),
+});
+
+type EditStudentFormValues = z.infer<typeof editStudentFormSchema>;
 
 interface TeacherClass {
   id: string;
@@ -78,12 +86,23 @@ export default function ClassManagement() {
   const { toast } = useToast();
   const [copiedCode, setCopiedCode] = useState(false);
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<ClassEnrollment | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const cloneForm = useForm<CloneClassFormValues>({
     resolver: zodResolver(cloneClassFormSchema),
     defaultValues: {
       name: "",
       description: "",
+    },
+  });
+
+  const editStudentForm = useForm<EditStudentFormValues>({
+    resolver: zodResolver(editStudentFormSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
     },
   });
 
@@ -182,6 +201,68 @@ export default function ClassManagement() {
 
   const handleCloneClass = (values: CloneClassFormValues) => {
     cloneClassMutation.mutate(values);
+  };
+
+  const editStudentMutation = useMutation({
+    mutationFn: async ({ studentId, data }: { studentId: string; data: EditStudentFormValues }) => {
+      return apiRequest("PATCH", `/api/teacher/classes/${classId}/students/${studentId}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/teacher/classes", classId, "students"] });
+      setEditDialogOpen(false);
+      setEditingStudent(null);
+      editStudentForm.reset();
+      toast({
+        title: "Student Updated",
+        description: "Student details have been updated.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update student",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resetStudentProgressMutation = useMutation({
+    mutationFn: async (studentId: string) => {
+      return apiRequest("POST", `/api/teacher/classes/${classId}/students/${studentId}/reset`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/teacher/classes", classId, "students"] });
+      toast({
+        title: "Progress Reset",
+        description: "Student's progress for this class has been reset.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reset student progress",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const openEditStudentDialog = (enrollment: ClassEnrollment) => {
+    setEditingStudent(enrollment);
+    editStudentForm.reset({
+      firstName: enrollment.user?.firstName || "",
+      lastName: enrollment.user?.lastName || "",
+      email: enrollment.user?.email || "",
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditStudent = (values: EditStudentFormValues) => {
+    if (editingStudent) {
+      editStudentMutation.mutate({
+        studentId: editingStudent.userId,
+        data: values,
+      });
+    }
   };
 
   if (isLoadingClass) {
@@ -458,34 +539,89 @@ export default function ClassManagement() {
                             </Tooltip>
                           </div>
                         </div>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            data-testid={`button-remove-student-${enrollment.userId}`}
-                          >
-                            <UserMinus className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Remove Student</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to remove {displayName} from this class? They will lose access to all assignments and course materials.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => removeStudentMutation.mutate(enrollment.userId)}
-                              data-testid={`button-confirm-remove-${enrollment.userId}`}
-                            >
-                              Remove Student
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                        <div className="flex items-center gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => openEditStudentDialog(enrollment)}
+                                data-testid={`button-edit-student-${enrollment.userId}`}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Edit student details</TooltipContent>
+                          </Tooltip>
+                          
+                          <AlertDialog>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    data-testid={`button-reset-student-${enrollment.userId}`}
+                                  >
+                                    <RotateCcw className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                              </TooltipTrigger>
+                              <TooltipContent>Reset progress</TooltipContent>
+                            </Tooltip>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Reset Student Progress</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to reset {displayName}'s progress for this class? This will delete their conversations, assignment submissions, and placement data for this class only.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => resetStudentProgressMutation.mutate(enrollment.userId)}
+                                  data-testid={`button-confirm-reset-${enrollment.userId}`}
+                                >
+                                  Reset Progress
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                          
+                          <AlertDialog>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    data-testid={`button-remove-student-${enrollment.userId}`}
+                                  >
+                                    <UserMinus className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                              </TooltipTrigger>
+                              <TooltipContent>Remove from class</TooltipContent>
+                            </Tooltip>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Remove Student</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to remove {displayName} from this class? They will lose access to all assignments and course materials.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => removeStudentMutation.mutate(enrollment.userId)}
+                                  data-testid={`button-confirm-remove-${enrollment.userId}`}
+                                >
+                                  Remove Student
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                     </CardContent>
                   </Card>
                 );
@@ -595,6 +731,89 @@ export default function ClassManagement() {
           <TeacherEarlyCompletions classId={classId || ''} />
         </TabsContent>
       </Tabs>
+
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Student</DialogTitle>
+            <DialogDescription>
+              Update the student's name and email address.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editStudentForm}>
+            <form onSubmit={editStudentForm.handleSubmit(handleEditStudent)} className="space-y-4">
+              <FormField
+                control={editStudentForm.control}
+                name="firstName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>First Name</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="First name"
+                        data-testid="input-edit-student-firstname"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editStudentForm.control}
+                name="lastName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Last Name</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Last name"
+                        data-testid="input-edit-student-lastname"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editStudentForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="student@example.com"
+                        data-testid="input-edit-student-email"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={editStudentMutation.isPending}
+                  data-testid="button-save-student"
+                >
+                  {editStudentMutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

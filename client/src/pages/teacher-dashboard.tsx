@@ -170,7 +170,7 @@ export default function TeacherDashboard() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold">Teacher Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage your classes and browse curricula</p>
+          <p className="text-sm text-muted-foreground mt-1">Manage your classes and browse syllabi</p>
         </div>
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogTrigger asChild>
@@ -271,9 +271,9 @@ export default function TeacherDashboard() {
             <BookOpen className="w-4 h-4 mr-2" />
             My Classes
           </TabsTrigger>
-          <TabsTrigger value="curricula" data-testid="tab-curricula">
+          <TabsTrigger value="syllabi" data-testid="tab-syllabi">
             <Layers className="w-4 h-4 mr-2" />
-            Browse Curricula
+            Browse Syllabi
           </TabsTrigger>
         </TabsList>
 
@@ -304,7 +304,7 @@ export default function TeacherDashboard() {
                           {classItem.curriculumPathId && (
                             <Badge variant="outline" className="text-xs">
                               <GraduationCap className="w-3 h-3 mr-1" />
-                              Curriculum
+                              Syllabus
                             </Badge>
                           )}
                           <Badge variant={classItem.isActive ? "default" : "secondary"}>
@@ -360,7 +360,7 @@ export default function TeacherDashboard() {
                 <div className="space-y-2">
                   <h3 className="text-xl font-semibold">No Classes Yet</h3>
                   <p className="text-muted-foreground max-w-md mx-auto">
-                    Create your first class to start teaching, or browse curricula to get started with a pre-built course.
+                    Create your first class to start teaching, or browse syllabi to get started with a pre-built course.
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -368,9 +368,9 @@ export default function TeacherDashboard() {
                     <Plus className="w-4 h-4 mr-2" />
                     Create Your First Class
                   </Button>
-                  <Button variant="outline" onClick={() => setActiveTab("curricula")} data-testid="button-browse-curricula">
+                  <Button variant="outline" onClick={() => setActiveTab("syllabi")} data-testid="button-browse-syllabi">
                     <Layers className="w-4 h-4 mr-2" />
-                    Browse Curricula
+                    Browse Syllabi
                   </Button>
                 </div>
               </div>
@@ -378,7 +378,7 @@ export default function TeacherDashboard() {
           )}
         </TabsContent>
 
-        <TabsContent value="curricula" className="mt-6">
+        <TabsContent value="syllabi" className="mt-6">
           {isLoadingCurricula ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[1, 2, 3].map((i) => (
@@ -451,9 +451,9 @@ export default function TeacherDashboard() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-xl font-semibold">No Curricula Available</h3>
+                  <h3 className="text-xl font-semibold">No Syllabi Available</h3>
                   <p className="text-muted-foreground max-w-md mx-auto">
-                    No published curricula are available yet. You can create a class from scratch.
+                    No published syllabi are available yet. You can create a class from scratch.
                   </p>
                 </div>
                 <Button onClick={() => { setActiveTab("classes"); setCreateDialogOpen(true); }}>

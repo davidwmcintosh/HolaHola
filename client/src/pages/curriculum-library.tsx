@@ -106,9 +106,9 @@ export default function CurriculumLibrary() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold" data-testid="text-page-title">Curriculum Library</h1>
+            <h1 className="text-3xl font-bold" data-testid="text-page-title">Syllabus Library</h1>
             <p className="text-muted-foreground mt-1">
-              Browse and assign pre-built, standards-aligned curriculum paths
+              Browse and assign pre-built, standards-aligned syllabi
             </p>
           </div>
           <Button

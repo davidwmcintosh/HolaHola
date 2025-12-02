@@ -586,14 +586,14 @@ export default function CurriculumBuilder() {
               </div>
             </div>
             <div className="space-y-2">
-              <h3 className="text-xl font-semibold">No Curriculum Paths Yet</h3>
+              <h3 className="text-xl font-semibold">No Syllabi Yet</h3>
               <p className="text-muted-foreground max-w-md mx-auto">
-                Create your first curriculum path to organize lessons and learning materials.
+                Create your first syllabus to organize lessons and learning materials.
               </p>
             </div>
-            <Button onClick={() => setCreatePathOpen(true)} data-testid="button-create-first-path">
+            <Button onClick={() => setCreatePathOpen(true)} data-testid="button-create-first-syllabus">
               <Plus className="w-4 h-4 mr-2" />
-              Create Your First Path
+              Create Your First Syllabus
             </Button>
           </div>
         </Card>

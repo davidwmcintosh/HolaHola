@@ -259,7 +259,7 @@ function OverviewTab() {
                 <a href="/teacher/classes">Manage Classes</a>
               </Button>
               <Button asChild variant="outline">
-                <a href="/curriculum-library">Browse Curriculum</a>
+                <a href="/curriculum-library">Browse Syllabi</a>
               </Button>
             </div>
           </CardContent>

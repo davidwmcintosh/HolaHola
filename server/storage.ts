@@ -534,6 +534,13 @@ export interface IStorage {
     progressReset: boolean;
     lessonsDeleted: number;
   }>;
+
+  // ===== Teacher: Reset Student Class Progress =====
+  resetStudentClassProgress(classId: string, studentId: string): Promise<{
+    conversationsDeleted: number;
+    assignmentSubmissionsDeleted: number;
+    placementReset: boolean;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4206,6 +4213,74 @@ export class DatabaseStorage implements IStorage {
       conversationsDeleted,
       progressReset,
       lessonsDeleted
+    };
+  }
+
+  async resetStudentClassProgress(classId: string, studentId: string): Promise<{
+    conversationsDeleted: number;
+    assignmentSubmissionsDeleted: number;
+    placementReset: boolean;
+  }> {
+    let conversationsDeleted = 0;
+    let assignmentSubmissionsDeleted = 0;
+    let placementReset = false;
+
+    // Delete class-specific conversations and their messages
+    const classConvs = await db.select({ id: conversations.id })
+      .from(conversations)
+      .where(and(
+        eq(conversations.userId, studentId),
+        eq(conversations.classId, classId)
+      ));
+    
+    for (const conv of classConvs) {
+      await db.delete(messages).where(eq(messages.conversationId, conv.id));
+      await db.delete(conversationTopics).where(eq(conversationTopics.conversationId, conv.id));
+    }
+    
+    const convResult = await db.delete(conversations)
+      .where(and(
+        eq(conversations.userId, studentId),
+        eq(conversations.classId, classId)
+      ))
+      .returning();
+    conversationsDeleted = convResult.length;
+
+    // Delete assignment submissions for this class
+    const classAssignments = await db.select({ id: assignments.id })
+      .from(assignments)
+      .where(eq(assignments.classId, classId));
+    
+    for (const assignment of classAssignments) {
+      const submissionResult = await db.delete(assignmentSubmissions)
+        .where(and(
+          eq(assignmentSubmissions.assignmentId, assignment.id),
+          eq(assignmentSubmissions.studentId, studentId)
+        ))
+        .returning();
+      assignmentSubmissionsDeleted += submissionResult.length;
+    }
+
+    // Reset placement data on enrollment
+    await db.update(classEnrollments)
+      .set({
+        placementChecked: null,
+        placementActflResult: null,
+        placementDelta: null,
+        placementDate: null,
+      })
+      .where(and(
+        eq(classEnrollments.classId, classId),
+        eq(classEnrollments.userId, studentId)
+      ));
+    placementReset = true;
+
+    console.log(`[Teacher] Reset class progress for student ${studentId} in class ${classId}: ${conversationsDeleted} convs, ${assignmentSubmissionsDeleted} submissions`);
+
+    return {
+      conversationsDeleted,
+      assignmentSubmissionsDeleted,
+      placementReset
     };
   }
 }

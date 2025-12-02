@@ -5774,6 +5774,75 @@ Return ONLY the ${targetLanguage} phrase:`;
       res.status(500).json({ error: error.message });
     }
   });
+
+  // Update student details (teacher can edit students in their class)
+  app.patch("/api/teacher/classes/:classId/students/:studentId", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { classId, studentId } = req.params;
+      const { firstName, lastName, email } = req.body;
+      
+      const teacherClass = await storage.getTeacherClass(classId);
+      
+      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      // Verify student is enrolled in this class
+      const isEnrolled = await storage.isStudentEnrolled(classId, studentId);
+      if (!isEnrolled) {
+        return res.status(404).json({ error: "Student not found in this class" });
+      }
+
+      // Validate at least one field to update
+      if (firstName === undefined && lastName === undefined && email === undefined) {
+        return res.status(400).json({ error: "No fields to update provided" });
+      }
+
+      const updated = await storage.updateUserDetails(studentId, {
+        firstName,
+        lastName,
+        email,
+      });
+
+      if (!updated) {
+        return res.status(404).json({ error: "Student not found" });
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      console.error('Error updating student details:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Reset student progress within a class (teacher can reset student's class-specific data)
+  app.post("/api/teacher/classes/:classId/students/:studentId/reset", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user.claims.sub;
+      const { classId, studentId } = req.params;
+      
+      const teacherClass = await storage.getTeacherClass(classId);
+      
+      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      // Verify student is enrolled in this class
+      const isEnrolled = await storage.isStudentEnrolled(classId, studentId);
+      if (!isEnrolled) {
+        return res.status(404).json({ error: "Student not found in this class" });
+      }
+
+      // Reset class-specific data for this student
+      await storage.resetStudentClassProgress(classId, studentId);
+
+      res.json({ success: true, message: "Student progress has been reset for this class" });
+    } catch (error: any) {
+      console.error('Error resetting student progress:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
   
   // ===== Class Usage Reporting =====
   
