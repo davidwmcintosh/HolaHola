@@ -373,6 +373,7 @@ export class StreamingVoiceClient {
           break;
           
         case 'audio_chunk':
+          console.error('[CLIENT DEBUG] Received audio_chunk message');
           this.handleAudioChunk(message as StreamingAudioChunkMessage);
           break;
           
