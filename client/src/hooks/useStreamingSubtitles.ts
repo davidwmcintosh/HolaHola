@@ -575,9 +575,11 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     if (storedTimings) {
       currentTimingsRef.current = storedTimings.timings;
       expectedDurationRef.current = storedTimings.expectedDurationMs;
+      console.log(`[StreamingSubtitles v2] ▶ LOADED ${storedTimings.timings.length} timings for sentence ${sentenceIndex}`);
     } else {
       currentTimingsRef.current = [];
       expectedDurationRef.current = undefined;
+      console.log(`[StreamingSubtitles v2] ▶ NO CACHED timings for sentence ${sentenceIndex} (activeSentence ref set to ${activeSentenceRef.current})`);
     }
     
     // ACTFL-level-aware text reveal policy
@@ -673,7 +675,11 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
    */
   const updatePlaybackTime = useCallback((currentTime: number, actualDuration?: number) => {
     const timings = currentTimingsRef.current;
-    if (timings.length === 0) return;
+    if (timings.length === 0) {
+      // DEBUG: Log when timings are empty
+      console.log(`[StreamingSubtitles v2] updatePlaybackTime: NO TIMINGS (activeSentence=${activeSentenceRef.current}, currentSentence=${currentSentenceIndex})`);
+      return;
+    }
     
     // ACTFL-level-aware timing offset
     // Lower levels get more lead time to process text before hearing it
