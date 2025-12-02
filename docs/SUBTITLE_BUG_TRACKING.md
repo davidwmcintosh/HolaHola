@@ -504,3 +504,89 @@ The issue is upstream - word timing data not reaching the comparison logic.
 - [ ] User tests with `window._deltaHits` check
 - [ ] If _deltaHits is 0, switch case not executing despite message arrival
 - [ ] If _deltaHits > 0, issue is in handleWordTimingDelta or event emission
+
+---
+
+## Session Log: December 2, 2025 (Late Evening - 9:00 PM onwards)
+
+### MAJOR BREAKTHROUGH: Complete Message Chain Verified ✅
+
+**Confirmed Working (Dec 2, 9:12 PM):**
+1. Server sends word_timing_delta → ✅ Confirmed in logs
+2. Client WebSocket receives message → ✅ Confirmed
+3. Switch case is hit → ✅ User saw explicit log
+4. Event is emitted → ✅ `[EMIT] wordTimingDelta -> 1 listeners`
+5. Event listener subscribed → ✅ `[EMIT] wordTimingFinal -> 1 listeners`
+
+**User Observations:**
+```
+[EMIT] wordTimingFinal -> 1 listeners
+[EMIT] wordTimingDelta -> 1 listeners
+```
+
+Both delta AND final events have exactly 1 listener each. The entire message chain is working!
+
+### Current Symptoms (After Chain Verification):
+1. **All subtitles display** - Text IS appearing on screen ✅
+2. **"A few blips of highlighting"** - SOME highlighting happens (intermittent!)
+3. **"Very little audio"** - Audio playback is broken/intermittent
+
+### Root Cause Analysis: Audio Playback Issue
+
+The "a few blips of highlighting" combined with "very little audio" reveals the actual issue:
+- **Word highlighting depends on audio playback time**
+- `updatePlaybackTime(currentTime)` is called by audio player's onProgress callback
+- If audio isn't playing, currentTime doesn't advance, so highlighting doesn't progress
+- When audio briefly plays, we see "blips" of highlighting
+
+### Answer to Key Question: "Would recent changes really cause this?"
+
+**Short Answer: Possibly, but not definitively.**
+
+The progressive PCM streaming architecture IS a significant change:
+1. Uses `AudioContext.currentTime` instead of `HTMLAudioElement.currentTime`
+2. Schedules chunks via `source.start(playTime)` instead of playing a complete audio file
+3. Uses RAF-based timing loop that depends on AudioContext state
+
+**However:**
+- The user reported the feature "WAS working before" the current session
+- This suggests something may have regressed or there's an environmental factor
+
+**Possible Causes for Intermittent Audio:**
+1. **AudioContext suspension** - Browsers suspend AudioContext when tab loses focus
+2. **Scheduling timing** - If chunks schedule in the past, they won't play
+3. **Sample rate mismatch** - Audio decoded at wrong rate
+4. **Tab/window focus** - Different behavior in preview pane vs separate tab
+
+### Environment Observations:
+- User tested in "preview pane" - cached/old code, choppy audio
+- User tested in "separate tab" - current code, very little audio
+- These different environments may have different AudioContext behaviors
+
+### Diagnostic Logging Added (Dec 2, 9:27 PM):
+```javascript
+// In audioUtils.ts - enqueueProgressivePcmChunk:
+console.error(`[AUDIO STATE] Chunk ${sentenceIndex}:${chunkIndex} - ctx.state=${ctx.state}`);
+
+// In audioUtils.ts - timing loop:
+console.error(`[TIMING LOOP] frame=${frameCount}, elapsed=${currentTime.toFixed(3)}s, ctx.state=${ctx?.state}`);
+```
+
+### Diagnostic Questions to Answer:
+1. Is AudioContext staying in "running" state? (`[AUDIO STATE]` logs)
+2. Is the timing loop advancing? (`[TIMING LOOP]` logs with increasing elapsed time)
+3. Are audio chunks being scheduled correctly? (ctx.currentTime in logs)
+
+### Hypothesis Ranking:
+
+| Rank | Hypothesis | Evidence |
+|------|------------|----------|
+| 1 | AudioContext suspension | "Very little audio" suggests playback stops |
+| 2 | Timing loop not firing | "Blips" of highlighting (not continuous) |
+| 3 | Chunk scheduling issues | Intermittent audio playback |
+| 4 | State management race | Works sometimes, not always |
+
+### Status: 🔴 INVESTIGATION CONTINUES
+
+The message chain is verified working. The issue is downstream in audio playback.
+Next step: User tests with new [AUDIO STATE] and [TIMING LOOP] diagnostics.
