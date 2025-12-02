@@ -727,11 +727,11 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     const adjustedTime = Math.max(0, currentTime - policyOffset);
     
     // Store actual duration for rescaling server estimates
+    // Always update with latest valid duration - don't keep stale values from previous sentences
     const isValidDuration = actualDuration !== undefined && actualDuration > 0 && Number.isFinite(actualDuration);
-    const needsUpdate = actualDurationRef.current === undefined || !Number.isFinite(actualDurationRef.current);
     
-    if (isValidDuration && needsUpdate) {
-      actualDurationRef.current = actualDuration * 1000;
+    if (isValidDuration) {
+      actualDurationRef.current = actualDuration * 1000; // Convert seconds to ms
     }
     
     // Calculate rescaling factor to recalibrate server estimates with actual duration
