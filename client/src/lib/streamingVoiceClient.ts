@@ -336,6 +336,9 @@ export class StreamingVoiceClient {
    * Handle incoming WebSocket message
    */
   private handleMessage(event: MessageEvent): void {
+    // DEBUG: Log EVERY message received
+    console.log(`[StreamingVoiceClient] handleMessage called, data type: ${typeof event.data}, isArrayBuffer: ${event.data instanceof ArrayBuffer}`);
+    
     // Binary data = audio chunk
     if (event.data instanceof ArrayBuffer) {
       console.log(`[StreamingVoiceClient] Received audio: ${event.data.byteLength} bytes`);
@@ -351,10 +354,8 @@ export class StreamingVoiceClient {
     try {
       const message: StreamingMessage = JSON.parse(event.data);
       
-      // DEBUG: Log all message types to see what's being received
-      if (message.type === 'word_timing_delta' || message.type === 'word_timing_final' || message.type === 'word_timing') {
-        console.log(`[StreamingVoiceClient] TIMING MESSAGE RECEIVED: type=${message.type}`);
-      }
+      // DEBUG: Log ALL message types
+      console.log(`[StreamingVoiceClient] JSON message type: ${message.type}`);
       
       switch (message.type) {
         case 'connected':
