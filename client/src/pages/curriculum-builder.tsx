@@ -134,14 +134,14 @@ export default function CurriculumBuilder() {
       setCreatePathOpen(false);
       pathForm.reset();
       toast({
-        title: "Curriculum Path Created",
-        description: "Your curriculum path has been created successfully.",
+        title: "Syllabus Created",
+        description: "Your syllabus has been created successfully.",
       });
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to create curriculum path",
+        description: error.message || "Failed to create syllabus",
         variant: "destructive",
       });
     },
@@ -159,7 +159,7 @@ export default function CurriculumBuilder() {
       unitForm.reset();
       toast({
         title: "Unit Created",
-        description: "The unit has been added to the curriculum path.",
+        description: "The unit has been added to the syllabus.",
       });
     },
     onError: (error: any) => {
@@ -243,8 +243,8 @@ export default function CurriculumBuilder() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold">Curriculum Builder</h1>
-          <p className="text-sm md:text-base text-muted-foreground mt-2">Create and manage curriculum paths, units, and lessons</p>
+          <h1 className="text-3xl md:text-4xl font-bold">Syllabus Builder</h1>
+          <p className="text-sm md:text-base text-muted-foreground mt-2">Create and manage syllabi, units, and lessons</p>
         </div>
         <Dialog open={createPathOpen} onOpenChange={setCreatePathOpen}>
           <DialogTrigger asChild>
@@ -255,8 +255,8 @@ export default function CurriculumBuilder() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create Curriculum Path</DialogTitle>
-              <DialogDescription>Create a new curriculum path for your students</DialogDescription>
+              <DialogTitle>Create Syllabus</DialogTitle>
+              <DialogDescription>Create a new syllabus for your students</DialogDescription>
             </DialogHeader>
             <Form {...pathForm}>
               <form onSubmit={pathForm.handleSubmit(handleCreatePath)} className="space-y-4 py-4">

@@ -229,6 +229,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   
   /**
    * Handle audio chunk message
+   * Supports both MP3 (HTMLAudioElement) and raw PCM (Web Audio API)
    */
   const handleAudioChunk = useCallback((msg: StreamingAudioChunkMessage) => {
     if (!playerRef.current) {
@@ -236,8 +237,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       return;
     }
     
-    // DEBUG: Log audio chunk processing
-    console.log(`[StreamingVoice] Processing audio chunk: turn=${msg.turnId}, sentence=${msg.sentenceIndex}, base64Len=${msg.audio?.length || 0}, isFirst=${msg.isFirst}, isLast=${msg.isLast}`);
+    const formatLabel = msg.audioFormat === 'pcm_f32le' ? 'PCM' : 'MP3';
+    console.log(`[StreamingVoice] Processing audio chunk (${formatLabel}): turn=${msg.turnId}, sentence=${msg.sentenceIndex}, base64Len=${msg.audio?.length || 0}, isLast=${msg.isLast}`);
     
     // Decode base64 to ArrayBuffer
     const binaryString = atob(msg.audio);
@@ -246,14 +247,15 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       bytes[i] = binaryString.charCodeAt(i);
     }
     
-    // DEBUG: Log decoded size
-    console.log(`[StreamingVoice] Audio decoded: ${bytes.buffer.byteLength} bytes for sentence ${msg.sentenceIndex}`);
+    console.log(`[StreamingVoice] Audio decoded: ${bytes.buffer.byteLength} bytes (${formatLabel}) for sentence ${msg.sentenceIndex}`);
     
     const chunk: StreamingAudioChunk = {
       sentenceIndex: msg.sentenceIndex,
       audio: bytes.buffer,
       durationMs: msg.durationMs,
       isLast: msg.isLast,
+      audioFormat: msg.audioFormat || 'mp3',  // Default to MP3 for backwards compatibility
+      sampleRate: msg.sampleRate || 24000,
     };
     
     playerRef.current.enqueue(chunk);

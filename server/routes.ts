@@ -5273,6 +5273,15 @@ Return ONLY the ${targetLanguage} phrase:`;
         joinCode,
       });
 
+      // Clone curriculum from original class if it has one
+      if (originalClass.curriculumPathId) {
+        try {
+          await storage.cloneCurriculumToClass(clonedClass.id, originalClass.curriculumPathId);
+        } catch (cloneError) {
+          console.error('Error cloning curriculum to cloned class:', cloneError);
+        }
+      }
+
       res.json(clonedClass);
     } catch (error: any) {
       console.error('Error cloning teacher class:', error);
@@ -6342,6 +6351,51 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // Initialize syllabus for a class (clones from template if class has curriculum_path_id but no units)
+  app.post("/api/teacher/classes/:classId/curriculum/initialize", mutationLimiter, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { classId } = req.params;
+      
+      // Check access
+      const { allowed, teacherClass } = await canAccessClassCurriculum(userId, classId);
+      if (!allowed || !teacherClass) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      // Check if user is the teacher or an admin
+      const user = await storage.getUser(userId);
+      if (teacherClass.teacherId !== userId && user?.role !== 'admin' && user?.role !== 'developer') {
+        return res.status(403).json({ error: "Only teachers or admins can initialize syllabus" });
+      }
+
+      // Check if the class already has curriculum units
+      const existingUnits = await storage.getClassCurriculumUnits(classId);
+      if (existingUnits.length > 0) {
+        return res.status(400).json({ error: "Class already has a syllabus" });
+      }
+
+      // Check if the class has a curriculum template
+      if (!teacherClass.curriculumPathId) {
+        return res.status(400).json({ error: "Class has no syllabus template assigned" });
+      }
+
+      // Clone the curriculum template to the class
+      const result = await storage.cloneCurriculumToClass(classId, teacherClass.curriculumPathId);
+      
+      console.log(`[Syllabus] Initialized syllabus for class ${classId}: ${result.units.length} units, ${result.lessons.length} lessons`);
+      
+      res.json({ 
+        success: true, 
+        unitsCreated: result.units.length, 
+        lessonsCreated: result.lessons.length 
+      });
+    } catch (error: any) {
+      console.error('Error initializing class syllabus:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get class curriculum units (syllabus)
   app.get("/api/teacher/classes/:classId/curriculum/units", isAuthenticated, async (req: any, res) => {
     try {

@@ -121,12 +121,19 @@ export interface StreamingSynthesisRequest {
 }
 
 /**
+ * Audio format types for streaming synthesis
+ */
+export type StreamingAudioFormat = 'mp3' | 'pcm_f32le';
+
+/**
  * Audio chunk from streaming synthesis
  */
 export interface StreamingAudioChunk {
   audio: Buffer;        // Raw audio data
   durationMs: number;   // Duration of this chunk
   isLast: boolean;      // Is this the final chunk?
+  audioFormat?: StreamingAudioFormat;  // Format of audio data (default: 'mp3')
+  sampleRate?: number;  // Sample rate for PCM audio (default: 24000)
 }
 
 /**
@@ -347,10 +354,9 @@ export class CartesiaStreamingService extends EventEmitter {
     let totalBytes = 0;
     let chunkCount = 0;
     
-    // WebSocket API returns raw PCM (not playable in browser without Web Audio API)
-    // Force bytes API for now - it returns MP3 which browsers can play natively
-    // TODO: Implement client-side Web Audio API for raw PCM playback to use native timestamps
-    const useWebSocket = false; // Disabled until client supports raw PCM playback
+    // Try WebSocket API first for native timestamps (raw PCM), fall back to bytes API (MP3)
+    // Client now supports both formats via Web Audio API (PCM) and HTMLAudioElement (MP3)
+    const useWebSocket = this.isConnected();
     
     // Clear any previous timestamps before starting new synthesis
     this.lastNativeTimestamps = [];
@@ -414,15 +420,17 @@ export class CartesiaStreamingService extends EventEmitter {
               console.log(`[Cartesia Streaming] TTFB (WebSocket): ${firstChunkTime - startTime}ms`);
             }
             
-            // message.data is base64-encoded audio
+            // message.data is base64-encoded audio (raw PCM f32le)
             const buffer = Buffer.from(message.data, 'base64');
             totalBytes += buffer.length;
             chunkCount++;
             
             yield {
               audio: buffer,
-              durationMs: this.estimateDuration(buffer.length),
+              durationMs: this.estimatePcmDuration(buffer.length),
               isLast: false,
+              audioFormat: 'pcm_f32le' as const,
+              sampleRate: 24000,
             };
           }
           
@@ -439,8 +447,10 @@ export class CartesiaStreamingService extends EventEmitter {
             
             yield {
               audio: buffer,
-              durationMs: this.estimateDuration(buffer.length),
+              durationMs: this.estimatePcmDuration(buffer.length),
               isLast: false,
+              audioFormat: 'pcm_f32le' as const,
+              sampleRate: 24000,
             };
           }
           
@@ -611,6 +621,18 @@ export class CartesiaStreamingService extends EventEmitter {
    */
   private estimateDuration(bufferSize: number): number {
     const bytesPerSecond = (AUDIO_STREAMING_CONFIG.BIT_RATE / 8);
+    return (bufferSize / bytesPerSecond) * 1000; // Return ms
+  }
+  
+  /**
+   * Estimate PCM audio duration from buffer size
+   * PCM f32le at 24kHz mono = 4 bytes per sample × 24000 samples/sec = 96KB per second
+   */
+  private estimatePcmDuration(bufferSize: number): number {
+    const bytesPerSample = 4; // 32-bit float = 4 bytes
+    const sampleRate = 24000;
+    const channels = 1;
+    const bytesPerSecond = bytesPerSample * sampleRate * channels;
     return (bufferSize / bytesPerSecond) * 1000; // Return ms
   }
   

@@ -96,6 +96,13 @@ export interface StreamingSentenceStartMessage extends StreamingVoiceMessage {
 }
 
 /**
+ * Audio format types
+ * - mp3: Standard MP3 audio (plays via HTMLAudioElement)
+ * - pcm_f32le: Raw 32-bit float PCM, little-endian (plays via Web Audio API)
+ */
+export type AudioFormat = 'mp3' | 'pcm_f32le';
+
+/**
  * Audio chunk for current sentence
  * Binary data sent separately via WebSocket binary frame
  */
@@ -107,6 +114,8 @@ export interface StreamingAudioChunkMessage extends StreamingVoiceMessage {
   isLast: boolean;        // Last chunk for this sentence
   durationMs: number;     // Duration of this chunk
   audio: string;          // Base64-encoded audio data
+  audioFormat?: AudioFormat;  // Audio format (default: 'mp3' for backwards compatibility)
+  sampleRate?: number;    // Sample rate for PCM (default: 24000)
 }
 
 /**

@@ -762,6 +762,8 @@ export class StreamingVoiceOrchestrator {
     
     let totalDurationMs = 0;
     const audioChunks: Buffer[] = [];
+    let audioFormat: 'mp3' | 'pcm_f32le' = 'mp3';  // Track format from first chunk
+    let sampleRate: number = 24000;
     
     try {
       // Collect all audio chunks from Cartesia (MP3 fragments need concatenation)
@@ -780,6 +782,12 @@ export class StreamingVoiceOrchestrator {
           audioChunks.push(audioChunk.audio);
           metrics.audioBytes += audioChunk.audio.length;
           totalDurationMs += audioChunk.durationMs;
+          
+          // Track format from first chunk
+          if (audioChunks.length === 1 && audioChunk.audioFormat) {
+            audioFormat = audioChunk.audioFormat;
+            sampleRate = audioChunk.sampleRate || 24000;
+          }
         }
         
         if (audioChunk.isLast) {
@@ -787,9 +795,10 @@ export class StreamingVoiceOrchestrator {
         }
       }
       
-      // Concatenate all chunks into a complete MP3 file
+      // Concatenate all chunks into complete audio buffer
       const completeAudio = Buffer.concat(audioChunks);
-      console.log(`[Streaming] Sentence ${index}: ${completeAudio.length} bytes, ${Math.round(totalDurationMs)}ms`);
+      const formatLabel = audioFormat === 'pcm_f32le' ? 'PCM' : 'MP3';
+      console.log(`[Streaming] Sentence ${index}: ${completeAudio.length} bytes (${formatLabel}), ${Math.round(totalDurationMs)}ms`);
       
       // Use current turn ID if not explicitly passed
       const effectiveTurnId = turnId ?? session.currentTurnId;
@@ -832,6 +841,8 @@ export class StreamingVoiceOrchestrator {
         isLast: true,
         durationMs: totalDurationMs,
         audio: audioBase64,
+        audioFormat: audioFormat,  // 'mp3' or 'pcm_f32le'
+        sampleRate: sampleRate,    // 24000 for PCM
       } as StreamingAudioChunkMessage);
       
       // Send sentence end

@@ -158,14 +158,17 @@ export class AudioPlayer {
  * Streaming Audio Player
  * 
  * Optimized for progressive playback of streaming audio chunks.
- * Uses HTMLAudioElement for MP3 playback (better browser support).
- * Supports queue-based playback with minimal buffering latency.
+ * Supports:
+ * - MP3 playback via HTMLAudioElement (better browser support)
+ * - Raw PCM playback via Web Audio API (lower latency, native timestamps)
  */
 export interface StreamingAudioChunk {
   sentenceIndex: number;
   audio: ArrayBuffer;
   durationMs: number;
   isLast: boolean;
+  audioFormat?: 'mp3' | 'pcm_f32le';  // Audio format (default: 'mp3')
+  sampleRate?: number;  // Sample rate for PCM (default: 24000)
 }
 
 export type StreamingPlaybackState = 'idle' | 'buffering' | 'playing' | 'paused';
@@ -199,8 +202,37 @@ export class StreamingAudioPlayer {
   private rafId: number | null = null;
   private currentDuration = 0;
   
+  // Web Audio API for raw PCM playback
+  private audioContext: AudioContext | null = null;
+  private currentPcmSource: AudioBufferSourceNode | null = null;
+  private currentAudioFormat: 'mp3' | 'pcm_f32le' = 'mp3';
+  
   constructor() {
     console.log('[StreamingAudioPlayer] Initialized');
+  }
+  
+  /**
+   * Get or create AudioContext for PCM playback
+   * Lazy initialization to comply with autoplay policies
+   */
+  private getAudioContext(): AudioContext {
+    if (!this.audioContext) {
+      this.audioContext = new AudioContext({ sampleRate: 24000 });
+      console.log('[StreamingAudioPlayer] Web Audio API initialized, state:', this.audioContext.state);
+    }
+    return this.audioContext;
+  }
+  
+  /**
+   * Resume AudioContext if suspended (required for autoplay policy)
+   */
+  async resumeAudioContext(): Promise<void> {
+    const ctx = this.getAudioContext();
+    if (ctx.state === 'suspended') {
+      console.log('[StreamingAudioPlayer] Resuming AudioContext...');
+      await ctx.resume();
+      console.log('[StreamingAudioPlayer] AudioContext resumed, state:', ctx.state);
+    }
   }
   
   /**
@@ -294,11 +326,21 @@ export class StreamingAudioPlayer {
     // Stop precision timing
     this.stopPrecisionTiming();
     
-    // Stop current audio
+    // Stop current MP3 audio
     if (this.currentAudio) {
       this.currentAudio.pause();
       this.currentAudio.src = '';
       this.currentAudio = null;
+    }
+    
+    // Stop current PCM audio
+    if (this.currentPcmSource) {
+      try {
+        this.currentPcmSource.stop();
+      } catch (e) {
+        // Ignore - source may already be stopped
+      }
+      this.currentPcmSource = null;
     }
     
     // Clear queue and pending count
@@ -402,12 +444,23 @@ export class StreamingAudioPlayer {
   
   /**
    * Play the next chunk in the queue
+   * Supports both MP3 (HTMLAudioElement) and raw PCM (Web Audio API)
    */
   private async playNext(): Promise<void> {
     console.log(`[StreamingAudioPlayer] ▶ PLAY_NEXT called, queue has ${this.queue.length} chunks`);
     
     // Stop any existing precision timing
     this.stopPrecisionTiming();
+    
+    // Stop any existing PCM source
+    if (this.currentPcmSource) {
+      try {
+        this.currentPcmSource.stop();
+      } catch (e) {
+        // Ignore - source may already be stopped
+      }
+      this.currentPcmSource = null;
+    }
     
     // Get next chunk from queue
     const chunk = this.queue.shift();
@@ -423,86 +476,160 @@ export class StreamingAudioPlayer {
     this.isPlaying = true;
     this.currentSentenceIndex = chunk.sentenceIndex;
     this.currentDuration = chunk.durationMs / 1000; // Convert to seconds
+    this.currentAudioFormat = chunk.audioFormat || 'mp3';
     
     // Set state to buffering BEFORE firing callbacks
     // This prevents race condition where isProcessing=false but playbackState still 'idle'
     this.setState('buffering');
     
-    console.log(`[StreamingAudioPlayer] ▶ Playing sentence ${chunk.sentenceIndex}: ${chunk.audio.byteLength} bytes, expectedDuration=${(chunk.durationMs/1000).toFixed(2)}s, isLast=${chunk.isLast}`);
-    // NOTE: onSentenceStart is now called from onplaying event for precise timing sync
+    const formatLabel = this.currentAudioFormat === 'pcm_f32le' ? 'PCM' : 'MP3';
+    console.log(`[StreamingAudioPlayer] ▶ Playing sentence ${chunk.sentenceIndex} (${formatLabel}): ${chunk.audio.byteLength} bytes, expectedDuration=${(chunk.durationMs/1000).toFixed(2)}s, isLast=${chunk.isLast}`);
     
     try {
-      // Create blob URL for the audio
-      const blob = new Blob([chunk.audio], { type: 'audio/mpeg' });
-      const url = URL.createObjectURL(blob);
-      this.objectUrls.push(url);
-      
-      // Create audio element
-      this.currentAudio = new Audio(url);
-      
-      // Handle audio events
-      this.currentAudio.onloadedmetadata = () => {
-        // Use actual duration from audio if available
-        if (this.currentAudio && this.currentAudio.duration > 0 && Number.isFinite(this.currentAudio.duration)) {
-          this.currentDuration = this.currentAudio.duration;
-          console.log(`[StreamingAudioPlayer] Audio loaded: ${this.currentDuration.toFixed(3)}s`);
-        }
-      };
-      
-      // Use 'playing' event - fires when audio ACTUALLY starts producing sound
-      // This is more accurate than 'play' (which fires when play() is called)
-      this.currentAudio.onplaying = () => {
-        this.setState('playing');
-        // Capture the EXACT moment audio starts playing
-        this.playbackStartTime = performance.now();
-        console.log(`[StreamingAudioPlayer] Audio started at ${this.playbackStartTime.toFixed(2)}ms`);
-        
-        // Fire onSentenceStart HERE for precise sync with subtitle timing
-        // This ensures subtitles start at the exact moment audio plays
-        this.callbacks.onSentenceStart?.(this.currentSentenceIndex);
-        
-        // Start high-precision timing loop
-        this.startPrecisionTiming();
-      };
-      
-      this.currentAudio.onended = () => {
-        console.log(`[StreamingAudioPlayer] Sentence ${chunk.sentenceIndex} ended`);
-        this.stopPrecisionTiming();
-        this.callbacks.onSentenceEnd?.(chunk.sentenceIndex);
-        
-        // Decrement pending count after chunk finishes
-        this.updatePendingCount(Math.max(0, this.pendingAudioCount - 1));
-        
-        // Play next chunk
-        this.playNext();
-      };
-      
-      this.currentAudio.onerror = (event) => {
-        console.error('[StreamingAudioPlayer] Audio error:', event);
-        this.stopPrecisionTiming();
-        this.callbacks.onError?.(new Error('Audio playback failed'));
-        
-        // Decrement pending count on error too
-        this.updatePendingCount(Math.max(0, this.pendingAudioCount - 1));
-        
-        // Try next chunk
-        this.playNext();
-      };
-      
-      // Start playback
-      await this.currentAudio.play();
+      if (this.currentAudioFormat === 'pcm_f32le') {
+        // Raw PCM playback via Web Audio API
+        await this.playPcmChunk(chunk);
+      } else {
+        // MP3 playback via HTMLAudioElement
+        await this.playMp3Chunk(chunk);
+      }
       
     } catch (error: any) {
       console.error('[StreamingAudioPlayer] Error playing chunk:', error);
       this.stopPrecisionTiming();
       this.callbacks.onError?.(error);
       
-      // Decrement pending count on error (matches onerror handler behavior)
+      // Decrement pending count on error
       this.updatePendingCount(Math.max(0, this.pendingAudioCount - 1));
       
       // Try next chunk
       this.playNext();
     }
+  }
+  
+  /**
+   * Play MP3 audio chunk using HTMLAudioElement
+   */
+  private async playMp3Chunk(chunk: StreamingAudioChunk): Promise<void> {
+    // Create blob URL for the audio
+    const blob = new Blob([chunk.audio], { type: 'audio/mpeg' });
+    const url = URL.createObjectURL(blob);
+    this.objectUrls.push(url);
+    
+    // Create audio element
+    this.currentAudio = new Audio(url);
+    
+    // Handle audio events
+    this.currentAudio.onloadedmetadata = () => {
+      // Use actual duration from audio if available
+      if (this.currentAudio && this.currentAudio.duration > 0 && Number.isFinite(this.currentAudio.duration)) {
+        this.currentDuration = this.currentAudio.duration;
+        console.log(`[StreamingAudioPlayer] Audio loaded: ${this.currentDuration.toFixed(3)}s`);
+      }
+    };
+    
+    // Use 'playing' event - fires when audio ACTUALLY starts producing sound
+    this.currentAudio.onplaying = () => {
+      this.setState('playing');
+      this.playbackStartTime = performance.now();
+      console.log(`[StreamingAudioPlayer] MP3 started at ${this.playbackStartTime.toFixed(2)}ms`);
+      
+      // Fire onSentenceStart for precise sync with subtitle timing
+      this.callbacks.onSentenceStart?.(this.currentSentenceIndex);
+      
+      // Start high-precision timing loop
+      this.startPrecisionTiming();
+    };
+    
+    this.currentAudio.onended = () => {
+      console.log(`[StreamingAudioPlayer] Sentence ${chunk.sentenceIndex} ended (MP3)`);
+      this.stopPrecisionTiming();
+      this.callbacks.onSentenceEnd?.(chunk.sentenceIndex);
+      
+      // Decrement pending count after chunk finishes
+      this.updatePendingCount(Math.max(0, this.pendingAudioCount - 1));
+      
+      // Play next chunk
+      this.playNext();
+    };
+    
+    this.currentAudio.onerror = (event) => {
+      console.error('[StreamingAudioPlayer] MP3 audio error:', event);
+      this.stopPrecisionTiming();
+      this.callbacks.onError?.(new Error('MP3 playback failed'));
+      
+      // Decrement pending count on error
+      this.updatePendingCount(Math.max(0, this.pendingAudioCount - 1));
+      
+      // Try next chunk
+      this.playNext();
+    };
+    
+    // Start playback
+    await this.currentAudio.play();
+  }
+  
+  /**
+   * Play raw PCM audio chunk using Web Audio API
+   * PCM format: 32-bit float, little-endian (f32le), 24kHz mono
+   */
+  private async playPcmChunk(chunk: StreamingAudioChunk): Promise<void> {
+    const ctx = this.getAudioContext();
+    const sampleRate = chunk.sampleRate || 24000;
+    
+    // Resume AudioContext if suspended (browser autoplay policy)
+    if (ctx.state === 'suspended') {
+      console.log('[StreamingAudioPlayer] Resuming AudioContext for PCM playback...');
+      await ctx.resume();
+    }
+    
+    // Convert raw PCM bytes to Float32Array
+    // f32le = 32-bit float, little-endian = 4 bytes per sample
+    const float32Data = new Float32Array(chunk.audio);
+    const numSamples = float32Data.length;
+    
+    console.log(`[StreamingAudioPlayer] PCM: ${numSamples} samples at ${sampleRate}Hz = ${(numSamples / sampleRate).toFixed(3)}s`);
+    
+    // Create AudioBuffer
+    const audioBuffer = ctx.createBuffer(1, numSamples, sampleRate);
+    audioBuffer.getChannelData(0).set(float32Data);
+    
+    // Update actual duration from buffer
+    this.currentDuration = audioBuffer.duration;
+    
+    // Create buffer source node
+    const source = ctx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(ctx.destination);
+    this.currentPcmSource = source;
+    
+    // Set state and timing BEFORE starting playback
+    this.setState('playing');
+    this.playbackStartTime = performance.now();
+    console.log(`[StreamingAudioPlayer] PCM started at ${this.playbackStartTime.toFixed(2)}ms`);
+    
+    // Fire onSentenceStart for precise sync with subtitle timing
+    this.callbacks.onSentenceStart?.(this.currentSentenceIndex);
+    
+    // Start high-precision timing loop
+    this.startPrecisionTiming();
+    
+    // Handle playback end
+    source.onended = () => {
+      console.log(`[StreamingAudioPlayer] Sentence ${chunk.sentenceIndex} ended (PCM)`);
+      this.stopPrecisionTiming();
+      this.currentPcmSource = null;
+      this.callbacks.onSentenceEnd?.(chunk.sentenceIndex);
+      
+      // Decrement pending count after chunk finishes
+      this.updatePendingCount(Math.max(0, this.pendingAudioCount - 1));
+      
+      // Play next chunk
+      this.playNext();
+    };
+    
+    // Start playback
+    source.start(0);
   }
   
   /**
