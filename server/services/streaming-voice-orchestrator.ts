@@ -1428,15 +1428,19 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
   private sendMessage(ws: WS, message: StreamingMessage): void {
     if (ws.readyState === WS.OPEN) {
       const json = JSON.stringify(message);
-      // DEBUG: Log word timing delta sends
+      // DEBUG: Log critical message sends
       if (message.type === 'word_timing_delta') {
         console.log(`[SEND DEBUG] word_timing_delta: readyState=${ws.readyState}, length=${json.length}`);
+      }
+      if (message.type === 'audio_chunk') {
+        const audioMsg = message as any;
+        console.log(`[SEND DEBUG] audio_chunk: sentence=${audioMsg.sentenceIndex}, chunk=${audioMsg.chunkIndex}, audioLen=${audioMsg.audio?.length || 0}, isLast=${audioMsg.isLast}`);
       }
       ws.send(json);
     } else {
       // DEBUG: Log when WebSocket isn't open
-      if (message.type === 'word_timing_delta') {
-        console.log(`[SEND DEBUG] SKIPPED word_timing_delta: readyState=${ws.readyState} (not OPEN)`);
+      if (message.type === 'word_timing_delta' || message.type === 'audio_chunk') {
+        console.log(`[SEND DEBUG] SKIPPED ${message.type}: readyState=${ws.readyState} (not OPEN)`);
       }
     }
   }
