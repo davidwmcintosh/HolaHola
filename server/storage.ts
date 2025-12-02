@@ -62,6 +62,9 @@ import {
   type InsertClassCurriculumUnit,
   type ClassCurriculumLesson,
   type InsertClassCurriculumLesson,
+  type UserLanguagePreferences,
+  type InsertUserLanguagePreferences,
+  userLanguagePreferences,
   classHourPackages,
   classTypes,
   classCurriculumUnits,
@@ -133,6 +136,15 @@ export interface IStorage {
     assessmentSource?: string;
     lastAssessmentDate?: Date;
   }): Promise<User | undefined>;
+
+  // Per-language self-directed preferences
+  getLanguagePreferences(userId: string, language: string): Promise<UserLanguagePreferences | undefined>;
+  getAllLanguagePreferences(userId: string): Promise<UserLanguagePreferences[]>;
+  upsertLanguagePreferences(userId: string, language: string, preferences: {
+    selfDirectedFlexibility?: 'guided' | 'flexible_goals' | 'open_exploration' | 'free_conversation';
+    selfDirectedPlacementDone?: boolean;
+  }): Promise<UserLanguagePreferences>;
+  hasClassEnrollmentForLanguage(userId: string, language: string): Promise<boolean>;
 
   // Usage tracking for voice messages
   checkVoiceUsage(userId: string): Promise<{allowed: boolean, remaining: number, limit: number}>;
@@ -966,6 +978,68 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return updated;
+  }
+
+  // Per-language self-directed preferences
+  async getLanguagePreferences(userId: string, language: string): Promise<UserLanguagePreferences | undefined> {
+    const [prefs] = await db.select()
+      .from(userLanguagePreferences)
+      .where(and(
+        eq(userLanguagePreferences.userId, userId),
+        eq(userLanguagePreferences.language, language.toLowerCase())
+      ))
+      .limit(1);
+    return prefs;
+  }
+
+  async getAllLanguagePreferences(userId: string): Promise<UserLanguagePreferences[]> {
+    return db.select()
+      .from(userLanguagePreferences)
+      .where(eq(userLanguagePreferences.userId, userId));
+  }
+
+  async upsertLanguagePreferences(userId: string, language: string, preferences: {
+    selfDirectedFlexibility?: 'guided' | 'flexible_goals' | 'open_exploration' | 'free_conversation';
+    selfDirectedPlacementDone?: boolean;
+  }): Promise<UserLanguagePreferences> {
+    const normalizedLanguage = language.toLowerCase();
+    const existing = await this.getLanguagePreferences(userId, normalizedLanguage);
+    
+    if (existing) {
+      const [updated] = await db.update(userLanguagePreferences)
+        .set({
+          ...preferences,
+          updatedAt: new Date(),
+        })
+        .where(eq(userLanguagePreferences.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(userLanguagePreferences)
+        .values({
+          userId,
+          language: normalizedLanguage,
+          selfDirectedFlexibility: preferences.selfDirectedFlexibility || 'flexible_goals',
+          selfDirectedPlacementDone: preferences.selfDirectedPlacementDone || false,
+        })
+        .returning();
+      return created;
+    }
+  }
+
+  async hasClassEnrollmentForLanguage(userId: string, language: string): Promise<boolean> {
+    // Check if user has any active class enrollments for this specific language
+    const normalizedLanguage = language.toLowerCase();
+    const enrollments = await db.select({ id: classEnrollments.id })
+      .from(classEnrollments)
+      .innerJoin(teacherClasses, eq(classEnrollments.classId, teacherClasses.id))
+      .where(and(
+        eq(classEnrollments.studentId, userId),
+        eq(classEnrollments.status, 'active'),
+        sql`LOWER(${teacherClasses.language}) = ${normalizedLanguage}`
+      ))
+      .limit(1);
+    return enrollments.length > 0;
   }
 
   // Usage tracking for voice messages
