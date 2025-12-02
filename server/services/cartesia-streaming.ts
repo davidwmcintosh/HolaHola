@@ -232,11 +232,13 @@ export class CartesiaStreamingService extends EventEmitter {
       const connectStart = Date.now();
       
       // Get WebSocket client from Cartesia SDK
-      // Use WAV format - playable in browsers and supports native timestamps
+      // Use raw PCM format with native timestamps
+      // Note: Client needs Web Audio API to play raw PCM (future enhancement)
+      // Currently falls back to bytes API for MP3 output
       this.websocket = this.client.tts.websocket({
         sampleRate: 24000,
-        container: 'wav',
-        encoding: 'pcm_s16le', // 16-bit signed PCM for WAV
+        container: 'raw',
+        encoding: 'pcm_f32le',
       });
       
       // Connect to WebSocket
@@ -377,38 +379,25 @@ export class CartesiaStreamingService extends EventEmitter {
         // Collect timestamps as they arrive
         const collectedTimestamps: WordTiming[] = [];
         
-        // Debug: log response structure
-        console.log('[Cartesia Streaming] Response type:', typeof response);
-        console.log('[Cartesia Streaming] Response keys:', Object.keys(response || {}));
-        console.log('[Cartesia Streaming] Has events method:', typeof (response as any)?.events);
-        
         // Process all events from the response using events() iterator
-        let messageCount = 0;
         for await (const rawMessage of response.events('message')) {
-          messageCount++;
-          
           // Parse the raw message if it's a string/buffer
           let message: any;
           if (typeof rawMessage === 'string') {
             try {
               message = JSON.parse(rawMessage);
             } catch {
-              console.log('[Cartesia Streaming] Message', messageCount, 'is non-JSON string');
               continue;
             }
           } else if (Buffer.isBuffer(rawMessage) || rawMessage instanceof Uint8Array) {
             try {
               message = JSON.parse(rawMessage.toString());
             } catch {
-              // Might be raw audio data
-              console.log('[Cartesia Streaming] Message', messageCount, 'is binary data, length:', rawMessage.length);
               continue;
             }
           } else {
             message = rawMessage;
           }
-          
-          console.log('[Cartesia Streaming] Message', messageCount, 'type:', message?.type, 'keys:', Object.keys(message || {}));
           
           // Handle errors
           if (message.type === 'error') {
