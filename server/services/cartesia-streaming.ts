@@ -232,10 +232,12 @@ export class CartesiaStreamingService extends EventEmitter {
       const connectStart = Date.now();
       
       // Get WebSocket client from Cartesia SDK
+      // Try MP3 without encoding parameter - let Cartesia use default bitrate
       this.websocket = this.client.tts.websocket({
         sampleRate: AUDIO_STREAMING_CONFIG.SAMPLE_RATE,
         container: 'mp3',
-        encoding: 'pcm_s16le',
+        // Don't specify encoding for MP3 (only needed for raw PCM)
+        // Don't specify bitRate - let Cartesia use a supported default
       });
       
       // Connect to WebSocket
