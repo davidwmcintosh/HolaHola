@@ -387,14 +387,19 @@ export class StreamingVoiceClient {
       
       // PERSISTENT DEBUG: Track ALL message types in window object
       if (typeof window !== 'undefined') {
-        // Very distinctive log that can't be confused with browser extension
-        console.log('%c[SVC-MSG] ' + message.type, 'color: lime; background: black; font-weight: bold');
-        if (!(window as any)._msgCounts) {
-          (window as any)._msgCounts = {};
-          console.log('%c[SVC] _msgCounts INITIALIZED', 'color: yellow; background: black; font-size: 14px');
+        try {
+          // Very distinctive log that can't be confused with browser extension
+          console.log('%c[SVC-MSG] ' + message.type, 'color: lime; background: black; font-weight: bold');
+          if (!(window as any)._msgCounts) {
+            (window as any)._msgCounts = {};
+            console.log('%c[SVC] _msgCounts INITIALIZED', 'color: yellow; background: black; font-size: 14px');
+          }
+          (window as any)._msgCounts[message.type] = ((window as any)._msgCounts[message.type] || 0) + 1;
+          (window as any)._lastMsg = { type: message.type, time: Date.now() };
+          console.log('%c[SVC] _msgCounts NOW: ' + JSON.stringify((window as any)._msgCounts), 'color: cyan; background: black');
+        } catch (err) {
+          console.error('%c[SVC] ERROR setting window vars:', 'color: red; background: white', err);
         }
-        (window as any)._msgCounts[message.type] = ((window as any)._msgCounts[message.type] || 0) + 1;
-        (window as any)._lastMsg = { type: message.type, time: Date.now() };
       }
       
       // GLOBAL DEBUG: Track by message type
