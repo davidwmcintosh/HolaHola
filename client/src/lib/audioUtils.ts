@@ -434,6 +434,7 @@ export class StreamingAudioPlayer {
     this.progressiveTotalDuration += chunkDuration; // Track total duration
     
     // Track first chunk for timing
+    console.log(`[AUDIO DEBUG] chunk=${chunkIndex}, firstChunkStarted=${this.progressiveFirstChunkStarted}, sentence=${sentenceIndex}`);
     if (!this.progressiveFirstChunkStarted && chunkIndex === 0) {
       this.progressiveFirstChunkStarted = true;
       this.playbackStartTime = performance.now();
