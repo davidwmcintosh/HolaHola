@@ -376,8 +376,8 @@ export class CartesiaStreamingService extends EventEmitter {
         // Collect timestamps as they arrive
         const collectedTimestamps: WordTiming[] = [];
         
-        // Process all events from the response
-        for await (const message of response) {
+        // Process all events from the response using events() iterator
+        for await (const message of response.events('message')) {
           // Handle audio chunks
           if (message.audio) {
             if (!firstChunkTime) {
