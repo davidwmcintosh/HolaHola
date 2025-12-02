@@ -1,0 +1,1121 @@
+
+      /////////////////////
+   ///////////////////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////        Curious and driven?
+  ///////////////@@@@@@@///////        Work with us!
+  ///////////////@@@@@@@///////
+  ///////////////@@@@@@@///////        https://join.replit.com/hack.with.us
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@#//////////////
+   ///////////////////////////
+      /////////////////////
+      
+efbc7904149f1f43.js:2 Download the Apollo DevTools for a better development experience: https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+efbc7904149f1f43.js:2 [LaunchDarkly] LaunchDarkly client initialized
+efbc7904149f1f43.js:2 Cache data may be lost when replacing the dealContext field of a Org object.
+
+This could cause additional (usually avoidable) network requests to fetch data that were otherwise cached.
+
+To address this problem (which is not a bug in Apollo Client), either ensure all objects of type OrgDealContext have an ID or a custom merge function, or define a custom merge function for the Org.dealContext field, so InMemoryCache can safely merge these objects:
+
+  existing: {"__typename":"OrgDealContext","dealType":"default","salesContactEmail":null}
+  incoming: {"__typename":"OrgDealContext","dealType":"default"}
+
+For more information about these options, please refer to the documentation:
+
+  * Ensuring entity objects have IDs: https://go.apollo.dev/c/generating-unique-identifiers
+  * Defining custom merge functions: https://go.apollo.dev/c/merging-non-normalized-objects
+
+(anonymous) @ efbc7904149f1f43.js:2
+4LinguaFlow:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+stallwart.build.js:1 stallwart: failed ping 3
+stallwart.build.js:1 stallwart: failed ping 4
+stallwart.build.js:1 stallwart: failed ping 5
+stallwart.build.js:1 stallwart: session stalled
+949Third-party cookie will be blocked. Learn more in the Issues tab.
+efbc7904149f1f43.js:2 [Coframe] Mutation callback infinite loop protection triggered, disconnecting mutation observer Object
+(anonymous) @ efbc7904149f1f43.js:2
+10Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+9The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+9The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+9The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+/graphql:1 
+        
+        
+       Failed to load resource: the server responded with a status of 520 ()
+ed1e693c96a75807.js:2 Unrecognized feature: 'ambient-light-sensor'.
+z @ ed1e693c96a75807.js:2
+ed1e693c96a75807.js:2 Unrecognized feature: 'battery'.
+z @ ed1e693c96a75807.js:2
+ed1e693c96a75807.js:2 Unrecognized feature: 'execution-while-not-rendered'.
+z @ ed1e693c96a75807.js:2
+ed1e693c96a75807.js:2 Unrecognized feature: 'execution-while-out-of-viewport'.
+z @ ed1e693c96a75807.js:2
+ed1e693c96a75807.js:2 Unrecognized feature: 'layout-animations'.
+z @ ed1e693c96a75807.js:2
+ed1e693c96a75807.js:2 Unrecognized feature: 'legacy-image-formats'.
+z @ ed1e693c96a75807.js:2
+ed1e693c96a75807.js:2 Unrecognized feature: 'navigation-override'.
+z @ ed1e693c96a75807.js:2
+ed1e693c96a75807.js:2 Unrecognized feature: 'oversized-images'.
+z @ ed1e693c96a75807.js:2
+ed1e693c96a75807.js:2 Unrecognized feature: 'publickey-credentials'.
+z @ ed1e693c96a75807.js:2
+ed1e693c96a75807.js:2 Unrecognized feature: 'speaker-selection'.
+z @ ed1e693c96a75807.js:2
+ed1e693c96a75807.js:2 Unrecognized feature: 'unoptimized-images'.
+z @ ed1e693c96a75807.js:2
+ed1e693c96a75807.js:2 Unrecognized feature: 'unsized-media'.
+z @ ed1e693c96a75807.js:2
+ed1e693c96a75807.js:2 Unrecognized feature: 'pointer-lock'.
+z @ ed1e693c96a75807.js:2
+ed1e693c96a75807.js:2 Allow attribute will take precedence over 'allowfullscreen'.
+z @ ed1e693c96a75807.js:2
+ed1e693c96a75807.js:2 Allow attribute will take precedence over 'allowpaymentrequest'.
+z @ ed1e693c96a75807.js:2
+workspace_iframe.html:32 Unrecognized feature: 'ambient-light-sensor'.
+workspace_iframe.html:32 Unrecognized feature: 'battery'.
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-not-rendered'.
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-out-of-viewport'.
+workspace_iframe.html:32 Unrecognized feature: 'layout-animations'.
+workspace_iframe.html:32 Unrecognized feature: 'legacy-image-formats'.
+workspace_iframe.html:32 Unrecognized feature: 'navigation-override'.
+workspace_iframe.html:32 Unrecognized feature: 'oversized-images'.
+workspace_iframe.html:32 Unrecognized feature: 'publickey-credentials'.
+workspace_iframe.html:32 Unrecognized feature: 'speaker-selection'.
+workspace_iframe.html:32 Unrecognized feature: 'unoptimized-images'.
+workspace_iframe.html:32 Unrecognized feature: 'unsized-media'.
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowfullscreen'.
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowpaymentrequest'.
+turbopack-4eca95d8678e7ca5.js:2 [Report Only] Refused to load the script 'https://cdn.replit.com/_next/static/chunks/08625c8dc9bf1d80.js' because it violates the following Content Security Policy directive: "script-src 'none'". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback.
+
+i @ turbopack-4eca95d8678e7ca5.js:2
+injected.js:37 [SUBTITLE RENDER v2] ✓ SHOWING: Target mode with hasTargetContent=true
+injected.js:37 [SUBTITLE RENDER v2] Words check: Object
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE BLOCK] Nothing to show (activeBlock="", teaching="Hola", shownTeaching=false)
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=1, sentence=1, chunk=20, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=1, sentence=1, chunk=20, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 20: 3344 samples, 0.139s, scheduled at 6.656s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=1, sentence=1, chunk=21, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=1, sentence=1, chunk=21, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 21: 3344 samples, 0.139s, scheduled at 6.795s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=1, word=7 "learn" 2.786-3.127s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=1, word=7
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 1, word 7 "learn" 2.786-3.127s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=1, sentence=1, chunk=22, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=1, sentence=1, chunk=22, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 22: 3343 samples, 0.139s, scheduled at 6.934s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=1, sentence=1, chunk=23, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=1, sentence=1, chunk=23, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 23: 3344 samples, 0.139s, scheduled at 7.074s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=1, sentence=1, chunk=24, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=1, sentence=1, chunk=24, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 24: 3344 samples, 0.139s, scheduled at 7.213s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=1, word=8 "Hola" 3.127-3.514s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=1, word=8
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 1, word 8 "Hola" 3.127-3.514s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=1, sentence=1, chunk=25, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=1, sentence=1, chunk=25, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 25: 3343 samples, 0.139s, scheduled at 7.352s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=1, sentence=1, chunk=26, size=764 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=1, sentence=1, chunk=26, base64Len=764, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 572 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 26: 143 samples, 0.006s, scheduled at 7.492s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing final: sentence=1, 9 words, 3622.2916666666674ms
+injected.js:37 [StreamingSubtitles v2] Finalize timings for sentence 1 (turn 1): 9 words, 3622.2916666666674ms
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=1, sentence=1, chunk=27, size=0 chars (base64), isLast=true
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=1, sentence=1, chunk=27, base64Len=0, isLast=true
+injected.js:37 [StreamingVoice] Audio decoded: 0 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Sentence 1 complete
+injected.js:37 [StreamingVoice] Sentence 1 ended (turn 1)
+injected.js:37 [StreamingAudioPlayer] State: playing → idle
+injected.js:37 [StreamingVoice] Playback state: idle
+injected.js:37 [StreamingVoice] Playback queue empty
+injected.js:37 [StreamingVoice] Not clearing: complete=false, pending=0
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Sentence 1 complete (3622.2916666666674ms)
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Sentence 2: "Can you try saying Hola?..."
+injected.js:37 [StreamingVoice] Sentence 2 (turn 1): "Can you try saying Hola?..." hasTarget=true
+injected.js:37 [StreamingSubtitles v2] ───────────────────────────────────────────
+injected.js:37 [StreamingSubtitles v2] ADD SENTENCE 2 (turn 1)
+injected.js:37 [StreamingSubtitles v2]   hasTarget: true
+injected.js:37 [StreamingSubtitles v2]   targetText: "Hola"
+injected.js:37 [StreamingSubtitles v2]   wordMapping: [[4,0]]
+injected.js:37 [StreamingSubtitles v2]   displayText: "Can you try saying Hola?..."
+injected.js:37 [TargetBlocks] Computed 1 block(s) from "Hola": Array(1)
+injected.js:37 [StreamingSubtitles v2]   TargetBlocks: Array(1)
+injected.js:37 [StreamingSubtitles v2] ───────────────────────────────────────────
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=1, sentence=2, chunk=0, size=17072 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=1, sentence=2, chunk=0, base64Len=17072, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 12804 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] New sentence 2, resetting state
+injected.js:37 [StreamingAudioPlayer] State: idle → buffering
+injected.js:37 [StreamingVoice] Playback state: buffering
+injected.js:37 [StreamingAudioPlayer] State: buffering → playing
+injected.js:37 [StreamingVoice] Playback state: playing
+injected.js:37 [StreamingVoice] Sentence 2 started (turn 1)
+injected.js:37 [StreamingSubtitles v2] ▶ START PLAYBACK sentence 2 (turn 1)
+injected.js:37 [StreamingSubtitles v2]   Policy: progressive=true, fullSentence=false, initialVisible=0
+injected.js:37 [StreamingAudioPlayer] Starting precision timing loop (audio.currentTime anchored)
+injected.js:37 [StreamingAudioPlayer] [Progressive] First chunk playing at 7.332s (ctx.currentTime=7.243s)
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 0: 3201 samples, 0.133s, scheduled at 7.332s, isLast=false
+injected.js:37 [StreamingSubtitles v2]   Adding to sentences array (now 3 sentences)
+injected.js:37 [StreamingSubtitles v2]   Sentence 2 hasTarget: true
+injected.js:37 [StreamingSubtitles v2]   Sentence 2 targetText: "Hola"
+2injected.js:37 [StreamingSubtitles v2] TARGET TEXT: "Hola" (sentence 2, 1 words, hasTarget=true)
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ✓ SHOWING: Target mode with hasTargetContent=true
+injected.js:37 [SUBTITLE RENDER v2] Words check: Object
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE BLOCK] Nothing to show (activeBlock="", teaching="Hola", shownTeaching=false)
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=1, sentence=2, chunk=1, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=1, sentence=2, chunk=1, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 7.465, now 7.504
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 1: 3343 samples, 0.139s, scheduled at 7.554s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=2, word=0 "Can" 0.108-0.310s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=2, word=0
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 2, word 0 "Can" 0.108-0.310s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=1, sentence=2, chunk=2, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=1, sentence=2, chunk=2, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 2: 3344 samples, 0.139s, scheduled at 7.693s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=2, word=1 "you" 0.310-0.449s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=2, word=1
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 2, word 1 "you" 0.310-0.449s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=1, sentence=2, chunk=3, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=1, sentence=2, chunk=3, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 3: 3344 samples, 0.139s, scheduled at 7.833s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [DELTA] count=26, latest: s=2 w=2
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=2, word=2 "try" 0.449-0.619s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=2, word=2
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 2, word 2 "try" 0.449-0.619s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=1, sentence=2, chunk=4, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=1, sentence=2, chunk=4, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 4: 3343 samples, 0.139s, scheduled at 7.972s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=1, sentence=2, chunk=5, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=1, sentence=2, chunk=5, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 5: 3344 samples, 0.139s, scheduled at 8.111s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=1, sentence=2, chunk=6, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=1, sentence=2, chunk=6, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 6: 3344 samples, 0.139s, scheduled at 8.251s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=2, word=3 "saying" 0.619-1.099s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=2, word=3
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 2, word 3 "saying" 0.619-1.099s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=1, sentence=2, chunk=7, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=1, sentence=2, chunk=7, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 8.390, now 8.512
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 7: 3343 samples, 0.139s, scheduled at 8.562s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=2, word=4 "Hola?" 1.099-1.161s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=2, word=4
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 2, word 4 "Hola?" 1.099-1.161s
+injected.js:37 [StreamingSubtitles v2] TARGET TEXT: "Hola" (sentence 2, 1 words, hasTarget=true)
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ✓ SHOWING: Target mode with hasTargetContent=true
+injected.js:37 [SUBTITLE RENDER v2] Words check: Object
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE BLOCK] Nothing to show (activeBlock="", teaching="Hola", shownTeaching=false)
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=1, sentence=2, chunk=8, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=1, sentence=2, chunk=8, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 8.701, now 8.955
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 8: 3344 samples, 0.139s, scheduled at 9.005s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=1, sentence=2, chunk=9, size=764 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=1, sentence=2, chunk=9, base64Len=764, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 572 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 9: 143 samples, 0.006s, scheduled at 9.144s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing final: sentence=2, 5 words, 1253.875ms
+injected.js:37 [StreamingSubtitles v2] Finalize timings for sentence 2 (turn 1): 5 words, 1253.875ms
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=1, sentence=2, chunk=10, size=0 chars (base64), isLast=true
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=1, sentence=2, chunk=10, base64Len=0, isLast=true
+injected.js:37 [StreamingVoice] Audio decoded: 0 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Sentence 2 complete
+injected.js:37 [StreamingVoice] Sentence 2 ended (turn 1)
+injected.js:37 [StreamingAudioPlayer] State: playing → idle
+injected.js:37 [StreamingVoice] Playback state: idle
+injected.js:37 [StreamingVoice] Playback queue empty
+injected.js:37 [StreamingVoice] Not clearing: complete=false, pending=0
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Sentence 2 complete (1253.875ms)
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Response complete: 3 sentences in 5982ms
+injected.js:37 [StreamingVoiceClient] State: streaming → ready
+injected.js:37 [StreamingVoice] Server signaled response complete
+injected.js:37 [STREAMING] Response complete - refreshing messages for c8be98d2-465c-4e1a-a598-6493f5f17bc7
+injected.js:37 [StreamingAudioPlayer] Combined 77 chunks into 994180 bytes
+injected.js:37 [STREAMING] Storing combined audio for replay: 994180 bytes
+injected.js:37 [StreamingVoice] Response complete AND no pending audio - clearing isProcessing
+injected.js:37 [StreamingSubtitles v2] TARGET TEXT: "Hola" (sentence 2, 1 words, hasTarget=true)
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ✓ SHOWING: Target mode with hasTargetContent=true
+injected.js:37 [SUBTITLE RENDER v2] Words check: Object
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE BLOCK] Nothing to show (activeBlock="", teaching="Hola", shownTeaching=false)
+injected.js:37 [StreamingSubtitles v2] TARGET TEXT: "Hola" (sentence 2, 1 words, hasTarget=true)
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ✓ SHOWING: Target mode with hasTargetContent=true
+injected.js:37 [SUBTITLE RENDER v2] Words check: Object
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE BLOCK] Nothing to show (activeBlock="", teaching="Hola", shownTeaching=false)
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-c8be98d2-465c-4e1a-a598-6493f5f17bc7
+injected.js:37 [StreamingSubtitles v2] TARGET TEXT: "Hola" (sentence 2, 1 words, hasTarget=true)
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ✓ SHOWING: Target mode with hasTargetContent=true
+injected.js:37 [SUBTITLE RENDER v2] Words check: Object
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE BLOCK] Nothing to show (activeBlock="", teaching="Hola", shownTeaching=false)
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-c8be98d2-465c-4e1a-a598-6493f5f17bc7
+2injected.js:37 [StreamingSubtitles v2] TARGET TEXT: "Hola" (sentence 2, 1 words, hasTarget=true)
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ✓ SHOWING: Target mode with hasTargetContent=true
+injected.js:37 [SUBTITLE RENDER v2] Words check: Object
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE BLOCK] Nothing to show (activeBlock="", teaching="Hola", shownTeaching=false)
+injected.js:37 [STREAMING] Setting lastMessageId for replay: 25273d9c-4203-496a-a6d2-ed8848f1ad52
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-c8be98d2-465c-4e1a-a598-6493f5f17bc7
+injected.js:37 [StreamingSubtitles v2] TARGET TEXT: "Hola" (sentence 2, 1 words, hasTarget=true)
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ✓ SHOWING: Target mode with hasTargetContent=true
+injected.js:37 [SUBTITLE RENDER v2] Words check: Object
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE BLOCK] Nothing to show (activeBlock="", teaching="Hola", shownTeaching=false)
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-c8be98d2-465c-4e1a-a598-6493f5f17bc7
+injected.js:37 [StreamingSubtitles v2] TARGET TEXT: "Hola" (sentence 2, 1 words, hasTarget=true)
+injected.js:37 [MIC BUTTON] Mouse down
+injected.js:37 [PUSH-TO-TALK] Button pressed at 65502 ms
+injected.js:37 [PUSH-TO-TALK] Cached stream status: Object
+injected.js:37 [PUSH-TO-TALK] Using cached stream - INSTANT start! (+2ms)
+injected.js:37 [PUSH-TO-TALK] Recording started - release to stop
+4injected.js:37 [StreamingSubtitles v2] TARGET TEXT: "Hola" (sentence 2, 1 words, hasTarget=true)
+injected.js:37 [MIC BUTTON] Mouse up
+injected.js:37 [PUSH-TO-TALK] Releasing button, stopping recording...
+injected.js:37 [PUSH-TO-TALK] Resetting subtitles immediately on button release
+injected.js:37 [StreamingSubtitles v2] Reset
+injected.js:37 [PUSH-TO-TALK] Stopped, processing audio...
+injected.js:37 [PUSH-TO-TALK] Resetting subtitles immediately
+injected.js:37 [StreamingSubtitles v2] Reset
+injected.js:37 [PUSH-TO-TALK] Processing audio for conversation: c8be98d2-465c-4e1a-a598-6493f5f17bc7
+injected.js:37 [STREAMING CHECK] Object
+injected.js:37 [STREAMING] Using streaming mode for low-latency response
+injected.js:37 [StreamingSubtitles v2] Reset
+injected.js:37 [STREAMING] Setting lastMessageId for replay: 25273d9c-4203-496a-a6d2-ed8848f1ad52
+injected.js:37 [StreamingVoice] Sending 15824 bytes of audio
+injected.js:37 [StreamingSubtitles v2] Reset
+injected.js:37 [StreamingAudioPlayer] Cleared stored audio
+injected.js:37 [StreamingVoiceClient] Sending 15824 bytes of audio
+injected.js:37 [StreamingVoiceClient] State: ready → processing
+injected.js:37 [STREAMING] Audio sent, awaiting progressive response...
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-c8be98d2-465c-4e1a-a598-6493f5f17bc7
+injected.js:37 [MIC WARMUP] Re-warmed for next recording
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Processing (turn 2): Hola.
+injected.js:37 [StreamingVoice] Processing turn 2: "Hola...."
+injected.js:37 [StreamingSubtitles v2] ═══════════════════════════════════════════
+injected.js:37 [StreamingSubtitles v2] NEW TURN: 2 (previous: 0)
+injected.js:37 [StreamingSubtitles v2] Clearing all state and refs...
+injected.js:37 [StreamingSubtitles v2] State cleared: hasTargetContent=false, sentences=[], isWaitingForContent=true
+injected.js:37 [StreamingSubtitles v2] ═══════════════════════════════════════════
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Sentence 0: "That was perfect, David!..."
+injected.js:37 [StreamingVoiceClient] State: processing → streaming
+injected.js:37 [StreamingVoice] Sentence 0 (turn 2): "That was perfect, David!..." hasTarget=false
+injected.js:37 [StreamingSubtitles v2] ───────────────────────────────────────────
+injected.js:37 [StreamingSubtitles v2] ADD SENTENCE 0 (turn 2)
+injected.js:37 [StreamingSubtitles v2]   hasTarget: false
+injected.js:37 [StreamingSubtitles v2]   targetText: "(none)"
+injected.js:37 [StreamingSubtitles v2]   wordMapping: (none)
+injected.js:37 [StreamingSubtitles v2]   displayText: "That was perfect, David!..."
+injected.js:37 [StreamingSubtitles v2] ───────────────────────────────────────────
+injected.js:37 [StreamingSubtitles v2]   Adding to sentences array (now 1 sentences)
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=0, chunk=0, size=17072 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=0, chunk=0, base64Len=17072, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 12804 bytes (PCM) for sentence 0
+injected.js:37 [StreamingAudioPlayer] [Progressive] New sentence 0, resetting state
+injected.js:37 [StreamingAudioPlayer] State: idle → buffering
+injected.js:37 [StreamingVoice] Playback state: buffering
+injected.js:37 [StreamingAudioPlayer] State: buffering → playing
+injected.js:37 [StreamingVoice] Playback state: playing
+injected.js:37 [StreamingVoice] Sentence 0 started (turn 2)
+injected.js:37 [StreamingSubtitles v2] ▶ START PLAYBACK sentence 0 (turn 2)
+injected.js:37 [StreamingSubtitles v2]   Policy: progressive=true, fullSentence=false, initialVisible=0
+injected.js:37 [StreamingAudioPlayer] Starting precision timing loop (audio.currentTime anchored)
+injected.js:37 [StreamingAudioPlayer] [Progressive] First chunk playing at 16.292s (ctx.currentTime=16.213s)
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 0: 3201 samples, 0.133s, scheduled at 16.292s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=0, chunk=1, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=0, chunk=1, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 0
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 1: 3343 samples, 0.139s, scheduled at 16.425s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=0, chunk=2, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=0, chunk=2, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 0
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 2: 3344 samples, 0.139s, scheduled at 16.565s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=0, word=0 "That" 0.402-0.542s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=0, word=0
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 0, word 0 "That" 0.402-0.542s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=0, chunk=3, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=0, chunk=3, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 0
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 3: 3344 samples, 0.139s, scheduled at 16.704s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=0, chunk=4, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=0, chunk=4, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 0
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 4: 3343 samples, 0.139s, scheduled at 16.843s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=0, word=1 "was" 0.542-0.712s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=0, word=1
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 0, word 1 "was" 0.542-0.712s
+injected.js:37 [StreamingSubtitles v2]   Sentence 0 hasTarget: false
+injected.js:37 [StreamingSubtitles v2]   Sentence 0 targetText: "(none)"
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ❌ HIDING: Target mode with hasTargetContent=false
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=0, chunk=5, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=0, chunk=5, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 0
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 5: 3344 samples, 0.139s, scheduled at 16.983s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=0, chunk=6, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=0, chunk=6, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 0
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 6: 3344 samples, 0.139s, scheduled at 17.122s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=0, chunk=7, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=0, chunk=7, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 0
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 7: 3343 samples, 0.139s, scheduled at 17.261s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [DELTA] count=31, latest: s=0 w=2
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=0, word=2 "perfect," 0.712-1.223s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=0, word=2
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 0, word 2 "perfect," 0.712-1.223s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=0, chunk=8, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=0, chunk=8, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 0
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 17.401, now 17.504
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 8: 3344 samples, 0.139s, scheduled at 17.554s, isLast=false
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ❌ HIDING: Target mode with hasTargetContent=false
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=0, chunk=9, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=0, chunk=9, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 0
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 17.693, now 17.803
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 9: 3344 samples, 0.139s, scheduled at 17.853s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=0, chunk=10, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=0, chunk=10, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 0
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 10: 3343 samples, 0.139s, scheduled at 17.992s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=0, word=3 "David!" 1.223-1.548s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=0, word=3
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 0, word 3 "David!" 1.223-1.548s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=0, chunk=11, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=0, chunk=11, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 0
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 11: 3344 samples, 0.139s, scheduled at 18.131s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=0, chunk=12, size=764 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=0, chunk=12, base64Len=764, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 572 bytes (PCM) for sentence 0
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 12: 143 samples, 0.006s, scheduled at 18.271s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing final: sentence=0, 4 words, 1671.8333333333333ms
+injected.js:37 [StreamingSubtitles v2] Finalize timings for sentence 0 (turn 2): 4 words, 1671.8333333333333ms
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=0, chunk=13, size=0 chars (base64), isLast=true
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=0, chunk=13, base64Len=0, isLast=true
+injected.js:37 [StreamingVoice] Audio decoded: 0 bytes (PCM) for sentence 0
+injected.js:37 [StreamingAudioPlayer] [Progressive] Sentence 0 complete
+injected.js:37 [StreamingVoice] Sentence 0 ended (turn 2)
+injected.js:37 [StreamingAudioPlayer] State: playing → idle
+injected.js:37 [StreamingVoice] Playback state: idle
+injected.js:37 [StreamingVoice] Playback queue empty
+injected.js:37 [StreamingVoice] Not clearing: complete=false, pending=0
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Sentence 0 complete (1671.8333333333333ms)
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Sentence 1: "You've already said your first Spanish word..."
+injected.js:37 [StreamingVoice] Sentence 1 (turn 2): "You've already said your first Spanish w..." hasTarget=false
+injected.js:37 [StreamingSubtitles v2] ───────────────────────────────────────────
+injected.js:37 [StreamingSubtitles v2] ADD SENTENCE 1 (turn 2)
+injected.js:37 [StreamingSubtitles v2]   hasTarget: false
+injected.js:37 [StreamingSubtitles v2]   targetText: "(none)"
+injected.js:37 [StreamingSubtitles v2]   wordMapping: (none)
+injected.js:37 [StreamingSubtitles v2]   displayText: "You've already said your first Spanish word..."
+injected.js:37 [StreamingSubtitles v2] ───────────────────────────────────────────
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=0, size=17072 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=0, base64Len=17072, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 12804 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] New sentence 1, resetting state
+injected.js:37 [StreamingAudioPlayer] State: idle → buffering
+injected.js:37 [StreamingVoice] Playback state: buffering
+injected.js:37 [StreamingAudioPlayer] State: buffering → playing
+injected.js:37 [StreamingVoice] Playback state: playing
+injected.js:37 [StreamingVoice] Sentence 1 started (turn 2)
+injected.js:37 [StreamingSubtitles v2] ▶ START PLAYBACK sentence 1 (turn 2)
+injected.js:37 [StreamingSubtitles v2]   Policy: progressive=true, fullSentence=false, initialVisible=0
+injected.js:37 [StreamingAudioPlayer] Starting precision timing loop (audio.currentTime anchored)
+injected.js:37 [StreamingAudioPlayer] [Progressive] First chunk playing at 18.036s (ctx.currentTime=17.963s)
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 0: 3201 samples, 0.133s, scheduled at 18.036s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=1, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=1, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 18.169, now 18.245
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 1: 3343 samples, 0.139s, scheduled at 18.295s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=1, word=0 "You've" 0.108-0.325s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=1, word=0
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 1, word 0 "You've" 0.108-0.325s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=2, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=2, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 2: 3344 samples, 0.139s, scheduled at 18.435s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=3, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=3, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 18.574, now 18.667
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 3: 3344 samples, 0.139s, scheduled at 18.717s, isLast=false
+injected.js:37 [StreamingSubtitles v2]   Adding to sentences array (now 2 sentences)
+injected.js:37 [StreamingSubtitles v2]   Sentence 1 hasTarget: false
+injected.js:37 [StreamingSubtitles v2]   Sentence 1 targetText: "(none)"
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ❌ HIDING: Target mode with hasTargetContent=false
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=4, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=4, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 18.856, now 18.933
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 4: 3343 samples, 0.139s, scheduled at 18.994s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=5, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=5, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 5: 3344 samples, 0.139s, scheduled at 19.133s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=6, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=6, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 6: 3344 samples, 0.139s, scheduled at 19.273s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=7, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=7, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 19.412, now 21.413
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 7: 3343 samples, 0.139s, scheduled at 21.463s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=1, word=1 "already" 0.604-1.130s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=1, word=1
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 1, word 1 "already" 0.604-1.130s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=8, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=8, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 8: 3344 samples, 0.139s, scheduled at 21.603s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=9, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=9, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 21.742, now 22.133
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 9: 3344 samples, 0.139s, scheduled at 22.183s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=10, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=10, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 10: 3343 samples, 0.139s, scheduled at 22.323s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=1, word=2 "said" 1.130-1.641s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=1, word=2
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 1, word 2 "said" 1.130-1.641s
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ❌ HIDING: Target mode with hasTargetContent=false
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=11, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=11, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 22.462, now 22.725
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 11: 3344 samples, 0.139s, scheduled at 22.775s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=12, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=12, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 22.915, now 23.232
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 12: 3344 samples, 0.139s, scheduled at 23.282s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [DELTA] count=36, latest: s=1 w=3
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=1, word=3 "your" 1.641-1.827s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=1, word=3
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 1, word 3 "your" 1.641-1.827s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=13, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=13, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 13: 3343 samples, 0.139s, scheduled at 23.421s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=14, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=14, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 23.561, now 23.685
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 14: 3344 samples, 0.139s, scheduled at 23.735s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=15, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=15, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 23.875, now 23.904
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 15: 3344 samples, 0.139s, scheduled at 23.954s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=1, word=4 "first" 1.827-2.291s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=1, word=4
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 1, word 4 "first" 1.827-2.291s
+injected.js:37 [StreamingAudioPlayer] RAF frame 60, time: 6.279s (perf)
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=16, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=16, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 24.093, now 24.405
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 16: 3343 samples, 0.139s, scheduled at 24.466s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=17, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=17, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 17: 3344 samples, 0.139s, scheduled at 24.605s, isLast=false
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ❌ HIDING: Target mode with hasTargetContent=false
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=18, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=18, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 24.745, now 25.173
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 18: 3344 samples, 0.139s, scheduled at 25.234s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=1, word=5 "Spanish" 2.291-2.740s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=1, word=5
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 1, word 5 "Spanish" 2.291-2.740s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=19, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=19, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 19: 3343 samples, 0.139s, scheduled at 25.373s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=20, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=20, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 25.513, now 25.563
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 20: 3344 samples, 0.139s, scheduled at 25.613s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=1, word=6 "word" 2.740-2.988s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=1, word=6
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 1, word 6 "word" 2.740-2.988s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=21, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=21, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 21: 3344 samples, 0.139s, scheduled at 25.752s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=22, size=6704 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=22, base64Len=6704, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 5028 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 22: 1257 samples, 0.052s, scheduled at 25.891s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing final: sentence=1, 7 words, 3111.458333333334ms
+injected.js:37 [StreamingSubtitles v2] Finalize timings for sentence 1 (turn 2): 7 words, 3111.458333333334ms
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=1, chunk=23, size=0 chars (base64), isLast=true
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=1, chunk=23, base64Len=0, isLast=true
+injected.js:37 [StreamingVoice] Audio decoded: 0 bytes (PCM) for sentence 1
+injected.js:37 [StreamingAudioPlayer] [Progressive] Sentence 1 complete
+injected.js:37 [StreamingVoice] Sentence 1 ended (turn 2)
+injected.js:37 [StreamingAudioPlayer] State: playing → idle
+injected.js:37 [StreamingVoice] Playback state: idle
+injected.js:37 [StreamingVoice] Playback queue empty
+injected.js:37 [StreamingVoice] Not clearing: complete=false, pending=0
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Sentence 1 complete (3111.458333333334ms)
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Sentence 2: "Now, let's learn how to say thank you..."
+injected.js:37 [StreamingVoice] Sentence 2 (turn 2): "Now, let's learn how to say thank you..." hasTarget=false
+injected.js:37 [StreamingSubtitles v2] ───────────────────────────────────────────
+injected.js:37 [StreamingSubtitles v2] ADD SENTENCE 2 (turn 2)
+injected.js:37 [StreamingSubtitles v2]   hasTarget: false
+injected.js:37 [StreamingSubtitles v2]   targetText: "(none)"
+injected.js:37 [StreamingSubtitles v2]   wordMapping: (none)
+injected.js:37 [StreamingSubtitles v2]   displayText: "Now, let's learn how to say thank you..."
+injected.js:37 [StreamingSubtitles v2] ───────────────────────────────────────────
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=2, chunk=0, size=17072 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=2, chunk=0, base64Len=17072, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 12804 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] New sentence 2, resetting state
+injected.js:37 [StreamingAudioPlayer] State: idle → buffering
+injected.js:37 [StreamingVoice] Playback state: buffering
+injected.js:37 [StreamingAudioPlayer] State: buffering → playing
+injected.js:37 [StreamingVoice] Playback state: playing
+injected.js:37 [StreamingVoice] Sentence 2 started (turn 2)
+injected.js:37 [StreamingSubtitles v2] ▶ START PLAYBACK sentence 2 (turn 2)
+injected.js:37 [StreamingSubtitles v2]   Policy: progressive=true, fullSentence=false, initialVisible=0
+injected.js:37 [StreamingAudioPlayer] Starting precision timing loop (audio.currentTime anchored)
+injected.js:37 [StreamingAudioPlayer] [Progressive] First chunk playing at 26.255s (ctx.currentTime=26.165s)
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 0: 3201 samples, 0.133s, scheduled at 26.255s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=2, chunk=1, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=2, chunk=1, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 1: 3343 samples, 0.139s, scheduled at 26.388s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=2, chunk=2, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=2, chunk=2, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 2: 3344 samples, 0.139s, scheduled at 26.527s, isLast=false
+injected.js:37 [StreamingSubtitles v2]   Adding to sentences array (now 3 sentences)
+injected.js:37 [StreamingSubtitles v2]   Sentence 2 hasTarget: false
+injected.js:37 [StreamingSubtitles v2]   Sentence 2 targetText: "(none)"
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ❌ HIDING: Target mode with hasTargetContent=false
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=2, chunk=3, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=2, chunk=3, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 26.667, now 26.736
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 3: 3344 samples, 0.139s, scheduled at 26.797s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=2, chunk=4, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=2, chunk=4, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 4: 3343 samples, 0.139s, scheduled at 26.936s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=2, word=0 "Now," 0.341-0.743s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=2, word=0
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 2, word 0 "Now," 0.341-0.743s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=2, chunk=5, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=2, chunk=5, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 5: 3344 samples, 0.139s, scheduled at 27.075s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [DELTA] count=41, latest: s=2 w=1
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=2, word=1 "let's" 0.774-0.960s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=2, word=1
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 2, word 1 "let's" 0.774-0.960s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=2, chunk=6, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=2, chunk=6, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 6: 3344 samples, 0.139s, scheduled at 27.215s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=2, chunk=7, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=2, chunk=7, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 27.354, now 27.493
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 7: 3343 samples, 0.139s, scheduled at 27.554s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=2, word=2 "learn" 0.960-1.176s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=2, word=2
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 2, word 2 "learn" 0.960-1.176s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=2, chunk=8, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=2, chunk=8, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 27.693, now 27.872
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 8: 3344 samples, 0.139s, scheduled at 27.922s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=2, word=3 "how" 1.176-1.362s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=2, word=3
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 2, word 3 "how" 1.176-1.362s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=2, chunk=9, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=2, chunk=9, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 9: 3344 samples, 0.139s, scheduled at 28.061s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=2, word=4 "to" 1.362-1.440s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=2, word=4
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 2, word 4 "to" 1.362-1.440s
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ❌ HIDING: Target mode with hasTargetContent=false
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=2, chunk=10, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=2, chunk=10, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 10: 3343 samples, 0.139s, scheduled at 28.201s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=2, word=5 "say" 1.440-1.625s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=2, word=5
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 2, word 5 "say" 1.440-1.625s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=2, chunk=11, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=2, chunk=11, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 11: 3344 samples, 0.139s, scheduled at 28.340s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=2, chunk=12, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=2, chunk=12, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 12: 3344 samples, 0.139s, scheduled at 28.479s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [DELTA] count=46, latest: s=2 w=6
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=2, word=6 "thank" 1.625-1.920s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=2, word=6
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 2, word 6 "thank" 1.625-1.920s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=2, chunk=13, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=2, chunk=13, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 13: 3343 samples, 0.139s, scheduled at 28.619s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=2, word=7 "you" 1.920-2.028s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=2, word=7
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 2, word 7 "you" 1.920-2.028s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=2, chunk=14, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=2, chunk=14, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 14: 3344 samples, 0.139s, scheduled at 28.758s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=2, chunk=15, size=6704 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=2, chunk=15, base64Len=6704, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 5028 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 15: 1257 samples, 0.052s, scheduled at 28.897s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing final: sentence=2, 8 words, 2136.2083333333335ms
+injected.js:37 [StreamingSubtitles v2] Finalize timings for sentence 2 (turn 2): 8 words, 2136.2083333333335ms
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=2, chunk=16, size=0 chars (base64), isLast=true
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=2, chunk=16, base64Len=0, isLast=true
+injected.js:37 [StreamingVoice] Audio decoded: 0 bytes (PCM) for sentence 2
+injected.js:37 [StreamingAudioPlayer] [Progressive] Sentence 2 complete
+injected.js:37 [StreamingVoice] Sentence 2 ended (turn 2)
+injected.js:37 [StreamingAudioPlayer] State: playing → idle
+injected.js:37 [StreamingVoice] Playback state: idle
+injected.js:37 [StreamingVoice] Playback queue empty
+injected.js:37 [StreamingVoice] Not clearing: complete=false, pending=0
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Sentence 2 complete (2136.2083333333335ms)
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Sentence 3: "It's Gracias. Can you try saying Gracias?..."
+injected.js:37 [StreamingVoice] Sentence 3 (turn 2): "It's Gracias. Can you try saying Gracias..." hasTarget=true
+injected.js:37 [StreamingSubtitles v2] ───────────────────────────────────────────
+injected.js:37 [StreamingSubtitles v2] ADD SENTENCE 3 (turn 2)
+injected.js:37 [StreamingSubtitles v2]   hasTarget: true
+injected.js:37 [StreamingSubtitles v2]   targetText: "Gracias"
+injected.js:37 [StreamingSubtitles v2]   wordMapping: [[1,0]]
+injected.js:37 [StreamingSubtitles v2]   displayText: "It's Gracias. Can you try saying Gracias?..."
+injected.js:37 [TargetBlocks] Computed 1 block(s) from "Gracias": Array(1)
+injected.js:37 [StreamingSubtitles v2]   TargetBlocks: Array(1)
+injected.js:37 [StreamingSubtitles v2] ───────────────────────────────────────────
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=3, chunk=0, size=17072 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=3, chunk=0, base64Len=17072, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 12804 bytes (PCM) for sentence 3
+injected.js:37 [StreamingAudioPlayer] [Progressive] New sentence 3, resetting state
+injected.js:37 [StreamingAudioPlayer] State: idle → buffering
+injected.js:37 [StreamingVoice] Playback state: buffering
+injected.js:37 [StreamingAudioPlayer] State: buffering → playing
+injected.js:37 [StreamingVoice] Playback state: playing
+injected.js:37 [StreamingVoice] Sentence 3 started (turn 2)
+injected.js:37 [StreamingSubtitles v2] ▶ START PLAYBACK sentence 3 (turn 2)
+injected.js:37 [StreamingSubtitles v2]   Policy: progressive=true, fullSentence=false, initialVisible=0
+injected.js:37 [StreamingAudioPlayer] Starting precision timing loop (audio.currentTime anchored)
+injected.js:37 [StreamingAudioPlayer] [Progressive] First chunk playing at 29.033s (ctx.currentTime=28.944s)
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 0: 3201 samples, 0.133s, scheduled at 29.033s, isLast=false
+injected.js:37 [StreamingSubtitles v2]   Adding to sentences array (now 4 sentences)
+injected.js:37 [StreamingSubtitles v2]   Sentence 3 hasTarget: true
+injected.js:37 [StreamingSubtitles v2]   Sentence 3 targetText: "Gracias"
+injected.js:37 [StreamingSubtitles v2] TARGET TEXT: "Gracias" (sentence 3, 1 words, hasTarget=true)
+injected.js:37 [StreamingSubtitles v2] BLOCK STATE: wordIdx=-1, activeBlock=-1, activeText="", teaching="Gracias", shownTeaching=false
+injected.js:37 [StreamingSubtitles v2] TARGET TEXT: "Gracias" (sentence 3, 1 words, hasTarget=true)
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ✓ SHOWING: Target mode with hasTargetContent=true
+injected.js:37 [SUBTITLE RENDER v2] Words check: Object
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE BLOCK] Nothing to show (activeBlock="", teaching="Gracias", shownTeaching=false)
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=3, chunk=1, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=3, chunk=1, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 3
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 29.167, now 29.195
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 1: 3343 samples, 0.139s, scheduled at 29.245s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=3, word=0 "It's" 0.155-0.372s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=3, word=0
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 3, word 0 "It's" 0.155-0.372s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=3, chunk=2, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=3, chunk=2, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 3
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 2: 3344 samples, 0.139s, scheduled at 29.384s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=3, chunk=3, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=3, chunk=3, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 3
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 3: 3344 samples, 0.139s, scheduled at 29.523s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=3, chunk=4, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=3, chunk=4, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 3
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 4: 3343 samples, 0.139s, scheduled at 29.663s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=3, word=1 "Gracias." 0.372-0.759s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=3, word=1
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 3, word 1 "Gracias." 0.372-0.759s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=3, chunk=5, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=3, chunk=5, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 3
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 5: 3344 samples, 0.139s, scheduled at 29.802s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=3, word=2 "Can" 0.759-0.944s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=3, word=2
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 3, word 2 "Can" 0.759-0.944s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=3, chunk=6, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=3, chunk=6, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 3
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 6: 3344 samples, 0.139s, scheduled at 29.941s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [DELTA] count=51, latest: s=3 w=3
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=3, word=3 "you" 0.944-1.006s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=3, word=3
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 3, word 3 "you" 0.944-1.006s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=3, chunk=7, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=3, chunk=7, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 3
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 30.081, now 30.267
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 7: 3343 samples, 0.139s, scheduled at 30.317s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=3, word=4 "try" 1.006-1.176s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=3, word=4
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 3, word 4 "try" 1.006-1.176s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=3, chunk=8, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=3, chunk=8, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 3
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 8: 3344 samples, 0.139s, scheduled at 30.456s, isLast=false
+injected.js:37 [StreamingSubtitles v2] TARGET TEXT: "Gracias" (sentence 3, 1 words, hasTarget=true)
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ✓ SHOWING: Target mode with hasTargetContent=true
+injected.js:37 [SUBTITLE RENDER v2] Words check: Object
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE BLOCK] Nothing to show (activeBlock="", teaching="Gracias", shownTeaching=false)
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=3, chunk=9, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=3, chunk=9, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 3
+injected.js:37 [StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was 30.595, now 30.747
+(anonymous) @ injected.js:37
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 9: 3344 samples, 0.139s, scheduled at 30.797s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=3, chunk=10, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=3, chunk=10, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 3
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 10: 3343 samples, 0.139s, scheduled at 30.936s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=3, chunk=11, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=3, chunk=11, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 3
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 11: 3344 samples, 0.139s, scheduled at 31.075s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=3, word=5 "saying" 1.176-1.811s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=3, word=5
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 3, word 5 "saying" 1.176-1.811s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=3, chunk=12, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=3, chunk=12, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 3
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 12: 3344 samples, 0.139s, scheduled at 31.215s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=3, chunk=13, size=17832 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=3, chunk=13, base64Len=17832, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13372 bytes (PCM) for sentence 3
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 13: 3343 samples, 0.139s, scheduled at 31.354s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing delta: sentence=3, word=6 "Gracias?" 1.811-2.012s
+injected.js:37 [StreamingVoice] handleWordTimingDelta called: sentence=3, word=6
+injected.js:37 [StreamingSubtitles v2] Progressive timing: sentence 3, word 6 "Gracias?" 1.811-2.012s
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=3, chunk=14, size=17836 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=3, chunk=14, base64Len=17836, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 13376 bytes (PCM) for sentence 3
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 14: 3344 samples, 0.139s, scheduled at 31.493s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=3, chunk=15, size=6704 chars (base64), isLast=false
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=3, chunk=15, base64Len=6704, isLast=false
+injected.js:37 [StreamingVoice] Audio decoded: 5028 bytes (PCM) for sentence 3
+injected.js:37 [StreamingAudioPlayer] [Progressive] Chunk 15: 1257 samples, 0.052s, scheduled at 31.633s, isLast=false
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Word timing final: sentence=3, 7 words, 2136.2083333333335ms
+injected.js:37 [StreamingSubtitles v2] Finalize timings for sentence 3 (turn 2): 7 words, 2136.2083333333335ms
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Audio chunk received: turn=2, sentence=3, chunk=16, size=0 chars (base64), isLast=true
+injected.js:37 [StreamingVoice] Processing audio chunk (PCM): turn=2, sentence=3, chunk=16, base64Len=0, isLast=true
+injected.js:37 [StreamingVoice] Audio decoded: 0 bytes (PCM) for sentence 3
+injected.js:37 [StreamingAudioPlayer] [Progressive] Sentence 3 complete
+injected.js:37 [StreamingVoice] Sentence 3 ended (turn 2)
+injected.js:37 [StreamingAudioPlayer] State: playing → idle
+injected.js:37 [StreamingVoice] Playback state: idle
+injected.js:37 [StreamingVoice] Playback queue empty
+injected.js:37 [StreamingVoice] Not clearing: complete=false, pending=0
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Sentence 3 complete (2136.2083333333335ms)
+injected.js:37 [StreamingVoiceClient] handleMessage called, data type: string, isArrayBuffer: false
+injected.js:37 [StreamingVoiceClient] Response complete: 4 sentences in 4741ms
+injected.js:37 [StreamingVoiceClient] State: streaming → ready
+injected.js:37 [StreamingVoice] Server signaled response complete
+injected.js:37 [STREAMING] Response complete - refreshing messages for c8be98d2-465c-4e1a-a598-6493f5f17bc7
+injected.js:37 [StreamingAudioPlayer] Combined 68 chunks into 869348 bytes
+injected.js:37 [STREAMING] Storing combined audio for replay: 869348 bytes
+injected.js:37 [StreamingVoice] Response complete AND no pending audio - clearing isProcessing
+injected.js:37 [StreamingSubtitles v2] TARGET TEXT: "Gracias" (sentence 3, 1 words, hasTarget=true)
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ✓ SHOWING: Target mode with hasTargetContent=true
+injected.js:37 [SUBTITLE RENDER v2] Words check: Object
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE BLOCK] Nothing to show (activeBlock="", teaching="Gracias", shownTeaching=false)
+injected.js:37 [StreamingSubtitles v2] TARGET TEXT: "Gracias" (sentence 3, 1 words, hasTarget=true)
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ✓ SHOWING: Target mode with hasTargetContent=true
+injected.js:37 [SUBTITLE RENDER v2] Words check: Object
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE BLOCK] Nothing to show (activeBlock="", teaching="Gracias", shownTeaching=false)
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-c8be98d2-465c-4e1a-a598-6493f5f17bc7
+injected.js:37 [StreamingSubtitles v2] TARGET TEXT: "Gracias" (sentence 3, 1 words, hasTarget=true)
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ✓ SHOWING: Target mode with hasTargetContent=true
+injected.js:37 [SUBTITLE RENDER v2] Words check: Object
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE BLOCK] Nothing to show (activeBlock="", teaching="Gracias", shownTeaching=false)
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-c8be98d2-465c-4e1a-a598-6493f5f17bc7
+2injected.js:37 [StreamingSubtitles v2] TARGET TEXT: "Gracias" (sentence 3, 1 words, hasTarget=true)
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ✓ SHOWING: Target mode with hasTargetContent=true
+injected.js:37 [SUBTITLE RENDER v2] Words check: Object
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE BLOCK] Nothing to show (activeBlock="", teaching="Gracias", shownTeaching=false)
+injected.js:37 [StreamingSubtitles v2] TARGET TEXT: "Gracias" (sentence 3, 1 words, hasTarget=true)
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ✓ SHOWING: Target mode with hasTargetContent=true
+injected.js:37 [SUBTITLE RENDER v2] Words check: Object
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE BLOCK] Nothing to show (activeBlock="", teaching="Gracias", shownTeaching=false)
+injected.js:37 [StreamingSubtitles v2] TARGET TEXT: "Gracias" (sentence 3, 1 words, hasTarget=true)
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE RENDER v2] Rendering decision: Object
+injected.js:37 [SUBTITLE RENDER v2] ✓ SHOWING: Target mode with hasTargetContent=true
+injected.js:37 [SUBTITLE RENDER v2] Words check: Object
+injected.js:37 [SUBTITLE RENDER v2] ─────────────────────────────────────────
+injected.js:37 [SUBTITLE BLOCK] Nothing to show (activeBlock="", teaching="Gracias", shownTeaching=false)
+1518 log entries are not shown.

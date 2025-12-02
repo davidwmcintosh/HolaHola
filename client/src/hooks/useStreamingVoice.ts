@@ -298,21 +298,16 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * These arrive as words are timestamped during progressive TTS
    */
   const handleWordTimingDelta = useCallback((msg: StreamingWordTimingDeltaMessage) => {
-    console.log(`[StreamingVoice] handleWordTimingDelta called: sentence=${msg.sentenceIndex}, word=${msg.wordIndex}`);
-    try {
-      // Add the word timing incrementally for progressive display
-      subtitles.addProgressiveWordTiming(
-        msg.sentenceIndex,
-        msg.turnId,
-        msg.wordIndex,
-        msg.word,
-        msg.startTime,
-        msg.endTime,
-        msg.estimatedTotalDuration
-      );
-    } catch (err) {
-      console.error('[StreamingVoice] Error in handleWordTimingDelta:', err);
-    }
+    // Add the word timing incrementally for progressive display
+    subtitles.addProgressiveWordTiming(
+      msg.sentenceIndex,
+      msg.turnId,
+      msg.wordIndex,
+      msg.word,
+      msg.startTime,
+      msg.endTime,
+      msg.estimatedTotalDuration
+    );
   }, [subtitles]);
   
   /**
