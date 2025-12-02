@@ -19,6 +19,8 @@ import {
   StreamingSentenceStartMessage,
   StreamingAudioChunkMessage,
   StreamingWordTimingMessage,
+  StreamingWordTimingDeltaMessage,
+  StreamingWordTimingFinalMessage,
   StreamingSentenceEndMessage,
   StreamingResponseCompleteMessage,
   StreamingFeedbackMessage,
@@ -27,6 +29,7 @@ import {
   ClientStartSessionMessage,
   WordTiming,
   LATENCY_TARGETS,
+  STREAMING_FEATURE_FLAGS,
 } from "@shared/streaming-voice-types";
 
 /**
@@ -556,7 +559,13 @@ export class StreamingVoiceOrchestrator {
           
           // Synthesize and stream audio for this sentence (pass cleaned text for timing)
           const ttsStart = Date.now();
-          await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
+          
+          // Use progressive streaming if feature flag enabled (lower latency)
+          if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+            await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
+          } else {
+            await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
+          }
           
           if (chunk.index === 0) {
             metrics.ttsFirstByteMs = Date.now() - ttsStart;
@@ -899,6 +908,148 @@ export class StreamingVoiceOrchestrator {
       
     } catch (error: any) {
       console.error(`[Streaming] TTS error for sentence ${index}:`, error.message);
+      throw error;
+    }
+  }
+  
+  /**
+   * PROGRESSIVE STREAMING: Stream audio for a single sentence with immediate forwarding
+   * 
+   * Unlike streamSentenceAudio (which buffers full sentence), this method forwards
+   * audio chunks to the client as soon as they arrive from Cartesia.
+   * 
+   * Benefits:
+   * - ~2s faster time-to-first-audio (no sentence buffering delay)
+   * - More responsive feel for users
+   * 
+   * Trade-offs:
+   * - Word timings arrive incrementally (delta messages + final reconciliation)
+   * - Client needs to handle progressive audio assembly
+   * 
+   * @param session - Current streaming session
+   * @param chunk - The sentence chunk from Gemini
+   * @param displayText - Cleaned text for display/timing
+   * @param metrics - Metrics to update
+   * @param turnId - Turn ID for packet ordering
+   */
+  private async streamSentenceAudioProgressive(
+    session: StreamingSession,
+    chunk: SentenceChunk,
+    displayText: string,
+    metrics: StreamingMetrics,
+    turnId?: number
+  ): Promise<void> {
+    const { text: originalText, index } = chunk;
+    const emotion = this.selectEmotionForContext(originalText, session);
+    const effectiveTurnId = turnId ?? session.currentTurnId;
+    
+    let chunkIndex = 0;
+    let firstChunkSent = false;
+    
+    try {
+      // Use progressive streaming API with real-time callbacks
+      const result = await this.cartesiaService.streamSynthesizeProgressive(
+        {
+          text: displayText,
+          language: session.targetLanguage,
+          targetLanguage: session.targetLanguage,
+          voiceId: session.voiceId,
+          speakingRate: voiceSpeedToRate(session.voiceSpeed),
+          emotion,
+          personality: session.tutorPersonality,
+          expressiveness: session.tutorExpressiveness,
+        },
+        {
+          // Forward audio chunks immediately as they arrive from Cartesia
+          onAudioChunk: (audioChunk, idx) => {
+            if (!firstChunkSent) {
+              firstChunkSent = true;
+              console.log(`[Progressive] Sentence ${index}: First chunk forwarded`);
+            }
+            
+            const audioBase64 = audioChunk.audio.toString('base64');
+            this.sendMessage(session.ws, {
+              type: 'audio_chunk',
+              timestamp: Date.now(),
+              turnId: effectiveTurnId,
+              sentenceIndex: index,
+              chunkIndex: idx,
+              isLast: false, // Not last until final callback
+              durationMs: audioChunk.durationMs,
+              audio: audioBase64,
+              audioFormat: audioChunk.audioFormat || 'pcm_f32le',
+              sampleRate: audioChunk.sampleRate || 24000,
+            } as StreamingAudioChunkMessage);
+            
+            metrics.audioBytes += audioChunk.audio.length;
+            chunkIndex = idx + 1;
+          },
+          
+          // Forward word timings incrementally (delta messages)
+          onWordTimestamp: (timing, wordIdx, estimatedTotal) => {
+            if (session.subtitleMode !== 'off') {
+              this.sendMessage(session.ws, {
+                type: 'word_timing_delta',
+                timestamp: Date.now(),
+                turnId: effectiveTurnId,
+                sentenceIndex: index,
+                wordIndex: wordIdx,
+                word: timing.word,
+                startTime: timing.startTime,
+                endTime: timing.endTime,
+                estimatedTotalDuration: estimatedTotal,
+              } as StreamingWordTimingDeltaMessage);
+            }
+          },
+          
+          // Final reconciliation when synthesis completes
+          onComplete: (finalTimestamps, actualDurationMs) => {
+            // Send final timing reconciliation
+            if (session.subtitleMode !== 'off') {
+              const timings = finalTimestamps.length > 0 
+                ? finalTimestamps 
+                : this.estimateWordTimings(displayText, actualDurationMs / 1000);
+              
+              this.sendMessage(session.ws, {
+                type: 'word_timing_final',
+                timestamp: Date.now(),
+                turnId: effectiveTurnId,
+                sentenceIndex: index,
+                words: timings,
+                actualDurationMs,
+              } as StreamingWordTimingFinalMessage);
+            }
+            
+            // Send final "empty" audio chunk to signal end
+            this.sendMessage(session.ws, {
+              type: 'audio_chunk',
+              timestamp: Date.now(),
+              turnId: effectiveTurnId,
+              sentenceIndex: index,
+              chunkIndex,
+              isLast: true,
+              durationMs: 0,
+              audio: '', // Empty base64
+              audioFormat: 'pcm_f32le',
+              sampleRate: 24000,
+            } as StreamingAudioChunkMessage);
+            
+            // Send sentence end
+            this.sendMessage(session.ws, {
+              type: 'sentence_end',
+              timestamp: Date.now(),
+              turnId: effectiveTurnId,
+              sentenceIndex: index,
+              totalDurationMs: actualDurationMs,
+            } as StreamingSentenceEndMessage);
+            
+            console.log(`[Progressive] Sentence ${index}: Complete (${chunkIndex} chunks, ${actualDurationMs}ms)`);
+          },
+        }
+      );
+      
+    } catch (error: any) {
+      console.error(`[Progressive] TTS error for sentence ${index}:`, error.message);
       throw error;
     }
   }
@@ -1458,7 +1609,13 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
           
           // Synthesize and stream audio
           const ttsStart = Date.now();
-          await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
+          
+          // Use progressive streaming if feature flag enabled (lower latency)
+          if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+            await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
+          } else {
+            await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
+          }
           
           if (chunk.index === 0) {
             metrics.ttsFirstByteMs = Date.now() - ttsStart;
