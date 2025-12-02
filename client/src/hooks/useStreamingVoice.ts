@@ -238,13 +238,17 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * as they arrive. This eliminates the ~2s sentence buffering delay.
    */
   const handleAudioChunk = useCallback((msg: StreamingAudioChunkMessage) => {
+    // CRITICAL DEBUG: Force error-level log to see if chunks are received
+    console.error(`[CHUNK RECEIVED] sentence=${msg.sentenceIndex}, chunk=${msg.chunkIndex}, format=${msg.audioFormat}`);
+    
     if (!playerRef.current) {
       console.warn('[StreamingVoice] Audio chunk received but no player - DROPPING AUDIO');
       return;
     }
     
     const formatLabel = msg.audioFormat === 'pcm_f32le' ? 'PCM' : 'MP3';
-    const chunkIndex = msg.chunkIndex || 0;
+    // Ensure chunkIndex is a number, not a string
+    const chunkIndex = typeof msg.chunkIndex === 'number' ? msg.chunkIndex : parseInt(msg.chunkIndex as any, 10) || 0;
     console.log(`[StreamingVoice] Processing audio chunk (${formatLabel}): turn=${msg.turnId}, sentence=${msg.sentenceIndex}, chunk=${chunkIndex}, base64Len=${msg.audio?.length || 0}, isLast=${msg.isLast}`);
     
     // Decode base64 to ArrayBuffer
