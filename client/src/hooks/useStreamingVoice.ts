@@ -195,6 +195,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   /**
    * Handle processing message (new turn started)
    * This sets the turnId for subtitle packet ordering, preventing phantom subtitles
+   * 
+   * CRITICAL: Uses subtitlesRef.current to avoid stale closure issues.
    */
   const handleProcessing = useCallback((msg: StreamingProcessingMessage) => {
     console.log(`[StreamingVoice] Processing turn ${msg.turnId}: "${msg.userTranscript.substring(0, 30)}..."`);
@@ -203,12 +205,14 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     currentTurnIdRef.current = msg.turnId;
     
     // Initialize subtitle state for new turn
-    subtitles.setCurrentTurnId(msg.turnId);
-  }, [subtitles]);
+    subtitlesRef.current.setCurrentTurnId(msg.turnId);
+  }, []);
   
   /**
    * Handle sentence start message
    * Now includes turnId and hasTargetContent for server-driven subtitle state
+   * 
+   * CRITICAL: Uses subtitlesRef.current to avoid stale closure issues.
    */
   const handleSentenceStart = useCallback((msg: StreamingSentenceStartMessage) => {
     console.log(`[StreamingVoice] Sentence ${msg.sentenceIndex} (turn ${msg.turnId}): "${msg.text.substring(0, 40)}..." hasTarget=${msg.hasTargetContent}`);
@@ -219,7 +223,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
     
     // Use new v2 API with turnId and hasTargetContent
-    subtitles.addSentence(
+    subtitlesRef.current.addSentence(
       msg.sentenceIndex, 
       msg.text, 
       msg.turnId,
@@ -227,7 +231,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       msg.targetLanguageText, 
       msg.wordMapping
     );
-  }, [subtitles]);
+  }, []);
   
   /**
    * Handle audio chunk message
@@ -292,18 +296,28 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   /**
    * Handle word timing message
    * Now includes turnId for packet ordering
+   * 
+   * CRITICAL: Uses subtitlesRef.current to avoid stale closure issues.
+   * The event listener is registered once in connect(), but subtitles object
+   * changes when currentTurnId changes. Using the ref ensures we always
+   * call the latest version of the callback.
    */
   const handleWordTiming = useCallback((msg: StreamingWordTimingMessage) => {
-    subtitles.setWordTimings(msg.sentenceIndex, msg.turnId, msg.timings, msg.expectedDurationMs);
-  }, [subtitles]);
+    subtitlesRef.current.setWordTimings(msg.sentenceIndex, msg.turnId, msg.timings, msg.expectedDurationMs);
+  }, []);
   
   /**
    * PROGRESSIVE STREAMING: Handle incremental word timing update
    * These arrive as words are timestamped during progressive TTS
+   * 
+   * CRITICAL: Uses subtitlesRef.current to avoid stale closure issues.
+   * Without this, the callback registered in connect() would use a stale
+   * subtitles object, and progressive word timings would be lost.
    */
   const handleWordTimingDelta = useCallback((msg: StreamingWordTimingDeltaMessage) => {
+    console.log(`[DELTA RECEIVED] sentence=${msg.sentenceIndex}, word=${msg.wordIndex} "${msg.word}"`);
     // Add the word timing incrementally for progressive display
-    subtitles.addProgressiveWordTiming(
+    subtitlesRef.current.addProgressiveWordTiming(
       msg.sentenceIndex,
       msg.turnId,
       msg.wordIndex,
@@ -312,21 +326,23 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       msg.endTime,
       msg.estimatedTotalDuration
     );
-  }, [subtitles]);
+  }, []);
   
   /**
    * PROGRESSIVE STREAMING: Handle final word timing reconciliation
    * Sent when sentence synthesis completes with authoritative timings
+   * 
+   * CRITICAL: Uses subtitlesRef.current to avoid stale closure issues.
    */
   const handleWordTimingFinal = useCallback((msg: StreamingWordTimingFinalMessage) => {
     // Update with authoritative timings for perfect sync
-    subtitles.finalizeWordTimings(
+    subtitlesRef.current.finalizeWordTimings(
       msg.sentenceIndex,
       msg.turnId,
       msg.words,
       msg.actualDurationMs
     );
-  }, [subtitles]);
+  }, []);
   
   /**
    * Handle response complete message

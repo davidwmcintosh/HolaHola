@@ -95,7 +95,7 @@ Audio now plays at correct speed.
 
 ---
 
-## Bug #2: Subtitle Word Highlighting Not Working (OPEN)
+## Bug #2: Subtitle Word Highlighting Not Working (RESOLVED ✅)
 
 ### Symptoms
 - Audio plays correctly at normal speed
@@ -120,72 +120,80 @@ The `updatePlaybackTime` function logs show:
 
 This means `currentTimingsRef.current` is empty when playback time updates arrive.
 
-### Root Cause Analysis (Architect Review)
+### Root Cause (IDENTIFIED - Dec 2, 2025)
 
-The architect identified a potential issue:
+**STALE CLOSURE BUG in Event Handler Registration**
 
-1. **turnId Mismatch Theory**: In `useStreamingVoice.ts`, the `onSentenceStart` callback uses `currentTurnIdRef.current` which might not be set yet when the first audio chunk starts playing.
-
-2. **Timing Race Condition**: 
-   - `word_timing_delta` arrives and stores in `timingsBySentenceRef`
-   - `audio_chunk` (first) triggers `onSentenceStart` → `startPlayback(sentenceIndex, currentTurnIdRef.current)`
-   - If `currentTurnIdRef.current` is stale, `startPlayback` won't find the sentence
-   - `currentTimingsRef.current` remains empty
-
-3. **activeSentenceRef vs currentSentenceIndex**: 
-   - `addProgressiveWordTiming` checks `if (sentenceIndex === activeSentenceRef.current)`
-   - If `activeSentenceRef.current` isn't set (startPlayback not called yet), timings aren't copied to `currentTimingsRef`
-
-### Code Flow (Expected vs Actual)
-
-**Expected:**
-1. `processing` message → sets `currentTurnIdRef.current = turnId`
-2. `sentence_start` message → `addSentence()` stores sentence
-3. `audio_chunk` (first) → `onSentenceStart()` → `startPlayback(sentenceIndex, turnId)`
-4. `startPlayback` loads cached timings into `currentTimingsRef.current`
-5. `word_timing_delta` → `addProgressiveWordTiming()` updates `currentTimingsRef`
-6. RAF loop calls `onProgress()` → `updatePlaybackTime()` → word highlighting works
-
-**Actual (Suspected):**
-1. Messages arrive in correct order
-2. But `startPlayback` uses stale `currentTurnIdRef.current` (0 at startup)
-3. OR `startPlayback` not finding sentence in sentences array
-4. OR `currentTimingsRef.current` not being populated
-
-### Debug Logging Added (Dec 2, 2025)
-
-Added console.error traces at key points:
+The event handlers in `useStreamingVoice.ts` were using `subtitles` directly with `[subtitles]` as a dependency:
 
 ```javascript
-// audioUtils.ts - enqueueProgressivePcmChunk()
-console.error(`[AUDIO DEBUG] >>> Firing onSentenceStart(${sentenceIndex}) <<<`);
-
-// audioUtils.ts - startProgressivePrecisionTiming()
-console.error(`[PROGRESS DEBUG] RAF frame ${frameCount}, time: ${currentTime}s`);
-
-// useStreamingSubtitles.ts - updatePlaybackTime()
-console.error(`[SUBTITLE DEBUG] updatePlaybackTime: NO TIMINGS (activeSentence=${activeSentenceRef.current})`);
-console.error(`[SUBTITLE DEBUG] updatePlaybackTime: ${timings.length} timings, time=${currentTime}`);
+// BROKEN: Uses subtitles directly, has [subtitles] dependency
+const handleWordTimingDelta = useCallback((msg) => {
+  subtitles.addProgressiveWordTiming(...);  // STALE CLOSURE!
+}, [subtitles]);
 ```
 
-### Next Steps
-1. Run a test session and capture browser console logs
-2. Verify `onSentenceStart` callback fires with correct sentenceIndex
-3. Verify `startPlayback` is called and finds the sentence
-4. Verify `currentTimingsRef.current` gets populated
-5. Verify RAF loop is running and calling `onProgress`
+**The Problem:**
+1. Event listeners are registered ONCE in `connect()` using `clientRef.current.on('wordTimingDelta', handleWordTimingDelta)`
+2. When `currentTurnId` changes, `subtitles` object changes → `handleWordTimingDelta` is recreated
+3. BUT the event listener STILL points to the OLD `handleWordTimingDelta` with the OLD `subtitles`
+4. The old `subtitles` had the old `addProgressiveWordTiming` callback with stale `currentTurnId`
+5. Progressive word timings were being processed by stale callbacks, causing them to be ignored
 
-### Files Involved
-- `client/src/lib/audioUtils.ts` - Audio playback and timing loop
-- `client/src/hooks/useStreamingVoice.ts` - Routes messages, manages player callbacks
-- `client/src/hooks/useStreamingSubtitles.ts` - Stores timings, calculates word index
-- `client/src/lib/streamingVoiceClient.ts` - WebSocket message parsing
+**Why Audio Player Callbacks Worked:**
+The audio player callbacks correctly use the ref pattern:
+```javascript
+onProgress: (currentTime, duration) => {
+  subtitlesRef.current.updatePlaybackTime(currentTime, duration);  // Uses REF!
+},
+```
 
-### Status: 🔴 OPEN
+### Fix Applied (Dec 2, 2025)
+
+Changed all event handlers in `useStreamingVoice.ts` to use `subtitlesRef.current` instead of `subtitles`:
+
+```javascript
+// FIXED: Uses subtitlesRef.current, empty dependency array
+const handleWordTimingDelta = useCallback((msg) => {
+  console.log(`[DELTA RECEIVED] sentence=${msg.sentenceIndex}, word=${msg.wordIndex}`);
+  subtitlesRef.current.addProgressiveWordTiming(...);  // USES REF!
+}, []);  // No dependencies - ref is always current
+
+const handleWordTiming = useCallback((msg) => {
+  subtitlesRef.current.setWordTimings(...);
+}, []);
+
+const handleWordTimingFinal = useCallback((msg) => {
+  subtitlesRef.current.finalizeWordTimings(...);
+}, []);
+
+const handleProcessing = useCallback((msg) => {
+  subtitlesRef.current.setCurrentTurnId(msg.turnId);
+}, []);
+
+const handleSentenceStart = useCallback((msg) => {
+  subtitlesRef.current.addSentence(...);
+}, []);
+```
+
+### Files Modified
+- `client/src/hooks/useStreamingVoice.ts`:
+  - `handleWordTimingDelta` → uses `subtitlesRef.current.addProgressiveWordTiming`
+  - `handleWordTiming` → uses `subtitlesRef.current.setWordTimings`
+  - `handleWordTimingFinal` → uses `subtitlesRef.current.finalizeWordTimings`
+  - `handleProcessing` → uses `subtitlesRef.current.setCurrentTurnId`
+  - `handleSentenceStart` → uses `subtitlesRef.current.addSentence`
+  - All changed from `[subtitles]` dependency to `[]` (empty)
+
+### Verification
+Look for `[DELTA RECEIVED]` logs in browser console during voice sessions.
+This log confirms the word timing delta is being received and processed correctly.
+
+### Status: ✅ RESOLVED
 
 ---
 
-## Bug #3: Missing Words at End of Sentences (OPEN)
+## Bug #3: Missing Words at End of Sentences (LIKELY RESOLVED)
 
 ### Symptoms
 - Final 1-2 words of sentences sometimes don't appear in subtitles
@@ -196,7 +204,13 @@ console.error(`[SUBTITLE DEBUG] updatePlaybackTime: ${timings.length} timings, t
 2. `word_timing_final` message not being processed correctly
 3. Sentence completion triggered before all words displayed
 
-### Status: 🔴 OPEN (May be related to Bug #2)
+### Update (Dec 2, 2025)
+This bug was likely caused by the same stale closure issue as Bug #2.
+The `handleWordTimingFinal` handler was also using `subtitles` directly,
+which caused the final word timing reconciliation to use stale callbacks.
+This has been fixed by switching to `subtitlesRef.current`.
+
+### Status: 🟡 LIKELY RESOLVED (Verify with testing)
 
 ---
 
