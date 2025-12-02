@@ -557,7 +557,7 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       return;
     }
     
-    console.log(`[StreamingSubtitles v2] ▶ START PLAYBACK sentence ${sentenceIndex} (turn ${turnId})`);
+    console.error(`[SUBTITLE DEBUG] ▶▶▶ startPlayback called: sentence=${sentenceIndex}, turn=${turnId}`);
     
     // RACE CONDITION FIX: Set active sentence ref IMMEDIATELY (synchronous)
     // This allows addProgressiveWordTiming to update currentTimingsRef for this sentence
@@ -575,11 +575,11 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     if (storedTimings) {
       currentTimingsRef.current = storedTimings.timings;
       expectedDurationRef.current = storedTimings.expectedDurationMs;
-      console.log(`[StreamingSubtitles v2] ▶ LOADED ${storedTimings.timings.length} timings for sentence ${sentenceIndex}`);
+      console.error(`[SUBTITLE DEBUG] LOADED ${storedTimings.timings.length} timings for sentence ${sentenceIndex}`);
     } else {
       currentTimingsRef.current = [];
       expectedDurationRef.current = undefined;
-      console.log(`[StreamingSubtitles v2] ▶ NO CACHED timings for sentence ${sentenceIndex} (activeSentence ref set to ${activeSentenceRef.current})`);
+      console.error(`[SUBTITLE DEBUG] NO CACHED timings for sentence ${sentenceIndex}`);
     }
     
     // ACTFL-level-aware text reveal policy
@@ -676,8 +676,10 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
   const updatePlaybackTime = useCallback((currentTime: number, actualDuration?: number) => {
     const timings = currentTimingsRef.current;
     if (timings.length === 0) {
-      // DEBUG: Log when timings are empty
-      console.log(`[StreamingSubtitles v2] updatePlaybackTime: NO TIMINGS (activeSentence=${activeSentenceRef.current}, currentSentence=${currentSentenceIndex})`);
+      // DEBUG: Log when timings are empty (rate limited to avoid spam)
+      if (Math.floor(currentTime * 10) % 10 === 0) {
+        console.error(`[SUBTITLE DEBUG] updatePlaybackTime: NO TIMINGS (activeSentence=${activeSentenceRef.current}, time=${currentTime.toFixed(2)})`);
+      }
       return;
     }
     
