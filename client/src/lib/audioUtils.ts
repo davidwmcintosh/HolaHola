@@ -419,6 +419,7 @@ export class StreamingAudioPlayer {
       this.progressiveFirstChunkStarted = true;
       this.playbackStartTime = performance.now();
       this.setState('playing');
+      console.error(`[AUDIO DEBUG] >>> Firing onSentenceStart(${sentenceIndex}) <<<`);
       this.callbacks.onSentenceStart?.(sentenceIndex);
       this.startProgressivePrecisionTiming(); // Use progressive-specific timing
       console.log(`[StreamingAudioPlayer] [Progressive] First chunk playing at ${playTime.toFixed(3)}s (ctx.currentTime=${ctx.currentTime.toFixed(3)}s)`);
@@ -488,8 +489,8 @@ export class StreamingAudioPlayer {
       
       // Debug log periodically
       frameCount++;
-      if (frameCount % 120 === 0) { // Every ~2 seconds at 60fps
-        console.log(`[StreamingAudioPlayer] Progressive RAF frame ${frameCount}, time: ${currentTime.toFixed(3)}s / ${this.progressiveTotalDuration.toFixed(3)}s`);
+      if (frameCount % 30 === 0) { // Every ~0.5 seconds at 60fps
+        console.error(`[PROGRESS DEBUG] RAF frame ${frameCount}, time: ${currentTime.toFixed(3)}s / ${this.progressiveTotalDuration.toFixed(3)}s, sentence=${this.progressiveSentenceIndex}`);
       }
       
       // Continue the loop
