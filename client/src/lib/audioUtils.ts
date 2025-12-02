@@ -451,17 +451,31 @@ export class StreamingAudioPlayer {
       if (delayUntilPlayMs > 10) {
         // Sentence is scheduled for the future - delay the callback
         console.log(`[AUDIO DEBUG] >>> DELAYING onSentenceStart(${sentenceIndex}) by ${delayUntilPlayMs.toFixed(0)}ms <<<`);
+        
+        // Store the sentence index and playTime for the closure
+        const scheduledSentenceIndex = sentenceIndex;
+        const scheduledPlayTime = playTime;
+        
         setTimeout(() => {
-          // Verify this is still the current sentence (user might have stopped playback)
-          if (this.progressiveSentenceIndex === sentenceIndex) {
-            this.playbackStartTime = performance.now();
-            this.setState('playing');
-            console.log(`[AUDIO DEBUG] >>> FIRING DELAYED onSentenceStart(${sentenceIndex}) <<<`);
-            this.callbacks.onSentenceStart?.(sentenceIndex);
-            this.startProgressivePrecisionTiming(); // Use progressive-specific timing
-          } else {
-            console.log(`[AUDIO DEBUG] Skipping delayed onSentenceStart(${sentenceIndex}) - sentence changed to ${this.progressiveSentenceIndex}`);
+          // Only skip if playback was explicitly stopped (isPlaying=false)
+          // Don't skip just because a newer sentence arrived - we still need to show THIS sentence
+          // when its audio starts playing (the audio is already scheduled and will play)
+          if (!this.isPlaying) {
+            console.log(`[AUDIO DEBUG] Skipping delayed onSentenceStart(${scheduledSentenceIndex}) - playback stopped`);
+            return;
           }
+          
+          // Update timing state for THIS sentence when it starts playing
+          this.progressivePlaybackStartCtxTime = scheduledPlayTime;
+          this.playbackStartTime = performance.now();
+          
+          // Update sentence tracking to reflect what's actually playing now
+          this.currentSentenceIndex = scheduledSentenceIndex;
+          
+          this.setState('playing');
+          console.log(`[AUDIO DEBUG] >>> FIRING DELAYED onSentenceStart(${scheduledSentenceIndex}) <<<`);
+          this.callbacks.onSentenceStart?.(scheduledSentenceIndex);
+          this.startProgressivePrecisionTiming(); // Use progressive-specific timing
         }, delayUntilPlayMs);
       } else {
         // Sentence is playing immediately (or very soon)
