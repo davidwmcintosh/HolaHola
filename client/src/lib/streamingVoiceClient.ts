@@ -451,7 +451,7 @@ export class StreamingVoiceClient {
     
     // DEBUG: Log audio chunk receipt with details
     const audioSize = message.audio?.length || 0;
-    console.log(`[StreamingVoiceClient] Audio chunk received: turn=${message.turnId}, sentence=${message.sentenceIndex}, size=${audioSize} chars (base64), isFirst=${message.isFirst}, isLast=${message.isLast}`);
+    console.log(`[StreamingVoiceClient] Audio chunk received: turn=${message.turnId}, sentence=${message.sentenceIndex}, chunk=${message.chunkIndex}, size=${audioSize} chars (base64), isLast=${message.isLast}`);
     
     // Emit audio chunk with embedded base64 data
     this.emit('audioChunk', message);
@@ -565,13 +565,23 @@ export class StreamingVoiceClient {
 }
 
 /**
- * Singleton instance
+ * Singleton instance - DEPRECATED: Now creates fresh instance per session
+ * to avoid event listener leaks and stale state issues
  */
 let clientInstance: StreamingVoiceClient | null = null;
 
 export function getStreamingVoiceClient(): StreamingVoiceClient {
-  if (!clientInstance) {
-    clientInstance = new StreamingVoiceClient();
+  // CRITICAL FIX: Always create a fresh client instance per session
+  // The singleton pattern was causing event listener leaks where:
+  // 1. disconnect() removed listeners from the singleton
+  // 2. Reconnecting reused the same instance with cleared listeners
+  // 3. New listeners weren't properly registered due to stale state
+  // 
+  // Creating a fresh instance ensures clean event listener state
+  if (clientInstance) {
+    // Clean up old instance completely
+    clientInstance.disconnect();
   }
+  clientInstance = new StreamingVoiceClient();
   return clientInstance;
 }
