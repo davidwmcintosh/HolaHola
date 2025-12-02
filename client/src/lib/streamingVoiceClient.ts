@@ -438,6 +438,12 @@ export class StreamingVoiceClient {
       // DEBUG: Log right before switch
       console.log('%c[SVC] ABOUT TO SWITCH ON: ' + message.type, 'color: orange; background: black; font-weight: bold');
       
+      // DEBUG: Explicit check for word_timing_delta
+      if (message.type === 'word_timing_delta') {
+        console.log('%c[SVC] *** EXPLICIT DELTA CHECK PASSED ***', 'color: white; background: purple; font-weight: bold; font-size: 16px');
+        (window as any)._explicitDeltaCheck = ((window as any)._explicitDeltaCheck || 0) + 1;
+      }
+      
       switch (message.type) {
         case 'connected':
           // Initial connection confirmed (no session yet)
