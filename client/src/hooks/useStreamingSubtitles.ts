@@ -466,7 +466,9 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     }
     
     const existing = timingsBySentenceRef.current.get(sentenceIndex);
-    const newEstimatedDuration = estimatedTotalDuration ? estimatedTotalDuration * 1000 : existing?.expectedDurationMs;
+    // NOTE: estimatedTotalDuration comes from server ALREADY in milliseconds (server does endTime * 1000 * 1.1)
+    // Do NOT multiply by 1000 again - that would cause a 1000x scale factor error!
+    const newEstimatedDuration = estimatedTotalDuration ? estimatedTotalDuration : existing?.expectedDurationMs;
     
     // Update ref for immediate access (dense array only)
     timingsBySentenceRef.current.set(sentenceIndex, {
