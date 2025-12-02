@@ -383,8 +383,14 @@ export class StreamingVoiceClient {
     try {
       const message: StreamingMessage = JSON.parse(event.data);
       
-      // CRITICAL DEBUG: Log ALL message types to trace flow
-      console.log(`[WS MESSAGE] type=${message.type}`);
+      // PERSISTENT DEBUG: Track ALL message types in window object
+      if (typeof window !== 'undefined') {
+        if (!(window as any)._msgCounts) {
+          (window as any)._msgCounts = {};
+        }
+        (window as any)._msgCounts[message.type] = ((window as any)._msgCounts[message.type] || 0) + 1;
+        (window as any)._lastMsg = { type: message.type, time: Date.now() };
+      }
       
       // GLOBAL DEBUG: Track by message type
       if (typeof window !== 'undefined' && window._wsDebug) {
@@ -397,8 +403,27 @@ export class StreamingVoiceClient {
         console.log(`[WS] audio_chunk received: sentence=${(message as any).sentenceIndex}, chunk=${(message as any).chunkIndex}`);
       }
       
-      // AGGRESSIVE DEBUG: Log EVERY message type received
-      console.log(`[WS RECV] type="${message.type}"`);
+      // Store ALL message types for debugging
+      if (typeof window !== 'undefined') {
+        if (!(window as any)._debugMessages) {
+          (window as any)._debugMessages = [];
+          // Log summary every 2 seconds
+          setInterval(() => {
+            const msgs = (window as any)._debugMessages;
+            if (msgs.length > 0) {
+              console.log('[WS DEBUG] Messages received:', msgs.slice(-20));
+              // Keep only last 50 messages
+              if (msgs.length > 50) {
+                (window as any)._debugMessages = msgs.slice(-50);
+              }
+            }
+          }, 2000);
+        }
+        (window as any)._debugMessages.push({
+          type: message.type,
+          time: Date.now()
+        });
+      }
       
       switch (message.type) {
         case 'connected':

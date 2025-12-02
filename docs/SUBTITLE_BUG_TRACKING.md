@@ -189,7 +189,63 @@ const handleSentenceStart = useCallback((msg) => {
 Look for `[DELTA RECEIVED]` logs in browser console during voice sessions.
 This log confirms the word timing delta is being received and processed correctly.
 
-### Status: ✅ RESOLVED
+### Status: ⚠️ REGRESSION - Still Not Working (Dec 2, 2025, 8:00 PM)
+
+Despite the ref pattern fix, word_timing_delta messages are still not being processed.
+
+#### Current Observations (Dec 2 Evening Session):
+1. **Server logs confirm messages ARE sent:**
+   ```
+   [Progressive] Sending word_timing_delta: sentence=0, word=0 "¡Excelente!"
+   [SEND DEBUG] word_timing_delta: readyState=1, length=196
+   ```
+
+2. **Audio plays correctly** - audio_chunk messages ARE being received
+
+3. **Other message types work:**
+   - 'connected' → logs appear
+   - 'processing' → turnId updated  
+   - 'sentence_start' → subtitle text appears
+   - 'audio_chunk' → audio plays
+
+4. **word_timing_delta NOT processed:**
+   - No `[WS RECV] >>> WORD_TIMING_DELTA CASE HIT <<<` logs visible
+   - No `[DELTA RECEIVED]` logs visible
+   - No `[StreamingSubtitles v2] Progressive timing:` logs visible
+   - `rawActiveWordIndex` stays at -1
+
+5. **Browser console log capture is severely limited:**
+   - Only 4-14 lines captured per snapshot
+   - May be missing high-frequency WebSocket logs
+
+#### Key Insight from GPT-5 PDF Document:
+The standard TTS sync pattern uses `audio.currentTime` comparison:
+```javascript
+audio.ontimeupdate = () => {
+  const currentTime = audio.currentTime * 1000;
+  const active = wordTimings.find(
+    w => currentTime >= w.start && currentTime < w.end
+  );
+};
+```
+Our architecture uses AudioContext.currentTime for PCM streaming, which is correct.
+The issue appears to be that word timings never reach the client despite being sent.
+
+#### Possible Causes:
+1. **WebSocket message filtering** - Something blocking specific message types?
+2. **JSON parsing issue** - word_timing_delta parsing fails silently?
+3. **Event listener not attached** - though other events work
+4. **Message order/timing** - delta arrives before handler ready?
+
+#### Debug Tools Added:
+- `window._msgCounts` - tracks all received message types
+- `window._debugMessages` - stores message history with periodic logging
+- `window._wsDebug` - WebSocket debug state
+
+#### Next Steps:
+- Have user do voice test and check `window._msgCounts` in browser DevTools
+- If word_timing_delta NOT in counts → WebSocket not receiving it
+- If word_timing_delta IS in counts → Client-side processing issue
 
 ---
 
