@@ -239,7 +239,7 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
 
           // Determine tutor freedom/flexibility level
           // For class-assigned learning: use the class's tutorFreedomLevel
-          // For self-directed learning: use the user's selfDirectedFlexibility preference
+          // For self-directed learning: use the user's per-language selfDirectedFlexibility preference
           let tutorFreedomLevel: 'guided' | 'flexible_goals' | 'open_exploration' | 'free_conversation' = 'flexible_goals';
           let targetActflLevel: string | null = null;
           
@@ -257,8 +257,36 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
               console.warn('[Streaming Voice] Could not get class freedom level:', err);
             }
           } else {
-            // Self-directed learning: use user's preference
-            tutorFreedomLevel = (user.selfDirectedFlexibility as typeof tutorFreedomLevel) || 'flexible_goals';
+            // Self-directed learning: use user's per-language preference
+            // Fall back to global preference for backward compatibility
+            try {
+              const conversationLanguage = config.targetLanguage?.toLowerCase() || conversation.language?.toLowerCase() || 'spanish';
+              const langPrefs = await storage.getLanguagePreferences(userId!, conversationLanguage);
+              if (langPrefs?.selfDirectedFlexibility) {
+                tutorFreedomLevel = langPrefs.selfDirectedFlexibility as typeof tutorFreedomLevel;
+                console.log(`[Streaming Voice] Using per-language flexibility for ${conversationLanguage}: ${tutorFreedomLevel}`);
+              } else if (user.selfDirectedFlexibility) {
+                // Fallback to global preference (legacy support)
+                tutorFreedomLevel = user.selfDirectedFlexibility as typeof tutorFreedomLevel;
+                console.log(`[Streaming Voice] Using global flexibility fallback: ${tutorFreedomLevel}`);
+              } else {
+                // Use smart default based on ACTFL level for this language
+                const actflProgress = await storage.getOrCreateActflProgress(conversationLanguage, userId!);
+                const level = actflProgress?.overallLevel?.toLowerCase() || '';
+                if (level.includes('novice')) {
+                  tutorFreedomLevel = 'guided';
+                } else if (level.includes('advanced') || level.includes('superior') || level.includes('distinguished')) {
+                  tutorFreedomLevel = 'free_conversation';
+                } else {
+                  tutorFreedomLevel = 'flexible_goals';
+                }
+                console.log(`[Streaming Voice] Using smart default flexibility: ${tutorFreedomLevel} (based on ACTFL: ${actflProgress?.overallLevel || 'none'})`);
+              }
+            } catch (err) {
+              console.warn('[Streaming Voice] Could not get language preferences:', err);
+              // Fall back to global preference or default
+              tutorFreedomLevel = (user.selfDirectedFlexibility as typeof tutorFreedomLevel) || 'flexible_goals';
+            }
           }
 
           // Use full system prompt with streaming voice mode flag
