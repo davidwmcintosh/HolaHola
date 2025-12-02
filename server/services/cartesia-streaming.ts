@@ -476,6 +476,9 @@ export class CartesiaStreamingService extends EventEmitter {
                   endTime: end[i],
                 });
               }
+              // PROGRESSIVE STREAMING FIX: Update lastNativeTimestamps immediately
+              // so streamSynthesizeProgressive can access them on each audio chunk
+              this.lastNativeTimestamps = [...collectedTimestamps];
               console.log(`[Cartesia Streaming] Received ${words.length} native word timestamps`);
             }
           }
