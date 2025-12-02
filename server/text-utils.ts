@@ -75,12 +75,25 @@ export function extractTargetLanguageText(text: string): string {
   }
   cleanedInput = cleanedInput.replace(/\s+/g, ' ').trim();
   
-  // Also strip dangling bold markers from sentence splits (e.g., "** at start or ** at end)
-  // These occur when Gemini's bold markers span across sentence boundaries
-  cleanedInput = cleanedInput
-    .replace(/^["']?\*\*\s*/g, '')  // Remove dangling "** or '** at start
-    .replace(/\s*\*\*["']?$/g, '')  // Remove dangling **" or **' at end
-    .trim();
+  // Strip TRULY dangling bold markers from sentence splits
+  // Only strip opening ** at start if there's no matching ** later
+  // Only strip closing ** at end if there's no matching ** earlier
+  // This prevents destroying valid **word** pairs at text boundaries
+  const countStars = (s: string) => (s.match(/\*\*/g) || []).length;
+  const starCount = countStars(cleanedInput);
+  
+  if (starCount % 2 !== 0) {
+    // Odd number of ** markers means there's a dangling one
+    if (/^["']?\*\*\s*[^*]/.test(cleanedInput) && !cleanedInput.match(/^["']?\*\*[^*]+\*\*/)) {
+      // Starts with ** but doesn't have a matching close nearby - strip it
+      cleanedInput = cleanedInput.replace(/^["']?\*\*\s*/, '');
+    }
+    if (/[^*]\s*\*\*["']?$/.test(cleanedInput) && !cleanedInput.match(/\*\*[^*]+\*\*["']?$/)) {
+      // Ends with ** but doesn't have a matching open nearby - strip it
+      cleanedInput = cleanedInput.replace(/\s*\*\*["']?$/, '');
+    }
+  }
+  cleanedInput = cleanedInput.trim();
 
   // Collect extracted words (simple Set-based deduplication, no position tracking)
   const extractedWords: string[] = [];
