@@ -410,10 +410,12 @@ export class StreamingAudioPlayer {
     this.progressiveScheduledTime += chunkDuration;
     
     // Track first chunk for timing
+    console.error(`[AUDIO DEBUG] Progressive chunk: sentenceIndex=${sentenceIndex}, chunkIndex=${chunkIndex}, firstStarted=${this.progressiveFirstChunkStarted}`);
     if (!this.progressiveFirstChunkStarted && chunkIndex === 0) {
       this.progressiveFirstChunkStarted = true;
       this.playbackStartTime = performance.now();
       this.setState('playing');
+      console.error(`[AUDIO DEBUG] >>> CALLING onSentenceStart(${sentenceIndex}) <<<`);
       this.callbacks.onSentenceStart?.(sentenceIndex);
       this.startPrecisionTiming();
       console.log(`[StreamingAudioPlayer] [Progressive] First chunk playing at ${playTime.toFixed(3)}s (ctx.currentTime=${ctx.currentTime.toFixed(3)}s)`);
