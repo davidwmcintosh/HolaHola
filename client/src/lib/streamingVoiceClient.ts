@@ -397,6 +397,9 @@ export class StreamingVoiceClient {
         console.log(`[WS] audio_chunk received: sentence=${(message as any).sentenceIndex}, chunk=${(message as any).chunkIndex}`);
       }
       
+      // AGGRESSIVE DEBUG: Log EVERY message type received
+      console.error(`[WS RECV] type="${message.type}" at ${Date.now()}`);
+      
       switch (message.type) {
         case 'connected':
           // Initial connection confirmed (no session yet)
@@ -424,6 +427,7 @@ export class StreamingVoiceClient {
           break;
           
         case 'word_timing_delta':
+          console.error(`[WS RECV] >>> WORD_TIMING_DELTA CASE HIT <<<`);
           this.handleWordTimingDelta(message as StreamingWordTimingDeltaMessage);
           break;
           
