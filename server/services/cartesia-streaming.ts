@@ -232,12 +232,11 @@ export class CartesiaStreamingService extends EventEmitter {
       const connectStart = Date.now();
       
       // Get WebSocket client from Cartesia SDK
-      // Use raw PCM format - lower latency and avoids MP3 bitrate issues
-      // Audio will be converted or handled appropriately by the client
+      // Use WAV format - playable in browsers and supports native timestamps
       this.websocket = this.client.tts.websocket({
-        sampleRate: 24000, // Lower sample rate for smaller data
-        container: 'raw',
-        encoding: 'pcm_f32le',
+        sampleRate: 24000,
+        container: 'wav',
+        encoding: 'pcm_s16le', // 16-bit signed PCM for WAV
       });
       
       // Connect to WebSocket
