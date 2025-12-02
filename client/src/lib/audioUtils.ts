@@ -207,6 +207,13 @@ export class StreamingAudioPlayer {
   private currentPcmSource: AudioBufferSourceNode | null = null;
   private currentAudioFormat: 'mp3' | 'pcm_f32le' = 'mp3';
   
+  // PROGRESSIVE STREAMING: Accumulator for progressive PCM chunks
+  private progressiveSentenceIndex = -1;
+  private progressiveChunks: Float32Array[] = [];
+  private progressiveScheduledTime = 0; // Next scheduled play time in AudioContext
+  private progressiveSources: AudioBufferSourceNode[] = []; // Track active sources for cleanup
+  private progressiveFirstChunkStarted = false;
+  
   constructor() {
     console.log('[StreamingAudioPlayer] Initialized');
   }
@@ -318,6 +325,160 @@ export class StreamingAudioPlayer {
   }
   
   /**
+   * PROGRESSIVE STREAMING: Enqueue a progressive PCM chunk for immediate playback
+   * 
+   * Unlike enqueue() which buffers entire sentences, this method schedules
+   * PCM chunks for gapless playback as they arrive from the server.
+   * 
+   * Benefits:
+   * - Audio starts playing as soon as first chunk arrives (~200ms after TTS start)
+   * - No waiting for full sentence synthesis
+   * 
+   * @param sentenceIndex - Which sentence this chunk belongs to
+   * @param chunkIndex - Index of this chunk within the sentence
+   * @param audio - Raw PCM audio data (f32le, 24kHz mono)
+   * @param durationMs - Duration of this chunk in milliseconds
+   * @param isLast - Whether this is the final chunk for the sentence
+   * @param sampleRate - Audio sample rate (default: 24000)
+   */
+  async enqueueProgressivePcmChunk(
+    sentenceIndex: number,
+    chunkIndex: number,
+    audio: ArrayBuffer,
+    durationMs: number,
+    isLast: boolean,
+    sampleRate: number = 24000
+  ): Promise<void> {
+    // Skip empty audio (e.g., final marker chunk)
+    if (audio.byteLength === 0) {
+      if (isLast) {
+        this.finalizeProgressiveSentence(sentenceIndex);
+      }
+      return;
+    }
+    
+    const ctx = this.getAudioContext();
+    
+    // Resume AudioContext if suspended
+    if (ctx.state === 'suspended') {
+      console.log('[StreamingAudioPlayer] [Progressive] Resuming AudioContext...');
+      await ctx.resume();
+    }
+    
+    // Detect new sentence - reset progressive state
+    if (sentenceIndex !== this.progressiveSentenceIndex) {
+      console.log(`[StreamingAudioPlayer] [Progressive] New sentence ${sentenceIndex}, resetting state`);
+      this.resetProgressiveState();
+      this.progressiveSentenceIndex = sentenceIndex;
+      this.currentSentenceIndex = sentenceIndex;
+      this.progressiveScheduledTime = ctx.currentTime + 0.01; // Small buffer for smooth start
+      this.isPlaying = true;
+      this.setState('buffering');
+    }
+    
+    // Convert raw PCM bytes to Float32Array
+    const float32Data = new Float32Array(audio);
+    const numSamples = float32Data.length;
+    const chunkDuration = numSamples / sampleRate;
+    
+    // Store for potential replay
+    this.progressiveChunks.push(float32Data);
+    this.allAudioChunks.push(audio);
+    this.combinedAudioBlob = null;
+    
+    // Create AudioBuffer
+    const audioBuffer = ctx.createBuffer(1, numSamples, sampleRate);
+    audioBuffer.getChannelData(0).set(float32Data);
+    
+    // Create and schedule buffer source
+    const source = ctx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(ctx.destination);
+    this.progressiveSources.push(source);
+    
+    // Schedule at next available time for gapless playback
+    const playTime = this.progressiveScheduledTime;
+    source.start(playTime);
+    this.progressiveScheduledTime += chunkDuration;
+    
+    // Track first chunk for timing
+    if (!this.progressiveFirstChunkStarted && chunkIndex === 0) {
+      this.progressiveFirstChunkStarted = true;
+      this.playbackStartTime = performance.now();
+      this.setState('playing');
+      this.callbacks.onSentenceStart?.(sentenceIndex);
+      this.startPrecisionTiming();
+      console.log(`[StreamingAudioPlayer] [Progressive] First chunk playing at ${playTime.toFixed(3)}s (ctx.currentTime=${ctx.currentTime.toFixed(3)}s)`);
+    }
+    
+    // Update duration estimate
+    this.currentDuration = this.progressiveScheduledTime - (ctx.currentTime + 0.01);
+    
+    console.log(`[StreamingAudioPlayer] [Progressive] Chunk ${chunkIndex}: ${numSamples} samples, ${chunkDuration.toFixed(3)}s, scheduled at ${playTime.toFixed(3)}s, isLast=${isLast}`);
+    
+    // Handle last chunk
+    if (isLast) {
+      this.scheduleProgressiveSentenceEnd(sentenceIndex, chunkDuration);
+    }
+  }
+  
+  /**
+   * Reset progressive streaming state
+   */
+  private resetProgressiveState(): void {
+    // Stop all active progressive sources
+    for (const source of this.progressiveSources) {
+      try {
+        source.stop();
+        source.disconnect();
+      } catch (e) {
+        // Ignore - source may have already ended
+      }
+    }
+    this.progressiveSources = [];
+    this.progressiveChunks = [];
+    this.progressiveFirstChunkStarted = false;
+  }
+  
+  /**
+   * Schedule sentence end callback after last chunk finishes
+   */
+  private scheduleProgressiveSentenceEnd(sentenceIndex: number, lastChunkDuration: number): void {
+    const ctx = this.getAudioContext();
+    const delayMs = (this.progressiveScheduledTime - ctx.currentTime) * 1000;
+    
+    console.log(`[StreamingAudioPlayer] [Progressive] Scheduling sentence ${sentenceIndex} end in ${delayMs.toFixed(0)}ms`);
+    
+    setTimeout(() => {
+      this.finalizeProgressiveSentence(sentenceIndex);
+    }, Math.max(0, delayMs));
+  }
+  
+  /**
+   * Finalize a progressive sentence (called when last chunk ends)
+   */
+  private finalizeProgressiveSentence(sentenceIndex: number): void {
+    console.log(`[StreamingAudioPlayer] [Progressive] Sentence ${sentenceIndex} complete`);
+    
+    this.stopPrecisionTiming();
+    this.callbacks.onSentenceEnd?.(sentenceIndex);
+    
+    // Reset state for next sentence
+    this.resetProgressiveState();
+    this.progressiveSentenceIndex = -1;
+    
+    // If no more queued audio, mark as idle
+    if (this.queue.length === 0) {
+      this.isPlaying = false;
+      this.setState('idle');
+      this.callbacks.onComplete?.();
+    } else {
+      // Continue with queued (non-progressive) audio
+      this.playNext();
+    }
+  }
+  
+  /**
    * Stop playback and clear queue
    */
   stop(): void {
@@ -342,6 +503,10 @@ export class StreamingAudioPlayer {
       }
       this.currentPcmSource = null;
     }
+    
+    // Stop progressive streaming
+    this.resetProgressiveState();
+    this.progressiveSentenceIndex = -1;
     
     // Clear queue and pending count
     this.queue = [];
