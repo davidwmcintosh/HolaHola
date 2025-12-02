@@ -354,13 +354,13 @@ export class StreamingVoiceClient {
     try {
       const message: StreamingMessage = JSON.parse(event.data);
       
-      // DEBUG: Log ALL message types with count
+      // DEBUG: Log ALL message types - use console.error so they're always captured
       const msgType = message.type;
-      console.log(`[StreamingVoiceClient] JSON message type: ${msgType}`);
+      console.error(`[MSG] type=${msgType}`);
       
-      // CRITICAL DEBUG: Check if it's a word_timing_delta (use console.error so it's captured)
+      // CRITICAL DEBUG: Check if it's a word_timing_delta
       if (msgType === 'word_timing_delta') {
-        console.error(`[DEBUG] WORD_TIMING_DELTA: sentence=${(message as any).sentenceIndex}, word=${(message as any).wordIndex}`);
+        console.error(`[MSG] DELTA: s=${(message as any).sentenceIndex} w=${(message as any).wordIndex}`);
       }
       
       switch (message.type) {
