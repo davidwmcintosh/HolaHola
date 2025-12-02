@@ -520,7 +520,7 @@ export class StreamingAudioPlayer {
       // Debug log periodically - every 10 frames (~160ms at 60fps) for more visibility
       frameCount++;
       if (frameCount % 10 === 0) {
-        console.error(`[TIMING LOOP] frame=${frameCount}, elapsed=${currentTime.toFixed(3)}s, total=${this.progressiveTotalDuration.toFixed(3)}s, ctx.state=${ctx?.state}`);
+        console.log(`[TIMING LOOP] frame=${frameCount}, elapsed=${currentTime.toFixed(3)}s, total=${this.progressiveTotalDuration.toFixed(3)}s, ctx.state=${ctx?.state}`);
       }
       
       // Continue the loop
