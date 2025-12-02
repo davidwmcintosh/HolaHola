@@ -108,6 +108,35 @@ export type UpdateUserPreferences = z.infer<typeof updateUserPreferencesSchema>;
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 
+// Per-language self-directed preferences
+// Allows users to have different flexibility settings per language
+// (e.g., Guided for Spanish class, Free Conversation for Italian self-directed)
+export const userLanguagePreferences = pgTable("user_language_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  language: varchar("language").notNull(), // spanish, french, german, italian, etc.
+  // Self-directed flexibility for this specific language
+  selfDirectedFlexibility: tutorFreedomLevelEnum("self_directed_flexibility").default("flexible_goals"),
+  // Whether user has completed placement assessment for this language
+  selfDirectedPlacementDone: boolean("self_directed_placement_done").default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_user_language_prefs_user_lang").on(table.userId, table.language),
+]);
+
+export const insertUserLanguagePreferencesSchema = createInsertSchema(userLanguagePreferences).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertUserLanguagePreferences = z.infer<typeof insertUserLanguagePreferencesSchema>;
+export type UserLanguagePreferences = typeof userLanguagePreferences.$inferSelect;
+
+// Schema for updating per-language preferences
+export const updateLanguagePreferencesSchema = z.object({
+  language: z.string(),
+  selfDirectedFlexibility: z.enum(['guided', 'flexible_goals', 'open_exploration', 'free_conversation']).optional(),
+  selfDirectedPlacementDone: z.boolean().optional(),
+});
+export type UpdateLanguagePreferences = z.infer<typeof updateLanguagePreferencesSchema>;
+
 // Tutor Voices - Admin-configurable voices per language with male/female options
 // This replaces hardcoded voice mappings and allows admin voice audition/assignment
 export const tutorVoices = pgTable("tutor_voices", {
