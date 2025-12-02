@@ -362,13 +362,13 @@ export class StreamingAudioPlayer {
     const ctx = this.getAudioContext();
     
     // CRITICAL: Log AudioContext state for every chunk
-    console.error(`[AUDIO STATE] Chunk ${sentenceIndex}:${chunkIndex} - ctx.state=${ctx.state}, ctx.currentTime=${ctx.currentTime?.toFixed(3)}`);
+    console.log(`[AUDIO STATE] Chunk ${sentenceIndex}:${chunkIndex} - ctx.state=${ctx.state}, ctx.currentTime=${ctx.currentTime?.toFixed(3)}`);
     
     // Resume AudioContext if suspended
     if (ctx.state === 'suspended') {
-      console.error('[AUDIO STATE] !!! AudioContext SUSPENDED - Resuming...');
+      console.log('[AUDIO STATE] !!! AudioContext SUSPENDED - Resuming...');
       await ctx.resume();
-      console.error(`[AUDIO STATE] After resume: ctx.state=${ctx.state}`);
+      console.log(`[AUDIO STATE] After resume: ctx.state=${ctx.state}`);
     }
     
     // Detect new sentence - DON'T stop current audio, let it finish naturally!
@@ -440,8 +440,8 @@ export class StreamingAudioPlayer {
       // CRITICAL: Set the AudioContext start time for this sentence's timing
       this.progressivePlaybackStartCtxTime = playTime; // When this sentence's audio actually starts
       this.setState('playing');
-      console.error(`[AUDIO DEBUG] >>> Firing onSentenceStart(${sentenceIndex}) <<<`);
-      console.error(`[AUDIO DEBUG] progressivePlaybackStartCtxTime=${playTime.toFixed(3)}, ctx.currentTime=${ctx.currentTime.toFixed(3)}`);
+      console.log(`[AUDIO DEBUG] >>> Firing onSentenceStart(${sentenceIndex}) <<<`);
+      console.log(`[AUDIO DEBUG] progressivePlaybackStartCtxTime=${playTime.toFixed(3)}, ctx.currentTime=${ctx.currentTime.toFixed(3)}`);
       this.callbacks.onSentenceStart?.(sentenceIndex);
       this.startProgressivePrecisionTiming(); // Use progressive-specific timing
       console.log(`[StreamingAudioPlayer] [Progressive] First chunk playing at ${playTime.toFixed(3)}s (ctx.currentTime=${ctx.currentTime.toFixed(3)}s)`);
