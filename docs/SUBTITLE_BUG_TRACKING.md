@@ -688,4 +688,56 @@ if (sentenceIndex !== this.progressiveSentenceIndex) {
 - Word highlighting should work throughout each sentence
 - `elapsed` time should reach `total` duration before sentence ends
 
-### Status: 🟢 FIX APPLIED - AWAITING USER TEST
+### Status: 🟢 FIXED - Audio now plays completely!
+
+### Additional Fixes Required (Dec 2, 9:45 PM)
+
+After initial fix, two more issues discovered:
+
+**Issue A: Timing loop fired before audio started**
+- Sentence 2's audio scheduled for future (after sentence 1 ends)
+- But timing loop started immediately
+- `ctx.currentTime - playTime` was negative → clamped to 0
+- **Fix:** Added check in timing loop to wait until `elapsedCtxTime >= 0`
+
+**Issue B: finalizeProgressiveSentence stopped next sentence**
+- When sentence 1 ended, it set `progressiveSentenceIndex = -1`
+- But sentence 2 had already started and set index to 2
+- This overwrote sentence 2's index, breaking its timing
+- **Fix:** Only clean up if still on the same sentence
+
+**Issue C: resetProgressiveState called on sentence end**
+- `finalizeProgressiveSentence` called `resetProgressiveState()`
+- This stopped the timing loop and cleared state
+- **Fix:** Removed these calls, only fire callback
+
+### Final Working Code Pattern:
+```javascript
+// In timing loop - wait for audio to actually start:
+if (elapsedCtxTime < 0) {
+  this.rafId = requestAnimationFrame(tick);
+  return; // Don't fire callbacks yet
+}
+
+// In finalizeProgressiveSentence - don't overwrite next sentence:
+if (this.progressiveSentenceIndex === sentenceIndex) {
+  // Only clean up if still on this sentence
+}
+```
+
+### Result: ✅ FULL AUDIO PLAYBACK WORKING (Dec 2, 9:50 PM)
+User confirmed: "BEAUTIFUL. We now have full audio."
+
+---
+
+## Bug #5: Subtitle Highlighting Not Working (OPEN)
+
+### Current Status (Dec 2, 9:50 PM)
+- Audio plays completely ✅
+- Subtitles display on screen ✅  
+- Word highlighting NOT working ❌
+- Sync between subtitles and voice is off ❌
+
+### Investigation Needed
+With audio now working, need to trace why word highlighting isn't firing.
+The timing loop IS running and elapsed time IS advancing, so the issue is downstream.

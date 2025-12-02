@@ -401,6 +401,9 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     return result;
   };
   
+  // Track the first word's start time for each sentence (for normalization)
+  const sentenceStartTimesRef = useRef<Map<number, number>>(new Map());
+  
   /**
    * PROGRESSIVE STREAMING: Add a single word timing incrementally
    * These arrive as words are timestamped during progressive TTS synthesis.
@@ -410,6 +413,9 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
    * - No words are lost (all stored in Map)
    * - Array has no gaps or placeholders (dense conversion)
    * - Out-of-order delivery is handled gracefully (gaps filled when missing words arrive)
+   * 
+   * CRITICAL: Word timings are NORMALIZED per sentence - subtract first word's startTime
+   * so all times are relative to 0. This matches the audio player's per-sentence clock.
    */
   const addProgressiveWordTiming = useCallback((
     sentenceIndex: number,
@@ -426,16 +432,27 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       return;
     }
     
-    console.log(`[StreamingSubtitles v2] Progressive timing: sentence ${sentenceIndex}, word ${wordIndex} "${word}" ${startTime.toFixed(3)}-${endTime.toFixed(3)}s`);
+    // Track first word's start time for this sentence (for normalization)
+    if (wordIndex === 0 && !sentenceStartTimesRef.current.has(sentenceIndex)) {
+      sentenceStartTimesRef.current.set(sentenceIndex, startTime);
+      console.log(`[StreamingSubtitles v2] Sentence ${sentenceIndex} start time: ${startTime.toFixed(3)}s`);
+    }
     
-    // Build word timing object
-    const newTiming: WordTiming = { word, startTime, endTime };
+    // Normalize times relative to sentence start (so first word starts at 0)
+    const sentenceStartTime = sentenceStartTimesRef.current.get(sentenceIndex) ?? startTime;
+    const normalizedStartTime = startTime - sentenceStartTime;
+    const normalizedEndTime = endTime - sentenceStartTime;
+    
+    console.log(`[StreamingSubtitles v2] Progressive timing: sentence ${sentenceIndex}, word ${wordIndex} "${word}" ${normalizedStartTime.toFixed(3)}-${normalizedEndTime.toFixed(3)}s (raw: ${startTime.toFixed(3)}-${endTime.toFixed(3)}s)`);
+    
+    // Build word timing object with NORMALIZED times
+    const newTiming: WordTiming = { word, startTime: normalizedStartTime, endTime: normalizedEndTime };
     
     // Get or create sparse Map for this sentence
     if (!progressiveWordMapRef.current.has(sentenceIndex)) {
       progressiveWordMapRef.current.set(sentenceIndex, new Map());
     }
-    const wordMap = progressiveWordMapRef.current.get(sentenceIndex)!;
+    const wordMap = progressiveWordMapRef.current.get(sentenceIndex)!
     
     // Store timing at its index (Map handles sparse storage naturally)
     wordMap.set(wordIndex, newTiming);
@@ -494,6 +511,9 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
    * PROGRESSIVE STREAMING: Finalize word timings with authoritative data
    * Called when sentence synthesis completes. This corrects any timing drift
    * from the incremental delta messages and provides the final word count.
+   * 
+   * CRITICAL: Word timings are NORMALIZED per sentence - subtract first word's startTime
+   * so all times are relative to 0. This matches the audio player's per-sentence clock.
    */
   const finalizeWordTimings = useCallback((
     sentenceIndex: number,
@@ -507,24 +527,35 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       return;
     }
     
-    console.log(`[StreamingSubtitles v2] Finalize timings for sentence ${sentenceIndex} (turn ${turnId}): ${words.length} words, ${actualDurationMs}ms`);
+    // Get sentence start time from our tracking, or use first word's start time
+    const sentenceStartTime = sentenceStartTimesRef.current.get(sentenceIndex) ?? 
+                              (words.length > 0 ? words[0].startTime : 0);
+    
+    // Normalize all word timings relative to sentence start
+    const normalizedWords: WordTiming[] = words.map(w => ({
+      word: w.word,
+      startTime: w.startTime - sentenceStartTime,
+      endTime: w.endTime - sentenceStartTime
+    }));
+    
+    console.log(`[StreamingSubtitles v2] Finalize timings for sentence ${sentenceIndex} (turn ${turnId}): ${words.length} words, ${actualDurationMs}ms, normalized from ${sentenceStartTime.toFixed(3)}s`);
     
     // Clear progressive word map for this sentence (no longer needed)
     progressiveWordMapRef.current.delete(sentenceIndex);
     
-    // Update ref with authoritative data (overwrites any progressive deltas)
+    // Update ref with authoritative NORMALIZED data
     timingsBySentenceRef.current.set(sentenceIndex, {
-      timings: words,
+      timings: normalizedWords,
       expectedDurationMs: actualDurationMs
     });
     
-    // Update React state with authoritative word timings
+    // Update React state with authoritative NORMALIZED word timings
     setSentences(prev => {
       return prev.map(s => {
         if (s.index === sentenceIndex && s.turnId === turnId) {
           return {
             ...s,
-            wordTimings: words,
+            wordTimings: normalizedWords,
             expectedDurationMs: actualDurationMs,
             actualDurationMs: actualDurationMs
           };
@@ -535,7 +566,7 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     
     // Update refs if this is the active sentence
     if (sentenceIndex === currentSentenceIndex) {
-      currentTimingsRef.current = words;
+      currentTimingsRef.current = normalizedWords;
       expectedDurationRef.current = actualDurationMs;
       actualDurationRef.current = actualDurationMs;
     }
@@ -834,6 +865,8 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     expectedDurationRef.current = undefined;
     actualDurationRef.current = undefined;
     timingsBySentenceRef.current.clear();
+    progressiveWordMapRef.current.clear();
+    sentenceStartTimesRef.current.clear();  // Clear sentence start time tracking
     
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
