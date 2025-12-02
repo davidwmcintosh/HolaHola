@@ -525,6 +525,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== Per-Language Self-Directed Preferences =====
+  
+  // Get all language-specific preferences for a user
+  app.get('/api/user/language-preferences', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const preferences = await storage.getAllLanguagePreferences(userId);
+      res.json({ preferences });
+    } catch (error) {
+      console.error("Error fetching language preferences:", error);
+      res.status(500).json({ message: "Failed to fetch language preferences" });
+    }
+  });
+
+  // Get preferences for a specific language with eligibility info
+  app.get('/api/user/language-preferences/:language', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { language } = req.params;
+      
+      if (!language) {
+        return res.status(400).json({ message: "Language parameter is required" });
+      }
+      
+      const normalizedLang = language.toLowerCase();
+      
+      // Get existing preferences for this language
+      const preferences = await storage.getLanguagePreferences(userId, normalizedLang);
+      
+      // Check if user has class enrollment for this language
+      const hasClassEnrollment = await storage.hasClassEnrollmentForLanguage(userId, normalizedLang);
+      
+      // Get ACTFL progress for this language
+      const actflProgress = await storage.getOrCreateActflProgress(normalizedLang, userId);
+      const hasActflLevel = actflProgress && actflProgress.overallLevel && actflProgress.overallLevel !== 'novice-low';
+      
+      // Determine eligibility for placement assessment:
+      // - Must NOT have class enrollment for this language
+      // - Must NOT have ACTFL level for this language (beyond default)
+      const eligibleForPlacement = !hasClassEnrollment && !hasActflLevel;
+      
+      // Determine smart default based on ACTFL level
+      let smartDefault: 'guided' | 'flexible_goals' | 'open_exploration' | 'free_conversation' = 'flexible_goals';
+      if (actflProgress?.overallLevel) {
+        const level = actflProgress.overallLevel.toLowerCase();
+        if (level.includes('novice')) {
+          smartDefault = 'guided';
+        } else if (level.includes('intermediate')) {
+          smartDefault = 'flexible_goals';
+        } else if (level.includes('advanced') || level.includes('superior') || level.includes('distinguished')) {
+          smartDefault = 'free_conversation';
+        }
+      }
+      
+      res.json({
+        language: normalizedLang,
+        preferences: preferences || null,
+        hasClassEnrollment,
+        hasActflLevel,
+        actflLevel: actflProgress?.overallLevel || null,
+        eligibleForPlacement,
+        smartDefault,
+        // Effective flexibility: user-set or smart default
+        effectiveFlexibility: preferences?.selfDirectedFlexibility || smartDefault,
+        placementDone: preferences?.selfDirectedPlacementDone || false,
+      });
+    } catch (error) {
+      console.error("Error fetching language preferences:", error);
+      res.status(500).json({ message: "Failed to fetch language preferences" });
+    }
+  });
+
+  // Update preferences for a specific language
+  app.put('/api/user/language-preferences/:language', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { language } = req.params;
+      const { selfDirectedFlexibility, selfDirectedPlacementDone } = req.body;
+      
+      if (!language) {
+        return res.status(400).json({ message: "Language parameter is required" });
+      }
+      
+      // Validate flexibility value
+      const validFlexibilities = ['guided', 'flexible_goals', 'open_exploration', 'free_conversation'];
+      if (selfDirectedFlexibility && !validFlexibilities.includes(selfDirectedFlexibility)) {
+        return res.status(400).json({ 
+          message: "Invalid flexibility value. Must be one of: guided, flexible_goals, open_exploration, free_conversation" 
+        });
+      }
+      
+      const updated = await storage.upsertLanguagePreferences(userId, language, {
+        selfDirectedFlexibility,
+        selfDirectedPlacementDone,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating language preferences:", error);
+      res.status(500).json({ message: "Failed to update language preferences" });
+    }
+  });
+
   // Get user usage statistics (voice messages)
   app.get('/api/user/usage', isAuthenticated, async (req: any, res) => {
     try {
