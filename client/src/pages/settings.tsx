@@ -53,7 +53,7 @@ export default function Settings() {
   const [isResetting, setIsResetting] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark" | "system">("light");
   const [tutorGender, setTutorGender] = useState<"male" | "female">((user?.tutorGender as "male" | "female") || "female");
-  const [selfDirectedFlexibility, setSelfDirectedFlexibility] = useState<string>((user?.selfDirectedFlexibility as string) || "flexible_goals");
+  const [selfDirectedFlexibility, setSelfDirectedFlexibility] = useState<string>((user?.selfDirectedFlexibility as string) || "guided");
   const [isRunningPlacement, setIsRunningPlacement] = useState(false);
   const { toast } = useToast();
   const logoutMutation = useLogout();
@@ -137,13 +137,13 @@ export default function Settings() {
   const isEligibleForPlacement = hasNoActflLevel && hasNoClassEnrollments;
 
   // Get recommended flexibility based on ACTFL level
+  // Smart Defaults Policy: Novice→Guided, Intermediate→Flexible Goals, Advanced→Free Conversation
   const getRecommendedFlexibility = (actflLevel: string | null): string => {
-    if (!actflLevel) return 'flexible_goals';
+    if (!actflLevel) return 'guided'; // New/unassessed users get structured guidance
     const level = actflLevel.toLowerCase();
-    if (level.startsWith('novice_low') || level.startsWith('novice_mid')) return 'guided';
-    if (level.startsWith('novice_high') || level.startsWith('intermediate_low') || level.startsWith('intermediate_mid')) return 'flexible_goals';
-    if (level.startsWith('intermediate_high')) return 'open_exploration';
-    return 'free_conversation'; // Advanced+
+    if (level.startsWith('novice')) return 'guided';
+    if (level.startsWith('intermediate')) return 'flexible_goals';
+    return 'free_conversation'; // Advanced, Superior, Distinguished
   };
 
   const recommendedFlexibility = getRecommendedFlexibility(user?.actflLevel || null);
