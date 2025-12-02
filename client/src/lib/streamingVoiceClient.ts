@@ -389,69 +389,14 @@ export class StreamingVoiceClient {
     try {
       const message: StreamingMessage = JSON.parse(event.data);
       
-      // PERSISTENT DEBUG: Track ALL message types in window object
-      if (typeof window !== 'undefined') {
-        try {
-          // Very distinctive log that can't be confused with browser extension
-          console.log('%c[SVC-MSG] ' + message.type, 'color: lime; background: black; font-weight: bold');
-          if (!(window as any)._msgCounts) {
-            (window as any)._msgCounts = {};
-            console.log('%c[SVC] _msgCounts INITIALIZED', 'color: yellow; background: black; font-size: 14px');
-          }
-          (window as any)._msgCounts[message.type] = ((window as any)._msgCounts[message.type] || 0) + 1;
-          (window as any)._lastMsg = { type: message.type, time: Date.now() };
-          console.log('%c[SVC] _msgCounts NOW: ' + JSON.stringify((window as any)._msgCounts), 'color: cyan; background: black');
-        } catch (err) {
-          console.error('%c[SVC] ERROR setting window vars:', 'color: red; background: white', err);
-        }
-      }
-      
-      // GLOBAL DEBUG: Track by message type
-      if (typeof window !== 'undefined' && window._wsDebug) {
-        window._wsDebug.byType[message.type] = (window._wsDebug.byType[message.type] || 0) + 1;
-        window._wsDebug.lastMessage = { type: message.type, time: Date.now() };
-      }
-      
-      // Log important message types
-      if (message.type === 'audio_chunk') {
-        console.log(`[WS] audio_chunk received: sentence=${(message as any).sentenceIndex}, chunk=${(message as any).chunkIndex}`);
-      }
-      
-      // Store ALL message types for debugging
-      if (typeof window !== 'undefined') {
-        if (!(window as any)._debugMessages) {
-          (window as any)._debugMessages = [];
-          // Log summary every 2 seconds
-          setInterval(() => {
-            const msgs = (window as any)._debugMessages;
-            if (msgs.length > 0) {
-              console.log('[WS DEBUG] Messages received:', msgs.slice(-20));
-              // Keep only last 50 messages
-              if (msgs.length > 50) {
-                (window as any)._debugMessages = msgs.slice(-50);
-              }
-            }
-          }, 2000);
-        }
-        (window as any)._debugMessages.push({
-          type: message.type,
-          time: Date.now()
-        });
-      }
-      
-      // DEBUG: Log right before switch
-      console.log('%c[SVC] ABOUT TO SWITCH ON: ' + message.type, 'color: orange; background: black; font-weight: bold');
-      
-      // DEBUG: Explicit check for word_timing_delta - use top window to ensure visibility
+      // Use console.error for critical message types to ensure visibility
       if (message.type === 'word_timing_delta') {
-        const topWin = (typeof window !== 'undefined' && window.top) ? window.top : window;
-        const oldVal = (topWin as any)._explicitDeltaCheck || 0;
-        (topWin as any)._explicitDeltaCheck = oldVal + 1;
-        // Also set on current window
-        (window as any)._explicitDeltaCheck = oldVal + 1;
-        // And on globalThis
-        (globalThis as any)._explicitDeltaCheck = oldVal + 1;
-        console.log('%c[SVC] *** DELTA CHECK: ' + (topWin as any)._explicitDeltaCheck + ' (top===window: ' + (window.top === window) + ') ***', 'color: white; background: purple; font-weight: bold; font-size: 16px');
+        const delta = message as any;
+        console.error(`[WS-DELTA-RCVD] s=${delta.sentenceIndex}, w=${delta.wordIndex} "${delta.word}" ${delta.startTime?.toFixed(3)}-${delta.endTime?.toFixed(3)}s`);
+      } else if (message.type === 'audio_chunk') {
+        // Skip logging each audio chunk (too many)
+      } else {
+        console.log('[WS-MSG]', message.type);
       }
       
       switch (message.type) {
