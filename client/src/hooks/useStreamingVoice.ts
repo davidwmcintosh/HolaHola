@@ -18,6 +18,8 @@ import type {
   StreamingSentenceStartMessage,
   StreamingAudioChunkMessage,
   StreamingWordTimingMessage,
+  StreamingWordTimingDeltaMessage,
+  StreamingWordTimingFinalMessage,
   StreamingResponseCompleteMessage,
 } from '../../../shared/streaming-voice-types';
 
@@ -230,6 +232,10 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   /**
    * Handle audio chunk message
    * Supports both MP3 (HTMLAudioElement) and raw PCM (Web Audio API)
+   * 
+   * PROGRESSIVE STREAMING: When audioFormat is 'pcm_f32le', route to
+   * progressive playback which schedules chunks for gapless playback
+   * as they arrive. This eliminates the ~2s sentence buffering delay.
    */
   const handleAudioChunk = useCallback((msg: StreamingAudioChunkMessage) => {
     if (!playerRef.current) {
@@ -238,7 +244,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
     
     const formatLabel = msg.audioFormat === 'pcm_f32le' ? 'PCM' : 'MP3';
-    console.log(`[StreamingVoice] Processing audio chunk (${formatLabel}): turn=${msg.turnId}, sentence=${msg.sentenceIndex}, base64Len=${msg.audio?.length || 0}, isLast=${msg.isLast}`);
+    const chunkIndex = msg.chunkIndex || 0;
+    console.log(`[StreamingVoice] Processing audio chunk (${formatLabel}): turn=${msg.turnId}, sentence=${msg.sentenceIndex}, chunk=${chunkIndex}, base64Len=${msg.audio?.length || 0}, isLast=${msg.isLast}`);
     
     // Decode base64 to ArrayBuffer
     const binaryString = atob(msg.audio);
@@ -249,6 +256,23 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     console.log(`[StreamingVoice] Audio decoded: ${bytes.buffer.byteLength} bytes (${formatLabel}) for sentence ${msg.sentenceIndex}`);
     
+    // PROGRESSIVE STREAMING: Use progressive playback for PCM chunks
+    // This schedules audio for gapless playback as chunks arrive,
+    // eliminating the ~2s delay from waiting for full sentence synthesis
+    if (msg.audioFormat === 'pcm_f32le') {
+      const sampleRate = msg.sampleRate || 24000;
+      playerRef.current.enqueueProgressivePcmChunk(
+        msg.sentenceIndex,
+        chunkIndex,
+        bytes.buffer,
+        msg.durationMs,
+        msg.isLast,
+        sampleRate
+      );
+      return;
+    }
+    
+    // Traditional playback for MP3 (full sentence buffering)
     const chunk: StreamingAudioChunk = {
       sentenceIndex: msg.sentenceIndex,
       audio: bytes.buffer,
@@ -267,6 +291,37 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    */
   const handleWordTiming = useCallback((msg: StreamingWordTimingMessage) => {
     subtitles.setWordTimings(msg.sentenceIndex, msg.turnId, msg.timings, msg.expectedDurationMs);
+  }, [subtitles]);
+  
+  /**
+   * PROGRESSIVE STREAMING: Handle incremental word timing update
+   * These arrive as words are timestamped during progressive TTS
+   */
+  const handleWordTimingDelta = useCallback((msg: StreamingWordTimingDeltaMessage) => {
+    // Add the word timing incrementally for progressive display
+    subtitles.addProgressiveWordTiming(
+      msg.sentenceIndex,
+      msg.turnId,
+      msg.wordIndex,
+      msg.word,
+      msg.startTime,
+      msg.endTime,
+      msg.estimatedTotalDuration
+    );
+  }, [subtitles]);
+  
+  /**
+   * PROGRESSIVE STREAMING: Handle final word timing reconciliation
+   * Sent when sentence synthesis completes with authoritative timings
+   */
+  const handleWordTimingFinal = useCallback((msg: StreamingWordTimingFinalMessage) => {
+    // Update with authoritative timings for perfect sync
+    subtitles.finalizeWordTimings(
+      msg.sentenceIndex,
+      msg.turnId,
+      msg.words,
+      msg.actualDurationMs
+    );
   }, [subtitles]);
   
   /**
@@ -322,6 +377,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('sentenceStart', handleSentenceStart);
       clientRef.current.on('audioChunk', handleAudioChunk);
       clientRef.current.on('wordTiming', handleWordTiming);
+      clientRef.current.on('wordTimingDelta', handleWordTimingDelta);  // Progressive streaming
+      clientRef.current.on('wordTimingFinal', handleWordTimingFinal);  // Progressive streaming
       clientRef.current.on('responseComplete', handleResponseComplete);
       clientRef.current.on('error', handleError);
       
@@ -350,7 +407,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleSentenceStart, handleAudioChunk, handleWordTiming, handleResponseComplete, handleError]);
+  }, [handleProcessing, handleSentenceStart, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleError]);
   
   /**
    * Disconnect from streaming voice service
@@ -364,6 +421,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('sentenceStart', handleSentenceStart);
       clientRef.current.off('audioChunk', handleAudioChunk);
       clientRef.current.off('wordTiming', handleWordTiming);
+      clientRef.current.off('wordTimingDelta', handleWordTimingDelta);  // Progressive streaming
+      clientRef.current.off('wordTimingFinal', handleWordTimingFinal);  // Progressive streaming
       clientRef.current.off('responseComplete', handleResponseComplete);
       clientRef.current.off('error', handleError);
       clientRef.current.disconnect();
@@ -379,7 +438,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     pendingAudioCountRef.current = 0;
     setConnectionState('disconnected');
     setIsProcessing(false);
-  }, [handleProcessing, handleSentenceStart, handleAudioChunk, handleWordTiming, handleResponseComplete, handleError, subtitles]);
+  }, [handleProcessing, handleSentenceStart, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleError, subtitles]);
   
   /**
    * Send audio for processing

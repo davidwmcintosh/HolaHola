@@ -14,6 +14,8 @@ import {
   StreamingSentenceStartMessage,
   StreamingAudioChunkMessage,
   StreamingWordTimingMessage,
+  StreamingWordTimingDeltaMessage,
+  StreamingWordTimingFinalMessage,
   StreamingSentenceEndMessage,
   StreamingResponseCompleteMessage,
   StreamingErrorMessage,
@@ -79,9 +81,12 @@ type StreamingEventType =
   | 'sentenceStart'
   | 'audioChunk'
   | 'wordTiming'
+  | 'wordTimingDelta'    // Progressive streaming: incremental word timing
+  | 'wordTimingFinal'    // Progressive streaming: final reconciliation
   | 'sentenceEnd'
   | 'responseComplete'
   | 'feedback'
+  | 'voiceUpdated'
   | 'error';
 
 /**
@@ -372,6 +377,14 @@ export class StreamingVoiceClient {
           this.handleWordTiming(message as StreamingWordTimingMessage);
           break;
           
+        case 'word_timing_delta':
+          this.handleWordTimingDelta(message as StreamingWordTimingDeltaMessage);
+          break;
+          
+        case 'word_timing_final':
+          this.handleWordTimingFinal(message as StreamingWordTimingFinalMessage);
+          break;
+          
         case 'sentence_end':
           this.handleSentenceEnd(message as StreamingSentenceEndMessage);
           break;
@@ -447,6 +460,24 @@ export class StreamingVoiceClient {
   private handleWordTiming(message: StreamingWordTimingMessage): void {
     this.callbacks.onWordTimings?.(message.sentenceIndex, message.words);
     this.emit('wordTiming', message);
+  }
+  
+  /**
+   * PROGRESSIVE STREAMING: Handle incremental word timing update
+   * These arrive as words are timestamped during progressive TTS
+   */
+  private handleWordTimingDelta(message: StreamingWordTimingDeltaMessage): void {
+    console.log(`[StreamingVoiceClient] Word timing delta: sentence=${message.sentenceIndex}, word=${message.wordIndex} "${message.word}" ${message.startTime.toFixed(3)}-${message.endTime.toFixed(3)}s`);
+    this.emit('wordTimingDelta', message);
+  }
+  
+  /**
+   * PROGRESSIVE STREAMING: Handle final word timing reconciliation
+   * Sent when sentence synthesis completes with authoritative timings
+   */
+  private handleWordTimingFinal(message: StreamingWordTimingFinalMessage): void {
+    console.log(`[StreamingVoiceClient] Word timing final: sentence=${message.sentenceIndex}, ${message.words.length} words, ${message.actualDurationMs}ms`);
+    this.emit('wordTimingFinal', message);
   }
   
   private handleSentenceEnd(message: StreamingSentenceEndMessage): void {

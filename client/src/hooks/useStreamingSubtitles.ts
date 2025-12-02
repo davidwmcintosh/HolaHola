@@ -85,6 +85,9 @@ export interface UseStreamingSubtitlesReturn {
   state: StreamingSubtitleState;
   addSentence: (index: number, text: string, turnId: number, hasTargetContent: boolean, targetLanguageText?: string, wordMapping?: [number, number][]) => void;
   setWordTimings: (sentenceIndex: number, turnId: number, timings: WordTiming[], expectedDurationMs?: number) => void;
+  // PROGRESSIVE STREAMING: Incremental word timing updates
+  addProgressiveWordTiming: (sentenceIndex: number, turnId: number, wordIndex: number, word: string, startTime: number, endTime: number, estimatedTotalDuration?: number) => void;
+  finalizeWordTimings: (sentenceIndex: number, turnId: number, words: WordTiming[], actualDurationMs: number) => void;
   startPlayback: (sentenceIndex: number, turnId: number) => void;
   updatePlaybackTime: (currentTime: number, actualDuration?: number) => void;
   stopPlayback: () => void;
@@ -357,6 +360,123 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     if (sentenceIndex === currentSentenceIndex) {
       currentTimingsRef.current = timings;
       expectedDurationRef.current = expectedDurationMs;
+    }
+  }, [currentTurnId, currentSentenceIndex]);
+  
+  /**
+   * PROGRESSIVE STREAMING: Add a single word timing incrementally
+   * These arrive as words are timestamped during progressive TTS synthesis.
+   * Client accumulates these until finalizeWordTimings is called.
+   */
+  const addProgressiveWordTiming = useCallback((
+    sentenceIndex: number,
+    turnId: number,
+    wordIndex: number,
+    word: string,
+    startTime: number,
+    endTime: number,
+    estimatedTotalDuration?: number
+  ) => {
+    // STALE PACKET FILTER
+    if (turnId < currentTurnId) {
+      console.log(`[StreamingSubtitles v2] Ignoring stale progressive timing (turnId ${turnId} < current ${currentTurnId})`);
+      return;
+    }
+    
+    console.log(`[StreamingSubtitles v2] Progressive timing: sentence ${sentenceIndex}, word ${wordIndex} "${word}" ${startTime.toFixed(3)}-${endTime.toFixed(3)}s`);
+    
+    // Build word timing object
+    const newTiming: WordTiming = { word, startTime, endTime };
+    
+    // Get or create timings array for this sentence
+    const existing = timingsBySentenceRef.current.get(sentenceIndex);
+    const timings = existing?.timings ? [...existing.timings] : [];
+    
+    // Insert at correct position (may arrive out of order)
+    if (wordIndex >= timings.length) {
+      // Extend array with placeholders if needed
+      while (timings.length < wordIndex) {
+        timings.push({ word: '', startTime: 0, endTime: 0 });
+      }
+      timings.push(newTiming);
+    } else {
+      timings[wordIndex] = newTiming;
+    }
+    
+    // Update ref
+    timingsBySentenceRef.current.set(sentenceIndex, {
+      timings,
+      expectedDurationMs: estimatedTotalDuration ? estimatedTotalDuration * 1000 : existing?.expectedDurationMs
+    });
+    
+    // Update React state
+    setSentences(prev => {
+      return prev.map(s => {
+        if (s.index === sentenceIndex && s.turnId === turnId) {
+          return {
+            ...s,
+            wordTimings: timings,
+            expectedDurationMs: estimatedTotalDuration ? estimatedTotalDuration * 1000 : s.expectedDurationMs
+          };
+        }
+        return s;
+      });
+    });
+    
+    // Update refs if this is the active sentence
+    if (sentenceIndex === currentSentenceIndex) {
+      currentTimingsRef.current = timings;
+      if (estimatedTotalDuration) {
+        expectedDurationRef.current = estimatedTotalDuration * 1000;
+      }
+    }
+  }, [currentTurnId, currentSentenceIndex]);
+  
+  /**
+   * PROGRESSIVE STREAMING: Finalize word timings with authoritative data
+   * Called when sentence synthesis completes. This corrects any timing drift
+   * from the incremental delta messages.
+   */
+  const finalizeWordTimings = useCallback((
+    sentenceIndex: number,
+    turnId: number,
+    words: WordTiming[],
+    actualDurationMs: number
+  ) => {
+    // STALE PACKET FILTER
+    if (turnId < currentTurnId) {
+      console.log(`[StreamingSubtitles v2] Ignoring stale final timings (turnId ${turnId} < current ${currentTurnId})`);
+      return;
+    }
+    
+    console.log(`[StreamingSubtitles v2] Finalize timings for sentence ${sentenceIndex} (turn ${turnId}): ${words.length} words, ${actualDurationMs}ms`);
+    
+    // Update ref with authoritative data
+    timingsBySentenceRef.current.set(sentenceIndex, {
+      timings: words,
+      expectedDurationMs: actualDurationMs
+    });
+    
+    // Update React state
+    setSentences(prev => {
+      return prev.map(s => {
+        if (s.index === sentenceIndex && s.turnId === turnId) {
+          return {
+            ...s,
+            wordTimings: words,
+            expectedDurationMs: actualDurationMs,
+            actualDurationMs: actualDurationMs
+          };
+        }
+        return s;
+      });
+    });
+    
+    // Update refs if this is the active sentence
+    if (sentenceIndex === currentSentenceIndex) {
+      currentTimingsRef.current = words;
+      expectedDurationRef.current = actualDurationMs;
+      actualDurationRef.current = actualDurationMs;
     }
   }, [currentTurnId, currentSentenceIndex]);
   
@@ -816,6 +936,8 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     },
     addSentence,
     setWordTimings,
+    addProgressiveWordTiming,
+    finalizeWordTimings,
     startPlayback,
     updatePlaybackTime,
     stopPlayback,
@@ -846,6 +968,8 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     hasShownTeachingBlock,
     addSentence,
     setWordTimings,
+    addProgressiveWordTiming,
+    finalizeWordTimings,
     startPlayback,
     updatePlaybackTime,
     stopPlayback,
