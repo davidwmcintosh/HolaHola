@@ -7,6 +7,29 @@
  * Target: < 1 second time to first audio byte
  */
 
+// GLOBAL DEBUG: Track message counts (check via window._wsDebug in browser console)
+declare global {
+  interface Window {
+    _wsDebug: {
+      messageCount: number;
+      byType: Record<string, number>;
+      lastMessage: any;
+      lastError: string | null;
+      wsState: number | null;
+    };
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window._wsDebug = {
+    messageCount: 0,
+    byType: {},
+    lastMessage: null,
+    lastError: null,
+    wsState: null
+  };
+}
+
 import {
   StreamingMessage,
   StreamingConnectedMessage,
@@ -336,12 +359,18 @@ export class StreamingVoiceClient {
    * Handle incoming WebSocket message
    */
   private handleMessage(event: MessageEvent): void {
-    // DEBUG: Log EVERY message received
-    console.log(`[StreamingVoiceClient] handleMessage called, data type: ${typeof event.data}, isArrayBuffer: ${event.data instanceof ArrayBuffer}`);
+    // GLOBAL DEBUG: Track all messages
+    if (typeof window !== 'undefined' && window._wsDebug) {
+      window._wsDebug.messageCount++;
+      window._wsDebug.wsState = this.ws?.readyState ?? null;
+    }
     
     // Binary data = audio chunk
     if (event.data instanceof ArrayBuffer) {
-      console.log(`[StreamingVoiceClient] Received audio: ${event.data.byteLength} bytes`);
+      if (typeof window !== 'undefined' && window._wsDebug) {
+        window._wsDebug.byType['binary_audio'] = (window._wsDebug.byType['binary_audio'] || 0) + 1;
+      }
+      console.log(`[StreamingVoiceClient] Received BINARY audio: ${event.data.byteLength} bytes`);
       this.callbacks.onAudioReady?.(
         this.currentSentenceIndex,
         event.data,
@@ -354,8 +383,16 @@ export class StreamingVoiceClient {
     try {
       const message: StreamingMessage = JSON.parse(event.data);
       
-      // CRITICAL DEBUG: Log EVERY message type at error level to ensure visibility
-      console.error(`[CLIENT MSG] type=${message.type}, keys=${Object.keys(message).join(',')}`);
+      // GLOBAL DEBUG: Track by message type
+      if (typeof window !== 'undefined' && window._wsDebug) {
+        window._wsDebug.byType[message.type] = (window._wsDebug.byType[message.type] || 0) + 1;
+        window._wsDebug.lastMessage = { type: message.type, time: Date.now() };
+      }
+      
+      // Log important message types
+      if (message.type === 'audio_chunk') {
+        console.log(`[WS] audio_chunk received: sentence=${(message as any).sentenceIndex}, chunk=${(message as any).chunkIndex}`);
+      }
       
       switch (message.type) {
         case 'connected':
@@ -376,7 +413,6 @@ export class StreamingVoiceClient {
           break;
           
         case 'audio_chunk':
-          console.error('[CLIENT DEBUG] Received audio_chunk message');
           this.handleAudioChunk(message as StreamingAudioChunkMessage);
           break;
           
