@@ -358,9 +358,9 @@ export class StreamingVoiceClient {
       const msgType = message.type;
       console.log(`[StreamingVoiceClient] JSON message type: ${msgType}`);
       
-      // CRITICAL DEBUG: Check if it's a word_timing_delta
+      // CRITICAL DEBUG: Check if it's a word_timing_delta (use console.error so it's captured)
       if (msgType === 'word_timing_delta') {
-        console.log(`[StreamingVoiceClient] *** WORD_TIMING_DELTA DETECTED ***`);
+        console.error(`[DEBUG] WORD_TIMING_DELTA: sentence=${(message as any).sentenceIndex}, word=${(message as any).wordIndex}`);
       }
       
       switch (message.type) {
