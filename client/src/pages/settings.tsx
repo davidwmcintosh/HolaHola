@@ -170,7 +170,7 @@ export default function Settings() {
   // Combine user's practiced languages with all available languages
   const allLanguages = ['spanish', 'french', 'german', 'italian', 'portuguese', 'japanese', 'mandarin', 'korean', 'arabic'];
   const userLanguages = userLanguagesData?.languages || [];
-  const availableLanguages = [...new Set([...userLanguages, ...allLanguages])];
+  const availableLanguages = Array.from(new Set([...userLanguages, ...allLanguages]));
   
   // Initialize theme from localStorage
   useEffect(() => {

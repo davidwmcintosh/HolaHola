@@ -272,7 +272,7 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
               } else {
                 // Use smart default based on ACTFL level for this language
                 const actflProgress = await storage.getOrCreateActflProgress(conversationLanguage, userId!);
-                const level = actflProgress?.overallLevel?.toLowerCase() || '';
+                const level = actflProgress?.currentActflLevel?.toLowerCase() || '';
                 if (level.includes('novice')) {
                   tutorFreedomLevel = 'guided';
                 } else if (level.includes('advanced') || level.includes('superior') || level.includes('distinguished')) {
@@ -280,7 +280,7 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
                 } else {
                   tutorFreedomLevel = 'flexible_goals';
                 }
-                console.log(`[Streaming Voice] Using smart default flexibility: ${tutorFreedomLevel} (based on ACTFL: ${actflProgress?.overallLevel || 'none'})`);
+                console.log(`[Streaming Voice] Using smart default flexibility: ${tutorFreedomLevel} (based on ACTFL: ${actflProgress?.currentActflLevel || 'none'})`);
               }
             } catch (err) {
               console.warn('[Streaming Voice] Could not get language preferences:', err);
