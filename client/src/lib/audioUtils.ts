@@ -504,7 +504,15 @@ export class StreamingAudioPlayer {
       
       // Current time = AudioContext time - when we started playing
       const elapsedCtxTime = ctx.currentTime - this.progressivePlaybackStartCtxTime;
-      const currentTime = Math.max(0, elapsedCtxTime);
+      
+      // If we haven't reached the start time yet (audio scheduled for future), wait
+      if (elapsedCtxTime < 0) {
+        // Continue loop but don't fire callbacks yet
+        this.rafId = requestAnimationFrame(tick);
+        return;
+      }
+      
+      const currentTime = elapsedCtxTime;
       
       // Fire progress callback with current time and estimated total duration
       this.callbacks.onProgress?.(currentTime, this.progressiveTotalDuration);
@@ -540,24 +548,26 @@ export class StreamingAudioPlayer {
    * Finalize a progressive sentence (called when last chunk ends)
    */
   private finalizeProgressiveSentence(sentenceIndex: number): void {
-    console.log(`[StreamingAudioPlayer] [Progressive] Sentence ${sentenceIndex} complete`);
+    console.log(`[StreamingAudioPlayer] [Progressive] Sentence ${sentenceIndex} complete (current: ${this.progressiveSentenceIndex})`);
     
-    this.stopPrecisionTiming();
+    // Fire callback
     this.callbacks.onSentenceEnd?.(sentenceIndex);
     
-    // Reset state for next sentence
-    this.resetProgressiveState();
-    this.progressiveSentenceIndex = -1;
-    
-    // If no more queued audio, mark as idle
-    if (this.queue.length === 0) {
-      this.isPlaying = false;
-      this.setState('idle');
-      this.callbacks.onComplete?.();
-    } else {
-      // Continue with queued (non-progressive) audio
-      this.playNext();
+    // Only clean up if we're still on this sentence (next sentence may have already started)
+    if (this.progressiveSentenceIndex === sentenceIndex) {
+      // No next sentence yet - wait for more or finish
+      if (this.queue.length === 0) {
+        this.progressiveSentenceIndex = -1;
+        this.isPlaying = false;
+        this.setState('idle');
+        this.stopPrecisionTiming();
+        this.callbacks.onComplete?.();
+      } else {
+        // Continue with queued (non-progressive) audio
+        this.playNext();
+      }
     }
+    // If progressiveSentenceIndex !== sentenceIndex, next sentence already started, do nothing
   }
   
   /**
