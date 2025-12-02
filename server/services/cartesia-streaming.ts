@@ -409,6 +409,12 @@ export class CartesiaStreamingService extends EventEmitter {
           
           console.log('[Cartesia Streaming] Message', messageCount, 'type:', message?.type, 'keys:', Object.keys(message || {}));
           
+          // Handle errors
+          if (message.type === 'error') {
+            console.error('[Cartesia Streaming] WebSocket error:', message.error, 'status:', message.status_code);
+            throw new Error(`Cartesia WebSocket error: ${message.error}`);
+          }
+          
           // Handle audio chunks (type: 'chunk')
           if (message.type === 'chunk' && message.data) {
             if (!firstChunkTime) {
