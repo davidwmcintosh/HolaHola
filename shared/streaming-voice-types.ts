@@ -394,5 +394,5 @@ export const STREAMING_FEATURE_FLAGS = {
    * - Progressive word_timing_delta messages with final reconciliation
    * - Gap smoothing in audio playback
    */
-  PROGRESSIVE_AUDIO_STREAMING: false,
+  PROGRESSIVE_AUDIO_STREAMING: true,
 } as const;
