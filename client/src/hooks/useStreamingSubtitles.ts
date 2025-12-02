@@ -221,6 +221,11 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
   // Converted to dense array up to the highest contiguous index for state updates
   const progressiveWordMapRef = useRef<Map<number, Map<number, WordTiming>>>(new Map());
   
+  // RACE CONDITION FIX: Track the currently playing sentence with a ref
+  // This is updated synchronously in startPlayback and checked in addProgressiveWordTiming
+  // React state updates are async, so this ref ensures we always know which sentence is active
+  const activeSentenceRef = useRef<number>(-1);
+  
   // Update difficulty ref when config changes
   if (config?.difficultyLevel && config.difficultyLevel !== difficultyRef.current) {
     difficultyRef.current = config.difficultyLevel;
@@ -263,6 +268,7 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     expectedDurationRef.current = undefined;
     actualDurationRef.current = undefined;
     playbackStartTimeRef.current = 0;
+    activeSentenceRef.current = -1;  // RACE CONDITION FIX: Reset active sentence tracking
     
     // Set waiting flag
     isWaitingForContentRef.current = true;
@@ -465,8 +471,10 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       });
     });
     
-    // Update refs if this is the active sentence
-    if (sentenceIndex === currentSentenceIndex) {
+    // RACE CONDITION FIX: Use activeSentenceRef instead of currentSentenceIndex state
+    // The ref is updated synchronously in startPlayback, while state updates are async
+    // This ensures progressive timings arriving after startPlayback correctly update currentTimingsRef
+    if (sentenceIndex === activeSentenceRef.current) {
       currentTimingsRef.current = timings;
       if (newEstimatedDuration) {
         expectedDurationRef.current = newEstimatedDuration;
@@ -480,7 +488,7 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
         setVisibleWordCount(timings.length);
       }
     }
-  }, [currentTurnId, currentSentenceIndex]);
+  }, [currentTurnId]);
   
   /**
    * PROGRESSIVE STREAMING: Finalize word timings with authoritative data
@@ -550,6 +558,11 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     }
     
     console.log(`[StreamingSubtitles v2] ▶ START PLAYBACK sentence ${sentenceIndex} (turn ${turnId})`);
+    
+    // RACE CONDITION FIX: Set active sentence ref IMMEDIATELY (synchronous)
+    // This allows addProgressiveWordTiming to update currentTimingsRef for this sentence
+    // even before the React state update completes
+    activeSentenceRef.current = sentenceIndex;
     
     // CRITICAL: Clear waiting flag NOW, at playback start, not in addSentence
     // This ensures isWaiting stays true until streamingText will actually have content
@@ -792,6 +805,7 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     console.log('[StreamingSubtitles v2] Reset');
     
     isWaitingForContentRef.current = true;
+    activeSentenceRef.current = -1;  // RACE CONDITION FIX: Reset active sentence tracking
     
     setIsWaitingForContent(true);
     setSentences([]);

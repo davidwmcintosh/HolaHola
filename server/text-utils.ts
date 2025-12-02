@@ -97,14 +97,16 @@ export function extractTargetLanguageText(text: string): string {
 
   // Collect extracted words (simple Set-based deduplication, no position tracking)
   const extractedWords: string[] = [];
-  const seenLower = new Set<string>();
+  const seenNormalized = new Set<string>();
   
   function addWord(word: string): void {
     const trimmed = word.trim();
     if (!trimmed) return;
-    const lower = trimmed.toLowerCase();
-    if (!seenLower.has(lower)) {
-      seenLower.add(lower);
+    // Normalize for comparison: lowercase AND strip trailing/leading punctuation
+    // This prevents "días" and "días?" from being treated as different words
+    const normalized = trimmed.toLowerCase().replace(new RegExp('^[^\\p{L}\\p{N}]+|[^\\p{L}\\p{N}]+$', 'gu'), '');
+    if (normalized && !seenNormalized.has(normalized)) {
+      seenNormalized.add(normalized);
       extractedWords.push(trimmed);
     }
   }
