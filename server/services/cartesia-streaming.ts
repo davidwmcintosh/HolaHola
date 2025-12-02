@@ -347,8 +347,10 @@ export class CartesiaStreamingService extends EventEmitter {
     let totalBytes = 0;
     let chunkCount = 0;
     
-    // Try WebSocket API first for native timestamps, fall back to bytes API
-    const useWebSocket = this.isConnected();
+    // WebSocket API returns raw PCM (not playable in browser without Web Audio API)
+    // Force bytes API for now - it returns MP3 which browsers can play natively
+    // TODO: Implement client-side Web Audio API for raw PCM playback to use native timestamps
+    const useWebSocket = false; // Disabled until client supports raw PCM playback
     
     // Clear any previous timestamps before starting new synthesis
     this.lastNativeTimestamps = [];
