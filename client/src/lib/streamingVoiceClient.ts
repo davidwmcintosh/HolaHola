@@ -389,12 +389,22 @@ export class StreamingVoiceClient {
     try {
       const message: StreamingMessage = JSON.parse(event.data);
       
+      // AGGRESSIVE DEBUG: Log EVERY message type received
+      console.log(`[WS RAW] type=${message.type}`);
+      
+      // Track message counts in window for debugging
+      if (typeof window !== 'undefined') {
+        const win = window as any;
+        win._wsMessageCounts = win._wsMessageCounts || {};
+        win._wsMessageCounts[message.type] = (win._wsMessageCounts[message.type] || 0) + 1;
+      }
+      
       // Use console.error for critical message types to ensure visibility
       if (message.type === 'word_timing_delta') {
         const delta = message as any;
         console.error(`[WS-DELTA-RCVD] s=${delta.sentenceIndex}, w=${delta.wordIndex} "${delta.word}" ${delta.startTime?.toFixed(3)}-${delta.endTime?.toFixed(3)}s`);
       } else if (message.type === 'audio_chunk') {
-        // Skip logging each audio chunk (too many)
+        // Skip extra logging for audio chunks (already logged above)
       } else {
         console.log('[WS-MSG]', message.type);
       }
