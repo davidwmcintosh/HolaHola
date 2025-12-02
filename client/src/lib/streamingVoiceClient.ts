@@ -351,6 +351,11 @@ export class StreamingVoiceClient {
     try {
       const message: StreamingMessage = JSON.parse(event.data);
       
+      // DEBUG: Log all message types to see what's being received
+      if (message.type === 'word_timing_delta' || message.type === 'word_timing_final' || message.type === 'word_timing') {
+        console.log(`[StreamingVoiceClient] TIMING MESSAGE RECEIVED: type=${message.type}`);
+      }
+      
       switch (message.type) {
         case 'connected':
           // Initial connection confirmed (no session yet)
