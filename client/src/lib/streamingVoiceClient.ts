@@ -440,8 +440,9 @@ export class StreamingVoiceClient {
       
       // DEBUG: Explicit check for word_timing_delta
       if (message.type === 'word_timing_delta') {
-        console.log('%c[SVC] *** EXPLICIT DELTA CHECK PASSED ***', 'color: white; background: purple; font-weight: bold; font-size: 16px');
-        (window as any)._explicitDeltaCheck = ((window as any)._explicitDeltaCheck || 0) + 1;
+        const oldVal = (window as any)._explicitDeltaCheck || 0;
+        (window as any)._explicitDeltaCheck = oldVal + 1;
+        console.log('%c[SVC] *** EXPLICIT DELTA CHECK: ' + (window as any)._explicitDeltaCheck + ' ***', 'color: white; background: purple; font-weight: bold; font-size: 16px');
       }
       
       switch (message.type) {
