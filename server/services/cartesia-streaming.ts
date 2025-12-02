@@ -599,6 +599,8 @@ export class CartesiaStreamingService extends EventEmitter {
     let totalDurationMs = 0;
     const allTimestamps: WordTiming[] = [];
     
+    console.log(`[Progressive Synth] Starting for: "${request.text.substring(0, 50)}..."`);
+    
     // Use the existing streamSynthesize generator but invoke callbacks immediately
     for await (const chunk of this.streamSynthesize(request)) {
       if (chunk.audio.length > 0) {
@@ -613,17 +615,23 @@ export class CartesiaStreamingService extends EventEmitter {
       // Note: Cartesia sends timestamps incrementally via word_timestamps events
       // We need to check lastNativeTimestamps for new entries
       const currentTimestamps = [...this.lastNativeTimestamps];
+      const newWords = currentTimestamps.length - wordIndex;
+      if (newWords > 0) {
+        console.log(`[Progressive Synth] Chunk ${chunkIndex}: Found ${newWords} new timestamps (total: ${currentTimestamps.length})`);
+      }
       while (wordIndex < currentTimestamps.length) {
         const timing = currentTimestamps[wordIndex];
         allTimestamps.push(timing);
         
         // Estimate total duration based on last known timestamp
         const estimatedTotal = timing.endTime * 1000 * 1.1; // Add 10% buffer
+        console.log(`[Progressive Synth] Sending delta: word=${wordIndex} "${timing.word}" ${timing.startTime.toFixed(3)}-${timing.endTime.toFixed(3)}s`);
         callbacks.onWordTimestamp?.(timing, wordIndex, estimatedTotal);
         wordIndex++;
       }
       
       if (chunk.isLast) {
+        console.log(`[Progressive Synth] Complete: ${allTimestamps.length} total timestamps`);
         break;
       }
     }
