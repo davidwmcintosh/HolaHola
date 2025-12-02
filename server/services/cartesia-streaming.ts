@@ -147,6 +147,16 @@ export interface CartesiaStreamingEvents {
 }
 
 /**
+ * PROGRESSIVE STREAMING: Real-time callback for audio and timestamp events
+ * Used by orchestrator to forward chunks immediately instead of buffering
+ */
+export interface ProgressiveStreamingCallbacks {
+  onAudioChunk?: (chunk: StreamingAudioChunk, chunkIndex: number) => void;
+  onWordTimestamp?: (timing: WordTiming, wordIndex: number, estimatedTotalDuration: number) => void;
+  onComplete?: (finalTimestamps: WordTiming[], actualDurationMs: number) => void;
+}
+
+/**
  * Cartesia WebSocket Streaming Service
  * Manages persistent WebSocket connections for ultra-low latency TTS
  */
@@ -561,6 +571,62 @@ export class CartesiaStreamingService extends EventEmitter {
       
       throw error;
     }
+  }
+  
+  /**
+   * PROGRESSIVE STREAMING: Stream synthesis with real-time callbacks
+   * 
+   * Unlike streamSynthesize (which yields chunks for orchestrator to buffer),
+   * this method calls callbacks immediately as data arrives from Cartesia.
+   * This enables the orchestrator to forward audio/timestamps to the client
+   * without waiting for the full sentence to complete.
+   * 
+   * @param request - Synthesis request parameters
+   * @param callbacks - Real-time callbacks for audio chunks and word timestamps
+   * @returns Promise that resolves when synthesis is complete
+   */
+  async streamSynthesizeProgressive(
+    request: StreamingSynthesisRequest,
+    callbacks: ProgressiveStreamingCallbacks
+  ): Promise<{ totalDurationMs: number; finalTimestamps: WordTiming[] }> {
+    let chunkIndex = 0;
+    let wordIndex = 0;
+    let totalDurationMs = 0;
+    const allTimestamps: WordTiming[] = [];
+    
+    // Use the existing streamSynthesize generator but invoke callbacks immediately
+    for await (const chunk of this.streamSynthesize(request)) {
+      if (chunk.audio.length > 0) {
+        totalDurationMs += chunk.durationMs;
+        
+        // Call audio callback immediately as chunk arrives
+        callbacks.onAudioChunk?.(chunk, chunkIndex);
+        chunkIndex++;
+      }
+      
+      // Check for progressive timestamps that arrived with this chunk
+      // Note: Cartesia sends timestamps incrementally via word_timestamps events
+      // We need to check lastNativeTimestamps for new entries
+      const currentTimestamps = [...this.lastNativeTimestamps];
+      while (wordIndex < currentTimestamps.length) {
+        const timing = currentTimestamps[wordIndex];
+        allTimestamps.push(timing);
+        
+        // Estimate total duration based on last known timestamp
+        const estimatedTotal = timing.endTime * 1000 * 1.1; // Add 10% buffer
+        callbacks.onWordTimestamp?.(timing, wordIndex, estimatedTotal);
+        wordIndex++;
+      }
+      
+      if (chunk.isLast) {
+        break;
+      }
+    }
+    
+    // Final callback with authoritative timings
+    callbacks.onComplete?.(allTimestamps, totalDurationMs);
+    
+    return { totalDurationMs, finalTimestamps: allTimestamps };
   }
   
   /**

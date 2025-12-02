@@ -37,7 +37,9 @@ export type StreamingVoiceMessageType =
   | 'processing'          // STT received, AI processing started
   | 'sentence_start'      // New sentence chunk starting
   | 'audio_chunk'         // Audio data for current sentence
-  | 'word_timing'         // Word-level timing for subtitle sync
+  | 'word_timing'         // Word-level timing for subtitle sync (buffered mode)
+  | 'word_timing_delta'   // Progressive: Incremental word timing update
+  | 'word_timing_final'   // Progressive: Final timing reconciliation
   | 'sentence_end'        // Current sentence complete
   | 'response_complete'   // Full AI response finished
   | 'feedback'            // Pedagogical feedback (non-blocking)
@@ -131,6 +133,35 @@ export interface StreamingWordTimingMessage extends StreamingVoiceMessage {
 }
 
 /**
+ * PROGRESSIVE STREAMING: Incremental word timing update
+ * Sent as word timestamps arrive from Cartesia during progressive streaming.
+ * Client should accumulate these until word_timing_final arrives.
+ */
+export interface StreamingWordTimingDeltaMessage extends StreamingVoiceMessage {
+  type: 'word_timing_delta';
+  turnId: number;
+  sentenceIndex: number;
+  wordIndex: number;        // Which word this timing is for
+  word: string;             // The word text
+  startTime: number;        // Seconds from sentence start
+  endTime: number;          // Seconds from sentence start
+  estimatedTotalDuration?: number;  // Current estimate of total sentence duration
+}
+
+/**
+ * PROGRESSIVE STREAMING: Final word timing reconciliation
+ * Sent when sentence synthesis completes. Contains authoritative timings.
+ * Client should use this to correct any timing drift from delta messages.
+ */
+export interface StreamingWordTimingFinalMessage extends StreamingVoiceMessage {
+  type: 'word_timing_final';
+  turnId: number;
+  sentenceIndex: number;
+  words: WordTiming[];      // All word timings (authoritative)
+  actualDurationMs: number; // Actual sentence duration for rescaling
+}
+
+/**
  * Word timing data (matches existing TTSService interface)
  */
 export interface WordTiming {
@@ -213,6 +244,8 @@ export type StreamingMessage =
   | StreamingSentenceStartMessage
   | StreamingAudioChunkMessage
   | StreamingWordTimingMessage
+  | StreamingWordTimingDeltaMessage
+  | StreamingWordTimingFinalMessage
   | StreamingSentenceEndMessage
   | StreamingResponseCompleteMessage
   | StreamingFeedbackMessage
@@ -350,4 +383,16 @@ export const STREAMING_FEATURE_FLAGS = {
   
   /** Enable sentence-level chunking (vs full response) */
   ENABLE_SENTENCE_CHUNKING: true,
+  
+  /** 
+   * PROGRESSIVE STREAMING (Phase 1)
+   * When enabled, audio chunks are sent to client as they arrive from Cartesia
+   * instead of buffering the full sentence. Reduces time-to-first-audio by ~2s.
+   * 
+   * Requires client support for:
+   * - Handling multiple small audio_chunk messages per sentence
+   * - Progressive word_timing_delta messages with final reconciliation
+   * - Gap smoothing in audio playback
+   */
+  PROGRESSIVE_AUDIO_STREAMING: false,
 } as const;
