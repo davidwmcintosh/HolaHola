@@ -438,11 +438,16 @@ export class StreamingVoiceClient {
       // DEBUG: Log right before switch
       console.log('%c[SVC] ABOUT TO SWITCH ON: ' + message.type, 'color: orange; background: black; font-weight: bold');
       
-      // DEBUG: Explicit check for word_timing_delta
+      // DEBUG: Explicit check for word_timing_delta - use top window to ensure visibility
       if (message.type === 'word_timing_delta') {
-        const oldVal = (window as any)._explicitDeltaCheck || 0;
+        const topWin = (typeof window !== 'undefined' && window.top) ? window.top : window;
+        const oldVal = (topWin as any)._explicitDeltaCheck || 0;
+        (topWin as any)._explicitDeltaCheck = oldVal + 1;
+        // Also set on current window
         (window as any)._explicitDeltaCheck = oldVal + 1;
-        console.log('%c[SVC] *** EXPLICIT DELTA CHECK: ' + (window as any)._explicitDeltaCheck + ' ***', 'color: white; background: purple; font-weight: bold; font-size: 16px');
+        // And on globalThis
+        (globalThis as any)._explicitDeltaCheck = oldVal + 1;
+        console.log('%c[SVC] *** DELTA CHECK: ' + (topWin as any)._explicitDeltaCheck + ' (top===window: ' + (window.top === window) + ') ***', 'color: white; background: purple; font-weight: bold; font-size: 16px');
       }
       
       switch (message.type) {
