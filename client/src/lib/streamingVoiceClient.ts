@@ -383,6 +383,9 @@ export class StreamingVoiceClient {
     try {
       const message: StreamingMessage = JSON.parse(event.data);
       
+      // CRITICAL DEBUG: Log ALL message types to trace flow
+      console.log(`[WS MESSAGE] type=${message.type}`);
+      
       // GLOBAL DEBUG: Track by message type
       if (typeof window !== 'undefined' && window._wsDebug) {
         window._wsDebug.byType[message.type] = (window._wsDebug.byType[message.type] || 0) + 1;
@@ -510,7 +513,8 @@ export class StreamingVoiceClient {
    * These arrive as words are timestamped during progressive TTS
    */
   private handleWordTimingDelta(message: StreamingWordTimingDeltaMessage): void {
-    console.log(`[StreamingVoiceClient] Word timing delta: sentence=${message.sentenceIndex}, word=${message.wordIndex} "${message.word}" ${message.startTime.toFixed(3)}-${message.endTime.toFixed(3)}s`);
+    // CRITICAL DEBUG: Use console.error to ensure visibility in logs
+    console.error(`[WORD DELTA] sentence=${message.sentenceIndex}, word=${message.wordIndex} "${message.word}" ${message.startTime.toFixed(3)}-${message.endTime.toFixed(3)}s, listeners=${this.eventListeners.get('wordTimingDelta')?.size || 0}`);
     this.emit('wordTimingDelta', message);
   }
   
