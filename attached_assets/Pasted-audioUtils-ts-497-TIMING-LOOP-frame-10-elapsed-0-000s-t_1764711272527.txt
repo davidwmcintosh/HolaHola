@@ -1,0 +1,519 @@
+audioUtils.ts:497 [TIMING LOOP] frame=10, elapsed=0.000s, total=1.387s, ctx.state=running
+tick @ audioUtils.ts:497
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+startProgressivePrecisionTiming @ audioUtils.ts:504
+enqueueProgressivePcmChunk @ audioUtils.ts:428
+(anonymous) @ useStreamingVoice.ts:272
+(anonymous) @ streamingVoiceClient.ts:172
+emit @ streamingVoiceClient.ts:170
+handleAudioChunk @ streamingVoiceClient.ts:566
+handleMessage @ streamingVoiceClient.ts:476
+ws.onmessage @ streamingVoiceClient.ts:243
+audioUtils.ts:497 [TIMING LOOP] frame=20, elapsed=0.156s, total=2.084s, ctx.state=running
+tick @ audioUtils.ts:497
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+startProgressivePrecisionTiming @ audioUtils.ts:504
+enqueueProgressivePcmChunk @ audioUtils.ts:428
+(anonymous) @ useStreamingVoice.ts:272
+(anonymous) @ streamingVoiceClient.ts:172
+emit @ streamingVoiceClient.ts:170
+handleAudioChunk @ streamingVoiceClient.ts:566
+handleMessage @ streamingVoiceClient.ts:476
+ws.onmessage @ streamingVoiceClient.ts:243
+audioUtils.ts:497 [TIMING LOOP] frame=30, elapsed=0.311s, total=2.641s, ctx.state=running
+tick @ audioUtils.ts:497
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+startProgressivePrecisionTiming @ audioUtils.ts:504
+enqueueProgressivePcmChunk @ audioUtils.ts:428
+(anonymous) @ useStreamingVoice.ts:272
+(anonymous) @ streamingVoiceClient.ts:172
+emit @ streamingVoiceClient.ts:170
+handleAudioChunk @ streamingVoiceClient.ts:566
+handleMessage @ streamingVoiceClient.ts:476
+ws.onmessage @ streamingVoiceClient.ts:243
+audioUtils.ts:497 [TIMING LOOP] frame=40, elapsed=0.487s, total=3.338s, ctx.state=running
+tick @ audioUtils.ts:497
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+audioUtils.ts:497 [TIMING LOOP] frame=50, elapsed=0.647s, total=3.895s, ctx.state=running
+tick @ audioUtils.ts:497
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+audioUtils.ts:497 [TIMING LOOP] frame=60, elapsed=0.812s, total=4.266s, ctx.state=running
+tick @ audioUtils.ts:497
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+audioUtils.ts:497 [TIMING LOOP] frame=70, elapsed=0.977s, total=4.963s, ctx.state=running
+tick @ audioUtils.ts:497
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+audioUtils.ts:497 [TIMING LOOP] frame=10, elapsed=0.039s, total=0.551s, ctx.state=running
+tick @ audioUtils.ts:497
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+startProgressivePrecisionTiming @ audioUtils.ts:504
+enqueueProgressivePcmChunk @ audioUtils.ts:428
+(anonymous) @ useStreamingVoice.ts:272
+(anonymous) @ streamingVoiceClient.ts:172
+emit @ streamingVoiceClient.ts:170
+handleAudioChunk @ streamingVoiceClient.ts:566
+handleMessage @ streamingVoiceClient.ts:476
+ws.onmessage @ streamingVoiceClient.ts:243
+audioUtils.ts:497 [TIMING LOOP] frame=20, elapsed=0.209s, total=1.248s, ctx.state=running
+tick @ audioUtils.ts:497
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+startProgressivePrecisionTiming @ audioUtils.ts:504
+enqueueProgressivePcmChunk @ audioUtils.ts:428
+(anonymous) @ useStreamingVoice.ts:272
+(anonymous) @ streamingVoiceClient.ts:172
+emit @ streamingVoiceClient.ts:170
+handleAudioChunk @ streamingVoiceClient.ts:566
+handleMessage @ streamingVoiceClient.ts:476
+ws.onmessage @ streamingVoiceClient.ts:243
+audioUtils.ts:497 [TIMING LOOP] frame=10, elapsed=0.044s, total=0.691s, ctx.state=running
+tick @ audioUtils.ts:497
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+tick @ audioUtils.ts:501
+requestAnimationFrame (async)
+startProgressivePrecisionTiming @ audioUtils.ts:504
+enqueueProgressivePcmChunk @ audioUtils.ts:428
+(anonymous) @ useStreamingVoice.ts:272
+(anonymous) @ streamingVoiceClient.ts:172
+emit @ streamingVoiceClient.ts:170
+handleAudioChunk @ streamingVoiceClient.ts:566
+handleMessage @ streamingVoiceClient.ts:476
+ws.onmessage @ streamingVoiceClient.ts:243
+audioUtils.ts:497 [TIMING LOOP] frame=20, elapsed=0.215s, total=1.248s, ctx.state=running

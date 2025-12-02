@@ -371,18 +371,33 @@ export class StreamingAudioPlayer {
       console.error(`[AUDIO STATE] After resume: ctx.state=${ctx.state}`);
     }
     
-    // Detect new sentence - reset progressive state
+    // Detect new sentence - DON'T stop current audio, let it finish naturally!
     if (sentenceIndex !== this.progressiveSentenceIndex) {
-      console.log(`[StreamingAudioPlayer] [Progressive] New sentence ${sentenceIndex}, resetting state`);
-      this.resetProgressiveState();
+      console.log(`[StreamingAudioPlayer] [Progressive] New sentence ${sentenceIndex} (previous: ${this.progressiveSentenceIndex})`);
+      
+      // DON'T call resetProgressiveState() - that stops all audio!
+      // Instead, just update tracking variables and let old audio finish
+      
+      // Clear arrays for new sentence (old sources will continue playing)
+      this.progressiveChunks = [];
+      this.progressiveFirstChunkStarted = false;
+      
       this.progressiveSentenceIndex = sentenceIndex;
       this.currentSentenceIndex = sentenceIndex;
-      // Use larger safety buffer (100ms) to account for decode/scheduling latency
-      this.progressiveScheduledTime = ctx.currentTime + 0.1;
-      this.progressivePlaybackStartCtxTime = this.progressiveScheduledTime; // Track when audio actually starts
-      this.progressiveTotalDuration = 0; // Reset total duration
+      
+      // Schedule new sentence after current audio ends (gapless playback)
+      // If no audio scheduled yet, start from now + buffer
+      if (this.progressiveScheduledTime <= ctx.currentTime) {
+        this.progressiveScheduledTime = ctx.currentTime + 0.1;
+      }
+      // Otherwise, new sentence will naturally follow previous
+      
+      this.progressivePlaybackStartCtxTime = this.progressiveScheduledTime; // Track when this sentence starts
+      this.progressiveTotalDuration = 0; // Reset duration for new sentence
       this.isPlaying = true;
       this.setState('buffering');
+      
+      console.log(`[StreamingAudioPlayer] [Progressive] Sentence ${sentenceIndex} will start at ${this.progressiveScheduledTime.toFixed(3)}s (ctx.currentTime=${ctx.currentTime.toFixed(3)}s)`);
     }
     
     // SAFETY: Ensure scheduled time is always in the future
