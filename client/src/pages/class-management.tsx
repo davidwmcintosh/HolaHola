@@ -573,7 +573,7 @@ export default function ClassManagement() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Reset Student Progress</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Are you sure you want to reset {displayName}'s progress for this class? This will delete their conversations, assignment submissions, and placement data for this class only.
+                                  Are you sure you want to reset {displayName}'s progress for this class? This will delete their conversations, vocabulary, assignment submissions, and placement data for this class only.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>

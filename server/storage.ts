@@ -538,6 +538,7 @@ export interface IStorage {
   // ===== Teacher: Reset Student Class Progress =====
   resetStudentClassProgress(classId: string, studentId: string): Promise<{
     conversationsDeleted: number;
+    vocabularyDeleted: number;
     assignmentSubmissionsDeleted: number;
     placementReset: boolean;
   }>;
@@ -4218,12 +4219,23 @@ export class DatabaseStorage implements IStorage {
 
   async resetStudentClassProgress(classId: string, studentId: string): Promise<{
     conversationsDeleted: number;
+    vocabularyDeleted: number;
     assignmentSubmissionsDeleted: number;
     placementReset: boolean;
   }> {
     let conversationsDeleted = 0;
+    let vocabularyDeleted = 0;
     let assignmentSubmissionsDeleted = 0;
     let placementReset = false;
+
+    // Delete class-specific vocabulary words
+    const vocabResult = await db.delete(vocabularyWords)
+      .where(and(
+        eq(vocabularyWords.userId, studentId),
+        eq(vocabularyWords.classId, classId)
+      ))
+      .returning();
+    vocabularyDeleted = vocabResult.length;
 
     // Delete class-specific conversations and their messages
     const classConvs = await db.select({ id: conversations.id })
@@ -4275,10 +4287,11 @@ export class DatabaseStorage implements IStorage {
       ));
     placementReset = true;
 
-    console.log(`[Teacher] Reset class progress for student ${studentId} in class ${classId}: ${conversationsDeleted} convs, ${assignmentSubmissionsDeleted} submissions`);
+    console.log(`[Teacher] Reset class progress for student ${studentId} in class ${classId}: ${conversationsDeleted} convs, ${vocabularyDeleted} vocab, ${assignmentSubmissionsDeleted} submissions`);
 
     return {
       conversationsDeleted,
+      vocabularyDeleted,
       assignmentSubmissionsDeleted,
       placementReset
     };
