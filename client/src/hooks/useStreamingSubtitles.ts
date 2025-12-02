@@ -216,6 +216,11 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
   // Timing cache for immediate access during streaming
   const timingsBySentenceRef = useRef<Map<number, { timings: WordTiming[]; expectedDurationMs?: number }>>(new Map());
   
+  // PROGRESSIVE STREAMING: Sparse map accumulator for out-of-order word timing delivery
+  // Stores all received word timings by sentence, then by word index
+  // Converted to dense array up to the highest contiguous index for state updates
+  const progressiveWordMapRef = useRef<Map<number, Map<number, WordTiming>>>(new Map());
+  
   // Update difficulty ref when config changes
   if (config?.difficultyLevel && config.difficultyLevel !== difficultyRef.current) {
     difficultyRef.current = config.difficultyLevel;
@@ -363,11 +368,6 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       expectedDurationRef.current = expectedDurationMs;
     }
   }, [currentTurnId, currentSentenceIndex]);
-  
-  // PROGRESSIVE STREAMING: Sparse map accumulator for out-of-order word timing delivery
-  // Stores all received word timings by sentence, then by word index
-  // Converted to dense array up to the highest contiguous index for state updates
-  const progressiveWordMapRef = useRef<Map<number, Map<number, WordTiming>>>(new Map());
   
   /**
    * Convert sparse word map to dense array up to highest contiguous index
