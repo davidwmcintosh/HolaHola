@@ -398,7 +398,7 @@ export class StreamingVoiceClient {
       }
       
       // AGGRESSIVE DEBUG: Log EVERY message type received
-      console.error(`[WS RECV] type="${message.type}" at ${Date.now()}`);
+      console.log(`[WS RECV] type="${message.type}"`);
       
       switch (message.type) {
         case 'connected':
