@@ -606,11 +606,11 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     if (storedTimings) {
       currentTimingsRef.current = storedTimings.timings;
       expectedDurationRef.current = storedTimings.expectedDurationMs;
-      console.error(`[SUBTITLE DEBUG] LOADED ${storedTimings.timings.length} timings for sentence ${sentenceIndex}`);
+      console.log(`[SUBTITLE DEBUG] LOADED ${storedTimings.timings.length} timings for sentence ${sentenceIndex}`);
     } else {
       currentTimingsRef.current = [];
       expectedDurationRef.current = undefined;
-      console.error(`[SUBTITLE DEBUG] NO CACHED timings for sentence ${sentenceIndex}`);
+      console.log(`[SUBTITLE DEBUG] NO CACHED timings for sentence ${sentenceIndex}`);
     }
     
     // ACTFL-level-aware text reveal policy
@@ -709,14 +709,14 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     if (timings.length === 0) {
       // DEBUG: Log when timings are empty (rate limited to avoid spam)
       if (Math.floor(currentTime * 5) % 5 === 0) {
-        console.error(`[SUBTITLE DEBUG] updatePlaybackTime: NO TIMINGS (activeSentence=${activeSentenceRef.current}, time=${currentTime.toFixed(2)}, storedSentences=${timingsBySentenceRef.current.size})`);
+        console.log(`[SUBTITLE DEBUG] updatePlaybackTime: NO TIMINGS (activeSentence=${activeSentenceRef.current}, time=${currentTime.toFixed(2)}, storedSentences=${timingsBySentenceRef.current.size})`);
       }
       return;
     }
     
     // Log occasionally that we have timings
     if (Math.floor(currentTime * 2) % 2 === 0) {
-      console.error(`[SUBTITLE DEBUG] updatePlaybackTime: ${timings.length} timings, time=${currentTime.toFixed(2)}, sentence=${activeSentenceRef.current}`);
+      console.log(`[SUBTITLE DEBUG] updatePlaybackTime: ${timings.length} timings, time=${currentTime.toFixed(2)}, sentence=${activeSentenceRef.current}`);
     }
     
     // ACTFL-level-aware timing offset

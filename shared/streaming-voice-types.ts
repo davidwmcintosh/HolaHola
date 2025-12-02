@@ -43,6 +43,7 @@ export type StreamingVoiceMessageType =
   | 'sentence_end'        // Current sentence complete
   | 'response_complete'   // Full AI response finished
   | 'feedback'            // Pedagogical feedback (non-blocking)
+  | 'voice_updated'       // Voice switch confirmation (tutor voice changed)
   | 'error';              // Error occurred
 
 /**

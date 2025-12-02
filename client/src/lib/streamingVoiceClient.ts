@@ -162,9 +162,9 @@ export class StreamingVoiceClient {
    */
   private emit<T = any>(event: StreamingEventType, data: T): void {
     const listeners = this.eventListeners.get(event);
-    // DEBUG: Track all emits for word timing events
-    if (event === 'wordTimingDelta' || event === 'wordTimingFinal') {
-      console.log(`%c[EMIT] ${event} -> ${listeners?.size || 0} listeners`, 'color: yellow; background: blue; font-weight: bold');
+    // DEBUG: Track all emits for key events
+    if (event === 'wordTimingDelta' || event === 'wordTimingFinal' || event === 'audioChunk') {
+      console.log(`[EMIT] ${event} -> ${listeners?.size || 0} listeners`);
     }
     if (listeners) {
       listeners.forEach(listener => {
