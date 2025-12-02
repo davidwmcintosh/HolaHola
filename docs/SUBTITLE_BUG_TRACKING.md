@@ -427,3 +427,80 @@ Moved clearing from `addSentence()` to `startPlayback()` to prevent phantom subt
 - Audio speed normalized ✅
 - Word highlighting still broken ❌
 - Need to run test session with new debug logging
+
+---
+
+## Session Log: December 2, 2025 (Evening Session - 8:00 PM onwards)
+
+### Major Breakthrough: Messages ARE Arriving
+
+**Key Discovery:**
+Browser console logs confirm `word_timing_delta` messages ARE being received by the WebSocket:
+```javascript
+[WS DEBUG] Messages received: [
+  {"type":"word_timing_delta","time":1764706126143},
+  {"type":"word_timing_delta","time":1764706129648},
+  {"type":"word_timing_delta","time":1764706134374},
+  {"type":"word_timing_delta","time":1764706134403},
+  {"type":"word_timing_final","time":1764706135743},
+  ...
+]
+```
+
+**The Mystery:**
+- Messages tracked in `_debugMessages` (happens BEFORE switch statement)
+- Switch case for `word_timing_delta` EXISTS in code (line 454-457)
+- But `console.error('[WS RECV] >>> WORD_TIMING_DELTA CASE HIT <<<')` NOT appearing
+- Handler `handleWordTimingDelta` should emit event to listeners
+- Audio plays correctly (meaning `audio_chunk` case IS being hit)
+
+### Debug Tools Added
+
+**Window Objects to Check After Voice Call:**
+```javascript
+window._msgCounts       // Message type counts {audio_chunk: 15, word_timing_delta: 4, ...}
+window._deltaHits       // Count of times word_timing_delta case was hit
+window._lastDelta       // Last word_timing_delta message received
+window._debugMessages   // Array of last 50 messages with timestamps
+window._wsDebug         // WebSocket debug state object
+```
+
+### Debugging Steps for User:
+1. Open browser DevTools (F12)
+2. Do a voice call
+3. After audio plays, type in console:
+   - `window._msgCounts` → Should show counts of all message types
+   - `window._deltaHits` → Should be a number if switch case hit
+   - `window._lastDelta` → Should show message object if case hit
+
+### Hypotheses Under Investigation:
+
+1. **Browser Console Log Throttling:**
+   - High-frequency WebSocket logs may be throttled
+   - Window object tracking bypasses this limitation
+
+2. **Switch Case Not Executing:**
+   - Messages tracked but case not hit?
+   - Possible JavaScript quirk with switch/case?
+
+3. **Event Listener Timing:**
+   - Listeners registered in connect()
+   - Messages may arrive before listeners attached?
+
+### PDF Insight (attached_assets/LinguaFlow_from_GPT_5_1764705612104.pdf):
+Standard TTS sync pattern from GPT-5 recommendations:
+```javascript
+audio.ontimeupdate = () => {
+  const currentTime = audio.currentTime * 1000;
+  const active = wordTimings.find(
+    w => currentTime >= w.start && currentTime < w.end
+  );
+};
+```
+Our architecture uses AudioContext.currentTime for PCM streaming (correct approach).
+The issue is upstream - word timing data not reaching the comparison logic.
+
+### Next Steps:
+- [ ] User tests with `window._deltaHits` check
+- [ ] If _deltaHits is 0, switch case not executing despite message arrival
+- [ ] If _deltaHits > 0, issue is in handleWordTimingDelta or event emission
