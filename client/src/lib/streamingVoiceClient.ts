@@ -354,6 +354,9 @@ export class StreamingVoiceClient {
     try {
       const message: StreamingMessage = JSON.parse(event.data);
       
+      // CRITICAL DEBUG: Log EVERY message type at error level to ensure visibility
+      console.error(`[CLIENT MSG] type=${message.type}, keys=${Object.keys(message).join(',')}`);
+      
       switch (message.type) {
         case 'connected':
           // Initial connection confirmed (no session yet)
