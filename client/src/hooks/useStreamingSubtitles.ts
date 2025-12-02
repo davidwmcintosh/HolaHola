@@ -244,6 +244,7 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     
     // Clear ALL refs to prevent stale data
     timingsBySentenceRef.current.clear();
+    progressiveWordMapRef.current.clear();  // PROGRESSIVE STREAMING: Clear sparse accumulator to prevent cross-turn contamination
     currentTimingsRef.current = [];
     currentWordMappingRef.current = undefined;  // Clear word mapping to prevent stale target highlighting
     expectedDurationRef.current = undefined;
@@ -363,10 +364,38 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     }
   }, [currentTurnId, currentSentenceIndex]);
   
+  // PROGRESSIVE STREAMING: Sparse map accumulator for out-of-order word timing delivery
+  // Stores all received word timings by sentence, then by word index
+  // Converted to dense array up to the highest contiguous index for state updates
+  const progressiveWordMapRef = useRef<Map<number, Map<number, WordTiming>>>(new Map());
+  
+  /**
+   * Convert sparse word map to dense array up to highest contiguous index
+   * Example: {0: w0, 1: w1, 3: w3} → [w0, w1] (stops at gap)
+   * This ensures no null/placeholder entries in the output array
+   */
+  const sparseToDenseTimings = (wordMap: Map<number, WordTiming>): WordTiming[] => {
+    const result: WordTiming[] = [];
+    let nextExpected = 0;
+    
+    // Iterate through expected indices until we hit a gap
+    while (wordMap.has(nextExpected)) {
+      result.push(wordMap.get(nextExpected)!);
+      nextExpected++;
+    }
+    
+    return result;
+  };
+  
   /**
    * PROGRESSIVE STREAMING: Add a single word timing incrementally
    * These arrive as words are timestamped during progressive TTS synthesis.
-   * Client accumulates these until finalizeWordTimings is called.
+   * 
+   * Design: Store all received timings in a sparse Map, then convert to dense array
+   * for state updates. This ensures:
+   * - No words are lost (all stored in Map)
+   * - Array has no gaps or placeholders (dense conversion)
+   * - Out-of-order delivery is handled gracefully (gaps filled when missing words arrive)
    */
   const addProgressiveWordTiming = useCallback((
     sentenceIndex: number,
@@ -388,35 +417,40 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     // Build word timing object
     const newTiming: WordTiming = { word, startTime, endTime };
     
-    // Get or create timings array for this sentence
-    const existing = timingsBySentenceRef.current.get(sentenceIndex);
-    const timings = existing?.timings ? [...existing.timings] : [];
+    // Get or create sparse Map for this sentence
+    if (!progressiveWordMapRef.current.has(sentenceIndex)) {
+      progressiveWordMapRef.current.set(sentenceIndex, new Map());
+    }
+    const wordMap = progressiveWordMapRef.current.get(sentenceIndex)!;
     
-    // Insert at correct position (may arrive out of order)
-    if (wordIndex >= timings.length) {
-      // Extend array with placeholders if needed
-      while (timings.length < wordIndex) {
-        timings.push({ word: '', startTime: 0, endTime: 0 });
-      }
-      timings.push(newTiming);
-    } else {
-      timings[wordIndex] = newTiming;
+    // Store timing at its index (Map handles sparse storage naturally)
+    wordMap.set(wordIndex, newTiming);
+    
+    // Convert sparse map to dense array (up to highest contiguous index)
+    const timings = sparseToDenseTimings(wordMap);
+    
+    // Log if we have out-of-order delivery (stored but not yet in dense array)
+    if (wordIndex >= timings.length && wordMap.size > timings.length) {
+      console.log(`[StreamingSubtitles v2] Out-of-order word stored (index ${wordIndex}), awaiting earlier indices. Dense: ${timings.length}, Stored: ${wordMap.size}`);
     }
     
-    // Update ref
+    const existing = timingsBySentenceRef.current.get(sentenceIndex);
+    const newEstimatedDuration = estimatedTotalDuration ? estimatedTotalDuration * 1000 : existing?.expectedDurationMs;
+    
+    // Update ref for immediate access (dense array only)
     timingsBySentenceRef.current.set(sentenceIndex, {
       timings,
-      expectedDurationMs: estimatedTotalDuration ? estimatedTotalDuration * 1000 : existing?.expectedDurationMs
+      expectedDurationMs: newEstimatedDuration
     });
     
-    // Update React state
+    // Update React state for progressive karaoke highlighting
     setSentences(prev => {
       return prev.map(s => {
         if (s.index === sentenceIndex && s.turnId === turnId) {
           return {
             ...s,
             wordTimings: timings,
-            expectedDurationMs: estimatedTotalDuration ? estimatedTotalDuration * 1000 : s.expectedDurationMs
+            expectedDurationMs: newEstimatedDuration ?? s.expectedDurationMs
           };
         }
         return s;
@@ -426,8 +460,16 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     // Update refs if this is the active sentence
     if (sentenceIndex === currentSentenceIndex) {
       currentTimingsRef.current = timings;
-      if (estimatedTotalDuration) {
-        expectedDurationRef.current = estimatedTotalDuration * 1000;
+      if (newEstimatedDuration) {
+        expectedDurationRef.current = newEstimatedDuration;
+      }
+      
+      // ACTFL policy fix: For non-progressive reveal policies (intermediate/advanced),
+      // immediately update visibleWordCount so subtitles show as timings arrive.
+      // Progressive reveal (novice) waits for updatePlaybackTime to control visibility.
+      const useProgressiveReveal = shouldRevealProgressively(difficultyRef.current);
+      if (!useProgressiveReveal) {
+        setVisibleWordCount(timings.length);
       }
     }
   }, [currentTurnId, currentSentenceIndex]);
@@ -435,7 +477,7 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
   /**
    * PROGRESSIVE STREAMING: Finalize word timings with authoritative data
    * Called when sentence synthesis completes. This corrects any timing drift
-   * from the incremental delta messages.
+   * from the incremental delta messages and provides the final word count.
    */
   const finalizeWordTimings = useCallback((
     sentenceIndex: number,
@@ -451,13 +493,16 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     
     console.log(`[StreamingSubtitles v2] Finalize timings for sentence ${sentenceIndex} (turn ${turnId}): ${words.length} words, ${actualDurationMs}ms`);
     
-    // Update ref with authoritative data
+    // Clear progressive word map for this sentence (no longer needed)
+    progressiveWordMapRef.current.delete(sentenceIndex);
+    
+    // Update ref with authoritative data (overwrites any progressive deltas)
     timingsBySentenceRef.current.set(sentenceIndex, {
       timings: words,
       expectedDurationMs: actualDurationMs
     });
     
-    // Update React state
+    // Update React state with authoritative word timings
     setSentences(prev => {
       return prev.map(s => {
         if (s.index === sentenceIndex && s.turnId === turnId) {
@@ -647,11 +692,16 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     }
     
     // ACTFL-level-aware text reveal:
-    // - Progressive mode: Update visibleWordCount based on timing
-    // - Non-progressive mode: Keep all words visible, only update highlight
+    // - Progressive mode (novice): Update visibleWordCount based on timing for word-by-word reveal
+    // - Non-progressive mode (intermediate/advanced): Always show all available words immediately
     const useProgressiveReveal = shouldRevealProgressively(difficultyRef.current);
     if (useProgressiveReveal) {
       setVisibleWordCount(maxVisibleIndex + 1);
+    } else {
+      // PROGRESSIVE STREAMING FIX: For non-progressive policies, ensure visibleWordCount
+      // stays synced with timings.length so subtitles show immediately as words arrive.
+      // This handles race conditions where state batching causes currentSentenceIndex to lag.
+      setVisibleWordCount(timings.length);
     }
     // Always update the current word highlight (for karaoke effect)
     setCurrentWordIndex(prevIndex => {
