@@ -747,6 +747,12 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     let wordIndex = -1;
     let maxVisibleIndex = -1;
     
+    // DEBUG: Log word timing values every 0.5 seconds
+    const shouldLogDetails = Math.floor(currentTime * 2) % 2 === 0;
+    if (shouldLogDetails && timings.length > 0) {
+      console.log(`[KARAOKE DEBUG] adjustedTime=${adjustedTime.toFixed(3)}, scaleFactor=${scaleFactor.toFixed(3)}, words=${timings.map(t => `"${t.word}" ${t.startTime.toFixed(2)}-${t.endTime.toFixed(2)}`).join(', ')}`);
+    }
+    
     for (let i = 0; i < timings.length; i++) {
       const timing = timings[i];
       const scaledStartTime = timing.startTime * scaleFactor;
@@ -754,6 +760,11 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       
       if (adjustedTime >= scaledStartTime) maxVisibleIndex = i;
       if (adjustedTime >= scaledStartTime && adjustedTime < scaledEndTime) wordIndex = i;
+    }
+    
+    // DEBUG: Log wordIndex calculation result
+    if (shouldLogDetails) {
+      console.log(`[KARAOKE DEBUG] Result: wordIndex=${wordIndex}, maxVisibleIndex=${maxVisibleIndex}`);
     }
     
     // ACTFL-level-aware text reveal:
