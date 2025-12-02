@@ -426,6 +426,9 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     endTime: number,
     estimatedTotalDuration?: number
   ) => {
+    // DEBUG: Log all incoming word timings
+    console.log(`[TIMING RECEIVED] sentence=${sentenceIndex}, turn=${turnId}, word=${wordIndex} "${word}", currentTurnId=${currentTurnId}`);
+    
     // STALE PACKET FILTER
     if (turnId < currentTurnId) {
       console.log(`[StreamingSubtitles v2] Ignoring stale progressive timing (turnId ${turnId} < current ${currentTurnId})`);
