@@ -1,5 +1,21 @@
 /**
  * Utility functions for text processing
+ * 
+ * REFACTOR NOTES (December 2025):
+ * Simplified from multi-pass defensive extraction to principled bold-only approach.
+ * 
+ * REMOVED FEATURES (may be reintroduced if problems arise):
+ * - PASS 3: Common foreign word list (COMMON_SHORT_FOREIGN_WORDS) - caused ambiguity
+ * - PASS 4: Multi-word phrase matching fallback - position tracking was buggy
+ * - ENGLISH_FILTER blocklist - no longer needed with principled extraction
+ * - Position-based segment tracking with overlap detection - overcomplicated
+ * - expandToPhrase() helper - relied on COMMON_PHRASES patterns
+ * 
+ * KEPT FEATURES:
+ * - PASS 1: Bold marker extraction (**word**) - primary method, trusts AI marking
+ * - PASS 2: Foreign character detection (¡, ¿, ñ, á, é, etc.) - unambiguous backup
+ * - Parenthetical content removal - prevents English translations leaking
+ * - Emotion tag stripping - removes (friendly), (curious) etc.
  */
 
 import { franc } from 'franc-min';
@@ -22,6 +38,11 @@ const TARGET_LANGUAGE_CODES = new Set([
  * The AI marks foreign language words with **bold** markers
  * 
  * For "target" subtitle mode, we only want to show the foreign language phrases
+ * 
+ * APPROACH: Principled bold-only extraction
+ * 1. Trust the AI to bold-mark foreign words (per system prompt)
+ * 2. Use foreign character detection as unambiguous backup
+ * 3. No "common word" guessing - if AI didn't mark it, don't include it
  * 
  * Example:
  *   Input: "Let's learn the word **Hola** which means hello."
@@ -60,165 +81,50 @@ export function extractTargetLanguageText(text: string): string {
     .replace(/^["']?\*\*\s*/g, '')  // Remove dangling "** or '** at start
     .replace(/\s*\*\*["']?$/g, '')  // Remove dangling **" or **' at end
     .trim();
-  
-  // Common multi-word foreign phrases - defined early for phrase expansion
-  // These must be matched as complete units, not split by accent filtering
-  const COMMON_PHRASES = [
-    // Spanish greetings (must match as complete phrases)
-    { pattern: /buenos\s+d[ií]as/gi, replacement: 'Buenos días' },
-    { pattern: /buenas\s+tardes/gi, replacement: 'Buenas tardes' },
-    { pattern: /buenas\s+noches/gi, replacement: 'Buenas noches' },
-    { pattern: /muy\s+bien/gi, replacement: 'Muy bien' },
-    { pattern: /qu[ée]\s+bien/gi, replacement: 'Qué bien' },
-    { pattern: /qu[ée]\s+tal/gi, replacement: 'Qué tal' },
-    { pattern: /c[óo]mo\s+est[áa]s/gi, replacement: 'Cómo estás' },
-    { pattern: /c[óo]mo\s+te\s+llamas/gi, replacement: 'Cómo te llamas' },
-    { pattern: /muchas\s+gracias/gi, replacement: 'Muchas gracias' },
-    { pattern: /hasta\s+luego/gi, replacement: 'Hasta luego' },
-    { pattern: /hasta\s+ma[ñn]ana/gi, replacement: 'Hasta mañana' },
-    { pattern: /hasta\s+pronto/gi, replacement: 'Hasta pronto' },
-    { pattern: /por\s+favor/gi, replacement: 'Por favor' },
-    { pattern: /de\s+nada/gi, replacement: 'De nada' },
-    { pattern: /lo\s+siento/gi, replacement: 'Lo siento' },
-    { pattern: /con\s+mucho\s+gusto/gi, replacement: 'Con mucho gusto' },
-    { pattern: /mucho\s+gusto/gi, replacement: 'Mucho gusto' },
-    { pattern: /me\s+llamo/gi, replacement: 'Me llamo' },
-    { pattern: /nos\s+vemos/gi, replacement: 'Nos vemos' },
-    // French
-    { pattern: /bonne\s+nuit/gi, replacement: 'Bonne nuit' },
-    { pattern: /bonne\s+journ[ée]e/gi, replacement: 'Bonne journée' },
-    { pattern: /merci\s+beaucoup/gi, replacement: 'Merci beaucoup' },
-    { pattern: /s'?il\s+vous\s+pla[iî]t/gi, replacement: "S'il vous plaît" },
-    // German
-    { pattern: /guten\s+morgen/gi, replacement: 'Guten Morgen' },
-    { pattern: /guten\s+tag/gi, replacement: 'Guten Tag' },
-    { pattern: /guten\s+abend/gi, replacement: 'Guten Abend' },
-    { pattern: /gute\s+nacht/gi, replacement: 'Gute Nacht' },
-    // Italian
-    { pattern: /buona\s+sera/gi, replacement: 'Buona sera' },
-    { pattern: /buona\s+notte/gi, replacement: 'Buona notte' },
-    { pattern: /buon\s+giorno/gi, replacement: 'Buon giorno' },
-  ];
 
-  // Helper function to expand a word to its full phrase if it's part of one
-  function expandToPhrase(word: string, fullText: string): string {
-    const wordLower = word.toLowerCase();
-    for (const { pattern, replacement } of COMMON_PHRASES) {
-      pattern.lastIndex = 0;
-      if (pattern.test(fullText)) {
-        // Check if this word is part of this phrase
-        const phraseWords = replacement.toLowerCase().split(/\s+/);
-        if (phraseWords.includes(wordLower)) {
-          return replacement;
-        }
-      }
-    }
-    return word;
-  }
-
-  // UNIFIED COLLECTION: Gather ALL foreign language segments with positions
-  // This prevents early returns from missing non-bold Spanish words
-  interface Segment { text: string; startIndex: number; endIndex: number; }
-  const segments: Segment[] = [];
-  const coveredRanges: Array<[number, number]> = [];
+  // Collect extracted words (simple Set-based deduplication, no position tracking)
+  const extractedWords: string[] = [];
+  const seenLower = new Set<string>();
   
-  // Helper to check if a range overlaps with already covered ranges
-  function isOverlapping(start: number, end: number): boolean {
-    return coveredRanges.some(([s, e]) => !(end <= s || start >= e));
-  }
-  
-  // Helper to add segment if not overlapping
-  function addSegment(text: string, start: number, end: number): void {
-    if (!isOverlapping(start, end)) {
-      segments.push({ text, startIndex: start, endIndex: end });
-      coveredRanges.push([start, end]);
+  function addWord(word: string): void {
+    const trimmed = word.trim();
+    if (!trimmed) return;
+    const lower = trimmed.toLowerCase();
+    if (!seenLower.has(lower)) {
+      seenLower.add(lower);
+      extractedWords.push(trimmed);
     }
   }
   
   // PASS 1: Extract bold-marked phrases (**word**)
+  // This is the PRIMARY method - we trust the AI to mark foreign words
   const boldPattern = /\*\*([^*]+)\*\*/g;
   let match;
   while ((match = boldPattern.exec(cleanedInput)) !== null) {
     const boldText = match[1].trim();
-    const expanded = expandToPhrase(boldText, cleanedInput);
-    addSegment(expanded, match.index, match.index + match[0].length);
+    // Add all words from the bold phrase
+    boldText.split(/\s+/).forEach(word => addWord(word));
   }
   
-  // Create a plain text version for subsequent detection (strip bold markers)
+  // Create a plain text version for secondary detection (strip bold markers)
   const plainText = cleanedInput.replace(/\*\*/g, '');
   
-  // PASS 2: Extract words with foreign characters (accents, ñ, ¡¿, etc.)
-  const foreignCharPattern = /[¡¿ñáéíóúàâçéèêëîïôùûüäöüß]/i;
-  // Using explicit character classes instead of Unicode properties for ES5 compatibility
-  // Include ¡¿!? to capture complete Spanish exclamations like ¡Fantástico!
+  // PASS 2: Extract words with UNAMBIGUOUS foreign characters
+  // Only characters that are definitely not English: ¡, ¿, ñ, accented vowels, etc.
+  // This catches words the AI might have forgotten to bold-mark
+  const foreignCharPattern = /[¡¿ñáéíóúàâçèêëîïôùûüäöüß]/i;
   const wordBoundaryPattern = /[¡¿!?]?[a-zA-ZÀ-ÿñÑ0-9]+[!?]?/g;
   let wordMatch;
   while ((wordMatch = wordBoundaryPattern.exec(plainText)) !== null) {
     const word = wordMatch[0];
     if (foreignCharPattern.test(word)) {
-      // Find approximate position in original text
-      const approxStart = wordMatch.index;
-      addSegment(word, approxStart, approxStart + word.length);
+      addWord(word);
     }
   }
   
-  // PASS 3: Check for common foreign words that don't have accent marks
-  const COMMON_SHORT_FOREIGN_WORDS = new Set([
-    // Spanish exclamatory/praise words
-    'maravilloso', 'excelente', 'estupendo', 'genial', 'fenomenal', 
-    'magnifico', 'brillante', 'fabuloso', 'sensacional', 'impresionante',
-    // Spanish greetings and basics
-    'hola', 'gracias', 'adios', 'vamos', 'claro', 'bueno', 'vale', 'perfecto',
-    'amigo', 'amiga', 'por', 'favor', 'bien', 'muy', 'que', 'si', 'no',
-    'buenos', 'buenas', 'como', 'estas', 'llamo', 'llamas', 'gusto', 'mucho',
-    'saludos', 'despedidas', 'saludo', 'despedida',
-    // French
-    'bonjour', 'merci', 'salut', 'parfait', 'voila', 'madame', 'monsieur', 'oui',
-    'magnifique', 'formidable', 'superbe',
-    // German  
-    'danke', 'bitte', 'genau', 'prima', 'toll', 'ja', 'nein', 'wunderbar',
-    // Italian
-    'ciao', 'prego', 'bravo', 'bene', 'perfetto', 'buongiorno', 'buonasera', 'bellissimo',
-    // Portuguese
-    'obrigado', 'obrigada', 'tchau', 'sim', 'maravilhoso',
-  ]);
-  
-  wordBoundaryPattern.lastIndex = 0;
-  while ((wordMatch = wordBoundaryPattern.exec(plainText)) !== null) {
-    const word = wordMatch[0];
-    const normalized = word.toLowerCase().replace(/[^a-záéíóúàâçèêëîïôùûüäöüñß]/gi, '');
-    if (COMMON_SHORT_FOREIGN_WORDS.has(normalized)) {
-      const approxStart = wordMatch.index;
-      addSegment(word, approxStart, approxStart + word.length);
-    }
-  }
-  
-  // PASS 4: Check for multi-word phrases
-  for (const { pattern, replacement } of COMMON_PHRASES) {
-    pattern.lastIndex = 0;
-    let phraseMatch;
-    while ((phraseMatch = pattern.exec(plainText)) !== null) {
-      addSegment(replacement, phraseMatch.index, phraseMatch.index + phraseMatch[0].length);
-    }
-  }
-  
-  // Sort segments by position and deduplicate
-  if (segments.length > 0) {
-    segments.sort((a, b) => a.startIndex - b.startIndex);
-    // Return unique segment texts in order
-    const seen = new Set<string>();
-    const result = segments
-      .filter(s => {
-        const lower = s.text.toLowerCase();
-        if (seen.has(lower)) return false;
-        seen.add(lower);
-        return true;
-      })
-      .map(s => s.text);
-    
-    if (result.length > 0) {
-      return result.join(' ');
-    }
+  // Return collected words in order found
+  if (extractedWords.length > 0) {
+    return extractedWords.join(' ');
   }
   
   // No foreign language content detected
@@ -237,6 +143,11 @@ export interface TargetLanguageExtractionResult {
  * Extracts target language text from display text with word position mapping
  * This enables karaoke highlighting in Target subtitle mode by knowing which
  * word indices from the full text correspond to words in the target text
+ * 
+ * SIMPLIFIED APPROACH:
+ * - No English filter blocklist (was causing bugs with position tracking)
+ * - Direct word matching between display and target text
+ * - Trusts extractTargetLanguageText to return only foreign words
  * 
  * Example:
  *   displayText: "Let's learn the word Hola which means hello"
@@ -276,97 +187,15 @@ export function extractTargetLanguageWithMapping(
     .replace(/^\s*["'""'']/g, '')   // Remove leading quote
     .trim();
   
-  // Filter out common English words that may have leaked through
-  // Note: Words are normalized (lowercase, no punctuation) before checking
-  const ENGLISH_FILTER = new Set([
-    'respond', 'with', 'that', 'thats', 'was', 'great', 'you', 'youve', 'youre', 'your', 'yours',
-    'got', 'the', 'and', 'or', 'a', 'an', 'to', 'for', 'is', 'isnt', 'it', 'its', 'in', 'on', 'of',
-    'already', 'have', 'has', 'had', 'having', 'been', 'be', 'am', 'are', 'will', 'shall',
-    'can', 'cant', 'try', 'trying', 'saying', 'say', 'said', 'lets', 'now', 'i', 'im', 'ive', 'id',
-    'we', 'weve', 'were', 'wed', 'they', 'theyre', 'theyve', 'this', 'how', 'hows',
-    'excellent', 'excellently', 'perfect', 'perfectly', 'wonderful', 'wonderfully', 'amazing', 'amazingly', 
-    'fantastic', 'fantastically', 'beautiful', 'beautifully', 'awesome', 'awesomely', 'incredible', 'incredibly',
-    'david', 'just', 'right', 'good', 'job', 'nice', 'work', 'well', 'done', 'keep', 'going',
-    'remember', 'means', 'mean', 'english', 'spanish', 'french', 'german', 'again',
-    'italian', 'portuguese', 'japanese', 'korean', 'chinese', 'arabic', 'down', 'up',
-    'almost', 'close', 'not', 'quite', 'but', 'here', 'there', 'listen', 'hear', 'sound',
-    'sounds', 'like', 'word', 'words', 'pronounced', 'pronunciation', 'should', 'would',
-    'could', 'couldnt', 'shouldnt', 'wouldnt', 'didnt', 'dont', 'doesnt', 'havent', 'hasnt',
-    // Common verbs that leak through when AI doesn't bold-mark properly
-    'doing', 'do', 'did', 'does', 'learn', 'learning', 'learned', 'teach', 'teaching', 'taught',
-    'morning', 'afternoon', 'evening', 'night', 'day', 'time', 'today', 'tomorrow', 'yesterday',
-    'give', 'giving', 'gave', 'take', 'taking', 'took', 'make', 'making', 'made',
-    'go', 'goes', 'went', 'come', 'coming', 'came', 'get', 'getting',
-    'know', 'knowing', 'knew', 'think', 'thinking', 'thought',
-    'want', 'wanting', 'wanted', 'need', 'needing', 'needed',
-    'see', 'seeing', 'saw', 'look', 'looking', 'looked',
-    'use', 'using', 'used', 'find', 'finding', 'found',
-    'tell', 'telling', 'told', 'ask', 'asking', 'asked',
-    'put', 'putting', 'call', 'calling', 'called',
-    'feel', 'feeling', 'felt', 'become', 'becoming', 'became',
-    'leave', 'leaving', 'left', 'begin', 'beginning', 'began',
-    'seem', 'seeming', 'seemed', 'help', 'helping', 'helped',
-    'show', 'showing', 'showed', 'move', 'moving', 'moved',
-    'live', 'living', 'lived', 'believe', 'believing', 'believed',
-    'bring', 'bringing', 'brought', 'happen', 'happening', 'happened',
-    'write', 'writing', 'wrote', 'provide', 'providing', 'provided',
-    'read', 'reading', 'sit', 'sitting', 'sat', 'stand', 'standing', 'stood',
-    'lose', 'losing', 'lost', 'pay', 'paying', 'paid',
-    'meet', 'meeting', 'met', 'include', 'including', 'included',
-    'continue', 'continuing', 'continued', 'set', 'setting',
-    'speak', 'speaking', 'spoke', 'spoken', 'repeat', 'repeating', 'repeated',
-    // Common nouns
-    'thing', 'things', 'way', 'ways', 'place', 'places', 'person', 'people',
-    'part', 'parts', 'case', 'cases', 'week', 'weeks', 'company', 'system',
-    'program', 'question', 'questions', 'home', 'country', 'countries',
-    'world', 'hand', 'hands', 'point', 'points', 'government', 'number', 'numbers',
-    'greeting', 'greetings', 'another', 'common', 'example', 'examples',
-    // Common adjectives
-    'new', 'old', 'first', 'last', 'long', 'short', 'small', 'big', 'large',
-    'little', 'different', 'same', 'important', 'early', 'young', 'few', 'public',
-    'bad', 'sure', 'next', 'clear', 'best', 'better', 'high', 'low',
-    // Common prepositions/adverbs/conjunctions
-    'at', 'by', 'about', 'into', 'through', 'during', 'before', 'after',
-    'above', 'below', 'between', 'under', 'over', 'again', 'then', 'once',
-    'here', 'there', 'when', 'where', 'why', 'all', 'each', 'every',
-    'both', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'only',
-    'own', 'same', 'so', 'than', 'too', 'very', 'just', 'also', 'back',
-    'being', 'even', 'still', 'much', 'off', 'out', 'if', 'because', 'as',
-    'until', 'while', 'although', 'though', 'since', 'unless', 'whether',
-    // Student names and common words
-    'student', 'students', 'teacher', 'teachers', 'class', 'classes',
-    'lesson', 'lessons', 'practice', 'practicing', 'practiced',
-    'language', 'languages', 'phrase', 'phrases', 'sentence', 'sentences',
-    // Time-related
-    'minute', 'minutes', 'hour', 'hours', 'second', 'seconds',
-  ]);
-  
-  const targetWords = targetText.split(/\s+/).filter(w => w.length > 0);
-  const filteredWords = targetWords.filter(word => {
-    // Strip ALL punctuation (not just edges) to get core word for checking
-    // This catches words like "That's" -> "thats" for proper English filtering
-    const stripped = word.replace(/[^a-zA-ZÀ-ÿñ]/gi, '');
-    const normalized = stripped.toLowerCase();
-    
-    // Check for actual foreign characters (not just punctuation)
-    // Foreign chars: accented letters, ñ, inverted punctuation ¡¿, etc.
-    const hasForeignChars = /[À-ÿñ¡¿]/.test(word); // Check original word for ¡¿
-    
-    // Keep if it has genuine foreign characters OR isn't in English filter
-    return hasForeignChars || !ENGLISH_FILTER.has(normalized);
-  });
-  
-  targetText = filteredWords.join(' ').trim();
-  
   if (!targetText) return result;
   
   result.targetText = targetText;
   
   // Split both texts into words for mapping
   const displayWords = displayText.split(/\s+/).filter(w => w.length > 0);
-  const targetWordsForMapping = targetText.split(/\s+/).filter(w => w.length > 0);
+  const targetWordsArray = targetText.split(/\s+/).filter(w => w.length > 0);
   
-  if (displayWords.length === 0 || targetWordsForMapping.length === 0) {
+  if (displayWords.length === 0 || targetWordsArray.length === 0) {
     return result;
   }
   
@@ -374,9 +203,9 @@ export function extractTargetLanguageWithMapping(
   // Use a greedy matching approach that handles repeated words
   let targetWordIndex = 0;
   
-  for (let displayIndex = 0; displayIndex < displayWords.length && targetWordIndex < targetWordsForMapping.length; displayIndex++) {
+  for (let displayIndex = 0; displayIndex < displayWords.length && targetWordIndex < targetWordsArray.length; displayIndex++) {
     const displayWord = normalizeWordForComparison(displayWords[displayIndex]);
-    const targetWord = normalizeWordForComparison(targetWordsForMapping[targetWordIndex]);
+    const targetWord = normalizeWordForComparison(targetWordsArray[targetWordIndex]);
     
     if (displayWord === targetWord) {
       result.wordMapping.set(displayIndex, targetWordIndex);
@@ -390,6 +219,11 @@ export function extractTargetLanguageWithMapping(
       .map(([full, target]) => `${full}=>${target}`)
       .join(', ');
     console.log(`[TargetExtraction] Mapping: ${mappingStr} (${displayWords.length} display -> ${result.wordMapping.size} target)`);
+  } else if (targetWordsArray.length > 0) {
+    // Log when we have target words but no mapping (useful for debugging)
+    console.log(`[TargetExtraction] WARNING: ${targetWordsArray.length} target words but no mapping found`);
+    console.log(`[TargetExtraction] Target: "${targetText}"`);
+    console.log(`[TargetExtraction] Display: "${displayText.substring(0, 100)}..."`);
   }
   
   return result;
