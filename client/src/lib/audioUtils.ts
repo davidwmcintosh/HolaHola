@@ -371,9 +371,17 @@ export class StreamingAudioPlayer {
       this.resetProgressiveState();
       this.progressiveSentenceIndex = sentenceIndex;
       this.currentSentenceIndex = sentenceIndex;
-      this.progressiveScheduledTime = ctx.currentTime + 0.01; // Small buffer for smooth start
+      // Use larger safety buffer (100ms) to account for decode/scheduling latency
+      this.progressiveScheduledTime = ctx.currentTime + 0.1;
       this.isPlaying = true;
       this.setState('buffering');
+    }
+    
+    // SAFETY: Ensure scheduled time is always in the future
+    // If we've fallen behind, reset to current time + buffer
+    if (this.progressiveScheduledTime < ctx.currentTime) {
+      console.warn(`[StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was ${this.progressiveScheduledTime.toFixed(3)}, now ${ctx.currentTime.toFixed(3)}`);
+      this.progressiveScheduledTime = ctx.currentTime + 0.05;
     }
     
     // Convert raw PCM bytes to Float32Array
