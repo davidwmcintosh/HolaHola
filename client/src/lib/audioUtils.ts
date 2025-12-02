@@ -213,6 +213,8 @@ export class StreamingAudioPlayer {
   private progressiveScheduledTime = 0; // Next scheduled play time in AudioContext
   private progressiveSources: AudioBufferSourceNode[] = []; // Track active sources for cleanup
   private progressiveFirstChunkStarted = false;
+  private progressivePlaybackStartCtxTime = 0; // AudioContext.currentTime when first chunk started
+  private progressiveTotalDuration = 0; // Total accumulated duration of all chunks
   
   constructor() {
     console.log('[StreamingAudioPlayer] Initialized');
@@ -373,6 +375,8 @@ export class StreamingAudioPlayer {
       this.currentSentenceIndex = sentenceIndex;
       // Use larger safety buffer (100ms) to account for decode/scheduling latency
       this.progressiveScheduledTime = ctx.currentTime + 0.1;
+      this.progressivePlaybackStartCtxTime = this.progressiveScheduledTime; // Track when audio actually starts
+      this.progressiveTotalDuration = 0; // Reset total duration
       this.isPlaying = true;
       this.setState('buffering');
     }
@@ -408,21 +412,20 @@ export class StreamingAudioPlayer {
     const playTime = this.progressiveScheduledTime;
     source.start(playTime);
     this.progressiveScheduledTime += chunkDuration;
+    this.progressiveTotalDuration += chunkDuration; // Track total duration
     
     // Track first chunk for timing
-    console.error(`[AUDIO DEBUG] Progressive chunk: sentenceIndex=${sentenceIndex}, chunkIndex=${chunkIndex}, firstStarted=${this.progressiveFirstChunkStarted}`);
     if (!this.progressiveFirstChunkStarted && chunkIndex === 0) {
       this.progressiveFirstChunkStarted = true;
       this.playbackStartTime = performance.now();
       this.setState('playing');
-      console.error(`[AUDIO DEBUG] >>> CALLING onSentenceStart(${sentenceIndex}) <<<`);
       this.callbacks.onSentenceStart?.(sentenceIndex);
-      this.startPrecisionTiming();
+      this.startProgressivePrecisionTiming(); // Use progressive-specific timing
       console.log(`[StreamingAudioPlayer] [Progressive] First chunk playing at ${playTime.toFixed(3)}s (ctx.currentTime=${ctx.currentTime.toFixed(3)}s)`);
     }
     
-    // Update duration estimate
-    this.currentDuration = this.progressiveScheduledTime - (ctx.currentTime + 0.01);
+    // Update current duration for progress reporting
+    this.currentDuration = this.progressiveTotalDuration;
     
     console.log(`[StreamingAudioPlayer] [Progressive] Chunk ${chunkIndex}: ${numSamples} samples, ${chunkDuration.toFixed(3)}s, scheduled at ${playTime.toFixed(3)}s, isLast=${isLast}`);
     
@@ -448,6 +451,52 @@ export class StreamingAudioPlayer {
     this.progressiveSources = [];
     this.progressiveChunks = [];
     this.progressiveFirstChunkStarted = false;
+    this.progressivePlaybackStartCtxTime = 0;
+    this.progressiveTotalDuration = 0;
+  }
+  
+  /**
+   * Start precision timing loop specifically for progressive PCM streaming
+   * Uses AudioContext.currentTime for accurate tracking
+   */
+  private startProgressivePrecisionTiming(): void {
+    // Cancel any existing timing loop
+    this.stopPrecisionTiming();
+    
+    console.log('[StreamingAudioPlayer] Starting progressive precision timing (AudioContext anchored)');
+    
+    let frameCount = 0;
+    const tick = () => {
+      // Exit if playback stopped
+      if (!this.isPlaying || this.progressiveSentenceIndex === -1) {
+        return;
+      }
+      
+      // Calculate current playback time from AudioContext
+      const ctx = this.audioContext;
+      if (!ctx) {
+        this.rafId = requestAnimationFrame(tick);
+        return;
+      }
+      
+      // Current time = AudioContext time - when we started playing
+      const elapsedCtxTime = ctx.currentTime - this.progressivePlaybackStartCtxTime;
+      const currentTime = Math.max(0, elapsedCtxTime);
+      
+      // Fire progress callback with current time and estimated total duration
+      this.callbacks.onProgress?.(currentTime, this.progressiveTotalDuration);
+      
+      // Debug log periodically
+      frameCount++;
+      if (frameCount % 120 === 0) { // Every ~2 seconds at 60fps
+        console.log(`[StreamingAudioPlayer] Progressive RAF frame ${frameCount}, time: ${currentTime.toFixed(3)}s / ${this.progressiveTotalDuration.toFixed(3)}s`);
+      }
+      
+      // Continue the loop
+      this.rafId = requestAnimationFrame(tick);
+    };
+    
+    this.rafId = requestAnimationFrame(tick);
   }
   
   /**
