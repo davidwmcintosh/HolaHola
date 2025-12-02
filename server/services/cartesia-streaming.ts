@@ -423,7 +423,28 @@ export class CartesiaStreamingService extends EventEmitter {
             throw new Error(`Cartesia WebSocket error: ${message.error}`);
           }
           
-          // Handle audio chunks (type: 'chunk')
+          // CRITICAL: Handle word timestamps BEFORE yielding audio chunks
+          // This ensures streamSynthesizeProgressive sees timestamps when it checks
+          // after receiving each audio chunk (yield pauses the generator)
+          if (message.word_timestamps) {
+            const { words, start, end } = message.word_timestamps;
+            if (words && start && end) {
+              // Convert parallel arrays to WordTiming objects
+              for (let i = 0; i < words.length; i++) {
+                collectedTimestamps.push({
+                  word: words[i],
+                  startTime: start[i], // Already in seconds
+                  endTime: end[i],
+                });
+              }
+              // PROGRESSIVE STREAMING FIX: Update lastNativeTimestamps immediately
+              // so streamSynthesizeProgressive can access them on each audio chunk
+              this.lastNativeTimestamps = [...collectedTimestamps];
+              console.log(`[Cartesia Streaming] Received ${words.length} native word timestamps`);
+            }
+          }
+          
+          // Handle audio chunks (type: 'chunk') AFTER timestamps are stored
           if (message.type === 'chunk' && message.data) {
             if (!firstChunkTime) {
               firstChunkTime = Date.now();
@@ -462,25 +483,6 @@ export class CartesiaStreamingService extends EventEmitter {
               audioFormat: 'pcm_f32le' as const,
               sampleRate: 24000,
             };
-          }
-          
-          // Handle word timestamps from Cartesia
-          if (message.word_timestamps) {
-            const { words, start, end } = message.word_timestamps;
-            if (words && start && end) {
-              // Convert parallel arrays to WordTiming objects
-              for (let i = 0; i < words.length; i++) {
-                collectedTimestamps.push({
-                  word: words[i],
-                  startTime: start[i], // Already in seconds
-                  endTime: end[i],
-                });
-              }
-              // PROGRESSIVE STREAMING FIX: Update lastNativeTimestamps immediately
-              // so streamSynthesizeProgressive can access them on each audio chunk
-              this.lastNativeTimestamps = [...collectedTimestamps];
-              console.log(`[Cartesia Streaming] Received ${words.length} native word timestamps`);
-            }
           }
         }
         
