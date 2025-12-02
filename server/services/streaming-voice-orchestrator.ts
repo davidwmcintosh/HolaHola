@@ -143,6 +143,7 @@ export interface StreamingSession {
   idleTimeoutId?: NodeJS.Timeout;  // Timer for idle cleanup
   lastActivityTime: number;         // Timestamp of last student activity
   currentTurnId: number;            // Monotonic counter for subtitle packet ordering (prevents phantom subtitles)
+  warmupPromise?: Promise<void>;    // Gemini + Cartesia warmup promise to await before greeting
 }
 
 /**
@@ -298,22 +299,20 @@ export class StreamingVoiceOrchestrator {
       currentTurnId: 0,  // Start at 0, incremented on each new response
     };
     
-    this.sessions.set(sessionId, session);
-    
     // PARALLEL WARMUP: Pre-warm both Cartesia and Gemini connections concurrently
     // - Cartesia: Eliminates WebSocket handshake latency (~150-200ms)
     // - Gemini: Eliminates cold-start penalty (~3-4 seconds on first request)
-    const warmupPromises: Promise<void>[] = [
+    // Store promise so greeting can await completion (guarantees warmup before first AI call)
+    session.warmupPromise = Promise.all([
       this.cartesiaService.ensureConnection()
         .then(time => console.log(`[Streaming Orchestrator] Cartesia pre-warmed: ${time}ms`))
         .catch((err: Error) => console.warn(`[Streaming Orchestrator] Cartesia warmup failed: ${err.message}`)),
       this.geminiService.warmup()
         .then(time => console.log(`[Streaming Orchestrator] Gemini pre-warmed: ${time}ms`))
         .catch((err: Error) => console.warn(`[Streaming Orchestrator] Gemini warmup failed: ${err.message}`)),
-    ];
+    ]).then(() => {});
     
-    // Fire warmups in parallel but don't block session creation
-    Promise.all(warmupPromises).catch(() => {});
+    this.sessions.set(sessionId, session);
     
     // Send connected message
     this.sendMessage(ws, {
@@ -1264,6 +1263,12 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
     const session = this.sessions.get(sessionId);
     if (!session || !session.isActive) {
       throw new Error(`Session not found or inactive: ${sessionId}`);
+    }
+    
+    // CRITICAL: Await warmup completion before generating greeting
+    // This ensures Gemini + Cartesia are pre-warmed, avoiding cold-start penalty
+    if (session.warmupPromise) {
+      await session.warmupPromise;
     }
     
     const startTime = Date.now();
