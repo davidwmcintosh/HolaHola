@@ -229,9 +229,17 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
   /**
    * Set the current turn ID (called when 'processing' message arrives)
    * This prepares the hook to accept only packets with this turnId or newer
-   * CRITICAL: All refs and state MUST be cleared to prevent stale data from persisting
+   * CRITICAL: Only clear state when turnId is STRICTLY GREATER than current
+   * to avoid resetting mid-turn when processing messages repeat for same turn
    */
   const setTurnId = useCallback((turnId: number) => {
+    // ONLY reset state for a NEW (strictly greater) turn
+    // This prevents clearing state when the same turnId is received multiple times
+    if (turnId <= currentTurnId) {
+      console.log(`[StreamingSubtitles v2] setTurnId(${turnId}) - same or older turn (current: ${currentTurnId}), skipping reset`);
+      return;
+    }
+    
     console.log(`[StreamingSubtitles v2] ═══════════════════════════════════════════`);
     console.log(`[StreamingSubtitles v2] NEW TURN: ${turnId} (previous: ${currentTurnId})`);
     console.log(`[StreamingSubtitles v2] Clearing all state and refs...`);
