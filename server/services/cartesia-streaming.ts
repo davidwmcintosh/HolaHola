@@ -376,8 +376,17 @@ export class CartesiaStreamingService extends EventEmitter {
         // Collect timestamps as they arrive
         const collectedTimestamps: WordTiming[] = [];
         
+        // Debug: log response structure
+        console.log('[Cartesia Streaming] Response type:', typeof response);
+        console.log('[Cartesia Streaming] Response keys:', Object.keys(response || {}));
+        console.log('[Cartesia Streaming] Has events method:', typeof (response as any)?.events);
+        
         // Process all events from the response using events() iterator
+        let messageCount = 0;
         for await (const message of response.events('message')) {
+          messageCount++;
+          console.log('[Cartesia Streaming] Message', messageCount, 'keys:', Object.keys(message || {}));
+          
           // Handle audio chunks
           if (message.audio) {
             if (!firstChunkTime) {
