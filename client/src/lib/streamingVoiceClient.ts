@@ -21,6 +21,8 @@ declare global {
 }
 
 if (typeof window !== 'undefined') {
+  console.log('%c[StreamingVoiceClient] MODULE LOADED', 'background: red; color: white; font-size: 16px');
+  (window as any)._svcLoaded = true;
   window._wsDebug = {
     messageCount: 0,
     byType: {},
