@@ -361,10 +361,14 @@ export class StreamingAudioPlayer {
     
     const ctx = this.getAudioContext();
     
+    // CRITICAL: Log AudioContext state for every chunk
+    console.error(`[AUDIO STATE] Chunk ${sentenceIndex}:${chunkIndex} - ctx.state=${ctx.state}, ctx.currentTime=${ctx.currentTime?.toFixed(3)}`);
+    
     // Resume AudioContext if suspended
     if (ctx.state === 'suspended') {
-      console.log('[StreamingAudioPlayer] [Progressive] Resuming AudioContext...');
+      console.error('[AUDIO STATE] !!! AudioContext SUSPENDED - Resuming...');
       await ctx.resume();
+      console.error(`[AUDIO STATE] After resume: ctx.state=${ctx.state}`);
     }
     
     // Detect new sentence - reset progressive state
@@ -487,10 +491,10 @@ export class StreamingAudioPlayer {
       // Fire progress callback with current time and estimated total duration
       this.callbacks.onProgress?.(currentTime, this.progressiveTotalDuration);
       
-      // Debug log periodically
+      // Debug log periodically - every 10 frames (~160ms at 60fps) for more visibility
       frameCount++;
-      if (frameCount % 30 === 0) { // Every ~0.5 seconds at 60fps
-        console.error(`[PROGRESS DEBUG] RAF frame ${frameCount}, time: ${currentTime.toFixed(3)}s / ${this.progressiveTotalDuration.toFixed(3)}s, sentence=${this.progressiveSentenceIndex}`);
+      if (frameCount % 10 === 0) {
+        console.error(`[TIMING LOOP] frame=${frameCount}, elapsed=${currentTime.toFixed(3)}s, total=${this.progressiveTotalDuration.toFixed(3)}s, ctx.state=${ctx?.state}`);
       }
       
       // Continue the loop
