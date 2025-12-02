@@ -740,6 +740,14 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     const expected = expectedDurationRef.current;
     const actual = actualDurationRef.current;
     
+    // DEBUG: Log word timing values every 0.5 seconds
+    const shouldLogDetails = Math.floor(currentTime * 2) % 2 === 0;
+    
+    // DEBUG: Log the raw values to understand the unit mismatch
+    if (shouldLogDetails) {
+      console.log(`[KARAOKE DEBUG] Duration refs: expected=${expected}, actual=${actual}, actualDuration param=${actualDuration}`);
+    }
+    
     if (expected && actual && expected > 0 && Number.isFinite(actual)) {
       scaleFactor = actual / expected;
       // Only apply rescaling if difference is significant (>5%)
@@ -748,9 +756,6 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     
     let wordIndex = -1;
     let maxVisibleIndex = -1;
-    
-    // DEBUG: Log word timing values every 0.5 seconds
-    const shouldLogDetails = Math.floor(currentTime * 2) % 2 === 0;
     if (shouldLogDetails && timings.length > 0) {
       console.log(`[KARAOKE DEBUG] adjustedTime=${adjustedTime.toFixed(3)}, scaleFactor=${scaleFactor.toFixed(3)}, words=${timings.map(t => `"${t.word}" ${t.startTime.toFixed(2)}-${t.endTime.toFixed(2)}`).join(', ')}`);
     }
