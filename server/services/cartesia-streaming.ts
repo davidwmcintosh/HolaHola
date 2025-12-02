@@ -355,8 +355,9 @@ export class CartesiaStreamingService extends EventEmitter {
         // Use WebSocket API with native word timestamps
         console.log('[Cartesia Streaming] Using WebSocket API with native timestamps');
         
+        const contextId = `ctx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const response = await this.websocket.send({
-          modelId: this.model,
+          model_id: this.model,
           transcript: cleanedText,
           voice: {
             mode: 'id',
@@ -367,12 +368,13 @@ export class CartesiaStreamingService extends EventEmitter {
             },
           },
           language: voiceConfig.languageCode,
-          outputFormat: {
+          context_id: contextId,
+          output_format: {
             container: 'mp3',
-            sampleRate: AUDIO_STREAMING_CONFIG.SAMPLE_RATE,
-            bitRate: AUDIO_STREAMING_CONFIG.BIT_RATE,
+            sample_rate: AUDIO_STREAMING_CONFIG.SAMPLE_RATE,
+            bit_rate: AUDIO_STREAMING_CONFIG.BIT_RATE,
           },
-          ...(pronunciationDictId && { pronunciationDictId: pronunciationDictId }),
+          ...(pronunciationDictId && { pronunciation_dict_id: pronunciationDictId }),
           add_timestamps: true, // Enable native word-level timestamps
         });
         
