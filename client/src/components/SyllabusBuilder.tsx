@@ -34,7 +34,8 @@ import {
   Mic,
   Eye
 } from "lucide-react";
-import type { ClassCurriculumUnit, ClassCurriculumLesson } from "@shared/schema";
+import type { ClassCurriculumUnit, ClassCurriculumLesson, TeacherClass } from "@shared/schema";
+import { RefreshCw } from "lucide-react";
 
 interface SyllabusBuilderProps {
   classId: string;
@@ -119,6 +120,18 @@ export function SyllabusBuilder({ classId }: SyllabusBuilderProps) {
   const [showActflDetails, setShowActflDetails] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
 
+  // Fetch class data to check if it has a curriculum template
+  const { data: teacherClass } = useQuery<TeacherClass>({
+    queryKey: ["/api/teacher/classes", classId],
+    queryFn: async () => {
+      const response = await fetch(`/api/teacher/classes/${classId}`, {
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to fetch class');
+      return response.json();
+    },
+  });
+
   const { data: units = [], isLoading: unitsLoading } = useQuery<ClassCurriculumUnit[]>({
     queryKey: ["/api/teacher/classes", classId, "curriculum", "units"],
     queryFn: async () => {
@@ -127,6 +140,32 @@ export function SyllabusBuilder({ classId }: SyllabusBuilderProps) {
       });
       if (!response.ok) throw new Error('Failed to fetch curriculum units');
       return response.json();
+    },
+  });
+
+  // Mutation to initialize syllabus from template
+  const initializeSyllabusMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/teacher/classes/${classId}/curriculum/initialize`, {});
+    },
+    onSuccess: (result: any) => {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && key[0] === "/api/teacher/classes" && key[1] === classId && key[2] === "curriculum";
+        }
+      });
+      toast({
+        title: "Syllabus Initialized",
+        description: `Created ${result.unitsCreated} units with ${result.lessonsCreated} lessons.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to initialize syllabus",
+        variant: "destructive",
+      });
     },
   });
 
@@ -328,6 +367,8 @@ export function SyllabusBuilder({ classId }: SyllabusBuilderProps) {
   }
 
   if (sortedUnits.length === 0) {
+    const hasTemplate = !!teacherClass?.curriculumPathId;
+    
     return (
       <Card className="p-12">
         <div className="text-center space-y-4">
@@ -339,9 +380,30 @@ export function SyllabusBuilder({ classId }: SyllabusBuilderProps) {
           <div className="space-y-2">
             <h3 className="text-xl font-semibold">No Syllabus</h3>
             <p className="text-muted-foreground max-w-md mx-auto">
-              This class doesn't have a syllabus yet. Create the class from a template to get started with pre-built curriculum.
+              {hasTemplate 
+                ? "This class has a syllabus template assigned but hasn't been initialized yet. Click below to create the syllabus."
+                : "This class doesn't have a syllabus yet. Create the class from a template to get started with pre-built curriculum."}
             </p>
           </div>
+          {hasTemplate && (
+            <Button 
+              onClick={() => initializeSyllabusMutation.mutate()}
+              disabled={initializeSyllabusMutation.isPending}
+              data-testid="button-initialize-syllabus"
+            >
+              {initializeSyllabusMutation.isPending ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Initializing...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Initialize Syllabus
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </Card>
     );

@@ -294,7 +294,7 @@ export default function TeacherDashboard() {
             </div>
           ) : classes && classes.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {classes.map((classItem) => (
+              {[...classes].sort((a, b) => a.name.localeCompare(b.name)).map((classItem) => (
                 <Link key={classItem.id} href={`/teacher/classes/${classItem.id}`}>
                   <Card className="hover-elevate active-elevate-2 cursor-pointer" data-testid={`card-class-${classItem.id}`}>
                     <CardHeader>

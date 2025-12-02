@@ -149,7 +149,7 @@ export default function AdminClasses() {
               ) : (
                 <div className="space-y-4">
                   {data && data.classes.length > 0 ? (
-                    data.classes.map((cls) => {
+                    [...data.classes].sort((a, b) => a.name.localeCompare(b.name)).map((cls) => {
                       const classType = getClassTypeName(cls.classTypeId);
                       const IconComponent = classType ? getClassTypeIcon(classType.icon) : Award;
                       
