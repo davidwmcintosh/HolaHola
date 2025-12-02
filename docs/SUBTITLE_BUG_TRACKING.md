@@ -590,3 +590,102 @@ console.error(`[TIMING LOOP] frame=${frameCount}, elapsed=${currentTime.toFixed(
 
 The message chain is verified working. The issue is downstream in audio playback.
 Next step: User tests with new [AUDIO STATE] and [TIMING LOOP] diagnostics.
+
+---
+
+## Bug #4: Audio Cut Off After ~1 Second (FIXED - Dec 2, 9:35 PM)
+
+### Symptoms
+- User hears "very little audio" 
+- Sentences cut off after ~1 second despite having 5+ seconds of content
+- "A few blips" of word highlighting (works briefly then stops)
+
+### Diagnostic Evidence
+User provided console logs showing:
+```
+[TIMING LOOP] frame=10, elapsed=0.000s, total=1.387s
+[TIMING LOOP] frame=20, elapsed=0.156s, total=2.084s
+...
+[TIMING LOOP] frame=70, elapsed=0.977s, total=4.963s  ← Only 1s played of 5s total!
+[TIMING LOOP] frame=10, elapsed=0.039s, total=0.551s  ← NEW SENTENCE RESET!
+```
+
+**Key Observation:** 
+- `elapsed` time increases from 0 to 0.977s (correct behavior)
+- `total` grows to 4.963s (5 seconds of audio scheduled)
+- Then suddenly resets to frame=10, elapsed=0.039s (new sentence started)
+- **Audio was cut off at 1 second into a 5-second sentence!**
+
+### Root Cause
+In `audioUtils.ts`, when a new sentence arrived, we called `resetProgressiveState()`:
+
+```javascript
+// THE BUG (line 377):
+if (sentenceIndex !== this.progressiveSentenceIndex) {
+  this.resetProgressiveState();  // <-- STOPS ALL AUDIO!
+  ...
+}
+```
+
+And `resetProgressiveState()` did this:
+```javascript
+private resetProgressiveState(): void {
+  for (const source of this.progressiveSources) {
+    source.stop();        // <-- STOPPED ALL PLAYING AUDIO!
+    source.disconnect();
+  }
+  ...
+}
+```
+
+**Why This Happened:**
+1. Server sends sentences progressively (sentence 1 starts before sentence 0 finishes playing)
+2. When sentence 1's first chunk arrives, `sentenceIndex (1) !== progressiveSentenceIndex (0)`
+3. `resetProgressiveState()` called → STOPS sentence 0 audio
+4. User only hears ~1 second of each sentence before it's cut off
+
+### Fix Applied (Dec 2, 9:35 PM)
+
+Changed the sentence transition logic to NOT stop playing audio:
+
+```javascript
+// THE FIX:
+if (sentenceIndex !== this.progressiveSentenceIndex) {
+  // DON'T call resetProgressiveState() - that stops all audio!
+  // Instead, just update tracking variables and let old audio finish
+  
+  // Clear arrays for new sentence (old sources will continue playing)
+  this.progressiveChunks = [];
+  this.progressiveFirstChunkStarted = false;
+  
+  this.progressiveSentenceIndex = sentenceIndex;
+  this.currentSentenceIndex = sentenceIndex;
+  
+  // Schedule new sentence after current audio ends (gapless playback)
+  if (this.progressiveScheduledTime <= ctx.currentTime) {
+    this.progressiveScheduledTime = ctx.currentTime + 0.1;
+  }
+  // Otherwise, new sentence will naturally follow previous
+  
+  this.progressivePlaybackStartCtxTime = this.progressiveScheduledTime;
+  this.progressiveTotalDuration = 0;
+  ...
+}
+```
+
+**Key Changes:**
+1. Removed call to `resetProgressiveState()` (which stopped audio)
+2. Let old sentence's audio sources continue playing naturally
+3. New sentence audio schedules after current audio ends (gapless)
+4. Old sources aren't stored in array anymore, but they keep playing via AudioContext
+
+### Files Modified
+- `client/src/lib/audioUtils.ts`: Lines 377-404
+
+### Expected Behavior After Fix
+- Sentences play completely without being cut off
+- New sentences queue after previous ones (gapless playback)
+- Word highlighting should work throughout each sentence
+- `elapsed` time should reach `total` duration before sentence ends
+
+### Status: 🟢 FIX APPLIED - AWAITING USER TEST
