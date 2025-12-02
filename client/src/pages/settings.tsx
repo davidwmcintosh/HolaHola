@@ -6,7 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Subtitles, CaptionsOff, Languages, Captions, Palette, Moon, Sun, Monitor, User as UserIcon, GraduationCap, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Subtitles, CaptionsOff, Languages, Captions, Palette, Moon, Sun, Monitor, User as UserIcon, GraduationCap, AlertTriangle, CheckCircle2, Loader2, BookOpen } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,21 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { User } from "@shared/schema";
+
+interface LanguagePreferencesData {
+  language: string;
+  preferences: {
+    selfDirectedFlexibility: string;
+    selfDirectedPlacementDone: boolean;
+  } | null;
+  hasClassEnrollment: boolean;
+  hasActflLevel: boolean;
+  actflLevel: string | null;
+  eligibleForPlacement: boolean;
+  smartDefault: string;
+  effectiveFlexibility: string;
+  placementDone: boolean;
+}
 
 interface Price {
   id: string;
@@ -53,7 +68,8 @@ export default function Settings() {
   const [isResetting, setIsResetting] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark" | "system">("light");
   const [tutorGender, setTutorGender] = useState<"male" | "female">((user?.tutorGender as "male" | "female") || "female");
-  const [selfDirectedFlexibility, setSelfDirectedFlexibility] = useState<string>((user?.selfDirectedFlexibility as string) || "guided");
+  const [selectedPrefLanguage, setSelectedPrefLanguage] = useState<string>(language || "spanish");
+  const [selfDirectedFlexibility, setSelfDirectedFlexibility] = useState<string>("flexible_goals");
   const [isRunningPlacement, setIsRunningPlacement] = useState(false);
   const { toast } = useToast();
   const logoutMutation = useLogout();
@@ -65,12 +81,31 @@ export default function Settings() {
     }
   }, [user?.tutorGender]);
 
-  // Initialize self-directed flexibility from user when loaded
+  // Initialize selected language from current language context
   useEffect(() => {
-    if (user?.selfDirectedFlexibility) {
-      setSelfDirectedFlexibility(user.selfDirectedFlexibility as string);
+    if (language) {
+      setSelectedPrefLanguage(language);
     }
-  }, [user?.selfDirectedFlexibility]);
+  }, [language]);
+
+  // Fetch user's languages (ones they have progress in)
+  const { data: userLanguagesData } = useQuery<{ languages: string[] }>({
+    queryKey: ["/api/user/languages"],
+    enabled: !!user,
+  });
+
+  // Fetch language-specific preferences for selected language
+  const { data: langPrefsData, isLoading: langPrefsLoading } = useQuery<LanguagePreferencesData>({
+    queryKey: ["/api/user/language-preferences", selectedPrefLanguage],
+    enabled: !!user && !!selectedPrefLanguage,
+  });
+
+  // Sync local flexibility state with fetched data
+  useEffect(() => {
+    if (langPrefsData?.effectiveFlexibility) {
+      setSelfDirectedFlexibility(langPrefsData.effectiveFlexibility);
+    }
+  }, [langPrefsData?.effectiveFlexibility]);
 
   // Tutor gender update mutation
   const tutorGenderMutation = useMutation({
@@ -98,16 +133,18 @@ export default function Settings() {
     tutorGenderMutation.mutate(gender);
   };
 
-  // Self-directed flexibility update mutation
+  // Self-directed flexibility update mutation (per-language)
   const flexibilityMutation = useMutation({
     mutationFn: async (flexibility: string) => {
-      return apiRequest("PUT", "/api/user/preferences", { selfDirectedFlexibility: flexibility });
+      return apiRequest("PUT", `/api/user/language-preferences/${selectedPrefLanguage}`, { 
+        selfDirectedFlexibility: flexibility 
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/language-preferences", selectedPrefLanguage] });
       toast({
         title: "Learning style updated",
-        description: "Your self-directed tutor style has been saved",
+        description: `Your self-directed tutor style for ${languageNames[selectedPrefLanguage] || selectedPrefLanguage} has been saved`,
       });
     },
     onError: (error: Error) => {
@@ -124,30 +161,16 @@ export default function Settings() {
     flexibilityMutation.mutate(flexibility);
   };
 
-  // Check if user has any class enrollments (to determine if placement should be shown)
-  const { data: enrollmentsData } = useQuery<{ enrollments: any[] }>({
-    queryKey: ["/api/student/enrollments"],
-    enabled: !!user,
-  });
-
-  // Determine if user is eligible for placement assessment
-  // Only show if: no ACTFL level AND no class enrollments
-  const hasNoActflLevel = !user?.actflLevel;
-  const hasNoClassEnrollments = !enrollmentsData?.enrollments?.length;
-  const isEligibleForPlacement = hasNoActflLevel && hasNoClassEnrollments;
-
-  // Get recommended flexibility based on ACTFL level
-  // Smart Defaults Policy: Novice→Guided, Intermediate→Flexible Goals, Advanced→Free Conversation
-  const getRecommendedFlexibility = (actflLevel: string | null): string => {
-    if (!actflLevel) return 'guided'; // New/unassessed users get structured guidance
-    const level = actflLevel.toLowerCase();
-    if (level.startsWith('novice')) return 'guided';
-    if (level.startsWith('intermediate')) return 'flexible_goals';
-    return 'free_conversation'; // Advanced, Superior, Distinguished
-  };
-
-  const recommendedFlexibility = getRecommendedFlexibility(user?.actflLevel || null);
+  // Language-specific eligibility comes from the API now
+  const isEligibleForPlacement = langPrefsData?.eligibleForPlacement ?? false;
+  const recommendedFlexibility = langPrefsData?.smartDefault || 'flexible_goals';
   const isUsingRecommended = selfDirectedFlexibility === recommendedFlexibility;
+
+  // Build list of languages for the selector
+  // Combine user's practiced languages with all available languages
+  const allLanguages = ['spanish', 'french', 'german', 'italian', 'portuguese', 'japanese', 'mandarin', 'korean', 'arabic'];
+  const userLanguages = userLanguagesData?.languages || [];
+  const availableLanguages = [...new Set([...userLanguages, ...allLanguages])];
   
   // Initialize theme from localStorage
   useEffect(() => {
@@ -428,132 +451,186 @@ export default function Settings() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Current proficiency display */}
-            {user?.actflLevel && (
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Your Proficiency Level</p>
-                  <p className="text-lg font-medium capitalize" data-testid="text-actfl-level">
-                    {user.actflLevel.replace(/_/g, ' ')}
-                  </p>
-                </div>
-                <Badge variant="secondary">ACTFL</Badge>
+            {/* Language selector - preferences are per language */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-0.5 flex-1">
+                <Label htmlFor="pref-language-select" className="text-base flex items-center gap-2">
+                  <BookOpen className="h-4 w-4" />
+                  Configure for Language
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Settings are saved separately for each language you practice
+                </p>
               </div>
-            )}
-
-            {/* Flexibility selector */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-4">
-                <div className="space-y-0.5 flex-1">
-                  <Label htmlFor="flexibility-select" className="text-base">Teaching Style</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Choose how much freedom you want during self-directed practice
-                  </p>
-                </div>
-                <Select
-                  value={selfDirectedFlexibility}
-                  onValueChange={handleFlexibilityChange}
-                  disabled={flexibilityMutation.isPending}
-                >
-                  <SelectTrigger className="w-48" id="flexibility-select" data-testid="select-flexibility">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="guided" data-testid="select-flexibility-guided">
-                      Guided (Structured)
+              <Select
+                value={selectedPrefLanguage}
+                onValueChange={setSelectedPrefLanguage}
+              >
+                <SelectTrigger className="w-48" id="pref-language-select" data-testid="select-pref-language">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableLanguages.map((lang) => (
+                    <SelectItem key={lang} value={lang} data-testid={`select-lang-${lang}`}>
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-4 w-4" />
+                        <span>{languageNames[lang] || lang}</span>
+                        {userLanguages.includes(lang) && (
+                          <Badge variant="outline" className="ml-1 text-xs py-0 px-1">practiced</Badge>
+                        )}
+                      </div>
                     </SelectItem>
-                    <SelectItem value="flexible_goals" data-testid="select-flexibility-flexible">
-                      Flexible Goals
-                    </SelectItem>
-                    <SelectItem value="open_exploration" data-testid="select-flexibility-open">
-                      Open Exploration
-                    </SelectItem>
-                    <SelectItem value="free_conversation" data-testid="select-flexibility-free">
-                      Free Conversation
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Description of selected style */}
-              <div className="rounded-lg bg-muted/50 p-3 text-sm">
-                {selfDirectedFlexibility === 'guided' && (
-                  <p>The tutor follows a structured approach, keeps you on topic, and provides clear corrections. Best for building a strong foundation.</p>
-                )}
-                {selfDirectedFlexibility === 'flexible_goals' && (
-                  <p>You can choose topics within learning goals. The tutor guides you but allows exploration within your level.</p>
-                )}
-                {selfDirectedFlexibility === 'open_exploration' && (
-                  <p>You lead the conversation direction. The tutor suggests learning connections but follows your interests.</p>
-                )}
-                {selfDirectedFlexibility === 'free_conversation' && (
-                  <p>Maximum practice freedom. Natural conversation with minimal structure, great for building fluency.</p>
-                )}
-              </div>
-
-              {/* Recommendation indicator */}
-              {user?.actflLevel && (
-                <div className={`flex items-center gap-2 text-sm ${isUsingRecommended ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                  {isUsingRecommended ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4" />
-                      <span>This is the recommended style for your level</span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertTriangle className="h-4 w-4" />
-                      <span>
-                        Recommended for {user.actflLevel.replace(/_/g, ' ')}: {' '}
-                        <button 
-                          className="underline hover:no-underline"
-                          onClick={() => handleFlexibilityChange(recommendedFlexibility)}
-                          data-testid="button-use-recommended"
-                        >
-                          {recommendedFlexibility === 'guided' ? 'Guided' : 
-                           recommendedFlexibility === 'flexible_goals' ? 'Flexible Goals' :
-                           recommendedFlexibility === 'open_exploration' ? 'Open Exploration' : 'Free Conversation'}
-                        </button>
-                      </span>
-                    </>
-                  )}
-                </div>
-              )}
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Placement assessment option - only for eligible users */}
-            {isEligibleForPlacement && (
-              <div className="border-t pt-4 mt-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="space-y-0.5 flex-1">
-                    <Label className="text-base">Quick Placement Assessment</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Take a brief 3-5 minute assessment to determine your proficiency level and get personalized recommendations
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setIsRunningPlacement(true);
-                      toast({
-                        title: "Coming soon",
-                        description: "The quick placement assessment will be available in a future update",
-                      });
-                      setIsRunningPlacement(false);
-                    }}
-                    disabled={isRunningPlacement}
-                    data-testid="button-start-placement"
-                  >
-                    {isRunningPlacement ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Assessing...
-                      </>
-                    ) : (
-                      'Start Assessment'
-                    )}
-                  </Button>
-                </div>
+            {/* Loading state for language preferences */}
+            {langPrefsLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-20 w-full" />
               </div>
+            ) : (
+              <>
+                {/* Current proficiency display for selected language */}
+                {langPrefsData?.actflLevel && (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Your {languageNames[selectedPrefLanguage] || selectedPrefLanguage} Proficiency
+                      </p>
+                      <p className="text-lg font-medium capitalize" data-testid="text-actfl-level">
+                        {langPrefsData.actflLevel.replace(/_/g, ' ').replace(/-/g, ' ')}
+                      </p>
+                    </div>
+                    <Badge variant="secondary">ACTFL</Badge>
+                  </div>
+                )}
+
+                {/* Show if user has class enrollment for this language */}
+                {langPrefsData?.hasClassEnrollment && (
+                  <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-md p-2">
+                    <BookOpen className="h-4 w-4" />
+                    <span>You're enrolled in a {languageNames[selectedPrefLanguage] || selectedPrefLanguage} class. Class chats use your teacher's settings.</span>
+                  </div>
+                )}
+
+                {/* Flexibility selector */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-0.5 flex-1">
+                      <Label htmlFor="flexibility-select" className="text-base">Teaching Style</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Choose how much freedom you want during self-directed {languageNames[selectedPrefLanguage] || selectedPrefLanguage} practice
+                      </p>
+                    </div>
+                    <Select
+                      value={selfDirectedFlexibility}
+                      onValueChange={handleFlexibilityChange}
+                      disabled={flexibilityMutation.isPending}
+                    >
+                      <SelectTrigger className="w-48" id="flexibility-select" data-testid="select-flexibility">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="guided" data-testid="select-flexibility-guided">
+                          Guided (Structured)
+                        </SelectItem>
+                        <SelectItem value="flexible_goals" data-testid="select-flexibility-flexible">
+                          Flexible Goals
+                        </SelectItem>
+                        <SelectItem value="open_exploration" data-testid="select-flexibility-open">
+                          Open Exploration
+                        </SelectItem>
+                        <SelectItem value="free_conversation" data-testid="select-flexibility-free">
+                          Free Conversation
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Description of selected style */}
+                  <div className="rounded-lg bg-muted/50 p-3 text-sm">
+                    {selfDirectedFlexibility === 'guided' && (
+                      <p>The tutor follows a structured approach, keeps you on topic, and provides clear corrections. Best for building a strong foundation.</p>
+                    )}
+                    {selfDirectedFlexibility === 'flexible_goals' && (
+                      <p>You can choose topics within learning goals. The tutor guides you but allows exploration within your level.</p>
+                    )}
+                    {selfDirectedFlexibility === 'open_exploration' && (
+                      <p>You lead the conversation direction. The tutor suggests learning connections but follows your interests.</p>
+                    )}
+                    {selfDirectedFlexibility === 'free_conversation' && (
+                      <p>Maximum practice freedom. Natural conversation with minimal structure, great for building fluency.</p>
+                    )}
+                  </div>
+
+                  {/* Recommendation indicator */}
+                  {langPrefsData?.actflLevel && (
+                    <div className={`flex items-center gap-2 text-sm ${isUsingRecommended ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                      {isUsingRecommended ? (
+                        <>
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span>This is the recommended style for your {languageNames[selectedPrefLanguage] || selectedPrefLanguage} level</span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertTriangle className="h-4 w-4" />
+                          <span>
+                            Recommended for {langPrefsData.actflLevel.replace(/_/g, ' ').replace(/-/g, ' ')}: {' '}
+                            <button 
+                              className="underline hover:no-underline"
+                              onClick={() => handleFlexibilityChange(recommendedFlexibility)}
+                              data-testid="button-use-recommended"
+                            >
+                              {recommendedFlexibility === 'guided' ? 'Guided' : 
+                               recommendedFlexibility === 'flexible_goals' ? 'Flexible Goals' :
+                               recommendedFlexibility === 'open_exploration' ? 'Open Exploration' : 'Free Conversation'}
+                            </button>
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Placement assessment option - only for eligible users for this specific language */}
+                {isEligibleForPlacement && (
+                  <div className="border-t pt-4 mt-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="space-y-0.5 flex-1">
+                        <Label className="text-base">Quick {languageNames[selectedPrefLanguage] || selectedPrefLanguage} Placement</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Take a brief 3-5 minute assessment to determine your {languageNames[selectedPrefLanguage] || selectedPrefLanguage} proficiency
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsRunningPlacement(true);
+                          toast({
+                            title: "Coming soon",
+                            description: "The quick placement assessment will be available in a future update",
+                          });
+                          setIsRunningPlacement(false);
+                        }}
+                        disabled={isRunningPlacement}
+                        data-testid="button-start-placement"
+                      >
+                        {isRunningPlacement ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Assessing...
+                          </>
+                        ) : (
+                          'Start Assessment'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Note about class chats */}
