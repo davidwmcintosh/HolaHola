@@ -383,18 +383,59 @@ export class CartesiaStreamingService extends EventEmitter {
         
         // Process all events from the response using events() iterator
         let messageCount = 0;
-        for await (const message of response.events('message')) {
+        for await (const rawMessage of response.events('message')) {
           messageCount++;
-          console.log('[Cartesia Streaming] Message', messageCount, 'keys:', Object.keys(message || {}));
           
-          // Handle audio chunks
+          // Parse the raw message if it's a string/buffer
+          let message: any;
+          if (typeof rawMessage === 'string') {
+            try {
+              message = JSON.parse(rawMessage);
+            } catch {
+              console.log('[Cartesia Streaming] Message', messageCount, 'is non-JSON string');
+              continue;
+            }
+          } else if (Buffer.isBuffer(rawMessage) || rawMessage instanceof Uint8Array) {
+            try {
+              message = JSON.parse(rawMessage.toString());
+            } catch {
+              // Might be raw audio data
+              console.log('[Cartesia Streaming] Message', messageCount, 'is binary data, length:', rawMessage.length);
+              continue;
+            }
+          } else {
+            message = rawMessage;
+          }
+          
+          console.log('[Cartesia Streaming] Message', messageCount, 'type:', message?.type, 'keys:', Object.keys(message || {}));
+          
+          // Handle audio chunks (type: 'chunk')
+          if (message.type === 'chunk' && message.data) {
+            if (!firstChunkTime) {
+              firstChunkTime = Date.now();
+              console.log(`[Cartesia Streaming] TTFB (WebSocket): ${firstChunkTime - startTime}ms`);
+            }
+            
+            // message.data is base64-encoded audio
+            const buffer = Buffer.from(message.data, 'base64');
+            totalBytes += buffer.length;
+            chunkCount++;
+            
+            yield {
+              audio: buffer,
+              durationMs: this.estimateDuration(buffer.length),
+              isLast: false,
+            };
+          }
+          
+          // Also handle 'audio' field (older SDK versions)
           if (message.audio) {
             if (!firstChunkTime) {
               firstChunkTime = Date.now();
               console.log(`[Cartesia Streaming] TTFB (WebSocket): ${firstChunkTime - startTime}ms`);
             }
             
-            const buffer = Buffer.from(message.audio);
+            const buffer = Buffer.from(message.audio, 'base64');
             totalBytes += buffer.length;
             chunkCount++;
             
