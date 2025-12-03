@@ -175,12 +175,23 @@ export interface DebugTimingState {
   tickFrameLogs: string[];                    // Logs from first 5 frames of timing loop
   loopStartTime: number;                      // When the timing loop started (Date.now())
   
-  // NEW: Timing race condition tracking
+  // NEW: Timing race condition tracking (per-sentence for first few sentences)
   timingRace: {
+    // Current/latest sentence
+    currentSentence: number;
     firstTimingAt: number;                    // Timestamp when first timing delta arrived
     playbackStartAt: number;                  // Timestamp when startPlayback was called
     timingsAtStart: number;                   // How many timings existed at startPlayback
     timingsArrivedFirst: boolean;             // True if timings arrived before playback started
+    
+    // History of first 4 sentences for comparison
+    history: Array<{
+      sentence: number;
+      firstTimingAt: number;
+      playbackStartAt: number;
+      timingsAtStart: number;
+      timingsArrivedFirst: boolean;
+    }>;
   };
 }
 
@@ -260,10 +271,12 @@ function getDebugState(): DebugTimingState {
       
       // Timing race condition tracking
       timingRace: {
+        currentSentence: -1,
         firstTimingAt: 0,
         playbackStartAt: 0,
         timingsAtStart: 0,
         timingsArrivedFirst: false,
+        history: [],
       },
     };
   }
@@ -463,10 +476,12 @@ export function resetDebugTimingState(): void {
     
     // Timing race condition tracking
     timingRace: {
+      currentSentence: -1,
       firstTimingAt: 0,
       playbackStartAt: 0,
       timingsAtStart: 0,
       timingsArrivedFirst: false,
+      history: [],
     },
   };
   window.__debugTimingState = newState;

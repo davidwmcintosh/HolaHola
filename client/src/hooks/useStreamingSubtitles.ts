@@ -427,18 +427,48 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     endTime: number,
     estimatedTotalDuration?: number
   ) => {
-    // Track first timing arrival for race condition debugging
+    // Track first timing arrival for race condition debugging (per-sentence)
     if (wordIndex === 0) {
       console.error(`[TIMING RECEIVED] FIRST word for sentence ${sentenceIndex}: "${word}" (active=${activeSentenceRef.current})`);
       const state = getDebugTimingState();
       const now = Date.now();
-      updateDebugTimingState({
-        timingRace: {
-          ...state.timingRace,
-          firstTimingAt: now,
-          timingsArrivedFirst: state.timingRace.playbackStartAt === 0 || now < state.timingRace.playbackStartAt,
+      
+      // Check if this is a new sentence or same sentence
+      if (state.timingRace.currentSentence !== sentenceIndex) {
+        // New sentence - save current to history (if it has data) and start fresh
+        const newHistory = [...state.timingRace.history];
+        if (state.timingRace.currentSentence >= 0 && state.timingRace.playbackStartAt > 0) {
+          newHistory.push({
+            sentence: state.timingRace.currentSentence,
+            firstTimingAt: state.timingRace.firstTimingAt,
+            playbackStartAt: state.timingRace.playbackStartAt,
+            timingsAtStart: state.timingRace.timingsAtStart,
+            timingsArrivedFirst: state.timingRace.timingsArrivedFirst,
+          });
+          // Keep only last 4
+          while (newHistory.length > 4) newHistory.shift();
         }
-      });
+        
+        updateDebugTimingState({
+          timingRace: {
+            currentSentence: sentenceIndex,
+            firstTimingAt: now,
+            playbackStartAt: 0, // Reset - will be set when startPlayback is called
+            timingsAtStart: 0,
+            timingsArrivedFirst: true, // Timing arrived first (playback hasn't started yet)
+            history: newHistory,
+          }
+        });
+      } else {
+        // Same sentence - just update timing arrived first status
+        updateDebugTimingState({
+          timingRace: {
+            ...state.timingRace,
+            firstTimingAt: state.timingRace.firstTimingAt || now, // Don't overwrite if already set
+            timingsArrivedFirst: state.timingRace.playbackStartAt === 0 || (state.timingRace.firstTimingAt || now) < state.timingRace.playbackStartAt,
+          }
+        });
+      }
     }
     
     // STALE PACKET FILTER
@@ -625,17 +655,47 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     const cachedCount = timingsBySentenceRef.current.get(sentenceIndex)?.timings.length || 0;
     console.error(`[SUBTITLE DEBUG] ▶▶▶ startPlayback: sentence=${sentenceIndex}, turn=${turnId}, cachedTimings=${cachedCount}`);
     
-    // Track timing race condition for debug panel
+    // Track timing race condition for debug panel (per-sentence)
     const state = getDebugTimingState();
     const now = Date.now();
-    updateDebugTimingState({
-      timingRace: {
-        ...state.timingRace,
-        playbackStartAt: now,
-        timingsAtStart: cachedCount,
-        timingsArrivedFirst: state.timingRace.firstTimingAt > 0 && state.timingRace.firstTimingAt < now,
+    
+    // Check if this is the same sentence that timing arrived for, or a different one
+    if (state.timingRace.currentSentence === sentenceIndex) {
+      // Same sentence - update playback start time
+      updateDebugTimingState({
+        timingRace: {
+          ...state.timingRace,
+          playbackStartAt: now,
+          timingsAtStart: cachedCount,
+          timingsArrivedFirst: state.timingRace.firstTimingAt > 0 && state.timingRace.firstTimingAt < now,
+        }
+      });
+    } else {
+      // Different sentence - timing tracking will start fresh when first timing arrives
+      // Just update playback start for now
+      const newHistory = [...state.timingRace.history];
+      if (state.timingRace.currentSentence >= 0 && state.timingRace.firstTimingAt > 0) {
+        newHistory.push({
+          sentence: state.timingRace.currentSentence,
+          firstTimingAt: state.timingRace.firstTimingAt,
+          playbackStartAt: state.timingRace.playbackStartAt,
+          timingsAtStart: state.timingRace.timingsAtStart,
+          timingsArrivedFirst: state.timingRace.timingsArrivedFirst,
+        });
+        while (newHistory.length > 4) newHistory.shift();
       }
-    });
+      
+      updateDebugTimingState({
+        timingRace: {
+          currentSentence: sentenceIndex,
+          firstTimingAt: 0, // Not yet received
+          playbackStartAt: now,
+          timingsAtStart: cachedCount,
+          timingsArrivedFirst: false, // Playback started first
+          history: newHistory,
+        }
+      });
+    }
     
     // RACE CONDITION FIX: Set active sentence ref IMMEDIATELY (synchronous)
     // This allows addProgressiveWordTiming to update currentTimingsRef for this sentence

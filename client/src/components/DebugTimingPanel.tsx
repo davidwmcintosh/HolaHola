@@ -236,6 +236,7 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
             }`}>
               <div className="font-bold text-orange-300 mb-2 flex items-center gap-2">
                 TIMING RACE
+                <span className="text-gray-400 text-[10px]">S{timingRace.currentSentence >= 0 ? timingRace.currentSentence : '?'}</span>
                 {timingRace.playbackStartAt > 0 && (
                   <span className={timingRace.timingsArrivedFirst ? 'text-green-400' : 'text-red-400'}>
                     {timingRace.timingsArrivedFirst ? 'TIMINGS FIRST' : 'PLAYBACK FIRST'}
@@ -271,6 +272,33 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
                   {timingRace.timingsAtStart} words ready
                 </span>
               </div>
+              
+              {/* History of previous sentences */}
+              {timingRace.history && timingRace.history.length > 0 && (
+                <div className="mt-2 border-t border-gray-600 pt-2">
+                  <div className="text-gray-400 text-[9px] mb-1">HISTORY (per sentence):</div>
+                  <div className="flex flex-col gap-0.5">
+                    {timingRace.history.map((h, idx) => (
+                      <div 
+                        key={idx}
+                        className={`px-1 py-0.5 rounded text-[9px] flex justify-between ${
+                          h.timingsArrivedFirst ? 'bg-green-900/30' : 'bg-red-900/30'
+                        }`}
+                      >
+                        <span>S{h.sentence}</span>
+                        <span className={h.timingsArrivedFirst ? 'text-green-400' : 'text-red-400'}>
+                          {h.timingsArrivedFirst 
+                            ? `+${(h.playbackStartAt - h.firstTimingAt).toFixed(0)}ms` 
+                            : `-${(h.firstTimingAt - h.playbackStartAt).toFixed(0)}ms`}
+                        </span>
+                        <span className={h.timingsAtStart > 0 ? 'text-green-400' : 'text-red-400'}>
+                          {h.timingsAtStart}w
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
           
