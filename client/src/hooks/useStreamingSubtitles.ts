@@ -20,7 +20,7 @@ import {
   logTimingEvent,
   difficultyToProficiencyBand
 } from '../lib/subtitlePolicies';
-import { updateDebugTimingState } from '../lib/debugTimingState';
+import { updateDebugTimingState, updateTimingComparison, clearWordState } from '../lib/debugTimingState';
 
 /**
  * A contiguous block of target language words
@@ -676,6 +676,14 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
         // CRITICAL: Reset teaching block tracking per sentence
         // Prevents previous sentence's teaching block from showing before it's reached in new sentence
         setHasShownTeachingBlock(false);
+        
+        // Update debug panel with current sentence text
+        clearWordState(); // Clear previous sentence's word state
+        updateDebugTimingState({
+          currentSentenceText: sentence.text,
+          currentTargetText: sentence.targetLanguageText || '',
+          activeSentenceIndex: sentenceIndex,
+        });
       } else {
         console.warn(`[StreamingSubtitles v2] ⚠ Sentence ${sentenceIndex} (turn ${turnId}) not found in sentences array!`);
         console.warn(`[StreamingSubtitles v2]   Available sentences:`, prev.map(s => ({ idx: s.index, turnId: s.turnId })));
@@ -834,11 +842,23 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       }
       
       // Update debug panel with real-time playback state
+      const currentWord = wordIndex >= 0 && wordIndex < timings.length ? timings[wordIndex] : null;
+      const expectedWord = currentWord?.word || '';
+      
       updateDebugTimingState({
         visibleWordCount: useProgressiveReveal ? maxVisibleIndex + 1 : timings.length,
         currentWordIndex: wordIndex,
         wordTimingCount: timings.length,
+        expectedWordText: expectedWord,
+        currentWordText: expectedWord, // Will be updated by UI if different
       });
+      
+      // Update timing comparison for drift detection
+      if (currentWord) {
+        const scaledStartTime = currentWord.startTime * scaleFactor;
+        const scaledEndTime = currentWord.endTime * scaleFactor;
+        updateTimingComparison(adjustedTime, scaledStartTime, scaledEndTime);
+      }
       
       return wordIndex;
     });

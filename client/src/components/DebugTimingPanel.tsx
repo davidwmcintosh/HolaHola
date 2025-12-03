@@ -7,6 +7,7 @@ interface DebugTimingPanelProps {
 
 export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
   const [state, setState] = useState<DebugTimingState | null>(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   
   useEffect(() => {
     const unsubscribe = subscribeToDebugTimingState((newState) => {
@@ -37,127 +38,306 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
     finalWordCount,
     totalDeltasReceived,
     totalFinalsReceived,
-    lastDeltaSentence
+    lastDeltaSentence,
+    currentWordText,
+    expectedWordText,
+    currentSentenceText,
+    currentTargetText,
+    receivedWords,
+    timingComparison,
+    recentWordEvents,
+    connectionStatus,
+    wordMismatchCount,
   } = state;
   
   const timeSinceUpdate = Date.now() - lastUpdateTime;
   const isStale = timeSinceUpdate > 1000;
   
+  // Check if current word matches expected
+  const wordMatches = !currentWordText || !expectedWordText || 
+    currentWordText.toLowerCase().replace(/[^\w]/g, '') === expectedWordText.toLowerCase().replace(/[^\w]/g, '');
+  
+  // Get connection status color
+  const getConnectionStatusColor = () => {
+    switch (connectionStatus) {
+      case 'connected': return 'text-green-400';
+      case 'streaming': return 'text-cyan-400';
+      case 'connecting': return 'text-yellow-400';
+      case 'error': return 'text-red-400';
+      default: return 'text-gray-500';
+    }
+  };
+  
   return (
     <div 
-      className={`fixed bottom-4 left-4 z-50 bg-black/90 text-green-400 font-mono text-xs p-3 rounded-lg border border-green-500/50 max-w-md shadow-lg ${className || ''}`}
+      className={`fixed bottom-4 left-4 z-50 bg-black/95 text-green-400 font-mono text-xs rounded-lg border border-green-500/50 shadow-xl ${className || ''}`}
+      style={{ maxHeight: 'calc(100vh - 32px)', width: '400px' }}
       data-testid="debug-timing-panel"
     >
-      <div className="font-bold text-green-300 mb-2 flex items-center gap-2">
-        TIMING DEBUG
-        {isStale && <span className="text-red-400">(STALE)</span>}
+      <div 
+        className="flex items-center justify-between p-2 border-b border-green-500/30 cursor-pointer sticky top-0 bg-black/95 z-10"
+        onClick={() => setIsCollapsed(!isCollapsed)}
+      >
+        <div className="font-bold text-green-300 flex items-center gap-2">
+          TIMING DEBUG
+          {isStale && <span className="text-red-400 text-[10px]">(STALE)</span>}
+          <span className={`text-[10px] ${getConnectionStatusColor()}`}>
+            [{connectionStatus.toUpperCase()}]
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {wordMismatchCount > 0 && (
+            <span className="text-red-400 text-[10px]">{wordMismatchCount} mismatches</span>
+          )}
+          <span className="text-gray-500">{isCollapsed ? '▼' : '▲'}</span>
+        </div>
       </div>
       
-      <div className="space-y-1">
-        <div className="flex justify-between">
-          <span>Loop Running:</span>
-          <span className={isLoopRunning ? 'text-green-400' : 'text-red-400'}>
-            {isLoopRunning ? 'YES' : 'NO'}
-          </span>
-        </div>
-        
-        <div className="flex justify-between">
-          <span>isPlaying:</span>
-          <span className={isPlaying ? 'text-green-400' : 'text-red-400'}>
-            {isPlaying ? 'YES' : 'NO'}
-          </span>
-        </div>
-        
-        <div className="flex justify-between">
-          <span>Loop Ticks:</span>
-          <span>{loopTickCount}</span>
-        </div>
-        
-        <div className="flex justify-between">
-          <span>Ctx Time:</span>
-          <span>{currentCtxTime.toFixed(3)}s</span>
-        </div>
-        
-        <div className="flex justify-between">
-          <span>Active Sentence:</span>
-          <span className={activeSentenceIndex >= 0 ? 'text-yellow-400' : 'text-gray-500'}>
-            {activeSentenceIndex >= 0 ? activeSentenceIndex : 'none'}
-          </span>
-        </div>
-        
-        <div className="flex justify-between">
-          <span>Last Start Fired:</span>
-          <span className="text-cyan-400">
-            {lastOnSentenceStartFired >= 0 ? lastOnSentenceStartFired : 'none'}
-          </span>
-        </div>
-        
-        <div className="flex justify-between">
-          <span>Last End Fired:</span>
-          <span className="text-orange-400">
-            {lastOnSentenceEndFired >= 0 ? lastOnSentenceEndFired : 'none'}
-          </span>
-        </div>
-        
-        <div className="mt-2 pt-2 border-t border-green-500/30">
-          <div className="font-bold text-purple-300 mb-1">WORD TIMING (Cumulative)</div>
-          <div className="flex justify-between">
-            <span>Total Deltas:</span>
-            <span className={totalDeltasReceived > 0 ? 'text-green-400 font-bold' : 'text-gray-500'}>{totalDeltasReceived}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Total Finals:</span>
-            <span className={totalFinalsReceived > 0 ? 'text-cyan-400 font-bold' : 'text-gray-500'}>{totalFinalsReceived}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Last Delta Sent:</span>
-            <span className={lastDeltaSentence >= 0 ? 'text-yellow-400' : 'text-gray-500'}>S{lastDeltaSentence}</span>
-          </div>
-          <div className="font-bold text-purple-300 mb-1 mt-2">Active Sentence</div>
-          <div className="flex justify-between">
-            <span>Deltas:</span>
-            <span className={deltasReceived > 0 ? 'text-green-400' : 'text-gray-500'}>{deltasReceived}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Final:</span>
-            <span className={finalWordCount > 0 ? 'text-cyan-400' : 'text-gray-500'}>{finalWordCount}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Visible:</span>
-            <span className={visibleWordCount > 0 ? 'text-green-300' : 'text-gray-500'}>{visibleWordCount}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Word Idx:</span>
-            <span className={currentWordIndex >= 0 ? 'text-pink-400' : 'text-gray-500'}>{currentWordIndex}</span>
-          </div>
-        </div>
-        
-        <div className="mt-2 pt-2 border-t border-green-500/30">
-          <div className="font-bold mb-1">Schedule ({sentenceSchedule.length} entries):</div>
-          {sentenceSchedule.length === 0 ? (
-            <div className="text-gray-500 italic">empty</div>
-          ) : (
-            <div className="space-y-1 max-h-32 overflow-y-auto">
-              {sentenceSchedule.map((entry) => (
-                <div 
-                  key={entry.sentenceIndex}
-                  className={`text-xs ${entry.sentenceIndex === activeSentenceIndex ? 'bg-green-900/50 px-1' : ''}`}
-                >
-                  <span className="text-yellow-300">S{entry.sentenceIndex}:</span>{' '}
-                  <span>{entry.startCtxTime.toFixed(2)}</span>-
-                  <span>{(entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration)).toFixed(2)}</span>{' '}
-                  {entry.started && <span className="text-green-400">[STR]</span>}
-                  {entry.ended && <span className="text-red-400">[END]</span>}
+      {!isCollapsed && (
+        <div className="overflow-y-auto p-3 space-y-3" style={{ maxHeight: 'calc(100vh - 80px)' }}>
+          
+          {/* SECTION 1: Current Word Comparison (Most Important) */}
+          <div className="border border-purple-500/40 rounded p-2 bg-purple-900/20">
+            <div className="font-bold text-purple-300 mb-2 flex items-center gap-2">
+              CURRENT WORD
+              {currentWordText && (
+                <span className={wordMatches ? 'text-green-400' : 'text-red-400'}>
+                  {wordMatches ? '✓ Match' : '✗ Mismatch'}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-gray-400 text-[10px]">Highlighted:</div>
+                <div className="text-lg font-bold text-yellow-300 truncate">
+                  {currentWordText || '—'}
                 </div>
-              ))}
+              </div>
+              <div>
+                <div className="text-gray-400 text-[10px]">Expected (from timing):</div>
+                <div className="text-lg font-bold text-cyan-300 truncate">
+                  {expectedWordText || '—'}
+                </div>
+              </div>
+            </div>
+            <div className="mt-2 text-[10px] text-gray-400">
+              Word Index: <span className="text-pink-400">{currentWordIndex >= 0 ? currentWordIndex : '—'}</span>
+              {' | '}Visible: <span className="text-green-300">{visibleWordCount}</span>
+              {' | '}Total Received: <span className="text-cyan-300">{wordTimingCount}</span>
+            </div>
+          </div>
+          
+          {/* SECTION 2: Timing Drift */}
+          {timingComparison && (
+            <div className={`border rounded p-2 ${timingComparison.isOnTime ? 'border-green-500/40 bg-green-900/20' : 'border-red-500/40 bg-red-900/20'}`}>
+              <div className="font-bold text-yellow-300 mb-1">TIMING DRIFT</div>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <div className="text-gray-400 text-[10px]">Audio Time</div>
+                  <div className="text-white">{timingComparison.audioCurrentTime.toFixed(3)}s</div>
+                </div>
+                <div>
+                  <div className="text-gray-400 text-[10px]">Expected Start</div>
+                  <div className="text-white">{timingComparison.expectedWordStartTime.toFixed(3)}s</div>
+                </div>
+                <div>
+                  <div className="text-gray-400 text-[10px]">Drift</div>
+                  <div className={timingComparison.isOnTime ? 'text-green-400' : 'text-red-400'}>
+                    {timingComparison.drift > 0 ? '+' : ''}{(timingComparison.drift * 1000).toFixed(0)}ms
+                  </div>
+                </div>
+              </div>
             </div>
           )}
+          
+          {/* SECTION 3: Current Sentence Text */}
+          {currentSentenceText && (
+            <div className="border border-blue-500/40 rounded p-2 bg-blue-900/20">
+              <div className="font-bold text-blue-300 mb-1">CURRENT SENTENCE</div>
+              <div className="text-white text-[11px] leading-relaxed break-words">
+                {currentSentenceText.length > 200 
+                  ? currentSentenceText.substring(0, 200) + '...' 
+                  : currentSentenceText}
+              </div>
+              {currentTargetText && (
+                <div className="mt-1 text-yellow-300 text-[11px] leading-relaxed break-words">
+                  Target: {currentTargetText}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* SECTION 4: Word Timing Counts */}
+          <div className="border border-green-500/30 rounded p-2">
+            <div className="font-bold text-green-300 mb-1">WORD TIMING COUNTS</div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Total Deltas:</span>
+                <span className={totalDeltasReceived > 0 ? 'text-green-400 font-bold' : 'text-gray-500'}>
+                  {totalDeltasReceived}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Total Finals:</span>
+                <span className={totalFinalsReceived > 0 ? 'text-cyan-400 font-bold' : 'text-gray-500'}>
+                  {totalFinalsReceived}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">This Sentence:</span>
+                <span className="text-yellow-400">{deltasReceived} deltas</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Final Count:</span>
+                <span className="text-cyan-400">{finalWordCount}</span>
+              </div>
+            </div>
+            {deltasReceived > 0 && finalWordCount > 0 && (
+              <div className="mt-1 text-center">
+                <span className={deltasReceived === finalWordCount ? 'text-green-400' : 'text-red-400'}>
+                  {deltasReceived === finalWordCount ? '✓ All deltas received' : `Missing ${finalWordCount - deltasReceived} deltas`}
+                </span>
+              </div>
+            )}
+          </div>
+          
+          {/* SECTION 5: Received Words (Scrollable) */}
+          {receivedWords.length > 0 && (
+            <div className="border border-orange-500/30 rounded p-2">
+              <div className="font-bold text-orange-300 mb-1">RECEIVED WORDS ({receivedWords.length})</div>
+              <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+                {receivedWords.map((word, idx) => (
+                  <span 
+                    key={idx} 
+                    className={`px-1 rounded text-[10px] ${
+                      idx === currentWordIndex 
+                        ? 'bg-yellow-500 text-black font-bold' 
+                        : idx < currentWordIndex 
+                          ? 'bg-green-800/50 text-green-300' 
+                          : 'bg-gray-700 text-gray-300'
+                    }`}
+                  >
+                    {idx}: {word}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* SECTION 6: Recent Word Events Log */}
+          {recentWordEvents.length > 0 && (
+            <div className="border border-cyan-500/30 rounded p-2">
+              <div className="font-bold text-cyan-300 mb-1">RECENT EVENTS ({recentWordEvents.length})</div>
+              <div className="max-h-32 overflow-y-auto space-y-0.5">
+                {[...recentWordEvents].reverse().slice(0, 10).map((event, idx) => (
+                  <div 
+                    key={idx} 
+                    className="text-[10px] flex items-center gap-1"
+                  >
+                    <span className={event.type === 'delta' ? 'text-green-400' : 'text-cyan-400'}>
+                      {event.type === 'delta' ? 'Δ' : 'F'}
+                    </span>
+                    <span className="text-gray-500">S{event.sentenceIndex}:</span>
+                    <span className="text-yellow-300">w{event.wordIndex}</span>
+                    <span className="text-white truncate max-w-[100px]">"{event.word}"</span>
+                    <span className="text-gray-500">
+                      {event.startTime.toFixed(2)}-{event.endTime.toFixed(2)}s
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* SECTION 7: Playback State */}
+          <div className="border border-green-500/30 rounded p-2">
+            <div className="font-bold text-green-300 mb-1">PLAYBACK STATE</div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              <div className="flex justify-between">
+                <span>Loop Running:</span>
+                <span className={isLoopRunning ? 'text-green-400' : 'text-red-400'}>
+                  {isLoopRunning ? 'YES' : 'NO'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>isPlaying:</span>
+                <span className={isPlaying ? 'text-green-400' : 'text-red-400'}>
+                  {isPlaying ? 'YES' : 'NO'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Loop Ticks:</span>
+                <span>{loopTickCount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Ctx Time:</span>
+                <span>{currentCtxTime.toFixed(3)}s</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Active Sentence:</span>
+                <span className={activeSentenceIndex >= 0 ? 'text-yellow-400' : 'text-gray-500'}>
+                  {activeSentenceIndex >= 0 ? activeSentenceIndex : 'none'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Last Delta Sent:</span>
+                <span className={lastDeltaSentence >= 0 ? 'text-yellow-400' : 'text-gray-500'}>
+                  S{lastDeltaSentence}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          {/* SECTION 8: Sentence Events */}
+          <div className="border border-green-500/30 rounded p-2">
+            <div className="font-bold text-green-300 mb-1">SENTENCE EVENTS</div>
+            <div className="grid grid-cols-2 gap-x-4">
+              <div className="flex justify-between">
+                <span>Last Start:</span>
+                <span className="text-cyan-400">
+                  {lastOnSentenceStartFired >= 0 ? lastOnSentenceStartFired : 'none'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Last End:</span>
+                <span className="text-orange-400">
+                  {lastOnSentenceEndFired >= 0 ? lastOnSentenceEndFired : 'none'}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          {/* SECTION 9: Schedule (Collapsible) */}
+          <details className="border border-green-500/30 rounded p-2">
+            <summary className="font-bold mb-1 cursor-pointer">
+              SCHEDULE ({sentenceSchedule.length} entries)
+            </summary>
+            {sentenceSchedule.length === 0 ? (
+              <div className="text-gray-500 italic">empty</div>
+            ) : (
+              <div className="space-y-1 max-h-24 overflow-y-auto mt-2">
+                {sentenceSchedule.map((entry) => (
+                  <div 
+                    key={entry.sentenceIndex}
+                    className={`text-[10px] ${entry.sentenceIndex === activeSentenceIndex ? 'bg-green-900/50 px-1 rounded' : ''}`}
+                  >
+                    <span className="text-yellow-300">S{entry.sentenceIndex}:</span>{' '}
+                    <span>{entry.startCtxTime.toFixed(2)}</span>-
+                    <span>{(entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration)).toFixed(2)}</span>{' '}
+                    {entry.started && <span className="text-green-400">[STR]</span>}
+                    {entry.ended && <span className="text-red-400">[END]</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </details>
+          
+          {/* Footer */}
+          <div className="text-gray-500 text-[10px] text-center border-t border-green-500/20 pt-2">
+            Updated: {timeSinceUpdate}ms ago
+          </div>
         </div>
-        
-        <div className="mt-2 text-gray-500 text-[10px]">
-          Updated: {timeSinceUpdate}ms ago
-        </div>
-      </div>
+      )}
     </div>
   );
 }

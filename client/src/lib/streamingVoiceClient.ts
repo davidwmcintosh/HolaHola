@@ -49,7 +49,7 @@ import {
   WordTiming,
   AUDIO_STREAMING_CONFIG,
 } from '../../../shared/streaming-voice-types';
-import { updateDebugTimingState, getDebugTimingState } from './debugTimingState';
+import { updateDebugTimingState, getDebugTimingState, addWordTimingEvent } from './debugTimingState';
 
 /**
  * Connection states
@@ -607,6 +607,16 @@ export class StreamingVoiceClient {
       lastDeltaSentence: message.sentenceIndex,
     });
     
+    // Add to word timing event log for debug panel
+    addWordTimingEvent({
+      sentenceIndex: message.sentenceIndex,
+      wordIndex: message.wordIndex,
+      word: message.word,
+      startTime: message.startTime,
+      endTime: message.endTime,
+      type: 'delta',
+    });
+    
     this.emit('wordTimingDelta', message);
   }
   
@@ -673,6 +683,12 @@ export class StreamingVoiceClient {
       this.state = state;
       this.callbacks.onConnectionStateChange?.(state);
       this.emit('stateChange', state);
+      
+      // Update debug panel with connection status
+      const debugConnectionStatus = state === 'ready' ? 'connected' : state;
+      updateDebugTimingState({
+        connectionStatus: debugConnectionStatus as any,
+      });
     }
   }
   
