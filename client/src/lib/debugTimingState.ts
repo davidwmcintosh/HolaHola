@@ -134,7 +134,8 @@ export interface DebugTimingState {
   currentTargetText: string;         // Target language text (if any)
   
   // NEW: Word list from timings (for comparison display)
-  receivedWords: string[];           // All words received via word_timing_delta
+  // Changed from string[] to sentence-aware structure to prevent word overwriting across sentences
+  receivedWords: Array<{ sentenceIndex: number; wordIndex: number; word: string }>;
   
   // NEW: Timing comparison
   timingComparison: TimingComparison | null;
@@ -236,7 +237,7 @@ function getDebugState(): DebugTimingState {
       expectedWordText: '',
       currentSentenceText: '',
       currentTargetText: '',
-      receivedWords: [],
+      receivedWords: [],  // Now stores { sentenceIndex, wordIndex, word } objects
       timingComparison: null,
       recentWordEvents: [],
       connectionStatus: 'disconnected',
@@ -327,13 +328,23 @@ export function addWordTimingEvent(event: Omit<WordTimingEvent, 'timestamp'>): v
   }
   
   // Also update receivedWords list for word comparison
+  // Use sentence-aware structure to prevent word overwriting across sentences
   const newReceivedWords = [...currentState.receivedWords];
   if (event.type === 'delta') {
-    // Ensure array is large enough
-    while (newReceivedWords.length <= event.wordIndex) {
-      newReceivedWords.push('');
+    // Check if this word already exists (same sentence and word index)
+    const existingIdx = newReceivedWords.findIndex(
+      w => w.sentenceIndex === event.sentenceIndex && w.wordIndex === event.wordIndex
+    );
+    const wordEntry = { 
+      sentenceIndex: event.sentenceIndex, 
+      wordIndex: event.wordIndex, 
+      word: event.word 
+    };
+    if (existingIdx >= 0) {
+      newReceivedWords[existingIdx] = wordEntry;
+    } else {
+      newReceivedWords.push(wordEntry);
     }
-    newReceivedWords[event.wordIndex] = event.word;
   }
   
   updateDebugTimingState({

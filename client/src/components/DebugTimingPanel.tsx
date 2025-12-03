@@ -365,25 +365,31 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
             )}
           </div>
           
-          {/* SECTION 5: Received Words (Scrollable) */}
+          {/* SECTION 5: Received Words by Sentence (Scrollable) */}
           {receivedWords.length > 0 && (
             <div className="border border-orange-500/30 rounded p-2">
               <div className="font-bold text-orange-300 mb-1">RECEIVED WORDS ({receivedWords.length})</div>
               <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
-                {receivedWords.map((word, idx) => (
-                  <span 
-                    key={idx} 
-                    className={`px-1 rounded text-[10px] ${
-                      idx === currentWordIndex 
-                        ? 'bg-yellow-500 text-black font-bold' 
-                        : idx < currentWordIndex 
-                          ? 'bg-green-800/50 text-green-300' 
-                          : 'bg-gray-700 text-gray-300'
-                    }`}
-                  >
-                    {idx}: {word}
-                  </span>
-                ))}
+                {receivedWords.map((entry, idx) => {
+                  const isCurrentWord = activeSentenceIndex === entry.sentenceIndex && 
+                                        currentWordIndex === entry.wordIndex;
+                  const isPastWord = entry.sentenceIndex < activeSentenceIndex || 
+                                    (entry.sentenceIndex === activeSentenceIndex && entry.wordIndex < currentWordIndex);
+                  return (
+                    <span 
+                      key={`s${entry.sentenceIndex}_w${entry.wordIndex}`} 
+                      className={`px-1 rounded text-[10px] ${
+                        isCurrentWord 
+                          ? 'bg-yellow-500 text-black font-bold' 
+                          : isPastWord 
+                            ? 'bg-green-800/50 text-green-300' 
+                            : 'bg-gray-700 text-gray-300'
+                      }`}
+                    >
+                      S{entry.sentenceIndex}W{entry.wordIndex}: {entry.word}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           )}
