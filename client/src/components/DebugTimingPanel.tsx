@@ -55,6 +55,7 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
     audioChunksReceived,
     totalAudioChunksReceived,
     lastAudioChunkSentence,
+    sentenceMatchInfo,
   } = state;
   
   const timeSinceUpdate = Date.now() - lastUpdateTime;
@@ -398,6 +399,44 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
                     <span>{(entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration)).toFixed(2)}</span>{' '}
                     {entry.started && <span className="text-green-400">[STR]</span>}
                     {entry.ended && <span className="text-red-400">[END]</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </details>
+          
+          {/* SECTION 10: Match Info (Collapsible) - Shows WHY sentences match or don't */}
+          <details className="border border-orange-500/30 rounded p-2" open>
+            <summary className="font-bold mb-1 cursor-pointer text-orange-400">
+              MATCH INFO ({sentenceMatchInfo?.length || 0} sentences)
+            </summary>
+            {(!sentenceMatchInfo || sentenceMatchInfo.length === 0) ? (
+              <div className="text-gray-500 italic">no match data</div>
+            ) : (
+              <div className="space-y-2 max-h-40 overflow-y-auto mt-2">
+                {sentenceMatchInfo.map((info) => (
+                  <div 
+                    key={info.sentenceIndex}
+                    className={`text-[10px] p-1 rounded ${
+                      info.matches 
+                        ? 'bg-green-900/50 border border-green-500/50' 
+                        : 'bg-gray-800/50 border border-gray-600/30'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className={info.matches ? 'text-green-400 font-bold' : 'text-gray-400'}>
+                        S{info.sentenceIndex} {info.matches ? '✓ MATCH' : '✗'}
+                      </span>
+                      <span className={info.isStreaming ? 'text-yellow-400' : 'text-cyan-400'}>
+                        {info.isStreaming ? 'STREAMING' : `end=${info.endCtxTime?.toFixed(2)}`}
+                      </span>
+                    </div>
+                    <div className="text-gray-300 mt-0.5">
+                      {info.reason}
+                    </div>
+                    <div className="text-gray-500 text-[9px]">
+                      range: {info.startCtxTime.toFixed(2)} - {info.computedEndTime.toFixed(2)}
+                    </div>
                   </div>
                 ))}
               </div>

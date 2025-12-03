@@ -1,4 +1,4 @@
-import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition, updateDebugTimingState, type SentenceScheduleEntry } from './debugTimingState';
+import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition, updateDebugTimingState, type SentenceScheduleEntry, type SentenceMatchInfo } from './debugTimingState';
 
 /**
  * Helper to immediately update debug state with current schedule
@@ -719,23 +719,50 @@ export class StreamingAudioPlayer {
       let activeIndex = -1;
       let activeEntry: { startCtxTime: number; totalDuration: number; endCtxTime?: number; started: boolean; ended: boolean } | null = null;
       
-      // DEBUG: Log every 30 frames to trace sentence matching
-      const shouldLogMatch = frameCount % 30 === 0;
+      // DEBUG: Build match info for ALL sentences every 10 frames
+      const shouldUpdateMatchInfo = frameCount % 10 === 0;
+      const matchInfoArray: SentenceMatchInfo[] = [];
       
       for (const [index, entry] of this.sentenceSchedule) {
         const isStreaming = entry.endCtxTime === undefined;
         const endTime = entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration);
         const matches = now >= entry.startCtxTime && (isStreaming || now < endTime);
         
-        if (shouldLogMatch) {
-          console.error(`[MATCH] s${index}: now=${now.toFixed(3)}, start=${entry.startCtxTime.toFixed(3)}, end=${endTime.toFixed(3)}, streaming=${isStreaming}, match=${matches}, started=${entry.started}`);
+        // Build reason string
+        let reason = '';
+        if (now < entry.startCtxTime) {
+          reason = `NOT YET: now(${now.toFixed(2)}) < start(${entry.startCtxTime.toFixed(2)})`;
+        } else if (isStreaming) {
+          reason = `STREAMING: now(${now.toFixed(2)}) >= start, no endTime`;
+        } else if (now >= endTime) {
+          reason = `ENDED: now(${now.toFixed(2)}) >= end(${endTime.toFixed(2)})`;
+        } else {
+          reason = `ACTIVE: start(${entry.startCtxTime.toFixed(2)}) <= now(${now.toFixed(2)}) < end(${endTime.toFixed(2)})`;
         }
         
-        if (matches) {
+        if (shouldUpdateMatchInfo) {
+          matchInfoArray.push({
+            sentenceIndex: index,
+            startCtxTime: entry.startCtxTime,
+            endCtxTime: entry.endCtxTime,
+            isStreaming,
+            computedEndTime: endTime,
+            nowTime: now,
+            matches,
+            reason
+          });
+        }
+        
+        if (matches && activeIndex === -1) {
           activeIndex = index;
           activeEntry = entry;
-          break;
+          // Don't break - continue to collect match info for all sentences
         }
+      }
+      
+      // Update debug state with match info
+      if (shouldUpdateMatchInfo && matchInfoArray.length > 0) {
+        updateDebugTimingState({ sentenceMatchInfo: matchInfoArray });
       }
       
       if (activeEntry && activeIndex >= 0) {

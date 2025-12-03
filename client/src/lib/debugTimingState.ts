@@ -17,6 +17,20 @@ export interface SentenceScheduleEntry {
 }
 
 /**
+ * Match info for a single sentence - shows WHY it matched or didn't match
+ */
+export interface SentenceMatchInfo {
+  sentenceIndex: number;
+  startCtxTime: number;
+  endCtxTime: number | undefined;
+  isStreaming: boolean;    // endCtxTime === undefined
+  computedEndTime: number; // endCtxTime ?? (startCtxTime + totalDuration)
+  nowTime: number;         // Current ctx time when evaluated
+  matches: boolean;        // Did this sentence match?
+  reason: string;          // Human-readable explanation
+}
+
+/**
  * Individual word timing event for the debug log
  */
 export interface WordTimingEvent {
@@ -94,6 +108,9 @@ export interface DebugTimingState {
   audioChunksReceived: { [sentenceIndex: number]: number };  // Count of audio chunks per sentence
   totalAudioChunksReceived: number;                          // Total audio chunks received
   lastAudioChunkSentence: number;                            // Last sentence that received audio chunk
+  
+  // NEW: Sentence match info - shows WHY each sentence matched or didn't
+  sentenceMatchInfo: SentenceMatchInfo[];
 }
 
 // Maximum number of word events to keep in log
@@ -140,6 +157,9 @@ let debugState: DebugTimingState = {
   audioChunksReceived: {},
   totalAudioChunksReceived: 0,
   lastAudioChunkSentence: -1,
+  
+  // Sentence match info
+  sentenceMatchInfo: [],
 };
 
 // Listeners for React components
