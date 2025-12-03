@@ -614,10 +614,28 @@ export class StreamingAudioPlayer {
     this.progressiveScheduledTime += chunkDuration;
     this.progressiveTotalDuration += chunkDuration; // Track total duration
     
-    // CRITICAL DEBUG: Log ctx ID when scheduling audio
+    // CRITICAL DEBUG: Log ctx state EVERY chunk to catch if it gets suspended
     const ctxId = (ctx as any).__debugId || 'NO_ID';
+    const ctxState = ctx.state;
+    
+    // Log first chunk with full details
     if (chunkIndex === 0) {
-      console.log(`[AUDIO SCHEDULE] s=${sentenceIndex} c=0 scheduled at ${playTime.toFixed(3)}s via ctx=${ctxId}, ctx.currentTime=${ctx.currentTime.toFixed(3)}`);
+      console.log(`[AUDIO SCHEDULE] s=${sentenceIndex} c=0 scheduled at ${playTime.toFixed(3)}s via ctx=${ctxId}, ctx.currentTime=${ctx.currentTime.toFixed(3)}, ctx.state=${ctxState}`);
+    }
+    
+    // CRITICAL: If AudioContext becomes suspended, try to resume it
+    if (ctxState === 'suspended') {
+      console.error(`[AUDIO CRITICAL] ⚠️ AudioContext SUSPENDED during chunk ${sentenceIndex}:${chunkIndex}! Attempting resume...`);
+      ctx.resume().then(() => {
+        console.log(`[AUDIO CRITICAL] ✓ AudioContext resumed, new state: ${ctx.state}, currentTime: ${ctx.currentTime.toFixed(3)}`);
+      }).catch(err => {
+        console.error(`[AUDIO CRITICAL] ✗ Resume failed:`, err);
+      });
+    }
+    
+    // Log every 10th chunk with ctx.currentTime to track advancement
+    if (chunkIndex % 10 === 0 && chunkIndex > 0) {
+      console.log(`[AUDIO TICK] s${sentenceIndex}:c${chunkIndex} ctx.currentTime=${ctx.currentTime.toFixed(3)} state=${ctxState}`);
     }
     
     // Track first chunk for timing - SCHEDULE-BASED APPROACH
@@ -781,10 +799,20 @@ export class StreamingAudioPlayer {
       
       const now = ctx.currentTime;
       const ctxId = (ctx as any).__debugId || 'NO_ID';
+      const ctxState = ctx.state;
       
       // Log AudioContext ID every 60 frames to verify it's the same one scheduling audio
       if (frameCount % 60 === 0) {
-        console.log(`[TICK DEBUG] Frame ${frameCount}: ctx.currentTime=${now.toFixed(3)}, ctx.state=${ctx.state}, ctxId=${ctxId}`);
+        console.log(`[TICK DEBUG] Frame ${frameCount}: ctx.currentTime=${now.toFixed(3)}, ctx.state=${ctxState}, ctxId=${ctxId}`);
+      }
+      
+      // CRITICAL: Detect if AudioContext became suspended mid-playback
+      if (ctxState === 'suspended' && frameCount > 0) {
+        console.error(`[TIMING LOOP] ⚠️ AudioContext SUSPENDED mid-playback! Frame ${frameCount}, currentTime stuck at ${now.toFixed(3)}`);
+        // Try to resume
+        ctx.resume().then(() => {
+          console.log(`[TIMING LOOP] ✓ Resumed AudioContext, new state: ${ctx.state}`);
+        });
       }
       
       // Update debug state every 10 frames (~160ms) with current timing info
@@ -802,6 +830,8 @@ export class StreamingAudioPlayer {
           isLoopRunning: true,
           loopTickCount: frameCount,
           currentCtxTime: now,
+          audioContextState: ctxState as 'suspended' | 'running' | 'closed' | 'unknown',
+          audioContextId: ctxId,
           activeSentenceIndex: this.activeSentenceInLoop,
           sentenceSchedule: scheduleArray,
           isPlaying: true

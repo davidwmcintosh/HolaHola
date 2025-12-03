@@ -81,6 +81,8 @@ export interface TimingComparison {
 export interface DebugTimingState {
   isLoopRunning: boolean;
   currentCtxTime: number;
+  audioContextState: 'suspended' | 'running' | 'closed' | 'unknown';  // NEW: AudioContext.state
+  audioContextId: string;  // NEW: Debug ID for tracking which context
   activeSentenceIndex: number;
   sentenceSchedule: SentenceScheduleEntry[];
   lastOnSentenceStartFired: number;
@@ -157,6 +159,8 @@ function getDebugState(): DebugTimingState {
     window.__debugTimingState = {
       isLoopRunning: false,
       currentCtxTime: 0,
+      audioContextState: 'unknown',
+      audioContextId: '',
       activeSentenceIndex: -1,
       sentenceSchedule: [],
       lastOnSentenceStartFired: -1,
@@ -343,6 +347,8 @@ export function resetDebugTimingState(): void {
   const newState: DebugTimingState = {
     isLoopRunning: false,
     currentCtxTime: 0,
+    audioContextState: 'unknown',
+    audioContextId: '',
     activeSentenceIndex: -1,
     sentenceSchedule: [],
     lastOnSentenceStartFired: -1,
@@ -350,6 +356,8 @@ export function resetDebugTimingState(): void {
     loopTickCount: 0,
     isPlaying: false,
     lastUpdateTime: 0,
+    playerInstanceId: '',
+    playerInstanceSetCount: 0,
     wordTimingCount: 0,
     visibleWordCount: 0,
     currentWordIndex: -1,

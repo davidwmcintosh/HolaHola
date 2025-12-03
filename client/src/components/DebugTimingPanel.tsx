@@ -24,6 +24,8 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
   const { 
     isLoopRunning, 
     currentCtxTime, 
+    audioContextState,
+    audioContextId,
     activeSentenceIndex, 
     sentenceSchedule, 
     lastOnSentenceStartFired,
@@ -287,6 +289,23 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
               <div className="flex justify-between">
                 <span>Ctx Time:</span>
                 <span>{currentCtxTime.toFixed(3)}s</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Ctx State:</span>
+                <span className={
+                  audioContextState === 'running' ? 'text-green-400' :
+                  audioContextState === 'suspended' ? 'text-red-400' :
+                  audioContextState === 'closed' ? 'text-yellow-400' :
+                  'text-gray-500'
+                }>
+                  {audioContextState || 'unknown'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Ctx ID:</span>
+                <span className="text-cyan-400 truncate max-w-[150px]" title={audioContextId}>
+                  {audioContextId?.slice(-12) || 'none'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>Active Sentence:</span>
