@@ -456,7 +456,7 @@ export class StreamingAudioPlayer {
       // For new turn, ALWAYS clear the sentence schedule and reset timing
       // A new turn is detected when we receive sentence 0, chunk 0
       if (isNewTurnStarting) {
-        console.log(`[StreamingAudioPlayer] [Progressive] NEW TURN detected - clearing sentence schedule and resetting time`);
+        console.error(`[SCHEDULE CLEAR] ⚠️ NEW TURN detected (s=0,c=0) - clearing ${this.sentenceSchedule.size} entries from schedule`);
         this.progressiveFirstChunkStarted = false; // ONLY reset for new turn
         this.sentenceSchedule.clear();
         this.activeSentenceInLoop = -1;
@@ -557,11 +557,17 @@ export class StreamingAudioPlayer {
         started: false,
         ended: false,
       });
-      console.error(`[SCHEDULE ADD] ✅ Sentence ${sentenceIndex} ADDED to schedule at ${playTime.toFixed(3)}s. Schedule now has ${this.sentenceSchedule.size} entries`);
+      // List all sentences now in schedule
+      const allSentences = Array.from(this.sentenceSchedule.keys()).join(',');
+      console.error(`[SCHEDULE ADD] ✅ S${sentenceIndex} ADDED at ${playTime.toFixed(3)}s. Schedule now: [${allSentences}] (${this.sentenceSchedule.size} entries)`);
       // IMMEDIATELY update debug state with new schedule entry
       updateDebugSchedule(this.sentenceSchedule);
     } else {
-      console.error(`[SCHEDULE SKIP] Sentence ${sentenceIndex} already in schedule (chunk ${chunkIndex})`);
+      // Only log occasionally for subsequent chunks
+      if (chunkIndex % 5 === 0) {
+        const allSentences = Array.from(this.sentenceSchedule.keys()).join(',');
+        console.error(`[SCHEDULE CHECK] S${sentenceIndex} c${chunkIndex} - Schedule: [${allSentences}]`);
+      }
     }
     
     // Accumulate duration for this sentence
