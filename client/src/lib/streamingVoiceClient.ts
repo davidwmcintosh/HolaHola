@@ -17,6 +17,8 @@ declare global {
       lastError: string | null;
       wsState: number | null;
     };
+    __streamingVoiceClient: StreamingVoiceClient | null;
+    __svcInstanceId: number;
   }
 }
 
@@ -649,23 +651,53 @@ export class StreamingVoiceClient {
 }
 
 /**
- * Singleton instance - DEPRECATED: Now creates fresh instance per session
- * to avoid event listener leaks and stale state issues
+ * Singleton instance - stored on window to survive duplicate module bundling
+ * This is CRITICAL: Vite/bundlers may create multiple copies of this module,
+ * each with their own module-scoped variables. By storing on window, we ensure
+ * ALL imports get the SAME instance, preventing the bug where:
+ * - Instance #1 owns the WebSocket connection
+ * - Instance #2 has the React listeners
+ * - Messages never reach the UI
  */
-let clientInstance: StreamingVoiceClient | null = null;
 
 export function getStreamingVoiceClient(): StreamingVoiceClient {
-  // CRITICAL FIX: Always create a fresh client instance per session
-  // The singleton pattern was causing event listener leaks where:
-  // 1. disconnect() removed listeners from the singleton
-  // 2. Reconnecting reused the same instance with cleared listeners
-  // 3. New listeners weren't properly registered due to stale state
-  // 
-  // Creating a fresh instance ensures clean event listener state
-  if (clientInstance) {
-    // Clean up old instance completely
-    clientInstance.disconnect();
+  // Use window storage to ensure single instance across all module copies
+  // This is CRITICAL for preventing the dual-instance WebSocket bug
+  if (typeof window !== 'undefined') {
+    // Track instance creation for debugging
+    if (typeof window.__svcInstanceId === 'undefined') {
+      window.__svcInstanceId = 0;
+    }
+    
+    // REUSE existing instance if present - this is the key fix!
+    if (window.__streamingVoiceClient) {
+      console.log('[SVC] Returning existing singleton instance (avoiding duplicate)');
+      return window.__streamingVoiceClient;
+    }
+    
+    // Create new instance only when none exists
+    window.__svcInstanceId++;
+    console.log(`[SVC] Creating singleton instance #${window.__svcInstanceId} (stored on window)`);
+    window.__streamingVoiceClient = new StreamingVoiceClient();
+    return window.__streamingVoiceClient;
   }
-  clientInstance = new StreamingVoiceClient();
-  return clientInstance;
+  
+  // Fallback for SSR (shouldn't happen in this app)
+  return new StreamingVoiceClient();
+}
+
+/**
+ * Force create a fresh client instance - use sparingly!
+ * This disconnects any existing connection and creates a new one.
+ * Only use when you need to reset connection state completely.
+ */
+export function resetStreamingVoiceClient(): StreamingVoiceClient {
+  if (typeof window !== 'undefined') {
+    if (window.__streamingVoiceClient) {
+      console.log('[SVC] Resetting: disconnecting existing instance');
+      window.__streamingVoiceClient.disconnect();
+      window.__streamingVoiceClient = null;
+    }
+  }
+  return getStreamingVoiceClient();
 }
