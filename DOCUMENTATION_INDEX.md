@@ -83,11 +83,11 @@ This document provides an overview of all documentation files in the project.
 ⚠️ **ACTIVE SYSTEM**: RestVoiceChat.tsx (REST-based)  
 ⚠️ **DEPRECATED**: VoiceChat.tsx (WebSocket-based) - DO NOT USE
 
-### docs/NATIVE_SUBTITLE_TIMESTAMPS.md ⭐ UPDATED (Dec 3)
+### docs/NATIVE_SUBTITLE_TIMESTAMPS.md ⭐ UPDATED (Dec 2)
 **Native Cartesia word-level timestamp implementation**
 - WebSocket API with `add_timestamps: true` for precise subtitle synchronization
 - Progressive word-by-word streaming (`word_timing_delta` + `word_timing_final` messages)
-- Race condition fix: `activeSentenceRef.current` vs React state (Dec 3, 2025)
+- Race condition fix: `activeSentenceRef.current` vs React state (Dec 2, 2025)
 - Atomic timestamp retrieval (`consumeNativeTimestamps()`) to prevent race conditions
 - Numeric voice speed control (0.6-1.5 range)
 - ACTFL-level-aware timing policies integration
@@ -97,9 +97,9 @@ This document provides an overview of all documentation files in the project.
 
 **When to use**: Debugging subtitle timing, understanding voice pipeline, implementing subtitle improvements.
 
-### docs/SUBTITLE_BUG_TRACKING.md ⭐ UPDATED (Dec 3)
+### docs/SUBTITLE_BUG_TRACKING.md ⭐ UPDATED (Dec 2)
 **Complete subtitle debugging history and debug tools reference**
-- Chronological debugging sessions (Dec 1-3, 2025)
+- Chronological debugging sessions (Dec 1-2, 2025)
 - Race condition root cause analysis and fix
 - Debug Panel usage guide (`DebugTimingPanel.tsx`)
 - Debug State API (`debugTimingState.ts`)
@@ -301,9 +301,9 @@ project/
 
 ---
 
-## Recent Updates (Dec 3, 2025)
+## Recent Updates (Dec 2, 2025)
 
-### ✅ Progressive Word Timing Debug System (Dec 3)
+### ✅ Progressive Word Timing Debug System (Dec 2)
 - **Debug Panel**: New `DebugTimingPanel.tsx` for real-time word timing visualization
 - **Debug State**: `debugTimingState.ts` tracks cumulative deltas/finals across sessions
 - **Race Condition Fix**: `finalizeWordTimings` now uses `activeSentenceRef.current` (synchronous ref) instead of React state
@@ -479,11 +479,11 @@ project/
 
 ---
 
-**Last Updated**: December 3, 2025  
+**Last Updated**: December 2, 2025  
 **Current AI Stack**: Gemini 2.5 Flash/Pro (text), Parallel Deepgram Nova-3 (STT - dual Live+Prerecorded), Cartesia Sonic-3 (Primary TTS), Google Cloud Chirp HD (Fallback TTS), Gemini Flash-Image (images)  
 **Production Status**: Production-ready with voice mode (<2s latency), ACTFL advancement tracking, emotionally expressive AI tutors, Command Center, Class Creation Hub, and Syllabus Builder with ACTFL Standards Coverage  
 **Performance**: Total response time ~1.85s (STT 450ms + AI 1.2s + TTS 200ms)  
 **Terminology**: "Syllabus" in user-facing text, "curriculum*" in database tables  
-**New Features (Dec 3)**: Progressive Word Timing Debug System with race condition fix  
+**New Features (Dec 2)**: Progressive Word Timing Debug System with race condition fix  
 **New Features (Dec 1)**: Syllabus Builder, ACTFL Standards Coverage panel with Can-Do statement tracking  
 **Maintainer**: LinguaFlow Development Team

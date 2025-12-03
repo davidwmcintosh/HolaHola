@@ -4,7 +4,7 @@
 
 LinguaFlow's streaming voice mode now uses **native word-level timestamps** from Cartesia's WebSocket API for precise subtitle synchronization. This replaces the previous server-side bitrate estimation approach with accurate timing data generated during TTS synthesis.
 
-## Latest Update: December 3, 2025
+## Latest Update: December 2, 2025
 
 ### Progressive Word-by-Word Streaming
 
@@ -189,7 +189,7 @@ console.log(`[Subtitle Telemetry] Word: "${word}" | Expected: ${expectedTime}ms 
 | TTFB Impact | Minimal (timestamps arrive with audio) |
 | Memory Overhead | Single array per sentence, cleared after use |
 
-## Progressive Streaming Messages (Added Dec 3, 2025)
+## Progressive Streaming Messages (Added Dec 2, 2025)
 
 ### Message: `word_timing_delta`
 Sent as each word's timing becomes available during TTS synthesis:
@@ -244,7 +244,7 @@ updatePlaybackTime() (RAF loop)
     - Sets visibleWordCount and currentWordIndex
 ```
 
-### Race Condition Fix (Dec 3, 2025)
+### Race Condition Fix (Dec 2, 2025)
 
 **Problem:** `finalizeWordTimings` was checking `currentSentenceIndex` (React state), 
 which updates asynchronously on the next render cycle. When `word_timing_final` 
@@ -261,7 +261,7 @@ if (msg.sentenceIndex !== currentSentenceIndex) return;
 if (msg.sentenceIndex !== activeSentenceRef.current) return;
 ```
 
-## Debug Panel (Added Dec 3, 2025)
+## Debug Panel (Added Dec 2, 2025)
 
 ### DebugTimingPanel Component
 
@@ -310,6 +310,6 @@ resetDebugTimingState();
 ---
 
 **Implementation Date**: December 1, 2025  
-**Last Updated**: December 3, 2025 (Progressive streaming, debug panel, race condition fix)  
+**Last Updated**: December 2, 2025 (Progressive streaming, debug panel, race condition fix)  
 **Status**: Production-ready  
 **Author**: LinguaFlow Development Team
