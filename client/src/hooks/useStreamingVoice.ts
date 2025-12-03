@@ -336,6 +336,19 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    */
   const handleWordTimingDelta = useCallback((msg: StreamingWordTimingDeltaMessage) => {
     console.log(`[DELTA RECEIVED] sentence=${msg.sentenceIndex}, word=${msg.wordIndex} "${msg.word}"`);
+    
+    // WORD-BASED TIMING: Register word with ABSOLUTE AudioContext times
+    // This enables direct word matching in the timing loop
+    if (playerRef.current) {
+      playerRef.current.registerWordTiming(
+        msg.sentenceIndex,
+        msg.wordIndex,
+        msg.word,
+        msg.startTime,  // Relative to sentence start
+        msg.endTime     // Relative to sentence start
+      );
+    }
+    
     // Add the word timing incrementally for progressive display
     subtitlesRef.current.addProgressiveWordTiming(
       msg.sentenceIndex,

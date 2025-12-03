@@ -283,6 +283,16 @@ export class StreamingAudioPlayer {
     ended: boolean;            // Whether onSentenceEnd has been fired
   }> = new Map();
   
+  // WORD SCHEDULE: Track all words with ABSOLUTE AudioContext times
+  // This enables direct word matching without needing sentence duration calculations
+  private wordSchedule: Map<string, {
+    sentenceIndex: number;
+    wordIndex: number;
+    word: string;
+    absoluteStartTime: number;  // AudioContext time when word starts
+    absoluteEndTime: number;    // AudioContext time when word ends
+  }> = new Map();  // Key: "s{sentenceIndex}_w{wordIndex}"
+  
   // Track which sentence the timing loop is currently reporting on
   private activeSentenceInLoop = -1;
   
@@ -510,13 +520,15 @@ export class StreamingAudioPlayer {
       // A new turn is detected when we receive sentence 0, chunk 0
       if (isNewTurnStarting) {
         const entriesCleared = this.sentenceSchedule.size;
-        console.error(`[SCHEDULE CLEAR] ⚠️ NEW TURN detected (s=0,c=0) - clearing ${entriesCleared} entries from schedule`);
+        const wordsCleared = this.wordSchedule.size;
+        console.error(`[SCHEDULE CLEAR] ⚠️ NEW TURN detected (s=0,c=0) - clearing ${entriesCleared} sentences, ${wordsCleared} words from schedule`);
         
         // Log to debug panel BEFORE clearing
         logScheduleEvent('clear', [], undefined, entriesCleared);
         
         this.progressiveFirstChunkStarted = false; // ONLY reset for new turn
         this.sentenceSchedule.clear();
+        this.wordSchedule.clear();  // ALSO clear word schedule for new turn
         this.activeSentenceInLoop = -1;
         // CRITICAL: Reset scheduled time for new turn - don't wait for old schedule to finish
         this.progressiveScheduledTime = ctx.currentTime + 0.1;
@@ -730,12 +742,86 @@ export class StreamingAudioPlayer {
     this.progressivePlaybackStartCtxTime = 0;
     this.progressiveTotalDuration = 0;
     
-    // Reset sentence schedule
+    // Reset sentence and word schedules
     this.sentenceSchedule.clear();
+    this.wordSchedule.clear();
     this.activeSentenceInLoop = -1;
     
     // Reset debug state
     resetDebugTimingState();
+  }
+  
+  /**
+   * WORD-BASED TIMING: Register a word timing with ABSOLUTE AudioContext times
+   * 
+   * Called when word_timing_delta arrives. Converts relative word times
+   * (within sentence) to absolute AudioContext times for direct matching.
+   * 
+   * @param sentenceIndex - Which sentence this word belongs to
+   * @param wordIndex - Index of word within sentence
+   * @param word - The actual word text
+   * @param relativeStartTime - Word start time relative to sentence start (seconds)
+   * @param relativeEndTime - Word end time relative to sentence start (seconds)
+   */
+  registerWordTiming(
+    sentenceIndex: number,
+    wordIndex: number,
+    word: string,
+    relativeStartTime: number,
+    relativeEndTime: number
+  ): void {
+    // Get sentence start time from schedule
+    const sentenceEntry = this.sentenceSchedule.get(sentenceIndex);
+    if (!sentenceEntry) {
+      console.warn(`[WORD SCHEDULE] Cannot register word - sentence ${sentenceIndex} not in schedule yet`);
+      return;
+    }
+    
+    // Calculate absolute AudioContext times
+    const absoluteStartTime = sentenceEntry.startCtxTime + relativeStartTime;
+    const absoluteEndTime = sentenceEntry.startCtxTime + relativeEndTime;
+    
+    // Store in word schedule
+    const key = `s${sentenceIndex}_w${wordIndex}`;
+    this.wordSchedule.set(key, {
+      sentenceIndex,
+      wordIndex,
+      word,
+      absoluteStartTime,
+      absoluteEndTime
+    });
+    
+    console.log(`[WORD SCHEDULE] Registered: ${key} "${word}" ${absoluteStartTime.toFixed(3)}-${absoluteEndTime.toFixed(3)}s (sentence start: ${sentenceEntry.startCtxTime.toFixed(3)}s)`);
+  }
+  
+  /**
+   * WORD-BASED TIMING: Find the currently active word based on AudioContext.currentTime
+   * 
+   * This is the core of the new word-based matching approach.
+   * Returns the active word info or null if no word is active.
+   */
+  findActiveWord(): { sentenceIndex: number; wordIndex: number; word: string } | null {
+    const ctx = this.audioContext;
+    if (!ctx) return null;
+    
+    const now = ctx.currentTime;
+    
+    // Use Array.from for broader compatibility (avoids downlevelIteration issues)
+    const wordEntries = Array.from(this.wordSchedule.entries());
+    
+    // Iterate through all words and find the one that matches current time
+    for (let i = 0; i < wordEntries.length; i++) {
+      const [_key, entry] = wordEntries[i];
+      if (now >= entry.absoluteStartTime && now < entry.absoluteEndTime) {
+        return {
+          sentenceIndex: entry.sentenceIndex,
+          wordIndex: entry.wordIndex,
+          word: entry.word
+        };
+      }
+    }
+    
+    return null;
   }
   
   // Type for sentence schedule entry
@@ -933,28 +1019,43 @@ export class StreamingAudioPlayer {
         updateDebugTimingState({ sentenceMatchInfo: matchInfoArray });
       }
       
-      if (activeEntry && activeIndex >= 0) {
+      // WORD-BASED TIMING: Find active word directly using AudioContext time
+      const activeWord = this.findActiveWord();
+      
+      // Derive sentence from active word for more reliable sentence tracking
+      const wordBasedSentenceIndex = activeWord?.sentenceIndex ?? -1;
+      
+      // Use word-based sentence detection OR fall back to sentence-based
+      const effectiveSentenceIndex = wordBasedSentenceIndex >= 0 ? wordBasedSentenceIndex : activeIndex;
+      const effectiveEntry = effectiveSentenceIndex >= 0 ? this.sentenceSchedule.get(effectiveSentenceIndex) : null;
+      
+      if (effectiveEntry && effectiveSentenceIndex >= 0) {
         // Fire onSentenceStart if this is a NEW active sentence
-        if (!activeEntry.started) {
+        if (!effectiveEntry.started) {
           const previousSentence = this.activeSentenceInLoop;
-          activeEntry.started = true;
-          this.currentSentenceIndex = activeIndex;
-          this.activeSentenceInLoop = activeIndex;
-          this.progressivePlaybackStartCtxTime = activeEntry.startCtxTime;
+          effectiveEntry.started = true;
+          this.currentSentenceIndex = effectiveSentenceIndex;
+          this.activeSentenceInLoop = effectiveSentenceIndex;
+          this.progressivePlaybackStartCtxTime = effectiveEntry.startCtxTime;
           
-          console.log(`[SENTENCE] ▶▶▶ STARTING sentence ${activeIndex} (now=${ctx.currentTime.toFixed(3)}, scheduled=${activeEntry.startCtxTime.toFixed(3)})`);
+          console.log(`[SENTENCE] ▶▶▶ STARTING sentence ${effectiveSentenceIndex} (now=${ctx.currentTime.toFixed(3)}, scheduled=${effectiveEntry.startCtxTime.toFixed(3)}, via=${wordBasedSentenceIndex >= 0 ? 'word' : 'sentence'})`);
           
           // Log sentence transition for debug panel
-          logSentenceTransition(previousSentence, activeIndex, `started at ${ctx.currentTime.toFixed(2)}s`);
+          logSentenceTransition(previousSentence, effectiveSentenceIndex, `started at ${ctx.currentTime.toFixed(2)}s`);
           
-          this.callbacks.onSentenceStart?.(activeIndex);
+          this.callbacks.onSentenceStart?.(effectiveSentenceIndex);
         }
         
         // Calculate elapsed time within THIS sentence
-        const elapsedInSentence = now - activeEntry.startCtxTime;
+        const elapsedInSentence = now - effectiveEntry.startCtxTime;
         
         // Fire progress callback (drives subtitle word highlighting)
-        this.callbacks.onProgress?.(elapsedInSentence, activeEntry.totalDuration);
+        // DEBUG: Log word-based timing when available
+        if (activeWord && frameCount % 30 === 0) {
+          console.log(`[WORD MATCH] Active: S${activeWord.sentenceIndex} W${activeWord.wordIndex} "${activeWord.word}" | elapsed=${elapsedInSentence.toFixed(3)}s`);
+        }
+        
+        this.callbacks.onProgress?.(elapsedInSentence, effectiveEntry.totalDuration);
       } else {
         // No active sentence - check for sentences that have ended but haven't fired onSentenceEnd
         const endCheckEntries = Array.from(this.sentenceSchedule.entries());
