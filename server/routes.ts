@@ -6266,6 +6266,92 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ===== Lesson Prerequisites (Class Context Only) =====
+
+  // Check if a class lesson's prerequisites are met
+  // This only applies to class-based learning; self-directed learners bypass prerequisites
+  app.get("/api/class-lessons/:lessonId/prerequisite-status", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { lessonId } = req.params;
+      
+      // Get the class lesson
+      const lesson = await storage.getClassCurriculumLesson(lessonId);
+      if (!lesson) {
+        return res.status(404).json({ error: "Lesson not found" });
+      }
+      
+      // If no prerequisite, lesson is unlocked
+      if (!lesson.prerequisiteLessonId) {
+        return res.json({
+          isLocked: false,
+          prerequisite: null,
+          message: null,
+        });
+      }
+      
+      // Get the prerequisite lesson details
+      const prerequisiteLesson = await storage.getClassCurriculumLesson(lesson.prerequisiteLessonId);
+      if (!prerequisiteLesson) {
+        // Prerequisite lesson not found, allow access
+        return res.json({
+          isLocked: false,
+          prerequisite: null,
+          message: null,
+        });
+      }
+      
+      // Check if prerequisite is a drill lesson
+      if (prerequisiteLesson.lessonType === 'drill') {
+        // Get the source lesson ID for drill items (drills are stored by curriculum lesson ID)
+        const drillLessonId = prerequisiteLesson.sourceLessonId || prerequisiteLesson.id;
+        const completion = await storage.checkDrillLessonCompletion(userId, drillLessonId);
+        
+        if (completion.completed) {
+          return res.json({
+            isLocked: false,
+            prerequisite: {
+              id: prerequisiteLesson.id,
+              name: prerequisiteLesson.name,
+              lessonType: prerequisiteLesson.lessonType,
+              completionPercent: completion.completionPercent,
+            },
+            message: null,
+          });
+        } else {
+          return res.json({
+            isLocked: true,
+            prerequisite: {
+              id: prerequisiteLesson.id,
+              name: prerequisiteLesson.name,
+              lessonType: prerequisiteLesson.lessonType,
+              completionPercent: completion.completionPercent,
+              masteredCount: completion.masteredCount,
+              totalCount: completion.totalCount,
+            },
+            message: `Complete "${prerequisiteLesson.name}" first to unlock this lesson`,
+          });
+        }
+      }
+      
+      // For non-drill prerequisites, check if there's any conversation progress
+      // For now, we'll just allow access (conversation completion tracking is more complex)
+      return res.json({
+        isLocked: false,
+        prerequisite: {
+          id: prerequisiteLesson.id,
+          name: prerequisiteLesson.name,
+          lessonType: prerequisiteLesson.lessonType,
+        },
+        message: null,
+      });
+      
+    } catch (error: any) {
+      console.error('Error checking prerequisite status:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== Drill Audio Generation =====
 
   // Generate audio for all drill items in a lesson (teachers only)

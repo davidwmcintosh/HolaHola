@@ -322,6 +322,7 @@ export interface IStorage {
   getDrillProgressForLesson(userId: string, lessonId: string): Promise<UserDrillProgress[]>;
   recordDrillAttempt(userId: string, drillItemId: string, score: number, timeSpentMs: number): Promise<UserDrillProgress>;
   getDueReviewItems(userId: string, lessonId?: string, limit?: number): Promise<CurriculumDrillItem[]>;
+  checkDrillLessonCompletion(userId: string, lessonId: string): Promise<{ completed: boolean; masteredCount: number; totalCount: number; completionPercent: number }>;
 
   // Class-Specific Curriculum (Teacher's Customizable Syllabi)
   cloneCurriculumToClass(classId: string, curriculumPathId: string): Promise<{ units: ClassCurriculumUnit[]; lessons: ClassCurriculumLesson[] }>;
@@ -2561,6 +2562,26 @@ export class DatabaseStorage implements IStorage {
     }
     
     return results.map(r => r.drillItem);
+  }
+
+  async checkDrillLessonCompletion(userId: string, lessonId: string): Promise<{ completed: boolean; masteredCount: number; totalCount: number; completionPercent: number }> {
+    // Get all drill items for this lesson
+    const items = await this.getDrillItems(lessonId);
+    const totalCount = items.length;
+    
+    if (totalCount === 0) {
+      return { completed: true, masteredCount: 0, totalCount: 0, completionPercent: 100 };
+    }
+    
+    // Get user's progress on these items
+    const progress = await this.getDrillProgressForLesson(userId, lessonId);
+    const masteredCount = progress.filter(p => p.mastered).length;
+    
+    // Consider lesson "completed" when at least 70% of items are mastered
+    const completionPercent = Math.round((masteredCount / totalCount) * 100);
+    const completed = completionPercent >= 70;
+    
+    return { completed, masteredCount, totalCount, completionPercent };
   }
 
   // ===== Class-Specific Curriculum (Teacher's Customizable Syllabi) =====
