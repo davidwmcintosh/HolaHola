@@ -51,6 +51,7 @@ export function DrillLesson({ lessonId, language, onComplete }: DrillLessonProps
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [startTime, setStartTime] = useState<number | null>(null);
+  const [cachedAudioUrls, setCachedAudioUrls] = useState<Record<string, string>>({});
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { toast } = useToast();
 
@@ -85,7 +86,7 @@ export function DrillLesson({ lessonId, language, onComplete }: DrillLessonProps
     setIsPlaying(true);
     
     try {
-      let audioUrl = currentItem.audioUrl;
+      let audioUrl = currentItem.audioUrl || cachedAudioUrls[currentItem.id];
       
       if (!audioUrl) {
         const response = await fetch(`/api/drill-audio/${currentItem.id}`, {
@@ -94,6 +95,9 @@ export function DrillLesson({ lessonId, language, onComplete }: DrillLessonProps
         if (!response.ok) throw new Error('Failed to load audio');
         const data = await response.json();
         audioUrl = data.audioUrl;
+        if (audioUrl) {
+          setCachedAudioUrls(prev => ({ ...prev, [currentItem.id]: audioUrl! }));
+        }
       }
       
       if (audioUrl) {
@@ -124,7 +128,7 @@ export function DrillLesson({ lessonId, language, onComplete }: DrillLessonProps
       setIsPlaying(false);
       console.error('Error playing audio:', error);
     }
-  }, [currentItem, startTime, toast]);
+  }, [currentItem, cachedAudioUrls, startTime, toast]);
 
   const checkAnswer = useCallback(() => {
     if (!currentItem) return;
@@ -275,7 +279,28 @@ export function DrillLesson({ lessonId, language, onComplete }: DrillLessonProps
           
           {currentItem.itemType === 'listen_repeat' ? (
             <ListenRepeatMode
-              onSubmit={checkAnswer}
+              key={currentItem.id}
+              onCorrect={() => {
+                const timeSpentMs = startTime ? Date.now() - startTime : 5000;
+                setIsCorrect(true);
+                setShowResult(true);
+                recordAttemptMutation.mutate({
+                  drillItemId: currentItem.id,
+                  score: 1,
+                  timeSpentMs,
+                });
+              }}
+              onIncorrect={() => {
+                const timeSpentMs = startTime ? Date.now() - startTime : 5000;
+                setIsCorrect(false);
+                setShowResult(true);
+                recordAttemptMutation.mutate({
+                  drillItemId: currentItem.id,
+                  score: 0,
+                  timeSpentMs,
+                });
+              }}
+              onNext={nextItem}
               showResult={showResult}
               isCorrect={isCorrect}
               targetText={currentItem.targetText}
@@ -328,22 +353,27 @@ export function DrillLesson({ lessonId, language, onComplete }: DrillLessonProps
 }
 
 function ListenRepeatMode({ 
-  onSubmit, 
+  onCorrect,
+  onIncorrect,
+  onNext,
   showResult, 
   isCorrect, 
   targetText 
 }: { 
-  onSubmit: () => void;
+  onCorrect: () => void;
+  onIncorrect: () => void;
+  onNext: () => void;
   showResult: boolean;
   isCorrect: boolean | null;
   targetText: string;
 }) {
   const [isRecording, setIsRecording] = useState(false);
+  const [hasRecorded, setHasRecorded] = useState(false);
   
   const handleRecordToggle = () => {
     if (isRecording) {
       setIsRecording(false);
-      onSubmit();
+      setHasRecorded(true);
     } else {
       setIsRecording(true);
     }
@@ -371,6 +401,50 @@ function ListenRepeatMode({
             Target: <span className="font-medium">{targetText}</span>
           </p>
         </div>
+        <Button onClick={onNext} className="w-full max-w-xs">
+          Next
+          <ArrowRight className="h-4 w-4 ml-2" />
+        </Button>
+      </div>
+    );
+  }
+
+  if (hasRecorded) {
+    return (
+      <div className="flex flex-col items-center space-y-4">
+        <p className="text-muted-foreground text-center">
+          How did you do? Compare your pronunciation to the audio.
+        </p>
+        <div className="flex gap-3 w-full max-w-xs">
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={onIncorrect}
+            className="flex-1"
+            data-testid="button-self-eval-incorrect"
+          >
+            <XCircle className="h-5 w-5 mr-2" />
+            Needs Work
+          </Button>
+          <Button
+            size="lg"
+            onClick={onCorrect}
+            className="flex-1"
+            data-testid="button-self-eval-correct"
+          >
+            <CheckCircle2 className="h-5 w-5 mr-2" />
+            Got It
+          </Button>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setHasRecorded(false)}
+          className="text-muted-foreground"
+        >
+          <RotateCcw className="h-4 w-4 mr-2" />
+          Try again
+        </Button>
       </div>
     );
   }
@@ -390,7 +464,7 @@ function ListenRepeatMode({
         {isRecording ? (
           <>
             <MicOff className="h-5 w-5 mr-2" />
-            Stop Recording
+            I'm Done
           </>
         ) : (
           <>
@@ -400,7 +474,7 @@ function ListenRepeatMode({
         )}
       </Button>
       <p className="text-xs text-muted-foreground">
-        Note: Voice recognition is simplified for drill practice
+        Practice speaking, then self-evaluate your pronunciation
       </p>
     </div>
   );

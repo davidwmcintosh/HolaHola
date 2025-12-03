@@ -100,6 +100,7 @@ const LESSON_TYPE_ICONS: Record<string, typeof BookOpen> = {
   vocabulary: Book,
   grammar: BookOpen,
   cultural_exploration: Globe,
+  drill: Target,
 };
 
 const LESSON_TYPE_LABELS: Record<string, string> = {
@@ -107,6 +108,7 @@ const LESSON_TYPE_LABELS: Record<string, string> = {
   vocabulary: "Vocabulary",
   grammar: "Grammar",
   cultural_exploration: "Cultural",
+  drill: "Drill",
 };
 
 export function SyllabusBuilder({ classId }: SyllabusBuilderProps) {
@@ -855,6 +857,7 @@ function UnitCard({
                               <SelectItem value="vocabulary">Vocabulary</SelectItem>
                               <SelectItem value="grammar">Grammar</SelectItem>
                               <SelectItem value="cultural_exploration">Cultural</SelectItem>
+                              <SelectItem value="drill">Drill</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -1040,6 +1043,7 @@ function UnitCard({
                               <SelectItem value="vocabulary">Vocabulary</SelectItem>
                               <SelectItem value="grammar">Grammar</SelectItem>
                               <SelectItem value="cultural_exploration">Cultural</SelectItem>
+                              <SelectItem value="drill">Drill</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -1130,6 +1134,7 @@ function UnitCard({
                               <SelectItem value="vocabulary">Vocabulary</SelectItem>
                               <SelectItem value="grammar">Grammar</SelectItem>
                               <SelectItem value="cultural_exploration">Cultural</SelectItem>
+                              <SelectItem value="drill">Drill</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
