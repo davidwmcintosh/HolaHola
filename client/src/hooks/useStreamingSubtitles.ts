@@ -832,6 +832,14 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
           proficiencyBand: difficultyToProficiencyBand(difficultyRef.current),
         });
       }
+      
+      // Update debug panel with real-time playback state
+      updateDebugTimingState({
+        visibleWordCount: useProgressiveReveal ? maxVisibleIndex + 1 : timings.length,
+        currentWordIndex: wordIndex,
+        wordTimingCount: timings.length,
+      });
+      
       return wordIndex;
     });
   }, [currentTurnId, currentSentenceIndex]);
