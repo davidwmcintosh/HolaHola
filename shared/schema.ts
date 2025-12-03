@@ -672,7 +672,7 @@ export const curriculumLessons = pgTable("curriculum_lessons", {
   name: text("name").notNull(), // "Lesson 1: Basic Greetings"
   description: text("description").notNull(),
   orderIndex: integer("order_index").notNull(), // Order within the unit
-  lessonType: text("lesson_type").notNull(), // conversation, vocabulary, grammar, cultural_exploration
+  lessonType: text("lesson_type").notNull(), // conversation, vocabulary, grammar, cultural_exploration, drill
   actflLevel: text("actfl_level"),
   // Lesson content
   conversationTopic: text("conversation_topic"), // Topic for AI conversation
@@ -867,7 +867,7 @@ export const classCurriculumLessons = pgTable("class_curriculum_lessons", {
   name: text("name").notNull(),
   description: text("description").notNull(),
   orderIndex: integer("order_index").notNull(), // Order within the unit
-  lessonType: text("lesson_type").notNull(), // conversation, vocabulary, grammar, cultural_exploration
+  lessonType: text("lesson_type").notNull(), // conversation, vocabulary, grammar, cultural_exploration, drill
   actflLevel: text("actfl_level"),
   // Lesson content
   conversationTopic: text("conversation_topic"),
