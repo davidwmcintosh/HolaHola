@@ -770,15 +770,7 @@ export class StreamingAudioPlayer {
       frameCount++;
       
       // DEBUG: Update state immediately on first few frames to verify tick is running
-      if (frameCount <= 30 || frameCount % 10 === 0) {
-        const ctx = this.audioContext;
-        updateDebugTimingState({
-          isLoopRunning: true,
-          loopTickCount: frameCount,
-          currentCtxTime: ctx?.currentTime ?? -1,
-          isPlaying: this.isPlaying
-        });
-      }
+      // REMOVED: Moved full update logic below to avoid missing audioContextState/audioContextId
       
       // Exit if playback stopped
       if (!this.isPlaying) {
