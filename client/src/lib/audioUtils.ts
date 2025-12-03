@@ -471,19 +471,19 @@ export class StreamingAudioPlayer {
     this.progressiveTotalDuration += chunkDuration; // Track total duration
     
     // Track first chunk for timing - SCHEDULE-BASED APPROACH
-    console.error(`[AUDIO-CRITICAL] enqueueProgressivePcmChunk: chunk=${chunkIndex}, sentence=${sentenceIndex}, firstStarted=${this.progressiveFirstChunkStarted}`);
+    // Only log first chunk of each sentence to reduce console noise
+    if (chunkIndex === 0) {
+      console.log(`[AUDIO] Chunk s=${sentenceIndex} c=0 started=${this.progressiveFirstChunkStarted}`);
+    }
     
     // Register sentence in schedule if this is its first chunk
     if (!this.sentenceSchedule.has(sentenceIndex)) {
       this.sentenceSchedule.set(sentenceIndex, {
-        startCtxTime: playTime,  // When this sentence's audio starts
+        startCtxTime: playTime,
         totalDuration: 0,
         started: false,
         ended: false,
       });
-      console.error(`[AUDIO SCHEDULE] >>> REGISTERED sentence ${sentenceIndex}: startCtxTime=${playTime.toFixed(3)}, scheduleSize=${this.sentenceSchedule.size}`);
-    } else {
-      console.error(`[AUDIO SCHEDULE] Sentence ${sentenceIndex} already in schedule, updating duration`);
     }
     
     // Accumulate duration for this sentence
@@ -499,10 +499,10 @@ export class StreamingAudioPlayer {
     if (shouldStartLoop || shouldRestartLoop) {
       this.progressiveFirstChunkStarted = true;
       this.playbackStartTime = performance.now();
-      this.isPlaying = true; // CRITICAL: Set this BEFORE starting the loop!
+      this.isPlaying = true;
       this.setState('playing');
-      console.error(`[AUDIO-CRITICAL] ${shouldRestartLoop ? 'Restarting' : 'Starting'} unified timing loop! chunk=${chunkIndex}, sentence=${sentenceIndex}, startCtxTime=${playTime.toFixed(3)}`);
-      this.startUnifiedTimingLoop(); // New unified loop
+      console.log(`[AUDIO] ${shouldRestartLoop && !shouldStartLoop ? 'Restarting' : 'Starting'} timing loop: s=${sentenceIndex}, c=${chunkIndex}`);
+      this.startUnifiedTimingLoop();
     }
     
     console.log(`[StreamingAudioPlayer] [Progressive] First chunk of sentence ${sentenceIndex} scheduled at ${playTime.toFixed(3)}s (ctx.currentTime=${ctx.currentTime.toFixed(3)}s)`);
@@ -569,24 +569,16 @@ export class StreamingAudioPlayer {
    * each sentence's audio actually starts playing.
    */
   private startUnifiedTimingLoop(): void {
-    // DIAGNOSTIC: Log entry to this function
-    console.error(`[LOOP-ENTRY] startUnifiedTimingLoop called, rafId=${this.rafId}, isPlaying=${this.isPlaying}`);
-    
     // Cancel any existing timing loop
     this.stopPrecisionTiming();
     
-    // DIAGNOSTIC: Confirm rafId is now null
-    console.error(`[LOOP-ENTRY] After stopPrecisionTiming: rafId=${this.rafId}`);
-    
-    // Use console.error for critical logging - more likely to be captured
-    console.error(`[LOOP-STARTING] isPlaying=${this.isPlaying}, scheduleSize=${this.sentenceSchedule.size}`);
+    console.log(`[LOOP] Starting: scheduleSize=${this.sentenceSchedule.size}`);
     
     let frameCount = 0;
     
     const tick = (): void => {
       // Exit if playback stopped
       if (!this.isPlaying) {
-        console.error('[LOOP-EXIT] isPlaying=false');
         return;
       }
       
@@ -637,9 +629,9 @@ export class StreamingAudioPlayer {
         };
       }
       
-      // Log first 3 ticks, then every 120 frames for diagnostics
-      if (frameCount <= 3 || frameCount % 120 === 1) {
-        console.error(`[TICK] #${frameCount}: now=${now.toFixed(3)}, active=${activeIndex}, schedule=${entries.length}`);
+      // Log every 300 frames (~5s) for diagnostics - minimal logging to prevent freeze
+      if (frameCount === 1 || frameCount % 300 === 0) {
+        console.log(`[TICK] #${frameCount}: now=${now.toFixed(3)}, active=${activeIndex}`);
       }
       
       if (activeEntry && activeIndex >= 0) {
@@ -650,7 +642,7 @@ export class StreamingAudioPlayer {
           this.activeSentenceInLoop = activeIndex;
           this.progressivePlaybackStartCtxTime = activeEntry.startCtxTime;
           
-          console.error(`[SENTENCE-START] Firing onSentenceStart(${activeIndex}) at ctx.time=${now.toFixed(3)}`);
+          console.log(`[SENTENCE] Start: ${activeIndex}`);
           this.callbacks.onSentenceStart?.(activeIndex);
         }
         
@@ -703,10 +695,7 @@ export class StreamingAudioPlayer {
       this.rafId = requestAnimationFrame(tick);
     };
     
-    // DIAGNOSTIC: Confirm we're about to start the first RAF
-    console.error(`[LOOP-START] About to call requestAnimationFrame - first tick incoming`);
     this.rafId = requestAnimationFrame(tick);
-    console.error(`[LOOP-START] First RAF scheduled, rafId=${this.rafId}`);
   }
 
   /**
