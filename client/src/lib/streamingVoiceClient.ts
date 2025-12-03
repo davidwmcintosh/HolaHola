@@ -236,8 +236,11 @@ export class StreamingVoiceClient {
       };
       
       this.ws.onmessage = (event) => {
+        // CRITICAL DEBUG: Log immediately when ANY message arrives
+        console.error(`[WS-ONMESSAGE] Received message type=${event.data instanceof ArrayBuffer ? 'BINARY' : 'JSON'}, connId=${currentConnectionId}/${this.connectionId}`);
+        
         if (this.connectionId !== currentConnectionId) {
-          console.log('[StreamingVoiceClient] Ignoring message from stale connection');
+          console.error('[WS-ONMESSAGE] Ignoring message from stale connection');
           return;
         }
         this.handleMessage(event);

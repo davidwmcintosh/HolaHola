@@ -1,3 +1,5 @@
+import { updateDebugTimingState, resetDebugTimingState, SentenceScheduleEntry } from './debugTimingState';
+
 // Convert Int16Array PCM to base64 string
 export function pcm16ToBase64(pcm16: Int16Array): string {
   const uint8Array = new Uint8Array(pcm16.buffer);
@@ -385,8 +387,14 @@ export class StreamingAudioPlayer {
     }
     
     // Detect new sentence - DON'T stop current audio, let it finish naturally!
-    if (sentenceIndex !== this.progressiveSentenceIndex) {
-      console.log(`[StreamingAudioPlayer] [Progressive] New sentence ${sentenceIndex} (previous: ${this.progressiveSentenceIndex})`);
+    // BUG FIX: Also detect new TURN by checking if sentenceIndex === 0
+    // This handles the case where previous turn ended at sentence 0 (single-sentence response)
+    // In that case, sentenceIndex === progressiveSentenceIndex but it's a NEW turn
+    const isNewSentence = sentenceIndex !== this.progressiveSentenceIndex;
+    const isNewTurnStarting = sentenceIndex === 0 && chunkIndex === 0;
+    
+    if (isNewSentence || isNewTurnStarting) {
+      console.log(`[StreamingAudioPlayer] [Progressive] New sentence ${sentenceIndex} (previous: ${this.progressiveSentenceIndex}, isNewTurn=${isNewTurnStarting})`);
       
       // DON'T call resetProgressiveState() - that stops all audio!
       // Instead, just update tracking variables and let old audio finish
@@ -394,6 +402,13 @@ export class StreamingAudioPlayer {
       // Clear arrays for new sentence (old sources will continue playing)
       this.progressiveChunks = [];
       this.progressiveFirstChunkStarted = false;
+      
+      // For new turn, also clear the sentence schedule to prevent stale entries
+      if (isNewTurnStarting && sentenceIndex === this.progressiveSentenceIndex) {
+        console.log(`[StreamingAudioPlayer] [Progressive] NEW TURN detected - clearing sentence schedule`);
+        this.sentenceSchedule.clear();
+        this.activeSentenceInLoop = -1;
+      }
       
       this.progressiveSentenceIndex = sentenceIndex;
       this.currentSentenceIndex = sentenceIndex;
@@ -447,7 +462,7 @@ export class StreamingAudioPlayer {
     this.progressiveTotalDuration += chunkDuration; // Track total duration
     
     // Track first chunk for timing - SCHEDULE-BASED APPROACH
-    console.log(`[AUDIO DEBUG] chunk=${chunkIndex}, firstChunkStarted=${this.progressiveFirstChunkStarted}, sentence=${sentenceIndex}`);
+    console.error(`[AUDIO-CRITICAL] enqueueProgressivePcmChunk: chunk=${chunkIndex}, sentence=${sentenceIndex}, firstStarted=${this.progressiveFirstChunkStarted}`);
     
     // Register sentence in schedule if this is its first chunk
     if (!this.sentenceSchedule.has(sentenceIndex)) {
@@ -470,7 +485,7 @@ export class StreamingAudioPlayer {
       this.playbackStartTime = performance.now();
       this.isPlaying = true; // CRITICAL: Set this BEFORE starting the loop!
       this.setState('playing');
-      console.log(`[AUDIO DEBUG] Starting unified timing loop, first sentence startCtxTime=${playTime.toFixed(3)}`);
+      console.error(`[AUDIO-CRITICAL] Starting unified timing loop! chunk=0, sentence=0, startCtxTime=${playTime.toFixed(3)}`);
       this.startUnifiedTimingLoop(); // New unified loop
     }
     
@@ -519,6 +534,9 @@ export class StreamingAudioPlayer {
     // Reset sentence schedule
     this.sentenceSchedule.clear();
     this.activeSentenceInLoop = -1;
+    
+    // Reset debug state
+    resetDebugTimingState();
   }
   
   // Type for sentence schedule entry
@@ -538,13 +556,31 @@ export class StreamingAudioPlayer {
     // Cancel any existing timing loop
     this.stopPrecisionTiming();
     
-    console.log('[StreamingAudioPlayer] Starting UNIFIED timing loop (schedule-based)');
+    // Use console.error for critical logging - more likely to be captured
+    console.error(`[AUDIO-CRITICAL] Starting UNIFIED timing loop - isPlaying=${this.isPlaying}, scheduleSize=${this.sentenceSchedule.size}`);
+    
+    // Update debug state - loop is starting
+    updateDebugTimingState({
+      isLoopRunning: true,
+      isPlaying: this.isPlaying,
+      loopTickCount: 0,
+    });
+    
+    // Additional diagnostic: log after a short delay to verify loop is running
+    setTimeout(() => {
+      console.error(`[AUDIO-CRITICAL] 500ms after loop start - isPlaying=${this.isPlaying}, rafId=${this.rafId}`);
+    }, 500);
     
     let frameCount = 0;
     
     const tick = (): void => {
       // Exit if playback stopped
       if (!this.isPlaying) {
+        console.error('[AUDIO-CRITICAL] Timing loop exiting: isPlaying=false');
+        updateDebugTimingState({
+          isLoopRunning: false,
+          isPlaying: false,
+        });
         return;
       }
       
@@ -573,6 +609,35 @@ export class StreamingAudioPlayer {
         }
       }
       
+      // Debug log EVERY frame for first 5 ticks, then every 60 frames
+      frameCount++;
+      
+      // Update debug state every 30 frames (~2 times/second at 60fps)
+      if (frameCount % 30 === 1 || frameCount <= 5) {
+        const scheduleForDebug: SentenceScheduleEntry[] = entries.map(([idx, e]) => ({
+          sentenceIndex: idx,
+          startCtxTime: e.startCtxTime,
+          totalDuration: e.totalDuration,
+          endCtxTime: e.endCtxTime,
+          started: e.started,
+          ended: e.ended,
+        }));
+        
+        updateDebugTimingState({
+          isLoopRunning: true,
+          currentCtxTime: now,
+          activeSentenceIndex: activeIndex,
+          sentenceSchedule: scheduleForDebug,
+          loopTickCount: frameCount,
+          isPlaying: this.isPlaying,
+        });
+      }
+      
+      if (frameCount <= 5 || frameCount % 60 === 1) {
+        const scheduleInfo = entries.map(([idx, e]) => `s${idx}:[${e.startCtxTime.toFixed(2)}-${(e.endCtxTime ?? (e.startCtxTime + e.totalDuration)).toFixed(2)}]`).join(',');
+        console.error(`[AUDIO-CRITICAL] Tick #${frameCount}: now=${now.toFixed(3)}, schedule=[${scheduleInfo}], activeIdx=${activeIndex}`);
+      }
+      
       if (activeEntry && activeIndex >= 0) {
         // Fire onSentenceStart if this is a NEW active sentence
         if (!activeEntry.started) {
@@ -581,7 +646,15 @@ export class StreamingAudioPlayer {
           this.activeSentenceInLoop = activeIndex;
           this.progressivePlaybackStartCtxTime = activeEntry.startCtxTime;
           
-          console.log(`[UNIFIED LOOP] >>> onSentenceStart(${activeIndex}) at ctx.time=${now.toFixed(3)}, sentence.start=${activeEntry.startCtxTime.toFixed(3)} <<<`);
+          const hasCallback = typeof this.callbacks.onSentenceStart === 'function';
+          console.error(`[AUDIO-CRITICAL] >>> FIRING onSentenceStart(${activeIndex}) - hasCallback=${hasCallback}, ctx.time=${now.toFixed(3)} <<<`);
+          
+          // Record in debug state
+          updateDebugTimingState({
+            lastOnSentenceStartFired: activeIndex,
+            activeSentenceIndex: activeIndex,
+          });
+          
           this.callbacks.onSentenceStart?.(activeIndex);
         }
         
@@ -590,12 +663,6 @@ export class StreamingAudioPlayer {
         
         // Fire progress callback
         this.callbacks.onProgress?.(elapsedInSentence, activeEntry.totalDuration);
-        
-        // Debug log periodically
-        frameCount++;
-        if (frameCount % 10 === 0) {
-          console.log(`[UNIFIED LOOP] sentence=${activeIndex}, elapsed=${elapsedInSentence.toFixed(3)}s, duration=${activeEntry.totalDuration.toFixed(3)}s`);
-        }
       } else {
         // No active sentence - check for sentences that have ended but haven't fired onSentenceEnd
         for (let i = 0; i < entries.length; i++) {

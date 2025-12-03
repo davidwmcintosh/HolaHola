@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { DebugTimingPanel } from "./DebugTimingPanel";
 
 // Female tutor avatars (default)
 import femaleTutorSpeakingUrl from "@assets/tutor-speaking-No-Background_1764099971093.png";
@@ -989,6 +990,9 @@ export function ImmersiveTutor({
           </div>
         )}
       </div>
+      
+      {/* TEMP DEBUG: Always show debug panel to diagnose subtitle timing issue */}
+      <DebugTimingPanel />
     </div>
   );
 }
