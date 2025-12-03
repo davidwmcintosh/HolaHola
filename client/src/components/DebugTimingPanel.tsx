@@ -65,6 +65,8 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
     activeWord,
     wordScheduleSize,
     lastWordMatchTime,
+    tickFrameLogs,
+    loopStartTime,
   } = state;
   
   const timeSinceUpdate = Date.now() - lastUpdateTime;
@@ -328,6 +330,27 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
                     <span className="text-gray-500">
                       {event.startTime.toFixed(2)}-{event.endTime.toFixed(2)}s
                     </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* SECTION 6.5: Tick Frame Logs (Early frames diagnostic) */}
+          {tickFrameLogs && tickFrameLogs.length > 0 && (
+            <div className="border border-orange-500/40 rounded p-2 bg-orange-900/20">
+              <div className="font-bold text-orange-300 mb-1">
+                TICK LOOP (First {tickFrameLogs.length} frames)
+                {loopStartTime > 0 && (
+                  <span className="text-[10px] text-gray-400 ml-2">
+                    started {((Date.now() - loopStartTime) / 1000).toFixed(1)}s ago
+                  </span>
+                )}
+              </div>
+              <div className="space-y-0.5 font-mono text-[10px]">
+                {tickFrameLogs.map((log, idx) => (
+                  <div key={idx} className="text-orange-200">
+                    {log}
                   </div>
                 ))}
               </div>

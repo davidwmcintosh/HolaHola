@@ -879,7 +879,9 @@ export class StreamingAudioPlayer {
     updateDebugTimingState({
       isLoopRunning: true,
       loopTickCount: 0,
-      isPlaying: true
+      isPlaying: true,
+      loopStartTime: Date.now(),
+      tickFrameLogs: []  // Clear previous frame logs
     });
     
     let frameCount = 0;
@@ -890,22 +892,22 @@ export class StreamingAudioPlayer {
       // DEBUG: Log EVERY frame for first 5 frames to verify tick is running
       if (frameCount <= 5) {
         const ctxDebug = this.audioContext ? 
-          `ctx.currentTime=${this.audioContext.currentTime.toFixed(3)}, state=${this.audioContext.state}` : 
+          `ctx=${this.audioContext.currentTime.toFixed(3)}s, state=${this.audioContext.state}` : 
           'NO CTX';
-        console.error(`[TICK RUNNING] Frame ${frameCount}: ${ctxDebug}, isPlaying=${this.isPlaying}`);
+        const frameLog = `F${frameCount}: ${ctxDebug}, playing=${this.isPlaying}`;
+        console.error(`[TICK RUNNING] ${frameLog}`);
         
-        // Force update debug state on first frame
-        if (frameCount === 1 && this.audioContext) {
-          console.error(`[TICK] Forcing debug state update on frame 1`);
-          updateDebugTimingState({
-            isLoopRunning: true,
-            loopTickCount: 1,
-            currentCtxTime: this.audioContext.currentTime,
-            audioContextState: this.audioContext.state as 'suspended' | 'running' | 'closed' | 'unknown',
-            audioContextId: (this.audioContext as any).__debugId || 'NO_ID',
-            isPlaying: true
-          });
-        }
+        // Push to debug state for on-screen display
+        const currentLogs = getDebugTimingState().tickFrameLogs || [];
+        updateDebugTimingState({
+          tickFrameLogs: [...currentLogs, frameLog].slice(-5),  // Keep last 5
+          isLoopRunning: true,
+          loopTickCount: frameCount,
+          currentCtxTime: this.audioContext?.currentTime ?? 0,
+          audioContextState: (this.audioContext?.state || 'unknown') as 'suspended' | 'running' | 'closed' | 'unknown',
+          audioContextId: (this.audioContext as any)?.__debugId || 'NO_ID',
+          isPlaying: this.isPlaying
+        });
       }
       
       // Exit if playback stopped

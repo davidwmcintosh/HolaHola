@@ -170,6 +170,10 @@ export interface DebugTimingState {
   activeWord: ActiveWordInfo | null;          // Currently matched word from findActiveWord()
   wordScheduleSize: number;                   // Number of words in schedule
   lastWordMatchTime: number;                  // Last time a word was successfully matched
+  
+  // NEW: Timing loop frame logs (first 5 frames for debugging)
+  tickFrameLogs: string[];                    // Logs from first 5 frames of timing loop
+  loopStartTime: number;                      // When the timing loop started (Date.now())
 }
 
 // Maximum number of word events to keep in log
@@ -241,6 +245,10 @@ function getDebugState(): DebugTimingState {
       activeWord: null,
       wordScheduleSize: 0,
       lastWordMatchTime: 0,
+      
+      // Timing loop frame logs
+      tickFrameLogs: [],
+      loopStartTime: 0,
     };
   }
   return window.__debugTimingState;
