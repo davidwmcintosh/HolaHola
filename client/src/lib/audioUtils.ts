@@ -673,6 +673,10 @@ export class StreamingAudioPlayer {
       
       // IMMEDIATELY update debug state with new schedule entry
       updateDebugSchedule(this.sentenceSchedule);
+      
+      // RACE CONDITION FIX: Process any queued word timings for this sentence
+      // Word timing deltas may arrive before the first audio chunk
+      this.processPendingWordTimings(sentenceIndex);
     } else {
       // Only log occasionally for subsequent chunks
       if (chunkIndex % 5 === 0) {
@@ -745,17 +749,29 @@ export class StreamingAudioPlayer {
     // Reset sentence and word schedules
     this.sentenceSchedule.clear();
     this.wordSchedule.clear();
+    this.pendingWordTimings.clear();
     this.activeSentenceInLoop = -1;
     
     // Reset debug state
     resetDebugTimingState();
   }
   
+  // Queue for word timings that arrive before their sentence schedule entry exists
+  private pendingWordTimings: Map<number, Array<{
+    wordIndex: number;
+    word: string;
+    relativeStartTime: number;
+    relativeEndTime: number;
+  }>> = new Map();
+
   /**
    * WORD-BASED TIMING: Register a word timing with ABSOLUTE AudioContext times
    * 
    * Called when word_timing_delta arrives. Converts relative word times
    * (within sentence) to absolute AudioContext times for direct matching.
+   * 
+   * If sentence schedule entry doesn't exist yet (race condition), queues the
+   * word timing to be processed when the sentence entry is created.
    * 
    * @param sentenceIndex - Which sentence this word belongs to
    * @param wordIndex - Index of word within sentence
@@ -773,7 +789,18 @@ export class StreamingAudioPlayer {
     // Get sentence start time from schedule
     const sentenceEntry = this.sentenceSchedule.get(sentenceIndex);
     if (!sentenceEntry) {
-      console.warn(`[WORD SCHEDULE] Cannot register word - sentence ${sentenceIndex} not in schedule yet`);
+      // RACE CONDITION FIX: Queue this word timing for later processing
+      console.warn(`[WORD SCHEDULE] Queuing word S${sentenceIndex}W${wordIndex} "${word}" - sentence not in schedule yet`);
+      
+      if (!this.pendingWordTimings.has(sentenceIndex)) {
+        this.pendingWordTimings.set(sentenceIndex, []);
+      }
+      this.pendingWordTimings.get(sentenceIndex)!.push({
+        wordIndex,
+        word,
+        relativeStartTime,
+        relativeEndTime
+      });
       return;
     }
     
@@ -795,8 +822,38 @@ export class StreamingAudioPlayer {
     console.error(`[WORD SCHEDULE] Registered: ${key} "${word}" abs=${absoluteStartTime.toFixed(3)}-${absoluteEndTime.toFixed(3)}s (sentenceStart=${sentenceEntry.startCtxTime.toFixed(3)}, relative=${relativeStartTime.toFixed(3)}-${relativeEndTime.toFixed(3)})`);
     
     // Update debug state with word schedule (limit to last 20 words for performance)
+    this.updateWordScheduleDebugState();
+  }
+  
+  /**
+   * Process any queued word timings for a sentence after its schedule entry is created
+   */
+  private processPendingWordTimings(sentenceIndex: number): void {
+    const pending = this.pendingWordTimings.get(sentenceIndex);
+    if (!pending || pending.length === 0) return;
+    
+    console.log(`[WORD SCHEDULE] Processing ${pending.length} queued words for S${sentenceIndex}`);
+    
+    for (const wordTiming of pending) {
+      this.registerWordTiming(
+        sentenceIndex,
+        wordTiming.wordIndex,
+        wordTiming.word,
+        wordTiming.relativeStartTime,
+        wordTiming.relativeEndTime
+      );
+    }
+    
+    // Clear the queue for this sentence
+    this.pendingWordTimings.delete(sentenceIndex);
+  }
+  
+  /**
+   * Update debug state with current word schedule
+   */
+  private updateWordScheduleDebugState(): void {
     const wordEntries = Array.from(this.wordSchedule.values());
-    const recentWords = wordEntries.slice(-20).map(e => ({
+    const recentWords = wordEntries.slice(0, 20).map(e => ({
       sentenceIndex: e.sentenceIndex,
       wordIndex: e.wordIndex,
       word: e.word,

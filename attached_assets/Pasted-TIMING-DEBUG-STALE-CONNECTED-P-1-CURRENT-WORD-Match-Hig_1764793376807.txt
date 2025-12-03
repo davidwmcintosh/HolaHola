@@ -1,0 +1,165 @@
+TIMING DEBUG
+(STALE)
+[CONNECTED]
+P:1
+▲
+CURRENT WORD
+✓ Match
+Highlighted:
+Hi
+Expected (from timing):
+Hi
+Word Index: 0 | Visible: 1 | Total Received: 1
+TIMING DRIFT
+Audio Time
+0.152s
+Expected Start
+0.000s
+Drift
++152ms
+CURRENT SENTENCE
+Hi David!
+WORD TIMING COUNTS
+Total Deltas:
+21
+Total Finals:
+21
+This Sentence:
+0 deltas
+Final Count:
+0
+WORD-BASED TIMING
+NO MATCH
+Active Word (from ctx.currentTime):
+No word matched at current time
+Schedule Size:
+21 words
+Last Match:
+—
+FIRST Words (with abs times):
+S0W1: "David!" @ 0.24-0.58s
+S1W0: "Welcome" @ 3.19-3.59s
+S1W1: "to" @ 3.59-3.73s
+S1W2: "your" @ 3.73-3.81s
+S1W3: "Spanish" @ 3.81-4.38s
+S1W4: "1" @ 4.41-4.57s
+RECEIVED WORDS (7)
+0: Can
+1: you
+2: try
+3: saying
+4: Hola?
+5: like
+6: Hola
+RECENT EVENTS (20)
+Δ
+S3:
+w4
+"Hola?"
+1.08-1.47s
+Δ
+S3:
+w3
+"saying"
+0.68-1.08s
+Δ
+S3:
+w2
+"try"
+0.45-0.68s
+Δ
+S3:
+w1
+"you"
+0.29-0.45s
+Δ
+S3:
+w0
+"Can"
+0.09-0.29s
+Δ
+S2:
+w6
+"Hola"
+2.11-2.34s
+Δ
+S2:
+w5
+"like"
+1.83-2.11s
+Δ
+S2:
+w4
+"greetings,"
+1.27-1.83s
+Δ
+S2:
+w3
+"with"
+1.08-1.27s
+Δ
+S2:
+w2
+"starting"
+0.63-1.08s
+TICK LOOP (First 5 frames)started 26.2s ago
+F1: ctx=0.016s, state=running, playing=true
+F2: ctx=0.016s, state=running, playing=true
+F3: ctx=0.043s, state=running, playing=true
+F4: ctx=0.192s, state=running, playing=true
+F5: ctx=0.352s, state=running, playing=true
+PLAYBACK STATE
+Loop Running:
+YES
+isPlaying:
+YES
+Loop Ticks:
+5
+Ctx Time:
+0.352s
+Ctx State:
+running
+Ctx ID:
+3327499_3uwv
+Active Sentence:
+0
+Last Delta Sent:
+S3
+SENTENCE EVENTS
+Last Start:
+none
+Last End:
+none
+AUDIO CHUNKS RECEIVED
+Total Chunks:
+57
+Last Chunk S:
+3
+Per Sentence: S0:6, S1:19, S2:19, S3:13
+EMPTY CHUNKS & TRANSITIONS
+Empty Chunks:
+4
+Last Empty S:
+3
+EndTimes Set: [0, 1, 2, 3]
+Transitions:
+s-1→s0: started at 0.20s
+SCHEDULE (4 entries)
+MATCH INFO (0 sentences)
+no match data
+SCHEDULE EVENTS (5)
+✅ ADD S3
+1:22:25 PM
+After: [0, 1, 2, 3] (4 entries)
+✅ ADD S2
+1:22:15 PM
+After: [0, 1, 2] (3 entries)
+✅ ADD S1
+1:22:10 PM
+After: [0, 1] (2 entries)
+✅ ADD S0
+1:22:07 PM
+After: [0] (1 entries)
+⚠️ CLEAR (0 removed)
+1:22:07 PM
+After: [] (0 entries)
