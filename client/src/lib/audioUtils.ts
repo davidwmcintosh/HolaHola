@@ -1,4 +1,4 @@
-import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition } from './debugTimingState';
+import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition, updateDebugTimingState } from './debugTimingState';
 
 // Convert Int16Array PCM to base64 string
 export function pcm16ToBase64(pcm16: Int16Array): string {
@@ -618,11 +618,23 @@ export class StreamingAudioPlayer {
     
     console.log(`[LOOP] Starting: scheduleSize=${this.sentenceSchedule.size}`);
     
+    // Update debug state: loop is now running
+    updateDebugTimingState({
+      isLoopRunning: true,
+      loopTickCount: 0,
+      isPlaying: true
+    });
+    
     let frameCount = 0;
     
     const tick = (): void => {
       // Exit if playback stopped
       if (!this.isPlaying) {
+        // Update debug state: loop stopped
+        updateDebugTimingState({
+          isLoopRunning: false,
+          isPlaying: false
+        });
         return;
       }
       
@@ -634,6 +646,27 @@ export class StreamingAudioPlayer {
       
       const now = ctx.currentTime;
       frameCount++;
+      
+      // Update debug state every 10 frames (~160ms) with current timing info
+      if (frameCount % 10 === 0) {
+        const scheduleArray = Array.from(this.sentenceSchedule.entries()).map(([idx, e]) => ({
+          sentenceIndex: idx,
+          startCtxTime: e.startCtxTime,
+          totalDuration: e.totalDuration,
+          endCtxTime: e.endCtxTime,
+          started: e.started,
+          ended: e.ended
+        }));
+        
+        updateDebugTimingState({
+          isLoopRunning: true,
+          loopTickCount: frameCount,
+          currentCtxTime: now,
+          activeSentenceIndex: this.activeSentenceInLoop,
+          sentenceSchedule: scheduleArray,
+          isPlaying: true
+        });
+      }
       
       // Debug log every 60 frames (~1 second) to see schedule state
       if (frameCount % 60 === 0) {
@@ -788,21 +821,45 @@ export class StreamingAudioPlayer {
       console.log(`[StreamingAudioPlayer] [Progressive] Sentence ${sentenceIndex} already ended via unified loop, skipping callback`);
     }
     
-    // Only clean up if we're still on this sentence (next sentence may have already started)
-    if (this.progressiveSentenceIndex === sentenceIndex) {
-      // No next sentence yet - wait for more or finish
-      if (this.queue.length === 0) {
-        this.progressiveSentenceIndex = -1;
-        this.isPlaying = false;
-        this.setState('idle');
-        this.stopPrecisionTiming();
-        this.callbacks.onComplete?.();
-      } else {
-        // Continue with queued (non-progressive) audio
-        this.playNext();
+    // FIX: Check if ALL sentences in the schedule have completed
+    // Only stop playback when every scheduled sentence has ended
+    // This fixes the bug where sentence 0's timeout would kill playback
+    // before sentences 1 and 2 could be processed by the timing loop
+    const allSentencesEnded = this.checkAllSentencesEnded();
+    
+    console.log(`[StreamingAudioPlayer] [Progressive] Sentence ${sentenceIndex} finalized, allEnded=${allSentencesEnded}, scheduleSize=${this.sentenceSchedule.size}`);
+    
+    if (allSentencesEnded && this.queue.length === 0) {
+      console.log(`[StreamingAudioPlayer] [Progressive] All sentences complete, stopping playback`);
+      this.progressiveSentenceIndex = -1;
+      this.isPlaying = false;
+      this.setState('idle');
+      this.stopPrecisionTiming();
+      this.callbacks.onComplete?.();
+    }
+    // If not all sentences ended, keep the timing loop running
+  }
+  
+  /**
+   * Check if all sentences in the schedule have ended
+   * Returns true only when every entry has ended=true AND has endCtxTime set
+   */
+  private checkAllSentencesEnded(): boolean {
+    if (this.sentenceSchedule.size === 0) {
+      return true; // No sentences scheduled
+    }
+    
+    for (const [index, entry] of this.sentenceSchedule) {
+      // A sentence is complete when:
+      // 1. It has endCtxTime set (received isLast=true)
+      // 2. It has been marked as ended (callback fired)
+      if (entry.endCtxTime === undefined || !entry.ended) {
+        console.log(`[StreamingAudioPlayer] Sentence ${index} not complete: endCtxTime=${entry.endCtxTime}, ended=${entry.ended}`);
+        return false;
       }
     }
-    // If progressiveSentenceIndex !== sentenceIndex, next sentence already started, do nothing
+    
+    return true;
   }
   
   /**
