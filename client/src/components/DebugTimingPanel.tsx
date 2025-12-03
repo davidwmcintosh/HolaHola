@@ -29,7 +29,15 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
     lastOnSentenceEndFired,
     loopTickCount,
     isPlaying,
-    lastUpdateTime
+    lastUpdateTime,
+    wordTimingCount,
+    visibleWordCount,
+    currentWordIndex,
+    deltasReceived,
+    finalWordCount,
+    totalDeltasReceived,
+    totalFinalsReceived,
+    lastDeltaSentence
   } = state;
   
   const timeSinceUpdate = Date.now() - lastUpdateTime;
@@ -89,6 +97,39 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
           <span className="text-orange-400">
             {lastOnSentenceEndFired >= 0 ? lastOnSentenceEndFired : 'none'}
           </span>
+        </div>
+        
+        <div className="mt-2 pt-2 border-t border-green-500/30">
+          <div className="font-bold text-purple-300 mb-1">WORD TIMING (Cumulative)</div>
+          <div className="flex justify-between">
+            <span>Total Deltas:</span>
+            <span className={totalDeltasReceived > 0 ? 'text-green-400 font-bold' : 'text-gray-500'}>{totalDeltasReceived}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Total Finals:</span>
+            <span className={totalFinalsReceived > 0 ? 'text-cyan-400 font-bold' : 'text-gray-500'}>{totalFinalsReceived}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Last Delta Sent:</span>
+            <span className={lastDeltaSentence >= 0 ? 'text-yellow-400' : 'text-gray-500'}>S{lastDeltaSentence}</span>
+          </div>
+          <div className="font-bold text-purple-300 mb-1 mt-2">Active Sentence</div>
+          <div className="flex justify-between">
+            <span>Deltas:</span>
+            <span className={deltasReceived > 0 ? 'text-green-400' : 'text-gray-500'}>{deltasReceived}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Final:</span>
+            <span className={finalWordCount > 0 ? 'text-cyan-400' : 'text-gray-500'}>{finalWordCount}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Visible:</span>
+            <span className={visibleWordCount > 0 ? 'text-green-300' : 'text-gray-500'}>{visibleWordCount}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Word Idx:</span>
+            <span className={currentWordIndex >= 0 ? 'text-pink-400' : 'text-gray-500'}>{currentWordIndex}</span>
+          </div>
         </div>
         
         <div className="mt-2 pt-2 border-t border-green-500/30">

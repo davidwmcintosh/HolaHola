@@ -1013,6 +1013,7 @@ export class StreamingVoiceOrchestrator {
                 ? finalTimestamps 
                 : this.estimateWordTimings(displayText, actualDurationMs / 1000);
               
+              console.log(`[Progressive] Sending word_timing_final: sentence=${index}, ${timings.length} words, duration=${actualDurationMs}ms`);
               this.sendMessage(session.ws, {
                 type: 'word_timing_final',
                 timestamp: Date.now(),
@@ -1432,6 +1433,10 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       if (message.type === 'word_timing_delta') {
         console.log(`[SEND DEBUG] word_timing_delta: readyState=${ws.readyState}, length=${json.length}`);
       }
+      if (message.type === 'word_timing_final') {
+        const finalMsg = message as any;
+        console.log(`[SEND DEBUG] word_timing_final: readyState=${ws.readyState}, sentence=${finalMsg.sentenceIndex}, words=${finalMsg.words?.length}, length=${json.length}`);
+      }
       if (message.type === 'audio_chunk') {
         const audioMsg = message as any;
         console.log(`[SEND DEBUG] audio_chunk: sentence=${audioMsg.sentenceIndex}, chunk=${audioMsg.chunkIndex}, audioLen=${audioMsg.audio?.length || 0}, isLast=${audioMsg.isLast}`);
@@ -1439,7 +1444,7 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       ws.send(json);
     } else {
       // DEBUG: Log when WebSocket isn't open
-      if (message.type === 'word_timing_delta' || message.type === 'audio_chunk') {
+      if (message.type === 'word_timing_delta' || message.type === 'audio_chunk' || message.type === 'word_timing_final') {
         console.log(`[SEND DEBUG] SKIPPED ${message.type}: readyState=${ws.readyState} (not OPEN)`);
       }
     }

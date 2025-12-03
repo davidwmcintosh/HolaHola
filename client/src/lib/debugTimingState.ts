@@ -24,6 +24,16 @@ export interface DebugTimingState {
   loopTickCount: number;
   isPlaying: boolean;
   lastUpdateTime: number;
+  // Word timing debug info (per active sentence)
+  wordTimingCount: number;
+  visibleWordCount: number;
+  currentWordIndex: number;
+  deltasReceived: number;
+  finalWordCount: number;
+  // Cumulative totals across all sentences
+  totalDeltasReceived: number;
+  totalFinalsReceived: number;
+  lastDeltaSentence: number;
 }
 
 // Global debug state - updated by StreamingAudioPlayer
@@ -37,6 +47,14 @@ let debugState: DebugTimingState = {
   loopTickCount: 0,
   isPlaying: false,
   lastUpdateTime: 0,
+  wordTimingCount: 0,
+  visibleWordCount: 0,
+  currentWordIndex: -1,
+  deltasReceived: 0,
+  finalWordCount: 0,
+  totalDeltasReceived: 0,
+  totalFinalsReceived: 0,
+  lastDeltaSentence: -1,
 };
 
 // Listeners for React components
@@ -80,6 +98,14 @@ export function resetDebugTimingState(): void {
     loopTickCount: 0,
     isPlaying: false,
     lastUpdateTime: 0,
+    wordTimingCount: 0,
+    visibleWordCount: 0,
+    currentWordIndex: -1,
+    deltasReceived: 0,
+    finalWordCount: 0,
+    totalDeltasReceived: 0,
+    totalFinalsReceived: 0,
+    lastDeltaSentence: -1,
   };
   listeners.forEach(listener => listener(debugState));
 }

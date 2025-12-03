@@ -20,6 +20,7 @@ import {
   logTimingEvent,
   difficultyToProficiencyBand
 } from '../lib/subtitlePolicies';
+import { updateDebugTimingState } from '../lib/debugTimingState';
 
 /**
  * A contiguous block of target language words
@@ -509,6 +510,12 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       if (!useProgressiveReveal) {
         setVisibleWordCount(timings.length);
       }
+      
+      // Update debug panel with word timing info
+      updateDebugTimingState({
+        deltasReceived: wordMap.size,
+        wordTimingCount: timings.length,
+      });
     }
   }, [currentTurnId]);
   
@@ -569,13 +576,24 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       });
     });
     
-    // Update refs if this is the active sentence
-    if (sentenceIndex === currentSentenceIndex) {
+    // RACE CONDITION FIX: Use activeSentenceRef instead of currentSentenceIndex state
+    // The ref is updated synchronously in startPlayback, while state updates are async
+    // This ensures word_timing_final correctly updates currentTimingsRef for the active sentence
+    if (sentenceIndex === activeSentenceRef.current) {
       currentTimingsRef.current = normalizedWords;
       expectedDurationRef.current = actualDurationMs;
       actualDurationRef.current = actualDurationMs;
+      console.log(`[StreamingSubtitles v2] Finalized timings applied to active sentence ${sentenceIndex}: ${normalizedWords.length} words`);
+      
+      // Update debug panel with final word count
+      updateDebugTimingState({
+        finalWordCount: normalizedWords.length,
+        wordTimingCount: normalizedWords.length,
+      });
+    } else {
+      console.log(`[StreamingSubtitles v2] Finalized timings cached (sentence ${sentenceIndex} != active ${activeSentenceRef.current})`);
     }
-  }, [currentTurnId, currentSentenceIndex]);
+  }, [currentTurnId]);
   
   /**
    * Start playback for a sentence

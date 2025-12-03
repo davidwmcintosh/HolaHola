@@ -49,6 +49,7 @@ import {
   WordTiming,
   AUDIO_STREAMING_CONFIG,
 } from '../../../shared/streaming-voice-types';
+import { updateDebugTimingState, getDebugTimingState } from './debugTimingState';
 
 /**
  * Connection states
@@ -582,6 +583,30 @@ export class StreamingVoiceClient {
   private handleWordTimingDelta(message: StreamingWordTimingDeltaMessage): void {
     // CRITICAL DEBUG: Use console.error to ensure visibility in logs
     console.error(`[WORD DELTA] sentence=${message.sentenceIndex}, word=${message.wordIndex} "${message.word}" ${message.startTime.toFixed(3)}-${message.endTime.toFixed(3)}s, listeners=${this.eventListeners.get('wordTimingDelta')?.size || 0}`);
+    
+    // Track ALL deltas at window level for debugging in browser console
+    if (typeof window !== 'undefined') {
+      const win = window as any;
+      win._deltaCount = (win._deltaCount || 0) + 1;
+      if (!win._deltaBySentence) win._deltaBySentence = {};
+      const key = `s${message.sentenceIndex}_t${message.turnId}`;
+      if (!win._deltaBySentence[key]) win._deltaBySentence[key] = [];
+      win._deltaBySentence[key].push({
+        wordIndex: message.wordIndex,
+        word: message.word,
+        start: message.startTime,
+        end: message.endTime,
+        receivedAt: Date.now()
+      });
+    }
+    
+    // Update debug panel with cumulative delta count
+    const currentState = getDebugTimingState();
+    updateDebugTimingState({
+      totalDeltasReceived: currentState.totalDeltasReceived + 1,
+      lastDeltaSentence: message.sentenceIndex,
+    });
+    
     this.emit('wordTimingDelta', message);
   }
   
@@ -590,7 +615,32 @@ export class StreamingVoiceClient {
    * Sent when sentence synthesis completes with authoritative timings
    */
   private handleWordTimingFinal(message: StreamingWordTimingFinalMessage): void {
-    console.log(`[StreamingVoiceClient] Word timing final: sentence=${message.sentenceIndex}, ${message.words.length} words, ${message.actualDurationMs}ms`);
+    console.error(`[WORD FINAL] sentence=${message.sentenceIndex}, ${message.words.length} words, ${message.actualDurationMs}ms`);
+    
+    // Track final word count at window level for comparison with deltas
+    if (typeof window !== 'undefined') {
+      const win = window as any;
+      if (!win._finalBySentence) win._finalBySentence = {};
+      const key = `s${message.sentenceIndex}`;
+      win._finalBySentence[key] = {
+        wordCount: message.words.length,
+        words: message.words.map(w => w.word),
+        durationMs: message.actualDurationMs,
+        receivedAt: Date.now()
+      };
+      
+      // Log comparison with deltas
+      const deltasKey = `s${message.sentenceIndex}_t${message.turnId}`;
+      const deltasReceived = win._deltaBySentence?.[deltasKey]?.length || 0;
+      console.error(`[TIMING COMPARE] sentence=${message.sentenceIndex}: deltas=${deltasReceived}, final=${message.words.length}, match=${deltasReceived === message.words.length}`);
+    }
+    
+    // Update debug panel with cumulative final count
+    const currentState = getDebugTimingState();
+    updateDebugTimingState({
+      totalFinalsReceived: currentState.totalFinalsReceived + message.words.length,
+    });
+    
     this.emit('wordTimingFinal', message);
   }
   
