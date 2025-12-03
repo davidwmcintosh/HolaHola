@@ -820,12 +820,13 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     const useProgressiveReveal = shouldRevealProgressively(difficultyRef.current);
     const newVisibleCount = useProgressiveReveal ? (maxVisibleIndex + 1) : timings.length;
     
-    // Log when visible count changes (critical for debugging progressive reveal)
-    if (shouldLogDetails) {
-      console.log(`[SUBTITLE DEBUG] visibleCount: ${newVisibleCount} (maxVisibleIndex=${maxVisibleIndex}, progressive=${useProgressiveReveal}, timingsLen=${timings.length})`);
-    }
-    
-    setVisibleWordCount(newVisibleCount);
+    // ALWAYS log when visible count increases (critical for debugging progressive reveal)
+    setVisibleWordCount(prevCount => {
+      if (newVisibleCount !== prevCount) {
+        console.error(`[VISIBLE CHANGE] visibleCount: ${prevCount} → ${newVisibleCount} (adjustedTime=${adjustedTime.toFixed(3)}, maxIdx=${maxVisibleIndex})`);
+      }
+      return newVisibleCount;
+    });
     // Always update the current word highlight (for karaoke effect)
     setCurrentWordIndex(prevIndex => {
       // Only log telemetry when word index changes

@@ -1,0 +1,92 @@
+useStreamingSubtitles.ts:614 [SUBTITLE DEBUG] ▶▶▶ startPlayback called: sentence=0, turn=1
+(anonymous) @ useStreamingSubtitles.ts:614
+onSentenceStart @ useStreamingVoice.ts:160
+tick @ audioUtils.ts:1198
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+startUnifiedTimingLoop @ audioUtils.ts:1229
+enqueueProgressivePcmChunk @ audioUtils.ts:707
+(anonymous) @ useStreamingVoice.ts:292
+(anonymous) @ streamingVoiceClient.ts:174
+emit @ streamingVoiceClient.ts:172
+handleAudioChunk @ streamingVoiceClient.ts:571
+handleMessage @ streamingVoiceClient.ts:475
+ws.onmessage @ streamingVoiceClient.ts:264
+useStreamingSubtitles.ts:632 [SUBTITLE DEBUG] LOADED 6 timings for sentence 0
+useStreamingSubtitles.ts:761 [SUBTITLE DEBUG] updatePlaybackTime: 6 timings, time=0.08, sentence=0
+useStreamingSubtitles.ts:788 [KARAOKE DEBUG] Duration refs: expected=2741.5027200000004, actual=2594.6666666666674, actualDuration param=2.5946666666666673
+useStreamingSubtitles.ts:800 [KARAOKE DEBUG] adjustedTime=0.000, scaleFactor=0.946, words="¡Hola," 0.00-0.20, "David!" 0.20-0.62, "Welcome" 1.19-1.59, "to" 1.59-1.83, "your" 1.83-2.01, "Spanish" 2.01-2.45
+useStreamingSubtitles.ts:814 [KARAOKE DEBUG] Result: wordIndex=0, maxVisibleIndex=0
+useStreamingSubtitles.ts:825 [SUBTITLE DEBUG] visibleCount: 1 (maxVisibleIndex=0, progressive=true, timingsLen=6)
+DebugTimingPanel.tsx:14 Warning: Cannot update a component (`DebugTimingPanel`) while rendering a different component (`StreamingVoiceChat`). To locate the bad setState() call inside `StreamingVoiceChat`, follow the stack trace as described in https://reactjs.org/link/setstate-in-render
+    at StreamingVoiceChat (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/StreamingVoiceChat.tsx:78:3)
+    at div
+    at div
+    at Chat (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/pages/chat.tsx:36:18)
+    at Route (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=2f93850c:323:16)
+    at Switch (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=2f93850c:379:17)
+    at Suspense
+    at div
+    at PageWrapper (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=L4c8RHHpzUJHEGWHE1i6N:113:24)
+    at Router (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=L4c8RHHpzUJHEGWHE1i6N:150:48)
+    at main
+    at div
+    at div
+    at div
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=2f93850c:38:15)
+    at TooltipProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=2f93850c:64:5)
+    at SidebarProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ui/sidebar.tsx:59:3)
+    at LearningFilterProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/LearningFilterContext.tsx:22:42)
+    at UsageProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/UsageContext.tsx:46:33)
+    at LanguageProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/LanguageContext.tsx:22:36)
+    at AuthenticatedApp (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=L4c8RHHpzUJHEGWHE1i6N:362:29)
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=2f93850c:38:15)
+    at TooltipProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=2f93850c:64:5)
+    at QueryClientProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=2f93850c:2805:3)
+    at ErrorBoundary (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ErrorBoundary.tsx:10:5)
+    at App
+printWarning @ chunk-RPCDYKBN.js?v=2f93850c:521
+error @ chunk-RPCDYKBN.js?v=2f93850c:505
+warnAboutRenderPhaseUpdatesInDEV @ chunk-RPCDYKBN.js?v=2f93850c:19793
+scheduleUpdateOnFiber @ chunk-RPCDYKBN.js?v=2f93850c:18546
+dispatchSetState @ chunk-RPCDYKBN.js?v=2f93850c:12403
+(anonymous) @ DebugTimingPanel.tsx:14
+(anonymous) @ debugTimingState.ts:280
+updateDebugTimingState @ debugTimingState.ts:280
+clearWordState @ debugTimingState.ts:446
+(anonymous) @ useStreamingSubtitles.ts:681
+basicStateReducer @ chunk-RPCDYKBN.js?v=2f93850c:11703
+updateReducer @ chunk-RPCDYKBN.js?v=2f93850c:11794
+updateState @ chunk-RPCDYKBN.js?v=2f93850c:12021
+useState @ chunk-RPCDYKBN.js?v=2f93850c:12753
+useState @ chunk-QCHXOAYK.js?v=2f93850c:1066
+useStreamingSubtitles @ useStreamingSubtitles.ts:188
+useStreamingVoice @ useStreamingVoice.ts:127
+StreamingVoiceChat @ StreamingVoiceChat.tsx:254
+renderWithHooks @ chunk-RPCDYKBN.js?v=2f93850c:11548
+updateFunctionComponent @ chunk-RPCDYKBN.js?v=2f93850c:14582
+beginWork @ chunk-RPCDYKBN.js?v=2f93850c:15924
+beginWork$1 @ chunk-RPCDYKBN.js?v=2f93850c:19753
+performUnitOfWork @ chunk-RPCDYKBN.js?v=2f93850c:19198
+workLoopSync @ chunk-RPCDYKBN.js?v=2f93850c:19137
+renderRootSync @ chunk-RPCDYKBN.js?v=2f93850c:19116
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=2f93850c:18678
+workLoop @ chunk-RPCDYKBN.js?v=2f93850c:197
+flushWork @ chunk-RPCDYKBN.js?v=2f93850c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=2f93850c:384
+Show 21 more frames
+Show less
+useStreamingSubtitles.ts:761 [SUBTITLE DEBUG] updatePlaybackTime: 9 timings, time=0.23, sentence=0
+useStreamingSubtitles.ts:788 [KARAOKE DEBUG] Duration refs: expected=3643.9849600000002, actual=3291.2500000000014, actualDuration param=3.2912500000000016
+useStreamingSubtitles.ts:800 [KARAOKE DEBUG] adjustedTime=0.125, scaleFactor=0.903, words="¡Hola," 0.00-0.20, "David!" 0.20-0.62, "Welcome" 1.19-1.59, "to" 1.59-1.83, "your" 1.83-2.01, "Spanish" 2.01-2.45, "1" 2.45-2.57, "Demo" 2.57-2.80, "Class" 2.80-3.27
+useStreamingSubtitles.ts:814 [KARAOKE DEBUG] Result: wordIndex=0, maxVisibleIndex=0
+useStreamingSubtitles.ts:825 [SUBTITLE DEBUG] visibleCount: 1 (maxVisibleIndex=0, progressive=true, timingsLen=9)

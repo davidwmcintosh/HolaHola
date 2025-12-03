@@ -1,0 +1,162 @@
+TIMING DEBUG
+(STALE)
+[CONNECTED]
+P:1
+▲
+CURRENT WORD
+✓ Match
+Highlighted:
+¡Hola,
+Expected (from timing):
+¡Hola,
+Word Index: 0 | Visible: 1 | Total Received: 9
+TIMING DRIFT
+Audio Time
+0.125s
+Expected Start
+0.000s
+Drift
++125ms
+CURRENT SENTENCE
+¡Hola, David! Welcome to your Spanish 1 Demo Class
+Target: ¡Hola
+WORD TIMING COUNTS
+Total Deltas:
+20
+Total Finals:
+20
+This Sentence:
+0 deltas
+Final Count:
+9
+WORD-BASED TIMING
+MATCHING
+Active Word (from ctx.currentTime):
+S0 W0: "¡Hola,"
+Schedule Size:
+20 words
+Last Match:
+0.33s
+FIRST Words (with abs times):
+S0W0: "¡Hola," @ 0.15-0.35s
+S0W1: "David!" @ 0.35-0.77s
+S0W2: "Welcome" @ 1.34-1.74s
+S0W3: "to" @ 1.74-1.97s
+S0W4: "your" @ 1.97-2.16s
+S0W5: "Spanish" @ 2.16-2.59s
+RECEIVED WORDS (6)
+0: Can
+1: you
+2: try
+3: saying
+4: Hola?
+5: Hola
+RECENT EVENTS (20)
+Δ
+S2:
+w4
+"Hola?"
+1.55-1.92s
+Δ
+S2:
+w3
+"saying"
+1.18-1.55s
+Δ
+S2:
+w2
+"try"
+0.90-1.18s
+Δ
+S2:
+w1
+"you"
+0.71-0.90s
+Δ
+S2:
+w0
+"Can"
+0.40-0.71s
+Δ
+S1:
+w5
+"Hola"
+1.04-1.41s
+Δ
+S1:
+w4
+"with"
+0.90-1.04s
+Δ
+S1:
+w3
+"start"
+0.51-0.90s
+Δ
+S1:
+w2
+"to"
+0.39-0.51s
+Δ
+S1:
+w1
+"going"
+0.20-0.39s
+TICK LOOP (First 5 frames)started 71.4s ago
+F1: ctx=0.000s, state=running, playing=true
+F2: ctx=0.000s, state=running, playing=true
+F3: ctx=0.016s, state=running, playing=true
+F4: ctx=0.016s, state=running, playing=true
+F5: ctx=0.053s, state=running, playing=true
+PLAYBACK STATE
+Loop Running:
+YES
+isPlaying:
+YES
+Loop Ticks:
+5
+Ctx Time:
+0.053s
+Ctx State:
+running
+Ctx ID:
+5668997_lmyl
+Active Sentence:
+0
+Last Delta Sent:
+S2
+SENTENCE EVENTS
+Last Start:
+none
+Last End:
+none
+AUDIO CHUNKS RECEIVED
+Total Chunks:
+56
+Last Chunk S:
+2
+Per Sentence: S0:27, S1:13, S2:16
+EMPTY CHUNKS & TRANSITIONS
+Empty Chunks:
+3
+Last Empty S:
+2
+EndTimes Set: [0, 1, 2]
+Transitions:
+s-1→s0: started at 0.18s
+SCHEDULE (3 entries)
+MATCH INFO (0 sentences)
+no match data
+SCHEDULE EVENTS (4)
+✅ ADD S2
+2:01:10 PM
+After: [0, 1, 2] (3 entries)
+✅ ADD S1
+2:01:09 PM
+After: [0, 1] (2 entries)
+✅ ADD S0
+2:01:09 PM
+After: [0] (1 entries)
+⚠️ CLEAR (0 removed)
+2:01:08 PM
+After: [] (0 entries)
