@@ -38,6 +38,7 @@ import {
   StreamingConnectedMessage,
   StreamingProcessingMessage,
   StreamingSentenceStartMessage,
+  StreamingSentenceReadyMessage,
   StreamingAudioChunkMessage,
   StreamingWordTimingMessage,
   StreamingWordTimingDeltaMessage,
@@ -106,6 +107,7 @@ type StreamingEventType =
   | 'sessionStart'
   | 'processing'
   | 'sentenceStart'
+  | 'sentenceReady'      // NEW: Atomic first audio + first timing (prevents timing race)
   | 'audioChunk'
   | 'wordTiming'
   | 'wordTimingDelta'    // Progressive streaming: incremental word timing
@@ -471,6 +473,12 @@ export class StreamingVoiceClient {
           this.handleSentenceStart(message as StreamingSentenceStartMessage);
           break;
           
+        case 'sentence_ready':
+          // NEW: Atomic first audio + first timing (prevents timing race)
+          console.error(`[WS RECV] >>> SENTENCE_READY CASE HIT <<<`);
+          this.handleSentenceReady(message as StreamingSentenceReadyMessage);
+          break;
+          
         case 'audio_chunk':
           this.handleAudioChunk(message as StreamingAudioChunkMessage);
           break;
@@ -557,6 +565,65 @@ export class StreamingVoiceClient {
     this.setState('streaming');
     this.callbacks.onSentenceStart?.(message.sentenceIndex, message.text, message.targetLanguageText);
     this.emit('sentenceStart', message);
+  }
+  
+  /**
+   * NEW: Handle atomic sentence_ready message
+   * Server sends this when BOTH first audio chunk AND first word timing are ready.
+   * This prevents the timing race condition where playback starts before timings arrive.
+   * 
+   * The message contains:
+   * - firstAudioChunk: The first audio chunk (can start playback)
+   * - firstWordTimings: All word timings received so far (at least 1)
+   * 
+   * Client should use this as the signal to start playback - guaranteed to have timing data.
+   */
+  private handleSentenceReady(message: StreamingSentenceReadyMessage): void {
+    const { sentenceIndex, turnId, firstAudioChunk, firstWordTimings, estimatedTotalDuration } = message;
+    
+    console.error(`[SENTENCE_READY] sentence=${sentenceIndex}, turn=${turnId}, audio=${firstAudioChunk.audio.length} chars, timings=${firstWordTimings.length} words`);
+    
+    // Track at window level for debugging
+    if (typeof window !== 'undefined') {
+      const win = window as any;
+      win._sentenceReadyCount = (win._sentenceReadyCount || 0) + 1;
+      if (!win._sentenceReadyHistory) win._sentenceReadyHistory = [];
+      win._sentenceReadyHistory.push({
+        sentenceIndex,
+        turnId,
+        audioChunkIndex: firstAudioChunk.chunkIndex,
+        audioSize: firstAudioChunk.audio.length,
+        timingCount: firstWordTimings.length,
+        firstWord: firstWordTimings[0]?.word || '(none)',
+        receivedAt: Date.now()
+      });
+    }
+    
+    // Update sentence index
+    this.currentSentenceIndex = sentenceIndex;
+    this.setState('streaming');
+    
+    // Update debug panel
+    const currentState = getDebugTimingState();
+    updateDebugTimingState({
+      totalDeltasReceived: currentState.totalDeltasReceived + firstWordTimings.length,
+      lastDeltaSentence: sentenceIndex,
+    });
+    
+    // Add each timing to the word timing event log
+    for (const timing of firstWordTimings) {
+      addWordTimingEvent({
+        sentenceIndex,
+        wordIndex: firstWordTimings.indexOf(timing),
+        word: timing.word,
+        startTime: timing.startTime,
+        endTime: timing.endTime,
+        type: 'delta',  // Treat as delta for consistency
+      });
+    }
+    
+    // Emit the atomic message - listeners can use both audio and timing together
+    this.emit('sentenceReady', message);
   }
   
   private handleAudioChunk(message: StreamingAudioChunkMessage): void {

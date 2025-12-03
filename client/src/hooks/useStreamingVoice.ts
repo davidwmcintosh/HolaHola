@@ -17,6 +17,7 @@ import type {
   StreamingMetrics,
   StreamingProcessingMessage,
   StreamingSentenceStartMessage,
+  StreamingSentenceReadyMessage,
   StreamingAudioChunkMessage,
   StreamingWordTimingMessage,
   StreamingWordTimingDeltaMessage,
@@ -366,6 +367,83 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   /**
+   * NEW: Handle atomic sentence_ready message
+   * 
+   * This message contains BOTH the first audio chunk AND the first word timings,
+   * sent atomically by the server to prevent the timing race condition where
+   * playback starts before timings arrive.
+   * 
+   * Client should use this as the signal to start playback - guaranteed to have timing data.
+   */
+  const handleSentenceReady = useCallback((msg: StreamingSentenceReadyMessage) => {
+    const { sentenceIndex, turnId, firstAudioChunk, firstWordTimings, estimatedTotalDuration } = msg;
+    
+    console.error(`[SENTENCE_READY HANDLER] sentence=${sentenceIndex}, turn=${turnId}, timings=${firstWordTimings.length} words`);
+    
+    // SAFETY CHECK: Verify we have timing data before starting playback
+    // This should never happen if server is correctly buffering, but belt-and-suspenders
+    if (!firstWordTimings || firstWordTimings.length === 0) {
+      console.error(`[SENTENCE_READY] WARNING: Received sentence_ready with no timings! Deferring playback.`);
+      // Don't enqueue audio yet - wait for word_timing_delta messages
+      return;
+    }
+    
+    // 1. Register all word timings with the player FIRST (before audio plays)
+    if (playerRef.current && firstWordTimings.length > 0) {
+      for (let i = 0; i < firstWordTimings.length; i++) {
+        const timing = firstWordTimings[i];
+        playerRef.current.registerWordTiming(
+          sentenceIndex,
+          i,
+          timing.word,
+          timing.startTime,
+          timing.endTime
+        );
+      }
+    }
+    
+    // 2. Add word timings to subtitles for progressive display
+    for (let i = 0; i < firstWordTimings.length; i++) {
+      const timing = firstWordTimings[i];
+      subtitlesRef.current.addProgressiveWordTiming(
+        sentenceIndex,
+        turnId,
+        i,
+        timing.word,
+        timing.startTime,
+        timing.endTime,
+        estimatedTotalDuration
+      );
+    }
+    
+    // 3. Enqueue the first audio chunk for playback
+    if (playerRef.current && firstAudioChunk.audio) {
+      logAudioChunkReceived(sentenceIndex);
+      
+      // Decode base64 to ArrayBuffer
+      const binaryString = atob(firstAudioChunk.audio);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      console.error(`[SENTENCE_READY] Enqueueing first audio chunk: ${bytes.buffer.byteLength} bytes`);
+      
+      // Enqueue for progressive playback
+      if (firstAudioChunk.audioFormat === 'pcm_f32le') {
+        playerRef.current.enqueueProgressivePcmChunk(
+          sentenceIndex,
+          firstAudioChunk.chunkIndex,
+          bytes.buffer,
+          firstAudioChunk.durationMs,
+          false,  // Not last chunk
+          firstAudioChunk.sampleRate
+        );
+      }
+    }
+  }, []);
+  
+  /**
    * PROGRESSIVE STREAMING: Handle final word timing reconciliation
    * Sent when sentence synthesis completes with authoritative timings
    * 
@@ -432,6 +510,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('stateChange', setConnectionState);
       clientRef.current.on('processing', handleProcessing);
       clientRef.current.on('sentenceStart', handleSentenceStart);
+      clientRef.current.on('sentenceReady', handleSentenceReady);  // NEW: Atomic first audio + timing
       clientRef.current.on('audioChunk', handleAudioChunk);
       clientRef.current.on('wordTiming', handleWordTiming);
       clientRef.current.on('wordTimingDelta', handleWordTimingDelta);  // Progressive streaming
@@ -464,7 +543,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleSentenceStart, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleError]);
+  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleError]);
   
   /**
    * Disconnect from streaming voice service
@@ -476,6 +555,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('stateChange', setConnectionState);
       clientRef.current.off('processing', handleProcessing);
       clientRef.current.off('sentenceStart', handleSentenceStart);
+      clientRef.current.off('sentenceReady', handleSentenceReady);  // NEW: Atomic first audio + timing
       clientRef.current.off('audioChunk', handleAudioChunk);
       clientRef.current.off('wordTiming', handleWordTiming);
       clientRef.current.off('wordTimingDelta', handleWordTimingDelta);  // Progressive streaming
@@ -495,7 +575,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     pendingAudioCountRef.current = 0;
     setConnectionState('disconnected');
     setIsProcessing(false);
-  }, [handleProcessing, handleSentenceStart, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleError, subtitles]);
+  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleError, subtitles]);
   
   /**
    * Send audio for processing

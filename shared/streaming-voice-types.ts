@@ -36,6 +36,7 @@ export type StreamingVoiceMessageType =
   | 'session_started'     // Session authenticated and ready
   | 'processing'          // STT received, AI processing started
   | 'sentence_start'      // New sentence chunk starting
+  | 'sentence_ready'      // NEW: First audio + first timing bundled (prevents timing race)
   | 'audio_chunk'         // Audio data for current sentence
   | 'word_timing'         // Word-level timing for subtitle sync (buffered mode)
   | 'word_timing_delta'   // Progressive: Incremental word timing update
@@ -96,6 +97,35 @@ export interface StreamingSentenceStartMessage extends StreamingVoiceMessage {
   hasTargetContent: boolean;  // Explicit flag: true = show subtitles, false = hide immediately
   targetLanguageText?: string;  // Target language only (if hasTargetContent is true)
   wordMapping?: [number, number][];  // Maps fullTextWordIndex -> targetTextWordIndex for karaoke in Target mode
+}
+
+/**
+ * NEW: Sentence ready - First audio chunk bundled with first word timing
+ * 
+ * ARCHITECTURE: Prevents timing race condition where audio playback starts
+ * before word timings arrive. Server buffers until BOTH are available,
+ * then sends them atomically in one message.
+ * 
+ * - firstAudioChunk: The first PCM audio chunk (can start playback)
+ * - firstWordTiming: Word timing for index 0 (can initialize subtitle timeline)
+ * - Client should NOT start playback until receiving this message
+ * - Subsequent audio_chunk and word_timing_delta messages follow normally
+ */
+export interface StreamingSentenceReadyMessage extends StreamingVoiceMessage {
+  type: 'sentence_ready';
+  turnId: number;
+  sentenceIndex: number;
+  // First audio chunk data
+  firstAudioChunk: {
+    chunkIndex: number;
+    durationMs: number;
+    audio: string;  // Base64-encoded
+    audioFormat: AudioFormat;
+    sampleRate: number;
+  };
+  // First word timing (at minimum word index 0)
+  firstWordTimings: WordTiming[];  // All timings received so far (at least 1)
+  estimatedTotalDuration?: number;
 }
 
 /**
@@ -243,6 +273,7 @@ export type StreamingMessage =
   | StreamingSessionStartedMessage
   | StreamingProcessingMessage
   | StreamingSentenceStartMessage
+  | StreamingSentenceReadyMessage
   | StreamingAudioChunkMessage
   | StreamingWordTimingMessage
   | StreamingWordTimingDeltaMessage

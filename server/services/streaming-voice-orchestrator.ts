@@ -17,6 +17,7 @@ import {
   StreamingConnectedMessage,
   StreamingProcessingMessage,
   StreamingSentenceStartMessage,
+  StreamingSentenceReadyMessage,
   StreamingAudioChunkMessage,
   StreamingWordTimingMessage,
   StreamingWordTimingDeltaMessage,
@@ -943,8 +944,82 @@ export class StreamingVoiceOrchestrator {
     const emotion = this.selectEmotionForContext(originalText, session);
     const effectiveTurnId = turnId ?? session.currentTurnId;
     
+    // === TIMING RACE FIX: Server-side buffering ===
+    // Buffer audio chunks until we have at least the first word timing.
+    // Once both are available, send atomic 'sentence_ready' message.
+    // This prevents the race condition where client starts playback before timings arrive.
+    
+    interface BufferedAudioChunk {
+      audio: Buffer;
+      durationMs: number;
+      audioFormat: 'mp3' | 'pcm_f32le';
+      sampleRate: number;
+      chunkIndex: number;
+    }
+    
+    let bufferedAudioChunks: BufferedAudioChunk[] = [];
+    let bufferedWordTimings: WordTiming[] = [];
+    let estimatedTotalDuration = 0;
+    let sentenceReadySent = false;  // Have we sent the sentence_ready message?
     let chunkIndex = 0;
-    let firstChunkSent = false;
+    
+    // Helper: Flush buffered data when we have both audio AND timing
+    // CRITICAL: This MUST only fire when we have at least one timing
+    // to guarantee the client can start playback with timing data.
+    const trySendSentenceReady = () => {
+      if (sentenceReadySent) return;
+      if (bufferedAudioChunks.length === 0) return;  // No audio yet
+      
+      // CRITICAL FIX: Only send sentence_ready when we have at least one timing
+      // This prevents the race condition where playback starts without timing data
+      if (bufferedWordTimings.length === 0) {
+        console.log(`[Progressive] Sentence ${index}: Waiting for first word timing (have ${bufferedAudioChunks.length} audio chunks buffered)`);
+        return;  // Wait until we have at least one timing
+      }
+      
+      // We have both audio AND timing - send the atomic sentence_ready message
+      sentenceReadySent = true;
+      
+      const firstChunk = bufferedAudioChunks[0];
+      console.log(`[Progressive] Sentence ${index}: Sending sentence_ready (audio=${bufferedAudioChunks.length} chunks, timings=${bufferedWordTimings.length} words)`);
+      
+      this.sendMessage(session.ws, {
+        type: 'sentence_ready',
+        timestamp: Date.now(),
+        turnId: effectiveTurnId,
+        sentenceIndex: index,
+        firstAudioChunk: {
+          chunkIndex: firstChunk.chunkIndex,
+          durationMs: firstChunk.durationMs,
+          audio: firstChunk.audio.toString('base64'),
+          audioFormat: firstChunk.audioFormat,
+          sampleRate: firstChunk.sampleRate,
+        },
+        firstWordTimings: [...bufferedWordTimings],
+        estimatedTotalDuration: estimatedTotalDuration,
+      } as StreamingSentenceReadyMessage);
+      
+      // Send any additional buffered audio chunks (beyond the first one)
+      for (let i = 1; i < bufferedAudioChunks.length; i++) {
+        const chunk = bufferedAudioChunks[i];
+        this.sendMessage(session.ws, {
+          type: 'audio_chunk',
+          timestamp: Date.now(),
+          turnId: effectiveTurnId,
+          sentenceIndex: index,
+          chunkIndex: chunk.chunkIndex,
+          isLast: false,
+          durationMs: chunk.durationMs,
+          audio: chunk.audio.toString('base64'),
+          audioFormat: chunk.audioFormat,
+          sampleRate: chunk.sampleRate,
+        } as StreamingAudioChunkMessage);
+      }
+      
+      // Clear buffers - subsequent data goes directly to client
+      bufferedAudioChunks = [];
+      // Note: Word timings buffer stays to track what we've sent
+    };
     
     try {
       // Use progressive streaming API with real-time callbacks
@@ -960,53 +1035,79 @@ export class StreamingVoiceOrchestrator {
           expressiveness: session.tutorExpressiveness,
         },
         {
-          // Forward audio chunks immediately as they arrive from Cartesia
+          // Audio chunk callback - buffer until timing arrives, then stream directly
           onAudioChunk: (audioChunk, idx) => {
-            if (!firstChunkSent) {
-              firstChunkSent = true;
-              console.log(`[Progressive] Sentence ${index}: First chunk forwarded`);
-            }
-            
-            const audioBase64 = audioChunk.audio.toString('base64');
-            this.sendMessage(session.ws, {
-              type: 'audio_chunk',
-              timestamp: Date.now(),
-              turnId: effectiveTurnId,
-              sentenceIndex: index,
-              chunkIndex: idx,
-              isLast: false, // Not last until final callback
-              durationMs: audioChunk.durationMs,
-              audio: audioBase64,
-              audioFormat: audioChunk.audioFormat || 'pcm_f32le',
-              sampleRate: audioChunk.sampleRate || 24000,
-            } as StreamingAudioChunkMessage);
-            
             metrics.audioBytes += audioChunk.audio.length;
-            chunkIndex = idx + 1;
-          },
-          
-          // Forward word timings incrementally (delta messages)
-          onWordTimestamp: (timing, wordIdx, estimatedTotal) => {
-            console.log(`[Progressive] Sending word_timing_delta: sentence=${index}, word=${wordIdx} "${timing.word}"`);
-            if (session.subtitleMode !== 'off') {
+            
+            if (!sentenceReadySent) {
+              // Still buffering - wait for first timing
+              console.log(`[Progressive] Sentence ${index}: Buffering audio chunk ${idx} (waiting for timing)`);
+              bufferedAudioChunks.push({
+                audio: audioChunk.audio,
+                durationMs: audioChunk.durationMs,
+                audioFormat: audioChunk.audioFormat || 'pcm_f32le',
+                sampleRate: audioChunk.sampleRate || 24000,
+                chunkIndex: idx,
+              });
+              trySendSentenceReady();
+            } else {
+              // sentence_ready already sent - forward audio directly
+              const audioBase64 = audioChunk.audio.toString('base64');
               this.sendMessage(session.ws, {
-                type: 'word_timing_delta',
+                type: 'audio_chunk',
                 timestamp: Date.now(),
                 turnId: effectiveTurnId,
                 sentenceIndex: index,
-                wordIndex: wordIdx,
-                word: timing.word,
-                startTime: timing.startTime,
-                endTime: timing.endTime,
-                estimatedTotalDuration: estimatedTotal,
-              } as StreamingWordTimingDeltaMessage);
+                chunkIndex: idx,
+                isLast: false,
+                durationMs: audioChunk.durationMs,
+                audio: audioBase64,
+                audioFormat: audioChunk.audioFormat || 'pcm_f32le',
+                sampleRate: audioChunk.sampleRate || 24000,
+              } as StreamingAudioChunkMessage);
+            }
+            
+            chunkIndex = idx + 1;
+          },
+          
+          // Word timing callback - buffer until audio arrives, then stream deltas
+          onWordTimestamp: (timing, wordIdx, estimatedTotal) => {
+            estimatedTotalDuration = estimatedTotal;
+            
+            if (!sentenceReadySent) {
+              // Still buffering - accumulate timings
+              console.log(`[Progressive] Sentence ${index}: Buffering word ${wordIdx} "${timing.word}" (waiting for audio)`);
+              bufferedWordTimings.push(timing);
+              trySendSentenceReady();
             } else {
-              console.log(`[Progressive] Skipping delta (subtitleMode=${session.subtitleMode})`);
+              // sentence_ready already sent - send as delta
+              console.log(`[Progressive] Sending word_timing_delta: sentence=${index}, word=${wordIdx} "${timing.word}"`);
+              if (session.subtitleMode !== 'off') {
+                this.sendMessage(session.ws, {
+                  type: 'word_timing_delta',
+                  timestamp: Date.now(),
+                  turnId: effectiveTurnId,
+                  sentenceIndex: index,
+                  wordIndex: wordIdx,
+                  word: timing.word,
+                  startTime: timing.startTime,
+                  endTime: timing.endTime,
+                  estimatedTotalDuration: estimatedTotal,
+                } as StreamingWordTimingDeltaMessage);
+              }
             }
           },
           
           // Final reconciliation when synthesis completes
           onComplete: (finalTimestamps, actualDurationMs) => {
+            // If we never sent sentence_ready (edge case: no timings at all), send now with estimated timings
+            if (!sentenceReadySent && bufferedAudioChunks.length > 0) {
+              console.log(`[Progressive] Sentence ${index}: No native timings received, using estimates`);
+              const estimatedTimings = this.estimateWordTimings(displayText, actualDurationMs / 1000);
+              bufferedWordTimings = estimatedTimings;
+              trySendSentenceReady();
+            }
+            
             // Send final timing reconciliation
             if (session.subtitleMode !== 'off') {
               const timings = finalTimestamps.length > 0 
