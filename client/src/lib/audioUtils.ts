@@ -569,34 +569,24 @@ export class StreamingAudioPlayer {
    * each sentence's audio actually starts playing.
    */
   private startUnifiedTimingLoop(): void {
+    // DIAGNOSTIC: Log entry to this function
+    console.error(`[LOOP-ENTRY] startUnifiedTimingLoop called, rafId=${this.rafId}, isPlaying=${this.isPlaying}`);
+    
     // Cancel any existing timing loop
     this.stopPrecisionTiming();
     
+    // DIAGNOSTIC: Confirm rafId is now null
+    console.error(`[LOOP-ENTRY] After stopPrecisionTiming: rafId=${this.rafId}`);
+    
     // Use console.error for critical logging - more likely to be captured
-    console.error(`[AUDIO-CRITICAL] Starting UNIFIED timing loop - isPlaying=${this.isPlaying}, scheduleSize=${this.sentenceSchedule.size}`);
-    
-    // Update debug state - loop is starting
-    updateDebugTimingState({
-      isLoopRunning: true,
-      isPlaying: this.isPlaying,
-      loopTickCount: 0,
-    });
-    
-    // Additional diagnostic: log after a short delay to verify loop is running
-    setTimeout(() => {
-      console.error(`[AUDIO-CRITICAL] 500ms after loop start - isPlaying=${this.isPlaying}, rafId=${this.rafId}`);
-    }, 500);
+    console.error(`[LOOP-STARTING] isPlaying=${this.isPlaying}, scheduleSize=${this.sentenceSchedule.size}`);
     
     let frameCount = 0;
     
     const tick = (): void => {
       // Exit if playback stopped
       if (!this.isPlaying) {
-        console.error('[AUDIO-CRITICAL] Timing loop exiting: isPlaying=false');
-        updateDebugTimingState({
-          isLoopRunning: false,
-          isPlaying: false,
-        });
+        console.error('[LOOP-EXIT] isPlaying=false');
         return;
       }
       
@@ -632,50 +622,24 @@ export class StreamingAudioPlayer {
         }
       }
       
-      // Debug log EVERY frame for first 5 ticks, then every 60 frames
+      // Increment frame count
       frameCount++;
       
-      // ALWAYS update window-level debug state for inspection
-      (window as any).__timingLoopState = {
-        frameCount,
-        now: now.toFixed(3),
-        activeIndex,
-        scheduleCount: entries.length,
-        schedule: entries.map(([idx, e]) => ({
-          idx,
-          start: e.startCtxTime.toFixed(3),
-          end: (e.endCtxTime ?? (e.startCtxTime + e.totalDuration)).toFixed(3),
-          duration: e.totalDuration.toFixed(3),
-          started: e.started,
-          ended: e.ended,
-        })),
-        timestamp: Date.now(),
-      };
-      
-      // Update debug state every 30 frames (~2 times/second at 60fps)
-      if (frameCount % 30 === 1 || frameCount <= 5) {
-        const scheduleForDebug: SentenceScheduleEntry[] = entries.map(([idx, e]) => ({
-          sentenceIndex: idx,
-          startCtxTime: e.startCtxTime,
-          totalDuration: e.totalDuration,
-          endCtxTime: e.endCtxTime,
-          started: e.started,
-          ended: e.ended,
-        }));
-        
-        updateDebugTimingState({
-          isLoopRunning: true,
-          currentCtxTime: now,
-          activeSentenceIndex: activeIndex,
-          sentenceSchedule: scheduleForDebug,
-          loopTickCount: frameCount,
-          isPlaying: this.isPlaying,
-        });
+      // PERFORMANCE FIX: Only update debug state occasionally (every 120 frames = ~2s)
+      // This prevents object cloning from choking the UI thread
+      if (frameCount % 120 === 1) {
+        (window as any).__timingLoopState = {
+          frameCount,
+          now: now.toFixed(3),
+          activeIndex,
+          scheduleCount: entries.length,
+          timestamp: Date.now(),
+        };
       }
       
-      if (frameCount <= 5 || frameCount % 60 === 1) {
-        const scheduleInfo = entries.map(([idx, e]) => `s${idx}:[${e.startCtxTime.toFixed(2)}-${(e.endCtxTime ?? (e.startCtxTime + e.totalDuration)).toFixed(2)}]`).join(',');
-        console.error(`[AUDIO-CRITICAL] Tick #${frameCount}: now=${now.toFixed(3)}, schedule=[${scheduleInfo}], activeIdx=${activeIndex}`);
+      // Log first 3 ticks, then every 120 frames for diagnostics
+      if (frameCount <= 3 || frameCount % 120 === 1) {
+        console.error(`[TICK] #${frameCount}: now=${now.toFixed(3)}, active=${activeIndex}, schedule=${entries.length}`);
       }
       
       if (activeEntry && activeIndex >= 0) {
@@ -686,27 +650,14 @@ export class StreamingAudioPlayer {
           this.activeSentenceInLoop = activeIndex;
           this.progressivePlaybackStartCtxTime = activeEntry.startCtxTime;
           
-          const hasCallback = typeof this.callbacks.onSentenceStart === 'function';
-          console.error(`[AUDIO-CRITICAL] >>> FIRING onSentenceStart(${activeIndex}) - hasCallback=${hasCallback}, ctx.time=${now.toFixed(3)} <<<`);
-          
-          // Record in debug state
-          updateDebugTimingState({
-            lastOnSentenceStartFired: activeIndex,
-            activeSentenceIndex: activeIndex,
-          });
-          
+          console.error(`[SENTENCE-START] Firing onSentenceStart(${activeIndex}) at ctx.time=${now.toFixed(3)}`);
           this.callbacks.onSentenceStart?.(activeIndex);
         }
         
         // Calculate elapsed time within THIS sentence
         const elapsedInSentence = now - activeEntry.startCtxTime;
         
-        // Fire progress callback
-        // DEBUG: Log every 30 frames (~0.5s) to verify callback is firing
-        if (frameCount % 30 === 0) {
-          const hasCallback = typeof this.callbacks.onProgress === 'function';
-          console.error(`[PROGRESS-DEBUG] Firing onProgress(${elapsedInSentence.toFixed(3)}, ${activeEntry.totalDuration.toFixed(3)}) hasCallback=${hasCallback}`);
-        }
+        // Fire progress callback (drives subtitle word highlighting)
         this.callbacks.onProgress?.(elapsedInSentence, activeEntry.totalDuration);
       } else {
         // No active sentence - check for sentences that have ended but haven't fired onSentenceEnd
@@ -752,7 +703,10 @@ export class StreamingAudioPlayer {
       this.rafId = requestAnimationFrame(tick);
     };
     
+    // DIAGNOSTIC: Confirm we're about to start the first RAF
+    console.error(`[LOOP-START] About to call requestAnimationFrame - first tick incoming`);
     this.rafId = requestAnimationFrame(tick);
+    console.error(`[LOOP-START] First RAF scheduled, rafId=${this.rafId}`);
   }
 
   /**
