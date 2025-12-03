@@ -6103,6 +6103,169 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ===== Drill Items (for drill-type lessons) =====
+
+  // Get drill items for a lesson
+  app.get("/api/drill-items/:lessonId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { lessonId } = req.params;
+      const items = await storage.getDrillItems(lessonId);
+      res.json(items);
+    } catch (error: any) {
+      console.error('Error fetching drill items:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create drill item (teachers only)
+  app.post("/api/drill-items", mutationLimiter, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!hasTeacherAccess(user?.role)) {
+        return res.status(403).json({ error: "Only teachers can create drill items" });
+      }
+
+      const item = await storage.createDrillItem(req.body);
+      res.json(item);
+    } catch (error: any) {
+      console.error('Error creating drill item:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update drill item (teachers only)
+  app.patch("/api/drill-items/:id", mutationLimiter, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!hasTeacherAccess(user?.role)) {
+        return res.status(403).json({ error: "Only teachers can update drill items" });
+      }
+
+      const { id } = req.params;
+      const updated = await storage.updateDrillItem(id, req.body);
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Drill item not found" });
+      }
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error('Error updating drill item:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete drill item (teachers only)
+  app.delete("/api/drill-items/:id", mutationLimiter, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!hasTeacherAccess(user?.role)) {
+        return res.status(403).json({ error: "Only teachers can delete drill items" });
+      }
+
+      const { id } = req.params;
+      const deleted = await storage.deleteDrillItem(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Drill item not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error: any) {
+      console.error('Error deleting drill item:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== User Drill Progress =====
+
+  // Get drill progress for a lesson
+  app.get("/api/drill-progress/:lessonId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { lessonId } = req.params;
+      
+      const progress = await storage.getDrillProgressForLesson(userId, lessonId);
+      const items = await storage.getDrillItems(lessonId);
+      
+      // Combine items with their progress
+      const itemsWithProgress = items.map(item => {
+        const itemProgress = progress.find(p => p.drillItemId === item.id);
+        return {
+          ...item,
+          progress: itemProgress || null,
+        };
+      });
+      
+      // Calculate overall stats
+      const totalItems = items.length;
+      const masteredCount = progress.filter(p => p.mastered).length;
+      const attemptedCount = progress.length;
+      
+      res.json({
+        items: itemsWithProgress,
+        stats: {
+          totalItems,
+          attemptedCount,
+          masteredCount,
+          completionPercent: totalItems > 0 ? Math.round((masteredCount / totalItems) * 100) : 0,
+        },
+      });
+    } catch (error: any) {
+      console.error('Error fetching drill progress:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Record a drill attempt
+  app.post("/api/drill-progress/attempt", mutationLimiter, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { drillItemId, score, timeSpentMs } = req.body;
+      
+      if (!drillItemId || typeof score !== 'number') {
+        return res.status(400).json({ error: "drillItemId and score are required" });
+      }
+      
+      const progress = await storage.recordDrillAttempt(
+        userId, 
+        drillItemId, 
+        score, 
+        timeSpentMs || 0
+      );
+      
+      res.json(progress);
+    } catch (error: any) {
+      console.error('Error recording drill attempt:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get items due for review
+  app.get("/api/drill-progress/due-review", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { lessonId, limit } = req.query;
+      
+      const items = await storage.getDueReviewItems(
+        userId,
+        lessonId as string | undefined,
+        limit ? parseInt(limit as string) : 20
+      );
+      
+      res.json(items);
+    } catch (error: any) {
+      console.error('Error fetching due review items:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== Syllabus Progress & Competency =====
 
   // Check lesson competency for a student

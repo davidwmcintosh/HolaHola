@@ -64,7 +64,13 @@ import {
   type InsertClassCurriculumLesson,
   type UserLanguagePreferences,
   type InsertUserLanguagePreferences,
+  type CurriculumDrillItem,
+  type InsertCurriculumDrillItem,
+  type UserDrillProgress,
+  type InsertUserDrillProgress,
   userLanguagePreferences,
+  curriculumDrillItems,
+  userDrillProgress,
   classHourPackages,
   classTypes,
   classCurriculumUnits,
@@ -302,6 +308,20 @@ export interface IStorage {
   createCurriculumLesson(data: InsertCurriculumLesson): Promise<CurriculumLesson>;
   getCurriculumLessons(curriculumUnitId: string): Promise<CurriculumLesson[]>;
   getCurriculumLesson(id: string): Promise<CurriculumLesson | undefined>;
+
+  // Drill Items (for drill-type lessons)
+  createDrillItem(data: InsertCurriculumDrillItem): Promise<CurriculumDrillItem>;
+  getDrillItems(lessonId: string): Promise<CurriculumDrillItem[]>;
+  getDrillItem(id: string): Promise<CurriculumDrillItem | undefined>;
+  updateDrillItem(id: string, data: Partial<CurriculumDrillItem>): Promise<CurriculumDrillItem | undefined>;
+  deleteDrillItem(id: string): Promise<boolean>;
+  updateDrillItemAudio(id: string, audioUrl: string, audioDurationMs?: number): Promise<CurriculumDrillItem | undefined>;
+
+  // User Drill Progress
+  getDrillProgress(userId: string, drillItemId: string): Promise<UserDrillProgress | undefined>;
+  getDrillProgressForLesson(userId: string, lessonId: string): Promise<UserDrillProgress[]>;
+  recordDrillAttempt(userId: string, drillItemId: string, score: number, timeSpentMs: number): Promise<UserDrillProgress>;
+  getDueReviewItems(userId: string, lessonId?: string, limit?: number): Promise<CurriculumDrillItem[]>;
 
   // Class-Specific Curriculum (Teacher's Customizable Syllabi)
   cloneCurriculumToClass(classId: string, curriculumPathId: string): Promise<{ units: ClassCurriculumUnit[]; lessons: ClassCurriculumLesson[] }>;
@@ -2364,6 +2384,183 @@ export class DatabaseStorage implements IStorage {
   async getCurriculumLesson(id: string): Promise<CurriculumLesson | undefined> {
     const result = await db.select().from(curriculumLessons).where(eq(curriculumLessons.id, id));
     return result[0];
+  }
+
+  // ===== Drill Items =====
+
+  async createDrillItem(data: InsertCurriculumDrillItem): Promise<CurriculumDrillItem> {
+    const [item] = await db.insert(curriculumDrillItems).values(data).returning();
+    return item;
+  }
+
+  async getDrillItems(lessonId: string): Promise<CurriculumDrillItem[]> {
+    return await db
+      .select()
+      .from(curriculumDrillItems)
+      .where(eq(curriculumDrillItems.lessonId, lessonId))
+      .orderBy(curriculumDrillItems.orderIndex);
+  }
+
+  async getDrillItem(id: string): Promise<CurriculumDrillItem | undefined> {
+    const result = await db.select().from(curriculumDrillItems).where(eq(curriculumDrillItems.id, id));
+    return result[0];
+  }
+
+  async updateDrillItem(id: string, data: Partial<CurriculumDrillItem>): Promise<CurriculumDrillItem | undefined> {
+    const [updated] = await db
+      .update(curriculumDrillItems)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(curriculumDrillItems.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteDrillItem(id: string): Promise<boolean> {
+    const result = await db.delete(curriculumDrillItems).where(eq(curriculumDrillItems.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async updateDrillItemAudio(id: string, audioUrl: string, audioDurationMs?: number): Promise<CurriculumDrillItem | undefined> {
+    const updateData: Partial<CurriculumDrillItem> = { audioUrl, updatedAt: new Date() };
+    if (audioDurationMs !== undefined) {
+      updateData.audioDurationMs = audioDurationMs;
+    }
+    const [updated] = await db
+      .update(curriculumDrillItems)
+      .set(updateData)
+      .where(eq(curriculumDrillItems.id, id))
+      .returning();
+    return updated;
+  }
+
+  // ===== User Drill Progress =====
+
+  async getDrillProgress(userId: string, drillItemId: string): Promise<UserDrillProgress | undefined> {
+    const result = await db
+      .select()
+      .from(userDrillProgress)
+      .where(and(
+        eq(userDrillProgress.userId, userId),
+        eq(userDrillProgress.drillItemId, drillItemId)
+      ));
+    return result[0];
+  }
+
+  async getDrillProgressForLesson(userId: string, lessonId: string): Promise<UserDrillProgress[]> {
+    // Get all drill items for the lesson, then get progress for each
+    const drillItems = await this.getDrillItems(lessonId);
+    const drillItemIds = drillItems.map(item => item.id);
+    
+    if (drillItemIds.length === 0) return [];
+    
+    return await db
+      .select()
+      .from(userDrillProgress)
+      .where(and(
+        eq(userDrillProgress.userId, userId),
+        inArray(userDrillProgress.drillItemId, drillItemIds)
+      ));
+  }
+
+  async recordDrillAttempt(userId: string, drillItemId: string, score: number, timeSpentMs: number): Promise<UserDrillProgress> {
+    const existing = await this.getDrillProgress(userId, drillItemId);
+    const now = new Date();
+    const isCorrect = score >= 0.8; // 80% threshold for "correct"
+    
+    if (existing) {
+      // Update existing progress
+      const newAttempts = (existing.attempts ?? 0) + 1;
+      const newCorrectCount = (existing.correctCount ?? 0) + (isCorrect ? 1 : 0);
+      const newTotalTime = (existing.totalTimeSpentMs ?? 0) + timeSpentMs;
+      const newAverage = ((existing.averageScore ?? 0) * (existing.attempts ?? 0) + score) / newAttempts;
+      const newBest = Math.max(existing.bestScore ?? 0, score);
+      
+      // Check mastery (3+ correct in a row with 80%+ average)
+      const wasMastered = existing.mastered;
+      const isMastered = newCorrectCount >= 3 && newAverage >= 0.8;
+      
+      // Calculate next review using spaced repetition
+      let nextReviewAt = existing.nextReviewAt;
+      let reviewInterval = existing.reviewInterval ?? 1;
+      if (isCorrect && isMastered) {
+        reviewInterval = Math.min(reviewInterval * 2, 30); // Double interval, max 30 days
+        nextReviewAt = new Date(now.getTime() + reviewInterval * 24 * 60 * 60 * 1000);
+      } else if (!isCorrect) {
+        reviewInterval = 1; // Reset to 1 day on incorrect
+        nextReviewAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      }
+      
+      const [updated] = await db
+        .update(userDrillProgress)
+        .set({
+          attempts: newAttempts,
+          correctCount: newCorrectCount,
+          lastScore: score,
+          bestScore: newBest,
+          averageScore: newAverage,
+          mastered: isMastered,
+          masteredAt: isMastered && !wasMastered ? now : existing.masteredAt,
+          nextReviewAt,
+          reviewInterval,
+          lastAttemptedAt: now,
+          totalTimeSpentMs: newTotalTime,
+          updatedAt: now,
+        })
+        .where(eq(userDrillProgress.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      // Create new progress record
+      const isMastered = isCorrect && score >= 0.9; // First-time mastery requires 90%+
+      const nextReviewAt = new Date(now.getTime() + (isCorrect ? 2 : 1) * 24 * 60 * 60 * 1000);
+      
+      const [created] = await db
+        .insert(userDrillProgress)
+        .values({
+          userId,
+          drillItemId,
+          attempts: 1,
+          correctCount: isCorrect ? 1 : 0,
+          lastScore: score,
+          bestScore: score,
+          averageScore: score,
+          mastered: isMastered,
+          masteredAt: isMastered ? now : null,
+          nextReviewAt,
+          reviewInterval: isCorrect ? 2 : 1,
+          lastAttemptedAt: now,
+          totalTimeSpentMs: timeSpentMs,
+        })
+        .returning();
+      return created;
+    }
+  }
+
+  async getDueReviewItems(userId: string, lessonId?: string, limit: number = 20): Promise<CurriculumDrillItem[]> {
+    const now = new Date();
+    
+    // Get items that are due for review
+    let query = db
+      .select({ drillItem: curriculumDrillItems })
+      .from(userDrillProgress)
+      .innerJoin(curriculumDrillItems, eq(userDrillProgress.drillItemId, curriculumDrillItems.id))
+      .where(and(
+        eq(userDrillProgress.userId, userId),
+        lte(userDrillProgress.nextReviewAt, now)
+      ))
+      .orderBy(userDrillProgress.nextReviewAt)
+      .limit(limit);
+    
+    const results = await query;
+    
+    // Filter by lesson if specified
+    if (lessonId) {
+      return results
+        .filter(r => r.drillItem.lessonId === lessonId)
+        .map(r => r.drillItem);
+    }
+    
+    return results.map(r => r.drillItem);
   }
 
   // ===== Class-Specific Curriculum (Teacher's Customizable Syllabi) =====
