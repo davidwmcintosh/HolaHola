@@ -891,20 +891,29 @@ export class StreamingAudioPlayer {
       
       for (let i = 0; i < scheduleEntries.length; i++) {
         const [index, entry] = scheduleEntries[i];
-        const isStreaming = entry.endCtxTime === undefined;
+        // FIXED: Don't treat as "streaming forever" just because endCtxTime isn't set
+        // Instead, use totalDuration as the fallback end time
+        // Only truly "streaming" if we have no duration data yet (first chunk still arriving)
+        const hasEnoughDuration = entry.totalDuration > 0.1; // At least 100ms of audio
         const endTime = entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration);
-        const matches = now >= entry.startCtxTime && (isStreaming || now < endTime);
+        
+        // A sentence matches if:
+        // 1. now >= startCtxTime (sentence has started)
+        // 2. AND either: still streaming (no duration yet) OR now < computed end time
+        const isActivelyStreaming = !hasEnoughDuration && entry.endCtxTime === undefined;
+        const matches = now >= entry.startCtxTime && (isActivelyStreaming || now < endTime);
         
         // Build reason string
         let reason = '';
         if (now < entry.startCtxTime) {
           reason = `NOT YET: now(${now.toFixed(2)}) < start(${entry.startCtxTime.toFixed(2)})`;
-        } else if (isStreaming) {
-          reason = `STREAMING: now(${now.toFixed(2)}) >= start, no endTime`;
+        } else if (isActivelyStreaming) {
+          reason = `STREAMING: now(${now.toFixed(2)}) >= start, buffering first chunks`;
         } else if (now >= endTime) {
           reason = `ENDED: now(${now.toFixed(2)}) >= end(${endTime.toFixed(2)})`;
         } else {
-          reason = `ACTIVE: start(${entry.startCtxTime.toFixed(2)}) <= now(${now.toFixed(2)}) < end(${endTime.toFixed(2)})`;
+          const endSource = entry.endCtxTime !== undefined ? 'endCtxTime' : 'duration';
+          reason = `ACTIVE: start(${entry.startCtxTime.toFixed(2)}) <= now(${now.toFixed(2)}) < end(${endTime.toFixed(2)}) [${endSource}]`;
         }
         
         if (shouldUpdateMatchInfo) {
@@ -912,7 +921,7 @@ export class StreamingAudioPlayer {
             sentenceIndex: index,
             startCtxTime: entry.startCtxTime,
             endCtxTime: entry.endCtxTime,
-            isStreaming,
+            isStreaming: isActivelyStreaming,
             computedEndTime: endTime,
             nowTime: now,
             matches,
