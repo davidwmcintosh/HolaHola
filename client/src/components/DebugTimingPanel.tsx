@@ -31,6 +31,8 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
     loopTickCount,
     isPlaying,
     lastUpdateTime,
+    playerInstanceId,
+    playerInstanceSetCount,
     wordTimingCount,
     visibleWordCount,
     currentWordIndex,
@@ -92,6 +94,10 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
           {isStale && <span className="text-red-400 text-[10px]">(STALE)</span>}
           <span className={`text-[10px] ${getConnectionStatusColor()}`}>
             [{connectionStatus.toUpperCase()}]
+          </span>
+          {/* Player instance indicator - should show count=1 if singleton working */}
+          <span className={`text-[10px] ${playerInstanceSetCount === 1 ? 'text-green-400' : playerInstanceSetCount > 1 ? 'text-red-400' : 'text-gray-500'}`}>
+            P:{playerInstanceSetCount || 0}
           </span>
         </div>
         <div className="flex items-center gap-2">

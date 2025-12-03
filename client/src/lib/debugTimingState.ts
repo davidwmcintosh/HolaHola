@@ -89,6 +89,10 @@ export interface DebugTimingState {
   isPlaying: boolean;
   lastUpdateTime: number;
   
+  // Player instance tracking - to verify singleton pattern
+  playerInstanceId: string;
+  playerInstanceSetCount: number;  // How many times the player ID was set (should be 1)
+  
   // Word timing debug info (per active sentence)
   wordTimingCount: number;
   visibleWordCount: number;
@@ -160,6 +164,11 @@ function getDebugState(): DebugTimingState {
       loopTickCount: 0,
       isPlaying: false,
       lastUpdateTime: 0,
+      
+      // Player instance tracking
+      playerInstanceId: '',
+      playerInstanceSetCount: 0,
+      
       wordTimingCount: 0,
       visibleWordCount: 0,
       currentWordIndex: -1,
@@ -257,6 +266,26 @@ export function addWordTimingEvent(event: Omit<WordTimingEvent, 'timestamp'>): v
   updateDebugTimingState({
     recentWordEvents: newEvents,
     receivedWords: newReceivedWords,
+  });
+}
+
+/**
+ * Register a player instance ID - used to verify singleton pattern
+ * Should only be called once per page load, increments count each time
+ */
+export function registerPlayerInstance(instanceId: string): void {
+  const currentState = getDebugState();
+  const newCount = currentState.playerInstanceSetCount + 1;
+  
+  if (newCount > 1) {
+    console.error(`[DebugTimingState] ⚠️ MULTIPLE PLAYER INSTANCES! Count=${newCount} New=${instanceId} Old=${currentState.playerInstanceId}`);
+  } else {
+    console.log(`[DebugTimingState] ✓ Player registered: ${instanceId}`);
+  }
+  
+  updateDebugTimingState({
+    playerInstanceId: instanceId,
+    playerInstanceSetCount: newCount,
   });
 }
 

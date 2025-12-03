@@ -1,4 +1,4 @@
-import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition, logScheduleEvent, updateDebugTimingState, type SentenceScheduleEntry, type SentenceMatchInfo } from './debugTimingState';
+import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition, logScheduleEvent, updateDebugTimingState, registerPlayerInstance, type SentenceScheduleEntry, type SentenceMatchInfo } from './debugTimingState';
 
 /**
  * CRITICAL: Store StreamingAudioPlayer singleton on window to prevent Vite bundler
@@ -20,8 +20,12 @@ declare global {
  */
 export function getStreamingAudioPlayer(): StreamingAudioPlayer {
   if (!window.__streamingAudioPlayer) {
-    console.log('[StreamingAudioPlayer] Creating singleton on window.__streamingAudioPlayer');
+    const instanceId = `player_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    console.log(`[StreamingAudioPlayer] Creating singleton on window.__streamingAudioPlayer (id=${instanceId})`);
     window.__streamingAudioPlayer = new StreamingAudioPlayer();
+    
+    // Register instance for debug panel visibility
+    registerPlayerInstance(instanceId);
   } else {
     console.log('[StreamingAudioPlayer] Reusing existing singleton from window');
   }
@@ -466,7 +470,18 @@ export class StreamingAudioPlayer {
     // This handles the case where previous turn ended at sentence 0 (single-sentence response)
     // In that case, sentenceIndex === progressiveSentenceIndex but it's a NEW turn
     const isNewSentence = sentenceIndex !== this.progressiveSentenceIndex;
-    const isNewTurnStarting = sentenceIndex === 0 && chunkIndex === 0;
+    
+    // CRITICAL FIX (Dec 3, 2025): Only treat sentence 0, chunk 0 as a new turn if:
+    // 1. We haven't started playing yet (progressiveFirstChunkStarted === false), OR
+    // 2. We're on a DIFFERENT sentence than the current one
+    // This prevents schedule wipe when Cartesia resends chunkIndex 0 due to retry/glitch
+    // Previously: just checking s===0 && c===0 would wipe schedule mid-sentence
+    const isNewTurnStarting = sentenceIndex === 0 && chunkIndex === 0 && !this.progressiveFirstChunkStarted;
+    
+    // CRITICAL DEBUG: Log when guard prevents false turn reset
+    if (sentenceIndex === 0 && chunkIndex === 0 && this.progressiveFirstChunkStarted) {
+      console.warn(`[SCHEDULE GUARD] ⚠️ Ignoring duplicate s=0,c=0 - progressiveFirstChunkStarted=true. Would have WIPED schedule!`);
+    }
     
     if (isNewSentence || isNewTurnStarting) {
       console.log(`[StreamingAudioPlayer] [Progressive] New sentence ${sentenceIndex} (previous: ${this.progressiveSentenceIndex}, isNewTurn=${isNewTurnStarting})`);
@@ -527,7 +542,7 @@ export class StreamingAudioPlayer {
     // Convert raw PCM bytes to Float32Array
     // CRITICAL DEBUG: Log audio buffer size
     const audioByteLength = audio.byteLength;
-    console.error(`[AUDIO PLAYER] Chunk s=${sentenceIndex} c=${chunkIndex} bytes=${audioByteLength} isLast=${isLast}`);
+    console.log(`[AUDIO PLAYER] Chunk s=${sentenceIndex} c=${chunkIndex} bytes=${audioByteLength} isLast=${isLast}`);
     
     const float32Data = new Float32Array(audio);
     const numSamples = float32Data.length;
@@ -537,7 +552,7 @@ export class StreamingAudioPlayer {
     // These chunks have 0 audio data but signal sentence completion
     // We MUST process the isLast flag even if there's no audio to schedule
     if (numSamples === 0) {
-      console.error(`[AUDIO PLAYER] *** EMPTY CHUNK DETECTED *** s=${sentenceIndex} c=${chunkIndex} isLast=${isLast}`);
+      console.log(`[AUDIO PLAYER] *** EMPTY CHUNK DETECTED *** s=${sentenceIndex} c=${chunkIndex} isLast=${isLast}`);
       if (isLast) {
         const entry = this.sentenceSchedule.get(sentenceIndex);
         let endCtxTimeSet = false;
@@ -549,7 +564,7 @@ export class StreamingAudioPlayer {
           // CRITICAL DEBUG: Verify endCtxTime was actually saved to the Map
           const verifyEntry = this.sentenceSchedule.get(sentenceIndex);
           if (verifyEntry?.endCtxTime !== entry.endCtxTime) {
-            console.error(`[BUG!!] endCtxTime NOT saved! Set ${entry.endCtxTime} but Map has ${verifyEntry?.endCtxTime}`);
+            console.log(`[BUG!!] endCtxTime NOT saved! Set ${entry.endCtxTime} but Map has ${verifyEntry?.endCtxTime}`);
           } else {
             console.log(`[AUDIO SCHEDULE] ✓ VERIFIED: Map entry has endCtxTime=${verifyEntry.endCtxTime.toFixed(3)}`);
           }

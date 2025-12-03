@@ -1,6 +1,43 @@
 # Subtitle Bug Tracking Document
 
-## Last Updated: December 2, 2025 (Progressive Streaming Debug Session)
+## Last Updated: December 3, 2025 (Schedule Wipe Bug Fix)
+
+---
+
+## Bug #N: Schedule Wipe on Duplicate Chunk (RESOLVED - Dec 3, 2025)
+
+### Symptoms
+- Debug panel showed "EndTimes Set: [0,1,2]" confirming endCtxTime was set
+- But MATCH INFO showed "STREAMING: now >= start, no endTime" 
+- Timing loop read entry.endCtxTime as undefined despite it being set earlier
+- Sentence never ended properly, subtitles stuck in streaming mode
+
+### Root Cause (Architect Diagnosis)
+When Cartesia resends chunkIndex 0 (due to retry/glitch), the condition:
+```javascript
+isNewTurnStarting = sentenceIndex === 0 && chunkIndex === 0
+```
+Would evaluate to TRUE mid-turn, triggering `sentenceSchedule.clear()` which wiped all entries including the previously computed endCtxTime.
+
+### Fix Applied (Dec 3, 2025)
+Added guard to prevent treating duplicate s=0,c=0 as a new turn:
+```javascript
+// CRITICAL FIX: Only treat sentence 0, chunk 0 as a new turn if:
+// 1. We haven't started playing yet (progressiveFirstChunkStarted === false)
+const isNewTurnStarting = sentenceIndex === 0 && chunkIndex === 0 && !this.progressiveFirstChunkStarted;
+```
+
+Also added warning log when the guard prevents a false turn reset:
+```javascript
+if (sentenceIndex === 0 && chunkIndex === 0 && this.progressiveFirstChunkStarted) {
+  console.warn(`[SCHEDULE GUARD] ⚠️ Ignoring duplicate s=0,c=0 - Would have WIPED schedule!`);
+}
+```
+
+### Debug Improvements Added
+1. Player instance tracking (`P:1` in debug panel header confirms singleton)
+2. `registerPlayerInstance()` function to detect duplicate player instances
+3. Guard prevents schedule wipe when Cartesia retries
 
 ---
 
