@@ -733,6 +733,19 @@ export class StreamingAudioPlayer {
     let frameCount = 0;
     
     const tick = (): void => {
+      frameCount++;
+      
+      // DEBUG: Update state immediately on first few frames to verify tick is running
+      if (frameCount <= 30 || frameCount % 10 === 0) {
+        const ctx = this.audioContext;
+        updateDebugTimingState({
+          isLoopRunning: true,
+          loopTickCount: frameCount,
+          currentCtxTime: ctx?.currentTime ?? -1,
+          isPlaying: this.isPlaying
+        });
+      }
+      
       // Exit if playback stopped
       if (!this.isPlaying) {
         // Update debug state: loop stopped
@@ -745,12 +758,12 @@ export class StreamingAudioPlayer {
       
       const ctx = this.audioContext;
       if (!ctx) {
+        console.error(`[TICK] Frame ${frameCount}: NO AudioContext! Scheduling next tick...`);
         this.rafId = requestAnimationFrame(tick);
         return;
       }
       
       const now = ctx.currentTime;
-      frameCount++;
       
       // Update debug state every 10 frames (~160ms) with current timing info
       if (frameCount % 10 === 0) {
