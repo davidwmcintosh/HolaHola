@@ -61,6 +61,10 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
     lastAudioChunkSentence,
     sentenceMatchInfo,
     scheduleEvents,
+    wordSchedule,
+    activeWord,
+    wordScheduleSize,
+    lastWordMatchTime,
   } = state;
   
   const timeSinceUpdate = Date.now() - lastUpdateTime;
@@ -214,6 +218,70 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
                 <span className={deltasReceived === finalWordCount ? 'text-green-400' : 'text-red-400'}>
                   {deltasReceived === finalWordCount ? '✓ All deltas received' : `Missing ${finalWordCount - deltasReceived} deltas`}
                 </span>
+              </div>
+            )}
+          </div>
+          
+          {/* SECTION 4.5: Word-Based Timing (NEW!) */}
+          <div className="border border-teal-500/40 rounded p-2 bg-teal-900/20">
+            <div className="font-bold text-teal-300 mb-2 flex items-center gap-2">
+              WORD-BASED TIMING
+              {activeWord && <span className="text-green-400 text-[10px]">MATCHING</span>}
+              {!activeWord && wordScheduleSize > 0 && <span className="text-yellow-400 text-[10px]">NO MATCH</span>}
+            </div>
+            
+            {/* Active Word Display */}
+            <div className="mb-2 p-2 bg-black/40 rounded">
+              <div className="text-gray-400 text-[10px]">Active Word (from ctx.currentTime):</div>
+              {activeWord ? (
+                <div className="text-lg font-bold text-teal-300">
+                  S{activeWord.sentenceIndex} W{activeWord.wordIndex}: "{activeWord.word}"
+                </div>
+              ) : (
+                <div className="text-gray-500">No word matched at current time</div>
+              )}
+            </div>
+            
+            {/* Word Schedule Stats */}
+            <div className="grid grid-cols-2 gap-2 text-[10px]">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Schedule Size:</span>
+                <span className={wordScheduleSize > 0 ? 'text-teal-400' : 'text-gray-500'}>
+                  {wordScheduleSize} words
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Last Match:</span>
+                <span className="text-teal-400">
+                  {lastWordMatchTime > 0 ? `${lastWordMatchTime.toFixed(2)}s` : '—'}
+                </span>
+              </div>
+            </div>
+            
+            {/* Word Schedule Preview (last 6 words) */}
+            {wordSchedule && wordSchedule.length > 0 && (
+              <div className="mt-2">
+                <div className="text-gray-400 text-[10px] mb-1">Recent Words in Schedule:</div>
+                <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
+                  {wordSchedule.slice(-6).map((entry, idx) => {
+                    const isActive = activeWord && 
+                      activeWord.sentenceIndex === entry.sentenceIndex && 
+                      activeWord.wordIndex === entry.wordIndex;
+                    return (
+                      <span 
+                        key={idx}
+                        className={`px-1 rounded text-[9px] ${
+                          isActive 
+                            ? 'bg-teal-500 text-black font-bold' 
+                            : 'bg-gray-700 text-gray-300'
+                        }`}
+                        title={`${entry.absoluteStartTime.toFixed(3)}-${entry.absoluteEndTime.toFixed(3)}s`}
+                      >
+                        S{entry.sentenceIndex}W{entry.wordIndex}: {entry.word}
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

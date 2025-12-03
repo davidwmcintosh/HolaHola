@@ -29,6 +29,26 @@ export interface SentenceScheduleEntry {
 }
 
 /**
+ * Word schedule entry with absolute AudioContext times
+ */
+export interface WordScheduleEntry {
+  sentenceIndex: number;
+  wordIndex: number;
+  word: string;
+  absoluteStartTime: number;
+  absoluteEndTime: number;
+}
+
+/**
+ * Active word info from word-based matching
+ */
+export interface ActiveWordInfo {
+  sentenceIndex: number;
+  wordIndex: number;
+  word: string;
+}
+
+/**
  * Match info for a single sentence - shows WHY it matched or didn't match
  */
 export interface SentenceMatchInfo {
@@ -144,6 +164,12 @@ export interface DebugTimingState {
   
   // NEW: Schedule events log - tracks clear/add/remove operations
   scheduleEvents: ScheduleEvent[];
+  
+  // NEW: Word-based timing system
+  wordSchedule: WordScheduleEntry[];          // All registered words with absolute times
+  activeWord: ActiveWordInfo | null;          // Currently matched word from findActiveWord()
+  wordScheduleSize: number;                   // Number of words in schedule
+  lastWordMatchTime: number;                  // Last time a word was successfully matched
 }
 
 // Maximum number of word events to keep in log
@@ -209,6 +235,12 @@ function getDebugState(): DebugTimingState {
       
       // Schedule events
       scheduleEvents: [],
+      
+      // Word-based timing system
+      wordSchedule: [],
+      activeWord: null,
+      wordScheduleSize: 0,
+      lastWordMatchTime: 0,
     };
   }
   return window.__debugTimingState;

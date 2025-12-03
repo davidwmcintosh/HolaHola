@@ -1,4 +1,4 @@
-import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition, logScheduleEvent, updateDebugTimingState, registerPlayerInstance, type SentenceScheduleEntry, type SentenceMatchInfo } from './debugTimingState';
+import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition, logScheduleEvent, updateDebugTimingState, getDebugTimingState, registerPlayerInstance, type SentenceScheduleEntry, type SentenceMatchInfo } from './debugTimingState';
 
 /**
  * CRITICAL: Store StreamingAudioPlayer singleton on window to prevent Vite bundler
@@ -792,6 +792,20 @@ export class StreamingAudioPlayer {
     });
     
     console.log(`[WORD SCHEDULE] Registered: ${key} "${word}" ${absoluteStartTime.toFixed(3)}-${absoluteEndTime.toFixed(3)}s (sentence start: ${sentenceEntry.startCtxTime.toFixed(3)}s)`);
+    
+    // Update debug state with word schedule (limit to last 20 words for performance)
+    const wordEntries = Array.from(this.wordSchedule.values());
+    const recentWords = wordEntries.slice(-20).map(e => ({
+      sentenceIndex: e.sentenceIndex,
+      wordIndex: e.wordIndex,
+      word: e.word,
+      absoluteStartTime: e.absoluteStartTime,
+      absoluteEndTime: e.absoluteEndTime
+    }));
+    updateDebugTimingState({
+      wordSchedule: recentWords,
+      wordScheduleSize: this.wordSchedule.size
+    });
   }
   
   /**
@@ -1021,6 +1035,18 @@ export class StreamingAudioPlayer {
       
       // WORD-BASED TIMING: Find active word directly using AudioContext time
       const activeWord = this.findActiveWord();
+      
+      // Update debug state with active word info (throttled)
+      if (shouldUpdateMatchInfo) {
+        updateDebugTimingState({
+          activeWord: activeWord ? {
+            sentenceIndex: activeWord.sentenceIndex,
+            wordIndex: activeWord.wordIndex,
+            word: activeWord.word
+          } : null,
+          lastWordMatchTime: activeWord ? now : getDebugTimingState().lastWordMatchTime
+        });
+      }
       
       // Derive sentence from active word for more reliable sentence tracking
       const wordBasedSentenceIndex = activeWord?.sentenceIndex ?? -1;
