@@ -147,10 +147,6 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         setPlaybackState(state);
       },
       onProgress: (currentTime, duration) => {
-        // DEBUG: Log every 30 frames to verify timing values
-        if (Math.floor(currentTime * 2) % 2 === 0) {
-          console.log(`[TIMING-TRACE] onProgress: currentTime=${currentTime.toFixed(3)}, duration=${duration.toFixed(3)}`);
-        }
         // Update subtitle highlighting with actual duration for rescaling
         // Use ref to get latest subtitles (avoids stale closure from mount-time capture)
         subtitlesRef.current.updatePlaybackTime(currentTime, duration);
