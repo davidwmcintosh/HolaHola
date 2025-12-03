@@ -385,10 +385,17 @@ export class StreamingVoiceClient {
    * Handle incoming WebSocket message
    */
   private handleMessage(event: MessageEvent): void {
-    // GLOBAL DEBUG: Track all messages
-    if (typeof window !== 'undefined' && window._wsDebug) {
-      window._wsDebug.messageCount++;
-      window._wsDebug.wsState = this.ws?.readyState ?? null;
+    // GLOBAL DEBUG: Track all messages with persistent counter
+    if (typeof window !== 'undefined') {
+      const win = window as any;
+      win._wsDebug = win._wsDebug || { messageCount: 0, byType: {}, lastMessage: null, lastError: null, wsState: null };
+      win._wsDebug.messageCount++;
+      win._wsDebug.wsState = this.ws?.readyState ?? null;
+      
+      // CRITICAL: Log every 10th message to confirm reception
+      if (win._wsDebug.messageCount % 10 === 0) {
+        console.error(`[WS-COUNTER] Received ${win._wsDebug.messageCount} messages total, byType:`, JSON.stringify(win._wsDebug.byType));
+      }
     }
     
     // Binary data = audio chunk
@@ -409,6 +416,10 @@ export class StreamingVoiceClient {
     try {
       const message: StreamingMessage = JSON.parse(event.data);
       
+      // CRITICAL: Track parse success at window level
+      const win = window as any;
+      win._parseSuccess = (win._parseSuccess || 0) + 1;
+      
       // AGGRESSIVE DEBUG: Log EVERY message type received
       console.log(`[WS RAW] type=${message.type}`);
       
@@ -419,12 +430,24 @@ export class StreamingVoiceClient {
         win._wsMessageCounts[message.type] = (win._wsMessageCounts[message.type] || 0) + 1;
       }
       
+      // Track message types
+      if (typeof window !== 'undefined') {
+        const win = window as any;
+        win._wsDebug.byType[message.type] = (win._wsDebug.byType[message.type] || 0) + 1;
+      }
+      
       // Use console.error for critical message types to ensure visibility
       if (message.type === 'word_timing_delta') {
         const delta = message as any;
         console.error(`[WS-DELTA-RCVD] s=${delta.sentenceIndex}, w=${delta.wordIndex} "${delta.word}" ${delta.startTime?.toFixed(3)}-${delta.endTime?.toFixed(3)}s`);
       } else if (message.type === 'audio_chunk') {
-        // Skip extra logging for audio chunks (already logged above)
+        // CRITICAL: Track EVERY audio chunk at window level
+        const chunk = message as any;
+        win._audioChunks = win._audioChunks || { total: 0, bySentence: {} };
+        win._audioChunks.total++;
+        win._audioChunks.bySentence[chunk.sentenceIndex] = (win._audioChunks.bySentence[chunk.sentenceIndex] || 0) + 1;
+        // ALWAYS log audio chunks with console.error for visibility
+        console.error(`[WS-AUDIO-CHUNK] sentence=${chunk.sentenceIndex}, chunk=${chunk.chunkIndex}, total=${win._audioChunks.total}, isLast=${chunk.isLast}`);
       } else {
         console.log('[WS-MSG]', message.type);
       }
@@ -501,6 +524,12 @@ export class StreamingVoiceClient {
       }
     } catch (error) {
       console.error('[StreamingVoiceClient] Failed to parse message:', error);
+      // Track parse errors at window level for debugging
+      if (typeof window !== 'undefined') {
+        const win = window as any;
+        win._parseErrors = win._parseErrors || [];
+        win._parseErrors.push({ error: String(error), time: Date.now() });
+      }
     }
   }
   
