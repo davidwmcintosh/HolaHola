@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { z } from "zod";
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq, and, gte, desc, sql } from "drizzle-orm";
+import { eq, and, gte, desc, sql, isNotNull } from "drizzle-orm";
 import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter } from "./middleware/rate-limiter";
 import { requireRole, allowRoles, loadAuthenticatedUser } from "./middleware/rbac";
@@ -7599,6 +7599,88 @@ Return ONLY the ${targetLanguage} phrase:`;
       });
     } catch (error: any) {
       console.error('Error updating class settings:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Bulk initialize syllabi for all classes that have curriculum templates but no units
+  app.post("/api/admin/classes/initialize-syllabi", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const adminId = req.user?.claims?.sub;
+      
+      // Get all classes with curriculum templates
+      const allClasses = await db
+        .select()
+        .from(teacherClasses)
+        .where(isNotNull(teacherClasses.curriculumPathId));
+      
+      const results: { classId: string; className: string; status: string; units?: number; lessons?: number }[] = [];
+      
+      for (const teacherClass of allClasses) {
+        // Check if class already has units
+        const existingUnits = await storage.getClassCurriculumUnits(teacherClass.id);
+        
+        if (existingUnits.length > 0) {
+          results.push({
+            classId: teacherClass.id,
+            className: teacherClass.name,
+            status: 'skipped_has_syllabus',
+            units: existingUnits.length,
+          });
+          continue;
+        }
+        
+        // Clone curriculum to class
+        try {
+          const cloned = await storage.cloneCurriculumToClass(teacherClass.id, teacherClass.curriculumPathId!);
+          results.push({
+            classId: teacherClass.id,
+            className: teacherClass.name,
+            status: 'initialized',
+            units: cloned.units.length,
+            lessons: cloned.lessons.length,
+          });
+        } catch (cloneError: any) {
+          results.push({
+            classId: teacherClass.id,
+            className: teacherClass.name,
+            status: 'error',
+          });
+          console.error(`Error initializing syllabus for class ${teacherClass.name}:`, cloneError);
+        }
+      }
+      
+      const initialized = results.filter(r => r.status === 'initialized');
+      const skipped = results.filter(r => r.status === 'skipped_has_syllabus');
+      const errors = results.filter(r => r.status === 'error');
+      
+      console.log(`[Bulk Syllabus Init] Initialized: ${initialized.length}, Skipped: ${skipped.length}, Errors: ${errors.length}`);
+      
+      // Log admin action
+      await storage.logAdminAction({
+        actorId: adminId,
+        action: 'bulk_initialize_syllabi',
+        targetType: 'system',
+        targetId: 'all_classes',
+        metadata: { 
+          initialized: initialized.length, 
+          skipped: skipped.length, 
+          errors: errors.length,
+          totalClasses: allClasses.length,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      res.json({
+        success: true,
+        initialized: initialized.length,
+        skipped: skipped.length,
+        errors: errors.length,
+        details: results,
+      });
+    } catch (error: any) {
+      console.error('Error in bulk syllabus initialization:', error);
       res.status(500).json({ error: error.message });
     }
   });

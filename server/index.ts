@@ -92,6 +92,16 @@ const stripeInitPromise = (async function initStripe() {
       console.error('Failed to seed drill content:', error);
     }
     
+    // Initialize syllabi for all teacher classes from their templates
+    try {
+      console.log('Initializing class syllabi...');
+      const { initializeAllSyllabi } = await import('./seeds/initialize-syllabi');
+      const result = await initializeAllSyllabi();
+      console.log(`Syllabi ready: ${result.initialized} initialized, ${result.skipped} skipped`);
+    } catch (error) {
+      console.error('Failed to initialize syllabi:', error);
+    }
+    
     stripeReady = true;
   } catch (error) {
     console.error('Failed to initialize Stripe:', error);

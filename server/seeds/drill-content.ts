@@ -1,5 +1,6 @@
 import { db } from "../db";
-import { curriculumDrillItems } from "@shared/schema";
+import { curriculumDrillItems, curriculumLessons } from "@shared/schema";
+import { eq, inArray } from "drizzle-orm";
 
 // Lesson IDs for Numbers 0-20 across all languages
 const NUMBER_LESSONS: Record<string, string> = {
@@ -241,6 +242,22 @@ export async function seedDrillContent() {
   }
 
   console.log(`[Drill Seed] Complete: ${numbersCreated} number drills, ${greetingsCreated} greeting drills created`);
+  
+  // Update the lesson types to 'drill' for all drill lessons
+  const allDrillLessonIds = [
+    ...Object.values(NUMBER_LESSONS),
+    ...Object.values(GREETING_LESSONS),
+  ];
+  
+  try {
+    await db
+      .update(curriculumLessons)
+      .set({ lessonType: 'drill' })
+      .where(inArray(curriculumLessons.id, allDrillLessonIds));
+    console.log(`[Drill Seed] Updated ${allDrillLessonIds.length} lessons to drill type`);
+  } catch (e) {
+    console.log(`[Drill Seed] Lesson type update skipped (already drill or error)`);
+  }
   
   return { numbersCreated, greetingsCreated };
 }
