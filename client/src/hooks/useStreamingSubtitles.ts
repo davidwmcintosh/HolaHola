@@ -20,7 +20,7 @@ import {
   logTimingEvent,
   difficultyToProficiencyBand
 } from '../lib/subtitlePolicies';
-import { updateDebugTimingState, updateTimingComparison, clearWordState, clearReceivedWordsForSentence, getDebugTimingState } from '../lib/debugTimingState';
+import { updateDebugTimingState, updateTimingComparison, clearWordState, getDebugTimingState } from '../lib/debugTimingState';
 
 /**
  * A contiguous block of target language words
@@ -985,8 +985,9 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     // Clean up timing cache
     timingsBySentenceRef.current.delete(sentenceIndex);
     
-    // Clean up debug receivedWords for completed sentence to prevent stale data
-    clearReceivedWordsForSentence(sentenceIndex);
+    // Note: Don't clear receivedWords here - retain history for debugging
+    // Words are cleared on new sentence start (clearWordState in startPlayback)
+    // and on global reset (clearWordState in reset)
     
     setSentences(prev => {
       return prev.map(s => {
