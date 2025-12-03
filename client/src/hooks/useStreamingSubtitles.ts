@@ -427,8 +427,10 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     endTime: number,
     estimatedTotalDuration?: number
   ) => {
-    // DEBUG: Log all incoming word timings
-    console.log(`[TIMING RECEIVED] sentence=${sentenceIndex}, turn=${turnId}, word=${wordIndex} "${word}", currentTurnId=${currentTurnId}`);
+    // Only log first word per sentence to reduce noise
+    if (wordIndex === 0) {
+      console.error(`[TIMING RECEIVED] FIRST word for sentence ${sentenceIndex}: "${word}" (active=${activeSentenceRef.current})`);
+    }
     
     // STALE PACKET FILTER
     if (turnId < currentTurnId) {
@@ -611,7 +613,8 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       return;
     }
     
-    console.error(`[SUBTITLE DEBUG] ▶▶▶ startPlayback called: sentence=${sentenceIndex}, turn=${turnId}`);
+    const cachedCount = timingsBySentenceRef.current.get(sentenceIndex)?.timings.length || 0;
+    console.error(`[SUBTITLE DEBUG] ▶▶▶ startPlayback: sentence=${sentenceIndex}, turn=${turnId}, cachedTimings=${cachedCount}`);
     
     // RACE CONDITION FIX: Set active sentence ref IMMEDIATELY (synchronous)
     // This allows addProgressiveWordTiming to update currentTimingsRef for this sentence
