@@ -48,6 +48,10 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
     recentWordEvents,
     connectionStatus,
     wordMismatchCount,
+    emptyChunksProcessed,
+    lastEmptyChunkSentence,
+    sentenceEndTimesSet,
+    sentenceTransitions,
   } = state;
   
   const timeSinceUpdate = Date.now() - lastUpdateTime;
@@ -305,6 +309,41 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
                 </span>
               </div>
             </div>
+          </div>
+          
+          {/* SECTION 8.5: Empty Chunks & Transitions (Critical for debugging) */}
+          <div className="border border-pink-500/40 rounded p-2 bg-pink-900/20">
+            <div className="font-bold text-pink-300 mb-1">EMPTY CHUNKS & TRANSITIONS</div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Empty Chunks:</span>
+                <span className={emptyChunksProcessed > 0 ? 'text-green-400 font-bold' : 'text-gray-500'}>
+                  {emptyChunksProcessed}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Last Empty S:</span>
+                <span className={lastEmptyChunkSentence >= 0 ? 'text-yellow-400' : 'text-gray-500'}>
+                  {lastEmptyChunkSentence >= 0 ? lastEmptyChunkSentence : 'none'}
+                </span>
+              </div>
+            </div>
+            <div className="mt-1">
+              <span className="text-gray-400 text-[10px]">EndTimes Set: </span>
+              <span className={sentenceEndTimesSet.length > 0 ? 'text-green-400' : 'text-gray-500'}>
+                {sentenceEndTimesSet.length > 0 ? `[${sentenceEndTimesSet.join(', ')}]` : 'none'}
+              </span>
+            </div>
+            {sentenceTransitions.length > 0 && (
+              <div className="mt-2">
+                <div className="text-gray-400 text-[10px] mb-1">Transitions:</div>
+                <div className="max-h-16 overflow-y-auto space-y-0.5">
+                  {sentenceTransitions.slice(-5).map((t, i) => (
+                    <div key={i} className="text-[10px] text-cyan-300">{t}</div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           
           {/* SECTION 9: Schedule (Collapsible) */}

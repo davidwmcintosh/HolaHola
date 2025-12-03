@@ -1,4 +1,4 @@
-import { resetDebugTimingState } from './debugTimingState';
+import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition } from './debugTimingState';
 
 // Convert Int16Array PCM to base64 string
 export function pcm16ToBase64(pcm16: Int16Array): string {
@@ -456,12 +456,16 @@ export class StreamingAudioPlayer {
       console.log(`[AUDIO] Empty chunk s=${sentenceIndex} c=${chunkIndex} isLast=${isLast} - processing as marker only`);
       if (isLast) {
         const entry = this.sentenceSchedule.get(sentenceIndex);
+        let endCtxTimeSet = false;
         if (entry) {
           entry.endCtxTime = entry.startCtxTime + entry.totalDuration;
+          endCtxTimeSet = true;
           console.log(`[AUDIO SCHEDULE] ✓ Sentence ${sentenceIndex} endCtxTime set: ${entry.endCtxTime.toFixed(3)} (duration=${entry.totalDuration.toFixed(3)}s)`);
         } else {
           console.error(`[AUDIO SCHEDULE] ✗ No schedule entry for sentence ${sentenceIndex} when isLast received!`);
         }
+        // Update debug panel with empty chunk info
+        logEmptyChunkProcessed(sentenceIndex, endCtxTimeSet);
         this.scheduleProgressiveSentenceEnd(sentenceIndex, 0);
       }
       return; // Skip audio scheduling for empty chunks
@@ -640,12 +644,17 @@ export class StreamingAudioPlayer {
       if (activeEntry && activeIndex >= 0) {
         // Fire onSentenceStart if this is a NEW active sentence
         if (!activeEntry.started) {
+          const previousSentence = this.activeSentenceInLoop;
           activeEntry.started = true;
           this.currentSentenceIndex = activeIndex;
           this.activeSentenceInLoop = activeIndex;
           this.progressivePlaybackStartCtxTime = activeEntry.startCtxTime;
           
           console.log(`[SENTENCE] ▶▶▶ STARTING sentence ${activeIndex} (now=${ctx.currentTime.toFixed(3)}, scheduled=${activeEntry.startCtxTime.toFixed(3)})`);
+          
+          // Log sentence transition for debug panel
+          logSentenceTransition(previousSentence, activeIndex, `started at ${ctx.currentTime.toFixed(2)}s`);
+          
           this.callbacks.onSentenceStart?.(activeIndex);
         }
         

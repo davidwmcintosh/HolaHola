@@ -83,6 +83,12 @@ export interface DebugTimingState {
   
   // NEW: Mismatch detection
   wordMismatchCount: number;         // Count of times highlighted word != expected word
+  
+  // NEW: Empty chunk and sentence transition tracking
+  emptyChunksProcessed: number;      // Count of empty (isLast=true) chunks handled
+  lastEmptyChunkSentence: number;    // Last sentence that received empty chunk
+  sentenceEndTimesSet: number[];     // Sentences where endCtxTime was successfully set
+  sentenceTransitions: string[];     // Log of sentence transitions (max 10)
 }
 
 // Maximum number of word events to keep in log
@@ -118,6 +124,12 @@ let debugState: DebugTimingState = {
   recentWordEvents: [],
   connectionStatus: 'disconnected',
   wordMismatchCount: 0,
+  
+  // Empty chunk and sentence transition tracking
+  emptyChunksProcessed: 0,
+  lastEmptyChunkSentence: -1,
+  sentenceEndTimesSet: [],
+  sentenceTransitions: [],
 };
 
 // Listeners for React components
@@ -245,6 +257,12 @@ export function resetDebugTimingState(): void {
     recentWordEvents: [],
     connectionStatus: 'disconnected',
     wordMismatchCount: 0,
+    
+    // Empty chunk and sentence transition tracking
+    emptyChunksProcessed: 0,
+    lastEmptyChunkSentence: -1,
+    sentenceEndTimesSet: [],
+    sentenceTransitions: [],
   };
   listeners.forEach(listener => listener(debugState));
 }
@@ -260,5 +278,38 @@ export function clearWordState(): void {
     timingComparison: null,
     deltasReceived: 0,
     finalWordCount: 0,
+  });
+}
+
+/**
+ * Log empty chunk processing
+ */
+export function logEmptyChunkProcessed(sentenceIndex: number, endCtxTimeSet: boolean): void {
+  const currentEndTimes = [...debugState.sentenceEndTimesSet];
+  if (endCtxTimeSet && !currentEndTimes.includes(sentenceIndex)) {
+    currentEndTimes.push(sentenceIndex);
+  }
+  
+  updateDebugTimingState({
+    emptyChunksProcessed: debugState.emptyChunksProcessed + 1,
+    lastEmptyChunkSentence: sentenceIndex,
+    sentenceEndTimesSet: currentEndTimes,
+  });
+}
+
+/**
+ * Log a sentence transition event
+ */
+export function logSentenceTransition(fromSentence: number, toSentence: number, reason: string): void {
+  const transition = `s${fromSentence}→s${toSentence}: ${reason}`;
+  const newTransitions = [...debugState.sentenceTransitions, transition];
+  
+  // Keep only the last 10 transitions
+  if (newTransitions.length > 10) {
+    newTransitions.shift();
+  }
+  
+  updateDebugTimingState({
+    sentenceTransitions: newTransitions,
   });
 }
