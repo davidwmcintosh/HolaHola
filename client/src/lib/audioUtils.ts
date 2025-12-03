@@ -705,7 +705,9 @@ export class StreamingAudioPlayer {
       // Debug log every 60 frames (~1 second) to see schedule state
       if (frameCount % 60 === 0) {
         const scheduleInfo: string[] = [];
-        for (const [idx, e] of this.sentenceSchedule) {
+        const entries = Array.from(this.sentenceSchedule.entries());
+        for (let j = 0; j < entries.length; j++) {
+          const [idx, e] = entries[j];
           const isStreaming = e.endCtxTime === undefined;
           const endT = e.endCtxTime ?? (e.startCtxTime + e.totalDuration);
           const matchesNow = now >= e.startCtxTime && (isStreaming || now < endT);
@@ -723,7 +725,11 @@ export class StreamingAudioPlayer {
       const shouldUpdateMatchInfo = frameCount % 10 === 0;
       const matchInfoArray: SentenceMatchInfo[] = [];
       
-      for (const [index, entry] of this.sentenceSchedule) {
+      // Use Array.from for broader compatibility (avoids downlevelIteration issues)
+      const scheduleEntries = Array.from(this.sentenceSchedule.entries());
+      
+      for (let i = 0; i < scheduleEntries.length; i++) {
+        const [index, entry] = scheduleEntries[i];
         const isStreaming = entry.endCtxTime === undefined;
         const endTime = entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration);
         const matches = now >= entry.startCtxTime && (isStreaming || now < endTime);
@@ -789,7 +795,9 @@ export class StreamingAudioPlayer {
         this.callbacks.onProgress?.(elapsedInSentence, activeEntry.totalDuration);
       } else {
         // No active sentence - check for sentences that have ended but haven't fired onSentenceEnd
-        for (const [index, entry] of this.sentenceSchedule) {
+        const endCheckEntries = Array.from(this.sentenceSchedule.entries());
+        for (let k = 0; k < endCheckEntries.length; k++) {
+          const [index, entry] = endCheckEntries[k];
           if (entry.endCtxTime === undefined) continue;
           
           if (now >= entry.endCtxTime && entry.started && !entry.ended) {
@@ -918,7 +926,9 @@ export class StreamingAudioPlayer {
       return true; // No sentences scheduled
     }
     
-    for (const [index, entry] of this.sentenceSchedule) {
+    const allEntries = Array.from(this.sentenceSchedule.entries());
+    for (let i = 0; i < allEntries.length; i++) {
+      const [index, entry] = allEntries[i];
       // A sentence is complete when:
       // 1. It has endCtxTime set (received isLast=true)
       // 2. It has been marked as ended (callback fired)
