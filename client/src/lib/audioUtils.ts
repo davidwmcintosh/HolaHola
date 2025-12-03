@@ -445,6 +445,10 @@ export class StreamingAudioPlayer {
     }
     
     // Convert raw PCM bytes to Float32Array
+    // CRITICAL DEBUG: Log audio buffer size
+    const audioByteLength = audio.byteLength;
+    console.error(`[AUDIO PLAYER] Chunk s=${sentenceIndex} c=${chunkIndex} bytes=${audioByteLength} isLast=${isLast}`);
+    
     const float32Data = new Float32Array(audio);
     const numSamples = float32Data.length;
     const chunkDuration = numSamples / sampleRate;
@@ -453,7 +457,7 @@ export class StreamingAudioPlayer {
     // These chunks have 0 audio data but signal sentence completion
     // We MUST process the isLast flag even if there's no audio to schedule
     if (numSamples === 0) {
-      console.log(`[AUDIO] Empty chunk s=${sentenceIndex} c=${chunkIndex} isLast=${isLast} - processing as marker only`);
+      console.error(`[AUDIO PLAYER] *** EMPTY CHUNK DETECTED *** s=${sentenceIndex} c=${chunkIndex} isLast=${isLast}`);
       if (isLast) {
         const entry = this.sentenceSchedule.get(sentenceIndex);
         let endCtxTimeSet = false;

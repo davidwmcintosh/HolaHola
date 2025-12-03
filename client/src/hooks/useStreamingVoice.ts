@@ -252,7 +252,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
     
     // Force log with console.error to ensure capture
-    console.error(`[CHUNK RECEIVED] sentence=${msg.sentenceIndex}, chunk=${msg.chunkIndex}, format=${msg.audioFormat}`);
+    console.error(`[CHUNK RECEIVED] sentence=${msg.sentenceIndex}, chunk=${msg.chunkIndex}, format=${msg.audioFormat}, isLast=${msg.isLast}, audioLen=${msg.audio?.length || 0}`);
+    
+    // CRITICAL DEBUG: Track empty chunks specifically
+    if (msg.isLast && (!msg.audio || msg.audio.length === 0)) {
+      console.error(`[EMPTY CHUNK RECEIVED] sentence=${msg.sentenceIndex}, chunk=${msg.chunkIndex} - THIS IS A SENTENCE-END MARKER`);
+    }
     
     if (!playerRef.current) {
       console.warn('[StreamingVoice] Audio chunk received but no player - DROPPING AUDIO');
