@@ -484,13 +484,18 @@ export class StreamingAudioPlayer {
     const scheduleEntry = this.sentenceSchedule.get(sentenceIndex)!;
     scheduleEntry.totalDuration += chunkDuration;
     
-    // For the very first chunk of the first sentence, start the timing loop
-    if (!this.progressiveFirstChunkStarted && chunkIndex === 0 && sentenceIndex === 0) {
+    // Start or restart the timing loop when needed
+    // - For first chunk of first sentence of a turn: always start
+    // - For first chunk of any sentence after loop was stopped: restart
+    const shouldStartLoop = !this.progressiveFirstChunkStarted && chunkIndex === 0 && sentenceIndex === 0;
+    const shouldRestartLoop = !this.isPlaying && chunkIndex === 0;
+    
+    if (shouldStartLoop || shouldRestartLoop) {
       this.progressiveFirstChunkStarted = true;
       this.playbackStartTime = performance.now();
       this.isPlaying = true; // CRITICAL: Set this BEFORE starting the loop!
       this.setState('playing');
-      console.error(`[AUDIO-CRITICAL] Starting unified timing loop! chunk=0, sentence=0, startCtxTime=${playTime.toFixed(3)}`);
+      console.error(`[AUDIO-CRITICAL] ${shouldRestartLoop ? 'Restarting' : 'Starting'} unified timing loop! chunk=${chunkIndex}, sentence=${sentenceIndex}, startCtxTime=${playTime.toFixed(3)}`);
       this.startUnifiedTimingLoop(); // New unified loop
     }
     
