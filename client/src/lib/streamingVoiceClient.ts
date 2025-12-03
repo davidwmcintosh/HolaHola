@@ -22,9 +22,8 @@ declare global {
   }
 }
 
+// Initialize debug tracking (access via window._wsDebug in browser console)
 if (typeof window !== 'undefined') {
-  console.log('%c[StreamingVoiceClient] MODULE LOADED', 'background: red; color: white; font-size: 16px');
-  (window as any)._svcLoaded = true;
   window._wsDebug = {
     messageCount: 0,
     byType: {},
@@ -662,22 +661,18 @@ export class StreamingVoiceClient {
 
 export function getStreamingVoiceClient(): StreamingVoiceClient {
   // Use window storage to ensure single instance across all module copies
-  // This is CRITICAL for preventing the dual-instance WebSocket bug
+  // This is CRITICAL for preventing the dual-instance WebSocket bug where:
+  // - Vite bundles may create multiple module copies
+  // - Each copy would have its own module-scoped singleton variable
+  // - Instance #1 owns the WebSocket, Instance #2 has React listeners
+  // - By storing on window, ALL imports share the SAME instance
   if (typeof window !== 'undefined') {
-    // Track instance creation for debugging
-    if (typeof window.__svcInstanceId === 'undefined') {
-      window.__svcInstanceId = 0;
-    }
-    
-    // REUSE existing instance if present - this is the key fix!
+    // REUSE existing instance if present
     if (window.__streamingVoiceClient) {
-      console.log('[SVC] Returning existing singleton instance (avoiding duplicate)');
       return window.__streamingVoiceClient;
     }
     
     // Create new instance only when none exists
-    window.__svcInstanceId++;
-    console.log(`[SVC] Creating singleton instance #${window.__svcInstanceId} (stored on window)`);
     window.__streamingVoiceClient = new StreamingVoiceClient();
     return window.__streamingVoiceClient;
   }
@@ -692,12 +687,9 @@ export function getStreamingVoiceClient(): StreamingVoiceClient {
  * Only use when you need to reset connection state completely.
  */
 export function resetStreamingVoiceClient(): StreamingVoiceClient {
-  if (typeof window !== 'undefined') {
-    if (window.__streamingVoiceClient) {
-      console.log('[SVC] Resetting: disconnecting existing instance');
-      window.__streamingVoiceClient.disconnect();
-      window.__streamingVoiceClient = null;
-    }
+  if (typeof window !== 'undefined' && window.__streamingVoiceClient) {
+    window.__streamingVoiceClient.disconnect();
+    window.__streamingVoiceClient = null;
   }
   return getStreamingVoiceClient();
 }
