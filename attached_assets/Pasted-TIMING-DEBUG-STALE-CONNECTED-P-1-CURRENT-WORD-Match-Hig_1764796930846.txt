@@ -1,0 +1,181 @@
+TIMING DEBUG
+(STALE)
+[CONNECTED]
+P:1
+▲
+CURRENT WORD
+✓ Match
+Highlighted:
+¡Hola,
+Expected (from timing):
+¡Hola,
+Word Index: 0 | Visible: 1 | Total Received: 12
+TIMING DRIFT
+Audio Time
+0.013s
+Expected Start
+0.000s
+Drift
++13ms
+CURRENT SENTENCE
+¡Hola, David! Welcome to your first Spanish lesson! Let's start with Hola
+Target: Hola
+WORD TIMING COUNTS
+Total Deltas:
+17
+Total Finals:
+17
+This Sentence:
+12 deltas
+Final Count:
+12
+✓ All deltas received
+TIMING RACE
+S1
+First Timing At:
+92869ms
+Playback Start:
+—
+Timings at Start:
+0 words ready
+HISTORY (per sentence):
+S0
++368ms
+1w
+WORD-BASED TIMING
+NO MATCH
+Active Word (from ctx.currentTime):
+No word matched at current time
+Schedule Size:
+17 words
+Last Match:
+0.21s
+FIRST Words (with abs times):
+S0W0: "¡Hola," @ 0.10-0.30s
+S0W1: "David!" @ 0.30-0.63s
+S0W2: "Welcome" @ 0.80-1.14s
+S0W3: "to" @ 1.14-1.28s
+S0W4: "your" @ 1.28-1.51s
+S0W5: "first" @ 1.51-1.83s
+RECEIVED WORDS (12)
+0: Can
+1: you
+2: try
+3: saying
+4: Hola?
+5: first
+6: Spanish
+7: lesson!
+8: Let's
+9: start
+10: with
+11: Hola
+RECENT EVENTS (17)
+Δ
+S1:
+w4
+"Hola?"
+1.18-1.55s
+Δ
+S1:
+w3
+"saying"
+0.73-1.18s
+Δ
+S1:
+w2
+"try"
+0.53-0.73s
+Δ
+S1:
+w1
+"you"
+0.34-0.53s
+Δ
+S1:
+w0
+"Can"
+0.14-0.34s
+Δ
+S0:
+w11
+"Hola"
+3.93-4.35s
+Δ
+S0:
+w10
+"with"
+3.68-3.93s
+Δ
+S0:
+w9
+"start"
+3.36-3.68s
+Δ
+S0:
+w8
+"Let's"
+2.97-3.36s
+Δ
+S0:
+w7
+"lesson!"
+2.24-2.76s
+TICK LOOP (First 5 frames)started 17.4s ago
+F1: ctx=0.016s, state=running, playing=true
+F2: ctx=0.016s, state=running, playing=true
+F3: ctx=0.064s, state=running, playing=true
+F4: ctx=0.213s, state=running, playing=true
+F5: ctx=0.336s, state=running, playing=true
+PLAYBACK STATE
+Loop Running:
+YES
+isPlaying:
+YES
+Loop Ticks:
+80
+Ctx Time:
+8.133s
+Ctx State:
+running
+Ctx ID:
+6883319_0202
+Active Sentence:
+0
+Last Delta Sent:
+S1
+SENTENCE EVENTS
+Last Start:
+none
+Last End:
+none
+AUDIO CHUNKS RECEIVED
+Total Chunks:
+48
+Last Chunk S:
+1
+Per Sentence: S0:34, S1:14
+EMPTY CHUNKS & TRANSITIONS
+Empty Chunks:
+2
+Last Empty S:
+1
+EndTimes Set: [0, 1]
+Transitions:
+s-1→s0: started at 0.21s
+SCHEDULE (2 entries)
+MATCH INFO (1 sentences)
+S0 ✗
+end=undefined
+ENDED: now(8.13) >= end(4.37)
+range: 0.10 - 4.37
+SCHEDULE EVENTS (3)
+✅ ADD S1
+2:21:32 PM
+After: [0, 1] (2 entries)
+✅ ADD S0
+2:21:23 PM
+After: [0] (1 entries)
+⚠️ CLEAR (0 removed)
+2:21:23 PM
+After: [] (0 entries)

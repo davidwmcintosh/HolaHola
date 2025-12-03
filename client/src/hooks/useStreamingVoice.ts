@@ -11,7 +11,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { getStreamingVoiceClient, StreamingVoiceClient } from '../lib/streamingVoiceClient';
 import { getStreamingAudioPlayer, StreamingAudioPlayer, StreamingAudioChunk, StreamingPlaybackState } from '../lib/audioUtils';
 import { useStreamingSubtitles, UseStreamingSubtitlesReturn } from './useStreamingSubtitles';
-import { logAudioChunkReceived } from '../lib/debugTimingState';
+import { logAudioChunkReceived, updateDebugTimingState } from '../lib/debugTimingState';
 import type { 
   StreamingClientState,
   StreamingMetrics,
@@ -156,11 +156,15 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       },
       onSentenceStart: (sentenceIndex) => {
         console.log(`[StreamingVoice] Sentence ${sentenceIndex} started (turn ${currentTurnIdRef.current})`);
+        // Update debug state for tracking
+        updateDebugTimingState({ lastOnSentenceStartFired: sentenceIndex });
         // Pass turnId for subtitle packet ordering (prevents phantom subtitles)
         subtitlesRef.current.startPlayback(sentenceIndex, currentTurnIdRef.current);
       },
       onSentenceEnd: (sentenceIndex) => {
         console.log(`[StreamingVoice] Sentence ${sentenceIndex} ended (turn ${currentTurnIdRef.current})`);
+        // Update debug state for tracking
+        updateDebugTimingState({ lastOnSentenceEndFired: sentenceIndex });
         subtitlesRef.current.completeSentence(sentenceIndex, currentTurnIdRef.current);
       },
       onComplete: () => {
