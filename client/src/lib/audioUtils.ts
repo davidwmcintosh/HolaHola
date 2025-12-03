@@ -612,12 +612,19 @@ export class StreamingAudioPlayer {
       for (let i = 0; i < entries.length; i++) {
         const [index, entry] = entries[i];
         // Check if 'now' is within this sentence's time window
+        // CRITICAL: If endCtxTime is undefined, sentence is still streaming - 
+        // use current totalDuration as temporary end, but DON'T mark it as "complete"
+        const isStreaming = entry.endCtxTime === undefined;
         const endTime = entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration);
         
-        if (now >= entry.startCtxTime && now < endTime) {
-          activeIndex = index;
-          activeEntry = entry;
-          break;
+        // If sentence is still streaming and we've started, stay active
+        // This prevents premature "completion" while chunks are still arriving
+        if (now >= entry.startCtxTime) {
+          if (isStreaming || now < endTime) {
+            activeIndex = index;
+            activeEntry = entry;
+            break;
+          }
         }
       }
       
@@ -701,7 +708,11 @@ export class StreamingAudioPlayer {
         // No active sentence - check for sentences that have ended but haven't fired onSentenceEnd
         for (let i = 0; i < entries.length; i++) {
           const [index, entry] = entries[i];
-          const endTime = entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration);
+          // CRITICAL: Only fire onSentenceEnd if endCtxTime is set (sentence fully received)
+          // If endCtxTime is undefined, sentence is still streaming - don't end it prematurely
+          if (entry.endCtxTime === undefined) continue;
+          
+          const endTime = entry.endCtxTime;
           
           // If we're past this sentence's end time and it started but hasn't ended, fire end event
           if (now >= endTime && entry.started && !entry.ended) {
@@ -712,11 +723,16 @@ export class StreamingAudioPlayer {
         }
         
         // Check if all sentences are complete
+        // A sentence is only "complete" if endCtxTime is set AND we've passed it
         let allDone = true;
         for (let i = 0; i < entries.length; i++) {
           const [, entry] = entries[i];
-          const endTime = entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration);
-          if (now < endTime) {
+          // If endCtxTime is undefined, sentence is still streaming - not done
+          if (entry.endCtxTime === undefined) {
+            allDone = false;
+            break;
+          }
+          if (now < entry.endCtxTime) {
             allDone = false;
             break;
           }
