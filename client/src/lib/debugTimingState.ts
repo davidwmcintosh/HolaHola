@@ -327,25 +327,33 @@ export function addWordTimingEvent(event: Omit<WordTimingEvent, 'timestamp'>): v
     newEvents.shift();
   }
   
-  // Also update receivedWords list for word comparison
+  // Update receivedWords list for word comparison
+  // Handle both 'delta' and 'final' events to capture all words
   // Use sentence-aware structure to prevent word overwriting across sentences
   const newReceivedWords = [...currentState.receivedWords];
-  if (event.type === 'delta') {
-    // Check if this word already exists (same sentence and word index)
-    const existingIdx = newReceivedWords.findIndex(
-      w => w.sentenceIndex === event.sentenceIndex && w.wordIndex === event.wordIndex
-    );
-    const wordEntry = { 
-      sentenceIndex: event.sentenceIndex, 
-      wordIndex: event.wordIndex, 
-      word: event.word 
-    };
-    if (existingIdx >= 0) {
-      newReceivedWords[existingIdx] = wordEntry;
-    } else {
-      newReceivedWords.push(wordEntry);
-    }
+  
+  // Check if this word already exists (same sentence and word index)
+  const existingIdx = newReceivedWords.findIndex(
+    w => w.sentenceIndex === event.sentenceIndex && w.wordIndex === event.wordIndex
+  );
+  const wordEntry = { 
+    sentenceIndex: event.sentenceIndex, 
+    wordIndex: event.wordIndex, 
+    word: event.word 
+  };
+  if (existingIdx >= 0) {
+    newReceivedWords[existingIdx] = wordEntry;
+  } else {
+    newReceivedWords.push(wordEntry);
   }
+  
+  // Sort by sentence index first, then word index for deterministic ordering
+  newReceivedWords.sort((a, b) => {
+    if (a.sentenceIndex !== b.sentenceIndex) {
+      return a.sentenceIndex - b.sentenceIndex;
+    }
+    return a.wordIndex - b.wordIndex;
+  });
   
   updateDebugTimingState({
     recentWordEvents: newEvents,
@@ -510,6 +518,19 @@ export function clearWordState(): void {
     timingComparison: null,
     deltasReceived: 0,
     finalWordCount: 0,
+  });
+}
+
+/**
+ * Clear receivedWords for a specific sentence (useful when sentence is cleared/reset)
+ */
+export function clearReceivedWordsForSentence(sentenceIndex: number): void {
+  const currentState = getDebugState();
+  const filteredWords = currentState.receivedWords.filter(
+    w => w.sentenceIndex !== sentenceIndex
+  );
+  updateDebugTimingState({
+    receivedWords: filteredWords,
   });
 }
 

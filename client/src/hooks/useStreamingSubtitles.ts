@@ -20,7 +20,7 @@ import {
   logTimingEvent,
   difficultyToProficiencyBand
 } from '../lib/subtitlePolicies';
-import { updateDebugTimingState, updateTimingComparison, clearWordState, getDebugTimingState } from '../lib/debugTimingState';
+import { updateDebugTimingState, updateTimingComparison, clearWordState, clearReceivedWordsForSentence, getDebugTimingState } from '../lib/debugTimingState';
 
 /**
  * A contiguous block of target language words
@@ -985,6 +985,9 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     // Clean up timing cache
     timingsBySentenceRef.current.delete(sentenceIndex);
     
+    // Clean up debug receivedWords for completed sentence to prevent stale data
+    clearReceivedWordsForSentence(sentenceIndex);
+    
     setSentences(prev => {
       return prev.map(s => {
         if (s.index === sentenceIndex && s.turnId === turnId) {
@@ -1020,6 +1023,9 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     timingsBySentenceRef.current.clear();
     progressiveWordMapRef.current.clear();
     sentenceStartTimesRef.current.clear();  // Clear sentence start time tracking
+    
+    // Clear debug timing state for word tracking
+    clearWordState();
     
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
