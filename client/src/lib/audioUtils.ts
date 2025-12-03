@@ -397,6 +397,9 @@ export class StreamingAudioPlayer {
     
     const ctx = this.getAudioContext();
     
+    // CRITICAL DEBUG: Log EVERY non-empty chunk that passes the empty check
+    console.error(`[NON-EMPTY CHUNK] s=${sentenceIndex} c=${chunkIndex} bytes=${audio.byteLength} isLast=${isLast} - WILL ADD TO SCHEDULE`);
+    
     // CRITICAL: Log AudioContext state for every chunk
     console.log(`[AUDIO STATE] Chunk ${sentenceIndex}:${chunkIndex} - ctx.state=${ctx.state}, ctx.currentTime=${ctx.currentTime?.toFixed(3)}`);
     

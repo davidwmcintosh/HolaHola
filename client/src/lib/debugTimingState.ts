@@ -89,6 +89,11 @@ export interface DebugTimingState {
   lastEmptyChunkSentence: number;    // Last sentence that received empty chunk
   sentenceEndTimesSet: number[];     // Sentences where endCtxTime was successfully set
   sentenceTransitions: string[];     // Log of sentence transitions (max 10)
+  
+  // NEW: Audio chunk tracking per sentence
+  audioChunksReceived: { [sentenceIndex: number]: number };  // Count of audio chunks per sentence
+  totalAudioChunksReceived: number;                          // Total audio chunks received
+  lastAudioChunkSentence: number;                            // Last sentence that received audio chunk
 }
 
 // Maximum number of word events to keep in log
@@ -130,6 +135,11 @@ let debugState: DebugTimingState = {
   lastEmptyChunkSentence: -1,
   sentenceEndTimesSet: [],
   sentenceTransitions: [],
+  
+  // Audio chunk tracking per sentence
+  audioChunksReceived: {},
+  totalAudioChunksReceived: 0,
+  lastAudioChunkSentence: -1,
 };
 
 // Listeners for React components
@@ -263,6 +273,11 @@ export function resetDebugTimingState(): void {
     lastEmptyChunkSentence: -1,
     sentenceEndTimesSet: [],
     sentenceTransitions: [],
+    
+    // Audio chunk tracking per sentence
+    audioChunksReceived: {},
+    totalAudioChunksReceived: 0,
+    lastAudioChunkSentence: -1,
   };
   listeners.forEach(listener => listener(debugState));
 }
@@ -311,5 +326,19 @@ export function logSentenceTransition(fromSentence: number, toSentence: number, 
   
   updateDebugTimingState({
     sentenceTransitions: newTransitions,
+  });
+}
+
+/**
+ * Log an audio chunk received from useStreamingVoice hook
+ */
+export function logAudioChunkReceived(sentenceIndex: number): void {
+  const newChunksReceived = { ...debugState.audioChunksReceived };
+  newChunksReceived[sentenceIndex] = (newChunksReceived[sentenceIndex] || 0) + 1;
+  
+  updateDebugTimingState({
+    audioChunksReceived: newChunksReceived,
+    totalAudioChunksReceived: debugState.totalAudioChunksReceived + 1,
+    lastAudioChunkSentence: sentenceIndex,
   });
 }

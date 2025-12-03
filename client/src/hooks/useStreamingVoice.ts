@@ -11,6 +11,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { getStreamingVoiceClient, StreamingVoiceClient } from '../lib/streamingVoiceClient';
 import { StreamingAudioPlayer, StreamingAudioChunk, StreamingPlaybackState } from '../lib/audioUtils';
 import { useStreamingSubtitles, UseStreamingSubtitlesReturn } from './useStreamingSubtitles';
+import { logAudioChunkReceived } from '../lib/debugTimingState';
 import type { 
   StreamingClientState,
   StreamingMetrics,
@@ -242,6 +243,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * as they arrive. This eliminates the ~2s sentence buffering delay.
    */
   const handleAudioChunk = useCallback((msg: StreamingAudioChunkMessage) => {
+    // CRITICAL DEBUG: Track chunks via debug panel state (reliable visibility)
+    logAudioChunkReceived(msg.sentenceIndex);
+    
     // CRITICAL DEBUG: Track chunks at window level for debugging
     if (typeof window !== 'undefined') {
       const w = window as any;

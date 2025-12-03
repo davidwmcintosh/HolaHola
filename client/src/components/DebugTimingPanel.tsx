@@ -52,6 +52,9 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
     lastEmptyChunkSentence,
     sentenceEndTimesSet,
     sentenceTransitions,
+    audioChunksReceived,
+    totalAudioChunksReceived,
+    lastAudioChunkSentence,
   } = state;
   
   const timeSinceUpdate = Date.now() - lastUpdateTime;
@@ -311,7 +314,37 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
             </div>
           </div>
           
-          {/* SECTION 8.5: Empty Chunks & Transitions (Critical for debugging) */}
+          {/* SECTION 8.5: Audio Chunks Received (Critical for debugging) */}
+          <div className="border border-yellow-500/40 rounded p-2 bg-yellow-900/20">
+            <div className="font-bold text-yellow-300 mb-1">AUDIO CHUNKS RECEIVED</div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Total Chunks:</span>
+                <span className={totalAudioChunksReceived > 0 ? 'text-green-400 font-bold' : 'text-gray-500'}>
+                  {totalAudioChunksReceived}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Last Chunk S:</span>
+                <span className={lastAudioChunkSentence >= 0 ? 'text-yellow-400' : 'text-gray-500'}>
+                  {lastAudioChunkSentence >= 0 ? lastAudioChunkSentence : 'none'}
+                </span>
+              </div>
+            </div>
+            {Object.keys(audioChunksReceived).length > 0 && (
+              <div className="mt-1">
+                <span className="text-gray-400 text-[10px]">Per Sentence: </span>
+                <span className="text-green-400">
+                  {Object.entries(audioChunksReceived)
+                    .sort(([a], [b]) => parseInt(a) - parseInt(b))
+                    .map(([s, count]) => `S${s}:${count}`)
+                    .join(', ')}
+                </span>
+              </div>
+            )}
+          </div>
+          
+          {/* SECTION 8.6: Empty Chunks & Transitions (Critical for debugging) */}
           <div className="border border-pink-500/40 rounded p-2 bg-pink-900/20">
             <div className="font-bold text-pink-300 mb-1">EMPTY CHUNKS & TRANSITIONS</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1">
