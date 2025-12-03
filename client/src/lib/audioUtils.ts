@@ -1,4 +1,27 @@
-import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition, updateDebugTimingState } from './debugTimingState';
+import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition, updateDebugTimingState, type SentenceScheduleEntry } from './debugTimingState';
+
+/**
+ * Helper to immediately update debug state with current schedule
+ * Called when schedule entries are added/modified
+ */
+function updateDebugSchedule(sentenceSchedule: Map<number, {
+  startCtxTime: number;
+  totalDuration: number;
+  endCtxTime?: number;
+  started: boolean;
+  ended: boolean;
+}>) {
+  const scheduleArray: SentenceScheduleEntry[] = Array.from(sentenceSchedule.entries()).map(([idx, e]) => ({
+    sentenceIndex: idx,
+    startCtxTime: e.startCtxTime,
+    totalDuration: e.totalDuration,
+    endCtxTime: e.endCtxTime,
+    started: e.started,
+    ended: e.ended
+  }));
+  
+  updateDebugTimingState({ sentenceSchedule: scheduleArray });
+}
 
 // Convert Int16Array PCM to base64 string
 export function pcm16ToBase64(pcm16: Int16Array): string {
@@ -535,6 +558,8 @@ export class StreamingAudioPlayer {
         ended: false,
       });
       console.error(`[SCHEDULE ADD] ✅ Sentence ${sentenceIndex} ADDED to schedule at ${playTime.toFixed(3)}s. Schedule now has ${this.sentenceSchedule.size} entries`);
+      // IMMEDIATELY update debug state with new schedule entry
+      updateDebugSchedule(this.sentenceSchedule);
     } else {
       console.error(`[SCHEDULE SKIP] Sentence ${sentenceIndex} already in schedule (chunk ${chunkIndex})`);
     }
