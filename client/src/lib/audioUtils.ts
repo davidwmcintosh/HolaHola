@@ -366,9 +366,27 @@ export class StreamingAudioPlayer {
     isLast: boolean,
     sampleRate: number = 24000
   ): Promise<void> {
-    // Skip empty audio (e.g., final marker chunk)
+    // CRITICAL FIX: Handle empty audio chunks (isLast=true marker chunks)
+    // These chunks have 0 audio data but signal sentence completion
+    // We MUST process the isLast flag even if there's no audio to schedule
     if (audio.byteLength === 0) {
+      console.error(`[AUDIO PLAYER] *** EMPTY CHUNK *** s=${sentenceIndex} c=${chunkIndex} isLast=${isLast}`);
       if (isLast) {
+        // Set the endCtxTime in the sentence schedule
+        const entry = this.sentenceSchedule.get(sentenceIndex);
+        let endCtxTimeSet = false;
+        if (entry) {
+          entry.endCtxTime = entry.startCtxTime + entry.totalDuration;
+          endCtxTimeSet = true;
+          console.log(`[AUDIO SCHEDULE] ✓ Sentence ${sentenceIndex} endCtxTime set via EARLY PATH: ${entry.endCtxTime.toFixed(3)} (duration=${entry.totalDuration.toFixed(3)}s)`);
+        } else {
+          console.error(`[AUDIO SCHEDULE] ✗ No schedule entry for sentence ${sentenceIndex} when isLast received!`);
+        }
+        
+        // Update debug panel with empty chunk info
+        logEmptyChunkProcessed(sentenceIndex, endCtxTimeSet);
+        
+        // Also call the existing finalize method
         this.finalizeProgressiveSentence(sentenceIndex);
       }
       return;
