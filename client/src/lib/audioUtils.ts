@@ -791,7 +791,8 @@ export class StreamingAudioPlayer {
       absoluteEndTime
     });
     
-    console.log(`[WORD SCHEDULE] Registered: ${key} "${word}" ${absoluteStartTime.toFixed(3)}-${absoluteEndTime.toFixed(3)}s (sentence start: ${sentenceEntry.startCtxTime.toFixed(3)}s)`);
+    // Use console.error for more reliable capture in browser logs
+    console.error(`[WORD SCHEDULE] Registered: ${key} "${word}" abs=${absoluteStartTime.toFixed(3)}-${absoluteEndTime.toFixed(3)}s (sentenceStart=${sentenceEntry.startCtxTime.toFixed(3)}, relative=${relativeStartTime.toFixed(3)}-${relativeEndTime.toFixed(3)})`);
     
     // Update debug state with word schedule (limit to last 20 words for performance)
     const wordEntries = Array.from(this.wordSchedule.values());
@@ -823,7 +824,7 @@ export class StreamingAudioPlayer {
     // Use Array.from for broader compatibility (avoids downlevelIteration issues)
     const wordEntries = Array.from(this.wordSchedule.entries());
     
-    // DEBUG: Log word schedule state periodically
+    // DEBUG: Log word schedule state periodically (use console.error for reliable capture)
     if (wordEntries.length > 0 && Math.floor(now * 2) % 4 === 0) {
       // Find closest word for debugging
       let closestWord = wordEntries[0];
@@ -835,7 +836,9 @@ export class StreamingAudioPlayer {
           closestWord = wordEntries[i];
         }
       }
-      console.log(`[findActiveWord] now=${now.toFixed(3)}, scheduleSize=${wordEntries.length}, closest="${closestWord[1].word}" at ${closestWord[1].absoluteStartTime.toFixed(3)}-${closestWord[1].absoluteEndTime.toFixed(3)} (diff=${closestDiff.toFixed(3)}s)`);
+      // Show first 3 words time ranges for debugging
+      const first3 = wordEntries.slice(0, 3).map(([k, e]) => `${k}:${e.absoluteStartTime.toFixed(2)}-${e.absoluteEndTime.toFixed(2)}`).join(', ');
+      console.error(`[findActiveWord] now=${now.toFixed(3)}, closest="${closestWord[1].word}" ${closestWord[1].absoluteStartTime.toFixed(3)}-${closestWord[1].absoluteEndTime.toFixed(3)} (diff=${closestDiff.toFixed(3)}s) | first3=[${first3}]`);
     }
     
     // Iterate through all words and find the one that matches current time
