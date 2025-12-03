@@ -728,6 +728,14 @@ export class StreamingAudioPlayer {
       // Use Array.from for broader compatibility (avoids downlevelIteration issues)
       const scheduleEntries = Array.from(this.sentenceSchedule.entries());
       
+      // DEBUG: Log schedule size periodically
+      if (frameCount % 30 === 0) {
+        console.error(`[LOOP SCHEDULE] Frame ${frameCount}: scheduleEntries.length=${scheduleEntries.length}, Map.size=${this.sentenceSchedule.size}`);
+        scheduleEntries.forEach(([idx, e]) => {
+          console.error(`  S${idx}: start=${e.startCtxTime.toFixed(2)}, dur=${e.totalDuration.toFixed(2)}, endCtx=${e.endCtxTime?.toFixed(2) ?? 'undefined'}, started=${e.started}`);
+        });
+      }
+      
       for (let i = 0; i < scheduleEntries.length; i++) {
         const [index, entry] = scheduleEntries[i];
         const isStreaming = entry.endCtxTime === undefined;
