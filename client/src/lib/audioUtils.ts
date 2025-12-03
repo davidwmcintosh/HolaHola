@@ -297,7 +297,9 @@ export class StreamingAudioPlayer {
   private getAudioContext(): AudioContext {
     if (!this.audioContext) {
       this.audioContext = new AudioContext({ sampleRate: 24000 });
-      console.log('[StreamingAudioPlayer] Web Audio API initialized, state:', this.audioContext.state);
+      // Assign unique ID for debugging
+      (this.audioContext as any).__debugId = `ctx_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+      console.log(`[StreamingAudioPlayer] Web Audio API initialized, state: ${this.audioContext.state}, ID: ${(this.audioContext as any).__debugId}`);
     }
     return this.audioContext;
   }
@@ -612,6 +614,12 @@ export class StreamingAudioPlayer {
     this.progressiveScheduledTime += chunkDuration;
     this.progressiveTotalDuration += chunkDuration; // Track total duration
     
+    // CRITICAL DEBUG: Log ctx ID when scheduling audio
+    const ctxId = (ctx as any).__debugId || 'NO_ID';
+    if (chunkIndex === 0) {
+      console.log(`[AUDIO SCHEDULE] s=${sentenceIndex} c=0 scheduled at ${playTime.toFixed(3)}s via ctx=${ctxId}, ctx.currentTime=${ctx.currentTime.toFixed(3)}`);
+    }
+    
     // Track first chunk for timing - SCHEDULE-BASED APPROACH
     // Only log first chunk of each sentence to reduce console noise
     if (chunkIndex === 0) {
@@ -772,6 +780,12 @@ export class StreamingAudioPlayer {
       }
       
       const now = ctx.currentTime;
+      const ctxId = (ctx as any).__debugId || 'NO_ID';
+      
+      // Log AudioContext ID every 60 frames to verify it's the same one scheduling audio
+      if (frameCount % 60 === 0) {
+        console.log(`[TICK DEBUG] Frame ${frameCount}: ctx.currentTime=${now.toFixed(3)}, ctx.state=${ctx.state}, ctxId=${ctxId}`);
+      }
       
       // Update debug state every 10 frames (~160ms) with current timing info
       if (frameCount % 10 === 0) {
