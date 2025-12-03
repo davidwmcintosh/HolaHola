@@ -7771,6 +7771,94 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // Link drill lessons as prerequisites for conversation lessons
+  app.post("/api/admin/classes/link-prerequisites", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const adminId = req.user?.claims?.sub;
+      
+      // Get all classes
+      const allClasses = await db
+        .select()
+        .from(teacherClasses);
+      
+      const linkedPairs: { classId: string; drillLesson: string; conversationLesson: string }[] = [];
+      
+      for (const teacherClass of allClasses) {
+        // Get all class lessons
+        const classLessons = await db
+          .select({
+            id: classCurriculumLessons.id,
+            name: classCurriculumLessons.name,
+            lessonType: classCurriculumLessons.lessonType,
+            unitId: classCurriculumLessons.unitId,
+            orderIndex: classCurriculumLessons.orderIndex,
+          })
+          .from(classCurriculumLessons)
+          .innerJoin(classCurriculumUnits, eq(classCurriculumLessons.unitId, classCurriculumUnits.id))
+          .where(eq(classCurriculumUnits.classId, teacherClass.id))
+          .orderBy(classCurriculumLessons.orderIndex);
+        
+        const drillLessons = classLessons.filter(l => l.lessonType === 'drill');
+        const conversationLessons = classLessons.filter(l => l.lessonType === 'conversation');
+        
+        // For each drill lesson, find matching conversation lesson in same unit
+        for (const drillLesson of drillLessons) {
+          const drillTopic = drillLesson.name.toLowerCase()
+            .replace(/lesson \d+:\s*/i, '')
+            .replace(/ drill$/i, '')
+            .trim();
+          
+          // Find matching conversation lesson
+          const matchingConversation = conversationLessons.find(conv => {
+            const convTopic = conv.name.toLowerCase()
+              .replace(/lesson \d+:\s*/i, '')
+              .replace(/ conversation$/i, '')
+              .trim();
+            return (convTopic === drillTopic || 
+                    conv.name.toLowerCase().includes(drillTopic) || 
+                    drillLesson.name.toLowerCase().includes(convTopic)) &&
+                   conv.unitId === drillLesson.unitId;
+          });
+          
+          if (matchingConversation) {
+            await db
+              .update(classCurriculumLessons)
+              .set({ prerequisiteLessonId: drillLesson.id })
+              .where(eq(classCurriculumLessons.id, matchingConversation.id));
+            
+            linkedPairs.push({
+              classId: teacherClass.id,
+              drillLesson: drillLesson.name,
+              conversationLesson: matchingConversation.name,
+            });
+          }
+        }
+      }
+      
+      console.log(`[Link Prerequisites] Linked ${linkedPairs.length} drill→conversation pairs`);
+      
+      // Log admin action
+      await storage.logAdminAction({
+        actorId: adminId,
+        action: 'link_drill_prerequisites',
+        targetType: 'system',
+        targetId: 'all_classes',
+        metadata: { linkedPairs: linkedPairs.length },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      res.json({
+        success: true,
+        linkedPairs: linkedPairs.length,
+        details: linkedPairs,
+      });
+    } catch (error: any) {
+      console.error('Error linking prerequisites:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // ===== Class Hour Packages (Institutional) =====
   
   // Get all hour packages (admin/developer only)

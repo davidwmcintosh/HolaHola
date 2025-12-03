@@ -1,7 +1,7 @@
 import { db } from "../db";
-import { teacherClasses, classCurriculumUnits, classCurriculumLessons, curriculumLessons } from "@shared/schema";
+import { teacherClasses, classCurriculumUnits, classCurriculumLessons, curriculumLessons, curriculumUnits } from "@shared/schema";
 import { storage } from "../storage";
-import { isNotNull, eq, inArray, sql } from "drizzle-orm";
+import { isNotNull, eq, inArray, sql, and, like, or, not } from "drizzle-orm";
 
 export async function initializeAllSyllabi(): Promise<{
   initialized: number;
@@ -89,5 +89,68 @@ export async function initializeAllSyllabi(): Promise<{
     skipped: skipped.length,
     errors: errors.length,
     details: results,
+  };
+}
+
+export async function linkDrillPrerequisites(): Promise<{
+  linkedPairs: number;
+  details: Array<{ classId: string; drillLesson: string; conversationLesson: string }>;
+}> {
+  console.log('[Prerequisite Link] Starting drill → conversation prerequisite linking...');
+  
+  const allClasses = await db
+    .select()
+    .from(teacherClasses);
+  
+  const details: Array<{ classId: string; drillLesson: string; conversationLesson: string }> = [];
+  
+  for (const teacherClass of allClasses) {
+    const classLessons = await db
+      .select({
+        id: classCurriculumLessons.id,
+        name: classCurriculumLessons.name,
+        lessonType: classCurriculumLessons.lessonType,
+        classUnitId: classCurriculumLessons.classUnitId,
+        orderIndex: classCurriculumLessons.orderIndex,
+      })
+      .from(classCurriculumLessons)
+      .innerJoin(classCurriculumUnits, eq(classCurriculumLessons.classUnitId, classCurriculumUnits.id))
+      .where(eq(classCurriculumUnits.classId, teacherClass.id))
+      .orderBy(classCurriculumLessons.orderIndex);
+    
+    const drillLessons = classLessons.filter(l => l.lessonType === 'drill');
+    const conversationLessons = classLessons.filter(l => l.lessonType === 'conversation');
+    
+    for (const drillLesson of drillLessons) {
+      const drillTopic = drillLesson.name.toLowerCase().replace(/lesson \d+:\s*/i, '').replace(/ drill$/i, '').trim();
+      
+      const matchingConversation = conversationLessons.find(conv => {
+        const convTopic = conv.name.toLowerCase().replace(/lesson \d+:\s*/i, '').replace(/ conversation$/i, '').trim();
+        return convTopic === drillTopic || 
+               conv.name.toLowerCase().includes(drillTopic) || 
+               drillLesson.name.toLowerCase().includes(convTopic);
+      });
+      
+      if (matchingConversation && matchingConversation.classUnitId === drillLesson.classUnitId) {
+        await db
+          .update(classCurriculumLessons)
+          .set({ prerequisiteLessonId: drillLesson.id })
+          .where(eq(classCurriculumLessons.id, matchingConversation.id));
+        
+        console.log(`[Prerequisite Link] Linked: "${drillLesson.name}" → "${matchingConversation.name}"`);
+        details.push({
+          classId: teacherClass.id,
+          drillLesson: drillLesson.name,
+          conversationLesson: matchingConversation.name,
+        });
+      }
+    }
+  }
+  
+  console.log(`[Prerequisite Link] Complete: ${details.length} drill→conversation pairs linked`);
+  
+  return {
+    linkedPairs: details.length,
+    details,
   };
 }
