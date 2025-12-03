@@ -6266,6 +6266,109 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ===== Drill Audio Generation =====
+
+  // Generate audio for all drill items in a lesson (teachers only)
+  app.post("/api/drill-audio/generate/:lessonId", mutationLimiter, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!hasTeacherAccess(user?.role)) {
+        return res.status(403).json({ error: "Only teachers can generate drill audio" });
+      }
+
+      const { lessonId } = req.params;
+      const { language, speakingRate, forceRegenerate } = req.body;
+      
+      if (!language) {
+        return res.status(400).json({ error: "language is required" });
+      }
+
+      const { generateAudioForLesson } = await import('./services/drill-audio-service');
+      const results = await generateAudioForLesson(
+        lessonId,
+        language,
+        speakingRate || 0.9,
+        forceRegenerate || false
+      );
+      
+      res.json({
+        message: "Audio generation complete",
+        results,
+        successCount: results.filter(r => r.audioUrl).length,
+        totalCount: results.length,
+      });
+    } catch (error: any) {
+      console.error('Error generating drill audio:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get single drill item audio (generates on-demand if not cached)
+  app.get("/api/drill-audio/:drillItemId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { drillItemId } = req.params;
+      const drillItem = await storage.getDrillItem(drillItemId);
+      
+      if (!drillItem) {
+        return res.status(404).json({ error: "Drill item not found" });
+      }
+      
+      // If audio already exists, return it
+      if (drillItem.audioUrl) {
+        res.json({
+          audioUrl: drillItem.audioUrl,
+          audioDurationMs: drillItem.audioDurationMs,
+          cached: true,
+        });
+        return;
+      }
+      
+      // Generate audio on demand
+      const { generateDrillAudio } = await import('./services/drill-audio-service');
+      const { audioBase64, durationMs } = await generateDrillAudio(
+        drillItem.targetText,
+        drillItem.targetLanguage,
+        0.9 // default speaking rate
+      );
+      
+      const audioUrl = `data:audio/mpeg;base64,${audioBase64}`;
+      
+      // Cache it in the database
+      await storage.updateDrillItemAudio(drillItemId, audioUrl, durationMs);
+      
+      res.json({
+        audioUrl,
+        audioDurationMs: durationMs,
+        cached: false,
+      });
+    } catch (error: any) {
+      console.error('Error getting drill audio:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get audio cache stats (admin/developer only)
+  app.get("/api/drill-audio/cache/stats", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!hasDeveloperAccess(user?.role)) {
+        return res.status(403).json({ error: "Developer access required" });
+      }
+
+      const { getCacheStats } = await import('./services/drill-audio-service');
+      const stats = getCacheStats();
+      
+      res.json(stats);
+    } catch (error: any) {
+      console.error('Error getting cache stats:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== Syllabus Progress & Competency =====
 
   // Check lesson competency for a student

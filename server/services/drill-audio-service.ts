@@ -13,7 +13,7 @@
  * - Batch synthesis: generates audio for multiple items efficiently
  */
 
-import { ttsService } from './tts-service';
+import { getTTSService } from './tts-service';
 import { storage } from '../storage';
 import type { CurriculumDrillItem } from '@shared/schema';
 import crypto from 'crypto';
@@ -88,6 +88,7 @@ export async function generateDrillAudio(
   console.log(`[Drill Audio] Generating audio for: "${text.substring(0, 50)}..."`);
   
   // Use Google TTS for consistent drill audio
+  const ttsService = getTTSService();
   const result = await ttsService.synthesize({
     text,
     language,
@@ -125,9 +126,9 @@ export async function batchGenerateDrillAudio(
   // Process items sequentially to avoid rate limiting
   for (const item of drillItems) {
     try {
-      // Generate audio for the prompt text
+      // Generate audio for the target text (the spoken content)
       const { audioBase64, durationMs } = await generateDrillAudio(
-        item.promptText,
+        item.targetText,
         language,
         speakingRate
       );
