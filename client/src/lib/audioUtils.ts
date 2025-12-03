@@ -1,4 +1,4 @@
-import { updateDebugTimingState, resetDebugTimingState, SentenceScheduleEntry } from './debugTimingState';
+import { resetDebugTimingState } from './debugTimingState';
 
 // Convert Int16Array PCM to base64 string
 export function pcm16ToBase64(pcm16: Int16Array): string {
@@ -589,49 +589,22 @@ export class StreamingAudioPlayer {
       }
       
       const now = ctx.currentTime;
+      frameCount++;
       
       // Find which sentence is currently active based on schedule
+      // PERFORMANCE: Iterate Map directly instead of Array.from() to avoid allocation per frame
       let activeIndex = -1;
       let activeEntry: { startCtxTime: number; totalDuration: number; endCtxTime?: number; started: boolean; ended: boolean } | null = null;
       
-      const entries = Array.from(this.sentenceSchedule.entries());
-      for (let i = 0; i < entries.length; i++) {
-        const [index, entry] = entries[i];
-        // Check if 'now' is within this sentence's time window
-        // CRITICAL: If endCtxTime is undefined, sentence is still streaming - 
-        // use current totalDuration as temporary end, but DON'T mark it as "complete"
+      for (const [index, entry] of this.sentenceSchedule) {
         const isStreaming = entry.endCtxTime === undefined;
         const endTime = entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration);
         
-        // If sentence is still streaming and we've started, stay active
-        // This prevents premature "completion" while chunks are still arriving
-        if (now >= entry.startCtxTime) {
-          if (isStreaming || now < endTime) {
-            activeIndex = index;
-            activeEntry = entry;
-            break;
-          }
+        if (now >= entry.startCtxTime && (isStreaming || now < endTime)) {
+          activeIndex = index;
+          activeEntry = entry;
+          break;
         }
-      }
-      
-      // Increment frame count
-      frameCount++;
-      
-      // PERFORMANCE FIX: Only update debug state occasionally (every 120 frames = ~2s)
-      // This prevents object cloning from choking the UI thread
-      if (frameCount % 120 === 1) {
-        (window as any).__timingLoopState = {
-          frameCount,
-          now: now.toFixed(3),
-          activeIndex,
-          scheduleCount: entries.length,
-          timestamp: Date.now(),
-        };
-      }
-      
-      // Log every 300 frames (~5s) for diagnostics - minimal logging to prevent freeze
-      if (frameCount === 1 || frameCount % 300 === 0) {
-        console.log(`[TICK] #${frameCount}: now=${now.toFixed(3)}, active=${activeIndex}`);
       }
       
       if (activeEntry && activeIndex >= 0) {
@@ -653,41 +626,13 @@ export class StreamingAudioPlayer {
         this.callbacks.onProgress?.(elapsedInSentence, activeEntry.totalDuration);
       } else {
         // No active sentence - check for sentences that have ended but haven't fired onSentenceEnd
-        for (let i = 0; i < entries.length; i++) {
-          const [index, entry] = entries[i];
-          // CRITICAL: Only fire onSentenceEnd if endCtxTime is set (sentence fully received)
-          // If endCtxTime is undefined, sentence is still streaming - don't end it prematurely
+        for (const [index, entry] of this.sentenceSchedule) {
           if (entry.endCtxTime === undefined) continue;
           
-          const endTime = entry.endCtxTime;
-          
-          // If we're past this sentence's end time and it started but hasn't ended, fire end event
-          if (now >= endTime && entry.started && !entry.ended) {
+          if (now >= entry.endCtxTime && entry.started && !entry.ended) {
             entry.ended = true;
-            console.log(`[UNIFIED LOOP] >>> onSentenceEnd(${index}) at ctx.time=${now.toFixed(3)}, sentence.end=${endTime.toFixed(3)} <<<`);
             this.callbacks.onSentenceEnd?.(index);
           }
-        }
-        
-        // Check if all sentences are complete
-        // A sentence is only "complete" if endCtxTime is set AND we've passed it
-        let allDone = true;
-        for (let i = 0; i < entries.length; i++) {
-          const [, entry] = entries[i];
-          // If endCtxTime is undefined, sentence is still streaming - not done
-          if (entry.endCtxTime === undefined) {
-            allDone = false;
-            break;
-          }
-          if (now < entry.endCtxTime) {
-            allDone = false;
-            break;
-          }
-        }
-        
-        if (allDone && this.sentenceSchedule.size > 0) {
-          console.log('[UNIFIED LOOP] All sentences complete');
-          // Don't stop the loop yet - there might be more sentences coming
         }
       }
       
