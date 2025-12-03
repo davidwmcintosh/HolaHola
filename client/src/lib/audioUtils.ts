@@ -685,11 +685,19 @@ export class StreamingAudioPlayer {
       let activeIndex = -1;
       let activeEntry: { startCtxTime: number; totalDuration: number; endCtxTime?: number; started: boolean; ended: boolean } | null = null;
       
+      // DEBUG: Log every 30 frames to trace sentence matching
+      const shouldLogMatch = frameCount % 30 === 0;
+      
       for (const [index, entry] of this.sentenceSchedule) {
         const isStreaming = entry.endCtxTime === undefined;
         const endTime = entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration);
+        const matches = now >= entry.startCtxTime && (isStreaming || now < endTime);
         
-        if (now >= entry.startCtxTime && (isStreaming || now < endTime)) {
+        if (shouldLogMatch) {
+          console.error(`[MATCH] s${index}: now=${now.toFixed(3)}, start=${entry.startCtxTime.toFixed(3)}, end=${endTime.toFixed(3)}, streaming=${isStreaming}, match=${matches}, started=${entry.started}`);
+        }
+        
+        if (matches) {
           activeIndex = index;
           activeEntry = entry;
           break;
