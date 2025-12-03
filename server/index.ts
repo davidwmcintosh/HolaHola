@@ -82,6 +82,16 @@ const stripeInitPromise = (async function initStripe() {
       console.error('Failed to seed cultural tips:', error);
     }
     
+    // Seed Drill Content for Numbers and Greetings
+    try {
+      console.log('Seeding drill content...');
+      const { seedDrillContent } = await import('./seeds/drill-content');
+      await seedDrillContent();
+      console.log('Drill content ready');
+    } catch (error) {
+      console.error('Failed to seed drill content:', error);
+    }
+    
     stripeReady = true;
   } catch (error) {
     console.error('Failed to initialize Stripe:', error);
