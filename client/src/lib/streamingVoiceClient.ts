@@ -224,6 +224,22 @@ export class StreamingVoiceClient {
       this.ws = new WebSocket(wsUrl);
       this.ws.binaryType = 'arraybuffer';
       
+      // CRITICAL DEBUG: Track WebSocket instance at window level
+      if (typeof window !== 'undefined') {
+        const win = window as any;
+        win._wsDebug = win._wsDebug || { connections: 0, lastWs: null, messages: 0 };
+        win._wsDebug.connections++;
+        win._wsDebug.lastWs = this.ws;
+        console.error(`[WS-CREATE] WebSocket created #${win._wsDebug.connections}, url=${wsUrl}`);
+        
+        // Attach a RAW message listener directly to WebSocket
+        const rawWs = this.ws;
+        rawWs.addEventListener('message', (e: MessageEvent) => {
+          win._wsDebug.messages++;
+          console.error(`[WS-RAW-MSG] Message #${win._wsDebug.messages} received, type=${e.data instanceof ArrayBuffer ? 'BINARY' : 'TEXT'}`);
+        });
+      }
+      
       // Setup event handlers - check connectionId to ignore events from old connections
       this.ws.onopen = () => {
         if (this.connectionId !== currentConnectionId) {
