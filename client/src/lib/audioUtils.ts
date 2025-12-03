@@ -1156,17 +1156,21 @@ export class StreamingAudioPlayer {
         if (this.wordMatchCount <= 50 || frameCount % 60 === 0) {
           console.error(`[WORD-MATCH] ✓ now=${now.toFixed(3)}s matched S${activeWord.sentenceIndex}W${activeWord.wordIndex}:"${activeWord.word}" (matchCount=${this.wordMatchCount})`);
         }
-      }
-      
-      // Update debug state with active word info (throttled)
-      if (shouldUpdateMatchInfo) {
+        
+        // ALWAYS update lastWordMatchTime when we have a match (not throttled)
+        // This ensures the debug panel shows the last successful match time
         updateDebugTimingState({
-          activeWord: activeWord ? {
+          activeWord: {
             sentenceIndex: activeWord.sentenceIndex,
             wordIndex: activeWord.wordIndex,
             word: activeWord.word
-          } : null,
-          lastWordMatchTime: activeWord ? now : getDebugTimingState().lastWordMatchTime
+          },
+          lastWordMatchTime: now
+        });
+      } else if (shouldUpdateMatchInfo) {
+        // Only update with null when throttle allows (to avoid excessive updates)
+        updateDebugTimingState({
+          activeWord: null
         });
       }
       

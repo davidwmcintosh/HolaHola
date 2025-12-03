@@ -1,0 +1,173 @@
+TIMING DEBUG
+[ERROR]
+P:1
+▲
+CURRENT WORD
+✓ Match
+Highlighted:
+it's
+Expected (from timing):
+it's
+Word Index: 2 | Visible: 3 | Total Received: 7
+TIMING DRIFT
+Audio Time
+0.573s
+Expected Start
+0.277s
+Drift
++296ms
+CURRENT SENTENCE
+Hi David, it's great to meet you!
+WORD TIMING COUNTS
+Total Deltas:
+28
+Total Finals:
+28
+This Sentence:
+7 deltas
+Final Count:
+7
+✓ All deltas received
+WORD-BASED TIMING
+NO MATCH
+Active Word (from ctx.currentTime):
+No word matched at current time
+Schedule Size:
+28 words
+Last Match:
+—
+FIRST Words (with abs times):
+S0W0: "Hi" @ 0.10-0.29s
+S0W1: "David," @ 0.29-0.33s
+S0W2: "it's" @ 0.33-0.63s
+S0W3: "great" @ 0.63-1.17s
+S0W4: "to" @ 1.17-1.28s
+S0W5: "meet" @ 1.28-1.51s
+RECEIVED WORDS (12)
+0: Can
+1: you
+2: try
+3: saying
+4: Hola?
+5: demo
+6: class,
+7: where
+8: we'll
+9: start
+10: with
+11: greetings
+RECENT EVENTS (20)
+Δ
+S3:
+w4
+"Hola?"
+1.08-1.46s
+Δ
+S3:
+w3
+"saying"
+0.67-1.08s
+Δ
+S3:
+w2
+"try"
+0.43-0.67s
+Δ
+S3:
+w1
+"you"
+0.25-0.43s
+Δ
+S3:
+w0
+"Can"
+0.05-0.25s
+Δ
+S2:
+w3
+"Hola"
+1.36-1.59s
+Δ
+S2:
+w2
+"with"
+1.18-1.36s
+Δ
+S2:
+w1
+"begin"
+0.76-1.18s
+Δ
+S2:
+w0
+"Let's"
+0.36-0.76s
+Δ
+S1:
+w11
+"greetings"
+3.33-3.87s
+TICK LOOP (First 5 frames)started 122.7s ago
+F1: ctx=0.016s, state=running, playing=true
+F2: ctx=0.085s, state=running, playing=true
+F3: ctx=0.256s, state=running, playing=true
+F4: ctx=0.475s, state=running, playing=true
+F5: ctx=0.645s, state=running, playing=true
+PLAYBACK STATE
+Loop Running:
+YES
+isPlaying:
+YES
+Loop Ticks:
+60
+Ctx Time:
+7.493s
+Ctx State:
+running
+Ctx ID:
+4219026_bovx
+Active Sentence:
+0
+Last Delta Sent:
+S3
+SENTENCE EVENTS
+Last Start:
+none
+Last End:
+none
+AUDIO CHUNKS RECEIVED
+Total Chunks:
+72
+Last Chunk S:
+3
+Per Sentence: S0:15, S1:30, S2:14, S3:13
+EMPTY CHUNKS & TRANSITIONS
+Empty Chunks:
+4
+Last Empty S:
+3
+EndTimes Set: [0, 1, 2, 3]
+Transitions:
+s-1→s0: started at 0.28s
+SCHEDULE (4 entries)
+MATCH INFO (1 sentences)
+S0 ✗
+end=undefined
+ENDED: now(7.49) >= end(1.96)
+range: 0.10 - 1.96
+SCHEDULE EVENTS (5)
+✅ ADD S3
+1:37:43 PM
+After: [0, 1, 2, 3] (4 entries)
+✅ ADD S2
+1:37:34 PM
+After: [0, 1, 2] (3 entries)
+✅ ADD S1
+1:37:07 PM
+After: [0, 1] (2 entries)
+✅ ADD S0
+1:36:59 PM
+After: [0] (1 entries)
+⚠️ CLEAR (0 removed)
+1:36:59 PM
+After: [] (0 entries)
