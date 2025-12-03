@@ -1,6 +1,34 @@
 import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition, logScheduleEvent, updateDebugTimingState, type SentenceScheduleEntry, type SentenceMatchInfo } from './debugTimingState';
 
 /**
+ * CRITICAL: Store StreamingAudioPlayer singleton on window to prevent Vite bundler
+ * duplicate module issue. Without this, Vite may create multiple module copies,
+ * each with its own instance - one receives audio chunks while another runs the
+ * timing loop, causing subtitle synchronization to fail.
+ * 
+ * Pattern: Same as documented for StreamingVoiceClient in replit.md
+ */
+declare global {
+  interface Window {
+    __streamingAudioPlayer?: StreamingAudioPlayer;
+  }
+}
+
+/**
+ * Get or create the singleton StreamingAudioPlayer instance.
+ * MUST be used instead of `new StreamingAudioPlayer()` to prevent duplicate instances.
+ */
+export function getStreamingAudioPlayer(): StreamingAudioPlayer {
+  if (!window.__streamingAudioPlayer) {
+    console.log('[StreamingAudioPlayer] Creating singleton on window.__streamingAudioPlayer');
+    window.__streamingAudioPlayer = new StreamingAudioPlayer();
+  } else {
+    console.log('[StreamingAudioPlayer] Reusing existing singleton from window');
+  }
+  return window.__streamingAudioPlayer;
+}
+
+/**
  * Helper to immediately update debug state with current schedule
  * Called when schedule entries are added/modified
  */

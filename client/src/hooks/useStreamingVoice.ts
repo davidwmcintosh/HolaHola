@@ -9,7 +9,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { getStreamingVoiceClient, StreamingVoiceClient } from '../lib/streamingVoiceClient';
-import { StreamingAudioPlayer, StreamingAudioChunk, StreamingPlaybackState } from '../lib/audioUtils';
+import { getStreamingAudioPlayer, StreamingAudioPlayer, StreamingAudioChunk, StreamingPlaybackState } from '../lib/audioUtils';
 import { useStreamingSubtitles, UseStreamingSubtitlesReturn } from './useStreamingSubtitles';
 import { logAudioChunkReceived } from '../lib/debugTimingState';
 import type { 
@@ -133,9 +133,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   
   /**
    * Initialize the audio player
+   * CRITICAL: Use getStreamingAudioPlayer() singleton to prevent Vite duplicate module issue
+   * Without this, one instance receives chunks while another runs timing loop
    */
   useEffect(() => {
-    playerRef.current = new StreamingAudioPlayer();
+    playerRef.current = getStreamingAudioPlayer();
     
     // Set up player callbacks
     // NOTE: isProcessing is only cleared when BOTH:
