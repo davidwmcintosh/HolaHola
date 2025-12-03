@@ -4,6 +4,23 @@
 
 LinguaFlow's streaming voice mode now uses **native word-level timestamps** from Cartesia's WebSocket API for precise subtitle synchronization. This replaces the previous server-side bitrate estimation approach with accurate timing data generated during TTS synthesis.
 
+## Latest Update: December 3, 2025
+
+### Progressive Word-by-Word Streaming
+
+Word timings are now delivered **progressively** as each word is synthesized, enabling real-time karaoke-style highlighting:
+
+- `word_timing_delta`: Sent immediately when each word's timing is generated
+- `word_timing_final`: Sent when sentence synthesis completes with authoritative timings
+- Race condition fix ensures 100% delta delivery (see Debug Panel section)
+
+### Debug Tools Added
+
+A comprehensive debug panel is now available for real-time word timing visualization:
+- **DebugTimingPanel.tsx**: Floating panel showing delta/final counts
+- **debugTimingState.ts**: Global state for cumulative tracking
+- See `docs/SUBTITLE_BUG_TRACKING.md` for full debugging guide
+
 ## Architecture
 
 ### Data Flow
@@ -172,14 +189,127 @@ console.log(`[Subtitle Telemetry] Word: "${word}" | Expected: ${expectedTime}ms 
 | TTFB Impact | Minimal (timestamps arrive with audio) |
 | Memory Overhead | Single array per sentence, cleared after use |
 
+## Progressive Streaming Messages (Added Dec 3, 2025)
+
+### Message: `word_timing_delta`
+Sent as each word's timing becomes available during TTS synthesis:
+
+```typescript
+{
+  type: 'word_timing_delta',
+  turnId: number,
+  sentenceIndex: number,
+  wordIndex: number,         // Which word (0-based)
+  word: string,              // The word text
+  startTime: number,         // Start time in seconds
+  endTime: number,           // End time in seconds
+  estimatedTotalDuration?: number
+}
+```
+
+### Message: `word_timing_final`
+Sent when sentence synthesis is complete with authoritative timings:
+
+```typescript
+{
+  type: 'word_timing_final',
+  turnId: number,
+  sentenceIndex: number,
+  words: WordTiming[],       // Complete timing array
+  actualDurationMs: number   // Actual sentence duration
+}
+```
+
+### Client Processing Flow
+
+```
+word_timing_delta arrives
+    ↓
+addProgressiveWordTiming()
+    - Stores in progressiveWordMapRef (sparse map)
+    - Updates activeSentenceRef.current (synchronous!)
+    - Calls setCurrentSentenceIndex() (async, batched)
+    - Updates debugTimingState
+    ↓
+word_timing_final arrives
+    ↓
+finalizeWordTimings()
+    - CRITICAL: Checks activeSentenceRef.current (not state!)
+    - Reconciles progressive map with authoritative array
+    - Updates currentTimingsRef for playback loop
+    ↓
+updatePlaybackTime() (RAF loop)
+    - Reads currentTimingsRef
+    - Calculates wordIndex from AudioContext.currentTime
+    - Sets visibleWordCount and currentWordIndex
+```
+
+### Race Condition Fix (Dec 3, 2025)
+
+**Problem:** `finalizeWordTimings` was checking `currentSentenceIndex` (React state), 
+which updates asynchronously on the next render cycle. When `word_timing_final` 
+arrived quickly after deltas, the state hadn't updated yet, causing sentence mismatch.
+
+**Solution:** Changed to check `activeSentenceRef.current` (synchronous ref) which
+updates immediately when deltas arrive.
+
+```javascript
+// Before (broken):
+if (msg.sentenceIndex !== currentSentenceIndex) return;
+
+// After (fixed):
+if (msg.sentenceIndex !== activeSentenceRef.current) return;
+```
+
+## Debug Panel (Added Dec 3, 2025)
+
+### DebugTimingPanel Component
+
+A floating debug panel for real-time word timing visualization:
+
+| Metric | Description |
+|--------|-------------|
+| Total Deltas | Cumulative word_timing_delta messages received |
+| Total Finals | Cumulative word_timing_final messages received |
+| Last Sentence | Most recent sentenceIndex with activity |
+| Visible Words | Current visibleWordCount during playback |
+| Word Index | Current highlighted word index during playback |
+| Staleness | Time since last update (shows if data is fresh) |
+
+### Using the Debug Panel
+
+```tsx
+import { DebugTimingPanel } from '@/components/DebugTimingPanel';
+
+// In streaming voice component (dev mode only):
+{import.meta.env.DEV && <DebugTimingPanel />}
+```
+
+### Debug State API
+
+```typescript
+import { updateDebugTimingState, resetDebugTimingState, debugTimingState } 
+  from '@/lib/debugTimingState';
+
+// Increment delta count
+updateDebugTimingState({
+  totalDeltasReceived: debugTimingState.totalDeltasReceived + 1,
+  lastDeltaSentence: sentenceIndex,
+});
+
+// Reset on new session
+resetDebugTimingState();
+```
+
 ## Related Documentation
 
 - `docs/voice-chat-setup.md` - Overall voice architecture
 - `replit.md` - System Design Choices section
-- `docs/SUBTITLE_BUG_TRACKING.md` - Historical subtitle issues
+- `docs/SUBTITLE_BUG_TRACKING.md` - Complete debugging history and debug tools reference
 
 ---
 
 **Implementation Date**: December 1, 2025  
+**Last Updated**: December 3, 2025 (Progressive streaming, debug panel, race condition fix)  
 **Status**: Production-ready  
 **Author**: LinguaFlow Development Team

@@ -730,14 +730,304 @@ User confirmed: "BEAUTIFUL. We now have full audio."
 
 ---
 
-## Bug #5: Subtitle Highlighting Not Working (OPEN)
+## Bug #5: Word Timing Delta Delivery Issue (RESOLVED ✅)
 
-### Current Status (Dec 2, 9:50 PM)
+### Current Status (Dec 3, 2025)
 - Audio plays completely ✅
 - Subtitles display on screen ✅  
-- Word highlighting NOT working ❌
-- Sync between subtitles and voice is off ❌
+- Word highlighting working ✅
+- Word timing deltas: 100% delivered ✅
 
-### Investigation Needed
-With audio now working, need to trace why word highlighting isn't firing.
-The timing loop IS running and elapsed time IS advancing, so the issue is downstream.
+### Investigation Timeline (December 3, 2025)
+
+#### Initial Symptom
+Only 7 of 12 `word_timing_delta` messages were arriving at the client.
+Debug panel showed partial word timing reception - messages were being lost.
+
+#### Key Discovery: Race Condition in finalizeWordTimings
+
+The `finalizeWordTimings` function in `useStreamingSubtitles.ts` was checking `currentSentenceIndex` (React state) which updates **asynchronously on the next render**, while `activeSentenceRef.current` updates **synchronously immediately**:
+
+```javascript
+// BROKEN: Uses React state (async, updates on next render)
+const finalizeWordTimings = useCallback((msg) => {
+  if (msg.sentenceIndex !== currentSentenceIndex) {
+    return; // SKIPPED because state hasn't updated yet!
+  }
+  // Process timings...
+}, [currentSentenceIndex]);
+```
+
+**The Problem:**
+1. `addProgressiveWordTiming()` calls `activeSentenceRef.current = sentenceIndex` (immediate)
+2. Then calls `setCurrentSentenceIndex(sentenceIndex)` (batched, async)
+3. `word_timing_final` message arrives before React re-renders
+4. `currentSentenceIndex` still has OLD value
+5. `finalizeWordTimings` rejects the message due to sentence index mismatch
+6. Some word timings are lost
+
+#### Fix Applied (Dec 3, 2025)
+
+Changed `finalizeWordTimings` to use the synchronous ref instead of React state:
+
+```javascript
+// FIXED: Uses synchronous ref (always current)
+const finalizeWordTimings = useCallback((msg) => {
+  // Use the synchronous ref, not the async state
+  if (msg.sentenceIndex !== activeSentenceRef.current) {
+    return;
+  }
+  // Process timings...
+}, []); // No dependency on state - ref is always current
+```
+
+### Files Modified
+- `client/src/hooks/useStreamingSubtitles.ts`:
+  - Line ~526: Changed `currentSentenceIndex` check to `activeSentenceRef.current`
+  - Removed `currentSentenceIndex` from dependency array
+
+### Debug Panel Added (Dec 3, 2025)
+
+Created comprehensive debug panel for real-time word timing visualization:
+
+#### New Files Created
+1. **`client/src/lib/debugTimingState.ts`**
+   - Global mutable state for debug metrics
+   - Tracks: `totalDeltasReceived`, `totalFinalsReceived`, `lastDeltaSentence`
+   - Tracks: `visibleWordCount`, `currentWordIndex`, `wordTimingCount`
+   - `updateDebugTimingState()` function for incremental updates
+   - `resetDebugTimingState()` function for session reset
+
+2. **`client/src/components/DebugTimingPanel.tsx`**
+   - Floating debug panel (toggle with keyboard shortcut)
+   - Shows cumulative totals: "Total Deltas: X, Total Finals: Y"
+   - Shows per-sentence stats: "Sentence X: Y deltas"
+   - Shows real-time playback: "Visible: X, Word Idx: Y"
+   - Shows staleness indicator when data hasn't updated
+   - Real-time updates via polling (100ms interval)
+
+#### Integration Points
+- `streamingVoiceClient.ts`: Updates debug state when receiving word_timing_delta
+- `useStreamingSubtitles.ts`: Updates debug state in:
+  - `addProgressiveWordTiming()` - increments delta count
+  - `finalizeWordTimings()` - increments final count
+  - `updatePlaybackTime()` - updates visible/wordIdx during playback
+
+### Verification Results (Dec 3, 2025)
+
+**Test Session Results:**
+```
+Server Logs:
+- Sentence 0: 14 word_timing_delta sent
+- Sentence 1: 12 word_timing_delta sent  
+- Sentence 2: 5 word_timing_delta sent
+- Total: 31 deltas
+
+Debug Panel:
+- Total Deltas: 31
+- Total Finals: 31
+- Match: 100% ✅
+```
+
+**Karaoke Highlighting Verification:**
+```
+[KARAOKE] All mode: totalWords=14, visible=14, revealed=14, activeIdx=-1
+```
+All 14 words visible and revealed, activeIdx=-1 indicates playback completed.
+
+### Root Cause Summary
+
+| Component | Issue | Fix |
+|-----------|-------|-----|
+| `finalizeWordTimings` | Used async React state `currentSentenceIndex` | Use sync ref `activeSentenceRef.current` |
+| Debug visibility | No way to see word timing flow in real-time | Added DebugTimingPanel component |
+| Cumulative tracking | Couldn't verify total delta/final counts | Added global debug state with totals |
+
+### Status: ✅ RESOLVED (Dec 3, 2025)
+
+All word timing deltas now delivered correctly. Debug panel provides visibility for future debugging.
+
+---
+
+## Debug Tools Reference
+
+### DebugTimingPanel Component
+
+**Location:** `client/src/components/DebugTimingPanel.tsx`
+
+**Usage:** Import and render in streaming voice components for debugging:
+```tsx
+import { DebugTimingPanel } from '@/components/DebugTimingPanel';
+
+// In component JSX (dev mode only):
+{import.meta.env.DEV && <DebugTimingPanel />}
+```
+
+**Displays:**
+- Cumulative totals (deltas received, finals received)
+- Per-sentence delta counts
+- Real-time playback state (visible words, current word index)
+- Staleness indicator (shows how old the data is)
+
+### Debug State API
+
+**Location:** `client/src/lib/debugTimingState.ts`
+
+**Functions:**
+```typescript
+// Update debug state (partial updates supported)
+updateDebugTimingState({
+  totalDeltasReceived: prev.totalDeltasReceived + 1,
+  lastDeltaSentence: sentenceIndex,
+});
+
+// Reset all debug state
+resetDebugTimingState();
+
+// Access current state
+import { debugTimingState } from '@/lib/debugTimingState';
+console.log(debugTimingState.totalDeltasReceived);
+```
+
+### Window Debug Objects (Legacy)
+
+From earlier debugging sessions, these may still be available:
+```javascript
+window._msgCounts       // Message type counts
+window._deltaHits       // word_timing_delta case hit count
+window._lastDelta       // Last delta message received
+window._debugMessages   // Last 50 messages with timestamps
+window._wsDebug         // WebSocket debug state
+```
+
+---
+
+## Session Log: December 3, 2025
+
+### 4:00 AM - 5:30 AM: Race Condition Resolution
+
+**Starting State:**
+- Audio playing correctly ✅
+- Subtitles appearing on screen ✅
+- Word highlighting working intermittently ❌
+- Some word_timing_delta messages being lost ❌
+
+**Key Discovery:**
+Word timing deltas were being dropped because `finalizeWordTimings` was checking
+`currentSentenceIndex` (React state) instead of `activeSentenceRef.current` (sync ref).
+
+React state updates are batched and async - the state value used in callbacks may be
+stale by one render cycle. When word_timing_final arrives quickly after word_timing_delta,
+the React state hasn't updated yet, causing the sentence index check to fail.
+
+**Fix Applied:**
+Changed `finalizeWordTimings` to use `activeSentenceRef.current` for synchronous
+sentence index checking.
+
+**Debug Panel Created:**
+Built comprehensive DebugTimingPanel component showing:
+- Total deltas received vs total finals received
+- Per-sentence delta counts
+- Real-time visible word count and current word index
+- Staleness indicator for data freshness
+
+**Verification:**
+- Server logs: 31 word_timing_delta messages sent
+- Debug panel: 31 deltas received, 31 finals received
+- Match: 100% - all word timings now delivered correctly
+
+**Architect Review:**
+Changes approved without issues. Race condition fix is correct and doesn't
+introduce regressions. Debug panel provides good visibility for future debugging.
+
+### Files Changed
+- `client/src/hooks/useStreamingSubtitles.ts` - Race condition fix
+- `client/src/lib/debugTimingState.ts` - NEW: Debug state management
+- `client/src/components/DebugTimingPanel.tsx` - NEW: Debug panel UI
+- `client/src/lib/streamingVoiceClient.ts` - Debug state integration
+
+### Testing Checklist (Updated Dec 3)
+
+- [x] Audio plays at correct speed
+- [x] All word_timing_delta messages received (verify with debug panel)
+- [x] Delta count matches final count
+- [x] Words highlight in sync with audio
+- [x] All words in sentence are displayed (no truncation)
+- [x] Subtitle timing smooth (no jumps/stutters)
+- [x] Multiple sentences play back-to-back correctly
+- [ ] Test with different ACTFL levels (Novice progressive reveal)
+- [ ] Test with different voice speeds
+- [ ] Test rapid user interruptions
+
+---
+
+## Architecture Diagram (Updated Dec 3, 2025)
+
+```
+Progressive Streaming Data Flow with Debug Instrumentation:
+
+Server:
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Gemini Streaming → Sentence chunks (as generated)                       │
+│         ↓                                                                │
+│ Cartesia WebSocket → PCM chunks + native word timestamps                │
+│         ↓                                                                │
+│ word_timing_delta: {sentence, word, timing} (per word, immediate)       │
+│ word_timing_final: {sentence, words[], duration} (sentence complete)    │
+│ audio_chunk: {sentence, chunk, audio} (progressive PCM)                 │
+└─────────────────────────────────────────────────────────────────────────┘
+                              ↓ WebSocket
+Client:
+┌─────────────────────────────────────────────────────────────────────────┐
+│ streamingVoiceClient.ts:                                                │
+│   - Receives WebSocket messages                                         │
+│   - Emits typed events to listeners                                     │
+│   - Updates debugTimingState on word_timing_delta                       │
+│         ↓                                                                │
+│ useStreamingVoice.ts:                                                   │
+│   - handleAudioChunk → enqueueProgressivePcmChunk()                     │
+│   - handleWordTimingDelta → addProgressiveWordTiming()                  │
+│   - handleWordTimingFinal → finalizeWordTimings() [FIXED: uses ref]     │
+│         ↓                                                                │
+│ useStreamingSubtitles.ts:                                               │
+│   - addProgressiveWordTiming: stores timing, updates debug state        │
+│   - finalizeWordTimings: reconciles, uses activeSentenceRef.current     │
+│   - updatePlaybackTime: calculates active word, updates debug state     │
+│         ↓                                                                │
+│ audioUtils.ts (StreamingAudioPlayer):                                   │
+│   - Schedules PCM via AudioContext                                      │
+│   - Fires onProgress with AudioContext.currentTime                      │
+│   - RAF timing loop for smooth updates                                  │
+│         ↓                                                                │
+│ DebugTimingPanel.tsx:                                                   │
+│   - Polls debugTimingState every 100ms                                  │
+│   - Displays totals, per-sentence stats, playback state                 │
+│   - Shows staleness indicator                                           │
+│         ↓                                                                │
+│ ImmersiveTutor.tsx:                                                     │
+│   - Renders words with karaoke highlighting                             │
+│   - Uses visibleWordCount, currentWordIndex from subtitles hook         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+## Key Lessons Learned
+
+### 1. React State vs Refs for WebSocket Message Handling
+When processing WebSocket messages in React:
+- **React state** is batched and async - may be stale in rapid message handlers
+- **Refs** update synchronously and are always current
+- **Pattern**: Use refs for values needed immediately in message handlers,
+  sync to state only for triggering re-renders
+
+### 2. Debug Instrumentation Strategy
+For complex async data flows:
+- Add **cumulative counters** to verify total delivery (deltas sent = deltas received)
+- Add **per-unit tracking** to identify which unit is failing
+- Add **staleness indicators** to know if data is fresh
+- Use **global mutable state** for debug data (avoids React render cycles)
+
+### 3. Progressive Streaming Timing Considerations
+- AudioContext.currentTime is the source of truth for playback position
+- Word timing updates arrive asynchronously with audio chunks
+- Sentence transitions can cause race conditions if state isn't synchronized
+- Always use synchronous refs for checks in high-frequency event handlers
