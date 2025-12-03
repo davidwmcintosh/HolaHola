@@ -366,6 +366,9 @@ export class StreamingAudioPlayer {
     isLast: boolean,
     sampleRate: number = 24000
   ): Promise<void> {
+    // CRITICAL DEBUG: Log EVERY chunk that arrives
+    console.error(`[ENQUEUE] s=${sentenceIndex} c=${chunkIndex} bytes=${audio.byteLength} isLast=${isLast} scheduleSize=${this.sentenceSchedule.size}`);
+    
     // CRITICAL FIX: Handle empty audio chunks (isLast=true marker chunks)
     // These chunks have 0 audio data but signal sentence completion
     // We MUST process the isLast flag even if there's no audio to schedule
@@ -528,6 +531,9 @@ export class StreamingAudioPlayer {
         started: false,
         ended: false,
       });
+      console.error(`[SCHEDULE ADD] ✅ Sentence ${sentenceIndex} ADDED to schedule at ${playTime.toFixed(3)}s. Schedule now has ${this.sentenceSchedule.size} entries`);
+    } else {
+      console.error(`[SCHEDULE SKIP] Sentence ${sentenceIndex} already in schedule (chunk ${chunkIndex})`);
     }
     
     // Accumulate duration for this sentence
