@@ -887,8 +887,26 @@ export class StreamingAudioPlayer {
     const tick = (): void => {
       frameCount++;
       
-      // DEBUG: Update state immediately on first few frames to verify tick is running
-      // REMOVED: Moved full update logic below to avoid missing audioContextState/audioContextId
+      // DEBUG: Log EVERY frame for first 5 frames to verify tick is running
+      if (frameCount <= 5) {
+        const ctxDebug = this.audioContext ? 
+          `ctx.currentTime=${this.audioContext.currentTime.toFixed(3)}, state=${this.audioContext.state}` : 
+          'NO CTX';
+        console.error(`[TICK RUNNING] Frame ${frameCount}: ${ctxDebug}, isPlaying=${this.isPlaying}`);
+        
+        // Force update debug state on first frame
+        if (frameCount === 1 && this.audioContext) {
+          console.error(`[TICK] Forcing debug state update on frame 1`);
+          updateDebugTimingState({
+            isLoopRunning: true,
+            loopTickCount: 1,
+            currentCtxTime: this.audioContext.currentTime,
+            audioContextState: this.audioContext.state as 'suspended' | 'running' | 'closed' | 'unknown',
+            audioContextId: (this.audioContext as any).__debugId || 'NO_ID',
+            isPlaying: true
+          });
+        }
+      }
       
       // Exit if playback stopped
       if (!this.isPlaying) {
