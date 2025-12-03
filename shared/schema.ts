@@ -674,6 +674,8 @@ export const curriculumLessons = pgTable("curriculum_lessons", {
   orderIndex: integer("order_index").notNull(), // Order within the unit
   lessonType: text("lesson_type").notNull(), // conversation, vocabulary, grammar, cultural_exploration, drill
   actflLevel: text("actfl_level"),
+  // Prerequisite lesson (drill-first learning flow)
+  prerequisiteLessonId: varchar("prerequisite_lesson_id"), // Must complete this lesson first (e.g., drill before conversation)
   // Lesson content
   conversationTopic: text("conversation_topic"), // Topic for AI conversation
   conversationPrompt: text("conversation_prompt"), // System prompt for this lesson
@@ -869,6 +871,8 @@ export const classCurriculumLessons = pgTable("class_curriculum_lessons", {
   orderIndex: integer("order_index").notNull(), // Order within the unit
   lessonType: text("lesson_type").notNull(), // conversation, vocabulary, grammar, cultural_exploration, drill
   actflLevel: text("actfl_level"),
+  // Prerequisite lesson (drill-first learning flow)
+  prerequisiteLessonId: varchar("prerequisite_lesson_id"), // Must complete this lesson first (refers to class lesson id)
   // Lesson content
   conversationTopic: text("conversation_topic"),
   conversationPrompt: text("conversation_prompt"),
