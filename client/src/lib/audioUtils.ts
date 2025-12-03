@@ -296,6 +296,9 @@ export class StreamingAudioPlayer {
   // Track which sentence the timing loop is currently reporting on
   private activeSentenceInLoop = -1;
   
+  // Counter for word matches (for throttled logging)
+  private wordMatchCount = 0;
+  
   constructor() {
     console.log('[StreamingAudioPlayer] Initialized');
   }
@@ -751,6 +754,7 @@ export class StreamingAudioPlayer {
     this.wordSchedule.clear();
     this.pendingWordTimings.clear();
     this.activeSentenceInLoop = -1;
+    this.wordMatchCount = 0;
     
     // Reset debug state
     resetDebugTimingState();
@@ -1145,6 +1149,14 @@ export class StreamingAudioPlayer {
       
       // WORD-BASED TIMING: Find active word directly using AudioContext time
       const activeWord = this.findActiveWord();
+      
+      // Log every word match (for first 50 matches, then throttle)
+      if (activeWord) {
+        this.wordMatchCount++;
+        if (this.wordMatchCount <= 50 || frameCount % 60 === 0) {
+          console.error(`[WORD-MATCH] ✓ now=${now.toFixed(3)}s matched S${activeWord.sentenceIndex}W${activeWord.wordIndex}:"${activeWord.word}" (matchCount=${this.wordMatchCount})`);
+        }
+      }
       
       // Update debug state with active word info (throttled)
       if (shouldUpdateMatchInfo) {

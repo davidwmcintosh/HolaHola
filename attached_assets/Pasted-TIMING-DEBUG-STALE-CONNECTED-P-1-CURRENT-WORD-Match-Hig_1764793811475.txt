@@ -1,0 +1,174 @@
+TIMING DEBUG
+(STALE)
+[CONNECTED]
+P:1
+▲
+CURRENT WORD
+✓ Match
+Highlighted:
+Hello
+Expected (from timing):
+Hello
+Word Index: 0 | Visible: 1 | Total Received: 17
+TIMING DRIFT
+Audio Time
+0.083s
+Expected Start
+0.000s
+Drift
++83ms
+CURRENT SENTENCE
+Hello David! Welcome to your Spanish demo class! We're starting with greetings today, so let's learn Hola
+Target: Hola
+WORD TIMING COUNTS
+Total Deltas:
+22
+Total Finals:
+22
+This Sentence:
+17 deltas
+Final Count:
+17
+✓ All deltas received
+WORD-BASED TIMING
+NO MATCH
+Active Word (from ctx.currentTime):
+No word matched at current time
+Schedule Size:
+22 words
+Last Match:
+—
+FIRST Words (with abs times):
+S0W0: "Hello" @ 0.15-0.35s
+S0W1: "David!" @ 0.35-0.77s
+S0W2: "Welcome" @ 0.77-1.18s
+S0W3: "to" @ 1.18-1.21s
+S0W4: "your" @ 1.21-1.37s
+S0W5: "Spanish" @ 1.37-1.79s
+RECEIVED WORDS (17)
+0: Can
+1: you
+2: try
+3: saying
+4: Hola?
+5: Spanish
+6: demo
+7: class!
+8: We're
+9: starting
+10: with
+11: greetings
+12: today,
+13: so
+14: let's
+15: learn
+16: Hola
+RECENT EVENTS (20)
+Δ
+S1:
+w4
+"Hola?"
+0.90-1.22s
+Δ
+S1:
+w3
+"saying"
+0.53-0.90s
+Δ
+S1:
+w2
+"try"
+0.34-0.53s
+Δ
+S1:
+w1
+"you"
+0.20-0.34s
+Δ
+S1:
+w0
+"Can"
+0.03-0.20s
+Δ
+S0:
+w16
+"Hola"
+4.52-4.77s
+Δ
+S0:
+w15
+"learn"
+4.29-4.52s
+Δ
+S0:
+w14
+"let's"
+4.10-4.29s
+Δ
+S0:
+w13
+"so"
+3.87-4.10s
+Δ
+S0:
+w12
+"today,"
+3.50-3.87s
+TICK LOOP (First 5 frames)started 19.4s ago
+F1: ctx=0.016s, state=running, playing=true
+F2: ctx=0.016s, state=running, playing=true
+F3: ctx=0.155s, state=running, playing=true
+F4: ctx=0.283s, state=running, playing=true
+F5: ctx=0.384s, state=running, playing=true
+PLAYBACK STATE
+Loop Running:
+YES
+isPlaying:
+YES
+Loop Ticks:
+110
+Ctx Time:
+11.584s
+Ctx State:
+running
+Ctx ID:
+3785618_c22a
+Active Sentence:
+0
+Last Delta Sent:
+S1
+SENTENCE EVENTS
+Last Start:
+none
+Last End:
+none
+AUDIO CHUNKS RECEIVED
+Total Chunks:
+48
+Last Chunk S:
+1
+Per Sentence: S0:37, S1:11
+EMPTY CHUNKS & TRANSITIONS
+Empty Chunks:
+2
+Last Empty S:
+1
+EndTimes Set: [0, 1]
+Transitions:
+s-1→s0: started at 0.17s
+SCHEDULE (2 entries)
+MATCH INFO (1 sentences)
+S0 ✗
+end=undefined
+ENDED: now(11.58) >= end(4.74)
+range: 0.10 - 4.74
+SCHEDULE EVENTS (3)
+✅ ADD S1
+1:29:58 PM
+After: [0, 1] (2 entries)
+✅ ADD S0
+1:29:45 PM
+After: [0] (1 entries)
+⚠️ CLEAR (0 removed)
+1:29:45 PM
+After: [] (0 entries)
