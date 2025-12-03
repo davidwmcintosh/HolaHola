@@ -545,6 +545,19 @@ export class StreamingAudioPlayer {
           entry.endCtxTime = entry.startCtxTime + entry.totalDuration;
           endCtxTimeSet = true;
           console.log(`[AUDIO SCHEDULE] ✓ Sentence ${sentenceIndex} endCtxTime set: ${entry.endCtxTime.toFixed(3)} (duration=${entry.totalDuration.toFixed(3)}s)`);
+          
+          // CRITICAL DEBUG: Verify endCtxTime was actually saved to the Map
+          const verifyEntry = this.sentenceSchedule.get(sentenceIndex);
+          if (verifyEntry?.endCtxTime !== entry.endCtxTime) {
+            console.error(`[BUG!!] endCtxTime NOT saved! Set ${entry.endCtxTime} but Map has ${verifyEntry?.endCtxTime}`);
+          } else {
+            console.log(`[AUDIO SCHEDULE] ✓ VERIFIED: Map entry has endCtxTime=${verifyEntry.endCtxTime.toFixed(3)}`);
+          }
+          
+          // Log ALL entries to see current state
+          console.log(`[AUDIO SCHEDULE] Current Map state:`, Array.from(this.sentenceSchedule.entries()).map(([i, e]) => 
+            `S${i}: endCtxTime=${e.endCtxTime?.toFixed(3) ?? 'UNDEFINED'}`
+          ).join(' | '));
         } else {
           console.error(`[AUDIO SCHEDULE] ✗ No schedule entry for sentence ${sentenceIndex} when isLast received!`);
         }
@@ -779,6 +792,19 @@ export class StreamingAudioPlayer {
           console.error(`[BUG!] MISMATCH: scheduleEntries.length=${scheduleEntries.length} but Map.size=${scheduleArrayFromAbove.length}`);
         }
         console.error(`[LOOP] Frame ${frameCount}: scheduleEntries.length=${scheduleEntries.length}`);
+        
+        // CRITICAL DEBUG: Check if any entries are missing endCtxTime
+        // Compare against what SHOULD exist based on logEmptyChunkProcessed
+        const entriesWithEndTime = scheduleEntries.filter(([_, e]) => e.endCtxTime !== undefined);
+        const entriesWithoutEndTime = scheduleEntries.filter(([_, e]) => e.endCtxTime === undefined);
+        if (entriesWithoutEndTime.length > 0) {
+          console.error(`[LOOP WATCHDOG] Entries WITHOUT endCtxTime: ${entriesWithoutEndTime.map(([i, e]) => 
+            `S${i}(dur=${e.totalDuration.toFixed(2)})`
+          ).join(', ')}`);
+          console.error(`[LOOP WATCHDOG] Entries WITH endCtxTime: ${entriesWithEndTime.map(([i, e]) => 
+            `S${i}(end=${e.endCtxTime?.toFixed(2)})`
+          ).join(', ')}`);
+        }
       }
       
       for (let i = 0; i < scheduleEntries.length; i++) {
