@@ -216,6 +216,19 @@ export class StreamingAudioPlayer {
   private progressivePlaybackStartCtxTime = 0; // AudioContext.currentTime when first chunk started
   private progressiveTotalDuration = 0; // Total accumulated duration of all chunks
   
+  // SENTENCE SCHEDULE: Track all sentences with their scheduled times
+  // This allows a unified timing loop to determine which sentence is active
+  private sentenceSchedule: Map<number, {
+    startCtxTime: number;      // AudioContext time when this sentence starts
+    totalDuration: number;     // Accumulated duration of all chunks
+    endCtxTime?: number;       // Computed end time (set when last chunk arrives)
+    started: boolean;          // Whether onSentenceStart has been fired
+    ended: boolean;            // Whether onSentenceEnd has been fired
+  }> = new Map();
+  
+  // Track which sentence the timing loop is currently reporting on
+  private activeSentenceInLoop = -1;
+  
   constructor() {
     console.log('[StreamingAudioPlayer] Initialized');
   }
@@ -433,62 +446,38 @@ export class StreamingAudioPlayer {
     this.progressiveScheduledTime += chunkDuration;
     this.progressiveTotalDuration += chunkDuration; // Track total duration
     
-    // Track first chunk for timing
+    // Track first chunk for timing - SCHEDULE-BASED APPROACH
     console.log(`[AUDIO DEBUG] chunk=${chunkIndex}, firstChunkStarted=${this.progressiveFirstChunkStarted}, sentence=${sentenceIndex}`);
-    if (!this.progressiveFirstChunkStarted && chunkIndex === 0) {
+    
+    // Register sentence in schedule if this is its first chunk
+    if (!this.sentenceSchedule.has(sentenceIndex)) {
+      this.sentenceSchedule.set(sentenceIndex, {
+        startCtxTime: playTime,  // When this sentence's audio starts
+        totalDuration: 0,
+        started: false,
+        ended: false,
+      });
+      console.log(`[AUDIO SCHEDULE] Registered sentence ${sentenceIndex}: startCtxTime=${playTime.toFixed(3)}`);
+    }
+    
+    // Accumulate duration for this sentence
+    const scheduleEntry = this.sentenceSchedule.get(sentenceIndex)!;
+    scheduleEntry.totalDuration += chunkDuration;
+    
+    // For the very first chunk of the first sentence, start the timing loop
+    if (!this.progressiveFirstChunkStarted && chunkIndex === 0 && sentenceIndex === 0) {
       this.progressiveFirstChunkStarted = true;
-      
-      // Calculate delay until this sentence's audio actually starts playing
-      // playTime is when the audio is SCHEDULED to play (AudioContext time)
-      // ctx.currentTime is NOW (AudioContext time)
-      // If playTime > ctx.currentTime, we need to wait before firing onSentenceStart
-      const delayUntilPlayMs = Math.max(0, (playTime - ctx.currentTime) * 1000);
-      
-      console.log(`[AUDIO DEBUG] Sentence ${sentenceIndex}: playTime=${playTime.toFixed(3)}, ctx.currentTime=${ctx.currentTime.toFixed(3)}, delayMs=${delayUntilPlayMs.toFixed(0)}`);
-      
-      if (delayUntilPlayMs > 10) {
-        // Sentence is scheduled for the future - delay the callback
-        console.log(`[AUDIO DEBUG] >>> DELAYING onSentenceStart(${sentenceIndex}) by ${delayUntilPlayMs.toFixed(0)}ms <<<`);
-        
-        // Store the sentence index and playTime for the closure
-        const scheduledSentenceIndex = sentenceIndex;
-        const scheduledPlayTime = playTime;
-        
-        setTimeout(() => {
-          // Only skip if playback was explicitly stopped (isPlaying=false)
-          // Don't skip just because a newer sentence arrived - we still need to show THIS sentence
-          // when its audio starts playing (the audio is already scheduled and will play)
-          if (!this.isPlaying) {
-            console.log(`[AUDIO DEBUG] Skipping delayed onSentenceStart(${scheduledSentenceIndex}) - playback stopped`);
-            return;
-          }
-          
-          // CRITICAL: Set the AudioContext start time for THIS sentence's timing
-          // This MUST be done in the delayed callback, not earlier, otherwise
-          // later sentences will overwrite this value before we fire the callback
-          this.progressivePlaybackStartCtxTime = scheduledPlayTime;
-          this.playbackStartTime = performance.now();
-          
-          // Update sentence tracking to reflect what's actually playing now
-          this.currentSentenceIndex = scheduledSentenceIndex;
-          
-          this.setState('playing');
-          console.log(`[AUDIO DEBUG] >>> FIRING DELAYED onSentenceStart(${scheduledSentenceIndex}), progressivePlaybackStartCtxTime=${scheduledPlayTime.toFixed(3)} <<<`);
-          this.callbacks.onSentenceStart?.(scheduledSentenceIndex);
-          this.startProgressivePrecisionTiming(); // Use progressive-specific timing
-        }, delayUntilPlayMs);
-      } else {
-        // Sentence is playing immediately (or very soon)
-        // Set timing state immediately since audio plays now
-        this.progressivePlaybackStartCtxTime = playTime;
-        this.playbackStartTime = performance.now();
-        this.setState('playing');
-        console.log(`[AUDIO DEBUG] >>> Firing onSentenceStart(${sentenceIndex}) IMMEDIATELY, progressivePlaybackStartCtxTime=${playTime.toFixed(3)} <<<`);
-        this.callbacks.onSentenceStart?.(sentenceIndex);
-        this.startProgressivePrecisionTiming(); // Use progressive-specific timing
-      }
-      
-      console.log(`[StreamingAudioPlayer] [Progressive] First chunk playing at ${playTime.toFixed(3)}s (ctx.currentTime=${ctx.currentTime.toFixed(3)}s)`);
+      this.playbackStartTime = performance.now();
+      this.setState('playing');
+      console.log(`[AUDIO DEBUG] Starting unified timing loop, first sentence startCtxTime=${playTime.toFixed(3)}`);
+      this.startUnifiedTimingLoop(); // New unified loop
+    }
+    
+    console.log(`[StreamingAudioPlayer] [Progressive] First chunk of sentence ${sentenceIndex} scheduled at ${playTime.toFixed(3)}s (ctx.currentTime=${ctx.currentTime.toFixed(3)}s)`);
+    
+    // For backward compatibility, also track progressive state for sentence 0
+    if (sentenceIndex === 0 && !this.progressivePlaybackStartCtxTime) {
+      this.progressivePlaybackStartCtxTime = playTime;
     }
     
     // Update current duration for progress reporting
@@ -496,8 +485,13 @@ export class StreamingAudioPlayer {
     
     console.log(`[StreamingAudioPlayer] [Progressive] Chunk ${chunkIndex}: ${numSamples} samples, ${chunkDuration.toFixed(3)}s, scheduled at ${playTime.toFixed(3)}s, isLast=${isLast}`);
     
-    // Handle last chunk
+    // Handle last chunk - set end time in schedule
     if (isLast) {
+      const entry = this.sentenceSchedule.get(sentenceIndex);
+      if (entry) {
+        entry.endCtxTime = entry.startCtxTime + entry.totalDuration;
+        console.log(`[AUDIO SCHEDULE] Sentence ${sentenceIndex} complete: endCtxTime=${entry.endCtxTime.toFixed(3)} (duration=${entry.totalDuration.toFixed(3)}s)`);
+      }
       this.scheduleProgressiveSentenceEnd(sentenceIndex, chunkDuration);
     }
   }
@@ -520,11 +514,129 @@ export class StreamingAudioPlayer {
     this.progressiveFirstChunkStarted = false;
     this.progressivePlaybackStartCtxTime = 0;
     this.progressiveTotalDuration = 0;
+    
+    // Reset sentence schedule
+    this.sentenceSchedule.clear();
+    this.activeSentenceInLoop = -1;
+  }
+  
+  // Type for sentence schedule entry
+  private getSentenceScheduleEntry(index: number) {
+    return this.sentenceSchedule.get(index);
   }
   
   /**
+   * UNIFIED TIMING LOOP: Schedule-based approach that determines active sentence
+   * based on AudioContext.currentTime vs sentence schedule.
+   * 
+   * This is the NEW approach - instead of delaying callbacks, we track all sentences'
+   * scheduled times and let the timing loop fire onSentenceStart exactly when
+   * each sentence's audio actually starts playing.
+   */
+  private startUnifiedTimingLoop(): void {
+    // Cancel any existing timing loop
+    this.stopPrecisionTiming();
+    
+    console.log('[StreamingAudioPlayer] Starting UNIFIED timing loop (schedule-based)');
+    
+    let frameCount = 0;
+    
+    const tick = (): void => {
+      // Exit if playback stopped
+      if (!this.isPlaying) {
+        return;
+      }
+      
+      const ctx = this.audioContext;
+      if (!ctx) {
+        this.rafId = requestAnimationFrame(tick);
+        return;
+      }
+      
+      const now = ctx.currentTime;
+      
+      // Find which sentence is currently active based on schedule
+      let activeIndex = -1;
+      let activeEntry: { startCtxTime: number; totalDuration: number; endCtxTime?: number; started: boolean; ended: boolean } | null = null;
+      
+      const entries = Array.from(this.sentenceSchedule.entries());
+      for (let i = 0; i < entries.length; i++) {
+        const [index, entry] = entries[i];
+        // Check if 'now' is within this sentence's time window
+        const endTime = entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration);
+        
+        if (now >= entry.startCtxTime && now < endTime) {
+          activeIndex = index;
+          activeEntry = entry;
+          break;
+        }
+      }
+      
+      if (activeEntry && activeIndex >= 0) {
+        // Fire onSentenceStart if this is a NEW active sentence
+        if (!activeEntry.started) {
+          activeEntry.started = true;
+          this.currentSentenceIndex = activeIndex;
+          this.activeSentenceInLoop = activeIndex;
+          this.progressivePlaybackStartCtxTime = activeEntry.startCtxTime;
+          
+          console.log(`[UNIFIED LOOP] >>> onSentenceStart(${activeIndex}) at ctx.time=${now.toFixed(3)}, sentence.start=${activeEntry.startCtxTime.toFixed(3)} <<<`);
+          this.callbacks.onSentenceStart?.(activeIndex);
+        }
+        
+        // Calculate elapsed time within THIS sentence
+        const elapsedInSentence = now - activeEntry.startCtxTime;
+        
+        // Fire progress callback
+        this.callbacks.onProgress?.(elapsedInSentence, activeEntry.totalDuration);
+        
+        // Debug log periodically
+        frameCount++;
+        if (frameCount % 10 === 0) {
+          console.log(`[UNIFIED LOOP] sentence=${activeIndex}, elapsed=${elapsedInSentence.toFixed(3)}s, duration=${activeEntry.totalDuration.toFixed(3)}s`);
+        }
+      } else {
+        // No active sentence - check for sentences that have ended but haven't fired onSentenceEnd
+        for (let i = 0; i < entries.length; i++) {
+          const [index, entry] = entries[i];
+          const endTime = entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration);
+          
+          // If we're past this sentence's end time and it started but hasn't ended, fire end event
+          if (now >= endTime && entry.started && !entry.ended) {
+            entry.ended = true;
+            console.log(`[UNIFIED LOOP] >>> onSentenceEnd(${index}) at ctx.time=${now.toFixed(3)}, sentence.end=${endTime.toFixed(3)} <<<`);
+            this.callbacks.onSentenceEnd?.(index);
+          }
+        }
+        
+        // Check if all sentences are complete
+        let allDone = true;
+        for (let i = 0; i < entries.length; i++) {
+          const [, entry] = entries[i];
+          const endTime = entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration);
+          if (now < endTime) {
+            allDone = false;
+            break;
+          }
+        }
+        
+        if (allDone && this.sentenceSchedule.size > 0) {
+          console.log('[UNIFIED LOOP] All sentences complete');
+          // Don't stop the loop yet - there might be more sentences coming
+        }
+      }
+      
+      // Continue the loop
+      this.rafId = requestAnimationFrame(tick);
+    };
+    
+    this.rafId = requestAnimationFrame(tick);
+  }
+
+  /**
    * Start precision timing loop specifically for progressive PCM streaming
    * Uses AudioContext.currentTime for accurate tracking
+   * @deprecated Use startUnifiedTimingLoop instead
    */
   private startProgressivePrecisionTiming(): void {
     // Cancel any existing timing loop
@@ -590,12 +702,20 @@ export class StreamingAudioPlayer {
   
   /**
    * Finalize a progressive sentence (called when last chunk ends)
+   * NOTE: With the unified timing loop, onSentenceEnd is now fired there.
+   * This method handles cleanup only if not already handled.
    */
   private finalizeProgressiveSentence(sentenceIndex: number): void {
     console.log(`[StreamingAudioPlayer] [Progressive] Sentence ${sentenceIndex} complete (current: ${this.progressiveSentenceIndex})`);
     
-    // Fire callback
-    this.callbacks.onSentenceEnd?.(sentenceIndex);
+    // Check if unified loop already fired onSentenceEnd via the schedule
+    const scheduleEntry = this.sentenceSchedule.get(sentenceIndex);
+    if (scheduleEntry && !scheduleEntry.ended) {
+      scheduleEntry.ended = true;
+      this.callbacks.onSentenceEnd?.(sentenceIndex);
+    } else {
+      console.log(`[StreamingAudioPlayer] [Progressive] Sentence ${sentenceIndex} already ended via unified loop, skipping callback`);
+    }
     
     // Only clean up if we're still on this sentence (next sentence may have already started)
     if (this.progressiveSentenceIndex === sentenceIndex) {
