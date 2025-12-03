@@ -1,0 +1,183 @@
+TIMING DEBUG
+(STALE)
+[CONNECTED]
+P:1
+▲
+CURRENT WORD
+✓ Match
+Highlighted:
+David,
+Expected (from timing):
+David,
+Word Index: 1 | Visible: 2 | Total Received: 9
+TIMING DRIFT
+Audio Time
+0.563s
+Expected Start
+0.190s
+Drift
++373ms
+CURRENT SENTENCE
+Hi David, it's so great to have you here!
+WORD TIMING COUNTS
+Total Deltas:
+25
+Total Finals:
+25
+This Sentence:
+9 deltas
+Final Count:
+9
+✓ All deltas received
+TIMING RACE
+S2
+First Timing At:
+73561ms
+Playback Start:
+—
+Timings at Start:
+0 words ready
+HISTORY (per sentence):
+S0
++369ms
+1w
+WORD-BASED TIMING
+NO MATCH
+Active Word (from ctx.currentTime):
+No word matched at current time
+Schedule Size:
+25 words
+Last Match:
+0.76s
+FIRST Words (with abs times):
+S0W0: "Hi" @ 0.15-0.35s
+S0W1: "David," @ 0.35-0.77s
+S0W2: "it's" @ 0.77-0.95s
+S0W3: "so" @ 0.95-1.18s
+S0W4: "great" @ 1.18-1.45s
+S0W5: "to" @ 1.45-1.56s
+RECEIVED WORDS (12)
+0: Can
+1: you
+2: say
+3: Hola?
+4: today,
+5: and
+6: the
+7: most
+8: common
+9: one
+10: is
+11: Hola
+RECENT EVENTS (20)
+Δ
+S2:
+w3
+"Hola?"
+0.67-1.08s
+Δ
+S2:
+w2
+"say"
+0.43-0.67s
+Δ
+S2:
+w1
+"you"
+0.25-0.43s
+Δ
+S2:
+w0
+"Can"
+0.05-0.25s
+Δ
+S1:
+w11
+"Hola"
+3.28-3.59s
+Δ
+S1:
+w10
+"is"
+3.08-3.28s
+Δ
+S1:
+w9
+"one"
+2.83-3.08s
+Δ
+S1:
+w8
+"common"
+2.54-2.83s
+Δ
+S1:
+w7
+"most"
+2.28-2.54s
+Δ
+S1:
+w6
+"the"
+2.21-2.28s
+TICK LOOP (First 5 frames)started 25.3s ago
+F1: ctx=0.016s, state=running, playing=true
+F2: ctx=0.016s, state=running, playing=true
+F3: ctx=0.085s, state=running, playing=true
+F4: ctx=0.224s, state=running, playing=true
+F5: ctx=0.347s, state=running, playing=true
+PLAYBACK STATE
+Loop Running:
+YES
+isPlaying:
+YES
+Loop Ticks:
+40
+Ctx Time:
+3.984s
+Ctx State:
+running
+Ctx ID:
+7159377_3tpn
+Active Sentence:
+0
+Last Delta Sent:
+S2
+SENTENCE EVENTS
+Last Start:
+0
+Last End:
+2
+AUDIO CHUNKS RECEIVED
+Total Chunks:
+57
+Last Chunk S:
+2
+Per Sentence: S0:19, S1:28, S2:10
+EMPTY CHUNKS & TRANSITIONS
+Empty Chunks:
+3
+Last Empty S:
+2
+EndTimes Set: [0, 1, 2]
+Transitions:
+s-1→s0: started at 0.23s
+SCHEDULE (3 entries)
+MATCH INFO (1 sentences)
+S0 ✗
+end=undefined
+ENDED: now(3.98) >= end(2.46)
+range: 0.10 - 2.46
+SCHEDULE EVENTS (4)
+✅ ADD S2
+2:26:13 PM
+After: [0, 1, 2] (3 entries)
+✅ ADD S1
+2:26:04 PM
+After: [0, 1] (2 entries)
+✅ ADD S0
+2:25:59 PM
+After: [0] (1 entries)
+⚠️ CLEAR (0 removed)
+2:25:59 PM
+After: [] (0 entries)
