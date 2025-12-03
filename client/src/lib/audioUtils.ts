@@ -449,6 +449,24 @@ export class StreamingAudioPlayer {
     const numSamples = float32Data.length;
     const chunkDuration = numSamples / sampleRate;
     
+    // CRITICAL FIX: Handle empty audio chunks (isLast=true marker chunks)
+    // These chunks have 0 audio data but signal sentence completion
+    // We MUST process the isLast flag even if there's no audio to schedule
+    if (numSamples === 0) {
+      console.log(`[AUDIO] Empty chunk s=${sentenceIndex} c=${chunkIndex} isLast=${isLast} - processing as marker only`);
+      if (isLast) {
+        const entry = this.sentenceSchedule.get(sentenceIndex);
+        if (entry) {
+          entry.endCtxTime = entry.startCtxTime + entry.totalDuration;
+          console.log(`[AUDIO SCHEDULE] ✓ Sentence ${sentenceIndex} endCtxTime set: ${entry.endCtxTime.toFixed(3)} (duration=${entry.totalDuration.toFixed(3)}s)`);
+        } else {
+          console.error(`[AUDIO SCHEDULE] ✗ No schedule entry for sentence ${sentenceIndex} when isLast received!`);
+        }
+        this.scheduleProgressiveSentenceEnd(sentenceIndex, 0);
+      }
+      return; // Skip audio scheduling for empty chunks
+    }
+    
     // Store for potential replay
     this.progressiveChunks.push(float32Data);
     this.allAudioChunks.push(audio);
@@ -591,6 +609,18 @@ export class StreamingAudioPlayer {
       const now = ctx.currentTime;
       frameCount++;
       
+      // Debug log every 60 frames (~1 second) to see schedule state
+      if (frameCount % 60 === 0) {
+        const scheduleInfo: string[] = [];
+        for (const [idx, e] of this.sentenceSchedule) {
+          const isStreaming = e.endCtxTime === undefined;
+          const endT = e.endCtxTime ?? (e.startCtxTime + e.totalDuration);
+          const matchesNow = now >= e.startCtxTime && (isStreaming || now < endT);
+          scheduleInfo.push(`s${idx}:[${e.startCtxTime.toFixed(2)}-${endT.toFixed(2)}${isStreaming?'~':''},started=${e.started},match=${matchesNow}]`);
+        }
+        console.log(`[LOOP DEBUG] frame=${frameCount}, now=${now.toFixed(3)}, schedule: ${scheduleInfo.join(' | ')}`);
+      }
+      
       // Find which sentence is currently active based on schedule
       // PERFORMANCE: Iterate Map directly instead of Array.from() to avoid allocation per frame
       let activeIndex = -1;
@@ -615,7 +645,7 @@ export class StreamingAudioPlayer {
           this.activeSentenceInLoop = activeIndex;
           this.progressivePlaybackStartCtxTime = activeEntry.startCtxTime;
           
-          console.log(`[SENTENCE] Start: ${activeIndex}`);
+          console.log(`[SENTENCE] ▶▶▶ STARTING sentence ${activeIndex} (now=${ctx.currentTime.toFixed(3)}, scheduled=${activeEntry.startCtxTime.toFixed(3)})`);
           this.callbacks.onSentenceStart?.(activeIndex);
         }
         
