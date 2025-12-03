@@ -260,27 +260,26 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
               </div>
             </div>
             
-            {/* Word Schedule Preview (last 6 words) */}
+            {/* Word Schedule Preview - FIRST 6 words with abs times for debugging */}
             {wordSchedule && wordSchedule.length > 0 && (
               <div className="mt-2">
-                <div className="text-gray-400 text-[10px] mb-1">Recent Words in Schedule:</div>
-                <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
-                  {wordSchedule.slice(-6).map((entry, idx) => {
+                <div className="text-gray-400 text-[10px] mb-1">FIRST Words (with abs times):</div>
+                <div className="flex flex-col gap-0.5 max-h-24 overflow-y-auto">
+                  {wordSchedule.slice(0, 6).map((entry, idx) => {
                     const isActive = activeWord && 
                       activeWord.sentenceIndex === entry.sentenceIndex && 
                       activeWord.wordIndex === entry.wordIndex;
                     return (
-                      <span 
+                      <div 
                         key={idx}
                         className={`px-1 rounded text-[9px] ${
                           isActive 
                             ? 'bg-teal-500 text-black font-bold' 
                             : 'bg-gray-700 text-gray-300'
                         }`}
-                        title={`${entry.absoluteStartTime.toFixed(3)}-${entry.absoluteEndTime.toFixed(3)}s`}
                       >
-                        S{entry.sentenceIndex}W{entry.wordIndex}: {entry.word}
-                      </span>
+                        S{entry.sentenceIndex}W{entry.wordIndex}: "{entry.word}" @ {entry.absoluteStartTime.toFixed(2)}-{entry.absoluteEndTime.toFixed(2)}s
+                      </div>
                     );
                   })}
                 </div>

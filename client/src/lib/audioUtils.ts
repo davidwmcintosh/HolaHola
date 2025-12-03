@@ -843,14 +843,29 @@ export class StreamingAudioPlayer {
     
     // Iterate through all words and find the one that matches current time
     for (let i = 0; i < wordEntries.length; i++) {
-      const [_key, entry] = wordEntries[i];
+      const [key, entry] = wordEntries[i];
       if (now >= entry.absoluteStartTime && now < entry.absoluteEndTime) {
+        // Log successful match periodically (every ~0.5s)
+        if (Math.floor(now * 2) % 2 === 0) {
+          console.log(`[WORD MATCH FOUND] now=${now.toFixed(3)} matches ${key}:"${entry.word}" at ${entry.absoluteStartTime.toFixed(3)}-${entry.absoluteEndTime.toFixed(3)}s`);
+        }
         return {
           sentenceIndex: entry.sentenceIndex,
           wordIndex: entry.wordIndex,
           word: entry.word
         };
       }
+    }
+    
+    // Log when NO match is found (only if we have words in schedule)
+    if (wordEntries.length > 0 && Math.floor(now * 2) % 4 === 0) {
+      // Find range of all words
+      let minStart = Infinity, maxEnd = -Infinity;
+      for (let i = 0; i < wordEntries.length; i++) {
+        if (wordEntries[i][1].absoluteStartTime < minStart) minStart = wordEntries[i][1].absoluteStartTime;
+        if (wordEntries[i][1].absoluteEndTime > maxEnd) maxEnd = wordEntries[i][1].absoluteEndTime;
+      }
+      console.error(`[NO WORD MATCH] now=${now.toFixed(3)}s, wordRange=${minStart.toFixed(3)}-${maxEnd.toFixed(3)}s, scheduleSize=${wordEntries.length}`);
     }
     
     return null;

@@ -1,0 +1,169 @@
+TIMING DEBUG
+(STALE)
+[CONNECTED]
+P:1
+▲
+CURRENT WORD
+Highlighted:
+—
+Expected (from timing):
+—
+Word Index: — | Visible: 4 | Total Received: 11
+TIMING DRIFT
+Audio Time
+1.203s
+Expected Start
+1.053s
+Drift
++149ms
+CURRENT SENTENCE
+Hello David! I'm so happy to be your Spanish tutor today
+WORD TIMING COUNTS
+Total Deltas:
+25
+Total Finals:
+25
+This Sentence:
+11 deltas
+Final Count:
+11
+✓ All deltas received
+WORD-BASED TIMING
+NO MATCH
+Active Word (from ctx.currentTime):
+No word matched at current time
+Schedule Size:
+25 words
+Last Match:
+0.83s
+Recent Words in Schedule:
+S1W8: learn
+S1W9: Hola
+S2W0: Can
+S2W1: you
+S2W2: say
+S2W3: Hola?
+RECEIVED WORDS (11)
+0: Can
+1: you
+2: say
+3: Hola?
+4: with
+5: greetings,
+6: so
+7: let's
+8: learn
+9: Hola
+10: today
+RECENT EVENTS (20)
+Δ
+S2:
+w3
+"Hola?"
+0.53-0.90s
+Δ
+S2:
+w2
+"say"
+0.34-0.53s
+Δ
+S2:
+w1
+"you"
+0.20-0.34s
+Δ
+S2:
+w0
+"Can"
+0.03-0.20s
+Δ
+S1:
+w9
+"Hola"
+2.14-2.54s
+Δ
+S1:
+w8
+"learn"
+1.90-2.14s
+Δ
+S1:
+w7
+"let's"
+1.69-1.90s
+Δ
+S1:
+w6
+"so"
+1.46-1.69s
+Δ
+S1:
+w5
+"greetings,"
+0.98-1.46s
+Δ
+S1:
+w4
+"with"
+0.79-0.98s
+TICK LOOP (First 5 frames)started 26.0s ago
+F1: ctx=0.016s, state=running, playing=true
+F2: ctx=0.016s, state=running, playing=true
+F3: ctx=0.085s, state=running, playing=true
+F4: ctx=0.192s, state=running, playing=true
+F5: ctx=0.304s, state=running, playing=true
+PLAYBACK STATE
+Loop Running:
+YES
+isPlaying:
+YES
+Loop Ticks:
+230
+Ctx Time:
+7.632s
+Ctx State:
+running
+Ctx ID:
+2628665_ydbf
+Active Sentence:
+0
+Last Delta Sent:
+S2
+SENTENCE EVENTS
+Last Start:
+none
+Last End:
+none
+AUDIO CHUNKS RECEIVED
+Total Chunks:
+62
+Last Chunk S:
+2
+Per Sentence: S0:32, S1:21, S2:9
+EMPTY CHUNKS & TRANSITIONS
+Empty Chunks:
+3
+Last Empty S:
+2
+EndTimes Set: [0, 1, 2]
+Transitions:
+s-1→s0: started at 0.19s
+SCHEDULE (3 entries)
+MATCH INFO (1 sentences)
+S0 ✗
+end=undefined
+ENDED: now(7.63) >= end(3.72)
+range: 0.10 - 3.72
+SCHEDULE EVENTS (4)
+✅ ADD S2
+1:10:44 PM
+After: [0, 1, 2] (3 entries)
+✅ ADD S1
+1:10:37 PM
+After: [0, 1] (2 entries)
+✅ ADD S0
+1:10:28 PM
+After: [0] (1 entries)
+⚠️ CLEAR (0 removed)
+1:10:28 PM
+After: [] (0 entries)
