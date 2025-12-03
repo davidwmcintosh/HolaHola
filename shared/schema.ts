@@ -687,6 +687,72 @@ export const curriculumLessons = pgTable("curriculum_lessons", {
   minPronunciationScore: real("min_pronunciation_score"), // Minimum pronunciation confidence (0-1)
 });
 
+// ===== Drill Lesson Content =====
+
+// Drill item types enum
+export const drillItemTypeEnum = pgEnum('drill_item_type', [
+  'listen_repeat',      // Hear audio, repeat back
+  'number_dictation',   // Hear number, type it
+  'translate_speak',    // See text, speak translation
+  'matching',           // Match audio to images/text
+  'fill_blank',         // Fill in missing word
+]);
+
+// Individual drill items within a drill lesson
+export const curriculumDrillItems = pgTable("curriculum_drill_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  lessonId: varchar("lesson_id").notNull().references(() => curriculumLessons.id, { onDelete: 'cascade' }),
+  itemType: drillItemTypeEnum("item_type").notNull(),
+  orderIndex: integer("order_index").notNull(), // Order within the drill
+  // Content
+  prompt: text("prompt").notNull(),           // What to display (e.g., "43" for number dictation)
+  targetText: text("target_text").notNull(),  // Correct answer/what to say (e.g., "cuarenta y tres")
+  targetLanguage: text("target_language").notNull(), // Language code for TTS
+  // Audio
+  audioUrl: text("audio_url"),                // Cached TTS audio URL (generated on demand)
+  audioDurationMs: integer("audio_duration_ms"), // Duration for timing
+  // Optional hints and alternatives
+  hints: text("hints").array(),               // Progressive hints
+  acceptableAlternatives: text("acceptable_alternatives").array(), // Other correct answers
+  // Metadata
+  difficulty: integer("difficulty").default(1), // 1-5 difficulty rating
+  tags: text("tags").array(),                 // e.g., ["numbers", "1-100", "tens"]
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_drill_items_lesson").on(table.lessonId),
+  index("idx_drill_items_type").on(table.itemType),
+]);
+
+// User progress on individual drill items
+export const userDrillProgress = pgTable("user_drill_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  drillItemId: varchar("drill_item_id").notNull().references(() => curriculumDrillItems.id, { onDelete: 'cascade' }),
+  // Progress tracking
+  attempts: integer("attempts").default(0),
+  correctCount: integer("correct_count").default(0),
+  lastScore: real("last_score"),              // Most recent attempt score (0-1)
+  bestScore: real("best_score"),              // Best score achieved (0-1)
+  averageScore: real("average_score"),        // Running average
+  // Mastery status
+  mastered: boolean("mastered").default(false),
+  masteredAt: timestamp("mastered_at"),
+  // Spaced repetition
+  nextReviewAt: timestamp("next_review_at"),  // When to review again
+  reviewInterval: integer("review_interval").default(1), // Days until next review
+  // Timing
+  lastAttemptedAt: timestamp("last_attempted_at"),
+  totalTimeSpentMs: integer("total_time_spent_ms").default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_drill_progress_user").on(table.userId),
+  index("idx_drill_progress_item").on(table.drillItemId),
+  index("idx_drill_progress_mastery").on(table.mastered),
+  index("idx_drill_progress_review").on(table.nextReviewAt),
+]);
+
 // Class types for categorizing classes (ACTFL-Led, Executive, Travel, etc.)
 export const classTypes = pgTable("class_types", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1327,6 +1393,30 @@ export const insertCurriculumLessonSchema = createInsertSchema(curriculumLessons
   description: z.string().min(1, "Description is required").max(2000, "Description must be less than 2000 characters").trim(),
   conversationPrompt: z.string().max(5000, "Prompt must be less than 5000 characters").optional(),
 });
+
+// Drill item schemas
+export const insertCurriculumDrillItemSchema = createInsertSchema(curriculumDrillItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  prompt: z.string().min(1, "Prompt is required").max(500, "Prompt must be less than 500 characters").trim(),
+  targetText: z.string().min(1, "Target text is required").max(500, "Target text must be less than 500 characters").trim(),
+  targetLanguage: z.string().min(2, "Language is required").max(10, "Language code too long"),
+});
+
+export const insertUserDrillProgressSchema = createInsertSchema(userDrillProgress).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertCurriculumDrillItem = z.infer<typeof insertCurriculumDrillItemSchema>;
+export type CurriculumDrillItem = typeof curriculumDrillItems.$inferSelect;
+export type DrillItemType = typeof drillItemTypeEnum.enumValues[number];
+
+export type InsertUserDrillProgress = z.infer<typeof insertUserDrillProgressSchema>;
+export type UserDrillProgress = typeof userDrillProgress.$inferSelect;
 
 export const insertClassTypeSchema = createInsertSchema(classTypes).omit({
   id: true,
