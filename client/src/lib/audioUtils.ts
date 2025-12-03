@@ -823,6 +823,21 @@ export class StreamingAudioPlayer {
     // Use Array.from for broader compatibility (avoids downlevelIteration issues)
     const wordEntries = Array.from(this.wordSchedule.entries());
     
+    // DEBUG: Log word schedule state periodically
+    if (wordEntries.length > 0 && Math.floor(now * 2) % 4 === 0) {
+      // Find closest word for debugging
+      let closestWord = wordEntries[0];
+      let closestDiff = Math.abs(now - wordEntries[0][1].absoluteStartTime);
+      for (let i = 1; i < wordEntries.length; i++) {
+        const diff = Math.abs(now - wordEntries[i][1].absoluteStartTime);
+        if (diff < closestDiff) {
+          closestDiff = diff;
+          closestWord = wordEntries[i];
+        }
+      }
+      console.log(`[findActiveWord] now=${now.toFixed(3)}, scheduleSize=${wordEntries.length}, closest="${closestWord[1].word}" at ${closestWord[1].absoluteStartTime.toFixed(3)}-${closestWord[1].absoluteEndTime.toFixed(3)} (diff=${closestDiff.toFixed(3)}s)`);
+    }
+    
     // Iterate through all words and find the one that matches current time
     for (let i = 0; i < wordEntries.length; i++) {
       const [_key, entry] = wordEntries[i];
