@@ -437,6 +437,14 @@ export class StreamingAudioPlayer {
           entry.endCtxTime = entry.startCtxTime + entry.totalDuration;
           endCtxTimeSet = true;
           console.log(`[AUDIO SCHEDULE] ✓ Sentence ${sentenceIndex} endCtxTime set via EARLY PATH: ${entry.endCtxTime.toFixed(3)} (duration=${entry.totalDuration.toFixed(3)}s)`);
+          
+          // CRITICAL DEBUG: Verify the entry was actually updated in the Map
+          const verifyEntry = this.sentenceSchedule.get(sentenceIndex);
+          if (verifyEntry?.endCtxTime === undefined) {
+            console.error(`[BUG!] endCtxTime set but Map entry still shows undefined! entry===verifyEntry: ${entry === verifyEntry}`);
+          } else {
+            console.log(`[VERIFY] Map entry S${sentenceIndex} endCtxTime confirmed: ${verifyEntry.endCtxTime.toFixed(3)}`);
+          }
         } else {
           console.error(`[AUDIO SCHEDULE] ✗ No schedule entry for sentence ${sentenceIndex} when isLast received!`);
         }
@@ -819,18 +827,20 @@ export class StreamingAudioPlayer {
         if (scheduleEntries.length !== scheduleArrayFromAbove.length) {
           console.error(`[BUG!] MISMATCH: scheduleEntries.length=${scheduleEntries.length} but Map.size=${scheduleArrayFromAbove.length}`);
         }
-        console.error(`[LOOP] Frame ${frameCount}: scheduleEntries.length=${scheduleEntries.length}`);
+        
+        // CRITICAL DEBUG: Log ALL entries with their endCtxTime values
+        const entryDetails = scheduleEntries.map(([i, e]) => 
+          `S${i}(end=${e.endCtxTime !== undefined ? e.endCtxTime.toFixed(2) : 'UNDEF'})`
+        ).join(', ');
+        console.error(`[LOOP] Frame ${frameCount}: entries=[${entryDetails}] now=${now.toFixed(2)}`);
         
         // CRITICAL DEBUG: Check if any entries are missing endCtxTime
         // Compare against what SHOULD exist based on logEmptyChunkProcessed
         const entriesWithEndTime = scheduleEntries.filter(([_, e]) => e.endCtxTime !== undefined);
         const entriesWithoutEndTime = scheduleEntries.filter(([_, e]) => e.endCtxTime === undefined);
         if (entriesWithoutEndTime.length > 0) {
-          console.error(`[LOOP WATCHDOG] Entries WITHOUT endCtxTime: ${entriesWithoutEndTime.map(([i, e]) => 
+          console.error(`[LOOP WATCHDOG] ⚠️ ${entriesWithoutEndTime.length} entries WITHOUT endCtxTime: ${entriesWithoutEndTime.map(([i, e]) => 
             `S${i}(dur=${e.totalDuration.toFixed(2)})`
-          ).join(', ')}`);
-          console.error(`[LOOP WATCHDOG] Entries WITH endCtxTime: ${entriesWithEndTime.map(([i, e]) => 
-            `S${i}(end=${e.endCtxTime?.toFixed(2)})`
           ).join(', ')}`);
         }
       }
