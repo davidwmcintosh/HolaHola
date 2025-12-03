@@ -42,6 +42,14 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 
 ## Recent Changes
 
+### December 2025 - Drill-Based Lessons for Rote Content
+-   **Drill Lesson System**: Added drill-based lessons for rote content (numbers, vocabulary drills) using batch TTS with caching. Schema includes `curriculumDrillItems` table for drill content and `userDrillProgress` for tracking mastery.
+-   **Drill Types**: Supports multiple drill modes: `listen_repeat`, `number_dictation`, `translate_speak`, `matching`, `fill_blank`.
+-   **DrillLesson Component**: Frontend component (`client/src/components/DrillLesson.tsx`) with audio playback, self-evaluation for listen-repeat mode, answer validation with acceptable alternatives, progress tracking with mastery display, and hint system.
+-   **Google TTS Batch Synthesis**: DrillAudioService (`server/services/drill-audio-service.ts`) uses Google Cloud TTS Neural2 voices for batch audio generation with caching support for cost efficiency.
+-   **Syllabus Builder Integration**: Teachers can now create drill lessons through the Syllabus Builder with the new "Drill" lesson type option.
+-   **Key Files**: `client/src/components/DrillLesson.tsx`, `server/services/drill-audio-service.ts`, `shared/schema.ts` (drill item/progress tables)
+
 ### December 2025 - Streaming Voice Subtitle Timing Fixes
 -   **sentence_ready Architecture**: Implemented atomic handshake to eliminate timing race conditions where audio playback starts before word timings arrive. Server buffers audio until word timings arrive, then sends combined `sentence_ready` message.
 -   **Sentence-Aware ReceivedWords**: Fixed debug panel bug where words were overwritten during concurrent sentence streaming. Changed from flat `string[]` to sentence-qualified structure `Array<{ sentenceIndex, wordIndex, word }>` with deterministic sorting.
