@@ -756,10 +756,6 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       return;
     }
     
-    // Log periodically to track playback progress
-    if (Math.floor(currentTime * 2) % 2 === 0) {
-      console.log(`[SUBTITLE DEBUG] updatePlaybackTime: ${timings.length} timings, time=${currentTime.toFixed(2)}, sentence=${activeSentenceRef.current}`);
-    }
     
     // ACTFL-level-aware timing offset
     // Lower levels get more lead time to process text before hearing it
@@ -820,13 +816,7 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     const useProgressiveReveal = shouldRevealProgressively(difficultyRef.current);
     const newVisibleCount = useProgressiveReveal ? (maxVisibleIndex + 1) : timings.length;
     
-    // ALWAYS log when visible count increases (critical for debugging progressive reveal)
-    setVisibleWordCount(prevCount => {
-      if (newVisibleCount !== prevCount) {
-        console.error(`[VISIBLE CHANGE] visibleCount: ${prevCount} → ${newVisibleCount} (adjustedTime=${adjustedTime.toFixed(3)}, maxIdx=${maxVisibleIndex})`);
-      }
-      return newVisibleCount;
-    });
+    setVisibleWordCount(newVisibleCount);
     // Always update the current word highlight (for karaoke effect)
     setCurrentWordIndex(prevIndex => {
       // Only log telemetry when word index changes

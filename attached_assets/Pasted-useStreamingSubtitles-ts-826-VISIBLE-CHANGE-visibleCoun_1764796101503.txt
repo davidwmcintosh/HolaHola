@@ -1,0 +1,143 @@
+useStreamingSubtitles.ts:826 [VISIBLE CHANGE] visibleCount: 0 → 6 (adjustedTime=2.013, maxIdx=5)
+(anonymous) @ useStreamingSubtitles.ts:826
+basicStateReducer @ chunk-RPCDYKBN.js?v=2f93850c:11703
+updateReducer @ chunk-RPCDYKBN.js?v=2f93850c:11794
+updateState @ chunk-RPCDYKBN.js?v=2f93850c:12021
+useState @ chunk-RPCDYKBN.js?v=2f93850c:12753
+useState @ chunk-QCHXOAYK.js?v=2f93850c:1066
+useStreamingSubtitles @ useStreamingSubtitles.ts:191
+useStreamingVoice @ useStreamingVoice.ts:127
+StreamingVoiceChat @ StreamingVoiceChat.tsx:254
+renderWithHooks @ chunk-RPCDYKBN.js?v=2f93850c:11548
+updateFunctionComponent @ chunk-RPCDYKBN.js?v=2f93850c:14582
+beginWork @ chunk-RPCDYKBN.js?v=2f93850c:15924
+beginWork$1 @ chunk-RPCDYKBN.js?v=2f93850c:19753
+performUnitOfWork @ chunk-RPCDYKBN.js?v=2f93850c:19198
+workLoopSync @ chunk-RPCDYKBN.js?v=2f93850c:19137
+renderRootSync @ chunk-RPCDYKBN.js?v=2f93850c:19116
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=2f93850c:18678
+workLoop @ chunk-RPCDYKBN.js?v=2f93850c:197
+flushWork @ chunk-RPCDYKBN.js?v=2f93850c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=2f93850c:384
+Show 16 more frames
+Show less
+useStreamingSubtitles.ts:826 [VISIBLE CHANGE] visibleCount: 6 → 7 (adjustedTime=2.072, maxIdx=6)
+(anonymous) @ useStreamingSubtitles.ts:826
+basicStateReducer @ chunk-RPCDYKBN.js?v=2f93850c:11703
+updateReducer @ chunk-RPCDYKBN.js?v=2f93850c:11794
+updateState @ chunk-RPCDYKBN.js?v=2f93850c:12021
+useState @ chunk-RPCDYKBN.js?v=2f93850c:12753
+useState @ chunk-QCHXOAYK.js?v=2f93850c:1066
+useStreamingSubtitles @ useStreamingSubtitles.ts:191
+useStreamingVoice @ useStreamingVoice.ts:127
+StreamingVoiceChat @ StreamingVoiceChat.tsx:254
+renderWithHooks @ chunk-RPCDYKBN.js?v=2f93850c:11548
+updateFunctionComponent @ chunk-RPCDYKBN.js?v=2f93850c:14582
+beginWork @ chunk-RPCDYKBN.js?v=2f93850c:15924
+beginWork$1 @ chunk-RPCDYKBN.js?v=2f93850c:19753
+performUnitOfWork @ chunk-RPCDYKBN.js?v=2f93850c:19198
+workLoopSync @ chunk-RPCDYKBN.js?v=2f93850c:19137
+renderRootSync @ chunk-RPCDYKBN.js?v=2f93850c:19116
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=2f93850c:18678
+workLoop @ chunk-RPCDYKBN.js?v=2f93850c:197
+flushWork @ chunk-RPCDYKBN.js?v=2f93850c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=2f93850c:384
+Show 16 more frames
+Show less
+useStreamingSubtitles.ts:826 [VISIBLE CHANGE] visibleCount: 7 → 12 (adjustedTime=3.752, maxIdx=11)
+(anonymous) @ useStreamingSubtitles.ts:826
+basicStateReducer @ chunk-RPCDYKBN.js?v=2f93850c:11703
+dispatchSetState @ chunk-RPCDYKBN.js?v=2f93850c:12385
+(anonymous) @ useStreamingSubtitles.ts:824
+onProgress @ useStreamingVoice.ts:155
+tick @ audioUtils.ts:1210
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1226
+Show 2 more frames
+Show less
+useStreamingSubtitles.ts:826 [VISIBLE CHANGE] visibleCount: 12 → 13 (adjustedTime=3.805, maxIdx=12)
+(anonymous) @ useStreamingSubtitles.ts:826
+basicStateReducer @ chunk-RPCDYKBN.js?v=2f93850c:11703
+updateReducer @ chunk-RPCDYKBN.js?v=2f93850c:11794
+updateState @ chunk-RPCDYKBN.js?v=2f93850c:12021
+useState @ chunk-RPCDYKBN.js?v=2f93850c:12753
+useState @ chunk-QCHXOAYK.js?v=2f93850c:1066
+useStreamingSubtitles @ useStreamingSubtitles.ts:191
+useStreamingVoice @ useStreamingVoice.ts:127
+StreamingVoiceChat @ StreamingVoiceChat.tsx:254
+renderWithHooks @ chunk-RPCDYKBN.js?v=2f93850c:11548
+updateFunctionComponent @ chunk-RPCDYKBN.js?v=2f93850c:14582
+beginWork @ chunk-RPCDYKBN.js?v=2f93850c:15924
+beginWork$1 @ chunk-RPCDYKBN.js?v=2f93850c:19753
+performUnitOfWork @ chunk-RPCDYKBN.js?v=2f93850c:19198
+workLoopSync @ chunk-RPCDYKBN.js?v=2f93850c:19137
+renderRootSync @ chunk-RPCDYKBN.js?v=2f93850c:19116
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=2f93850c:18678
+workLoop @ chunk-RPCDYKBN.js?v=2f93850c:197
+flushWork @ chunk-RPCDYKBN.js?v=2f93850c:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=2f93850c:384
+Show 16 more frames
+Show less
+useStreamingSubtitles.ts:826 [VISIBLE CHANGE] visibleCount: 13 → 14 (adjustedTime=3.875, maxIdx=13)
