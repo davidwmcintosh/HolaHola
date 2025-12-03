@@ -624,6 +624,23 @@ export class StreamingAudioPlayer {
       // Debug log EVERY frame for first 5 ticks, then every 60 frames
       frameCount++;
       
+      // ALWAYS update window-level debug state for inspection
+      (window as any).__timingLoopState = {
+        frameCount,
+        now: now.toFixed(3),
+        activeIndex,
+        scheduleCount: entries.length,
+        schedule: entries.map(([idx, e]) => ({
+          idx,
+          start: e.startCtxTime.toFixed(3),
+          end: (e.endCtxTime ?? (e.startCtxTime + e.totalDuration)).toFixed(3),
+          duration: e.totalDuration.toFixed(3),
+          started: e.started,
+          ended: e.ended,
+        })),
+        timestamp: Date.now(),
+      };
+      
       // Update debug state every 30 frames (~2 times/second at 60fps)
       if (frameCount % 30 === 1 || frameCount <= 5) {
         const scheduleForDebug: SentenceScheduleEntry[] = entries.map(([idx, e]) => ({
@@ -674,6 +691,11 @@ export class StreamingAudioPlayer {
         const elapsedInSentence = now - activeEntry.startCtxTime;
         
         // Fire progress callback
+        // DEBUG: Log every 30 frames (~0.5s) to verify callback is firing
+        if (frameCount % 30 === 0) {
+          const hasCallback = typeof this.callbacks.onProgress === 'function';
+          console.error(`[PROGRESS-DEBUG] Firing onProgress(${elapsedInSentence.toFixed(3)}, ${activeEntry.totalDuration.toFixed(3)}) hasCallback=${hasCallback}`);
+        }
         this.callbacks.onProgress?.(elapsedInSentence, activeEntry.totalDuration);
       } else {
         // No active sentence - check for sentences that have ended but haven't fired onSentenceEnd

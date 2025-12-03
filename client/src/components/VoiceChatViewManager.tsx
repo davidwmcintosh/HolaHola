@@ -32,6 +32,7 @@ interface VoiceChatViewManagerProps {
   streamingTargetText?: string;
   hasTargetContent?: boolean;  // Server-driven: whether current sentence has target language content
   streamingWordIndex?: number;
+  streamingVisibleWordCount?: number;  // Number of words to show (progressive reveal)
   streamingTargetWordIndex?: number;  // Word index in target-only text for Target mode karaoke
   isWaitingForContent?: boolean;  // True after subtitle reset, false when new content arrives
   getIsWaitingForContent?: () => boolean;  // Synchronous getter for immediate access
@@ -78,6 +79,7 @@ export function VoiceChatViewManager({
   streamingTargetText,
   hasTargetContent,
   streamingWordIndex,
+  streamingVisibleWordCount,
   streamingTargetWordIndex,
   isWaitingForContent,
   getIsWaitingForContent,
@@ -242,6 +244,7 @@ export function VoiceChatViewManager({
                 streamingTargetText={streamingTargetText}
                 hasTargetContent={hasTargetContent}
                 streamingWordIndex={streamingWordIndex}
+                streamingVisibleWordCount={streamingVisibleWordCount}
                 streamingTargetWordIndex={streamingTargetWordIndex}
                 isWaitingForContent={isWaitingForContent}
                 getIsWaitingForContent={getIsWaitingForContent}

@@ -52,6 +52,7 @@ interface ImmersiveTutorProps {
   streamingTargetText?: string; // Target language only text from streaming mode
   hasTargetContent?: boolean; // Server-driven: whether current sentence has target language content
   streamingWordIndex?: number; // Current word index for streaming subtitles
+  streamingVisibleWordCount?: number; // Number of words to show (progressive word-by-word reveal)
   streamingTargetWordIndex?: number; // Current word index for target-only text (enables karaoke in Target mode)
   isWaitingForContent?: boolean; // True after subtitle reset, false when new content arrives
   getIsWaitingForContent?: () => boolean; // Synchronous getter for immediate access
@@ -100,6 +101,7 @@ export function ImmersiveTutor({
   streamingTargetText,
   hasTargetContent = false,
   streamingWordIndex = -1,
+  streamingVisibleWordCount = 0,
   streamingTargetWordIndex = -1,
   isWaitingForContent = false,
   getIsWaitingForContent,
@@ -602,11 +604,23 @@ export function ImmersiveTutor({
               );
             }
             
-            // "All" mode: show all words with karaoke highlighting
+            // "All" mode: PROGRESSIVE WORD-BY-WORD reveal with karaoke highlighting
+            // Words only appear when they've been spoken (not dimmed ahead of time)
             const useKaraokeInStreaming = activeWordIndex >= 0;
             
-            // DEBUG: Log karaoke state
-            console.log(`[KARAOKE] All mode: wordCount=${allWords.length}, rawIdx=${rawActiveWordIndex}, activeIdx=${activeWordIndex}, useKaraoke=${useKaraokeInStreaming}`);
+            // Progressive reveal: only show words up to visibleWordCount
+            // If visibleWordCount is 0 or undefined, show nothing until first word is spoken
+            const wordsToReveal = streamingVisibleWordCount > 0 
+              ? allWords.slice(0, streamingVisibleWordCount) 
+              : [];
+            
+            // DEBUG: Log karaoke state with progressive count
+            console.log(`[KARAOKE] All mode: totalWords=${allWords.length}, visible=${streamingVisibleWordCount}, revealed=${wordsToReveal.length}, activeIdx=${activeWordIndex}`);
+            
+            // Don't render anything until first word is visible
+            if (wordsToReveal.length === 0) {
+              return null;
+            }
             
             return (
               <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
@@ -619,16 +633,14 @@ export function ImmersiveTutor({
                     }}
                     data-testid="text-subtitle-overlay-streaming"
                   >
-                    {allWords.map((word, index) => (
+                    {wordsToReveal.map((word, index) => (
                       <span
                         key={index}
                         className={`inline-block mx-0.5 transition-all duration-150 ${
                           useKaraokeInStreaming
                             ? (index === activeWordIndex
                                 ? "text-primary scale-105 font-semibold"
-                                : index < activeWordIndex
-                                  ? "text-foreground"
-                                  : "text-muted-foreground/50")
+                                : "text-foreground")
                             : "text-foreground font-medium"
                         }`}
                         data-testid={`streaming-word-${index}`}

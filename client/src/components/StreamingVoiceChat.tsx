@@ -1665,6 +1665,7 @@ export function StreamingVoiceChat({
           streamingTargetText={useStreamingMode ? streamingVoice.subtitles.state.currentSentenceTargetText : undefined}
           hasTargetContent={useStreamingMode ? streamingVoice.subtitles.state.hasTargetContent : undefined}
           streamingWordIndex={useStreamingMode ? streamingVoice.subtitles.state.currentWordIndex : undefined}
+          streamingVisibleWordCount={useStreamingMode ? streamingVoice.subtitles.state.visibleWordCount : undefined}
           streamingTargetWordIndex={useStreamingMode ? streamingVoice.subtitles.state.currentTargetWordIndex : undefined}
           isWaitingForContent={useStreamingMode ? streamingVoice.subtitles.state.isWaitingForContent : undefined}
           getIsWaitingForContent={useStreamingMode ? streamingVoice.subtitles.getIsWaitingForContent : undefined}
