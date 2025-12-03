@@ -15,7 +15,8 @@ import {
   Mic,
   MicOff,
   Trophy,
-  Target
+  Target,
+  MessageCircle
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -39,12 +40,15 @@ interface DrillProgressResponse {
 interface DrillLessonProps {
   lessonId: string;
   language: string;
+  lessonName?: string;
+  conversationTopic?: string;
   onComplete?: () => void;
+  onPracticeConversation?: (topic: string) => void;
 }
 
 type DrillMode = 'listen_repeat' | 'number_dictation' | 'translate_speak' | 'matching' | 'fill_blank';
 
-export function DrillLesson({ lessonId, language, onComplete }: DrillLessonProps) {
+export function DrillLesson({ lessonId, language, lessonName, conversationTopic, onComplete, onPracticeConversation }: DrillLessonProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState("");
   const [showResult, setShowResult] = useState(false);
@@ -204,6 +208,8 @@ export function DrillLesson({ lessonId, language, onComplete }: DrillLessonProps
   }
 
   if (!currentItem) {
+    const defaultTopic = conversationTopic || (lessonName ? `Practice using ${lessonName.replace(/Lesson \d+:\s*/i, '')}` : 'Practice what you learned');
+    
     return (
       <Card className="p-8 text-center">
         <Trophy className="h-12 w-12 mx-auto text-primary mb-4" />
@@ -211,12 +217,26 @@ export function DrillLesson({ lessonId, language, onComplete }: DrillLessonProps
         <p className="text-muted-foreground mb-4">
           You've completed all items in this drill.
         </p>
-        <div className="flex justify-center gap-2">
-          <Button onClick={() => setCurrentIndex(0)} variant="outline">
+        <div className="flex flex-col sm:flex-row justify-center gap-2">
+          <Button onClick={() => setCurrentIndex(0)} variant="outline" data-testid="button-practice-again">
             <RotateCcw className="h-4 w-4 mr-2" />
             Practice Again
           </Button>
+          {onPracticeConversation && (
+            <Button 
+              onClick={() => onPracticeConversation(defaultTopic)}
+              data-testid="button-practice-conversation"
+            >
+              <MessageCircle className="h-4 w-4 mr-2" />
+              Practice in Conversation
+            </Button>
+          )}
         </div>
+        {onPracticeConversation && (
+          <p className="text-sm text-muted-foreground mt-4">
+            Ready to use what you learned? Start a conversation to practice these phrases in context.
+          </p>
+        )}
       </Card>
     );
   }
