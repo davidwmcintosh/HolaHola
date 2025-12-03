@@ -44,6 +44,18 @@ export interface WordTimingEvent {
 }
 
 /**
+ * Schedule operation event for tracking schedule modifications
+ */
+export interface ScheduleEvent {
+  timestamp: number;
+  type: 'clear' | 'add' | 'remove';
+  sentenceIndex?: number;
+  entriesCleared?: number;
+  scheduleSizeAfter: number;
+  sentencesInSchedule: number[];
+}
+
+/**
  * Timing comparison for current word
  */
 export interface TimingComparison {
@@ -111,6 +123,9 @@ export interface DebugTimingState {
   
   // NEW: Sentence match info - shows WHY each sentence matched or didn't
   sentenceMatchInfo: SentenceMatchInfo[];
+  
+  // NEW: Schedule events log - tracks clear/add/remove operations
+  scheduleEvents: ScheduleEvent[];
 }
 
 // Maximum number of word events to keep in log
@@ -160,6 +175,9 @@ let debugState: DebugTimingState = {
   
   // Sentence match info
   sentenceMatchInfo: [],
+  
+  // Schedule events
+  scheduleEvents: [],
 };
 
 // Listeners for React components
@@ -298,6 +316,9 @@ export function resetDebugTimingState(): void {
     audioChunksReceived: {},
     totalAudioChunksReceived: 0,
     lastAudioChunkSentence: -1,
+    
+    // Schedule events
+    scheduleEvents: [],
   };
   listeners.forEach(listener => listener(debugState));
 }
@@ -360,5 +381,38 @@ export function logAudioChunkReceived(sentenceIndex: number): void {
     audioChunksReceived: newChunksReceived,
     totalAudioChunksReceived: debugState.totalAudioChunksReceived + 1,
     lastAudioChunkSentence: sentenceIndex,
+  });
+}
+
+// Maximum number of schedule events to keep
+const MAX_SCHEDULE_EVENTS = 15;
+
+/**
+ * Log a schedule operation (clear, add, or remove)
+ */
+export function logScheduleEvent(
+  type: 'clear' | 'add' | 'remove',
+  sentencesInSchedule: number[],
+  sentenceIndex?: number,
+  entriesCleared?: number
+): void {
+  const event: ScheduleEvent = {
+    timestamp: Date.now(),
+    type,
+    sentenceIndex,
+    entriesCleared,
+    scheduleSizeAfter: sentencesInSchedule.length,
+    sentencesInSchedule: [...sentencesInSchedule],
+  };
+  
+  const newEvents = [...debugState.scheduleEvents, event];
+  
+  // Keep only the last MAX_SCHEDULE_EVENTS
+  while (newEvents.length > MAX_SCHEDULE_EVENTS) {
+    newEvents.shift();
+  }
+  
+  updateDebugTimingState({
+    scheduleEvents: newEvents,
   });
 }

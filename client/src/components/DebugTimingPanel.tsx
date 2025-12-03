@@ -56,6 +56,7 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
     totalAudioChunksReceived,
     lastAudioChunkSentence,
     sentenceMatchInfo,
+    scheduleEvents,
   } = state;
   
   const timeSinceUpdate = Date.now() - lastUpdateTime;
@@ -436,6 +437,48 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
                     </div>
                     <div className="text-gray-500 text-[9px]">
                       range: {info.startCtxTime.toFixed(2)} - {info.computedEndTime.toFixed(2)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </details>
+          
+          {/* SECTION 11: Schedule Events Log - Shows WHEN schedule was modified */}
+          <details className="border border-pink-500/30 rounded p-2" open>
+            <summary className="font-bold mb-1 cursor-pointer text-pink-400">
+              SCHEDULE EVENTS ({scheduleEvents?.length || 0})
+            </summary>
+            {(!scheduleEvents || scheduleEvents.length === 0) ? (
+              <div className="text-gray-500 italic">no events yet</div>
+            ) : (
+              <div className="space-y-1 max-h-32 overflow-y-auto mt-2">
+                {scheduleEvents.slice().reverse().map((event, idx) => (
+                  <div 
+                    key={idx}
+                    className={`text-[10px] p-1 rounded ${
+                      event.type === 'clear' 
+                        ? 'bg-red-900/50 border border-red-500/50' 
+                        : event.type === 'add'
+                          ? 'bg-green-900/50 border border-green-500/50'
+                          : 'bg-gray-800/50 border border-gray-600/30'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className={
+                        event.type === 'clear' ? 'text-red-400 font-bold' :
+                        event.type === 'add' ? 'text-green-400 font-bold' : 'text-gray-400'
+                      }>
+                        {event.type === 'clear' && `⚠️ CLEAR (${event.entriesCleared} removed)`}
+                        {event.type === 'add' && `✅ ADD S${event.sentenceIndex}`}
+                        {event.type === 'remove' && `❌ REMOVE S${event.sentenceIndex}`}
+                      </span>
+                      <span className="text-gray-500 text-[9px]">
+                        {new Date(event.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <div className="text-gray-400 mt-0.5">
+                      After: [{event.sentencesInSchedule.join(', ')}] ({event.scheduleSizeAfter} entries)
                     </div>
                   </div>
                 ))}

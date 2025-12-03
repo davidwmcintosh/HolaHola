@@ -1,4 +1,4 @@
-import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition, updateDebugTimingState, type SentenceScheduleEntry, type SentenceMatchInfo } from './debugTimingState';
+import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition, logScheduleEvent, updateDebugTimingState, type SentenceScheduleEntry, type SentenceMatchInfo } from './debugTimingState';
 
 /**
  * Helper to immediately update debug state with current schedule
@@ -456,7 +456,12 @@ export class StreamingAudioPlayer {
       // For new turn, ALWAYS clear the sentence schedule and reset timing
       // A new turn is detected when we receive sentence 0, chunk 0
       if (isNewTurnStarting) {
-        console.error(`[SCHEDULE CLEAR] ⚠️ NEW TURN detected (s=0,c=0) - clearing ${this.sentenceSchedule.size} entries from schedule`);
+        const entriesCleared = this.sentenceSchedule.size;
+        console.error(`[SCHEDULE CLEAR] ⚠️ NEW TURN detected (s=0,c=0) - clearing ${entriesCleared} entries from schedule`);
+        
+        // Log to debug panel BEFORE clearing
+        logScheduleEvent('clear', [], undefined, entriesCleared);
+        
         this.progressiveFirstChunkStarted = false; // ONLY reset for new turn
         this.sentenceSchedule.clear();
         this.activeSentenceInLoop = -1;
@@ -558,8 +563,12 @@ export class StreamingAudioPlayer {
         ended: false,
       });
       // List all sentences now in schedule
-      const allSentences = Array.from(this.sentenceSchedule.keys()).join(',');
-      console.error(`[SCHEDULE ADD] ✅ S${sentenceIndex} ADDED at ${playTime.toFixed(3)}s. Schedule now: [${allSentences}] (${this.sentenceSchedule.size} entries)`);
+      const allSentences = Array.from(this.sentenceSchedule.keys());
+      console.error(`[SCHEDULE ADD] ✅ S${sentenceIndex} ADDED at ${playTime.toFixed(3)}s. Schedule now: [${allSentences.join(',')}] (${this.sentenceSchedule.size} entries)`);
+      
+      // Log to debug panel
+      logScheduleEvent('add', allSentences, sentenceIndex);
+      
       // IMMEDIATELY update debug state with new schedule entry
       updateDebugSchedule(this.sentenceSchedule);
     } else {
