@@ -401,12 +401,16 @@ export class StreamingAudioPlayer {
       
       // Clear arrays for new sentence (old sources will continue playing)
       this.progressiveChunks = [];
-      this.progressiveFirstChunkStarted = false;
+      
+      // CRITICAL FIX: Only reset progressiveFirstChunkStarted for NEW TURNS
+      // NOT for new sentences within the same turn!
+      // This preserves the turn-level timing anchor across sentences
       
       // For new turn, ALWAYS clear the sentence schedule and reset timing
       // A new turn is detected when we receive sentence 0, chunk 0
       if (isNewTurnStarting) {
         console.log(`[StreamingAudioPlayer] [Progressive] NEW TURN detected - clearing sentence schedule and resetting time`);
+        this.progressiveFirstChunkStarted = false; // ONLY reset for new turn
         this.sentenceSchedule.clear();
         this.activeSentenceInLoop = -1;
         // CRITICAL: Reset scheduled time for new turn - don't wait for old schedule to finish
