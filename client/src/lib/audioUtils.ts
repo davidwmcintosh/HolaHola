@@ -403,11 +403,16 @@ export class StreamingAudioPlayer {
       this.progressiveChunks = [];
       this.progressiveFirstChunkStarted = false;
       
-      // For new turn, also clear the sentence schedule to prevent stale entries
-      if (isNewTurnStarting && sentenceIndex === this.progressiveSentenceIndex) {
-        console.log(`[StreamingAudioPlayer] [Progressive] NEW TURN detected - clearing sentence schedule`);
+      // For new turn, ALWAYS clear the sentence schedule and reset timing
+      // A new turn is detected when we receive sentence 0, chunk 0
+      if (isNewTurnStarting) {
+        console.log(`[StreamingAudioPlayer] [Progressive] NEW TURN detected - clearing sentence schedule and resetting time`);
         this.sentenceSchedule.clear();
         this.activeSentenceInLoop = -1;
+        // CRITICAL: Reset scheduled time for new turn - don't wait for old schedule to finish
+        this.progressiveScheduledTime = ctx.currentTime + 0.1;
+        // Also reset the playback start time for the new turn
+        this.progressivePlaybackStartCtxTime = 0;
       }
       
       this.progressiveSentenceIndex = sentenceIndex;
@@ -418,7 +423,7 @@ export class StreamingAudioPlayer {
       if (this.progressiveScheduledTime <= ctx.currentTime) {
         this.progressiveScheduledTime = ctx.currentTime + 0.1;
       }
-      // Otherwise, new sentence will naturally follow previous
+      // Otherwise, new sentence will naturally follow previous (within same turn)
       
       // DON'T set progressivePlaybackStartCtxTime here - it will be set when first chunk is scheduled below
       this.progressiveTotalDuration = 0; // Reset duration for new sentence
