@@ -5,7 +5,19 @@
  * to React components for visual debugging when console logs aren't available.
  * 
  * ENHANCED (Dec 3, 2025): Added word-level tracking, timing drift, and event logging
+ * 
+ * CRITICAL: State and listeners are stored on window to prevent Vite bundler
+ * duplicate module issue. Without this, one module copy updates state while
+ * another copy's listeners never receive updates.
  */
+
+// Forward declaration for window storage (defined after DebugTimingState interface)
+declare global {
+  interface Window {
+    __debugTimingState?: DebugTimingState;
+    __debugTimingListeners?: Set<(state: DebugTimingState) => void>;
+  }
+}
 
 export interface SentenceScheduleEntry {
   sentenceIndex: number;
@@ -131,80 +143,101 @@ export interface DebugTimingState {
 // Maximum number of word events to keep in log
 const MAX_WORD_EVENTS = 20;
 
-// Global debug state - updated by StreamingAudioPlayer
-let debugState: DebugTimingState = {
-  isLoopRunning: false,
-  currentCtxTime: 0,
-  activeSentenceIndex: -1,
-  sentenceSchedule: [],
-  lastOnSentenceStartFired: -1,
-  lastOnSentenceEndFired: -1,
-  loopTickCount: 0,
-  isPlaying: false,
-  lastUpdateTime: 0,
-  wordTimingCount: 0,
-  visibleWordCount: 0,
-  currentWordIndex: -1,
-  deltasReceived: 0,
-  finalWordCount: 0,
-  totalDeltasReceived: 0,
-  totalFinalsReceived: 0,
-  lastDeltaSentence: -1,
-  
-  // Enhanced fields
-  currentWordText: '',
-  expectedWordText: '',
-  currentSentenceText: '',
-  currentTargetText: '',
-  receivedWords: [],
-  timingComparison: null,
-  recentWordEvents: [],
-  connectionStatus: 'disconnected',
-  wordMismatchCount: 0,
-  
-  // Empty chunk and sentence transition tracking
-  emptyChunksProcessed: 0,
-  lastEmptyChunkSentence: -1,
-  sentenceEndTimesSet: [],
-  sentenceTransitions: [],
-  
-  // Audio chunk tracking per sentence
-  audioChunksReceived: {},
-  totalAudioChunksReceived: 0,
-  lastAudioChunkSentence: -1,
-  
-  // Sentence match info
-  sentenceMatchInfo: [],
-  
-  // Schedule events
-  scheduleEvents: [],
-};
+/**
+ * Get or create the singleton debug state from window storage.
+ * CRITICAL: Prevents Vite duplicate module issue.
+ */
+function getDebugState(): DebugTimingState {
+  if (!window.__debugTimingState) {
+    console.log('[DebugTimingState] Creating singleton state on window');
+    window.__debugTimingState = {
+      isLoopRunning: false,
+      currentCtxTime: 0,
+      activeSentenceIndex: -1,
+      sentenceSchedule: [],
+      lastOnSentenceStartFired: -1,
+      lastOnSentenceEndFired: -1,
+      loopTickCount: 0,
+      isPlaying: false,
+      lastUpdateTime: 0,
+      wordTimingCount: 0,
+      visibleWordCount: 0,
+      currentWordIndex: -1,
+      deltasReceived: 0,
+      finalWordCount: 0,
+      totalDeltasReceived: 0,
+      totalFinalsReceived: 0,
+      lastDeltaSentence: -1,
+      
+      // Enhanced fields
+      currentWordText: '',
+      expectedWordText: '',
+      currentSentenceText: '',
+      currentTargetText: '',
+      receivedWords: [],
+      timingComparison: null,
+      recentWordEvents: [],
+      connectionStatus: 'disconnected',
+      wordMismatchCount: 0,
+      
+      // Empty chunk and sentence transition tracking
+      emptyChunksProcessed: 0,
+      lastEmptyChunkSentence: -1,
+      sentenceEndTimesSet: [],
+      sentenceTransitions: [],
+      
+      // Audio chunk tracking per sentence
+      audioChunksReceived: {},
+      totalAudioChunksReceived: 0,
+      lastAudioChunkSentence: -1,
+      
+      // Sentence match info
+      sentenceMatchInfo: [],
+      
+      // Schedule events
+      scheduleEvents: [],
+    };
+  }
+  return window.__debugTimingState;
+}
 
-// Listeners for React components
+/**
+ * Get or create the singleton listeners set from window storage.
+ * CRITICAL: Prevents Vite duplicate module issue.
+ */
 type DebugStateListener = (state: DebugTimingState) => void;
-const listeners: Set<DebugStateListener> = new Set();
+function getListeners(): Set<DebugStateListener> {
+  if (!window.__debugTimingListeners) {
+    console.log('[DebugTimingState] Creating singleton listeners on window');
+    window.__debugTimingListeners = new Set();
+  }
+  return window.__debugTimingListeners;
+}
 
 export function updateDebugTimingState(update: Partial<DebugTimingState>): void {
-  debugState = {
-    ...debugState,
+  const currentState = getDebugState();
+  const newState = {
+    ...currentState,
     ...update,
     lastUpdateTime: Date.now(),
   };
+  window.__debugTimingState = newState;
   
   // Notify all listeners
-  listeners.forEach(listener => listener(debugState));
+  getListeners().forEach(listener => listener(newState));
 }
 
 /**
  * Add a word timing event to the log (auto-manages circular buffer)
  */
 export function addWordTimingEvent(event: Omit<WordTimingEvent, 'timestamp'>): void {
+  const currentState = getDebugState();
   const fullEvent: WordTimingEvent = {
     ...event,
     timestamp: Date.now(),
   };
   
-  const newEvents = [...debugState.recentWordEvents, fullEvent];
+  const newEvents = [...currentState.recentWordEvents, fullEvent];
   
   // Keep only the last MAX_WORD_EVENTS
   if (newEvents.length > MAX_WORD_EVENTS) {
@@ -212,7 +245,7 @@ export function addWordTimingEvent(event: Omit<WordTimingEvent, 'timestamp'>): v
   }
   
   // Also update receivedWords list for word comparison
-  const newReceivedWords = [...debugState.receivedWords];
+  const newReceivedWords = [...currentState.receivedWords];
   if (event.type === 'delta') {
     // Ensure array is large enough
     while (newReceivedWords.length <= event.wordIndex) {
@@ -254,29 +287,31 @@ export function updateTimingComparison(
  */
 export function checkWordMismatch(highlightedWord: string, expectedWord: string): void {
   if (highlightedWord && expectedWord && highlightedWord !== expectedWord) {
+    const currentState = getDebugState();
     updateDebugTimingState({
-      wordMismatchCount: debugState.wordMismatchCount + 1,
+      wordMismatchCount: currentState.wordMismatchCount + 1,
     });
   }
 }
 
 export function getDebugTimingState(): DebugTimingState {
-  return debugState;
+  return getDebugState();
 }
 
 export function subscribeToDebugTimingState(listener: DebugStateListener): () => void {
+  const listeners = getListeners();
   listeners.add(listener);
   // Immediately call with current state
-  listener(debugState);
+  listener(getDebugState());
   
   // Return unsubscribe function
   return () => {
-    listeners.delete(listener);
+    getListeners().delete(listener);
   };
 }
 
 export function resetDebugTimingState(): void {
-  debugState = {
+  const newState: DebugTimingState = {
     isLoopRunning: false,
     currentCtxTime: 0,
     activeSentenceIndex: -1,
@@ -317,10 +352,14 @@ export function resetDebugTimingState(): void {
     totalAudioChunksReceived: 0,
     lastAudioChunkSentence: -1,
     
+    // Sentence match info
+    sentenceMatchInfo: [],
+    
     // Schedule events
     scheduleEvents: [],
   };
-  listeners.forEach(listener => listener(debugState));
+  window.__debugTimingState = newState;
+  getListeners().forEach(listener => listener(newState));
 }
 
 /**
@@ -341,13 +380,14 @@ export function clearWordState(): void {
  * Log empty chunk processing
  */
 export function logEmptyChunkProcessed(sentenceIndex: number, endCtxTimeSet: boolean): void {
-  const currentEndTimes = [...debugState.sentenceEndTimesSet];
+  const currentState = getDebugState();
+  const currentEndTimes = [...currentState.sentenceEndTimesSet];
   if (endCtxTimeSet && !currentEndTimes.includes(sentenceIndex)) {
     currentEndTimes.push(sentenceIndex);
   }
   
   updateDebugTimingState({
-    emptyChunksProcessed: debugState.emptyChunksProcessed + 1,
+    emptyChunksProcessed: currentState.emptyChunksProcessed + 1,
     lastEmptyChunkSentence: sentenceIndex,
     sentenceEndTimesSet: currentEndTimes,
   });
@@ -357,8 +397,9 @@ export function logEmptyChunkProcessed(sentenceIndex: number, endCtxTimeSet: boo
  * Log a sentence transition event
  */
 export function logSentenceTransition(fromSentence: number, toSentence: number, reason: string): void {
+  const currentState = getDebugState();
   const transition = `s${fromSentence}→s${toSentence}: ${reason}`;
-  const newTransitions = [...debugState.sentenceTransitions, transition];
+  const newTransitions = [...currentState.sentenceTransitions, transition];
   
   // Keep only the last 10 transitions
   if (newTransitions.length > 10) {
@@ -374,12 +415,13 @@ export function logSentenceTransition(fromSentence: number, toSentence: number, 
  * Log an audio chunk received from useStreamingVoice hook
  */
 export function logAudioChunkReceived(sentenceIndex: number): void {
-  const newChunksReceived = { ...debugState.audioChunksReceived };
+  const currentState = getDebugState();
+  const newChunksReceived = { ...currentState.audioChunksReceived };
   newChunksReceived[sentenceIndex] = (newChunksReceived[sentenceIndex] || 0) + 1;
   
   updateDebugTimingState({
     audioChunksReceived: newChunksReceived,
-    totalAudioChunksReceived: debugState.totalAudioChunksReceived + 1,
+    totalAudioChunksReceived: currentState.totalAudioChunksReceived + 1,
     lastAudioChunkSentence: sentenceIndex,
   });
 }
@@ -396,6 +438,7 @@ export function logScheduleEvent(
   sentenceIndex?: number,
   entriesCleared?: number
 ): void {
+  const currentState = getDebugState();
   const event: ScheduleEvent = {
     timestamp: Date.now(),
     type,
@@ -405,7 +448,7 @@ export function logScheduleEvent(
     sentencesInSchedule: [...sentencesInSchedule],
   };
   
-  const newEvents = [...debugState.scheduleEvents, event];
+  const newEvents = [...currentState.scheduleEvents, event];
   
   // Keep only the last MAX_SCHEDULE_EVENTS
   while (newEvents.length > MAX_SCHEDULE_EVENTS) {
