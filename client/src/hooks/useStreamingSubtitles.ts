@@ -736,7 +736,18 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
    * ensuring subtitles stay locked to actual playback position.
    */
   const updatePlaybackTime = useCallback((currentTime: number, actualDuration?: number) => {
-    const timings = currentTimingsRef.current;
+    // CRITICAL FIX: Always try to get timings from cache if ref is empty
+    // This handles race conditions where progressive timings arrive during playback
+    let timings = currentTimingsRef.current;
+    if (timings.length === 0 && activeSentenceRef.current >= 0) {
+      const cached = timingsBySentenceRef.current.get(activeSentenceRef.current);
+      if (cached && cached.timings.length > 0) {
+        timings = cached.timings;
+        currentTimingsRef.current = timings; // Update ref for next call
+        console.log(`[SUBTITLE DEBUG] updatePlaybackTime: RECOVERED ${timings.length} timings from cache for S${activeSentenceRef.current}`);
+      }
+    }
+    
     if (timings.length === 0) {
       // DEBUG: Log when timings are empty (rate limited to avoid spam)
       if (Math.floor(currentTime * 5) % 5 === 0) {
@@ -745,7 +756,7 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       return;
     }
     
-    // Log occasionally that we have timings
+    // Log periodically to track playback progress
     if (Math.floor(currentTime * 2) % 2 === 0) {
       console.log(`[SUBTITLE DEBUG] updatePlaybackTime: ${timings.length} timings, time=${currentTime.toFixed(2)}, sentence=${activeSentenceRef.current}`);
     }
@@ -807,14 +818,14 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     // - Progressive mode (novice): Update visibleWordCount based on timing for word-by-word reveal
     // - Non-progressive mode (intermediate/advanced): Always show all available words immediately
     const useProgressiveReveal = shouldRevealProgressively(difficultyRef.current);
-    if (useProgressiveReveal) {
-      setVisibleWordCount(maxVisibleIndex + 1);
-    } else {
-      // PROGRESSIVE STREAMING FIX: For non-progressive policies, ensure visibleWordCount
-      // stays synced with timings.length so subtitles show immediately as words arrive.
-      // This handles race conditions where state batching causes currentSentenceIndex to lag.
-      setVisibleWordCount(timings.length);
+    const newVisibleCount = useProgressiveReveal ? (maxVisibleIndex + 1) : timings.length;
+    
+    // Log when visible count changes (critical for debugging progressive reveal)
+    if (shouldLogDetails) {
+      console.log(`[SUBTITLE DEBUG] visibleCount: ${newVisibleCount} (maxVisibleIndex=${maxVisibleIndex}, progressive=${useProgressiveReveal}, timingsLen=${timings.length})`);
     }
+    
+    setVisibleWordCount(newVisibleCount);
     // Always update the current word highlight (for karaoke effect)
     setCurrentWordIndex(prevIndex => {
       // Only log telemetry when word index changes

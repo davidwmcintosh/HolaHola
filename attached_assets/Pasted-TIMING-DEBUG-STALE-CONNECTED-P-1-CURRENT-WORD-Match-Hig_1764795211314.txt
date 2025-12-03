@@ -1,0 +1,174 @@
+TIMING DEBUG
+(STALE)
+[CONNECTED]
+P:1
+▲
+CURRENT WORD
+✓ Match
+Highlighted:
+David,
+Expected (from timing):
+David,
+Word Index: 1 | Visible: 2 | Total Received: 7
+TIMING DRIFT
+Audio Time
+0.205s
+Expected Start
+0.039s
+Drift
++167ms
+CURRENT SENTENCE
+Hi David, it's great to meet you!
+WORD TIMING COUNTS
+Total Deltas:
+27
+Total Finals:
+27
+This Sentence:
+7 deltas
+Final Count:
+7
+✓ All deltas received
+WORD-BASED TIMING
+MATCHING
+Active Word (from ctx.currentTime):
+S0 W1: "David,"
+Schedule Size:
+27 words
+Last Match:
+0.41s
+FIRST Words (with abs times):
+S0W0: "Hi" @ 0.24-0.27s
+S0W1: "David," @ 0.27-0.66s
+S0W2: "it's" @ 0.66-0.70s
+S0W3: "great" @ 1.08-1.28s
+S0W4: "to" @ 1.28-1.31s
+S0W5: "meet" @ 1.31-1.88s
+RECEIVED WORDS (12)
+0: Can
+1: you
+2: say
+3: Hola?
+4: 1
+5: demo
+6: class,
+7: where
+8: we'll
+9: start
+10: with
+11: greetings
+RECENT EVENTS (20)
+Δ
+S3:
+w3
+"Hola?"
+0.80-1.08s
+Δ
+S3:
+w2
+"say"
+0.51-0.80s
+Δ
+S3:
+w1
+"you"
+0.43-0.51s
+Δ
+S3:
+w0
+"Can"
+0.26-0.43s
+Δ
+S2:
+w3
+"Hola"
+1.36-1.59s
+Δ
+S2:
+w2
+"with"
+1.18-1.36s
+Δ
+S2:
+w1
+"begin"
+0.76-1.18s
+Δ
+S2:
+w0
+"Let's"
+0.36-0.76s
+Δ
+S1:
+w11
+"greetings"
+3.54-4.15s
+Δ
+S1:
+w10
+"with"
+3.33-3.54s
+TICK LOOP (First 5 frames)started 29.7s ago
+F1: ctx=0.016s, state=running, playing=true
+F2: ctx=0.016s, state=running, playing=true
+F3: ctx=0.016s, state=running, playing=true
+F4: ctx=0.016s, state=running, playing=true
+F5: ctx=0.016s, state=running, playing=true
+PLAYBACK STATE
+Loop Running:
+YES
+isPlaying:
+YES
+Loop Ticks:
+20
+Ctx Time:
+0.352s
+Ctx State:
+running
+Ctx ID:
+5158918_rtyo
+Active Sentence:
+0
+Last Delta Sent:
+S3
+SENTENCE EVENTS
+Last Start:
+none
+Last End:
+none
+AUDIO CHUNKS RECEIVED
+Total Chunks:
+71
+Last Chunk S:
+3
+Per Sentence: S0:15, S1:32, S2:14, S3:10
+EMPTY CHUNKS & TRANSITIONS
+Empty Chunks:
+4
+Last Empty S:
+3
+EndTimes Set: [0, 1, 2, 3]
+Transitions:
+s-1→s0: started at 0.11s
+SCHEDULE (4 entries)
+MATCH INFO (1 sentences)
+S0 ✓ MATCH
+end=undefined
+ACTIVE: start(0.10) <= now(0.35) < end(1.63) [duration]
+range: 0.10 - 1.63
+SCHEDULE EVENTS (5)
+✅ ADD S3
+1:52:41 PM
+After: [0, 1, 2, 3] (4 entries)
+✅ ADD S2
+1:52:40 PM
+After: [0, 1, 2] (3 entries)
+✅ ADD S1
+1:52:39 PM
+After: [0, 1] (2 entries)
+✅ ADD S0
+1:52:38 PM
+After: [0] (1 entries)
+⚠️ CLEAR (0 removed)
+1:52:38 PM
+After: [] (0 entries)
