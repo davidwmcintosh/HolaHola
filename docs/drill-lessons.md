@@ -311,6 +311,57 @@ const NEW_CONTENT: Record<string, DrillItemData[]> = {
 };
 ```
 
+## Learning Flow: Prerequisites & Handoff
+
+### Pedagogical Approach: "Input Before Output"
+
+Drill lessons can serve as prerequisites for conversation lessons, enforcing an "input before output" learning flow. Students master vocabulary and phrases through drills before practicing them in natural conversation.
+
+### Class-Based Learning (Structured)
+
+For students enrolled in teacher-managed classes:
+
+1. **Prerequisites Enforced**: Conversation lessons may require completing a drill first
+2. **70% Mastery Threshold**: Students must master at least 70% of drill items to unlock the conversation
+3. **Locked Lesson UI**: Incomplete prerequisites show a "Locked" state with progress toward unlocking
+4. **Practice in Conversation**: After completing a drill, students see a "Practice in Conversation" button
+
+### Self-Directed Learning (Flexible)
+
+For learners without class enrollment:
+
+1. **Full Flexibility**: All lessons are accessible regardless of completion status
+2. **No Prerequisites**: Learners can jump between drills and conversations freely
+3. **Same Progress Tracking**: Drill completion is still tracked, just not enforced
+4. **Tutor Freedom**: AI tutor adapts based on learner's selected flexibility level
+
+### Setting Prerequisites (Teachers)
+
+Teachers can link drills to conversation lessons through the Syllabus Builder:
+
+1. Open your class in **My Classes**
+2. Navigate to the **Syllabus** tab
+3. Select a conversation lesson
+4. In lesson settings, choose a drill as the prerequisite
+
+The system also auto-links drills to matching conversations:
+- "Greetings Drill" → "Greetings Conversation"
+- "Numbers Drill" → "Numbers Conversation"
+
+### API Endpoints for Prerequisites
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/class-lessons/:lessonId/prerequisite-status` | GET | Check prerequisite completion |
+| `/api/admin/classes/link-prerequisites` | POST | Auto-link drill→conversation pairs |
+
+### Components
+
+| Component | Purpose |
+|-----------|---------|
+| `LockedLesson.tsx` | Displays locked state with prerequisite progress |
+| `DrillLesson.tsx` | Includes "Practice in Conversation" button on completion |
+
 ## Future Enhancements
 
 - **Voice recognition**: Automatic pronunciation scoring using STT

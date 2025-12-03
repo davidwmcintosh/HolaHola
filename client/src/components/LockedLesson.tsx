@@ -26,7 +26,9 @@ export function LockedLesson({
   onGoToPrerequisite 
 }: LockedLessonProps) {
   const completionPercent = prerequisite.completionPercent ?? 0;
-  const hasProgress = completionPercent > 0;
+  const masteredCount = prerequisite.masteredCount ?? 0;
+  const totalCount = prerequisite.totalCount ?? 0;
+  const hasProgress = completionPercent > 0 || masteredCount > 0;
 
   return (
     <Card className="p-8 text-center border-dashed border-2" data-testid="locked-lesson">
@@ -57,7 +59,7 @@ export function LockedLesson({
               <p className="text-xs text-muted-foreground">
                 {hasProgress ? (
                   <>
-                    {prerequisite.masteredCount} of {prerequisite.totalCount} items mastered ({completionPercent}%)
+                    {masteredCount} of {totalCount} items mastered ({completionPercent}%)
                   </>
                 ) : (
                   'Not started yet'
