@@ -242,8 +242,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * as they arrive. This eliminates the ~2s sentence buffering delay.
    */
   const handleAudioChunk = useCallback((msg: StreamingAudioChunkMessage) => {
-    // CRITICAL DEBUG: Force log to see if chunks are received
-    console.log(`[CHUNK RECEIVED] sentence=${msg.sentenceIndex}, chunk=${msg.chunkIndex}, format=${msg.audioFormat}`);
+    // CRITICAL DEBUG: Force log with console.error to ensure capture
+    console.error(`[CHUNK RECEIVED] sentence=${msg.sentenceIndex}, chunk=${msg.chunkIndex}, format=${msg.audioFormat}`);
     
     if (!playerRef.current) {
       console.warn('[StreamingVoice] Audio chunk received but no player - DROPPING AUDIO');

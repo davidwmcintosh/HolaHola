@@ -477,7 +477,9 @@ export class StreamingAudioPlayer {
         started: false,
         ended: false,
       });
-      console.log(`[AUDIO SCHEDULE] Registered sentence ${sentenceIndex}: startCtxTime=${playTime.toFixed(3)}`);
+      console.error(`[AUDIO SCHEDULE] >>> REGISTERED sentence ${sentenceIndex}: startCtxTime=${playTime.toFixed(3)}, scheduleSize=${this.sentenceSchedule.size}`);
+    } else {
+      console.error(`[AUDIO SCHEDULE] Sentence ${sentenceIndex} already in schedule, updating duration`);
     }
     
     // Accumulate duration for this sentence
