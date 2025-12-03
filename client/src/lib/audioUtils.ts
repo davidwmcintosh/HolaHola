@@ -468,6 +468,7 @@ export class StreamingAudioPlayer {
     if (!this.progressiveFirstChunkStarted && chunkIndex === 0 && sentenceIndex === 0) {
       this.progressiveFirstChunkStarted = true;
       this.playbackStartTime = performance.now();
+      this.isPlaying = true; // CRITICAL: Set this BEFORE starting the loop!
       this.setState('playing');
       console.log(`[AUDIO DEBUG] Starting unified timing loop, first sentence startCtxTime=${playTime.toFixed(3)}`);
       this.startUnifiedTimingLoop(); // New unified loop
