@@ -20,7 +20,7 @@ import {
   logTimingEvent,
   difficultyToProficiencyBand
 } from '../lib/subtitlePolicies';
-import { updateDebugTimingState, updateTimingComparison, clearWordState } from '../lib/debugTimingState';
+import { updateDebugTimingState, updateTimingComparison, clearWordState, getDebugTimingState } from '../lib/debugTimingState';
 
 /**
  * A contiguous block of target language words
@@ -427,9 +427,18 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     endTime: number,
     estimatedTotalDuration?: number
   ) => {
-    // Only log first word per sentence to reduce noise
+    // Track first timing arrival for race condition debugging
     if (wordIndex === 0) {
       console.error(`[TIMING RECEIVED] FIRST word for sentence ${sentenceIndex}: "${word}" (active=${activeSentenceRef.current})`);
+      const state = getDebugTimingState();
+      const now = Date.now();
+      updateDebugTimingState({
+        timingRace: {
+          ...state.timingRace,
+          firstTimingAt: now,
+          timingsArrivedFirst: state.timingRace.playbackStartAt === 0 || now < state.timingRace.playbackStartAt,
+        }
+      });
     }
     
     // STALE PACKET FILTER
@@ -615,6 +624,18 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     
     const cachedCount = timingsBySentenceRef.current.get(sentenceIndex)?.timings.length || 0;
     console.error(`[SUBTITLE DEBUG] ▶▶▶ startPlayback: sentence=${sentenceIndex}, turn=${turnId}, cachedTimings=${cachedCount}`);
+    
+    // Track timing race condition for debug panel
+    const state = getDebugTimingState();
+    const now = Date.now();
+    updateDebugTimingState({
+      timingRace: {
+        ...state.timingRace,
+        playbackStartAt: now,
+        timingsAtStart: cachedCount,
+        timingsArrivedFirst: state.timingRace.firstTimingAt > 0 && state.timingRace.firstTimingAt < now,
+      }
+    });
     
     // RACE CONDITION FIX: Set active sentence ref IMMEDIATELY (synchronous)
     // This allows addProgressiveWordTiming to update currentTimingsRef for this sentence

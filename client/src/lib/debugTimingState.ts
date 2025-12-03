@@ -174,6 +174,14 @@ export interface DebugTimingState {
   // NEW: Timing loop frame logs (first 5 frames for debugging)
   tickFrameLogs: string[];                    // Logs from first 5 frames of timing loop
   loopStartTime: number;                      // When the timing loop started (Date.now())
+  
+  // NEW: Timing race condition tracking
+  timingRace: {
+    firstTimingAt: number;                    // Timestamp when first timing delta arrived
+    playbackStartAt: number;                  // Timestamp when startPlayback was called
+    timingsAtStart: number;                   // How many timings existed at startPlayback
+    timingsArrivedFirst: boolean;             // True if timings arrived before playback started
+  };
 }
 
 // Maximum number of word events to keep in log
@@ -249,6 +257,14 @@ function getDebugState(): DebugTimingState {
       // Timing loop frame logs
       tickFrameLogs: [],
       loopStartTime: 0,
+      
+      // Timing race condition tracking
+      timingRace: {
+        firstTimingAt: 0,
+        playbackStartAt: 0,
+        timingsAtStart: 0,
+        timingsArrivedFirst: false,
+      },
     };
   }
   return window.__debugTimingState;
@@ -434,6 +450,24 @@ export function resetDebugTimingState(): void {
     
     // Schedule events
     scheduleEvents: [],
+    
+    // Word-based timing system
+    wordSchedule: [],
+    activeWord: null,
+    wordScheduleSize: 0,
+    lastWordMatchTime: 0,
+    
+    // Timing loop frame logs
+    tickFrameLogs: [],
+    loopStartTime: 0,
+    
+    // Timing race condition tracking
+    timingRace: {
+      firstTimingAt: 0,
+      playbackStartAt: 0,
+      timingsAtStart: 0,
+      timingsArrivedFirst: false,
+    },
   };
   window.__debugTimingState = newState;
   getListeners().forEach(listener => listener(newState));

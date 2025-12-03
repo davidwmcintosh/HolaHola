@@ -67,6 +67,7 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
     lastWordMatchTime,
     tickFrameLogs,
     loopStartTime,
+    timingRace,
   } = state;
   
   const timeSinceUpdate = Date.now() - lastUpdateTime;
@@ -223,6 +224,55 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
               </div>
             )}
           </div>
+          
+          {/* SECTION 4.1: Timing Race Condition (CRITICAL DEBUG) */}
+          {timingRace && (
+            <div className={`border rounded p-2 ${
+              timingRace.timingsArrivedFirst 
+                ? 'border-green-500/40 bg-green-900/20' 
+                : timingRace.playbackStartAt > 0 
+                  ? 'border-red-500/40 bg-red-900/20' 
+                  : 'border-gray-500/40 bg-gray-900/20'
+            }`}>
+              <div className="font-bold text-orange-300 mb-2 flex items-center gap-2">
+                TIMING RACE
+                {timingRace.playbackStartAt > 0 && (
+                  <span className={timingRace.timingsArrivedFirst ? 'text-green-400' : 'text-red-400'}>
+                    {timingRace.timingsArrivedFirst ? 'TIMINGS FIRST' : 'PLAYBACK FIRST'}
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">First Timing At:</span>
+                  <span className={timingRace.firstTimingAt > 0 ? 'text-cyan-400' : 'text-gray-500'}>
+                    {timingRace.firstTimingAt > 0 ? `${(timingRace.firstTimingAt % 100000).toFixed(0)}ms` : '—'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Playback Start:</span>
+                  <span className={timingRace.playbackStartAt > 0 ? 'text-yellow-400' : 'text-gray-500'}>
+                    {timingRace.playbackStartAt > 0 ? `${(timingRace.playbackStartAt % 100000).toFixed(0)}ms` : '—'}
+                  </span>
+                </div>
+              </div>
+              {timingRace.playbackStartAt > 0 && timingRace.firstTimingAt > 0 && (
+                <div className="mt-1 text-center">
+                  <span className={timingRace.timingsArrivedFirst ? 'text-green-400' : 'text-red-400'}>
+                    {timingRace.timingsArrivedFirst 
+                      ? `Timings arrived ${(timingRace.playbackStartAt - timingRace.firstTimingAt).toFixed(0)}ms before playback`
+                      : `Playback started ${(timingRace.firstTimingAt - timingRace.playbackStartAt).toFixed(0)}ms before timings`}
+                  </span>
+                </div>
+              )}
+              <div className="mt-1 flex justify-between text-[10px]">
+                <span className="text-gray-400">Timings at Start:</span>
+                <span className={timingRace.timingsAtStart > 0 ? 'text-green-400 font-bold' : 'text-red-400 font-bold'}>
+                  {timingRace.timingsAtStart} words ready
+                </span>
+              </div>
+            </div>
+          )}
           
           {/* SECTION 4.5: Word-Based Timing (NEW!) */}
           <div className="border border-teal-500/40 rounded p-2 bg-teal-900/20">
