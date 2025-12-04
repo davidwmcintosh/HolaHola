@@ -465,6 +465,77 @@ Internal tooling.
 
 ---
 
+## Whiteboard Tools Roadmap
+
+The AI tutor's "whiteboard" is a real-time visual teaching system that displays content during voice lessons. Tools are embedded in responses using markup tags.
+
+### Completed Phases
+
+#### Phase 1-2: Core Foundation ✅
+| Tool | Format | Purpose |
+|------|--------|---------|
+| WRITE | `[WRITE]text[/WRITE]` | Display vocabulary, key phrases |
+| PHONETIC | `[PHONETIC]word\|breakdown[/PHONETIC]` | Pronunciation guides |
+| COMPARE | `[COMPARE]correct NOT incorrect[/COMPARE]` | Show corrections |
+| IMAGE | `[IMAGE]word\|description[/IMAGE]` | Vocabulary images |
+| DRILL | `[DRILL type="..."]prompt[/DRILL]` | Interactive exercises |
+
+#### Phase 3: Contextual Teaching ✅
+| Tool | Format | Purpose |
+|------|--------|---------|
+| CONTEXT | `[CONTEXT]word\|sentence1\|sentence2[/CONTEXT]` | Word in multiple sentences |
+| GRAMMAR_TABLE | `[GRAMMAR_TABLE]verb\|tense[/GRAMMAR_TABLE]` | Verb conjugation tables |
+| READING | `[READING]char\|pronunciation[/READING]` | Furigana/pinyin/romanization |
+| STROKE | `[STROKE]character[/STROKE]` | Character display for writing |
+
+#### Phase 4: Vocabulary & Culture ✅
+| Tool | Format | Purpose |
+|------|--------|---------|
+| WORD_MAP | `[WORD_MAP]word[/WORD_MAP]` | Synonyms, antonyms, word families |
+| DRILL match | `[DRILL type="match"]pairs[/DRILL]` | Interactive vocabulary matching |
+| CULTURE | `[CULTURE]topic\|context\|category[/CULTURE]` | Cultural insights inline |
+
+### Phase 5: Enhanced Interactivity (Planned)
+**Priority:** P1 | **Complexity:** Moderate
+
+| Feature | Format | Description |
+|---------|--------|-------------|
+| Animated Stroke Order | `[STROKE]character[/STROKE]` (enhanced) | Animated stroke-by-stroke drawing for CJK characters |
+| Audio Replay | `[PLAY]word[/PLAY]` | On-demand slow pronunciation playback |
+| Speed Control | `[PLAY speed="slow"]phrase[/PLAY]` | Variable speed audio for difficult phrases |
+
+**Technical Notes:**
+- STROKE enhancement: Animate SVG paths or use stroke order APIs
+- PLAY tool: Reuse Cartesia TTS with isolated playback controls
+- Could integrate with existing pronunciation feedback system
+
+### Phase 6: Advanced Teaching Aids (Planned)
+**Priority:** P2 | **Complexity:** Moderate-Complex
+
+| Feature | Format | Description |
+|---------|--------|-------------|
+| Scenario Cards | `[SCENARIO]location\|situation[/SCENARIO]` | Visual role-play setup with context |
+| Error Patterns | `[ERRORS]student_id[/ERRORS]` | Display student's common mistakes for review |
+| Vocabulary Timeline | `[TIMELINE]topic[/TIMELINE]` | Show words learned over time, connections |
+| Lesson Summary | `[SUMMARY][/SUMMARY]` | Auto-generated recap of lesson vocabulary |
+
+**Technical Notes:**
+- SCENARIO: Could include scene images from AI generation
+- ERRORS: Requires error tracking in conversation analysis
+- TIMELINE: Leverages existing vocabulary extraction and spaced repetition data
+- SUMMARY: Post-lesson card with key takeaways
+
+### Phase 7: Immersive Learning (Future)
+**Priority:** P3 | **Complexity:** Complex
+
+| Feature | Concept | Description |
+|---------|---------|-------------|
+| AR Vocabulary Labels | Camera-based | Point at objects, see vocabulary overlays |
+| Video Clips | Native speaker clips | Short videos for listening comprehension |
+| Interactive Stories | Branching narratives | Choose-your-own-adventure language practice |
+
+---
+
 ## Implementation Phases
 
 ### Phase 1: Visual & Multimedia Foundation (Q1)
