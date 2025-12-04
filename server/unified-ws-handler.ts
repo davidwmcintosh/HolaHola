@@ -36,6 +36,21 @@ const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
 const REALTIME_PATH = '/api/realtime/ws';
 
 /**
+ * Convert ACTFL level to legacy difficulty level for system prompt compatibility
+ * This bridges the organic ACTFL-based system with the legacy beginner/intermediate/advanced prompts
+ */
+function actflToDifficulty(actflLevel: string | null | undefined): 'beginner' | 'intermediate' | 'advanced' {
+  if (!actflLevel) return 'beginner';
+  const level = actflLevel.toLowerCase();
+  
+  if (level.includes('novice')) return 'beginner';
+  if (level.includes('intermediate')) return 'intermediate';
+  if (level.includes('advanced') || level.includes('superior') || level.includes('distinguished')) return 'advanced';
+  
+  return 'beginner'; // Safe default
+}
+
+/**
  * Extract userId from authenticated session cookie
  */
 async function getUserIdFromSession(req: IncomingMessage): Promise<string | null> {
@@ -237,14 +252,18 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             console.warn('[Streaming Voice] Could not build curriculum context:', err);
           }
 
-          // Determine tutor freedom/flexibility level
-          // For class-assigned learning: use the class's tutorFreedomLevel
-          // For self-directed learning: use the user's per-language selfDirectedFlexibility preference
+          // Determine tutor freedom/flexibility level and initial difficulty
+          // For class-assigned learning: use the class's settings (tutorFreedomLevel, expectedActflMin)
+          // For self-directed learning: use the user's ACTFL assessment or placement result
+          // IMPORTANT: derivedDifficulty starts at 'beginner' (safe default), NOT from user self-selection
+          // This ensures we never fall back to arbitrary user preferences
           let tutorFreedomLevel: 'guided' | 'flexible_goals' | 'open_exploration' | 'free_conversation' = 'flexible_goals';
           let targetActflLevel: string | null = null;
+          let derivedDifficulty: 'beginner' | 'intermediate' | 'advanced' = 'beginner'; // Safe default, tutor adapts
           
           if (conversation.classId && conversation.learningContext === 'class_assigned') {
             // Get class settings for class-assigned learning
+            // Difficulty derived from class's expected ACTFL range, not user self-selection
             try {
               const classInfo = await storage.getTeacherClass(conversation.classId);
               if (classInfo?.tutorFreedomLevel) {
@@ -253,15 +272,42 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
               if (classInfo?.targetActflLevel) {
                 targetActflLevel = classInfo.targetActflLevel;
               }
+              // Use class's expected starting level for initial difficulty assumption
+              // This replaces user's self-selected difficulty for class contexts
+              if (classInfo?.expectedActflMin) {
+                derivedDifficulty = actflToDifficulty(classInfo.expectedActflMin);
+                console.log(`[Streaming Voice] Class-derived difficulty: ${derivedDifficulty} (from expectedActflMin: ${classInfo.expectedActflMin})`);
+              } else if (classInfo?.targetActflLevel) {
+                // Fallback: use target level as starting point
+                derivedDifficulty = actflToDifficulty(classInfo.targetActflLevel);
+                console.log(`[Streaming Voice] Class-derived difficulty (fallback): ${derivedDifficulty} (from targetActflLevel: ${classInfo.targetActflLevel})`);
+              }
             } catch (err) {
-              console.warn('[Streaming Voice] Could not get class freedom level:', err);
+              console.warn('[Streaming Voice] Could not get class settings:', err);
+              console.log(`[Streaming Voice] Using safe default difficulty: beginner (error fetching class data)`);
             }
           } else {
-            // Self-directed learning: use user's per-language preference
-            // Fall back to global preference for backward compatibility
+            // Self-directed learning: derive difficulty from ACTFL assessment, not user self-selection
+            // Also use per-language flexibility preferences
             try {
               const conversationLanguage = config.targetLanguage?.toLowerCase() || conversation.language?.toLowerCase() || 'spanish';
               const langPrefs = await storage.getLanguagePreferences(userId!, conversationLanguage);
+              
+              // Get ACTFL progress to derive difficulty organically
+              const actflProgress = await storage.getOrCreateActflProgress(conversationLanguage, userId!);
+              const actflLevel = actflProgress?.currentActflLevel;
+              
+              // Derive difficulty from ACTFL assessment (organic) instead of user preference (arbitrary)
+              if (actflLevel) {
+                derivedDifficulty = actflToDifficulty(actflLevel);
+                console.log(`[Streaming Voice] ACTFL-derived difficulty: ${derivedDifficulty} (from ${actflLevel})`);
+              } else {
+                // No ACTFL assessment yet - default to beginner (tutor will adapt)
+                derivedDifficulty = 'beginner';
+                console.log(`[Streaming Voice] No ACTFL assessment - defaulting to beginner`);
+              }
+              
+              // Determine flexibility level
               if (langPrefs?.selfDirectedFlexibility) {
                 tutorFreedomLevel = langPrefs.selfDirectedFlexibility as typeof tutorFreedomLevel;
                 console.log(`[Streaming Voice] Using per-language flexibility for ${conversationLanguage}: ${tutorFreedomLevel}`);
@@ -271,8 +317,7 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
                 console.log(`[Streaming Voice] Using global flexibility fallback: ${tutorFreedomLevel}`);
               } else {
                 // Use smart default based on ACTFL level for this language
-                const actflProgress = await storage.getOrCreateActflProgress(conversationLanguage, userId!);
-                const level = actflProgress?.currentActflLevel?.toLowerCase() || '';
+                const level = actflLevel?.toLowerCase() || '';
                 if (level.includes('novice')) {
                   tutorFreedomLevel = 'guided';
                 } else if (level.includes('advanced') || level.includes('superior') || level.includes('distinguished')) {
@@ -280,21 +325,24 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
                 } else {
                   tutorFreedomLevel = 'flexible_goals';
                 }
-                console.log(`[Streaming Voice] Using smart default flexibility: ${tutorFreedomLevel} (based on ACTFL: ${actflProgress?.currentActflLevel || 'none'})`);
+                console.log(`[Streaming Voice] Using smart default flexibility: ${tutorFreedomLevel} (based on ACTFL: ${actflLevel || 'none'})`);
               }
             } catch (err) {
               console.warn('[Streaming Voice] Could not get language preferences:', err);
-              // Fall back to global preference or default
+              // Fall back to default flexibility - derivedDifficulty stays at 'beginner' (safe default)
               tutorFreedomLevel = (user.selfDirectedFlexibility as typeof tutorFreedomLevel) || 'flexible_goals';
+              console.log(`[Streaming Voice] Using safe default difficulty: beginner (error fetching ACTFL data)`);
             }
           }
 
           // Use full system prompt with streaming voice mode flag
           // This preserves all teaching context (ACTFL, cultural guidelines, vocabulary)
           // while outputting plain text format for TTS
+          // Note: derivedDifficulty comes from class expectedActflMin or user's ACTFL assessment
+          // NOT from user's self-selected difficultyLevel preference
           let systemPrompt = createSystemPrompt(
             config.targetLanguage,
-            config.difficultyLevel,
+            derivedDifficulty, // Use organically-derived difficulty, not user self-selection
             messages.length,
             true, // isVoiceMode
             null,
