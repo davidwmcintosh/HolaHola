@@ -1,0 +1,201 @@
+TIMING DEBUG
+(STALE)
+[CONNECTED]
+P:1
+▲
+CURRENT WORD
+Highlighted:
+—
+Expected (from timing):
+—
+Word Index: — | Visible: 1 | Total Received: 1
+CURRENT SENTENCE
+Welcome, David!
+WORD TIMING COUNTS
+Total Deltas:
+57
+Total Finals:
+57
+This Sentence:
+0 deltas
+Final Count:
+0
+TIMING RACE
+S4
+First Timing At:
+15392ms
+Playback Start:
+—
+Timings at Start:
+0 words ready
+HISTORY (per sentence):
+S0
++949ms
+1w
+WORD-BASED TIMING
+NO MATCH
+Active Word (from ctx.currentTime):
+No word matched at current time
+Schedule Size:
+35 words
+Last Match:
+1.37s
+FIRST Words (with abs times):
+S0W0: "That" @ 0.19-0.39s
+S0W1: "was" @ 0.39-0.66s
+S1W0: "¡Excelente!" @ 3.14-3.96s
+S1W1: "You've" @ 4.15-4.35s
+S1W2: "already" @ 4.35-4.69s
+S1W3: "got" @ 4.69-4.90s
+RECEIVED WORDS (33)
+S0W0: That
+S0W1: was
+S0W2: perfect,
+S0W3: David!
+S1W0: ¡Excelente!
+S1W1: You've
+S1W2: already
+S1W3: got
+S1W4: the
+S1W5: most
+S1W6: common
+S1W7: Spanish
+S1W8: greeting
+S1W9: down
+S2W0: Now,
+S2W1: let's
+S2W2: learn
+S2W3: how
+S2W4: to
+S2W5: say
+S2W6: good
+S2W7: morning
+S2W8: in
+S2W9: Spanish
+S3W0: It's
+S3W1: Buenos
+S3W2: días
+S4W0: Can
+S4W1: you
+S4W2: try
+S4W3: saying
+S4W4: Buenos
+S4W5: días?
+RECENT EVENTS (20)
+Δ
+S4:
+w5
+"días?"
+1.78-2.20s
+Δ
+S4:
+w4
+"Buenos"
+1.36-1.78s
+Δ
+S4:
+w3
+"saying"
+0.94-1.36s
+Δ
+S4:
+w2
+"try"
+0.53-0.94s
+Δ
+S4:
+w1
+"you"
+0.34-0.53s
+Δ
+S4:
+w0
+"Can"
+0.14-0.34s
+Δ
+S3:
+w2
+"días"
+0.69-1.05s
+Δ
+S3:
+w1
+"Buenos"
+0.33-0.69s
+Δ
+S3:
+w0
+"It's"
+0.09-0.33s
+Δ
+S2:
+w9
+"Spanish"
+2.29-2.85s
+TICK LOOP (First 5 frames)started 65.4s ago
+F1: ctx=0.000s, state=running, playing=true
+F2: ctx=0.016s, state=running, playing=true
+F3: ctx=0.016s, state=running, playing=true
+F4: ctx=0.016s, state=running, playing=true
+F5: ctx=0.016s, state=running, playing=true
+PLAYBACK STATE
+Loop Running:
+YES
+isPlaying:
+YES
+Loop Ticks:
+30
+Ctx Time:
+2.795s
+Ctx State:
+running
+Ctx ID:
+8463471_ifoy
+Active Sentence:
+0
+Last Delta Sent:
+S4
+SENTENCE EVENTS
+Last Start:
+0
+Last End:
+4
+AUDIO CHUNKS RECEIVED
+Total Chunks:
+170
+Last Chunk S:
+4
+Per Sentence: S0:27, S1:57, S2:45, S3:23, S4:18
+EMPTY CHUNKS & TRANSITIONS
+Empty Chunks:
+9
+Last Empty S:
+4
+EndTimes Set: [0, 1, 2, 3, 4]
+Transitions:
+s-1→s0: started at 0.13s
+SCHEDULE (5 entries)
+MATCH INFO (1 sentences)
+S0 ✗
+end=undefined
+ENDED: now(2.79) >= end(1.77)
+range: 0.10 - 1.77
+SCHEDULE EVENTS (6)
+✅ ADD S4
+5:35:15 PM
+After: [0, 1, 2, 3, 4] (5 entries)
+✅ ADD S3
+5:34:39 PM
+After: [0, 1, 2, 3] (4 entries)
+✅ ADD S2
+5:34:33 PM
+After: [0, 1, 2] (3 entries)
+✅ ADD S1
+5:34:27 PM
+After: [0, 1] (2 entries)
+✅ ADD S0
+5:34:23 PM
+After: [0] (1 entries)
+⚠️ CLEAR (0 removed)
+5:34:23 PM
+After: [] (0 entries)
