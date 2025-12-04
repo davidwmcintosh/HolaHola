@@ -20,12 +20,12 @@ const INITIAL_MESSAGE = "Hi! I'm your language learning assistant. I'm excited t
 export default function Onboarding() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { setLanguage, setDifficulty } = useLanguage();
+  const { setLanguage } = useLanguage();
   const [messages, setMessages] = useState<Message[]>([
     { role: "assistant", content: INITIAL_MESSAGE }
   ]);
   const [input, setInput] = useState("");
-  const [step, setStep] = useState<"language" | "native" | "difficulty" | "complete">("language");
+  const [step, setStep] = useState<"language" | "native" | "complete">("language");
 
   const { data: user } = useQuery<User>({
     queryKey: ["/api/auth/user"],
@@ -35,7 +35,6 @@ export default function Onboarding() {
     mutationFn: async (preferences: {
       targetLanguage?: string;
       nativeLanguage?: string;
-      difficultyLevel?: string;
       onboardingCompleted?: boolean;
     }) => {
       console.log("Updating preferences:", preferences);
@@ -66,7 +65,6 @@ export default function Onboarding() {
     setInput("");
 
     const languages = ["english", "spanish", "french", "german", "italian", "portuguese", "japanese", "mandarin", "korean", "mandarin chinese"];
-    const difficulties = ["beginner", "intermediate", "advanced"];
 
     try {
       if (step === "language") {
@@ -96,50 +94,27 @@ export default function Onboarding() {
           ]);
         }
       } else if (step === "native") {
-        await updatePreferencesMutation.mutateAsync({ nativeLanguage: userInput });
+        // Complete onboarding - the AI tutor will naturally assess level through conversation
+        // No self-selection of difficulty; the tutor adapts organically based on student responses
+        await updatePreferencesMutation.mutateAsync({ 
+          nativeLanguage: userInput,
+          onboardingCompleted: true 
+        });
         
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
-            content: `Perfect! I'll explain things in ${userInput}. Now, what's your starting level? This helps me know where to begin - don't worry about being exact, I'll adapt as we practice together! Are you a beginner (just starting), intermediate (can hold basic conversations), or advanced (comfortable but want to improve)?`,
+            content: `Perfect! I'll explain things in ${userInput}. Your AI tutor will adapt to your level naturally as you practice together - no need to guess where you're starting. Just talk, and I'll meet you where you are. Let's begin your language learning journey!`,
           },
         ]);
-        setStep("difficulty");
-      } else if (step === "difficulty") {
-        const difficulty = difficulties.find((diff) => userInput.includes(diff));
-        if (difficulty) {
-          await updatePreferencesMutation.mutateAsync({ 
-            difficultyLevel: difficulty,
-            onboardingCompleted: true 
-          });
-          
-          // Immediately update LanguageContext with the difficulty level
-          setDifficulty(difficulty as any);
-          
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content: `Excellent! I'll start at the ${difficulty} level and adjust as we practice together. Your AI tutor will adapt to your actual ability as you have conversations. Let's begin your language learning journey!`,
-            },
-          ]);
-          setStep("complete");
-          
-          // Wait for preferences to save and query to refresh, then redirect to home
-          // Router will automatically direct to chat since onboarding is complete
-          setTimeout(() => {
-            setLocation("/");
-          }, 1500);
-        } else {
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content: "Please tell me if you're a beginner, intermediate, or advanced learner.",
-            },
-          ]);
-        }
+        setStep("complete");
+        
+        // Wait for preferences to save and query to refresh, then redirect to home
+        // Router will automatically direct to chat since onboarding is complete
+        setTimeout(() => {
+          setLocation("/");
+        }, 1500);
       }
     } catch (error) {
       console.error("Error in onboarding flow:", error);
