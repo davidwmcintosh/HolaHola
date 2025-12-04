@@ -6,6 +6,7 @@ LinguaFlow is an AI-powered language learning application offering interactive c
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 Terminology standard: Use "Syllabus" in all user-facing text (database tables remain "curriculum*" for safety).
+Batch doc updates: When user says "add to the batch" or "batch doc updates", add items to `docs/batch-doc-updates.md` for consolidated documentation updates later.
 
 ## System Architecture
 
