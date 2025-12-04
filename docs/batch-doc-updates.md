@@ -338,4 +338,104 @@ The STROKE tool now shows animated stroke order using HanziWriter library:
   - `/tutor` → `/chat`
 - This would improve discoverability and reduce confusion
 
+---
+
+## Student Empowerment Features (Dec 4, 2025)
+
+### Image Library Enhancements
+
+**Modal Overflow Fix**
+- Detail panel now scrollable with `max-h-[80vh]` and `overflow-y-auto`
+- Smaller image preview (200px max-height) for better content visibility
+- Action buttons always accessible at bottom of modal
+- No more hidden buttons on smaller screens
+
+**Three View Modes**
+- **Grid View**: 5-column layout with larger thumbnails (default)
+- **Compact View**: 8-column layout with smaller thumbnails for quick browsing
+- **List View**: Table layout with sortable columns
+
+**Sortable Columns (List View)**
+- Date Added (newest/oldest)
+- Image Source (stock/ai_generated/user_upload)
+- Usage Count (most/least used)
+- Language
+- File Size
+
+**New Images Indicator**
+- Badge on Images tab shows count of images added in last 24 hours
+- Uses `newCount` from backend query
+- Helps admins spot content needing review
+
+**Files Changed:**
+- `client/src/pages/admin/CommandCenter.tsx` - View mode toggle, sort controls, responsive layouts
+- `server/routes.ts` - Added `sortBy`, `sortOrder` query params to `/api/admin/media`
+- `server/storage.ts` - `getMediaFiles()` now supports sorting options, `newCount` for 24-hour images
+
+---
+
+### Vocabulary Export
+
+**Export Formats**
+- **CSV**: Standard comma-separated values for spreadsheets
+- **Anki**: Tab-separated format compatible with Anki flashcard app
+
+**Export Contents**
+- Word (target language)
+- Translation (English)
+- Pronunciation (if available)
+- Examples (semicolon-separated)
+- Date Added
+- Last Reviewed
+
+**UI Implementation**
+- Export dropdown button in Vocabulary page header
+- Format selection (CSV or Anki)
+- Automatic download with descriptive filename (e.g., `vocabulary-spanish-anki.txt`)
+- Language filter applied to exports
+
+**API Endpoint**
+- `GET /api/vocabulary/export?format=csv|anki&language=optional`
+- Returns appropriate Content-Type and Content-Disposition headers
+
+**Files Changed:**
+- `server/routes.ts` - New `/api/vocabulary/export` endpoint
+- `server/storage.ts` - `exportVocabulary()` method with format support
+- `client/src/pages/vocabulary.tsx` - Export button with dropdown menu
+
+---
+
+### Conversation Search
+
+**Search Features**
+- Full-text search across all message content
+- Debounced input (300ms) to avoid API spam
+- Minimum 2 characters required to trigger search
+- Results show message content with highlighted matches
+
+**Search Results Display**
+- Shows conversation title (or "Untitled Conversation")
+- Message date
+- Role indicator (user/tutor with avatar)
+- Highlighted matching text using `<mark>` tags
+- Click result to navigate to that conversation
+
+**UX Details**
+- Clear button (X) to reset search
+- Loading spinner during search
+- "No results" state with helpful message
+- Regular conversation list hidden while search results are displayed
+- Search results count displayed ("X results for 'query'")
+
+**API Endpoint**
+- `GET /api/messages/search?q=query`
+- Returns messages with `conversationId`, `conversationTitle`, and `content`
+
+**Files Changed:**
+- `server/routes.ts` - New `/api/messages/search` endpoint
+- `server/storage.ts` - `searchMessages()` method with full-text search
+- `client/src/components/ConversationHistory.tsx` - Search input, results display, highlighting
+
+---
+
 (Add new batch items here as work progresses)
