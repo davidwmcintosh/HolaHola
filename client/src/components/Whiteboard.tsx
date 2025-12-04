@@ -44,6 +44,11 @@ import {
   HandMetal,
   Calendar,
   Users,
+  Play,
+  Pause,
+  MapPin,
+  Sparkles,
+  ListChecks,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -59,10 +64,13 @@ import type {
   StrokeItem,
   WordMapItem,
   CultureItem,
+  PlayItem,
+  ScenarioItem,
+  SummaryItem,
   DrillState,
   MatchPair,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isWordMapItem, isCultureItem, isMatchingDrill, getDrillInstructions } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isMatchingDrill, getDrillInstructions } from "@shared/whiteboard-types";
 
 interface WhiteboardProps {
   items: WhiteboardItem[];
@@ -97,6 +105,12 @@ const getItemIcon = (type: WhiteboardItemType) => {
       return <Network className="h-4 w-4" />;
     case "culture":
       return <Globe className="h-4 w-4" />;
+    case "play":
+      return <Volume2 className="h-4 w-4" />;
+    case "scenario":
+      return <MapPin className="h-4 w-4" />;
+    case "summary":
+      return <ListChecks className="h-4 w-4" />;
     default:
       return null;
   }
@@ -128,6 +142,12 @@ const getItemStyle = (type: WhiteboardItemType): string => {
       return "bg-teal-500/10 border-teal-500/30 text-teal-700 dark:text-teal-300";
     case "culture":
       return "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300";
+    case "play":
+      return "bg-sky-500/10 border-sky-500/30 text-sky-700 dark:text-sky-300";
+    case "scenario":
+      return "bg-purple-500/10 border-purple-500/30 text-purple-700 dark:text-purple-300";
+    case "summary":
+      return "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300";
     default:
       return "bg-muted border-border text-foreground";
   }
@@ -1003,6 +1023,195 @@ const CultureItemDisplay = ({ item, index }: CultureItemDisplayProps) => {
   );
 };
 
+interface PlayItemDisplayProps {
+  item: PlayItem;
+  index: number;
+}
+
+const PlayItemDisplay = ({ item, index }: PlayItemDisplayProps) => {
+  const { data } = item;
+  const [isPlaying, setIsPlaying] = useState(false);
+  
+  const speedLabel = {
+    slow: '0.5x',
+    normal: '1x',
+    fast: '1.5x',
+  }[data.speed];
+  
+  const speedColor = {
+    slow: 'text-green-600 dark:text-green-400',
+    normal: 'text-sky-600 dark:text-sky-400',
+    fast: 'text-orange-600 dark:text-orange-400',
+  }[data.speed];
+  
+  const handlePlay = useCallback(() => {
+    setIsPlaying(true);
+    setTimeout(() => setIsPlaying(false), 2000);
+  }, []);
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex items-center gap-4 p-4 rounded-lg border bg-sky-500/10 border-sky-500/30"
+      data-testid={`whiteboard-item-play-${index}`}
+    >
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={handlePlay}
+        className={`h-12 w-12 rounded-full ${isPlaying ? 'bg-sky-500/20' : 'bg-sky-500/10'} hover:bg-sky-500/20`}
+        data-testid={`play-button-${index}`}
+      >
+        {isPlaying ? (
+          <Pause className="h-6 w-6 text-sky-600 dark:text-sky-400" />
+        ) : (
+          <Play className="h-6 w-6 text-sky-600 dark:text-sky-400" />
+        )}
+      </Button>
+      
+      <div className="flex flex-col gap-1 flex-1">
+        <span className="text-lg font-medium text-sky-900 dark:text-sky-100">
+          {data.text}
+        </span>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs font-medium ${speedColor}`}>
+            {speedLabel}
+          </span>
+          {data.phonetic && (
+            <span className="text-sm text-sky-700/70 dark:text-sky-300/70">
+              [{data.phonetic}]
+            </span>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+interface ScenarioItemDisplayProps {
+  item: ScenarioItem;
+  index: number;
+}
+
+const ScenarioItemDisplay = ({ item, index }: ScenarioItemDisplayProps) => {
+  const { data } = item;
+  
+  const moodStyles: Record<string, { icon: typeof Sparkles; color: string }> = {
+    formal: { icon: Users, color: 'text-purple-600 dark:text-purple-400' },
+    casual: { icon: Sparkles, color: 'text-purple-500 dark:text-purple-300' },
+    urgent: { icon: Target, color: 'text-red-500 dark:text-red-400' },
+    friendly: { icon: Star, color: 'text-yellow-500 dark:text-yellow-400' },
+  };
+  
+  const moodInfo = moodStyles[data.mood] || moodStyles.casual;
+  const MoodIcon = moodInfo.icon;
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-purple-500/10 border-purple-500/30"
+      data-testid={`whiteboard-item-scenario-${index}`}
+    >
+      <div className="flex items-center gap-2">
+        <MapPin className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+        <span className="text-lg font-bold text-purple-800 dark:text-purple-200">
+          {data.location}
+        </span>
+        <span className={`ml-auto flex items-center gap-1 text-xs uppercase tracking-wide font-medium ${moodInfo.color}`}>
+          <MoodIcon className="h-3 w-3" />
+          {data.mood}
+        </span>
+      </div>
+      
+      <p className="text-sm text-purple-900/80 dark:text-purple-100/80 leading-relaxed italic">
+        "{data.situation}"
+      </p>
+      
+      {data.roles.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-1">
+          {data.roles.map((role, i) => (
+            <span 
+              key={i}
+              className="px-2 py-1 text-xs rounded-full bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30"
+            >
+              {role}
+            </span>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+interface SummaryItemDisplayProps {
+  item: SummaryItem;
+  index: number;
+}
+
+const SummaryItemDisplay = ({ item, index }: SummaryItemDisplayProps) => {
+  const { data } = item;
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-emerald-500/10 border-emerald-500/30"
+      data-testid={`whiteboard-item-summary-${index}`}
+    >
+      <div className="flex items-center gap-2">
+        <ListChecks className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+        <h3 className="text-lg font-bold text-emerald-800 dark:text-emerald-200">
+          {data.title}
+        </h3>
+      </div>
+      
+      {data.words.length > 0 && (
+        <div className="space-y-1">
+          <span className="text-xs uppercase tracking-wide text-emerald-600/80 dark:text-emerald-400/80 font-medium">
+            Words Learned
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {data.words.map((word, i) => (
+              <span 
+                key={i}
+                className="px-2 py-1 text-sm rounded-md bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 border border-emerald-500/30 font-medium"
+              >
+                {word}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {data.phrases.length > 0 && (
+        <div className="space-y-1">
+          <span className="text-xs uppercase tracking-wide text-emerald-600/80 dark:text-emerald-400/80 font-medium">
+            Key Phrases
+          </span>
+          <ul className="space-y-1">
+            {data.phrases.map((phrase, i) => (
+              <li 
+                key={i}
+                className="text-sm text-emerald-900/80 dark:text-emerald-100/80 pl-3 border-l-2 border-emerald-500/40"
+              >
+                {phrase}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
 interface GrammarTableItemDisplayProps {
   item: GrammarTableItem;
   index: number;
@@ -1119,6 +1328,18 @@ const WhiteboardItemDisplay = ({
   
   if (isCultureItem(item)) {
     return <CultureItemDisplay item={item} index={index} />;
+  }
+  
+  if (isPlayItem(item)) {
+    return <PlayItemDisplay item={item} index={index} />;
+  }
+  
+  if (isScenarioItem(item)) {
+    return <ScenarioItemDisplay item={item} index={index} />;
+  }
+  
+  if (isSummaryItem(item)) {
+    return <SummaryItemDisplay item={item} index={index} />;
   }
   
   return <TextItemDisplay item={item} index={index} />;

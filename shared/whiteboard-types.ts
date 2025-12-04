@@ -45,6 +45,9 @@ export const WHITEBOARD_TAGS = {
   STROKE: 'STROKE',
   WORD_MAP: 'WORD_MAP',
   CULTURE: 'CULTURE',
+  PLAY: 'PLAY',
+  SCENARIO: 'SCENARIO',
+  SUMMARY: 'SUMMARY',
   CLEAR: 'CLEAR',
   HOLD: 'HOLD',
 } as const;
@@ -54,7 +57,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'word_map' | 'culture';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary';
 
 /**
  * Drill types for inline micro-exercises
@@ -196,6 +199,53 @@ export interface CultureItemData {
 }
 
 /**
+ * Play item data - Audio replay button
+ * Format: [PLAY]word or phrase[/PLAY] or [PLAY speed="slow"]phrase[/PLAY]
+ * - text: The word/phrase to be spoken
+ * - speed: Optional speed setting (slow, normal, fast)
+ * - audioUrl: Generated after TTS call
+ * - isLoading: True while generating audio
+ * - isPlaying: True while audio is playing
+ */
+export interface PlayItemData {
+  text: string;
+  speed?: 'slow' | 'normal' | 'fast';
+  audioUrl?: string;
+  isLoading?: boolean;
+  isPlaying?: boolean;
+  language?: string;          // Target language for TTS
+}
+
+/**
+ * Scenario item data - Role-play scene setup
+ * Format: [SCENARIO]location|situation|mood[/SCENARIO]
+ * - location: Where the scene takes place (e.g., "coffee shop", "airport")
+ * - situation: What's happening (e.g., "ordering your first café con leche")
+ * - mood: Optional atmosphere (e.g., "casual", "formal", "busy")
+ */
+export interface ScenarioItemData {
+  location: string;
+  situation: string;
+  mood?: string;
+  imageUrl?: string;          // Scene image (optional, from AI generation)
+  isLoading?: boolean;
+}
+
+/**
+ * Summary item data - Lesson vocabulary recap
+ * Format: [SUMMARY]title|word1,word2,word3[/SUMMARY] or auto-generated
+ * - title: Summary heading (e.g., "Today's Vocabulary")
+ * - words: List of vocabulary learned
+ * - phrases: Optional key phrases
+ */
+export interface SummaryItemData {
+  title: string;
+  words: string[];
+  phrases: string[];
+  totalItems: number;
+}
+
+/**
  * Individual whiteboard item (one marked section)
  * Discriminated union for type-safe rendering
  */
@@ -273,6 +323,24 @@ export interface CultureItem extends WhiteboardItemBase {
   data: CultureItemData;
 }
 
+export interface PlayItem extends WhiteboardItemBase {
+  type: 'play';
+  content: string;
+  data: PlayItemData;
+}
+
+export interface ScenarioItem extends WhiteboardItemBase {
+  type: 'scenario';
+  content: string;
+  data: ScenarioItemData;
+}
+
+export interface SummaryItem extends WhiteboardItemBase {
+  type: 'summary';
+  content: string;
+  data: SummaryItemData;
+}
+
 export type WhiteboardItem = 
   | WriteItem 
   | PhoneticItem 
@@ -285,7 +353,10 @@ export type WhiteboardItem =
   | ReadingItem
   | StrokeItem
   | WordMapItem
-  | CultureItem;
+  | CultureItem
+  | PlayItem
+  | ScenarioItem
+  | SummaryItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -334,6 +405,9 @@ export const WHITEBOARD_PATTERNS = {
   STROKE: /\[STROKE\]([\s\S]*?)\[\/STROKE\]/gi,
   WORD_MAP: /\[WORD_MAP\]([\s\S]*?)\[\/WORD_MAP\]/gi,
   CULTURE: /\[CULTURE\]([\s\S]*?)\[\/CULTURE\]/gi,
+  PLAY: /\[PLAY(?:\s+speed="([^"]*)")?\]([\s\S]*?)\[\/PLAY\]/gi,
+  SCENARIO: /\[SCENARIO\]([\s\S]*?)\[\/SCENARIO\]/gi,
+  SUMMARY: /\[SUMMARY\]([\s\S]*?)\[\/SUMMARY\]/gi,
   CLEAR: /\[CLEAR\]/gi,
   HOLD: /\[HOLD\]/gi,
 } as const;
@@ -343,7 +417,7 @@ export const WHITEBOARD_PATTERNS = {
  * Updated to include all Phase 4 tags including Word Map and Culture
  */
 export const ALL_WHITEBOARD_MARKUP_PATTERN = 
-  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|WORD_MAP|CULTURE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[(CLEAR|HOLD)\]/gi;
+  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|WORD_MAP|CULTURE|SCENARIO|SUMMARY)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[(CLEAR|HOLD)\]/gi;
 
 /**
  * Generate unique ID for whiteboard items
@@ -587,6 +661,56 @@ function parseCultureContent(content: string): CultureItemData {
 }
 
 /**
+ * Parse PLAY content: "text" or with speed attribute
+ */
+function parsePlayContent(content: string, speedAttr?: string): PlayItemData {
+  const text = content.trim();
+  const speed = (speedAttr === 'slow' || speedAttr === 'fast') ? speedAttr : 'normal';
+  
+  return {
+    text,
+    speed: speed as 'slow' | 'normal' | 'fast',
+    isLoading: false,
+    isPlaying: false,
+  };
+}
+
+/**
+ * Parse SCENARIO content: "location|situation|mood"
+ */
+function parseScenarioContent(content: string): ScenarioItemData {
+  const parts = content.split('|').map(p => p.trim());
+  
+  return {
+    location: parts[0] || 'Unknown Location',
+    situation: parts[1] || parts[0] || content,
+    mood: parts[2] || undefined,
+    isLoading: false,
+  };
+}
+
+/**
+ * Parse SUMMARY content: "title|word1,word2,word3|phrase1,phrase2"
+ */
+function parseSummaryContent(content: string): SummaryItemData {
+  const parts = content.split('|').map(p => p.trim());
+  
+  const title = parts[0] || "Today's Vocabulary";
+  const wordsStr = parts[1] || '';
+  const phrasesStr = parts[2] || '';
+  
+  const words = wordsStr ? wordsStr.split(',').map(w => w.trim()).filter(Boolean) : [];
+  const phrases = phrasesStr ? phrasesStr.split(',').map(p => p.trim()).filter(Boolean) : [];
+  
+  return {
+    title,
+    words,
+    phrases,
+    totalItems: words.length + phrases.length,
+  };
+}
+
+/**
  * Normalize tense names to canonical forms
  */
 function normalizeTense(rawTense: string): string {
@@ -797,6 +921,46 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
     });
   }
 
+  // Parse PLAY tags (Phase 5 - audio replay)
+  WHITEBOARD_PATTERNS.PLAY.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.PLAY.exec(text)) !== null) {
+    const speedAttr = match[1];
+    const content = match[2].trim();
+    items.push({
+      type: 'play',
+      content,
+      timestamp: now,
+      id: generateItemId(),
+      data: parsePlayContent(content, speedAttr),
+    });
+  }
+
+  // Parse SCENARIO tags (Phase 6 - role-play scenes)
+  WHITEBOARD_PATTERNS.SCENARIO.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.SCENARIO.exec(text)) !== null) {
+    const content = match[1].trim();
+    items.push({
+      type: 'scenario',
+      content,
+      timestamp: now,
+      id: generateItemId(),
+      data: parseScenarioContent(content),
+    });
+  }
+
+  // Parse SUMMARY tags (Phase 6 - lesson recap)
+  WHITEBOARD_PATTERNS.SUMMARY.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.SUMMARY.exec(text)) !== null) {
+    const content = match[1].trim();
+    items.push({
+      type: 'summary',
+      content,
+      timestamp: now,
+      id: generateItemId(),
+      data: parseSummaryContent(content),
+    });
+  }
+
   const cleanText = text
     .replace(ALL_WHITEBOARD_MARKUP_PATTERN, '')
     .replace(/\s{2,}/g, ' ')
@@ -861,6 +1025,12 @@ export const whiteboardExamples = {
     `[WORD_MAP]${targetWord}[/WORD_MAP]`,
   culture: (topic: string, context: string, category?: string) => 
     `[CULTURE]${topic}|${context}${category ? `|${category}` : ''}[/CULTURE]`,
+  play: (text: string, speed?: 'slow' | 'normal' | 'fast') => 
+    speed && speed !== 'normal' ? `[PLAY speed="${speed}"]${text}[/PLAY]` : `[PLAY]${text}[/PLAY]`,
+  scenario: (location: string, situation: string, mood?: string) => 
+    `[SCENARIO]${location}|${situation}${mood ? `|${mood}` : ''}[/SCENARIO]`,
+  summary: (title: string, words: string[], phrases?: string[]) => 
+    `[SUMMARY]${title}|${words.join(',')}${phrases?.length ? `|${phrases.join(',')}` : ''}[/SUMMARY]`,
   clear: '[CLEAR]',
   hold: '[HOLD]',
 };
@@ -933,6 +1103,27 @@ export function isWordMapItem(item: WhiteboardItem): item is WordMapItem {
  */
 export function isCultureItem(item: WhiteboardItem): item is CultureItem {
   return item.type === 'culture';
+}
+
+/**
+ * Type guard for checking if an item is a play item
+ */
+export function isPlayItem(item: WhiteboardItem): item is PlayItem {
+  return item.type === 'play';
+}
+
+/**
+ * Type guard for checking if an item is a scenario item
+ */
+export function isScenarioItem(item: WhiteboardItem): item is ScenarioItem {
+  return item.type === 'scenario';
+}
+
+/**
+ * Type guard for checking if an item is a summary item
+ */
+export function isSummaryItem(item: WhiteboardItem): item is SummaryItem {
+  return item.type === 'summary';
 }
 
 /**
