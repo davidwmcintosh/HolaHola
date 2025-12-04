@@ -86,17 +86,17 @@ This file collects documentation updates during development sessions for later c
 ## Documentation To Update (Batch)
 
 ### User-Facing Docs
-- [ ] Whiteboard tools reference guide (all markup formats)
-- [ ] Asian language learner guide (READING, STROKE)
-- [ ] Interactive exercises guide (DRILL types)
+- [x] Whiteboard tools reference guide (all markup formats) → `docs/whiteboard-tools-reference.md`
+- [x] Asian language learner guide (READING, STROKE) → `docs/asian-language-learner-guide.md`
+- [x] Interactive exercises guide (DRILL types) → `docs/interactive-exercises-guide.md`
 
 ### Teacher/Admin Docs
-- [ ] Teacher guide for using whiteboard tools
-- [ ] Best practices for visual teaching aids
+- [x] Teacher guide for using whiteboard tools → `docs/teacher-whiteboard-guide.md`
+- [x] Best practices for visual teaching aids → included in teacher guide
 
 ### Technical Docs
-- [ ] API documentation for whiteboard markup formats
-- [ ] WebSocket integration for drills
+- [x] API documentation for whiteboard markup formats → `docs/whiteboard-api-reference.md`
+- [x] WebSocket integration for drills → included in API reference
 
 ---
 
