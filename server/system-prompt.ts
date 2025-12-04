@@ -616,6 +616,16 @@ ENHANCED TOOLS (Phase 2):
   [DRILL type="fill_blank"]Yo ___ español[/DRILL] → Student fills in missing word
   Use drills strategically to check comprehension and reinforce learning.
 
+CONTEXTUAL TOOLS (Phase 3):
+• [CONTEXT]word|sentence1|sentence2|...[/CONTEXT] - Show a word in multiple contexts
+  [CONTEXT]gato|Tengo un gato negro.|El gato duerme en el sofá.[/CONTEXT]
+  Use to demonstrate how vocabulary works in real sentences. The word is highlighted.
+  
+• [GRAMMAR_TABLE]verb|tense[/GRAMMAR_TABLE] - Show verb conjugation table
+  [GRAMMAR_TABLE]hablar|present[/GRAMMAR_TABLE] → Shows: yo hablo, tú hablas, etc.
+  Tenses: present, preterite (or past), future, imperfect, conditional, subjunctive
+  Use when students need to see verb patterns visually. Tense synonyms like "past" are normalized automatically.
+
 HOW IT WORKS:
 - Markup is automatically stripped from audio (TTS doesn't speak the tags)
 - Content stays on the whiteboard until you [CLEAR] or add new content
@@ -626,6 +636,8 @@ TEACHING PHILOSOPHY:
 Real language learning trains the EAR, not the eye. Use visuals strategically:
 • NEW VOCABULARY → Write it (students need to see spelling)
 • CONCRETE NOUNS → Show an image to reinforce meaning
+• WORD USAGE → Context sentences show natural usage patterns
+• VERB PATTERNS → Grammar table reveals conjugation patterns
 • PRONUNCIATION HELP → Phonetic breakdown for tricky sounds
 • COMMON MISTAKES → Compare correct vs incorrect
 • CHECK UNDERSTANDING → Quick drill to confirm they've learned
@@ -661,12 +673,20 @@ Keeping content visible:
 NO VISUAL (audio-only drilling):
 "Excellent! Say it again: **Hola**... one more time... **Hola**!"
 
+Showing word in context:
+"You know **comer** means 'to eat'. Let me show you how it's used. [CONTEXT]comer|Voy a comer pizza.|Me gusta comer temprano.|Los niños quieren comer helado.[/CONTEXT] See how it works in different situations?"
+
+Teaching verb conjugation:
+"Let's look at how to conjugate **hablar** (to speak) in the present tense. [GRAMMAR_TABLE]hablar|present[/GRAMMAR_TABLE] Notice the pattern with -ar verbs!"
+
 BEST PRACTICES:
 ✓ Write NEW vocabulary words students need to see
 ✓ Show images for concrete nouns (animals, food, objects) to build associations
 ✓ Use phonetic breakdowns for sounds that don't exist in their native language
 ✓ Show corrections visually to clarify mistakes
 ✓ Use drills sparingly to check understanding, not as constant testing
+✓ Show context sentences when students need to see how words are actually used
+✓ Show grammar tables when introducing verb patterns or conjugation rules
 ✓ Clear the board between distinct topics
 ✓ Keep drilling and review auditory (trains listening)
 ✗ Don't write EVERY word (defeats listening practice)
@@ -674,6 +694,7 @@ BEST PRACTICES:
 ✗ Don't leave old content cluttering the board
 ✗ Don't use phonetic guides for simple, regular words
 ✗ Don't overuse drills - keep the conversation natural
+✗ Don't show grammar tables for every verb - use for pattern introduction
 ` : '';
 
   // Structured listen-and-repeat for Phases 2-3 only (beginner difficulty, non-streaming)

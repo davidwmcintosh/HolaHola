@@ -30,7 +30,9 @@ import {
   Loader2,
   Star,
   Trophy,
-  Target
+  Target,
+  BookOpen,
+  Table2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -40,9 +42,11 @@ import type {
   ImageItem,
   DrillItem,
   PronunciationItem,
+  ContextItem,
+  GrammarTableItem,
   DrillState,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, getDrillInstructions } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, getDrillInstructions } from "@shared/whiteboard-types";
 
 interface WhiteboardProps {
   items: WhiteboardItem[];
@@ -65,6 +69,10 @@ const getItemIcon = (type: WhiteboardItemType) => {
       return <Target className="h-4 w-4" />;
     case "pronunciation":
       return <Mic className="h-4 w-4" />;
+    case "context":
+      return <BookOpen className="h-4 w-4" />;
+    case "grammar_table":
+      return <Table2 className="h-4 w-4" />;
     default:
       return null;
   }
@@ -84,6 +92,10 @@ const getItemStyle = (type: WhiteboardItemType): string => {
       return "bg-violet-500/10 border-violet-500/30 text-violet-700 dark:text-violet-300";
     case "pronunciation":
       return "bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300";
+    case "context":
+      return "bg-cyan-500/10 border-cyan-500/30 text-cyan-700 dark:text-cyan-300";
+    case "grammar_table":
+      return "bg-indigo-500/10 border-indigo-500/30 text-indigo-700 dark:text-indigo-300";
     default:
       return "bg-muted border-border text-foreground";
   }
@@ -354,6 +366,126 @@ const TextItemDisplay = ({ item, index }: TextItemDisplayProps) => {
   );
 };
 
+interface ContextItemDisplayProps {
+  item: ContextItem;
+  index: number;
+}
+
+const ContextItemDisplay = ({ item, index }: ContextItemDisplayProps) => {
+  const { data } = item;
+  
+  const highlightWord = (sentence: string, word: string) => {
+    const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const unicodeBoundary = '(?<![\\p{L}\\p{N}])';
+    const unicodeBoundaryEnd = '(?![\\p{L}\\p{N}])';
+    const regex = new RegExp(`${unicodeBoundary}(${escapedWord})${unicodeBoundaryEnd}`, 'giu');
+    const parts = sentence.split(regex);
+    return parts.map((part, i) => 
+      part.toLowerCase() === word.toLowerCase() ? (
+        <span key={i} className="font-bold text-cyan-600 dark:text-cyan-300 bg-cyan-500/20 px-1 rounded">
+          {part}
+        </span>
+      ) : (
+        <span key={i}>{part}</span>
+      )
+    );
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-cyan-500/10 border-cyan-500/30"
+      data-testid={`whiteboard-item-context-${index}`}
+    >
+      <div className="flex items-center gap-2">
+        <BookOpen className="h-4 w-4 text-cyan-600 dark:text-cyan-400 opacity-60" />
+        <span className="text-xl font-bold text-cyan-700 dark:text-cyan-300">
+          {data.word}
+        </span>
+        <span className="text-sm text-muted-foreground">in context</span>
+      </div>
+      
+      <div className="flex flex-col gap-2 pl-2 border-l-2 border-cyan-500/30">
+        {data.sentences.map((sentence, i) => (
+          <motion.p
+            key={i}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 + i * 0.15 }}
+            className="text-base leading-relaxed"
+          >
+            {highlightWord(sentence, data.word)}
+          </motion.p>
+        ))}
+      </div>
+    </motion.div>
+  );
+};
+
+interface GrammarTableItemDisplayProps {
+  item: GrammarTableItem;
+  index: number;
+}
+
+const GrammarTableItemDisplay = ({ item, index }: GrammarTableItemDisplayProps) => {
+  const { data } = item;
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-indigo-500/10 border-indigo-500/30"
+      data-testid={`whiteboard-item-grammar-table-${index}`}
+    >
+      <div className="flex items-center gap-2">
+        <Table2 className="h-4 w-4 text-indigo-600 dark:text-indigo-400 opacity-60" />
+        <span className="text-xl font-bold text-indigo-700 dark:text-indigo-300">
+          {data.verb}
+        </span>
+        <span className="text-sm text-muted-foreground capitalize">
+          ({data.tense})
+        </span>
+      </div>
+      
+      {data.isLoading ? (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+          <span className="ml-2 text-sm text-muted-foreground">Loading conjugations...</span>
+        </div>
+      ) : data.conjugations && data.conjugations.length > 0 ? (
+        <div className="grid grid-cols-2 gap-2">
+          {data.conjugations.map((conj, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 + i * 0.05 }}
+              className="flex items-center gap-2 px-3 py-2 bg-indigo-500/10 rounded"
+            >
+              <span className="text-sm text-muted-foreground w-12">{conj.pronoun}</span>
+              <span className="font-medium text-indigo-700 dark:text-indigo-300">{conj.form}</span>
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        <div className="py-3 text-center">
+          <p className="text-sm text-muted-foreground italic mb-2">
+            {data.tense.charAt(0).toUpperCase() + data.tense.slice(1)} tense of <span className="font-semibold">{data.verb}</span>
+          </p>
+          <p className="text-xs text-muted-foreground/70">
+            Conjugation patterns help you recognize verb forms
+          </p>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
 const WhiteboardItemDisplay = ({ 
   item, 
   index,
@@ -382,6 +514,14 @@ const WhiteboardItemDisplay = ({
   
   if (isPronunciationItem(item)) {
     return <PronunciationItemDisplay item={item} index={index} />;
+  }
+  
+  if (isContextItem(item)) {
+    return <ContextItemDisplay item={item} index={index} />;
+  }
+  
+  if (isGrammarTableItem(item)) {
+    return <GrammarTableItemDisplay item={item} index={index} />;
   }
   
   return <TextItemDisplay item={item} index={index} />;

@@ -27,6 +27,8 @@
  * - [COMPARE]NOT "Hola" → "Ola" ✓[/COMPARE] → Show correction
  * - [IMAGE]gato|A cute cat[/IMAGE] → Show image with word and description
  * - [DRILL type="repeat"]Buenos días[/DRILL] → Quick pronunciation drill
+ * - [CONTEXT]correr|Yo corro todos los días|Ella corre muy rápido|Los niños corren en el parque[/CONTEXT] → Show word in multiple contexts
+ * - [GRAMMAR_TABLE]hablar|present[/GRAMMAR_TABLE] → Show verb conjugation table
  * - [CLEAR] → Wipe the whiteboard
  * - [HOLD] → Explicit "keep current content" (for response without whiteboard changes)
  */
@@ -36,6 +38,8 @@ export const WHITEBOARD_TAGS = {
   COMPARE: 'COMPARE',
   IMAGE: 'IMAGE',
   DRILL: 'DRILL',
+  CONTEXT: 'CONTEXT',
+  GRAMMAR_TABLE: 'GRAMMAR_TABLE',
   CLEAR: 'CLEAR',
   HOLD: 'HOLD',
 } as const;
@@ -45,7 +49,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table';
 
 /**
  * Drill types for inline micro-exercises
@@ -92,6 +96,31 @@ export interface PronunciationFeedbackData {
 }
 
 /**
+ * Context sentences item data
+ * Shows a word in multiple example sentences with highlighting
+ */
+export interface ContextItemData {
+  word: string;
+  sentences: string[];
+}
+
+/**
+ * Grammar table item data
+ * Shows verb conjugation or grammar pattern tables
+ */
+export interface GrammarTableItemData {
+  verb: string;
+  tense: string;
+  conjugations?: GrammarConjugation[];
+  isLoading?: boolean;
+}
+
+export interface GrammarConjugation {
+  pronoun: string;
+  form: string;
+}
+
+/**
  * Individual whiteboard item (one marked section)
  * Discriminated union for type-safe rendering
  */
@@ -133,13 +162,27 @@ export interface PronunciationItem extends WhiteboardItemBase {
   data: PronunciationFeedbackData;
 }
 
+export interface ContextItem extends WhiteboardItemBase {
+  type: 'context';
+  content: string;
+  data: ContextItemData;
+}
+
+export interface GrammarTableItem extends WhiteboardItemBase {
+  type: 'grammar_table';
+  content: string;
+  data: GrammarTableItemData;
+}
+
 export type WhiteboardItem = 
   | WriteItem 
   | PhoneticItem 
   | CompareItem 
   | ImageItem 
   | DrillItem 
-  | PronunciationItem;
+  | PronunciationItem
+  | ContextItem
+  | GrammarTableItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -182,16 +225,18 @@ export const WHITEBOARD_PATTERNS = {
   COMPARE: /\[COMPARE\]([\s\S]*?)\[\/COMPARE\]/gi,
   IMAGE: /\[IMAGE\]([\s\S]*?)\[\/IMAGE\]/gi,
   DRILL: /\[DRILL(?:\s+type="([^"]*)")?\]([\s\S]*?)\[\/DRILL\]/gi,
+  CONTEXT: /\[CONTEXT\]([\s\S]*?)\[\/CONTEXT\]/gi,
+  GRAMMAR_TABLE: /\[GRAMMAR_TABLE\]([\s\S]*?)\[\/GRAMMAR_TABLE\]/gi,
   CLEAR: /\[CLEAR\]/gi,
   HOLD: /\[HOLD\]/gi,
 } as const;
 
 /**
  * All whiteboard markup pattern (for stripping)
- * Updated to include IMAGE and DRILL tags
+ * Updated to include all Phase 3 tags
  */
 export const ALL_WHITEBOARD_MARKUP_PATTERN = 
-  /\[(WRITE|PHONETIC|COMPARE|IMAGE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[(CLEAR|HOLD)\]/gi;
+  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[(CLEAR|HOLD)\]/gi;
 
 /**
  * Generate unique ID for whiteboard items
@@ -223,6 +268,58 @@ function parseDrillContent(typeAttr: string | undefined, content: string): Drill
     drillType: validTypes.includes(drillType) ? drillType : 'repeat',
     prompt: content.trim(),
     state: 'waiting',
+  };
+}
+
+/**
+ * Parse CONTEXT content: "word|sentence1|sentence2|sentence3" format
+ */
+function parseContextContent(content: string): ContextItemData {
+  const parts = content.split('|').map(p => p.trim());
+  const word = parts[0] || content;
+  const sentences = parts.slice(1).filter(s => s.length > 0);
+  
+  return {
+    word,
+    sentences: sentences.length > 0 ? sentences : [content],
+  };
+}
+
+/**
+ * Normalize tense names to canonical forms
+ */
+function normalizeTense(rawTense: string): string {
+  const tenseMap: Record<string, string> = {
+    'present': 'present',
+    'past': 'preterite',
+    'preterite': 'preterite',
+    'pretérito': 'preterite',
+    'future': 'future',
+    'futuro': 'future',
+    'imperfect': 'imperfect',
+    'imperfecto': 'imperfect',
+    'conditional': 'conditional',
+    'condicional': 'conditional',
+    'subjunctive': 'subjunctive',
+    'subjuntivo': 'subjunctive',
+    'present subjunctive': 'subjunctive',
+    'past participle': 'past participle',
+    'gerund': 'gerund',
+  };
+  const normalized = rawTense.toLowerCase().trim();
+  return tenseMap[normalized] || normalized;
+}
+
+/**
+ * Parse GRAMMAR_TABLE content: "verb|tense" format
+ */
+function parseGrammarTableContent(content: string): GrammarTableItemData {
+  const parts = content.split('|').map(p => p.trim());
+  const rawTense = parts[1] || 'present';
+  return {
+    verb: parts[0] || content,
+    tense: normalizeTense(rawTense),
+    isLoading: true,
   };
 }
 
@@ -311,6 +408,37 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
     });
   }
 
+  // Parse CONTEXT tags (Phase 3)
+  WHITEBOARD_PATTERNS.CONTEXT.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.CONTEXT.exec(text)) !== null) {
+    const content = match[1].trim();
+    const contextData = parseContextContent(content);
+    items.push({
+      type: 'context',
+      content,
+      timestamp: now,
+      id: generateItemId(),
+      data: contextData,
+    });
+    // Add the word to vocabulary
+    if (contextData.word) {
+      vocabularyWords.push(contextData.word);
+    }
+  }
+
+  // Parse GRAMMAR_TABLE tags (Phase 3)
+  WHITEBOARD_PATTERNS.GRAMMAR_TABLE.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.GRAMMAR_TABLE.exec(text)) !== null) {
+    const content = match[1].trim();
+    items.push({
+      type: 'grammar_table',
+      content,
+      timestamp: now,
+      id: generateItemId(),
+      data: parseGrammarTableContent(content),
+    });
+  }
+
   const cleanText = text
     .replace(ALL_WHITEBOARD_MARKUP_PATTERN, '')
     .replace(/\s{2,}/g, ' ')
@@ -361,6 +489,10 @@ export const whiteboardExamples = {
     `[IMAGE]${word}${description ? `|${description}` : ''}[/IMAGE]`,
   drill: (prompt: string, type: DrillType = 'repeat') => 
     `[DRILL type="${type}"]${prompt}[/DRILL]`,
+  context: (word: string, sentences: string[]) => 
+    `[CONTEXT]${word}|${sentences.join('|')}[/CONTEXT]`,
+  grammarTable: (verb: string, tense: string = 'present') => 
+    `[GRAMMAR_TABLE]${verb}|${tense}[/GRAMMAR_TABLE]`,
   clear: '[CLEAR]',
   hold: '[HOLD]',
 };
@@ -391,6 +523,20 @@ export function isPronunciationItem(item: WhiteboardItem): item is Pronunciation
  */
 export function isTextItem(item: WhiteboardItem): item is WriteItem | PhoneticItem | CompareItem {
   return item.type === 'write' || item.type === 'phonetic' || item.type === 'compare';
+}
+
+/**
+ * Type guard for checking if an item is a context item
+ */
+export function isContextItem(item: WhiteboardItem): item is ContextItem {
+  return item.type === 'context';
+}
+
+/**
+ * Type guard for checking if an item is a grammar table item
+ */
+export function isGrammarTableItem(item: WhiteboardItem): item is GrammarTableItem {
+  return item.type === 'grammar_table';
 }
 
 /**

@@ -258,19 +258,20 @@ Based on a consultation session with Gemini in tutor persona (Dec 4, 2025), aski
 
 ### Phase 3: Grammar & Context Tools
 
-**Context Sentences**
+**✅ Context Sentences** (Completed Dec 4, 2025)
 - Show multiple example sentences with highlighted target word
 - Essential for polysemous words (run, get, take)
 - Markup: `[CONTEXT]word|sentence1|sentence2[/CONTEXT]`
 - *Difficulty: Low | Impact: High*
 
-**Grammar Tables**
+**✅ Grammar Tables** (Completed Dec 4, 2025)
 - Visual conjugation and inflection patterns
 - Show verb tenses, noun declensions at a glance
 - Markup: `[GRAMMAR_TABLE]verb|tense[/GRAMMAR_TABLE]`
 - *Difficulty: Medium | Impact: High*
+- *Future Enhancement: Add conjugation service for dynamic data*
 
-**Pronunciation Feedback**
+**Pronunciation Feedback** (Pending)
 - Compare student pronunciation to target
 - Visual feedback (waveform, phoneme highlighting)
 - *Difficulty: High | Impact: High*
@@ -312,6 +313,24 @@ Based on a consultation session with Gemini in tutor persona (Dec 4, 2025), aski
 ---
 
 ## Recently Completed Features
+
+### ✅ Tutor Whiteboard Phase 3a+3b (Dec 4, 2025)
+**Status:** Completed
+
+- **Context Sentences**: `[CONTEXT]word|sentence1|sentence2[/CONTEXT]`
+  - Shows vocabulary in multiple real usage contexts
+  - Word highlighting in each sentence
+  - Staggered animation for sentence reveal
+  - Cyan color scheme for contextual learning
+  
+- **Grammar Tables**: `[GRAMMAR_TABLE]verb|tense[/GRAMMAR_TABLE]`
+  - Visual conjugation display with pronoun-form grid
+  - Supports: present, past, future, imperfect, conditional, subjunctive
+  - Loading state for async conjugation generation
+  - Indigo color scheme for grammar instruction
+
+- System prompt updated with Phase 3 tool documentation and examples
+- Type guards and helper functions for new item types
 
 ### ✅ Tutor Whiteboard Phase 2 (Dec 4, 2025)
 **Status:** Completed
