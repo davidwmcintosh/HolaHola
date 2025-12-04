@@ -1217,6 +1217,12 @@ export class StreamingAudioPlayer {
       const effectiveSentenceIndex = wordBasedSentenceIndex >= 0 ? wordBasedSentenceIndex : activeIndex;
       const effectiveEntry = effectiveSentenceIndex >= 0 ? this.sentenceSchedule.get(effectiveSentenceIndex) : null;
       
+      // DEBUG: Log effective sentence detection every 30 frames
+      if (frameCount % 30 === 0) {
+        const wordScheduleSize = this.wordSchedule.size;
+        console.error(`[TIMING FRAME ${frameCount}] wordBasedIdx=${wordBasedSentenceIndex}, sentenceBasedIdx=${activeIndex}, effective=${effectiveSentenceIndex}, scheduleSize=${this.sentenceSchedule.size}, wordScheduleSize=${wordScheduleSize}`);
+      }
+      
       if (effectiveEntry && effectiveSentenceIndex >= 0) {
         // Fire onSentenceStart if this is a NEW active sentence
         if (!effectiveEntry.started) {
@@ -1226,7 +1232,8 @@ export class StreamingAudioPlayer {
           this.activeSentenceInLoop = effectiveSentenceIndex;
           this.progressivePlaybackStartCtxTime = effectiveEntry.startCtxTime;
           
-          console.log(`[SENTENCE] ▶▶▶ STARTING sentence ${effectiveSentenceIndex} (now=${ctx.currentTime.toFixed(3)}, scheduled=${effectiveEntry.startCtxTime.toFixed(3)}, via=${wordBasedSentenceIndex >= 0 ? 'word' : 'sentence'})`);
+          // CRITICAL: Use console.error for visibility
+          console.error(`[SENTENCE] ▶▶▶ STARTING S${effectiveSentenceIndex} (now=${ctx.currentTime.toFixed(3)}, scheduled=${effectiveEntry.startCtxTime.toFixed(3)}, via=${wordBasedSentenceIndex >= 0 ? 'word' : 'sentence'})`);
           
           // Log sentence transition for debug panel
           logSentenceTransition(previousSentence, effectiveSentenceIndex, `started at ${ctx.currentTime.toFixed(2)}s`);
