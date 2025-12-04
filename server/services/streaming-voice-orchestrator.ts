@@ -1542,6 +1542,10 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         const audioMsg = message as any;
         console.log(`[SEND DEBUG] audio_chunk: sentence=${audioMsg.sentenceIndex}, chunk=${audioMsg.chunkIndex}, audioLen=${audioMsg.audio?.length || 0}, isLast=${audioMsg.isLast}`);
       }
+      if (message.type === 'response_complete') {
+        const completeMsg = message as any;
+        console.log(`[SEND DEBUG] >>> RESPONSE_COMPLETE: totalSentences=${completeMsg.totalSentences}, fullText=${completeMsg.fullText?.slice(0, 50)}...`);
+      }
       ws.send(json);
     } else {
       // DEBUG: Log when WebSocket isn't open
