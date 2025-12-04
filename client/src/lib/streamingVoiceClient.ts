@@ -440,7 +440,10 @@ export class StreamingVoiceClient {
       }
       
       // Use console.error for critical message types to ensure visibility
-      if (message.type === 'word_timing_delta') {
+      if (message.type === 'response_complete') {
+        // CRITICAL: This message MUST be received for turn completion to work
+        console.error(`[WS-CRITICAL] >>> RESPONSE_COMPLETE received: totalSentences=${(message as any).totalSentences}`);
+      } else if (message.type === 'word_timing_delta') {
         const delta = message as any;
         console.error(`[WS-DELTA-RCVD] s=${delta.sentenceIndex}, w=${delta.wordIndex} "${delta.word}" ${delta.startTime?.toFixed(3)}-${delta.endTime?.toFixed(3)}s`);
       } else if (message.type === 'audio_chunk') {
