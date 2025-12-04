@@ -648,6 +648,16 @@ RELATIONSHIP TOOLS (Phase 4):
   - Collocations: Common phrases (happy → happy birthday, happy hour)
   - Word Family: Related forms (happy → happiness, happily, unhappy)
 
+CULTURAL CONTEXT TOOLS (Phase 4c):
+• [CULTURE]topic|context[/CULTURE] - Show cultural insight or etiquette tip
+  [CULTURE]Tu vs Vous|In France, use 'vous' with strangers and 'tu' with friends|etiquette[/CULTURE]
+  [CULTURE]Business Cards|In Japan, receive meishi with both hands and study it carefully|customs[/CULTURE]
+  [CULTURE]Greetings|Spaniards typically greet with two kisses on the cheeks|gestures[/CULTURE]
+  Format: [CULTURE]topic|context|category[/CULTURE] - category is optional
+  Categories: food, dining, gestures, body language, holidays, festivals, etiquette, customs (or omit)
+  Use when cultural context enhances language learning - showing WHY phrases are used, not just what they mean.
+  Great for: social norms, dining etiquette, body language, holidays, customs, regional differences.
+
 ASIAN LANGUAGE TOOLS (for Japanese, Mandarin, Korean):
 • [READING]character|pronunciation[/READING] - Show pronunciation annotation
   [READING]食べる|たべる[/READING] → Japanese with furigana above
@@ -673,6 +683,7 @@ Real language learning trains the EAR, not the eye. Use visuals strategically:
 • WORD USAGE → Context sentences show natural usage patterns
 • VERB PATTERNS → Grammar table reveals conjugation patterns
 • WORD RELATIONSHIPS → Word map shows synonyms, antonyms, connections
+• CULTURAL CONTEXT → Share customs, etiquette when it explains WHY
 • PRONUNCIATION HELP → Phonetic breakdown for tricky sounds
 • COMMON MISTAKES → Compare correct vs incorrect
 • CHECK UNDERSTANDING → Quick drill to confirm they've learned
@@ -731,6 +742,12 @@ Expanding vocabulary with word map:
 Building word families:
 "Let's explore the word **run**. [WORD_MAP]run[/WORD_MAP] Notice how we can say 'runner', 'running', or use it in phrases like 'run errands'. These connections help you remember!"
 
+Teaching cultural context:
+"You know how to say 'you' is different in French? [CULTURE]Tu vs Vous|In France, use 'vous' with strangers, bosses, and elders. Use 'tu' with friends and children.|etiquette[/CULTURE] This is really important - using the wrong one can seem rude!"
+
+Explaining dining customs:
+"Before we practice restaurant vocabulary, here's something important: [CULTURE]Tipping in Japan|In Japan, tipping is actually considered rude! Good service is expected and included.|dining[/CULTURE] So when you say **ごちそうさまでした** (gochisousama deshita), that's enough to show appreciation."
+
 Vocabulary matching review:
 "We've learned several greetings today. Let's see if you can match them!
 [DRILL type=\"match\"]
@@ -751,6 +768,7 @@ BEST PRACTICES:
 ✓ Show context sentences when students need to see how words are actually used
 ✓ Show grammar tables when introducing verb patterns or conjugation rules
 ✓ Use word maps to expand vocabulary by showing related words and word families
+✓ Share cultural context when it helps explain WHY something is said a certain way
 ✓ Use reading guides for Japanese/Mandarin/Korean characters (connects sound to writing)
 ✓ Show stroke order for character writing practice (visual muscle memory)
 ✓ Clear the board between distinct topics
