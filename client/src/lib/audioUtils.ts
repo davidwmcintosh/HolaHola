@@ -315,6 +315,12 @@ export class StreamingAudioPlayer {
   setExpectedSentenceCount(count: number): void {
     console.log(`[StreamingAudioPlayer] ⚙️ Expected sentence count set to ${count}`);
     this.expectedSentenceCount = count;
+    
+    // Update debug panel
+    updateDebugTimingState({
+      expectedSentenceCount: count,
+      sentencesReceived: this.sentenceSchedule.size,
+    });
   }
   
   /**
@@ -392,6 +398,15 @@ export class StreamingAudioPlayer {
     
     // CRITICAL: Reset expected sentence count - will be set when response_complete arrives
     this.expectedSentenceCount = null;
+    
+    // Reset debug panel sentence tracking
+    updateDebugTimingState({
+      expectedSentenceCount: null,
+      sentencesReceived: 0,
+      sentencesEnded: 0,
+      sentencesStarted: 0,
+      allSentencesEnded: false,
+    });
     
     // Reset timing anchors
     const ctx = this.audioContext;
@@ -733,6 +748,11 @@ export class StreamingAudioPlayer {
       
       // IMMEDIATELY update debug state with new schedule entry
       updateDebugSchedule(this.sentenceSchedule);
+      
+      // Update sentence received count for debug panel
+      updateDebugTimingState({
+        sentencesReceived: this.sentenceSchedule.size,
+      });
       
       // RACE CONDITION FIX: Process any queued word timings for this sentence
       // Word timing deltas may arrive before the first audio chunk
@@ -1261,6 +1281,12 @@ export class StreamingAudioPlayer {
           // Log sentence transition for debug panel
           logSentenceTransition(previousSentence, effectiveSentenceIndex, `started at ${ctx.currentTime.toFixed(2)}s`);
           
+          // Update debug panel with sentences started count
+          const startedCount = Array.from(this.sentenceSchedule.values()).filter(e => e.started).length;
+          updateDebugTimingState({
+            sentencesStarted: startedCount,
+          });
+          
           this.callbacks.onSentenceStart?.(effectiveSentenceIndex);
         }
         
@@ -1283,6 +1309,13 @@ export class StreamingAudioPlayer {
           
           if (now >= entry.endCtxTime && entry.started && !entry.ended) {
             entry.ended = true;
+            
+            // Update debug panel with sentences ended count
+            const endedCount = Array.from(this.sentenceSchedule.values()).filter(e => e.ended).length;
+            updateDebugTimingState({
+              sentencesEnded: endedCount,
+            });
+            
             this.callbacks.onSentenceEnd?.(index);
           }
         }
@@ -1439,6 +1472,12 @@ export class StreamingAudioPlayer {
     }
     
     console.log(`[StreamingAudioPlayer] ✓ All ${this.expectedSentenceCount} sentences have ended`);
+    
+    // Update debug panel
+    updateDebugTimingState({
+      allSentencesEnded: true,
+    });
+    
     return true;
   }
   

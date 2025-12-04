@@ -194,6 +194,13 @@ export interface DebugTimingState {
       timingsArrivedFirst: boolean;
     }>;
   };
+  
+  // NEW: Expected sentence count tracking (for multi-sentence turn completion fix)
+  expectedSentenceCount: number | null;       // From response_complete message
+  sentencesReceived: number;                  // How many sentences have been added to schedule
+  sentencesEnded: number;                     // How many sentences have fired their END callback
+  sentencesStarted: number;                   // How many sentences have fired their START callback
+  allSentencesEnded: boolean;                 // Whether checkAllSentencesEnded() returned true
 }
 
 // Maximum number of word events to keep in log
@@ -279,6 +286,13 @@ function getDebugState(): DebugTimingState {
         timingsArrivedFirst: false,
         history: [],
       },
+      
+      // Expected sentence count tracking
+      expectedSentenceCount: null,
+      sentencesReceived: 0,
+      sentencesEnded: 0,
+      sentencesStarted: 0,
+      allSentencesEnded: false,
     };
   }
   return window.__debugTimingState;
@@ -502,6 +516,13 @@ export function resetDebugTimingState(): void {
       timingsArrivedFirst: false,
       history: [],
     },
+    
+    // Expected sentence count tracking
+    expectedSentenceCount: null,
+    sentencesReceived: 0,
+    sentencesEnded: 0,
+    sentencesStarted: 0,
+    allSentencesEnded: false,
   };
   window.__debugTimingState = newState;
   getListeners().forEach(listener => listener(newState));

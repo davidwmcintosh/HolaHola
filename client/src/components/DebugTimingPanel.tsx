@@ -68,6 +68,11 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
     tickFrameLogs,
     loopStartTime,
     timingRace,
+    expectedSentenceCount,
+    sentencesReceived,
+    sentencesEnded,
+    sentencesStarted,
+    allSentencesEnded,
   } = state;
   
   const timeSinceUpdate = Date.now() - lastUpdateTime;
@@ -148,6 +153,59 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
               Word Index: <span className="text-pink-400">{currentWordIndex >= 0 ? currentWordIndex : '—'}</span>
               {' | '}Visible: <span className="text-green-300">{visibleWordCount}</span>
               {' | '}Total Received: <span className="text-cyan-300">{wordTimingCount}</span>
+            </div>
+          </div>
+          
+          {/* SECTION 1.5: Expected Sentence Count (CRITICAL for multi-sentence turn completion) */}
+          <div className={`border rounded p-2 ${
+            allSentencesEnded 
+              ? 'border-green-500/40 bg-green-900/20' 
+              : expectedSentenceCount !== null && sentencesReceived < expectedSentenceCount
+                ? 'border-yellow-500/40 bg-yellow-900/20'
+                : 'border-pink-500/40 bg-pink-900/20'
+          }`}>
+            <div className="font-bold text-pink-300 mb-2 flex items-center gap-2">
+              TURN COMPLETION
+              {allSentencesEnded && <span className="text-green-400 text-[10px]">✓ COMPLETE</span>}
+              {expectedSentenceCount === null && <span className="text-yellow-400 text-[10px]">WAITING FOR COUNT</span>}
+              {expectedSentenceCount !== null && !allSentencesEnded && (
+                <span className="text-yellow-400 text-[10px]">
+                  {sentencesReceived}/{expectedSentenceCount} received
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Expected:</span>
+                <span className={expectedSentenceCount !== null ? 'text-pink-400 font-bold' : 'text-gray-500'}>
+                  {expectedSentenceCount !== null ? expectedSentenceCount : 'null'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Received:</span>
+                <span className={sentencesReceived > 0 ? 'text-cyan-400' : 'text-gray-500'}>
+                  {sentencesReceived}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Started:</span>
+                <span className={sentencesStarted > 0 ? 'text-green-400' : 'text-gray-500'}>
+                  {sentencesStarted}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Ended:</span>
+                <span className={sentencesEnded > 0 ? 'text-orange-400' : 'text-gray-500'}>
+                  {sentencesEnded}
+                </span>
+              </div>
+            </div>
+            <div className="mt-2 text-[10px] text-gray-400 text-center">
+              {expectedSentenceCount === null 
+                ? 'Loop continues until response_complete arrives with count' 
+                : allSentencesEnded 
+                  ? 'All sentences received, started, and ended'
+                  : `Waiting for ${expectedSentenceCount - sentencesEnded} more to end`}
             </div>
           </div>
           
