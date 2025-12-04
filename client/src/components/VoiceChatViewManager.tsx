@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { type WordTiming } from "@/lib/restVoiceApi";
 import { useLanguage, type SubtitleMode, type VoiceSpeed } from "@/contexts/LanguageContext";
 import { getEffectiveSubtitleMode } from "@/lib/subtitlePolicies";
+import type { WhiteboardItem } from "@shared/whiteboard-types";
 
 interface VoiceChatViewManagerProps {
   conversationId: string | null;
@@ -54,6 +55,9 @@ interface VoiceChatViewManagerProps {
   onResetData?: () => void;
   isReloadingCredits?: boolean;
   isResettingData?: boolean;
+  // Whiteboard props
+  whiteboardItems?: WhiteboardItem[];
+  onClearWhiteboard?: () => void;
 }
 
 export function VoiceChatViewManager({
@@ -99,6 +103,8 @@ export function VoiceChatViewManager({
   onResetData,
   isReloadingCredits = false,
   isResettingData = false,
+  whiteboardItems = [],
+  onClearWhiteboard,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -264,6 +270,8 @@ export function VoiceChatViewManager({
                 onResetData={onResetData}
                 isReloadingCredits={isReloadingCredits}
                 isResettingData={isResettingData}
+                whiteboardItems={whiteboardItems}
+                onClearWhiteboard={onClearWhiteboard}
               />
             </div>
           ) : (

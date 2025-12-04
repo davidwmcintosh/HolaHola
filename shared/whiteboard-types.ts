@@ -33,12 +33,17 @@ export const WHITEBOARD_TAGS = {
 export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 
 /**
+ * Whiteboard item display types (lowercase for UI styling)
+ */
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare';
+
+/**
  * Individual whiteboard item (one marked section)
  */
 export interface WhiteboardItem {
-  type: WhiteboardTagType;
+  type: WhiteboardItemType;
   content: string;
-  timestamp: number;
+  timestamp?: number;
 }
 
 /**
@@ -104,7 +109,7 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
   WHITEBOARD_PATTERNS.WRITE.lastIndex = 0;
   while ((match = WHITEBOARD_PATTERNS.WRITE.exec(text)) !== null) {
     items.push({
-      type: 'WRITE',
+      type: 'write',
       content: match[1].trim(),
       timestamp: now,
     });
@@ -113,7 +118,7 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
   WHITEBOARD_PATTERNS.PHONETIC.lastIndex = 0;
   while ((match = WHITEBOARD_PATTERNS.PHONETIC.exec(text)) !== null) {
     items.push({
-      type: 'PHONETIC',
+      type: 'phonetic',
       content: match[1].trim(),
       timestamp: now,
     });
@@ -122,7 +127,7 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
   WHITEBOARD_PATTERNS.COMPARE.lastIndex = 0;
   while ((match = WHITEBOARD_PATTERNS.COMPARE.exec(text)) !== null) {
     items.push({
-      type: 'COMPARE',
+      type: 'compare',
       content: match[1].trim(),
       timestamp: now,
     });

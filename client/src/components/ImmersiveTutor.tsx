@@ -12,6 +12,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DebugTimingPanel } from "./DebugTimingPanel";
+import { Whiteboard } from "./Whiteboard";
+import type { WhiteboardItem } from "@shared/whiteboard-types";
 
 // Female tutor avatars (default)
 import femaleTutorSpeakingUrl from "@assets/tutor-speaking-No-Background_1764099971093.png";
@@ -74,6 +76,9 @@ interface ImmersiveTutorProps {
   onResetData?: () => void; // Callback to reset learning data
   isReloadingCredits?: boolean; // Loading state for reload credits
   isResettingData?: boolean; // Loading state for reset data
+  // Whiteboard props - tutor-controlled visual teaching aids
+  whiteboardItems?: WhiteboardItem[]; // Current whiteboard items to display
+  onClearWhiteboard?: () => void; // Callback to manually clear whiteboard
 }
 
 export function ImmersiveTutor({
@@ -121,6 +126,8 @@ export function ImmersiveTutor({
   onResetData,
   isReloadingCredits = false,
   isResettingData = false,
+  whiteboardItems = [],
+  onClearWhiteboard,
 }: ImmersiveTutorProps) {
   const [currentWordTimings, setCurrentWordTimings] = useState<WordTiming[]>([]);
   const [highlightedWordIndex, setHighlightedWordIndex] = useState<number>(-1);
@@ -454,6 +461,14 @@ export function ImmersiveTutor({
           return null;
         })()}
         
+        {/* Whiteboard Overlay - Tutor-controlled visual teaching aids */}
+        {whiteboardItems.length > 0 && (
+          <Whiteboard 
+            items={whiteboardItems} 
+            onClear={onClearWhiteboard}
+          />
+        )}
+
         {/* Subtitle Overlay - Karaoke-style word highlighting with Cartesia estimated timings */}
         {(() => {
           // Get synchronous value for immediate check (bypasses React batching)

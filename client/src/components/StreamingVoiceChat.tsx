@@ -29,6 +29,7 @@ import { useStreamingVoice } from "@/hooks/useStreamingVoice";
 import { useUser } from "@/lib/auth";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { useToast } from "@/hooks/use-toast";
+import { useWhiteboard } from "@/hooks/useWhiteboard";
 
 // ============================================================================
 // STREAMING MODE CONFIGURATION
@@ -227,6 +228,9 @@ export function StreamingVoiceChat({
   const [lastAudioBlob, setLastAudioBlob] = useState<Blob | null>(null);
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
   const [isSlowRepeatLoading, setIsSlowRepeatLoading] = useState(false);
+  
+  // Whiteboard hook - tutor-controlled visual teaching aids
+  const whiteboard = useWhiteboard();
   
   // Cache for slow repeat audio - so subsequent presses just replay
   const slowRepeatCacheRef = useRef<{ messageId: string; audioBlob: Blob } | null>(null);
@@ -492,6 +496,22 @@ export function StreamingVoiceChat({
       scrollRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  // Process streaming text through whiteboard to extract markup
+  // The tutor may include [WRITE]...[/WRITE] tags for visual teaching aids
+  useEffect(() => {
+    if (!useStreamingMode) return;
+    
+    const currentText = streamingVoice.subtitles.state.currentSentenceText;
+    if (currentText) {
+      whiteboard.processMessage(currentText);
+    }
+  }, [useStreamingMode, streamingVoice.subtitles.state.currentSentenceText]);
+  
+  // Clear whiteboard when conversation changes
+  useEffect(() => {
+    whiteboard.clear();
+  }, [conversationId]);
 
   // Request AI-generated streaming greeting for new conversations
   // When streaming mode is enabled, we use the streaming pipeline for dynamic greetings
@@ -1693,6 +1713,8 @@ export function StreamingVoiceChat({
           onResetData={() => resetDataMutation.mutate()}
           isReloadingCredits={reloadCreditsMutation.isPending}
           isResettingData={resetDataMutation.isPending}
+          whiteboardItems={whiteboard.items}
+          onClearWhiteboard={whiteboard.clear}
         />
       </div>
     </div>
