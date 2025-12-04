@@ -364,12 +364,13 @@ export class StreamingAudioPlayer {
    * preventing stale callbacks from firing on the new turn's audio.
    */
   resetForNewTurn(): void {
-    console.error(`[StreamingAudioPlayer] ⚠️ RESET FOR NEW TURN - clearing ${this.sentenceSchedule.size} sentences, ${this.wordSchedule.size} words`);
+    console.error(`[StreamingAudioPlayer] ⚠️ RESET FOR NEW TURN - clearing ${this.sentenceSchedule.size} sentences, ${this.wordSchedule.size} words, ${this.pendingWordTimings.size} pending`);
     
     // Clear progressive playback state
     this.progressiveFirstChunkStarted = false;
     this.sentenceSchedule.clear();
     this.wordSchedule.clear();
+    this.pendingWordTimings.clear();  // CRITICAL: Also clear pending word timings
     this.activeSentenceInLoop = -1;
     this.progressiveSentenceIndex = -1;
     this.progressiveChunks = [];
