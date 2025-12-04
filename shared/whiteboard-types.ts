@@ -44,6 +44,7 @@ export const WHITEBOARD_TAGS = {
   READING: 'READING',
   STROKE: 'STROKE',
   WORD_MAP: 'WORD_MAP',
+  CULTURE: 'CULTURE',
   CLEAR: 'CLEAR',
   HOLD: 'HOLD',
 } as const;
@@ -53,7 +54,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'word_map';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'word_map' | 'culture';
 
 /**
  * Drill types for inline micro-exercises
@@ -181,6 +182,20 @@ export interface WordMapItemData {
 }
 
 /**
+ * Culture item data
+ * Shows cultural insights, customs, etiquette, or context
+ * Format: [CULTURE]topic|context|category[/CULTURE]
+ * - topic: The main cultural subject (e.g., "Bowing in Japan")
+ * - context: Explanation of when/why/how
+ * - category: Optional category (etiquette, customs, gestures, food, holidays)
+ */
+export interface CultureItemData {
+  topic: string;              // Main cultural topic/title
+  context: string;            // Explanation of the cultural point
+  category?: string;          // Category: etiquette, customs, gestures, food, holidays
+}
+
+/**
  * Individual whiteboard item (one marked section)
  * Discriminated union for type-safe rendering
  */
@@ -252,6 +267,12 @@ export interface WordMapItem extends WhiteboardItemBase {
   data: WordMapItemData;
 }
 
+export interface CultureItem extends WhiteboardItemBase {
+  type: 'culture';
+  content: string;
+  data: CultureItemData;
+}
+
 export type WhiteboardItem = 
   | WriteItem 
   | PhoneticItem 
@@ -263,7 +284,8 @@ export type WhiteboardItem =
   | GrammarTableItem
   | ReadingItem
   | StrokeItem
-  | WordMapItem;
+  | WordMapItem
+  | CultureItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -311,16 +333,17 @@ export const WHITEBOARD_PATTERNS = {
   READING: /\[READING\]([\s\S]*?)\[\/READING\]/gi,
   STROKE: /\[STROKE\]([\s\S]*?)\[\/STROKE\]/gi,
   WORD_MAP: /\[WORD_MAP\]([\s\S]*?)\[\/WORD_MAP\]/gi,
+  CULTURE: /\[CULTURE\]([\s\S]*?)\[\/CULTURE\]/gi,
   CLEAR: /\[CLEAR\]/gi,
   HOLD: /\[HOLD\]/gi,
 } as const;
 
 /**
  * All whiteboard markup pattern (for stripping)
- * Updated to include all Phase 4 tags including Word Map
+ * Updated to include all Phase 4 tags including Word Map and Culture
  */
 export const ALL_WHITEBOARD_MARKUP_PATTERN = 
-  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|WORD_MAP)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[(CLEAR|HOLD)\]/gi;
+  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|WORD_MAP|CULTURE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[(CLEAR|HOLD)\]/gi;
 
 /**
  * Generate unique ID for whiteboard items
@@ -546,6 +569,24 @@ function parseWordMapContent(content: string): WordMapItemData {
 }
 
 /**
+ * Parse CULTURE content: "topic|context|category" format
+ * Example: "Bowing in Japan|Bowing is a fundamental part of Japanese etiquette...|etiquette"
+ */
+function parseCultureContent(content: string): CultureItemData {
+  const parts = content.split('|').map(p => p.trim());
+  
+  const topic = parts[0] || 'Cultural Insight';
+  const context = parts[1] || parts[0] || content;
+  const category = parts[2] || undefined;
+  
+  return {
+    topic,
+    context,
+    category,
+  };
+}
+
+/**
  * Normalize tense names to canonical forms
  */
 function normalizeTense(rawTense: string): string {
@@ -743,6 +784,19 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
     }
   }
 
+  // Parse CULTURE tags (Phase 4 - cultural insights)
+  WHITEBOARD_PATTERNS.CULTURE.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.CULTURE.exec(text)) !== null) {
+    const content = match[1].trim();
+    items.push({
+      type: 'culture',
+      content,
+      timestamp: now,
+      id: generateItemId(),
+      data: parseCultureContent(content),
+    });
+  }
+
   const cleanText = text
     .replace(ALL_WHITEBOARD_MARKUP_PATTERN, '')
     .replace(/\s{2,}/g, ' ')
@@ -805,6 +859,8 @@ export const whiteboardExamples = {
     `[STROKE]${character}${language ? `|${language}` : ''}[/STROKE]`,
   wordMap: (targetWord: string) => 
     `[WORD_MAP]${targetWord}[/WORD_MAP]`,
+  culture: (topic: string, context: string, category?: string) => 
+    `[CULTURE]${topic}|${context}${category ? `|${category}` : ''}[/CULTURE]`,
   clear: '[CLEAR]',
   hold: '[HOLD]',
 };
@@ -870,6 +926,13 @@ export function isStrokeItem(item: WhiteboardItem): item is StrokeItem {
  */
 export function isWordMapItem(item: WhiteboardItem): item is WordMapItem {
   return item.type === 'word_map';
+}
+
+/**
+ * Type guard for checking if an item is a culture item
+ */
+export function isCultureItem(item: WhiteboardItem): item is CultureItem {
+  return item.type === 'culture';
 }
 
 /**
