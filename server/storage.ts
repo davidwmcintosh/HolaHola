@@ -236,6 +236,9 @@ export interface IStorage {
   createMediaFile(data: InsertMediaFile): Promise<MediaFile>;
   getMediaFile(id: string): Promise<MediaFile | undefined>;
   getUserMediaFiles(userId: string): Promise<MediaFile[]>;
+  getAllMediaFiles(options?: { source?: string; limit?: number; offset?: number }): Promise<{ files: MediaFile[]; total: number }>;
+  updateMediaFile(id: string, data: { title?: string | null; description?: string | null; tags?: string[] | null; language?: string | null }): Promise<MediaFile | undefined>;
+  deleteMediaFile(id: string): Promise<boolean>;
   
   // Message Media (images in conversations)
   createMessageMedia(data: InsertMessageMedia): Promise<MessageMedia>;
@@ -1867,6 +1870,49 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(mediaFiles)
       .where(eq(mediaFiles.uploadedBy, userId))
       .orderBy(desc(mediaFiles.createdAt));
+  }
+
+  async getAllMediaFiles(options: { source?: string; limit?: number; offset?: number } = {}): Promise<{ files: MediaFile[]; total: number }> {
+    const { source, limit = 50, offset = 0 } = options;
+    
+    const whereClause = source ? eq(mediaFiles.imageSource, source) : undefined;
+    
+    const [files, countResult] = await Promise.all([
+      whereClause
+        ? db.select().from(mediaFiles).where(whereClause).orderBy(desc(mediaFiles.createdAt)).limit(limit).offset(offset)
+        : db.select().from(mediaFiles).orderBy(desc(mediaFiles.createdAt)).limit(limit).offset(offset),
+      whereClause
+        ? db.select({ count: sql<number>`count(*)` }).from(mediaFiles).where(whereClause)
+        : db.select({ count: sql<number>`count(*)` }).from(mediaFiles)
+    ]);
+    
+    return {
+      files,
+      total: Number(countResult[0]?.count || 0)
+    };
+  }
+
+  async updateMediaFile(id: string, data: { title?: string | null; description?: string | null; tags?: string[] | null; language?: string | null }): Promise<MediaFile | undefined> {
+    const allowedUpdates: Partial<typeof mediaFiles.$inferInsert> = {};
+    if (data.title !== undefined) allowedUpdates.title = data.title;
+    if (data.description !== undefined) allowedUpdates.description = data.description;
+    if (data.tags !== undefined) allowedUpdates.tags = data.tags;
+    if (data.language !== undefined) allowedUpdates.language = data.language;
+    
+    if (Object.keys(allowedUpdates).length === 0) {
+      return await this.getMediaFile(id);
+    }
+    
+    const [updated] = await db.update(mediaFiles)
+      .set(allowedUpdates)
+      .where(eq(mediaFiles.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteMediaFile(id: string): Promise<boolean> {
+    const result = await db.delete(mediaFiles).where(eq(mediaFiles.id, id));
+    return true;
   }
 
   // Message Media (images in conversations)

@@ -50,7 +50,14 @@ import {
   Zap,
   Plane,
   BookOpen,
-  X
+  X,
+  Image,
+  Sparkles,
+  ExternalLink,
+  Download,
+  Eye,
+  Calendar,
+  Hash
 } from "lucide-react";
 import {
   AlertDialog,
@@ -111,6 +118,7 @@ export default function CommandCenter() {
     { id: "users", label: "Users", icon: Users, roles: ['admin'] },
     { id: "classes", label: "Classes", icon: GraduationCap, roles: ['admin', 'developer'] },
     { id: "analytics", label: "Analytics", icon: BarChart3, roles: ['admin', 'developer'] },
+    { id: "images", label: "Images", icon: Image, roles: ['admin', 'developer'] },
     { id: "voice-lab", label: "Voice Lab", icon: Volume2, roles: ['admin', 'developer'] },
     { id: "dev-tools", label: "Dev Tools", icon: Code, roles: ['developer', 'admin'] },
     { id: "audit", label: "Audit", icon: FileText, roles: ['admin'] },
@@ -181,6 +189,10 @@ export default function CommandCenter() {
 
           <TabsContent value="analytics" className="space-y-4">
             <AnalyticsTab />
+          </TabsContent>
+
+          <TabsContent value="images" className="space-y-4">
+            <ImageLibraryTab />
           </TabsContent>
 
           <TabsContent value="voice-lab" className="space-y-4">
@@ -1312,6 +1324,323 @@ function VoiceLabTab() {
           </Card>
         </div>
       </CollapsibleSection>
+    </div>
+  );
+}
+
+interface MediaFile {
+  id: string;
+  uploadedBy?: string | null;
+  mediaType: string;
+  url: string;
+  thumbnailUrl?: string | null;
+  filename: string;
+  mimeType: string;
+  fileSize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  title?: string | null;
+  description?: string | null;
+  tags?: string[] | null;
+  language?: string | null;
+  imageSource?: string | null;
+  searchQuery?: string | null;
+  promptHash?: string | null;
+  usageCount?: number | null;
+  attributionJson?: string | null;
+  createdAt: string;
+}
+
+function ImageLibraryTab() {
+  const { toast } = useToast();
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [selectedImage, setSelectedImage] = useState<MediaFile | null>(null);
+  const [page, setPage] = useState(0);
+  const limit = 20;
+
+  const queryUrl = sourceFilter === "all"
+    ? `/api/admin/media?limit=${limit}&offset=${page * limit}`
+    : `/api/admin/media?source=${sourceFilter}&limit=${limit}&offset=${page * limit}`;
+
+  const { data, isLoading, refetch } = useQuery<{ files: MediaFile[]; total: number }>({
+    queryKey: [queryUrl],
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/admin/media/${id}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Image deleted successfully" });
+      refetch();
+      setSelectedImage(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete image", variant: "destructive" });
+    },
+  });
+
+  const getSourceBadge = (source?: string | null) => {
+    switch (source) {
+      case 'ai_generated':
+        return <Badge className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30"><Sparkles className="h-3 w-3 mr-1" />AI Generated</Badge>;
+      case 'stock':
+        return <Badge className="bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/30"><Image className="h-3 w-3 mr-1" />Stock</Badge>;
+      case 'user_upload':
+        return <Badge className="bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/30"><User className="h-3 w-3 mr-1" />User Upload</Badge>;
+      default:
+        return <Badge variant="secondary">Unknown</Badge>;
+    }
+  };
+
+  const formatFileSize = (bytes?: number | null) => {
+    if (!bytes) return 'Unknown size';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const totalPages = data ? Math.ceil(data.total / limit) : 0;
+
+  return (
+    <div className="space-y-4">
+      <CollapsibleSection 
+        title="AI-Generated & Stock Images" 
+        icon={<Image className="h-5 w-5 text-primary" />}
+        badge={data?.total?.toString()}
+        defaultOpen={true}
+      >
+        <div className="space-y-4 mt-4">
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground">
+              Review and manage AI-generated educational images and cached stock photos used in lessons.
+            </p>
+            <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setPage(0); }}>
+              <SelectTrigger className="w-48" data-testid="select-source-filter">
+                <SelectValue placeholder="Filter by source" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sources</SelectItem>
+                <SelectItem value="ai_generated">AI Generated</SelectItem>
+                <SelectItem value="stock">Stock Images</SelectItem>
+                <SelectItem value="user_upload">User Uploads</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {isLoading ? (
+            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              {[...Array(10)].map((_, i) => <Skeleton key={i} className="aspect-square rounded-lg" />)}
+            </div>
+          ) : (
+            <>
+              {data?.files && data.files.length > 0 ? (
+                <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                  {data.files.map((file) => (
+                    <Card 
+                      key={file.id} 
+                      className="overflow-hidden cursor-pointer hover-elevate group"
+                      onClick={() => setSelectedImage(file)}
+                      data-testid={`card-image-${file.id}`}
+                    >
+                      <div className="aspect-square relative bg-muted">
+                        <img 
+                          src={file.thumbnailUrl || file.url} 
+                          alt={file.title || file.filename}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Eye className="h-6 w-6 text-white" />
+                        </div>
+                        <div className="absolute top-2 right-2">
+                          {getSourceBadge(file.imageSource)}
+                        </div>
+                      </div>
+                      <CardContent className="p-2">
+                        <p className="text-xs truncate text-muted-foreground">{file.filename}</p>
+                        {file.usageCount && file.usageCount > 0 && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                            <Hash className="h-3 w-3" />
+                            Used {file.usageCount} times
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="py-10 text-center">
+                    <Image className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">No images found</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Images will appear here as they are generated or cached during lessons.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-4">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setPage(p => Math.max(0, p - 1))}
+                    disabled={page === 0}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {page + 1} of {totalPages}
+                  </span>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                    disabled={page >= totalPages - 1}
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </CollapsibleSection>
+
+      <AlertDialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Image className="h-5 w-5" />
+              Image Details
+            </AlertDialogTitle>
+          </AlertDialogHeader>
+          
+          {selectedImage && (
+            <div className="space-y-4">
+              <div className="aspect-video relative bg-muted rounded-lg overflow-hidden">
+                <img 
+                  src={selectedImage.url} 
+                  alt={selectedImage.title || selectedImage.filename}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground mb-1">Filename</p>
+                  <p className="font-medium">{selectedImage.filename}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-1">Source</p>
+                  <div>{getSourceBadge(selectedImage.imageSource)}</div>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-1">Size</p>
+                  <p className="font-medium">{formatFileSize(selectedImage.fileSize)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-1">Dimensions</p>
+                  <p className="font-medium">
+                    {selectedImage.width && selectedImage.height 
+                      ? `${selectedImage.width} x ${selectedImage.height}`
+                      : 'Unknown'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-1">Created</p>
+                  <p className="font-medium flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {formatDate(selectedImage.createdAt)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-1">Usage Count</p>
+                  <p className="font-medium">{selectedImage.usageCount || 0} times</p>
+                </div>
+                {selectedImage.searchQuery && (
+                  <div className="col-span-2">
+                    <p className="text-muted-foreground mb-1">Search Query</p>
+                    <p className="font-medium">{selectedImage.searchQuery}</p>
+                  </div>
+                )}
+                {selectedImage.language && (
+                  <div>
+                    <p className="text-muted-foreground mb-1">Language</p>
+                    <p className="font-medium capitalize">{selectedImage.language}</p>
+                  </div>
+                )}
+                {selectedImage.tags && selectedImage.tags.length > 0 && (
+                  <div className="col-span-2">
+                    <p className="text-muted-foreground mb-1">Tags</p>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedImage.tags.map((tag, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs">{tag}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          <AlertDialogFooter className="flex-row justify-between sm:justify-between">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => selectedImage && window.open(selectedImage.url, '_blank')}
+                data-testid="button-view-full"
+              >
+                <ExternalLink className="h-4 w-4 mr-1" />
+                View Full
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm" data-testid="button-delete-image">
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Delete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Image?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete this image from the library. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => selectedImage && deleteMutation.mutate(selectedImage.id)}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {deleteMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Delete"
+                      )}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+            <AlertDialogCancel data-testid="button-close-details">Close</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

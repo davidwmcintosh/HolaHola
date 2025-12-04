@@ -48,6 +48,8 @@ export const WHITEBOARD_TAGS = {
   PLAY: 'PLAY',
   SCENARIO: 'SCENARIO',
   SUMMARY: 'SUMMARY',
+  ERROR_PATTERNS: 'ERROR_PATTERNS',
+  VOCABULARY_TIMELINE: 'VOCABULARY_TIMELINE',
   CLEAR: 'CLEAR',
   HOLD: 'HOLD',
 } as const;
@@ -57,7 +59,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline';
 
 /**
  * Drill types for inline micro-exercises
@@ -246,6 +248,55 @@ export interface SummaryItemData {
 }
 
 /**
+ * Error pattern entry - A single common mistake
+ */
+export interface ErrorPatternEntry {
+  id: string;
+  incorrect: string;           // What the student said/wrote
+  correct: string;             // The correct form
+  category: string;            // Type: pronunciation, grammar, vocabulary, conjugation
+  frequency: number;           // How often this error occurs
+  lastOccurred?: string;       // ISO timestamp
+  examples?: string[];         // Example sentences where this error occurred
+}
+
+/**
+ * Error patterns item data
+ * Shows student's common mistakes for targeted review
+ * Format: [ERROR_PATTERNS]category[/ERROR_PATTERNS] or [ERROR_PATTERNS][/ERROR_PATTERNS] for all
+ */
+export interface ErrorPatternsItemData {
+  category?: string;           // Filter by category (optional)
+  patterns: ErrorPatternEntry[];
+  isLoading?: boolean;
+}
+
+/**
+ * Vocabulary timeline entry - A word learned at a point in time
+ */
+export interface VocabularyTimelineEntry {
+  id: string;
+  word: string;
+  translation: string;
+  learnedAt: string;           // ISO timestamp
+  source: string;              // Where it was learned (conversation, lesson, drill)
+  proficiency: 'new' | 'learning' | 'familiar' | 'mastered';
+  nextReview?: string;         // ISO timestamp for SRS
+}
+
+/**
+ * Vocabulary timeline item data
+ * Shows words learned over time with connections
+ * Format: [VOCABULARY_TIMELINE]topic[/VOCABULARY_TIMELINE] or [VOCABULARY_TIMELINE][/VOCABULARY_TIMELINE] for recent
+ */
+export interface VocabularyTimelineItemData {
+  topic?: string;              // Filter by topic (optional)
+  timeRange?: string;          // 'today' | 'week' | 'month' | 'all'
+  entries: VocabularyTimelineEntry[];
+  isLoading?: boolean;
+}
+
+/**
  * Individual whiteboard item (one marked section)
  * Discriminated union for type-safe rendering
  */
@@ -341,6 +392,18 @@ export interface SummaryItem extends WhiteboardItemBase {
   data: SummaryItemData;
 }
 
+export interface ErrorPatternsItem extends WhiteboardItemBase {
+  type: 'error_patterns';
+  content: string;
+  data: ErrorPatternsItemData;
+}
+
+export interface VocabularyTimelineItem extends WhiteboardItemBase {
+  type: 'vocabulary_timeline';
+  content: string;
+  data: VocabularyTimelineItemData;
+}
+
 export type WhiteboardItem = 
   | WriteItem 
   | PhoneticItem 
@@ -356,7 +419,9 @@ export type WhiteboardItem =
   | CultureItem
   | PlayItem
   | ScenarioItem
-  | SummaryItem;
+  | SummaryItem
+  | ErrorPatternsItem
+  | VocabularyTimelineItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -408,6 +473,8 @@ export const WHITEBOARD_PATTERNS = {
   PLAY: /\[PLAY(?:\s+speed="([^"]*)")?\]([\s\S]*?)\[\/PLAY\]/gi,
   SCENARIO: /\[SCENARIO\]([\s\S]*?)\[\/SCENARIO\]/gi,
   SUMMARY: /\[SUMMARY\]([\s\S]*?)\[\/SUMMARY\]/gi,
+  ERROR_PATTERNS: /\[ERROR_PATTERNS\]([\s\S]*?)\[\/ERROR_PATTERNS\]/gi,
+  VOCABULARY_TIMELINE: /\[VOCABULARY_TIMELINE\]([\s\S]*?)\[\/VOCABULARY_TIMELINE\]/gi,
   CLEAR: /\[CLEAR\]/gi,
   HOLD: /\[HOLD\]/gi,
 } as const;
@@ -417,7 +484,7 @@ export const WHITEBOARD_PATTERNS = {
  * Updated to include all Phase 4 tags including Word Map and Culture
  */
 export const ALL_WHITEBOARD_MARKUP_PATTERN = 
-  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|WORD_MAP|CULTURE|SCENARIO|SUMMARY)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[(CLEAR|HOLD)\]/gi;
+  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[(CLEAR|HOLD)\]/gi;
 
 /**
  * Generate unique ID for whiteboard items
@@ -749,6 +816,34 @@ function parseGrammarTableContent(content: string): GrammarTableItemData {
 }
 
 /**
+ * Parse ERROR_PATTERNS content: optional category filter
+ * Format: [ERROR_PATTERNS]category[/ERROR_PATTERNS] or empty for all
+ * Data is loaded server-side
+ */
+function parseErrorPatternsContent(content: string): ErrorPatternsItemData {
+  const category = content.trim() || undefined;
+  return {
+    category,
+    patterns: [],
+    isLoading: true,
+  };
+}
+
+/**
+ * Parse VOCABULARY_TIMELINE content: optional topic or time range filter
+ * Format: [VOCABULARY_TIMELINE]topic[/VOCABULARY_TIMELINE] or empty for recent
+ * Data is loaded server-side
+ */
+function parseVocabularyTimelineContent(content: string): VocabularyTimelineItemData {
+  const topic = content.trim() || undefined;
+  return {
+    topic,
+    entries: [],
+    isLoading: true,
+  };
+}
+
+/**
  * Parse tutor response for whiteboard content
  * Extracts marked items and returns clean text for TTS
  */
@@ -961,6 +1056,32 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
     });
   }
 
+  // Parse ERROR_PATTERNS tags (Phase 6 - student mistake patterns)
+  WHITEBOARD_PATTERNS.ERROR_PATTERNS.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.ERROR_PATTERNS.exec(text)) !== null) {
+    const content = match[1].trim();
+    items.push({
+      type: 'error_patterns',
+      content,
+      timestamp: now,
+      id: generateItemId(),
+      data: parseErrorPatternsContent(content),
+    });
+  }
+
+  // Parse VOCABULARY_TIMELINE tags (Phase 6 - vocabulary over time)
+  WHITEBOARD_PATTERNS.VOCABULARY_TIMELINE.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.VOCABULARY_TIMELINE.exec(text)) !== null) {
+    const content = match[1].trim();
+    items.push({
+      type: 'vocabulary_timeline',
+      content,
+      timestamp: now,
+      id: generateItemId(),
+      data: parseVocabularyTimelineContent(content),
+    });
+  }
+
   const cleanText = text
     .replace(ALL_WHITEBOARD_MARKUP_PATTERN, '')
     .replace(/\s{2,}/g, ' ')
@@ -1031,6 +1152,10 @@ export const whiteboardExamples = {
     `[SCENARIO]${location}|${situation}${mood ? `|${mood}` : ''}[/SCENARIO]`,
   summary: (title: string, words: string[], phrases?: string[]) => 
     `[SUMMARY]${title}|${words.join(',')}${phrases?.length ? `|${phrases.join(',')}` : ''}[/SUMMARY]`,
+  errorPatterns: (category?: string) => 
+    category ? `[ERROR_PATTERNS]${category}[/ERROR_PATTERNS]` : `[ERROR_PATTERNS][/ERROR_PATTERNS]`,
+  vocabularyTimeline: (topic?: string) => 
+    topic ? `[VOCABULARY_TIMELINE]${topic}[/VOCABULARY_TIMELINE]` : `[VOCABULARY_TIMELINE][/VOCABULARY_TIMELINE]`,
   clear: '[CLEAR]',
   hold: '[HOLD]',
 };
@@ -1124,6 +1249,20 @@ export function isScenarioItem(item: WhiteboardItem): item is ScenarioItem {
  */
 export function isSummaryItem(item: WhiteboardItem): item is SummaryItem {
   return item.type === 'summary';
+}
+
+/**
+ * Type guard for checking if an item is an error patterns item
+ */
+export function isErrorPatternsItem(item: WhiteboardItem): item is ErrorPatternsItem {
+  return item.type === 'error_patterns';
+}
+
+/**
+ * Type guard for checking if an item is a vocabulary timeline item
+ */
+export function isVocabularyTimelineItem(item: WhiteboardItem): item is VocabularyTimelineItem {
+  return item.type === 'vocabulary_timeline';
 }
 
 /**

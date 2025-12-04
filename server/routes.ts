@@ -8108,6 +8108,95 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // ===== Image Library (Admin Media Management) =====
+  
+  // Get all media files (admin/developer only)
+  app.get("/api/admin/media", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { source, limit, offset } = req.query;
+      const result = await storage.getAllMediaFiles({
+        source: source as string | undefined,
+        limit: limit ? parseInt(limit as string) : 50,
+        offset: offset ? parseInt(offset as string) : 0,
+      });
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error fetching media files:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get single media file details (admin/developer only)
+  app.get("/api/admin/media/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const file = await storage.getMediaFile(id);
+      if (!file) {
+        return res.status(404).json({ error: "Media file not found" });
+      }
+      res.json(file);
+    } catch (error: any) {
+      console.error('Error fetching media file:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update media file (admin/developer only)
+  app.patch("/api/admin/media/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { title, description, tags, language } = req.body;
+      
+      const updated = await storage.updateMediaFile(id, {
+        title,
+        description,
+        tags,
+        language,
+      });
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Media file not found" });
+      }
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error('Error updating media file:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete media file (admin only)
+  app.delete("/api/admin/media/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const adminId = req.user.claims.sub;
+      
+      // Get file info before deletion for audit log
+      const file = await storage.getMediaFile(id);
+      if (!file) {
+        return res.status(404).json({ error: "Media file not found" });
+      }
+      
+      await storage.deleteMediaFile(id);
+      
+      // Log the action
+      await storage.logAdminAction({
+        actorId: adminId,
+        action: 'delete_media',
+        targetType: 'media_file',
+        targetId: id,
+        metadata: { filename: file.filename, imageSource: file.imageSource },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting media file:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== Impersonation =====
   
   // Start impersonation (admin only)

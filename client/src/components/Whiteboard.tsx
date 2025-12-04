@@ -51,6 +51,9 @@ import {
   Sparkles,
   ListChecks,
   RefreshCw,
+  AlertTriangle,
+  Clock,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -72,10 +75,12 @@ import type {
   PlayItem,
   ScenarioItem,
   SummaryItem,
+  ErrorPatternsItem,
+  VocabularyTimelineItem,
   DrillState,
   MatchPair,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isMatchingDrill, getDrillInstructions } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isMatchingDrill, getDrillInstructions } from "@shared/whiteboard-types";
 
 interface WhiteboardProps {
   items: WhiteboardItem[];
@@ -117,6 +122,10 @@ const getItemIcon = (type: WhiteboardItemType) => {
       return <MapPin className="h-4 w-4" />;
     case "summary":
       return <ListChecks className="h-4 w-4" />;
+    case "error_patterns":
+      return <AlertTriangle className="h-4 w-4" />;
+    case "vocabulary_timeline":
+      return <TrendingUp className="h-4 w-4" />;
     default:
       return null;
   }
@@ -154,6 +163,10 @@ const getItemStyle = (type: WhiteboardItemType): string => {
       return "bg-purple-500/10 border-purple-500/30 text-purple-700 dark:text-purple-300";
     case "summary":
       return "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300";
+    case "error_patterns":
+      return "bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300";
+    case "vocabulary_timeline":
+      return "bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-300";
     default:
       return "bg-muted border-border text-foreground";
   }
@@ -1213,23 +1226,25 @@ const PlayItemDisplay = ({ item, index, language }: PlayItemDisplayProps) => {
   const audioUrlRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   
+  const speed = data.speed || 'normal';
+  
   const speedLabel = {
     slow: '0.5x',
     normal: '1x',
     fast: '1.5x',
-  }[data.speed];
+  }[speed];
   
   const speedRate = {
     slow: 0.5,
     normal: 1.0,
     fast: 1.5,
-  }[data.speed];
+  }[speed];
   
   const speedColor = {
     slow: 'text-green-600 dark:text-green-400',
     normal: 'text-sky-600 dark:text-sky-400',
     fast: 'text-orange-600 dark:text-orange-400',
-  }[data.speed];
+  }[speed];
   
   useEffect(() => {
     return () => {
@@ -1347,11 +1362,6 @@ const PlayItemDisplay = ({ item, index, language }: PlayItemDisplayProps) => {
           <span className={`text-xs font-medium ${speedColor}`}>
             {speedLabel}
           </span>
-          {data.phonetic && (
-            <span className="text-sm text-sky-700/70 dark:text-sky-300/70">
-              [{data.phonetic}]
-            </span>
-          )}
         </div>
       </div>
     </motion.div>
@@ -1365,6 +1375,7 @@ interface ScenarioItemDisplayProps {
 
 const ScenarioItemDisplay = ({ item, index }: ScenarioItemDisplayProps) => {
   const { data } = item;
+  const mood = data.mood || 'casual';
   
   const moodStyles: Record<string, { icon: typeof Sparkles; color: string }> = {
     formal: { icon: Users, color: 'text-purple-600 dark:text-purple-400' },
@@ -1373,7 +1384,7 @@ const ScenarioItemDisplay = ({ item, index }: ScenarioItemDisplayProps) => {
     friendly: { icon: Star, color: 'text-yellow-500 dark:text-yellow-400' },
   };
   
-  const moodInfo = moodStyles[data.mood] || moodStyles.casual;
+  const moodInfo = moodStyles[mood] || moodStyles.casual;
   const MoodIcon = moodInfo.icon;
   
   return (
@@ -1392,26 +1403,13 @@ const ScenarioItemDisplay = ({ item, index }: ScenarioItemDisplayProps) => {
         </span>
         <span className={`ml-auto flex items-center gap-1 text-xs uppercase tracking-wide font-medium ${moodInfo.color}`}>
           <MoodIcon className="h-3 w-3" />
-          {data.mood}
+          {mood}
         </span>
       </div>
       
       <p className="text-sm text-purple-900/80 dark:text-purple-100/80 leading-relaxed italic">
         "{data.situation}"
       </p>
-      
-      {data.roles.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-1">
-          {data.roles.map((role, i) => (
-            <span 
-              key={i}
-              className="px-2 py-1 text-xs rounded-full bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30"
-            >
-              {role}
-            </span>
-          ))}
-        </div>
-      )}
     </motion.div>
   );
 };
@@ -1473,6 +1471,208 @@ const SummaryItemDisplay = ({ item, index }: SummaryItemDisplayProps) => {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+interface ErrorPatternsItemDisplayProps {
+  item: ErrorPatternsItem;
+  index: number;
+}
+
+const ErrorPatternsItemDisplay = ({ item, index }: ErrorPatternsItemDisplayProps) => {
+  const { data } = item;
+  
+  const getCategoryColor = (category: string) => {
+    switch (category.toLowerCase()) {
+      case 'pronunciation':
+        return 'bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/30';
+      case 'grammar':
+        return 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30';
+      case 'vocabulary':
+        return 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30';
+      case 'conjugation':
+        return 'bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30';
+      default:
+        return 'bg-rose-500/20 text-rose-700 dark:text-rose-300 border-rose-500/30';
+    }
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-rose-500/10 border-rose-500/30"
+      data-testid={`whiteboard-item-error-patterns-${index}`}
+    >
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="h-5 w-5 text-rose-600 dark:text-rose-400" />
+        <h3 className="text-lg font-bold text-rose-800 dark:text-rose-200">
+          {data.category ? `${data.category} Patterns` : 'Common Mistakes'}
+        </h3>
+      </div>
+      
+      {data.isLoading ? (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="h-6 w-6 animate-spin text-rose-500" />
+          <span className="ml-2 text-sm text-muted-foreground">Loading patterns...</span>
+        </div>
+      ) : data.patterns.length > 0 ? (
+        <div className="space-y-3">
+          {data.patterns.map((pattern, i) => (
+            <motion.div
+              key={pattern.id || i}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 + i * 0.05 }}
+              className="flex flex-col gap-1 p-3 bg-background/50 rounded-lg border border-rose-500/20"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-rose-600 dark:text-rose-400 line-through text-sm">
+                    {pattern.incorrect}
+                  </span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-medium text-sm">
+                    {pattern.correct}
+                  </span>
+                </div>
+                <span className={`px-2 py-0.5 text-xs rounded-full border ${getCategoryColor(pattern.category)}`}>
+                  {pattern.category}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>Occurred {pattern.frequency}x</span>
+                {pattern.lastOccurred && (
+                  <>
+                    <span>•</span>
+                    <span>Last: {new Date(pattern.lastOccurred).toLocaleDateString()}</span>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        <div className="py-3 text-center">
+          <p className="text-sm text-muted-foreground italic">
+            No error patterns recorded yet. Keep practicing!
+          </p>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+interface VocabularyTimelineItemDisplayProps {
+  item: VocabularyTimelineItem;
+  index: number;
+}
+
+const VocabularyTimelineItemDisplay = ({ item, index }: VocabularyTimelineItemDisplayProps) => {
+  const { data } = item;
+  
+  const getProficiencyColor = (proficiency: string) => {
+    switch (proficiency) {
+      case 'new':
+        return 'bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/30';
+      case 'learning':
+        return 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30';
+      case 'familiar':
+        return 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30';
+      case 'mastered':
+        return 'bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30';
+      default:
+        return 'bg-gray-500/20 text-gray-700 dark:text-gray-300 border-gray-500/30';
+    }
+  };
+  
+  const getSourceIcon = (source: string) => {
+    switch (source.toLowerCase()) {
+      case 'conversation':
+        return <Volume2 className="h-3 w-3" />;
+      case 'lesson':
+        return <BookOpen className="h-3 w-3" />;
+      case 'drill':
+        return <Target className="h-3 w-3" />;
+      default:
+        return <Clock className="h-3 w-3" />;
+    }
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-blue-500/10 border-blue-500/30"
+      data-testid={`whiteboard-item-vocabulary-timeline-${index}`}
+    >
+      <div className="flex items-center gap-2">
+        <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+        <h3 className="text-lg font-bold text-blue-800 dark:text-blue-200">
+          {data.topic ? `${data.topic} Vocabulary` : 'Recent Vocabulary'}
+        </h3>
+        {data.timeRange && (
+          <span className="text-xs text-muted-foreground capitalize">
+            ({data.timeRange})
+          </span>
+        )}
+      </div>
+      
+      {data.isLoading ? (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+          <span className="ml-2 text-sm text-muted-foreground">Loading vocabulary...</span>
+        </div>
+      ) : data.entries.length > 0 ? (
+        <div className="relative">
+          <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-blue-500/20" />
+          <div className="space-y-3">
+            {data.entries.map((entry, i) => (
+              <motion.div
+                key={entry.id || i}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 + i * 0.05 }}
+                className="relative flex items-start gap-3 pl-8"
+              >
+                <div className="absolute left-2 top-2 w-4 h-4 rounded-full bg-blue-500/30 border-2 border-blue-500/50 flex items-center justify-center">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                </div>
+                <div className="flex-1 p-3 bg-background/50 rounded-lg border border-blue-500/20">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="font-medium text-blue-900 dark:text-blue-100">
+                      {entry.word}
+                    </span>
+                    <span className={`px-2 py-0.5 text-xs rounded-full border ${getProficiencyColor(entry.proficiency)}`}>
+                      {entry.proficiency}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-1">{entry.translation}</p>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      {getSourceIcon(entry.source)}
+                      {entry.source}
+                    </span>
+                    <span>•</span>
+                    <span>{new Date(entry.learnedAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="py-3 text-center">
+          <p className="text-sm text-muted-foreground italic">
+            No vocabulary recorded yet. Start learning!
+          </p>
         </div>
       )}
     </motion.div>
@@ -1609,6 +1809,14 @@ const WhiteboardItemDisplay = ({
   
   if (isSummaryItem(item)) {
     return <SummaryItemDisplay item={item} index={index} />;
+  }
+  
+  if (isErrorPatternsItem(item)) {
+    return <ErrorPatternsItemDisplay item={item} index={index} />;
+  }
+  
+  if (isVocabularyTimelineItem(item)) {
+    return <VocabularyTimelineItemDisplay item={item} index={index} />;
   }
   
   return <TextItemDisplay item={item} index={index} />;

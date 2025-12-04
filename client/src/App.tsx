@@ -1,5 +1,5 @@
-import { lazy, Suspense } from "react";
-import { Switch, Route, useLocation } from "wouter";
+import { lazy, Suspense, useEffect } from "react";
+import { Switch, Route, useLocation, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -121,6 +121,10 @@ function Router() {
         <Route path="/review" component={ReviewHub} />
         <Route path="/onboarding" component={Onboarding} />
         <Route path="/chat" component={Chat} />
+        {/* Voice tutor route aliases - all redirect to /chat */}
+        <Route path="/voice-tutor"><Redirect to="/chat" /></Route>
+        <Route path="/voice"><Redirect to="/chat" /></Route>
+        <Route path="/tutor"><Redirect to="/chat" /></Route>
         <Route path="/chat-ideas" component={ChatIdeas} />
         <Route path="/cultural-tips" component={CulturalTips} />
         <Route path="/vocabulary" component={Vocabulary} />
