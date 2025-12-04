@@ -76,3 +76,9 @@ When using the run_test tool with OIDC authentication, configure claims like thi
 - `drill-left-{n}` / `drill-right-{n}` - Matching drill items
 - `drill-match-count` - Drill progress indicator
 - `drill-try-again` - Drill reset button
+
+### Testing Limitations
+- **Whiteboard tools (including matching drills)** only work in **Voice Learning mode**
+- The Playwright test agent cannot use voice/microphone, so it defaults to text mode
+- Whiteboard features must be tested manually or via unit/component tests
+- Voice mode whiteboard tests require manual verification with a real microphone

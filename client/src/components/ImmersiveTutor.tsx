@@ -1018,8 +1018,8 @@ export function ImmersiveTutor({
         )}
       </div>
       
-      {/* TEMP DEBUG: Always show debug panel to diagnose subtitle timing issue */}
-      <DebugTimingPanel />
+      {/* Debug timing panel - disabled for production */}
+      {/* <DebugTimingPanel /> */}
     </div>
   );
 }
