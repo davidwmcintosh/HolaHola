@@ -257,6 +257,10 @@ Created comprehensive "Whiteboard Tools Roadmap" section documenting:
 
 ## Phase 5 Implementation Updates (Dec 4, 2025)
 
+**Summary:** Completed wiring of PLAY and STROKE whiteboard tools to their respective backends.
+- PLAY: Connected to Cartesia TTS with variable speed (0.5x/1x/1.5x) and request cancellation
+- STROKE: Integrated HanziWriter library with SSR-safe dynamic import and proper cleanup
+
 ### PLAY Button - Wired to Cartesia TTS
 
 The PLAY button is now fully functional with Cartesia TTS integration:
@@ -278,10 +282,15 @@ The PLAY button is now fully functional with Cartesia TTS integration:
 - Cleanup on unmount (stops audio, revokes object URLs)
 - Language context from LanguageProvider for proper TTS voice
 
+**Technical Details:**
+- `synthesizeSpeech()` now accepts optional `signal?: AbortSignal` parameter (8th argument)
+- Signal passed through to fetch for proper network request cancellation
+- AbortController abort() called before creating new controller to cancel any pending requests
+
 **Files Changed:**
 - `server/routes.ts` - speakingRate parameter support
-- `client/src/lib/restVoiceApi.ts` - synthesizeSpeech with speakingRate
-- `client/src/components/Whiteboard.tsx` - PlayItemDisplay TTS integration
+- `client/src/lib/restVoiceApi.ts` - synthesizeSpeech with speakingRate + AbortSignal
+- `client/src/components/Whiteboard.tsx` - PlayItemDisplay TTS integration with cancellation
 
 ---
 
@@ -307,8 +316,15 @@ The STROKE tool now shows animated stroke order using HanziWriter library:
 - Outline visible for guidance
 - 300ms delay between strokes
 
+**SSR Safety & Cleanup:**
+- Uses `import('hanzi-writer')` dynamic import to avoid SSR crashes
+- Guard: `if (typeof window === 'undefined')` returns early in SSR context
+- All early exits set `isLoading: false` and `hasError: true` to prevent stuck spinners
+- Cleanup calls `writer.destroy()` on unmount to prevent memory leaks
+- `mounted` flag prevents state updates after component unmounts
+
 **Files Changed:**
-- `client/src/components/Whiteboard.tsx` - StrokeItemDisplay with HanziWriter
+- `client/src/components/Whiteboard.tsx` - StrokeItemDisplay with HanziWriter + SSR guards
 
 ---
 
