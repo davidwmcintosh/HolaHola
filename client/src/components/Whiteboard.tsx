@@ -39,6 +39,11 @@ import {
   Network,
   Link2,
   RotateCcw,
+  Globe,
+  Utensils,
+  HandMetal,
+  Calendar,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -53,10 +58,11 @@ import type {
   ReadingItem,
   StrokeItem,
   WordMapItem,
+  CultureItem,
   DrillState,
   MatchPair,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isWordMapItem, isMatchingDrill, getDrillInstructions } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isWordMapItem, isCultureItem, isMatchingDrill, getDrillInstructions } from "@shared/whiteboard-types";
 
 interface WhiteboardProps {
   items: WhiteboardItem[];
@@ -89,6 +95,8 @@ const getItemIcon = (type: WhiteboardItemType) => {
       return <PenTool className="h-4 w-4" />;
     case "word_map":
       return <Network className="h-4 w-4" />;
+    case "culture":
+      return <Globe className="h-4 w-4" />;
     default:
       return null;
   }
@@ -118,6 +126,8 @@ const getItemStyle = (type: WhiteboardItemType): string => {
       return "bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300";
     case "word_map":
       return "bg-teal-500/10 border-teal-500/30 text-teal-700 dark:text-teal-300";
+    case "culture":
+      return "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300";
     default:
       return "bg-muted border-border text-foreground";
   }
@@ -928,6 +938,71 @@ const WordMapItemDisplay = ({ item, index }: WordMapItemDisplayProps) => {
   );
 };
 
+interface CultureItemDisplayProps {
+  item: CultureItem;
+  index: number;
+}
+
+/**
+ * Get icon for cultural category
+ */
+const getCultureCategoryIcon = (category?: string) => {
+  switch (category?.toLowerCase()) {
+    case 'food':
+    case 'dining':
+      return <Utensils className="h-4 w-4" />;
+    case 'gestures':
+    case 'body language':
+      return <HandMetal className="h-4 w-4" />;
+    case 'holidays':
+    case 'festivals':
+      return <Calendar className="h-4 w-4" />;
+    case 'etiquette':
+    case 'customs':
+      return <Users className="h-4 w-4" />;
+    default:
+      return <Globe className="h-4 w-4" />;
+  }
+};
+
+/**
+ * Culture display - shows cultural insights, customs, etiquette
+ * Helps learners understand cultural context beyond vocabulary
+ */
+const CultureItemDisplay = ({ item, index }: CultureItemDisplayProps) => {
+  const { data } = item;
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-amber-500/10 border-amber-500/30"
+      data-testid={`whiteboard-item-culture-${index}`}
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-amber-600 dark:text-amber-400 opacity-80">
+          {getCultureCategoryIcon(data.category)}
+        </span>
+        {data.category && (
+          <span className="text-xs uppercase tracking-wide text-amber-600 dark:text-amber-400 font-medium">
+            {data.category}
+          </span>
+        )}
+      </div>
+      
+      <h3 className="text-lg font-bold text-amber-800 dark:text-amber-200">
+        {data.topic}
+      </h3>
+      
+      <p className="text-sm text-amber-900/80 dark:text-amber-100/80 leading-relaxed">
+        {data.context}
+      </p>
+    </motion.div>
+  );
+};
+
 interface GrammarTableItemDisplayProps {
   item: GrammarTableItem;
   index: number;
@@ -1040,6 +1115,10 @@ const WhiteboardItemDisplay = ({
   
   if (isWordMapItem(item)) {
     return <WordMapItemDisplay item={item} index={index} />;
+  }
+  
+  if (isCultureItem(item)) {
+    return <CultureItemDisplay item={item} index={index} />;
   }
   
   return <TextItemDisplay item={item} index={index} />;
