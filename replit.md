@@ -64,6 +64,44 @@ The tutor's personality is **fixed** - it does not adapt to match the student. T
 - User/student attempts to change tutor demeanor are gracefully declined
 - Teachers can adjust coaching aggressiveness, not core personality
 
+### Context-Driven Proficiency System
+
+> **"Students don't self-select their level. The tutor figures it out."**
+
+Proficiency levels are now derived from context rather than user self-selection during onboarding.
+
+**Why no self-selection:**
+- "I'm a beginner" is arbitrary - people are bad at assessing their own language skills
+- Creates anxiety ("am I really intermediate?")
+- Leads to misaligned expectations and frustration
+- Real teachers assess students; they don't ask students to label themselves
+
+**How levels are determined:**
+
+| Context | Proficiency Source | Example |
+|---------|-------------------|---------|
+| Class-enrolled student | Class's `expectedActflMin` field | Spanish 1 → novice_low → beginner |
+| Self-directed learner (assessed) | ACTFL placement assessment result | intermediate_mid → intermediate |
+| Self-directed learner (new) | Safe default | beginner (tutor adapts from there) |
+
+**Mismatch Detection:**
+The tutor is instructed to recognize when actual ability differs from expected level:
+- Signs student is MORE advanced: quickly masters content, uses advanced vocabulary unprompted
+- Signs student is LESS advanced: struggles with basics, needs repeated explanations
+- Tutor adapts in real-time (within freedom level constraints)
+- Guided mode: adjust pace only (syllabus is authoritative)
+- Other modes: can adjust content within ±1 ACTFL tier
+
+**Key schema field:**
+- `teacherClasses.expectedActflMin` - The ACTFL floor for a class (e.g., "novice_low" for Spanish 1)
+- Used to derive initial difficulty assumption for enrolled students
+- Server-side: `actflToDifficulty()` helper maps ACTFL levels to beginner/intermediate/advanced
+
+**Removed Components:**
+- `DifficultySelector` - User self-selection (removed from dashboard and onboarding)
+- `DifficultyIndicator` - Legacy difficulty display (unused, removed)
+- Onboarding no longer asks "are you beginner/intermediate/advanced?"
+
 ### Tutor Whiteboard System (Planned)
 
 The current subtitle system will be replaced with a tutor-controlled "whiteboard" - a flexible visual channel the AI can use to teach effectively.
