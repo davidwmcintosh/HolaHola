@@ -299,8 +299,22 @@ export class StreamingAudioPlayer {
   // Counter for word matches (for throttled logging)
   private wordMatchCount = 0;
   
+  // TURN COMPLETION: Expected sentence count from response_complete message
+  // Prevents premature loop termination when not all sentences have arrived yet
+  private expectedSentenceCount: number | null = null;
+  
   constructor() {
     console.log('[StreamingAudioPlayer] Initialized');
+  }
+  
+  /**
+   * Set expected sentence count from response_complete message
+   * This signals that no more sentences will arrive for this turn.
+   * The timing loop will only stop when all expected sentences have ended.
+   */
+  setExpectedSentenceCount(count: number): void {
+    console.log(`[StreamingAudioPlayer] ⚙️ Expected sentence count set to ${count}`);
+    this.expectedSentenceCount = count;
   }
   
   /**
@@ -375,6 +389,9 @@ export class StreamingAudioPlayer {
     this.progressiveSentenceIndex = -1;
     this.progressiveChunks = [];
     this.progressiveTotalDuration = 0;
+    
+    // CRITICAL: Reset expected sentence count - will be set when response_complete arrives
+    this.expectedSentenceCount = null;
     
     // Reset timing anchors
     const ctx = this.audioContext;
@@ -1383,11 +1400,30 @@ export class StreamingAudioPlayer {
   
   /**
    * Check if all sentences in the schedule have ended
-   * Returns true only when every entry has ended=true AND has endCtxTime set
+   * Returns true only when:
+   * 1. We know the expected sentence count (from response_complete)
+   * 2. We have received all expected sentences
+   * 3. Every entry has ended=true AND has endCtxTime set
+   * 
+   * CRITICAL FIX: Without expectedSentenceCount, we can't know if more sentences
+   * are coming. This prevents premature loop termination between sentences.
    */
   private checkAllSentencesEnded(): boolean {
     if (this.sentenceSchedule.size === 0) {
       return true; // No sentences scheduled
+    }
+    
+    // CRITICAL: If we don't know how many sentences to expect, we can't be sure all have arrived
+    // Keep the loop running until response_complete tells us the expected count
+    if (this.expectedSentenceCount === null) {
+      console.log(`[StreamingAudioPlayer] expectedSentenceCount=null, cannot determine if all sentences received`);
+      return false;
+    }
+    
+    // Check if we've received all expected sentences
+    if (this.sentenceSchedule.size < this.expectedSentenceCount) {
+      console.log(`[StreamingAudioPlayer] Only ${this.sentenceSchedule.size}/${this.expectedSentenceCount} sentences received, waiting for more`);
+      return false;
     }
     
     const allEntries = Array.from(this.sentenceSchedule.entries());
@@ -1402,6 +1438,7 @@ export class StreamingAudioPlayer {
       }
     }
     
+    console.log(`[StreamingAudioPlayer] ✓ All ${this.expectedSentenceCount} sentences have ended`);
     return true;
   }
   

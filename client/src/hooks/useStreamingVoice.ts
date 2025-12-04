@@ -472,10 +472,21 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * Handle response complete message
    * The server has finished streaming all audio chunks.
    * Check if we can clear isProcessing (no pending audio remaining).
+   * 
+   * CRITICAL FIX: Pass totalSentences to audio player so it knows how many
+   * sentences to expect before allowing playback to stop. This prevents
+   * premature timing loop termination between sentences.
    */
   const handleResponseComplete = useCallback((msg: StreamingResponseCompleteMessage) => {
-    console.log('[StreamingVoice] Server signaled response complete');
+    console.log(`[StreamingVoice] Server signaled response complete: ${msg.totalSentences} sentences`);
     setMetrics(msg.metrics || null);
+    
+    // CRITICAL: Tell the audio player how many sentences this turn has
+    // This prevents premature loop termination when early sentences finish
+    // before later sentences have even arrived
+    if (playerRef.current && msg.totalSentences !== undefined) {
+      playerRef.current.setExpectedSentenceCount(msg.totalSentences);
+    }
     
     // Mark response as complete
     responseCompleteRef.current = true;
