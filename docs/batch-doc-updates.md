@@ -438,4 +438,76 @@ The STROKE tool now shows animated stroke order using HanziWriter library:
 
 ---
 
+## Image Library Review Workflow (Dec 4, 2025)
+
+### New Admin Features
+
+**Review Tracking System**
+- Added `targetWord`, `isReviewed`, `reviewedAt`, `reviewedBy` fields to MediaFile schema
+- Tracks which vocabulary word triggered each image for better context
+- Records who reviewed each image and when
+
+**Unreviewed Count Badge**
+- Red warning badge showing count of images pending review
+- Displayed in Command Center Image Library tab header
+- Helps admins prioritize quality control workflow
+
+**Bulk Selection & Actions**
+- Checkboxes in list view header and rows for multi-select
+- "Select All" and "Clear" buttons in bulk actions bar
+- Bulk "Mark as Reviewed" / "Mark as Unreviewed" operations
+- Selection automatically clears when changing page/filter/view
+
+**Enhanced List View**
+- Word column: Shows `targetWord` or `searchQuery` with filename below
+- Reviewed column: Green check badge for reviewed, gray clock for pending
+- Highlight selected rows with primary color background
+
+**Image Detail Modal Updates**
+- Target Word display at top of detail grid
+- Review Status with green "Reviewed" or gray "Pending Review" badge
+- "Mark Reviewed" / "Mark Unreviewed" toggle button in footer
+- Shows `reviewedAt` and `reviewedBy` metadata when available
+
+**Request New Image Dialog**
+- "Request Image" button in Image Library header
+- Modal with vocabulary word input and language selector (9 languages)
+- Calls vocabulary-image-resolver to generate/fetch image
+- Image added to library marked for review
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/admin/media` | GET | Returns `unreviewedCount` in response |
+| `/api/admin/media/:id` | PATCH | Supports `isReviewed` field update |
+| `/api/admin/media/bulk-review` | POST | Bulk update review status for multiple images |
+| `/api/admin/media/request-image` | POST | Generate new image for vocabulary word |
+
+### Files Changed
+- `shared/schema.ts` - MediaFile schema with review fields
+- `server/storage.ts` - `getAllMediaFiles()` returns `unreviewedCount`, `bulkUpdateMediaReviewStatus()` method
+- `server/routes.ts` - Bulk review and request image endpoints
+- `client/src/pages/admin/CommandCenter.tsx` - Full UI implementation with bulk selection, review workflow
+
+### Data Model Updates
+
+```typescript
+// MediaFile additions
+targetWord?: string | null;    // Vocabulary word that triggered image
+isReviewed?: boolean;          // Default false
+reviewedAt?: Date | null;      // Timestamp of review
+reviewedBy?: string | null;    // User ID of reviewer
+```
+
+---
+
+## Session Documentation Consolidation (Dec 4, 2025)
+
+All batch documentation updates have been applied to:
+- `replit.md` - Main project documentation updated with Image Library review workflow
+- `docs/future-features.md` - Completed features section updated
+
+---
+
 (Add new batch items here as work progresses)
