@@ -3,7 +3,6 @@ import { StatsCards } from "@/components/StatsCards";
 import { StreakIndicator } from "@/components/StreakIndicator";
 import { ProgressCharts } from "@/components/ProgressCharts";
 import { LanguageSelector } from "@/components/LanguageSelector";
-import { DifficultySelector } from "@/components/DifficultySelector";
 import { ActflFluencyDial } from "@/components/ActflFluencyDial";
 import { UsageOverview, SessionHistory } from "@/components/SessionHistory";
 import { LearningAlerts } from "@/components/LearningAlerts";
@@ -97,10 +96,6 @@ export default function Dashboard() {
             <div>
               <label className="text-sm font-medium mb-2 block">Current Language</label>
               <LanguageSelector />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Difficulty Level</label>
-              <DifficultySelector />
             </div>
           </div>
         </div>
