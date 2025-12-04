@@ -542,8 +542,12 @@ export class StreamingAudioPlayer {
       console.warn(`[SCHEDULE GUARD] ⚠️ Ignoring duplicate s=0,c=0 - progressiveFirstChunkStarted=true. Would have WIPED schedule!`);
     }
     
+    // CRITICAL FIX: Capture isPlaying state BEFORE modifying it
+    // This is needed for the restart loop logic below
+    const wasPlayingBeforeThisChunk = this.isPlaying;
+    
     if (isNewSentence || isNewTurnStarting) {
-      console.log(`[StreamingAudioPlayer] [Progressive] New sentence ${sentenceIndex} (previous: ${this.progressiveSentenceIndex}, isNewTurn=${isNewTurnStarting})`);
+      console.log(`[StreamingAudioPlayer] [Progressive] New sentence ${sentenceIndex} (previous: ${this.progressiveSentenceIndex}, isNewTurn=${isNewTurnStarting}, wasPlaying=${wasPlayingBeforeThisChunk})`);
       
       // DON'T call resetProgressiveState() - that stops all audio!
       // Instead, just update tracking variables and let old audio finish
@@ -731,8 +735,10 @@ export class StreamingAudioPlayer {
     // Start or restart the timing loop when needed
     // - For first chunk of first sentence of a turn: always start
     // - For first chunk of any sentence after loop was stopped: restart
+    // CRITICAL: Use wasPlayingBeforeThisChunk, NOT this.isPlaying
+    // because isPlaying gets set to true earlier in this function for new sentences
     const shouldStartLoop = !this.progressiveFirstChunkStarted && chunkIndex === 0 && sentenceIndex === 0;
-    const shouldRestartLoop = !this.isPlaying && chunkIndex === 0;
+    const shouldRestartLoop = !wasPlayingBeforeThisChunk && chunkIndex === 0;
     
     if (shouldStartLoop || shouldRestartLoop) {
       this.progressiveFirstChunkStarted = true;
