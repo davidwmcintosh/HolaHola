@@ -39,3 +39,102 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 -   **UI Components**: Radix UI, Shadcn/ui, Tailwind CSS.
 -   **State Management**: TanStack Query, React Context.
 -   **Billing**: `stripe-replit-sync`.
+
+---
+
+## Active Bug: Timing Loop Not Stopping After All Sentences Complete
+
+### Bug Summary
+The precision timing loop in `StreamingAudioPlayer` continues running indefinitely after all audio sentences have finished playing. The loop should stop when all sentences are complete, but it keeps ticking (4860+ ticks observed) even though all sentences have ended.
+
+### Root Cause Analysis
+
+**The Problem Chain:**
+1. Server sends `response_complete` message with `totalSentences` count
+2. Client's `StreamingVoiceClient` receives it and emits `'responseComplete'` event  
+3. `useStreamingVoice` hook's `handleResponseComplete` handler is called
+4. Handler tries to call `playerRef.current.setExpectedSentenceCount(totalSentences)`
+5. **FAILURE POINT:** `playerRef.current` is `null` when the callback executes
+6. `expectedSentenceCount` never gets set on the player
+7. `checkAllSentencesEnded()` returns `false` because it requires `expectedSentenceCount !== null`
+8. Loop continues forever
+
+**Why playerRef.current is null:**
+The `StreamingAudioPlayer` instance is created/destroyed dynamically, but the WebSocket event handlers in `useStreamingVoice` hold stale references. When `response_complete` arrives, the player reference may have been cleared or not yet set.
+
+### Current State of the Code
+
+**Files involved:**
+- `client/src/lib/audioUtils.ts` - `StreamingAudioPlayer` class with timing loop
+- `client/src/hooks/useStreamingVoice.ts` - Hook managing player and WS events
+- `client/src/lib/streamingVoiceClient.ts` - WebSocket client
+- `client/src/lib/debugTimingState.ts` - Debug state tracking
+- `client/src/components/DebugTimingPanel.tsx` - On-screen debug display
+
+**Debug infrastructure added:**
+- `window.__debugTimingState` tracks all WebSocket messages, counts, and `response_complete` receipt
+- Debug panel shows real-time loop state, sentence schedule, and `checkAllSentencesEnded()` results
+- `wsResponseCompleteReceived` flag confirms server message IS arriving
+
+**Fallback logic added (not yet working):**
+1. In `checkAllSentencesEnded()`: If `expectedSentenceCount === null` BUT `wsResponseCompleteReceived === true`, check if all sentences in schedule have ended
+2. In timing loop: Periodic check every 30 frames for fallback condition
+
+### Observed Behavior (from Debug Panel)
+
+```
+TURN COMPLETION: 2/2 received (or 4/4)
+Expected: null (this is the bug!)
+Received: 2
+Started: 2  
+Ended: 2
+checkAllSentencesEnded(): FALSE
+Reason: expectedSentenceCount=null (waiting for response_complete)
+WS MESSAGES: ✓ response_complete RECEIVED (confirms message arrived)
+Loop Running: YES (loop continues forever)
+Loop Ticks: 4860+ and counting
+```
+
+### Fallback Logic Status
+
+The fallback was added but may not be triggering. Next debugging step is to check console logs for:
+- `[FALLBACK CHECK]` - status every ~2.5s showing wsReceived and expectedCount
+- `[FALLBACK]` - when fallback condition is evaluated
+
+### Potential Solutions to Explore
+
+1. **Fix the playerRef timing:** Ensure playerRef is valid when handleResponseComplete fires
+   - Move player creation earlier
+   - Use a stable ref pattern
+   - Queue the setExpectedSentenceCount call if player not ready
+
+2. **Alternative signal path:** Have StreamingVoiceClient directly update the player
+   - Store expected count in a shared location (debug state or window)
+   - Player reads from this instead of relying on hook callback
+
+3. **Robust fallback:** If fallback is working but checkAllSentencesEnded still returns false:
+   - Debug why sentences aren't marked as "ended" in the schedule
+   - Check if endCtxTime is being set correctly
+
+4. **Direct fix:** In the hook's handleResponseComplete, log whether playerRef.current exists
+   - If null, store the count somewhere the player can access later
+   - When player initializes, check for pending expectedSentenceCount
+
+### Key Debug Commands
+
+```javascript
+// Check debug state in browser console
+window.__debugTimingState
+
+// Key fields to check:
+// - wsResponseCompleteReceived: should be true
+// - expectedSentenceCount: should be number, but is null (bug)
+// - sentenceSchedule: array of sentence entries with ended flags
+```
+
+### Files to Examine Tomorrow
+
+1. `client/src/hooks/useStreamingVoice.ts` - Find `handleResponseComplete` and trace playerRef lifecycle
+2. `client/src/lib/audioUtils.ts` lines 1334-1358 - Fallback logic in timing loop
+3. `client/src/lib/audioUtils.ts` lines 1486-1508 - `checkAllSentencesEnded()` with fallback
+4. Browser console - Look for `[FALLBACK CHECK]` and `[FALLBACK]` logs
