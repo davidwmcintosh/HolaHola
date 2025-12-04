@@ -1483,7 +1483,23 @@ export class StreamingAudioPlayer {
     }
     
     // CRITICAL: If we don't know how many sentences to expect, we can't be sure all have arrived
+    // FALLBACK: Check if response_complete was received via debug state (playerRef might have been null)
     if (this.expectedSentenceCount === null) {
+      const debugState = window.__debugTimingState;
+      if (debugState?.wsResponseCompleteReceived) {
+        // response_complete WAS received, but playerRef was null when hook tried to call setExpectedSentenceCount
+        // Fallback: check if all sentences in schedule have ended
+        const allEntries = Array.from(this.sentenceSchedule.entries());
+        const allHaveEnded = allEntries.every(([_, entry]) => entry.ended && entry.endCtxTime !== undefined);
+        
+        if (allHaveEnded && allEntries.length > 0) {
+          console.log(`[StreamingAudioPlayer] FALLBACK: response_complete received but expectedSentenceCount null. All ${allEntries.length} sentences ended.`);
+          logResult(true, `FALLBACK: response_complete received, all ${allEntries.length} sentences ended`);
+          return true;
+        }
+        logResult(false, `FALLBACK: response_complete received but not all sentences ended yet (${allEntries.length} in schedule)`);
+        return false;
+      }
       logResult(false, 'expectedSentenceCount=null (waiting for response_complete)');
       return false;
     }
