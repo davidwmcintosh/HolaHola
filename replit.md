@@ -130,3 +130,14 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 -   **UI Components**: Radix UI, Shadcn/ui, Tailwind CSS.
 -   **State Management**: TanStack Query, React Context.
 -   **Billing**: `stripe-replit-sync`.
+
+---
+
+## Future Tasks
+
+- **Persona Guardrails Testing Document** - Create comprehensive QA test cases for the Role-Model Persona system:
+  - Test guardrail responses to persona-change requests ("be more strict", "act angry")
+  - Verify freedom level changes affect coaching style, not personality
+  - Test tutor behavior with rude/nervous students (should model, not match)
+  - Validate personality preset changes (warm/calm/energetic) only affect voice emotion
+  - Edge case: persistent attempts to change persona
