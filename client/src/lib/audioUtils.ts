@@ -1328,6 +1328,23 @@ export class StreamingAudioPlayer {
         }
       }
       
+      // FALLBACK: Periodically check if we should stop (every 30 frames) when response_complete was received
+      // This handles the case where all sentences ended before the fallback code was deployed
+      if (frameCount % 30 === 0) {
+        const debugState = window.__debugTimingState;
+        if (debugState?.wsResponseCompleteReceived && this.expectedSentenceCount === null) {
+          const allEnded = this.checkAllSentencesEnded();
+          if (allEnded) {
+            console.log('[StreamingAudioPlayer] FALLBACK PERIODIC CHECK: All sentences ended, stopping loop');
+            this.isPlaying = false;
+            this.setState('idle');
+            this.stopPrecisionTiming();
+            this.callbacks.onComplete?.();
+            return; // Exit the loop
+          }
+        }
+      }
+      
       // Continue the loop
       this.rafId = requestAnimationFrame(tick);
     };

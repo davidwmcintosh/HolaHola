@@ -1,0 +1,219 @@
+TIMING DEBUG
+[CONNECTED]
+P:1
+▲
+CURRENT WORD
+✓ Match
+Highlighted:
+Can
+Expected (from timing):
+Can
+Word Index: 0 | Visible: 1 | Total Received: 5
+TURN COMPLETION
+4/4 received
+Expected:
+4
+Received:
+4
+Started:
+4
+Ended:
+4
+Waiting for 0 more to end
+checkAllSentencesEnded()
+x4
+Result:
+FALSE
+expectedSentenceCount=null (waiting for response_complete)
+97.1s ago
+WS MESSAGES
+#74
+✓ response_complete RECEIVED
+Total:
+74
+Last:
+response_complete
+Recent types (last 20):
+audio_chunk → sentence_end → sentence_start → sentence_ready → audio_chunk → word_timing_delta → audio_chunk → word_timing_delta → audio_chunk → audio_chunk → audio_chunk → word_timing_delta → audio_chunk → word_timing_delta → audio_chunk → audio_chunk → word_timing_final → audio_chunk → sentence_end → response_complete
+TIMING DRIFT
+Audio Time
+0.000s
+Expected Start
+0.000s
+Drift
+0ms
+CURRENT SENTENCE
+Can you try saying Hola?
+Target: Hola
+WORD TIMING COUNTS
+Total Deltas:
+17
+Total Finals:
+17
+This Sentence:
+5 deltas
+Final Count:
+5
+✓ All deltas received
+TIMING RACE
+S3
+TIMINGS FIRST
+First Timing At:
+40234ms
+Playback Start:
+40457ms
+Timings arrived 223ms before playback
+Timings at Start:
+1 words ready
+HISTORY (per sentence):
+S0
++365ms
+1w
+S1
++109ms
+1w
+S2
++68ms
+1w
+WORD-BASED TIMING
+NO MATCH
+Active Word (from ctx.currentTime):
+No word matched at current time
+Schedule Size:
+17 words
+Last Match:
+12.66s
+FIRST Words (with abs times):
+S0W0: "Hi" @ 0.19-0.22s
+S0W1: "David!" @ 0.22-0.72s
+S1W0: "Welcome" @ 1.79-2.16s
+S1W1: "to" @ 2.16-2.30s
+S1W2: "your" @ 2.30-2.33s
+S1W3: "Spanish" @ 2.33-2.81s
+RECEIVED WORDS (2)
+S3W3: saying
+S3W4: Hola?
+RECENT EVENTS (17)
+Δ
+S3:
+w4
+"Hola?"
+0.90-1.07s
+Δ
+S3:
+w3
+"saying"
+0.53-0.90s
+Δ
+S3:
+w2
+"try"
+0.34-0.53s
+Δ
+S3:
+w1
+"you"
+0.20-0.34s
+Δ
+S3:
+w0
+"Can"
+0.00-0.20s
+Δ
+S2:
+w4
+"today"
+1.30-1.56s
+Δ
+S2:
+w3
+"Hola"
+1.04-1.30s
+Δ
+S2:
+w2
+"with"
+0.90-1.04s
+Δ
+S2:
+w1
+"starting"
+0.53-0.90s
+Δ
+S2:
+w0
+"We're"
+0.39-0.53s
+TICK LOOP (First 5 frames)started 114.0s ago
+F1: ctx=0.016s, state=running, playing=true
+F2: ctx=0.016s, state=running, playing=true
+F3: ctx=0.133s, state=running, playing=true
+F4: ctx=0.256s, state=running, playing=true
+F5: ctx=0.373s, state=running, playing=true
+PLAYBACK STATE
+Loop Running:
+YES
+isPlaying:
+YES
+Loop Ticks:
+4860
+Ctx Time:
+113.525s
+Ctx State:
+running
+Ctx ID:
+6327553_5fwk
+Active Sentence:
+3
+Last Delta Sent:
+S3
+SENTENCE EVENTS
+Last Start:
+3
+Last End:
+3
+AUDIO CHUNKS RECEIVED
+Total Chunks:
+44
+Last Chunk S:
+3
+Per Sentence: S0:7, S1:13, S2:14, S3:10
+EMPTY CHUNKS & TRANSITIONS
+Empty Chunks:
+4
+Last Empty S:
+3
+EndTimes Set: [0, 1, 2, 3]
+Transitions:
+s-1→s0: started at 0.13s
+s0→s1: started at 1.78s
+s1→s2: started at 5.51s
+s2→s3: started at 12.67s
+SCHEDULE (4 entries)
+MATCH INFO (4 sentences)
+S0 ✗
+end=0.84
+ENDED: now(113.53) >= end(0.84)
+range: 0.10 - 0.84
+S1 ✗
+end=3.31
+ENDED: now(113.53) >= end(3.31)
+range: 1.77 - 3.31
+S2 ✗
+end=7.16
+ENDED: now(113.53) >= end(7.16)
+range: 5.49 - 7.16
+S3 ✗
+end=13.77
+ENDED: now(113.53) >= end(13.77)
+range: 12.61 - 13.77
+SCHEDULE EVENTS (6)
+✅ ADD S3
+7:45:40 PM
+After: [0, 1, 2, 3] (4 entries)
+✅ ADD S2
+7:45:33 PM
+After: [0, 1, 2] (3 entries)
+✅ ADD S1
+7:45:29 PM
+After: [0, 1] (2 entries)
