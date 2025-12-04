@@ -147,6 +147,38 @@ Pending documentation updates to be applied together.
 
 ---
 
+## Phase 4c: Cultural Infographics Tool (Dec 4, 2025)
+
+### New Whiteboard Tool
+
+**CULTURE - Cultural Context Cards**
+- Format: `[CULTURE]topic|context|category[/CULTURE]`
+- Shows cultural insights, customs, etiquette inline during voice lessons
+- Categories (optional): food, dining, gestures, body language, holidays, festivals, etiquette, customs
+- Category-specific icons:
+  - Globe (default)
+  - Utensils (food/dining)
+  - HandMetal (gestures/body language)
+  - Calendar (holidays/festivals)
+  - Users (etiquette/customs)
+- Amber/golden color scheme
+- Helps explain WHY phrases are used, not just what they mean
+
+### Examples
+```
+[CULTURE]Tu vs Vous|In France, use 'vous' with strangers and 'tu' with friends|etiquette[/CULTURE]
+[CULTURE]Business Cards|In Japan, receive meishi with both hands and study it carefully|customs[/CULTURE]
+[CULTURE]Tipping in Japan|Tipping is actually considered rude - good service is expected|dining[/CULTURE]
+```
+
+### Files Changed
+- `shared/whiteboard-types.ts` - CultureItemData, CultureItem types, isCultureItem guard, parseCultureItem
+- `client/src/components/Whiteboard.tsx` - CultureItemDisplay UI component with category icons
+- `server/system-prompt.ts` - Cultural Context Tools section with examples and best practices
+- `docs/future-features.md` - Added Completed Features section
+
+---
+
 ## Pending Items
 
 ### Route Alias Investigation
