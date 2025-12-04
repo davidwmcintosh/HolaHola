@@ -1332,8 +1332,17 @@ export class StreamingAudioPlayer {
       // This handles the case where all sentences ended before the fallback code was deployed
       if (frameCount % 30 === 0) {
         const debugState = window.__debugTimingState;
-        if (debugState?.wsResponseCompleteReceived && this.expectedSentenceCount === null) {
+        const wsReceived = debugState?.wsResponseCompleteReceived;
+        const expCount = this.expectedSentenceCount;
+        
+        // Log every 150 frames (~2.5s) to track fallback status
+        if (frameCount % 150 === 0) {
+          console.log(`[FALLBACK CHECK] F${frameCount}: wsReceived=${wsReceived}, expectedCount=${expCount}, scheduleSize=${this.sentenceSchedule.size}`);
+        }
+        
+        if (wsReceived && expCount === null) {
           const allEnded = this.checkAllSentencesEnded();
+          console.log(`[FALLBACK] F${frameCount}: wsReceived=true, expectedCount=null -> checkAllSentencesEnded=${allEnded}`);
           if (allEnded) {
             console.log('[StreamingAudioPlayer] FALLBACK PERIODIC CHECK: All sentences ended, stopping loop');
             this.isPlaying = false;
