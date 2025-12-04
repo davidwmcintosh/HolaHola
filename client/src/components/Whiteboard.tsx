@@ -4,6 +4,11 @@
  * Philosophy: "We provide tools, the tutor teaches"
  * The AI tutor decides WHEN and WHAT to display - students don't toggle this.
  * 
+ * Phase 2 Extensions:
+ * - Image items with visual vocabulary
+ * - Drill items with interactive exercises
+ * - Pronunciation feedback with score display
+ * 
  * Behavior:
  * - Content persists until tutor explicitly sends [CLEAR]
  * - Multiple items stack vertically (new items appear at bottom)
@@ -13,12 +18,37 @@
  */
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Pencil, Volume2, ArrowLeftRight, X } from "lucide-react";
-import type { WhiteboardItem, WhiteboardItemType } from "@shared/whiteboard-types";
+import { 
+  Pencil, 
+  Volume2, 
+  ArrowLeftRight, 
+  X, 
+  ImageIcon, 
+  Mic, 
+  CheckCircle2, 
+  XCircle,
+  Loader2,
+  Star,
+  Trophy,
+  Target
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import type { 
+  WhiteboardItem, 
+  WhiteboardItemType,
+  ImageItem,
+  DrillItem,
+  PronunciationItem,
+  DrillState,
+} from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, getDrillInstructions } from "@shared/whiteboard-types";
 
 interface WhiteboardProps {
   items: WhiteboardItem[];
   onClear?: () => void;
+  onDrillResponse?: (drillId: string, response: string) => void;
+  onDrillStart?: (drillId: string) => void;
 }
 
 const getItemIcon = (type: WhiteboardItemType) => {
@@ -29,6 +59,12 @@ const getItemIcon = (type: WhiteboardItemType) => {
       return <Volume2 className="h-4 w-4" />;
     case "compare":
       return <ArrowLeftRight className="h-4 w-4" />;
+    case "image":
+      return <ImageIcon className="h-4 w-4" />;
+    case "drill":
+      return <Target className="h-4 w-4" />;
+    case "pronunciation":
+      return <Mic className="h-4 w-4" />;
     default:
       return null;
   }
@@ -42,12 +78,258 @@ const getItemStyle = (type: WhiteboardItemType): string => {
       return "bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-300 font-mono";
     case "compare":
       return "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300";
+    case "image":
+      return "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300";
+    case "drill":
+      return "bg-violet-500/10 border-violet-500/30 text-violet-700 dark:text-violet-300";
+    case "pronunciation":
+      return "bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300";
     default:
       return "bg-muted border-border text-foreground";
   }
 };
 
-const WhiteboardItemDisplay = ({ item, index }: { item: WhiteboardItem; index: number }) => {
+const getScoreColor = (score: number): string => {
+  if (score >= 90) return "text-green-600 dark:text-green-400";
+  if (score >= 80) return "text-emerald-600 dark:text-emerald-400";
+  if (score >= 70) return "text-yellow-600 dark:text-yellow-400";
+  if (score >= 60) return "text-orange-600 dark:text-orange-400";
+  return "text-red-600 dark:text-red-400";
+};
+
+const getScoreIcon = (score: number) => {
+  if (score >= 90) return <Trophy className="h-5 w-5 text-yellow-500" />;
+  if (score >= 80) return <Star className="h-5 w-5 text-emerald-500" />;
+  if (score >= 70) return <CheckCircle2 className="h-5 w-5 text-blue-500" />;
+  return <Target className="h-5 w-5 text-orange-500" />;
+};
+
+const getDrillStateIcon = (state: DrillState) => {
+  switch (state) {
+    case "waiting":
+      return <Mic className="h-5 w-5 animate-pulse" />;
+    case "listening":
+      return <Loader2 className="h-5 w-5 animate-spin text-blue-500" />;
+    case "evaluating":
+      return <Loader2 className="h-5 w-5 animate-spin text-violet-500" />;
+    case "complete":
+      return <CheckCircle2 className="h-5 w-5 text-green-500" />;
+    default:
+      return null;
+  }
+};
+
+interface ImageItemDisplayProps {
+  item: ImageItem;
+  index: number;
+}
+
+const ImageItemDisplay = ({ item, index }: ImageItemDisplayProps) => {
+  const { data } = item;
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-2 p-4 rounded-lg border bg-emerald-500/10 border-emerald-500/30"
+      data-testid={`whiteboard-item-image-${index}`}
+    >
+      <div className="flex items-center gap-2">
+        <ImageIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400 opacity-60" />
+        <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
+          {data.word}
+        </span>
+      </div>
+      
+      {data.isLoading ? (
+        <div className="flex items-center justify-center h-32 bg-muted/50 rounded-lg">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : data.imageUrl ? (
+        <img 
+          src={data.imageUrl} 
+          alt={data.description}
+          className="w-full h-32 object-cover rounded-lg"
+          data-testid={`image-vocab-${data.word}`}
+        />
+      ) : (
+        <div className="flex items-center justify-center h-32 bg-muted/50 rounded-lg text-muted-foreground text-sm">
+          {data.description}
+        </div>
+      )}
+      
+      {data.description && data.description !== data.word && (
+        <span className="text-sm text-muted-foreground italic">
+          {data.description}
+        </span>
+      )}
+    </motion.div>
+  );
+};
+
+interface DrillItemDisplayProps {
+  item: DrillItem;
+  index: number;
+  onResponse?: (drillId: string, response: string) => void;
+  onStart?: (drillId: string) => void;
+}
+
+const DrillItemDisplay = ({ item, index, onResponse, onStart }: DrillItemDisplayProps) => {
+  const { data } = item;
+  const instructions = getDrillInstructions(data.drillType);
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-violet-500/10 border-violet-500/30"
+      data-testid={`whiteboard-item-drill-${index}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Target className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+          <span className="text-sm font-medium text-violet-700 dark:text-violet-300 uppercase tracking-wide">
+            {data.drillType.replace('_', ' ')} Drill
+          </span>
+        </div>
+        {getDrillStateIcon(data.state)}
+      </div>
+      
+      <p className="text-xs text-muted-foreground">{instructions}</p>
+      
+      <div className="text-xl md:text-2xl font-bold text-center py-3 bg-background/50 rounded-lg">
+        {data.prompt}
+      </div>
+      
+      {data.state === 'waiting' && onStart && (
+        <Button 
+          onClick={() => onStart(item.id!)}
+          className="w-full"
+          variant="outline"
+          data-testid={`button-start-drill-${index}`}
+        >
+          <Mic className="h-4 w-4 mr-2" />
+          Start Speaking
+        </Button>
+      )}
+      
+      {data.state === 'listening' && (
+        <div className="text-center text-sm text-blue-600 dark:text-blue-400 animate-pulse">
+          Listening...
+        </div>
+      )}
+      
+      {data.state === 'evaluating' && (
+        <div className="text-center text-sm text-violet-600 dark:text-violet-400">
+          Evaluating your response...
+        </div>
+      )}
+      
+      {data.state === 'complete' && (
+        <div className="flex flex-col gap-2">
+          {data.studentResponse && (
+            <div className="text-sm text-muted-foreground">
+              You said: <span className="font-medium">{data.studentResponse}</span>
+            </div>
+          )}
+          
+          <div className={`flex items-center gap-2 ${data.isCorrect ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>
+            {data.isCorrect ? (
+              <CheckCircle2 className="h-5 w-5" />
+            ) : (
+              <XCircle className="h-5 w-5" />
+            )}
+            <span className="font-medium">
+              {data.isCorrect ? 'Great job!' : 'Keep practicing!'}
+            </span>
+          </div>
+          
+          {data.feedback && (
+            <p className="text-sm text-muted-foreground">{data.feedback}</p>
+          )}
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+interface PronunciationItemDisplayProps {
+  item: PronunciationItem;
+  index: number;
+}
+
+const PronunciationItemDisplay = ({ item, index }: PronunciationItemDisplayProps) => {
+  const { data } = item;
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-rose-500/10 border-rose-500/30"
+      data-testid={`whiteboard-item-pronunciation-${index}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Mic className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+          <span className="text-sm font-medium text-rose-700 dark:text-rose-300">
+            Pronunciation Feedback
+          </span>
+        </div>
+        {getScoreIcon(data.score)}
+      </div>
+      
+      <div className="flex items-center gap-4">
+        <div className="flex-1">
+          <Progress value={data.score} className="h-2" />
+        </div>
+        <span className={`text-2xl font-bold ${getScoreColor(data.score)}`}>
+          {data.score}
+        </span>
+      </div>
+      
+      <p className="text-sm">{data.feedback}</p>
+      
+      {data.strengths.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {data.strengths.map((strength, i) => (
+            <span 
+              key={i}
+              className="text-xs px-2 py-0.5 bg-green-500/20 text-green-700 dark:text-green-300 rounded-full"
+            >
+              {strength}
+            </span>
+          ))}
+        </div>
+      )}
+      
+      {data.phoneticIssues.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {data.phoneticIssues.map((issue, i) => (
+            <span 
+              key={i}
+              className="text-xs px-2 py-0.5 bg-orange-500/20 text-orange-700 dark:text-orange-300 rounded-full"
+            >
+              {issue}
+            </span>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+interface TextItemDisplayProps {
+  item: WhiteboardItem;
+  index: number;
+}
+
+const TextItemDisplay = ({ item, index }: TextItemDisplayProps) => {
   const icon = getItemIcon(item.type);
   const style = getItemStyle(item.type);
   
@@ -72,7 +354,40 @@ const WhiteboardItemDisplay = ({ item, index }: { item: WhiteboardItem; index: n
   );
 };
 
-export function Whiteboard({ items, onClear }: WhiteboardProps) {
+const WhiteboardItemDisplay = ({ 
+  item, 
+  index,
+  onDrillResponse,
+  onDrillStart,
+}: { 
+  item: WhiteboardItem; 
+  index: number;
+  onDrillResponse?: (drillId: string, response: string) => void;
+  onDrillStart?: (drillId: string) => void;
+}) => {
+  if (isImageItem(item)) {
+    return <ImageItemDisplay item={item} index={index} />;
+  }
+  
+  if (isDrillItem(item)) {
+    return (
+      <DrillItemDisplay 
+        item={item} 
+        index={index} 
+        onResponse={onDrillResponse}
+        onStart={onDrillStart}
+      />
+    );
+  }
+  
+  if (isPronunciationItem(item)) {
+    return <PronunciationItemDisplay item={item} index={index} />;
+  }
+  
+  return <TextItemDisplay item={item} index={index} />;
+};
+
+export function Whiteboard({ items, onClear, onDrillResponse, onDrillStart }: WhiteboardProps) {
   if (items.length === 0) {
     return null;
   }
@@ -99,9 +414,11 @@ export function Whiteboard({ items, onClear }: WhiteboardProps) {
             <div className="flex flex-col gap-2">
               {items.map((item, index) => (
                 <WhiteboardItemDisplay 
-                  key={`${item.type}-${item.content}-${index}`} 
+                  key={item.id || `${item.type}-${item.content}-${index}`} 
                   item={item} 
-                  index={index} 
+                  index={index}
+                  onDrillResponse={onDrillResponse}
+                  onDrillStart={onDrillStart}
                 />
               ))}
             </div>
@@ -116,7 +433,15 @@ export function Whiteboard({ items, onClear }: WhiteboardProps) {
  * Compact whiteboard variant for inline display
  * Used when whiteboard should appear within the chat flow
  */
-export function InlineWhiteboard({ items }: { items: WhiteboardItem[] }) {
+export function InlineWhiteboard({ 
+  items,
+  onDrillResponse,
+  onDrillStart,
+}: { 
+  items: WhiteboardItem[];
+  onDrillResponse?: (drillId: string, response: string) => void;
+  onDrillStart?: (drillId: string) => void;
+}) {
   if (items.length === 0) {
     return null;
   }
@@ -129,9 +454,11 @@ export function InlineWhiteboard({ items }: { items: WhiteboardItem[] }) {
       <div className="flex flex-col gap-2">
         {items.map((item, index) => (
           <WhiteboardItemDisplay 
-            key={`${item.type}-${item.content}-${index}`} 
+            key={item.id || `${item.type}-${item.content}-${index}`} 
             item={item} 
-            index={index} 
+            index={index}
+            onDrillResponse={onDrillResponse}
+            onDrillStart={onDrillStart}
           />
         ))}
       </div>

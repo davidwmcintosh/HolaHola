@@ -44,6 +44,7 @@ export type StreamingVoiceMessageType =
   | 'sentence_end'        // Current sentence complete
   | 'response_complete'   // Full AI response finished
   | 'feedback'            // Pedagogical feedback (non-blocking)
+  | 'whiteboard_update'   // Visual teaching aids (vocabulary, drills, images)
   | 'voice_updated'       // Voice switch confirmation (tutor voice changed)
   | 'error';              // Error occurred
 
@@ -241,6 +242,17 @@ export interface StreamingFeedbackMessage extends StreamingVoiceMessage {
 }
 
 /**
+ * Whiteboard update message - sends visual teaching aids to the client
+ * The tutor uses markup like [WRITE], [IMAGE], [DRILL] to create visual content
+ */
+export interface StreamingWhiteboardMessage extends StreamingVoiceMessage {
+  type: 'whiteboard_update';
+  turnId: number;
+  items: import('./whiteboard-types').WhiteboardItem[];
+  shouldClear?: boolean;
+}
+
+/**
  * Error message
  */
 export interface StreamingErrorMessage extends StreamingVoiceMessage {
@@ -281,6 +293,7 @@ export type StreamingMessage =
   | StreamingSentenceEndMessage
   | StreamingResponseCompleteMessage
   | StreamingFeedbackMessage
+  | StreamingWhiteboardMessage
   | StreamingErrorMessage;
 
 /**

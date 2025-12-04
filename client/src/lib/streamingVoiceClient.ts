@@ -45,6 +45,7 @@ import {
   StreamingWordTimingFinalMessage,
   StreamingSentenceEndMessage,
   StreamingResponseCompleteMessage,
+  StreamingWhiteboardMessage,
   StreamingErrorMessage,
   ClientStartSessionMessage,
   WordTiming,
@@ -116,6 +117,7 @@ type StreamingEventType =
   | 'responseComplete'
   | 'feedback'
   | 'voiceUpdated'
+  | 'whiteboardUpdate'   // Visual teaching aids from tutor
   | 'error';
 
 /**
@@ -540,6 +542,13 @@ export class StreamingVoiceClient {
           const voiceMsg = message as { type: string; gender: string; voiceName: string; timestamp: number };
           console.log(`[StreamingVoiceClient] Voice updated to ${voiceMsg.gender}: ${voiceMsg.voiceName}`);
           this.emit('voiceUpdated', voiceMsg);
+          break;
+          
+        case 'whiteboard_update':
+          // Whiteboard content from tutor (vocabulary, drills, images, etc.)
+          const whiteboardMsg = message as StreamingWhiteboardMessage;
+          console.log(`[StreamingVoiceClient] Whiteboard update: ${whiteboardMsg.items.length} items, clear=${whiteboardMsg.shouldClear}`);
+          this.emit('whiteboardUpdate', whiteboardMsg);
           break;
           
         default:

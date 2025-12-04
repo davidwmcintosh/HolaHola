@@ -25,6 +25,7 @@ import {
   StreamingSentenceEndMessage,
   StreamingResponseCompleteMessage,
   StreamingFeedbackMessage,
+  StreamingWhiteboardMessage,
   StreamingErrorMessage,
   StreamingErrorCode,
   ClientStartSessionMessage,
@@ -32,6 +33,7 @@ import {
   LATENCY_TARGETS,
   STREAMING_FEATURE_FLAGS,
 } from "@shared/streaming-voice-types";
+import { parseWhiteboardMarkup, WhiteboardItem } from "@shared/whiteboard-types";
 
 /**
  * Lightweight metrics logger for performance monitoring
@@ -524,6 +526,31 @@ export class StreamingVoiceOrchestrator {
           if (containsSeverelyInappropriateContent(displayText)) {
             console.log(`[Streaming Orchestrator] AI response moderation: Skipping sentence ${chunk.index}`);
             return; // Skip this sentence entirely
+          }
+          
+          // WHITEBOARD: Parse markup from the raw chunk text (before display cleaning)
+          // The tutor may include [WRITE], [IMAGE], [DRILL] tags for visual teaching aids
+          const whiteboardParsed = parseWhiteboardMarkup(chunk.text);
+          if (whiteboardParsed.whiteboardItems.length > 0) {
+            console.log(`[Whiteboard] Parsed ${whiteboardParsed.whiteboardItems.length} items from sentence ${chunk.index}`);
+            
+            // Send whiteboard update to client
+            this.sendMessage(session.ws, {
+              type: 'whiteboard_update',
+              timestamp: Date.now(),
+              turnId,
+              items: whiteboardParsed.whiteboardItems,
+              shouldClear: whiteboardParsed.shouldClear,
+            } as StreamingWhiteboardMessage);
+          } else if (whiteboardParsed.shouldClear) {
+            // Send clear signal even if no items
+            this.sendMessage(session.ws, {
+              type: 'whiteboard_update',
+              timestamp: Date.now(),
+              turnId,
+              items: [],
+              shouldClear: true,
+            } as StreamingWhiteboardMessage);
           }
           
           // Extract target language with word mapping (needs raw text with bold markers)
