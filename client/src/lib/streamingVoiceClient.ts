@@ -422,9 +422,17 @@ export class StreamingVoiceClient {
       // CRITICAL: Track parse success at window level
       const win = window as any;
       win._parseSuccess = (win._parseSuccess || 0) + 1;
+      win._lastMessageType = message.type;
+      win._allMessageTypes = win._allMessageTypes || [];
+      win._allMessageTypes.push(message.type);
       
-      // AGGRESSIVE DEBUG: Log EVERY message type received
-      console.log(`[WS RAW] type=${message.type}`);
+      // AGGRESSIVE DEBUG: Log EVERY message type received (use console.error for visibility)
+      console.error(`[WS-PARSE] type="${message.type}" (#${win._parseSuccess})`);
+      
+      // Keep only last 50 message types to prevent memory bloat
+      if (win._allMessageTypes.length > 50) {
+        win._allMessageTypes = win._allMessageTypes.slice(-50);
+      }
       
       // Track message counts in window for debugging
       if (typeof window !== 'undefined') {
