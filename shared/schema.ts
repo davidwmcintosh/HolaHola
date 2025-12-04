@@ -806,7 +806,10 @@ export const teacherClasses = pgTable("teacher_classes", {
   // Tutor behavior settings
   tutorFreedomLevel: tutorFreedomLevelEnum("tutor_freedom_level").default("flexible_goals"), // How strictly tutor follows curriculum
   // Class-level ACTFL expectations for unified assessment
-  targetActflLevel: varchar("target_actfl_level"), // Expected proficiency level for this class (novice_low, intermediate_mid, etc.)
+  // expectedActflMin: Where students are assumed to start (used for initial tutor assumptions)
+  // targetActflLevel: Where students should end up (class goal)
+  expectedActflMin: varchar("expected_actfl_min"), // Starting assumption (e.g., novice_low for Spanish 1)
+  targetActflLevel: varchar("target_actfl_level"), // Goal proficiency level (e.g., novice_high for Spanish 1)
   classLevel: integer("class_level").default(1), // Class difficulty tier (1=beginner, 2=intermediate, 3=advanced, 4=superior)
   requiresPlacementCheck: boolean("requires_placement_check").default(false), // If true, new enrollees get adaptive placement
   hoursPerStudent: integer("hours_per_student"), // Legacy: base hours allocated (moved to classHourPackages)
