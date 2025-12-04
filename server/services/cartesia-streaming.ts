@@ -17,6 +17,9 @@ import {
   WordTiming,
 } from '@shared/streaming-voice-types';
 import {
+  stripWhiteboardMarkup,
+} from '@shared/whiteboard-types';
+import {
   CartesiaEmotion,
   TutorPersonality,
   constrainEmotion,
@@ -335,15 +338,20 @@ export class CartesiaStreamingService extends EventEmitter {
     // Check if we have a pronunciation dictionary for this language
     const pronunciationDictId = getPronunciationDictId(targetLanguage);
     
+    // STEP 1: Strip whiteboard markup before any other processing
+    // The tutor may include [WRITE]...[/WRITE] tags for visual display
+    // These should NOT be sent to TTS - audio should sound natural
+    const textWithoutMarkup = stripWhiteboardMarkup(text);
+    
     let processedText: string;
     if (pronunciationDictId) {
       // Use server-side dictionary - no need for inline phoneme markers
       // This produces cleaner transcripts for better word timing
-      processedText = text;
+      processedText = textWithoutMarkup;
       console.log(`[Cartesia Streaming] Using pronunciation dictionary: ${pronunciationDictId} for ${targetLanguage}`);
     } else {
       // Fallback to inline phoneme processing if no dictionary available
-      processedText = addCartesiaPhonemesToText(text, targetLanguage);
+      processedText = addCartesiaPhonemesToText(textWithoutMarkup, targetLanguage);
     }
     
     // Clean standalone quotes but PRESERVE apostrophes in contractions (I'm, don't, etc.)

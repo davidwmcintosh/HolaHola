@@ -3,6 +3,7 @@ import { v1beta1 as ttsV1Beta1 } from '@google-cloud/text-to-speech';
 import OpenAI from 'openai';
 import { CartesiaClient } from '@cartesia/cartesia-js';
 import { franc } from 'franc-min';
+import { stripWhiteboardMarkup } from '@shared/whiteboard-types';
 
 /**
  * TTS Provider Interface
@@ -924,9 +925,14 @@ export class TTSService {
     console.log(`[Cartesia] Emotion: ${cartesiaEmotion}, Speed: ${cartesiaSpeed}`);
     console.log(`[Cartesia] Language: ${cartesiaLanguageConfig.languageCode} (target: ${targetLanguage || 'none'}, text: ${selectedLanguage})`);
 
+    // STEP 1: Strip whiteboard markup before any other processing
+    // The tutor may include [WRITE]...[/WRITE] tags for visual display
+    // These should NOT be sent to TTS - audio should sound natural
+    const textWithoutMarkup = stripWhiteboardMarkup(text);
+
     // Apply Cartesia phoneme tags for quoted foreign words
     // This uses <<phoneme1|phoneme2>> syntax for correct pronunciation
-    const phonemedText = this.addCartesiaPhonemes(text, targetLanguage);
+    const phonemedText = this.addCartesiaPhonemes(textWithoutMarkup, targetLanguage);
     
     // Clean standalone quotes but PRESERVE apostrophes in contractions (I'm, don't, etc.)
     // Remove: "text", 'text', standalone quotes at word boundaries
@@ -1370,22 +1376,27 @@ export class TTSService {
       throw new Error('Google Cloud TTS client not initialized');
     }
 
+    // STEP 1: Strip whiteboard markup before any other processing
+    // The tutor may include [WRITE]...[/WRITE] tags for visual display
+    // These should NOT be sent to TTS - audio should sound natural
+    const textWithoutMarkup = stripWhiteboardMarkup(text);
+
     // Determine base language
     let selectedLanguage: string;
     if (language) {
       selectedLanguage = language.toLowerCase();
     } else {
-      selectedLanguage = this.detectLanguage(text);
+      selectedLanguage = this.detectLanguage(textWithoutMarkup);
     }
 
     // If word timings are requested, use SSML with marks and Neural2 voice (Chirp doesn't support SSML)
     if (returnTimings && this.googleBetaClient) {
       console.log(`[Google TTS] Word timings requested - using SSML with marks`);
-      return this.synthesizeWithTimings(text, selectedLanguage);
+      return this.synthesizeWithTimings(textWithoutMarkup, selectedLanguage);
     }
 
     // Apply SSML phoneme tags for embedded target-language words if targetLanguage provided
-    const { text: processedText, usesSSML } = this.addPhonemeTagsForTargetWords(text, targetLanguage);
+    const { text: processedText, usesSSML } = this.addPhonemeTagsForTargetWords(textWithoutMarkup, targetLanguage);
 
     // CRITICAL: Chirp 3 HD voices do NOT support SSML!
     // If SSML is needed, switch to Neural2 voice which supports phoneme tags
@@ -1400,7 +1411,7 @@ export class TTSService {
       console.log(`[Google TTS] Using Chirp 3 HD voice: ${voiceConfig.name} (${selectedLanguage})`);
     }
 
-    console.log(`[Google TTS] Synthesizing ${text.length} chars with ${voiceConfig.name}${usesSSML ? ' (with SSML phoneme tags)' : ''}`);
+    console.log(`[Google TTS] Synthesizing ${textWithoutMarkup.length} chars with ${voiceConfig.name}${usesSSML ? ' (with SSML phoneme tags)' : ''}`);
 
     // DEBUG: Log exact SSML being sent to Google
     if (usesSSML) {
