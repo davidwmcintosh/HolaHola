@@ -201,6 +201,12 @@ export interface DebugTimingState {
   sentencesEnded: number;                     // How many sentences have fired their END callback
   sentencesStarted: number;                   // How many sentences have fired their START callback
   allSentencesEnded: boolean;                 // Whether checkAllSentencesEnded() returned true
+  
+  // NEW: checkAllSentencesEnded() debugging
+  lastCheckAllResult: boolean | null;         // Last result of checkAllSentencesEnded()
+  lastCheckAllReason: string;                 // Why it returned true/false
+  lastCheckAllTime: number;                   // When was it last called
+  checkAllCallCount: number;                  // How many times has it been called this session
 }
 
 // Maximum number of word events to keep in log
@@ -293,6 +299,12 @@ function getDebugState(): DebugTimingState {
       sentencesEnded: 0,
       sentencesStarted: 0,
       allSentencesEnded: false,
+      
+      // checkAllSentencesEnded() debugging
+      lastCheckAllResult: null,
+      lastCheckAllReason: '',
+      lastCheckAllTime: 0,
+      checkAllCallCount: 0,
     };
   }
   return window.__debugTimingState;
@@ -523,6 +535,12 @@ export function resetDebugTimingState(): void {
     sentencesEnded: 0,
     sentencesStarted: 0,
     allSentencesEnded: false,
+    
+    // checkAllSentencesEnded() debugging
+    lastCheckAllResult: null,
+    lastCheckAllReason: '',
+    lastCheckAllTime: 0,
+    checkAllCallCount: 0,
   };
   window.__debugTimingState = newState;
   getListeners().forEach(listener => listener(newState));

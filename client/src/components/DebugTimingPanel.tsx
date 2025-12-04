@@ -73,6 +73,10 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
     sentencesEnded,
     sentencesStarted,
     allSentencesEnded,
+    lastCheckAllResult,
+    lastCheckAllReason,
+    lastCheckAllTime,
+    checkAllCallCount,
   } = state;
   
   const timeSinceUpdate = Date.now() - lastUpdateTime;
@@ -207,6 +211,36 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
                   ? 'All sentences received, started, and ended'
                   : `Waiting for ${expectedSentenceCount - sentencesEnded} more to end`}
             </div>
+            
+            {/* checkAllSentencesEnded() debug info */}
+            {checkAllCallCount > 0 && (
+              <div className={`mt-2 p-2 rounded text-[10px] ${
+                lastCheckAllResult === true 
+                  ? 'bg-green-900/40 border border-green-500/40' 
+                  : lastCheckAllResult === false
+                    ? 'bg-red-900/40 border border-red-500/40'
+                    : 'bg-gray-900/40 border border-gray-500/40'
+              }`}>
+                <div className="font-bold mb-1 flex items-center gap-2">
+                  <span>checkAllSentencesEnded()</span>
+                  <span className="text-gray-400">x{checkAllCallCount}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Result:</span>
+                  <span className={lastCheckAllResult ? 'text-green-400' : 'text-red-400'}>
+                    {lastCheckAllResult === null ? 'never called' : lastCheckAllResult ? 'TRUE' : 'FALSE'}
+                  </span>
+                </div>
+                <div className="mt-1 text-gray-300 break-words">
+                  {lastCheckAllReason || '—'}
+                </div>
+                {lastCheckAllTime > 0 && (
+                  <div className="mt-1 text-gray-500">
+                    {((Date.now() - lastCheckAllTime) / 1000).toFixed(1)}s ago
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           
           {/* SECTION 2: Timing Drift */}
