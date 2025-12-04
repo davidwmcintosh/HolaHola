@@ -1,0 +1,220 @@
+TIMING DEBUG
+[CONNECTED]
+P:1
+▲
+CURRENT WORD
+Highlighted:
+—
+Expected (from timing):
+—
+Word Index: — | Visible: 1 | Total Received: 5
+TURN COMPLETION
+4/4 received
+Expected:
+4
+Received:
+4
+Started:
+4
+Ended:
+4
+Waiting for 0 more to end
+checkAllSentencesEnded()
+x4
+Result:
+FALSE
+expectedSentenceCount=null (waiting for response_complete)
+34.2s ago
+TIMING DRIFT
+Audio Time
+0.024s
+Expected Start
+0.000s
+Drift
++24ms
+CURRENT SENTENCE
+Can you try saying Hola?
+Target: Hola
+WORD TIMING COUNTS
+Total Deltas:
+23
+Total Finals:
+23
+This Sentence:
+5 deltas
+Final Count:
+5
+✓ All deltas received
+TIMING RACE
+S3
+TIMINGS FIRST
+First Timing At:
+29917ms
+Playback Start:
+30049ms
+Timings arrived 132ms before playback
+Timings at Start:
+1 words ready
+HISTORY (per sentence):
+S0
++290ms
+1w
+S1
++149ms
+1w
+S2
++178ms
+1w
+WORD-BASED TIMING
+NO MATCH
+Active Word (from ctx.currentTime):
+No word matched at current time
+Schedule Size:
+23 words
+Last Match:
+27.02s
+FIRST Words (with abs times):
+S0W0: "Hi" @ 0.46-0.67s
+S0W1: "David!" @ 0.67-1.04s
+S1W0: "Welcome" @ 2.95-3.42s
+S1W1: "to" @ 3.42-3.50s
+S1W2: "your" @ 3.50-3.63s
+S1W3: "Spanish" @ 3.63-4.14s
+RECEIVED WORDS (4)
+S3W1: you
+S3W2: try
+S3W3: saying
+S3W4: Hola?
+RECENT EVENTS (20)
+Δ
+S3:
+w4
+"Hola?"
+1.36-1.61s
+Δ
+S3:
+w3
+"saying"
+0.98-1.36s
+Δ
+S3:
+w2
+"try"
+0.76-0.98s
+Δ
+S3:
+w1
+"you"
+0.57-0.76s
+Δ
+S3:
+w0
+"Can"
+0.36-0.57s
+Δ
+S2:
+w8
+"Hola"
+3.17-3.50s
+Δ
+S2:
+w7
+"learn"
+2.80-3.14s
+Δ
+S2:
+w6
+"let's"
+2.54-2.80s
+Δ
+S2:
+w5
+"so"
+2.28-2.54s
+Δ
+S2:
+w4
+"greetings,"
+1.16-1.84s
+TICK LOOP (First 5 frames)started 66.9s ago
+F1: ctx=0.016s, state=running, playing=true
+F2: ctx=0.016s, state=running, playing=true
+F3: ctx=0.107s, state=running, playing=true
+F4: ctx=0.267s, state=running, playing=true
+F5: ctx=0.384s, state=running, playing=true
+PLAYBACK STATE
+Loop Running:
+YES
+isPlaying:
+YES
+Loop Ticks:
+1600
+Ctx Time:
+66.683s
+Ctx State:
+running
+Ctx ID:
+4603347_8gf1
+Active Sentence:
+3
+Last Delta Sent:
+S3
+SENTENCE EVENTS
+Last Start:
+3
+Last End:
+3
+AUDIO CHUNKS RECEIVED
+Total Chunks:
+75
+Last Chunk S:
+3
+Per Sentence: S0:9, S1:24, S2:28, S3:14
+EMPTY CHUNKS & TRANSITIONS
+Empty Chunks:
+4
+Last Empty S:
+3
+EndTimes Set: [0, 1, 2, 3]
+Transitions:
+s-1→s0: started at 0.11s
+s0→s1: started at 2.11s
+s1→s2: started at 12.34s
+s2→s3: started at 26.55s
+SCHEDULE (4 entries)
+MATCH INFO (4 sentences)
+S0 ✗
+end=1.17
+ENDED: now(66.68) >= end(1.17)
+range: 0.10 - 1.17
+S1 ✗
+end=5.13
+ENDED: now(66.68) >= end(5.13)
+range: 2.06 - 5.13
+S2 ✗
+end=15.90
+ENDED: now(66.68) >= end(15.90)
+range: 12.28 - 15.90
+S3 ✗
+end=28.26
+ENDED: now(66.68) >= end(28.26)
+range: 26.54 - 28.26
+SCHEDULE EVENTS (6)
+✅ ADD S3
+7:17:09 PM
+After: [0, 1, 2, 3] (4 entries)
+✅ ADD S2
+7:16:55 PM
+After: [0, 1, 2] (3 entries)
+✅ ADD S1
+7:16:45 PM
+After: [0, 1] (2 entries)
+✅ ADD S0
+7:16:43 PM
+After: [0] (1 entries)
+⚠️ CLEAR (0 removed)
+7:16:43 PM
+After: [] (0 entries)
+⚠️ CLEAR (0 removed)
+7:16:40 PM
+After: [] (0 entries)

@@ -506,6 +506,7 @@ export class StreamingVoiceClient {
           break;
           
         case 'response_complete':
+          console.error(`[WS RECV] >>> RESPONSE_COMPLETE: sentences=${(message as any).totalSentences}`);
           this.handleResponseComplete(message as StreamingResponseCompleteMessage);
           break;
           
