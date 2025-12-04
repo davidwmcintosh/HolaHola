@@ -1407,6 +1407,13 @@ export class StreamingAudioPlayer {
     const scheduleEntry = this.sentenceSchedule.get(sentenceIndex);
     if (scheduleEntry && !scheduleEntry.ended) {
       scheduleEntry.ended = true;
+      
+      // Update debug panel with sentences ended count
+      const endedCount = Array.from(this.sentenceSchedule.values()).filter(e => e.ended).length;
+      updateDebugTimingState({
+        sentencesEnded: endedCount,
+      });
+      
       this.callbacks.onSentenceEnd?.(sentenceIndex);
     } else {
       console.log(`[StreamingAudioPlayer] [Progressive] Sentence ${sentenceIndex} already ended via unified loop, skipping callback`);

@@ -1,0 +1,214 @@
+TIMING DEBUG
+[CONNECTED]
+P:1
+▲
+CURRENT WORD
+Highlighted:
+—
+Expected (from timing):
+—
+Word Index: — | Visible: 1 | Total Received: 5
+TURN COMPLETION
+4/4 received
+Expected:
+4
+Received:
+4
+Started:
+4
+Ended:
+0
+Waiting for 4 more to end
+TIMING DRIFT
+Audio Time
+0.000s
+Expected Start
+0.000s
+Drift
+0ms
+CURRENT SENTENCE
+Can you try saying Hola?
+Target: Hola
+WORD TIMING COUNTS
+Total Deltas:
+21
+Total Finals:
+21
+This Sentence:
+5 deltas
+Final Count:
+5
+✓ All deltas received
+TIMING RACE
+S3
+TIMINGS FIRST
+First Timing At:
+2266ms
+Playback Start:
+2454ms
+Timings arrived 188ms before playback
+Timings at Start:
+1 words ready
+HISTORY (per sentence):
+S0
++648ms
+1w
+S1
++245ms
+1w
+S2
++160ms
+1w
+WORD-BASED TIMING
+NO MATCH
+Active Word (from ctx.currentTime):
+No word matched at current time
+Schedule Size:
+21 words
+Last Match:
+38.17s
+FIRST Words (with abs times):
+S0W0: "Hello" @ 0.46-0.69s
+S0W1: "David!" @ 0.69-1.04s
+S1W0: "It's" @ 4.89-5.12s
+S1W1: "so" @ 5.12-5.29s
+S1W2: "great" @ 5.29-5.71s
+S1W3: "to" @ 5.71-5.74s
+RECEIVED WORDS (4)
+S3W1: you
+S3W2: try
+S3W3: saying
+S3W4: Hola?
+RECENT EVENTS (20)
+Δ
+S3:
+w4
+"Hola?"
+1.18-1.55s
+Δ
+S3:
+w3
+"saying"
+0.73-1.18s
+Δ
+S3:
+w2
+"try"
+0.48-0.73s
+Δ
+S3:
+w1
+"you"
+0.34-0.48s
+Δ
+S3:
+w0
+"Can"
+0.17-0.34s
+Δ
+S2:
+w3
+"Hola"
+1.05-1.66s
+Δ
+S2:
+w2
+"with"
+0.80-1.05s
+Δ
+S2:
+w1
+"begin"
+0.45-0.80s
+Δ
+S2:
+w0
+"Let's"
+0.09-0.45s
+Δ
+S1:
+w9
+"today"
+3.76-3.79s
+TICK LOOP (First 5 frames)started 63.1s ago
+F1: ctx=0.016s, state=running, playing=true
+F2: ctx=0.016s, state=running, playing=true
+F3: ctx=0.187s, state=running, playing=true
+F4: ctx=0.443s, state=running, playing=true
+F5: ctx=0.587s, state=running, playing=true
+PLAYBACK STATE
+Loop Running:
+YES
+isPlaying:
+YES
+Loop Ticks:
+1140
+Ctx Time:
+62.203s
+Ctx State:
+running
+Ctx ID:
+2964196_v4o5
+Active Sentence:
+3
+Last Delta Sent:
+S3
+SENTENCE EVENTS
+Last Start:
+3
+Last End:
+3
+AUDIO CHUNKS RECEIVED
+Total Chunks:
+67
+Last Chunk S:
+3
+Per Sentence: S0:9, S1:30, S2:14, S3:14
+EMPTY CHUNKS & TRANSITIONS
+Empty Chunks:
+4
+Last Empty S:
+3
+EndTimes Set: [0, 1, 2, 3]
+Transitions:
+s-1→s0: started at 0.20s
+s0→s1: started at 4.58s
+s1→s2: started at 23.97s
+s2→s3: started at 37.88s
+SCHEDULE (4 entries)
+MATCH INFO (4 sentences)
+S0 ✗
+end=1.17
+ENDED: now(62.20) >= end(1.17)
+range: 0.10 - 1.17
+S1 ✗
+end=8.43
+ENDED: now(62.20) >= end(8.43)
+range: 4.53 - 8.43
+S2 ✗
+end=25.73
+ENDED: now(62.20) >= end(25.73)
+range: 23.97 - 25.73
+S3 ✗
+end=39.52
+ENDED: now(62.20) >= end(39.52)
+range: 37.84 - 39.52
+SCHEDULE EVENTS (6)
+✅ ADD S3
+6:50:02 PM
+After: [0, 1, 2, 3] (4 entries)
+✅ ADD S2
+6:49:48 PM
+After: [0, 1, 2] (3 entries)
+✅ ADD S1
+6:49:29 PM
+After: [0, 1] (2 entries)
+✅ ADD S0
+6:49:24 PM
+After: [0] (1 entries)
+⚠️ CLEAR (0 removed)
+6:49:24 PM
+After: [] (0 entries)
+⚠️ CLEAR (0 removed)
+6:49:21 PM
+After: [] (0 entries)
