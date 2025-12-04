@@ -236,7 +236,7 @@ export interface IStorage {
   createMediaFile(data: InsertMediaFile): Promise<MediaFile>;
   getMediaFile(id: string): Promise<MediaFile | undefined>;
   getUserMediaFiles(userId: string): Promise<MediaFile[]>;
-  getAllMediaFiles(options?: { source?: string; limit?: number; offset?: number }): Promise<{ files: MediaFile[]; total: number }>;
+  getAllMediaFiles(options?: { source?: string; limit?: number; offset?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' }): Promise<{ files: MediaFile[]; total: number; newCount?: number }>;
   updateMediaFile(id: string, data: { title?: string | null; description?: string | null; tags?: string[] | null; language?: string | null }): Promise<MediaFile | undefined>;
   deleteMediaFile(id: string): Promise<boolean>;
   
@@ -1872,23 +1872,38 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(mediaFiles.createdAt));
   }
 
-  async getAllMediaFiles(options: { source?: string; limit?: number; offset?: number } = {}): Promise<{ files: MediaFile[]; total: number }> {
-    const { source, limit = 50, offset = 0 } = options;
+  async getAllMediaFiles(options: { source?: string; limit?: number; offset?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' } = {}): Promise<{ files: MediaFile[]; total: number; newCount?: number }> {
+    const { source, limit = 50, offset = 0, sortBy = 'createdAt', sortOrder = 'desc' } = options;
     
     const whereClause = source ? eq(mediaFiles.imageSource, source) : undefined;
     
-    const [files, countResult] = await Promise.all([
+    const getSortColumn = () => {
+      switch (sortBy) {
+        case 'usageCount': return mediaFiles.usageCount;
+        case 'fileSize': return mediaFiles.fileSize;
+        case 'language': return mediaFiles.language;
+        default: return mediaFiles.createdAt;
+      }
+    };
+    
+    const orderByClause = sortOrder === 'asc' ? asc(getSortColumn()) : desc(getSortColumn());
+    
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    const [files, countResult, newCountResult] = await Promise.all([
       whereClause
-        ? db.select().from(mediaFiles).where(whereClause).orderBy(desc(mediaFiles.createdAt)).limit(limit).offset(offset)
-        : db.select().from(mediaFiles).orderBy(desc(mediaFiles.createdAt)).limit(limit).offset(offset),
+        ? db.select().from(mediaFiles).where(whereClause).orderBy(orderByClause).limit(limit).offset(offset)
+        : db.select().from(mediaFiles).orderBy(orderByClause).limit(limit).offset(offset),
       whereClause
         ? db.select({ count: sql<number>`count(*)` }).from(mediaFiles).where(whereClause)
-        : db.select({ count: sql<number>`count(*)` }).from(mediaFiles)
+        : db.select({ count: sql<number>`count(*)` }).from(mediaFiles),
+      db.select({ count: sql<number>`count(*)` }).from(mediaFiles).where(sql`${mediaFiles.createdAt} > ${oneDayAgo.toISOString()}`)
     ]);
     
     return {
       files,
-      total: Number(countResult[0]?.count || 0)
+      total: Number(countResult[0]?.count || 0),
+      newCount: Number(newCountResult[0]?.count || 0)
     };
   }
 

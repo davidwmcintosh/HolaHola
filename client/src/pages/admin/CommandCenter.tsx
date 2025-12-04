@@ -57,7 +57,13 @@ import {
   Download,
   Eye,
   Calendar,
-  Hash
+  Hash,
+  LayoutGrid,
+  List,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Bell
 } from "lucide-react";
 import {
   AlertDialog,
@@ -1351,20 +1357,42 @@ interface MediaFile {
   createdAt: string;
 }
 
+type ViewMode = 'grid' | 'compact' | 'list';
+type SortField = 'createdAt' | 'usageCount' | 'fileSize' | 'language';
+type SortOrder = 'asc' | 'desc';
+
 function ImageLibraryTab() {
   const { toast } = useToast();
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [selectedImage, setSelectedImage] = useState<MediaFile | null>(null);
   const [page, setPage] = useState(0);
-  const limit = 20;
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [sortField, setSortField] = useState<SortField>('createdAt');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const limit = viewMode === 'list' ? 25 : 20;
 
   const queryUrl = sourceFilter === "all"
-    ? `/api/admin/media?limit=${limit}&offset=${page * limit}`
-    : `/api/admin/media?source=${sourceFilter}&limit=${limit}&offset=${page * limit}`;
+    ? `/api/admin/media?limit=${limit}&offset=${page * limit}&sortBy=${sortField}&sortOrder=${sortOrder}`
+    : `/api/admin/media?source=${sourceFilter}&limit=${limit}&offset=${page * limit}&sortBy=${sortField}&sortOrder=${sortOrder}`;
 
-  const { data, isLoading, refetch } = useQuery<{ files: MediaFile[]; total: number }>({
+  const { data, isLoading, refetch } = useQuery<{ files: MediaFile[]; total: number; newCount?: number }>({
     queryKey: [queryUrl],
   });
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('desc');
+    }
+    setPage(0);
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 opacity-50" />;
+    return sortOrder === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+  };
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -1421,64 +1449,179 @@ function ImageLibraryTab() {
         defaultOpen={true}
       >
         <div className="space-y-4 mt-4">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground">
               Review and manage AI-generated educational images and cached stock photos used in lessons.
             </p>
-            <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setPage(0); }}>
-              <SelectTrigger className="w-48" data-testid="select-source-filter">
-                <SelectValue placeholder="Filter by source" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sources</SelectItem>
-                <SelectItem value="ai_generated">AI Generated</SelectItem>
-                <SelectItem value="stock">Stock Images</SelectItem>
-                <SelectItem value="user_upload">User Uploads</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2 flex-wrap">
+              {data?.newCount && data.newCount > 0 && (
+                <Badge className="bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/30 gap-1">
+                  <Bell className="h-3 w-3" />
+                  {data.newCount} new
+                </Badge>
+              )}
+              
+              <div className="flex border rounded-md overflow-hidden">
+                <Button
+                  variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="rounded-none h-8 px-2"
+                  onClick={() => { setViewMode('grid'); setPage(0); }}
+                  data-testid="button-view-grid"
+                  title="Large Grid"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'compact' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="rounded-none h-8 px-2 border-x"
+                  onClick={() => { setViewMode('compact'); setPage(0); }}
+                  data-testid="button-view-compact"
+                  title="Compact Grid"
+                >
+                  <LayoutGrid className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="rounded-none h-8 px-2"
+                  onClick={() => { setViewMode('list'); setPage(0); }}
+                  data-testid="button-view-list"
+                  title="List View"
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setPage(0); }}>
+                <SelectTrigger className="w-40 h-8" data-testid="select-source-filter">
+                  <SelectValue placeholder="Filter by source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Sources</SelectItem>
+                  <SelectItem value="ai_generated">AI Generated</SelectItem>
+                  <SelectItem value="stock">Stock Images</SelectItem>
+                  <SelectItem value="user_upload">User Uploads</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {isLoading ? (
-            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {[...Array(10)].map((_, i) => <Skeleton key={i} className="aspect-square rounded-lg" />)}
-            </div>
+            viewMode === 'list' ? (
+              <div className="space-y-2">
+                {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-12 rounded-md" />)}
+              </div>
+            ) : (
+              <div className={viewMode === 'compact' 
+                ? "grid gap-2 grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10"
+                : "grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+              }>
+                {[...Array(10)].map((_, i) => <Skeleton key={i} className="aspect-square rounded-lg" />)}
+              </div>
+            )
           ) : (
             <>
               {data?.files && data.files.length > 0 ? (
-                <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                  {data.files.map((file) => (
-                    <Card 
-                      key={file.id} 
-                      className="overflow-hidden cursor-pointer hover-elevate group"
-                      onClick={() => setSelectedImage(file)}
-                      data-testid={`card-image-${file.id}`}
-                    >
-                      <div className="aspect-square relative bg-muted">
-                        <img 
-                          src={file.thumbnailUrl || file.url} 
-                          alt={file.title || file.filename}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <Eye className="h-6 w-6 text-white" />
+                viewMode === 'list' ? (
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="grid grid-cols-[auto_1fr_100px_100px_120px_80px] gap-2 p-2 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
+                      <div className="w-10" />
+                      <button 
+                        onClick={() => toggleSort('createdAt')} 
+                        className="flex items-center gap-1 hover:text-foreground"
+                      >
+                        Filename <SortIcon field="createdAt" />
+                      </button>
+                      <span>Source</span>
+                      <button 
+                        onClick={() => toggleSort('language')} 
+                        className="flex items-center gap-1 hover:text-foreground"
+                      >
+                        Language <SortIcon field="language" />
+                      </button>
+                      <button 
+                        onClick={() => toggleSort('fileSize')} 
+                        className="flex items-center gap-1 hover:text-foreground"
+                      >
+                        Size <SortIcon field="fileSize" />
+                      </button>
+                      <button 
+                        onClick={() => toggleSort('usageCount')} 
+                        className="flex items-center gap-1 hover:text-foreground"
+                      >
+                        Used <SortIcon field="usageCount" />
+                      </button>
+                    </div>
+                    <div className="divide-y">
+                      {data.files.map((file) => (
+                        <div 
+                          key={file.id}
+                          className="grid grid-cols-[auto_1fr_100px_100px_120px_80px] gap-2 p-2 items-center cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => setSelectedImage(file)}
+                          data-testid={`row-image-${file.id}`}
+                        >
+                          <div className="w-10 h-10 rounded bg-muted overflow-hidden flex-shrink-0">
+                            <img 
+                              src={file.thumbnailUrl || file.url} 
+                              alt={file.title || file.filename}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </div>
+                          <p className="text-sm truncate" title={file.filename}>{file.filename}</p>
+                          <div>{getSourceBadge(file.imageSource)}</div>
+                          <span className="text-sm text-muted-foreground capitalize">{file.language || '-'}</span>
+                          <span className="text-sm text-muted-foreground">{formatFileSize(file.fileSize)}</span>
+                          <span className="text-sm text-muted-foreground">{file.usageCount || 0}x</span>
                         </div>
-                        <div className="absolute top-2 right-2">
-                          {getSourceBadge(file.imageSource)}
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className={viewMode === 'compact'
+                    ? "grid gap-2 grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10"
+                    : "grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+                  }>
+                    {data.files.map((file) => (
+                      <Card 
+                        key={file.id} 
+                        className="overflow-hidden cursor-pointer hover-elevate group"
+                        onClick={() => setSelectedImage(file)}
+                        data-testid={`card-image-${file.id}`}
+                      >
+                        <div className="aspect-square relative bg-muted">
+                          <img 
+                            src={file.thumbnailUrl || file.url} 
+                            alt={file.title || file.filename}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <Eye className={viewMode === 'compact' ? "h-4 w-4 text-white" : "h-6 w-6 text-white"} />
+                          </div>
+                          {viewMode !== 'compact' && (
+                            <div className="absolute top-2 right-2">
+                              {getSourceBadge(file.imageSource)}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                      <CardContent className="p-2">
-                        <p className="text-xs truncate text-muted-foreground">{file.filename}</p>
-                        {file.usageCount && file.usageCount > 0 && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                            <Hash className="h-3 w-3" />
-                            Used {file.usageCount} times
-                          </p>
+                        {viewMode !== 'compact' && (
+                          <CardContent className="p-2">
+                            <p className="text-xs truncate text-muted-foreground">{file.filename}</p>
+                            {file.usageCount && file.usageCount > 0 && (
+                              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                                <Hash className="h-3 w-3" />
+                                Used {file.usageCount} times
+                              </p>
+                            )}
+                          </CardContent>
                         )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                      </Card>
+                    ))}
+                  </div>
+                )
               ) : (
                 <Card>
                   <CardContent className="py-10 text-center">
@@ -1520,8 +1663,8 @@ function ImageLibraryTab() {
       </CollapsibleSection>
 
       <AlertDialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>
-        <AlertDialogContent className="max-w-2xl">
-          <AlertDialogHeader>
+        <AlertDialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+          <AlertDialogHeader className="flex-shrink-0">
             <AlertDialogTitle className="flex items-center gap-2">
               <Image className="h-5 w-5" />
               Image Details
@@ -1529,62 +1672,62 @@ function ImageLibraryTab() {
           </AlertDialogHeader>
           
           {selectedImage && (
-            <div className="space-y-4">
-              <div className="aspect-video relative bg-muted rounded-lg overflow-hidden">
+            <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-2">
+              <div className="max-h-48 relative bg-muted rounded-lg overflow-hidden flex items-center justify-center">
                 <img 
                   src={selectedImage.url} 
                   alt={selectedImage.title || selectedImage.filename}
-                  className="w-full h-full object-contain"
+                  className="max-w-full max-h-48 object-contain"
                 />
               </div>
               
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p className="text-muted-foreground mb-1">Filename</p>
-                  <p className="font-medium">{selectedImage.filename}</p>
+                  <p className="text-muted-foreground text-xs mb-0.5">Filename</p>
+                  <p className="font-medium text-sm truncate">{selectedImage.filename}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground mb-1">Source</p>
+                  <p className="text-muted-foreground text-xs mb-0.5">Source</p>
                   <div>{getSourceBadge(selectedImage.imageSource)}</div>
                 </div>
                 <div>
-                  <p className="text-muted-foreground mb-1">Size</p>
-                  <p className="font-medium">{formatFileSize(selectedImage.fileSize)}</p>
+                  <p className="text-muted-foreground text-xs mb-0.5">Size</p>
+                  <p className="font-medium text-sm">{formatFileSize(selectedImage.fileSize)}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground mb-1">Dimensions</p>
-                  <p className="font-medium">
+                  <p className="text-muted-foreground text-xs mb-0.5">Dimensions</p>
+                  <p className="font-medium text-sm">
                     {selectedImage.width && selectedImage.height 
                       ? `${selectedImage.width} x ${selectedImage.height}`
                       : 'Unknown'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground mb-1">Created</p>
-                  <p className="font-medium flex items-center gap-1">
+                  <p className="text-muted-foreground text-xs mb-0.5">Created</p>
+                  <p className="font-medium text-sm flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
                     {formatDate(selectedImage.createdAt)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground mb-1">Usage Count</p>
-                  <p className="font-medium">{selectedImage.usageCount || 0} times</p>
+                  <p className="text-muted-foreground text-xs mb-0.5">Usage Count</p>
+                  <p className="font-medium text-sm">{selectedImage.usageCount || 0} times</p>
                 </div>
                 {selectedImage.searchQuery && (
                   <div className="col-span-2">
-                    <p className="text-muted-foreground mb-1">Search Query</p>
-                    <p className="font-medium">{selectedImage.searchQuery}</p>
+                    <p className="text-muted-foreground text-xs mb-0.5">Search Query</p>
+                    <p className="font-medium text-sm">{selectedImage.searchQuery}</p>
                   </div>
                 )}
                 {selectedImage.language && (
                   <div>
-                    <p className="text-muted-foreground mb-1">Language</p>
-                    <p className="font-medium capitalize">{selectedImage.language}</p>
+                    <p className="text-muted-foreground text-xs mb-0.5">Language</p>
+                    <p className="font-medium text-sm capitalize">{selectedImage.language}</p>
                   </div>
                 )}
                 {selectedImage.tags && selectedImage.tags.length > 0 && (
                   <div className="col-span-2">
-                    <p className="text-muted-foreground mb-1">Tags</p>
+                    <p className="text-muted-foreground text-xs mb-0.5">Tags</p>
                     <div className="flex flex-wrap gap-1">
                       {selectedImage.tags.map((tag, i) => (
                         <Badge key={i} variant="secondary" className="text-xs">{tag}</Badge>
@@ -1596,7 +1739,7 @@ function ImageLibraryTab() {
             </div>
           )}
           
-          <AlertDialogFooter className="flex-row justify-between sm:justify-between">
+          <AlertDialogFooter className="flex-shrink-0 flex-row justify-between sm:justify-between gap-2 pt-4 border-t">
             <div className="flex gap-2">
               <Button
                 variant="outline"

@@ -1,15 +1,18 @@
 import { useState } from "react";
 import { VocabularyFlashcard } from "@/components/VocabularyFlashcard";
 import { LearningContextFilter } from "@/components/LearningContextFilter";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Filter } from "lucide-react";
+import { Filter, Download, FileSpreadsheet, FileText, Loader2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { useToast } from "@/hooks/use-toast";
 
 type TimeFilter = 'all' | 'today' | 'week' | 'month' | 'older';
 
@@ -23,6 +26,50 @@ const timeFilterLabels: Record<TimeFilter, string> = {
 
 export default function Vocabulary() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
+  const [isExporting, setIsExporting] = useState(false);
+  const { toast } = useToast();
+  const { language } = useLanguage();
+
+  const handleExport = async (format: 'csv' | 'anki') => {
+    if (!language) {
+      toast({ title: "Select a language first", description: "Please select a language to export vocabulary.", variant: "destructive" });
+      return;
+    }
+    
+    setIsExporting(true);
+    try {
+      const response = await fetch(`/api/vocabulary/export?language=${encodeURIComponent(language)}&format=${format}`, {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+      
+      const blob = await response.blob();
+      const filename = format === 'anki' 
+        ? `vocabulary_${language}_anki.txt` 
+        : `vocabulary_${language}.csv`;
+      
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({ 
+        title: "Export complete", 
+        description: `Downloaded ${filename}` 
+      });
+    } catch (error) {
+      toast({ title: "Export failed", description: "Could not export vocabulary.", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -50,6 +97,36 @@ export default function Vocabulary() {
                   {timeFilterLabels[filter]}
                 </DropdownMenuItem>
               ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={isExporting} data-testid="dropdown-vocabulary-export">
+                {isExporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem 
+                onClick={() => handleExport('csv')}
+                data-testid="menu-item-export-csv"
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Export as CSV
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => handleExport('anki')}
+                data-testid="menu-item-export-anki"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Export for Anki
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

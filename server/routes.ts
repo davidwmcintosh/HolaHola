@@ -4339,6 +4339,48 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ===== Vocabulary Export =====
+  
+  // Export vocabulary in CSV or Anki format
+  app.get("/api/vocabulary/export", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { language, format = 'csv' } = req.query;
+      
+      if (!language) {
+        return res.status(400).json({ error: "Language parameter is required" });
+      }
+      
+      if (!['csv', 'anki'].includes(format as string)) {
+        return res.status(400).json({ error: "Format must be 'csv' or 'anki'" });
+      }
+      
+      const words = await storage.getVocabularyWords(language as string, userId);
+      
+      if (format === 'anki') {
+        const ankiData = words.map(w => 
+          `${w.word}\t${w.translation}\t${w.example}\t${w.pronunciation}\t${w.difficulty}\t${w.actflLevel || ''}`
+        ).join('\n');
+        
+        res.setHeader('Content-Type', 'text/tab-separated-values');
+        res.setHeader('Content-Disposition', `attachment; filename="vocabulary_${language}_anki.txt"`);
+        return res.send(ankiData);
+      }
+      
+      const csvHeader = 'Word,Translation,Example,Pronunciation,Difficulty,ACTFL Level,Review Count,Correct Count,Created\n';
+      const csvData = words.map(w => {
+        const createdDate = w.createdAt ? new Date(w.createdAt).toISOString().split('T')[0] : '';
+        return `"${(w.word || '').replace(/"/g, '""')}","${(w.translation || '').replace(/"/g, '""')}","${(w.example || '').replace(/"/g, '""')}","${(w.pronunciation || '').replace(/"/g, '""')}","${w.difficulty || ''}","${w.actflLevel || ''}","${w.reviewCount || 0}","${w.correctCount || 0}","${createdDate}"`;
+      }).join('\n');
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="vocabulary_${language}.csv"`);
+      return res.send(csvHeader + csvData);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== Organization System APIs (Phases 1, 2, 3) =====
 
   // Phase 1: Toggle conversation star
@@ -8113,11 +8155,16 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get all media files (admin/developer only)
   app.get("/api/admin/media", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { source, limit, offset } = req.query;
+      const { source, limit, offset, sortBy, sortOrder } = req.query;
+      const validSortFields = ['createdAt', 'usageCount', 'fileSize', 'language'];
+      const validSortOrders = ['asc', 'desc'];
+      
       const result = await storage.getAllMediaFiles({
         source: source as string | undefined,
         limit: limit ? parseInt(limit as string) : 50,
         offset: offset ? parseInt(offset as string) : 0,
+        sortBy: validSortFields.includes(sortBy as string) ? sortBy as string : 'createdAt',
+        sortOrder: validSortOrders.includes(sortOrder as string) ? sortOrder as 'asc' | 'desc' : 'desc',
       });
       res.json(result);
     } catch (error: any) {

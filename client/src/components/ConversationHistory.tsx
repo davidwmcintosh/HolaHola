@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Calendar, Clock, Eye, Loader2, Star, Filter, ArrowLeft, Bot, User, Play, BookOpen, MessageSquare, Hash } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Calendar, Clock, Eye, Loader2, Star, Filter, ArrowLeft, Bot, User, Play, BookOpen, MessageSquare, Hash, Search, X } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Conversation, Message, Topic } from "@shared/schema";
@@ -92,6 +93,10 @@ interface ConversationHistoryProps {
   onBack?: () => void;
 }
 
+interface SearchResult extends Message {
+  conversationTitle: string | null;
+}
+
 export function ConversationHistory({ 
   selectedConversationId, 
   onSelectConversation,
@@ -99,6 +104,8 @@ export function ConversationHistory({
 }: ConversationHistoryProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [starredOnly, setStarredOnly] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
   const { data: conversations = [], isLoading } = useQuery<Conversation[]>({
     queryKey: ["/api/conversations/filtered", { timeFilter, starredOnly }],
@@ -112,6 +119,28 @@ export function ConversationHistory({
       return response.json();
     },
   });
+
+  const { data: searchResults = [], isLoading: isSearchLoading } = useQuery<SearchResult[]>({
+    queryKey: ["/api/search/messages", searchQuery],
+    queryFn: async () => {
+      if (!searchQuery.trim()) return [];
+      const response = await fetch(`/api/search/messages?q=${encodeURIComponent(searchQuery)}&limit=30`, { 
+        credentials: 'include' 
+      });
+      if (!response.ok) throw new Error('Search failed');
+      return response.json();
+    },
+    enabled: searchQuery.trim().length >= 2,
+  });
+
+  const highlightMatch = (text: string, query: string) => {
+    if (!query.trim()) return text;
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(regex);
+    return parts.map((part, i) => 
+      regex.test(part) ? <mark key={i} className="bg-yellow-200 dark:bg-yellow-900/50 px-0.5 rounded">{part}</mark> : part
+    );
+  };
 
   const { data: messages = [], isLoading: isLoadingMessages } = useQuery<Message[]>({
     queryKey: ["/api/conversations", selectedConversationId, "messages"],
@@ -243,41 +272,119 @@ export function ConversationHistory({
     );
   }
 
+  const showSearchResults = searchQuery.trim().length >= 2;
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" data-testid="dropdown-time-filter">
-              <Filter className="h-4 w-4 mr-2" />
-              {timeFilterLabels[timeFilter]}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search your conversations..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 pr-10"
+            data-testid="input-conversation-search"
+          />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+              onClick={() => setSearchQuery('')}
+              data-testid="button-clear-search"
+            >
+              <X className="h-4 w-4" />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            {(Object.keys(timeFilterLabels) as TimeFilter[]).map((filter) => (
-              <DropdownMenuItem 
-                key={filter} 
-                onClick={() => setTimeFilter(filter)}
-                data-testid={`menu-item-filter-${filter}`}
-              >
-                {timeFilterLabels[filter]}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+          )}
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" data-testid="dropdown-time-filter">
+                <Filter className="h-4 w-4 mr-2" />
+                {timeFilterLabels[timeFilter]}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {(Object.keys(timeFilterLabels) as TimeFilter[]).map((filter) => (
+                <DropdownMenuItem 
+                  key={filter} 
+                  onClick={() => setTimeFilter(filter)}
+                  data-testid={`menu-item-filter-${filter}`}
+                >
+                  {timeFilterLabels[filter]}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-        <Button
-          variant={starredOnly ? "default" : "outline"}
-          size="sm"
-          onClick={() => setStarredOnly(!starredOnly)}
-          data-testid="button-starred-filter"
-        >
-          <Star className={`h-4 w-4 mr-2 ${starredOnly ? "fill-current" : ""}`} />
-          Starred
-        </Button>
+          <Button
+            variant={starredOnly ? "default" : "outline"}
+            size="sm"
+            onClick={() => setStarredOnly(!starredOnly)}
+            data-testid="button-starred-filter"
+          >
+            <Star className={`h-4 w-4 mr-2 ${starredOnly ? "fill-current" : ""}`} />
+            Starred
+          </Button>
+        </div>
       </div>
+      
+      {showSearchResults && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              {isSearchLoading ? 'Searching...' : `${searchResults.length} result${searchResults.length !== 1 ? 's' : ''} for "${searchQuery}"`}
+            </p>
+          </div>
+          
+          {isSearchLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : searchResults.length === 0 ? (
+            <Card className="p-6 text-center">
+              <p className="text-muted-foreground">No messages found matching "{searchQuery}"</p>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {searchResults.map((result) => (
+                <Card 
+                  key={result.id} 
+                  className="p-4 cursor-pointer hover-elevate"
+                  onClick={() => onSelectConversation?.(result.conversationId)}
+                  data-testid={`card-search-result-${result.id}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      <AvatarFallback className={result.role === 'user' ? 'bg-secondary' : 'bg-primary text-primary-foreground'}>
+                        {result.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="text-sm font-medium">
+                          {result.conversationTitle || 'Untitled Conversation'}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(result.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {highlightMatch(result.content, searchQuery)}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-      {conversations.length === 0 ? (
+      {!showSearchResults && (conversations.length === 0 ? (
         <Card className="p-8 text-center">
           <p className="text-muted-foreground">
             {starredOnly 
@@ -341,7 +448,7 @@ export function ConversationHistory({
             </Card>
           ))}
         </div>
-      )}
+      ))}
     </div>
   );
 }
