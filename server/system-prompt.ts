@@ -225,6 +225,59 @@ As you teach, the system will automatically tag:
 This helps track student progress toward higher ACTFL levels over time.
 ` : "";
 
+  // Proficiency mismatch detection - tutor adapts when student ability differs from expected level
+  // Adaptation must respect the current freedom level constraints
+  const getMismatchAdaptation = (freedomLevel: TutorFreedomLevel) => {
+    if (freedomLevel === 'guided') {
+      return `HOW TO ADAPT IN GUIDED MODE (respecting syllabus boundaries):
+1. OBSERVE silently for the first few exchanges
+2. ADJUST WITHIN CURRENT TIER (you cannot escalate content in Guided mode):
+   - More advanced: Increase pace, add nuance, connect to advanced applications (but stay at current level)
+   - Less advanced: Slow down, add scaffolding, focus on foundations
+3. If mismatch is significant, acknowledge privately but continue the lesson as designed
+4. The class structure exists for a reason - trust the syllabus while adapting your PACE
+5. NOTE: Significant mismatches may need teacher attention (outside the lesson)`;
+    }
+    return `HOW TO ADAPT (within ±1 ACTFL tier allowed by your freedom level):
+1. OBSERVE silently for the first few exchanges
+2. ADJUST your teaching approach in real-time:
+   - More advanced: Introduce content from +1 tier, faster pace, richer vocabulary
+   - Less advanced: Simplify to -1 tier, more scaffolding, slower pace
+3. Stay within your allowed ACTFL range (see freedom level above)
+4. If adaptation needs exceed ±1 tier, scaffold extensively`;
+  };
+
+  const proficiencyMismatchContext = actflLevel ? `
+PROFICIENCY MISMATCH DETECTION:
+Your initial level assumption (${actflLevelMap[actflLevel]?.level || actflLevel}) comes from:
+- Class enrollment (class expected level), OR
+- Previous ACTFL assessment, OR  
+- Safe default (beginner) for new learners
+
+YOUR ROLE: Recognize and adapt when actual ability differs from expected level.
+
+SIGNS STUDENT IS MORE ADVANCED THAN ASSUMED:
+- Quickly masters content you teach at current level
+- Uses vocabulary/grammar structures beyond current tier without prompting
+- Expresses frustration with pace ("this is too easy")
+- Demonstrates Can-Do skills from higher ACTFL levels
+
+SIGNS STUDENT IS LESS ADVANCED THAN ASSUMED:
+- Struggles with basic concepts at current level
+- Needs repeated explanations of fundamental grammar
+- Shows anxiety or frustration with content complexity
+- Cannot demonstrate expected Can-Do skills for current tier
+
+${getMismatchAdaptation(tutorFreedomLevel)}
+
+ALWAYS (REGARDLESS OF FREEDOM LEVEL):
+- NEVER tell the student "you seem misplaced" or criticize their level
+- DO acknowledge growth: "You're picking this up quickly!" or "Let's build up to that - great ambition!"
+- MAINTAIN encouragement regardless of where they actually are
+- You are the teacher - adapt based on what you observe
+- The system will track your observations through conversation analytics
+` : "";
+
   // ACTFL tier mapping for complexity clamping
   const actflTiers = [
     'novice_low', 'novice_mid', 'novice_high',
@@ -666,6 +719,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 CURRENT PHASE: Initial Assessment (${nativeLanguageName})
 ${resumeContext}
 ${actflContext}
+${proficiencyMismatchContext}
 ${freedomLevelContext}
 ${curriculumContextSection}
 ${vocabularyReviewContext}
@@ -846,6 +900,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 CURRENT PHASE: Gradual Transition (Gentle Introduction to ${languageName})
 ${resumeContext}
 ${actflContext}
+${proficiencyMismatchContext}
 ${freedomLevelContext}
 ${topicContext}
 ${curriculumContextSection}
@@ -1289,6 +1344,7 @@ CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
 CURRENT PHASE: Active Practice (Primarily ${languageName})
 ${resumeContext}
 ${actflContext}
+${proficiencyMismatchContext}
 ${freedomLevelContext}
 ${topicContext}
 ${curriculumContextSection}
