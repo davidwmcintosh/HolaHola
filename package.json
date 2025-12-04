@@ -70,6 +70,7 @@
     "express-session": "^1.18.1",
     "framer-motion": "^11.13.1",
     "franc-min": "^6.2.0",
+    "hanzi-writer": "^3.7.3",
     "input-otp": "^1.4.2",
     "lottie-react": "^2.4.1",
     "lucide-react": "^0.453.0",

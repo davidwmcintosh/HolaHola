@@ -18,7 +18,7 @@
  */
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { 
   Pencil, 
   Volume2, 
@@ -46,12 +46,17 @@ import {
   Users,
   Play,
   Pause,
+  Square,
   MapPin,
   Sparkles,
   ListChecks,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { synthesizeSpeech } from "@/lib/restVoiceApi";
+import type HanziWriter from "hanzi-writer";
 import type { 
   WhiteboardItem, 
   WhiteboardItemType,
@@ -77,6 +82,7 @@ interface WhiteboardProps {
   onClear?: () => void;
   onDrillResponse?: (drillId: string, response: string) => void;
   onDrillStart?: (drillId: string) => void;
+  language?: string;
 }
 
 const getItemIcon = (type: WhiteboardItemType) => {
@@ -738,12 +744,20 @@ interface StrokeItemDisplayProps {
 }
 
 /**
- * Stroke order display - shows character with numbered stroke order
- * Initially displays static numbered strokes; animation planned for future
+ * Stroke order display - shows character with animated stroke order using HanziWriter
  * Supports: CJK characters (Chinese, Japanese Kanji, Korean Hanja)
+ * Features: Play animation, replay button, stroke count display
+ * Uses dynamic import to avoid SSR issues (HanziWriter requires window)
  */
 const StrokeItemDisplay = ({ item, index }: StrokeItemDisplayProps) => {
   const { data } = item;
+  const writerContainerRef = useRef<HTMLDivElement>(null);
+  const writerRef = useRef<HanziWriter | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [strokeCount, setStrokeCount] = useState<number | null>(null);
+  const [isSupported, setIsSupported] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   const getLanguageLabel = (lang?: string): string => {
     switch (lang?.toLowerCase()) {
@@ -762,6 +776,114 @@ const StrokeItemDisplay = ({ item, index }: StrokeItemDisplayProps) => {
     }
   };
   
+  useEffect(() => {
+    if (!data.character) {
+      setIsLoading(false);
+      setHasError(true);
+      return;
+    }
+    if (typeof window === 'undefined') {
+      setIsLoading(false);
+      setHasError(true);
+      return;
+    }
+    if (!writerContainerRef.current) {
+      setIsLoading(false);
+      setHasError(true);
+      return;
+    }
+    
+    const container = writerContainerRef.current;
+    let mounted = true;
+    
+    const initWriter = async () => {
+      try {
+        const HanziWriterModule = await import('hanzi-writer');
+        const HanziWriter = HanziWriterModule.default;
+        
+        if (!mounted || !container) return;
+        
+        container.innerHTML = '';
+        
+        const writer = HanziWriter.create(container, data.character, {
+          width: 120,
+          height: 120,
+          padding: 5,
+          showOutline: true,
+          strokeAnimationSpeed: 1,
+          delayBetweenStrokes: 300,
+          strokeColor: '#ea580c',
+          outlineColor: '#fdba74',
+          drawingColor: '#c2410c',
+          radicalColor: '#f97316',
+          highlightColor: '#fb923c',
+          showCharacter: true,
+          onLoadCharDataSuccess: (charData: any) => {
+            if (!mounted) return;
+            setStrokeCount(charData?.strokes?.length || null);
+            setIsSupported(true);
+            setHasError(false);
+            setIsLoading(false);
+          },
+          onLoadCharDataError: () => {
+            if (!mounted) return;
+            console.warn(`[HanziWriter] Character "${data.character}" not found in database`);
+            setIsSupported(false);
+            setHasError(true);
+            setIsLoading(false);
+          },
+        });
+        
+        if (!mounted) {
+          (writer as any).destroy?.();
+          return;
+        }
+        
+        writerRef.current = writer;
+        
+        setTimeout(() => {
+          if (mounted && writerRef.current) {
+            setIsAnimating(true);
+            writerRef.current.animateCharacter({
+              onComplete: () => {
+                if (mounted) setIsAnimating(false);
+              },
+            });
+          }
+        }, 500);
+        
+      } catch (error) {
+        if (mounted) {
+          console.error('[HanziWriter] Failed to create writer:', error);
+          setHasError(true);
+          setIsLoading(false);
+        }
+      }
+    };
+    
+    initWriter();
+    
+    return () => {
+      mounted = false;
+      if (writerRef.current) {
+        try {
+          (writerRef.current as any).destroy?.();
+        } catch (e) {
+        }
+        writerRef.current = null;
+      }
+    };
+  }, [data.character]);
+  
+  const handleReplay = useCallback(() => {
+    if (writerRef.current && !isAnimating) {
+      setIsAnimating(true);
+      writerRef.current.animateCharacter({
+        onComplete: () => setIsAnimating(false),
+      });
+    }
+  }, [isAnimating]);
+  
   return (
     <motion.div
       initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -771,42 +893,96 @@ const StrokeItemDisplay = ({ item, index }: StrokeItemDisplayProps) => {
       className="flex flex-col gap-3 p-4 rounded-lg border bg-orange-500/10 border-orange-500/30"
       data-testid={`whiteboard-item-stroke-${index}`}
     >
-      <div className="flex items-center gap-2">
-        <PenTool className="h-4 w-4 text-orange-600 dark:text-orange-400 opacity-60" />
-        <span className="text-sm text-muted-foreground">
-          {getLanguageLabel(data.language)} Stroke Order
-        </span>
-      </div>
-      
-      <div className="flex justify-center items-center py-4">
-        <motion.div
-          initial={{ scale: 0.8 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", stiffness: 200, damping: 10 }}
-          className="relative"
-        >
-          <span 
-            className="text-6xl font-medium text-orange-700 dark:text-orange-300"
-            style={{ fontFamily: '"Noto Sans JP", "Noto Sans SC", "Noto Sans KR", sans-serif' }}
-          >
-            {data.character}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <PenTool className="h-4 w-4 text-orange-600 dark:text-orange-400 opacity-60" />
+          <span className="text-sm text-muted-foreground">
+            {getLanguageLabel(data.language)} Stroke Order
           </span>
-        </motion.div>
+        </div>
+        {strokeCount && isSupported && (
+          <span className="text-xs bg-orange-500/20 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full">
+            {strokeCount} strokes
+          </span>
+        )}
       </div>
       
-      <motion.div
+      <div className="flex justify-center items-center py-4 min-h-[140px]">
+        {isLoading && !hasError ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center gap-2"
+          >
+            <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+            <span className="text-xs text-muted-foreground">Loading stroke data...</span>
+          </motion.div>
+        ) : hasError || !isSupported ? (
+          <motion.div
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 200, damping: 10 }}
+            className="relative flex flex-col items-center gap-2"
+          >
+            <span 
+              className="text-6xl font-medium text-orange-700 dark:text-orange-300"
+              style={{ fontFamily: '"Noto Sans JP", "Noto Sans SC", "Noto Sans KR", sans-serif' }}
+            >
+              {data.character}
+            </span>
+            <p className="text-xs text-orange-600/70 dark:text-orange-400/70">
+              Stroke data not available
+            </p>
+          </motion.div>
+        ) : (
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 200, damping: 10 }}
+            className="relative"
+          >
+            <div 
+              ref={writerContainerRef}
+              className="w-[120px] h-[120px]"
+              data-testid={`stroke-writer-${index}`}
+            />
+          </motion.div>
+        )}
+      </div>
+      
+      {isSupported && !hasError && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="flex justify-center"
+        >
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleReplay}
+            disabled={isAnimating}
+            className="text-orange-600 dark:text-orange-400 hover:bg-orange-500/20"
+            data-testid={`stroke-replay-${index}`}
+          >
+            {isAnimating ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-1" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-1" />
+            )}
+            {isAnimating ? 'Animating...' : 'Replay Animation'}
+          </Button>
+        </motion.div>
+      )}
+      
+      <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
-        className="text-center"
+        transition={{ delay: 0.3 }}
+        className="text-center text-xs text-muted-foreground"
       >
-        <p className="text-xs text-muted-foreground">
-          Practice writing this character stroke by stroke
-        </p>
-        <p className="text-xs text-orange-600/70 dark:text-orange-400/70 mt-1">
-          Interactive stroke animation coming soon
-        </p>
-      </motion.div>
+        Watch and learn the stroke order for "{data.character}"
+      </motion.p>
     </motion.div>
   );
 };
@@ -1026,16 +1202,27 @@ const CultureItemDisplay = ({ item, index }: CultureItemDisplayProps) => {
 interface PlayItemDisplayProps {
   item: PlayItem;
   index: number;
+  language?: string;
 }
 
-const PlayItemDisplay = ({ item, index }: PlayItemDisplayProps) => {
+const PlayItemDisplay = ({ item, index, language }: PlayItemDisplayProps) => {
   const { data } = item;
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   const speedLabel = {
     slow: '0.5x',
     normal: '1x',
     fast: '1.5x',
+  }[data.speed];
+  
+  const speedRate = {
+    slow: 0.5,
+    normal: 1.0,
+    fast: 1.5,
   }[data.speed];
   
   const speedColor = {
@@ -1044,10 +1231,87 @@ const PlayItemDisplay = ({ item, index }: PlayItemDisplayProps) => {
     fast: 'text-orange-600 dark:text-orange-400',
   }[data.speed];
   
-  const handlePlay = useCallback(() => {
-    setIsPlaying(true);
-    setTimeout(() => setIsPlaying(false), 2000);
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
+    };
   }, []);
+  
+  const handlePlay = useCallback(async () => {
+    if (isLoading) {
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
+      setIsLoading(false);
+      return;
+    }
+    
+    if (isPlaying && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+      return;
+    }
+    
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const signal = controller.signal;
+    
+    try {
+      setIsLoading(true);
+      
+      const result = await synthesizeSpeech(
+        data.text,
+        language,
+        undefined,
+        language,
+        false,
+        undefined,
+        speedRate,
+        signal
+      );
+      
+      if (signal.aborted) return;
+      
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+      }
+      
+      const audioUrl = URL.createObjectURL(result.audioBlob);
+      audioUrlRef.current = audioUrl;
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      
+      audio.onended = () => {
+        setIsPlaying(false);
+      };
+      
+      audio.onerror = () => {
+        setIsPlaying(false);
+        console.error('[PLAY] Audio playback error');
+      };
+      
+      if (signal.aborted) return;
+      
+      setIsPlaying(true);
+      await audio.play();
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        console.error('[PLAY] Failed to synthesize speech:', error);
+      }
+      setIsPlaying(false);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isPlaying, isLoading, data.text, language, speedRate]);
   
   return (
     <motion.div
@@ -1062,11 +1326,14 @@ const PlayItemDisplay = ({ item, index }: PlayItemDisplayProps) => {
         variant="ghost"
         size="icon"
         onClick={handlePlay}
+        disabled={isLoading}
         className={`h-12 w-12 rounded-full ${isPlaying ? 'bg-sky-500/20' : 'bg-sky-500/10'} hover:bg-sky-500/20`}
         data-testid={`play-button-${index}`}
       >
-        {isPlaying ? (
-          <Pause className="h-6 w-6 text-sky-600 dark:text-sky-400" />
+        {isLoading ? (
+          <Loader2 className="h-6 w-6 text-sky-600 dark:text-sky-400 animate-spin" />
+        ) : isPlaying ? (
+          <Square className="h-5 w-5 text-sky-600 dark:text-sky-400" />
         ) : (
           <Play className="h-6 w-6 text-sky-600 dark:text-sky-400" />
         )}
@@ -1278,11 +1545,13 @@ const WhiteboardItemDisplay = ({
   index,
   onDrillResponse,
   onDrillStart,
+  language,
 }: { 
   item: WhiteboardItem; 
   index: number;
   onDrillResponse?: (drillId: string, response: string) => void;
   onDrillStart?: (drillId: string) => void;
+  language?: string;
 }) => {
   if (isImageItem(item)) {
     return <ImageItemDisplay item={item} index={index} />;
@@ -1331,7 +1600,7 @@ const WhiteboardItemDisplay = ({
   }
   
   if (isPlayItem(item)) {
-    return <PlayItemDisplay item={item} index={index} />;
+    return <PlayItemDisplay item={item} index={index} language={language} />;
   }
   
   if (isScenarioItem(item)) {
@@ -1345,7 +1614,10 @@ const WhiteboardItemDisplay = ({
   return <TextItemDisplay item={item} index={index} />;
 };
 
-export function Whiteboard({ items, onClear, onDrillResponse, onDrillStart }: WhiteboardProps) {
+export function Whiteboard({ items, onClear, onDrillResponse, onDrillStart, language: propLanguage }: WhiteboardProps) {
+  const { language: contextLanguage } = useLanguage();
+  const language = propLanguage || contextLanguage;
+  
   if (items.length === 0) {
     return null;
   }
@@ -1377,6 +1649,7 @@ export function Whiteboard({ items, onClear, onDrillResponse, onDrillStart }: Wh
                   index={index}
                   onDrillResponse={onDrillResponse}
                   onDrillStart={onDrillStart}
+                  language={language}
                 />
               ))}
             </div>
@@ -1395,11 +1668,16 @@ export function InlineWhiteboard({
   items,
   onDrillResponse,
   onDrillStart,
+  language: propLanguage,
 }: { 
   items: WhiteboardItem[];
   onDrillResponse?: (drillId: string, response: string) => void;
   onDrillStart?: (drillId: string) => void;
+  language?: string;
 }) {
+  const { language: contextLanguage } = useLanguage();
+  const language = propLanguage || contextLanguage;
+  
   if (items.length === 0) {
     return null;
   }
@@ -1417,6 +1695,7 @@ export function InlineWhiteboard({
             index={index}
             onDrillResponse={onDrillResponse}
             onDrillStart={onDrillStart}
+            language={language}
           />
         ))}
       </div>

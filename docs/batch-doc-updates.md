@@ -250,9 +250,65 @@ Created comprehensive "Whiteboard Tools Roadmap" section documenting:
 - `docs/future-features.md` - Updated roadmap to mark Phase 5 complete
 
 ### Notes
-- PLAY button currently shows UI placeholder; backend TTS integration pending
 - SCENARIO roles are auto-extracted from situation text (e.g., "waiter", "customer")
 - SUMMARY totalItems count tracks combined words + phrases for analytics
+
+---
+
+## Phase 5 Implementation Updates (Dec 4, 2025)
+
+### PLAY Button - Wired to Cartesia TTS
+
+The PLAY button is now fully functional with Cartesia TTS integration:
+
+**Implementation Details:**
+- Backend: Added `speakingRate` parameter to `/api/voice/synthesize` endpoint
+- Client: Updated `synthesizeSpeech()` function in `restVoiceApi.ts` to accept speed param
+- UI: PlayItemDisplay now calls TTS on click with appropriate speed
+
+**Speed Mapping:**
+- `slow` → 0.5x speaking rate
+- `normal` → 1.0x speaking rate
+- `fast` → 1.5x speaking rate
+
+**UX Features:**
+- Loading spinner while synthesizing
+- Stop button while playing (also cancels in-flight requests)
+- AbortController pattern for proper request cancellation
+- Cleanup on unmount (stops audio, revokes object URLs)
+- Language context from LanguageProvider for proper TTS voice
+
+**Files Changed:**
+- `server/routes.ts` - speakingRate parameter support
+- `client/src/lib/restVoiceApi.ts` - synthesizeSpeech with speakingRate
+- `client/src/components/Whiteboard.tsx` - PlayItemDisplay TTS integration
+
+---
+
+### STROKE Tool - HanziWriter Animated Strokes
+
+The STROKE tool now shows animated stroke order using HanziWriter library:
+
+**Implementation Details:**
+- Installed `hanzi-writer` npm package
+- StrokeItemDisplay uses dynamic import for SSR safety (avoids "window is not defined" error)
+- HanziWriter.create() renders animated character with proper cleanup (writer.destroy())
+- Auto-animates on display, with replay button for manual control
+
+**Features:**
+- Stroke count badge showing total strokes
+- Automatic animation on display
+- Replay Animation button
+- Graceful fallback for unsupported characters (shows static text)
+
+**HanziWriter Configuration:**
+- Width/Height: 120x120px
+- Stroke color: Orange theme (#ea580c)
+- Outline visible for guidance
+- 300ms delay between strokes
+
+**Files Changed:**
+- `client/src/components/Whiteboard.tsx` - StrokeItemDisplay with HanziWriter
 
 ---
 

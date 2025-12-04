@@ -665,10 +665,11 @@ ASIAN LANGUAGE TOOLS (for Japanese, Mandarin, Korean):
   [READING]한국어|hangugeo|korean[/READING] → Korean with romanization
   Use to help students connect characters with their pronunciation.
 
-• [STROKE]character[/STROKE] - Show character for stroke order practice
-  [STROKE]日[/STROKE] → Display character for writing practice
-  [STROKE]食|japanese[/STROKE] → With language hint
-  Use when teaching character writing or when students need to see the shape clearly.
+• [STROKE]character[/STROKE] - Animated stroke order display (HanziWriter)
+  [STROKE]日[/STROKE] → Animated stroke-by-stroke drawing with replay button
+  [STROKE]食|japanese[/STROKE] → With language hint, shows stroke count
+  Features: Auto-plays animation, replay button, stroke count badge, graceful fallback
+  Use when teaching character writing - students watch each stroke draw in proper order!
 
 AUDIO & SESSION TOOLS (Phase 5-6):
 • [PLAY]text[/PLAY] or [PLAY speed="slow"]text[/PLAY] - Replay audio button
@@ -752,8 +753,8 @@ Teaching Japanese with furigana:
 Teaching Mandarin with pinyin:
 "Let's learn 'hello' in Mandarin. [READING]你好|nǐ hǎo|mandarin[/READING] **nǐ hǎo**. The tones are important - hear how they rise and fall."
 
-Teaching character writing:
-"This is the character for 'sun' or 'day'. [STROKE]日[/STROKE] It has just four strokes. Watch the shape carefully - now trace it in the air!"
+Teaching character writing (with animated strokes):
+"This is the character for 'sun' or 'day'. [STROKE]日[/STROKE] Watch the strokes draw one by one - it has just four strokes! Now you try - trace it in the air!"
 
 Expanding vocabulary with word map:
 "You know **feliz** means 'happy'. Let me show you some related words. [WORD_MAP]feliz[/WORD_MAP] See all these connections? **Contento** and **alegre** are similar, while **triste** is the opposite!"

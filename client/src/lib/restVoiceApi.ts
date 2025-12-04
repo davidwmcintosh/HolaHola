@@ -68,6 +68,8 @@ export async function transcribeAudio(audioBlob: Blob, language?: string): Promi
  * language: Target language for pronunciation (e.g., 'spanish', 'french')
  * returnTimings: If true, requests word-level timing data for synchronized subtitles
  * emotion: Optional AI-selected emotion for expressive TTS (e.g., 'friendly', 'encouraging', 'curious')
+ * speakingRate: Optional speaking rate (0.5 = slow, 1.0 = normal, 1.5 = fast)
+ * signal: Optional AbortSignal for request cancellation
  */
 export async function synthesizeSpeech(
   text: string, 
@@ -75,7 +77,9 @@ export async function synthesizeSpeech(
   voice?: string, 
   targetLanguage?: string,
   returnTimings?: boolean,
-  emotion?: string
+  emotion?: string,
+  speakingRate?: number,
+  signal?: AbortSignal
 ): Promise<SynthesisResult> {
   // Use nova voice for better multilingual pronunciation (default to nova if language specified)
   const selectedVoice = voice || (language ? 'nova' : 'alloy');
@@ -92,8 +96,10 @@ export async function synthesizeSpeech(
       targetLanguage, // Pass target language for SSML phoneme tags
       returnTimings, // Request word-level timing data
       emotion, // AI-selected emotion for expressive TTS
+      speakingRate, // Optional speaking rate override
     }),
     credentials: 'include', // Include auth cookies
+    signal, // Pass AbortSignal for cancellation
   });
 
   if (!response.ok) {

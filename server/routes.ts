@@ -4033,7 +4033,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
   // Returns both audio and word-level timing data for synchronized subtitles
   app.post("/api/voice/synthesize", voiceLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const { text, voice, language, targetLanguage, returnTimings, emotion, preview } = req.body;
+      const { text, voice, language, targetLanguage, returnTimings, emotion, preview, speakingRate: requestSpeakingRate } = req.body;
       
       if (!text) {
         return res.status(400).json({ error: "No text provided" });
@@ -4124,7 +4124,8 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
       console.log(`[TTS] Synthesizing speech for user ${userId}, original: ${text.length} chars, cleaned: ${cleanText.length} chars, language: ${effectiveLanguage}, gender: ${tutorGender}`);
 
       // Use TTS service abstraction (Cartesia Sonic-3 primary, Google fallback)
-      // Use admin-configured speaking rate, or default to 0.9 (natural conversational speed)
+      // Priority: request speaking rate > admin-configured > default 0.9
+      const effectiveSpeakingRate = requestSpeakingRate ?? configuredSpeakingRate;
       const ttsService = getTTSService();
       const result = await ttsService.synthesize({
         text: cleanText,
@@ -4133,7 +4134,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
         voiceId, // Pass admin-configured voice ID if available
         targetLanguage, // Pass target language for SSML phoneme tag processing
         returnTimings, // Request word-level timing data for subtitle sync
-        speakingRate: configuredSpeakingRate, // Use admin-configured speed
+        speakingRate: effectiveSpeakingRate, // Request rate > admin config > default
         emotion: effectiveEmotion, // Dynamic emotion from AI or personality default
       });
       
