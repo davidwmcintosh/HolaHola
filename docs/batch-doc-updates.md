@@ -179,6 +179,37 @@ Pending documentation updates to be applied together.
 
 ---
 
+## Whiteboard Tools Roadmap (Dec 4, 2025)
+
+### Added to future-features.md
+
+Created comprehensive "Whiteboard Tools Roadmap" section documenting:
+
+**Completed Phases (1-4):**
+- Core Foundation: WRITE, PHONETIC, COMPARE, IMAGE, DRILL
+- Contextual Teaching: CONTEXT, GRAMMAR_TABLE, READING, STROKE
+- Vocabulary & Culture: WORD_MAP, DRILL match, CULTURE
+
+**Planned Phases:**
+
+**Phase 5: Enhanced Interactivity (P1)**
+- Animated Stroke Order - stroke-by-stroke CJK character animation
+- Audio Replay `[PLAY]word[/PLAY]` - on-demand pronunciation
+- Speed Control - variable speed audio for difficult phrases
+
+**Phase 6: Advanced Teaching Aids (P2)**
+- Scenario Cards `[SCENARIO]location|situation[/SCENARIO]` - role-play setup
+- Error Patterns `[ERRORS]` - display student's common mistakes
+- Vocabulary Timeline `[TIMELINE]` - words learned over time
+- Lesson Summary `[SUMMARY]` - auto-generated recap
+
+**Phase 7: Immersive Learning (P3 - Future)**
+- AR Vocabulary Labels
+- Video Clips
+- Interactive Stories
+
+---
+
 ## Pending Items
 
 ### Route Alias Investigation
