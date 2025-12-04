@@ -1,0 +1,224 @@
+TIMING DEBUG
+(STALE)
+[CONNECTED]
+P:1
+▲
+CURRENT WORD
+Highlighted:
+—
+Expected (from timing):
+—
+Word Index: — | Visible: 6 | Total Received: 12
+TIMING DRIFT
+Audio Time
+0.579s
+Expected Start
+0.439s
+Drift
++140ms
+CURRENT SENTENCE
+¡Perfecto, David! That Hola was excellent! You've already got a great start
+Target: ¡Perfecto, David! Hola
+WORD TIMING COUNTS
+Total Deltas:
+54
+Total Finals:
+54
+This Sentence:
+12 deltas
+Final Count:
+12
+✓ All deltas received
+TIMING RACE
+S3
+First Timing At:
+12871ms
+Playback Start:
+—
+Timings at Start:
+0 words ready
+HISTORY (per sentence):
+S0
++420ms
+1w
+S0
++303ms
+1w
+WORD-BASED TIMING
+NO MATCH
+Active Word (from ctx.currentTime):
+No word matched at current time
+Schedule Size:
+31 words
+Last Match:
+111.72s
+FIRST Words (with abs times):
+S0W0: "¡Perfecto," @ 110.13-110.54s
+S0W1: "David!" @ 110.54-110.75s
+S0W2: "That" @ 110.75-110.96s
+S0W3: "Hola" @ 110.96-111.16s
+S0W4: "was" @ 111.16-111.35s
+S0W5: "excellent!" @ 111.35-111.80s
+RECEIVED WORDS (28)
+S0W3: Hola
+S0W4: was
+S0W5: excellent!
+S0W6: You've
+S0W7: already
+S0W8: got
+S0W9: a
+S0W10: great
+S0W11: start
+S1W0: Now,
+S1W1: let's
+S1W2: learn
+S1W3: how
+S1W4: to
+S1W5: say
+S1W6: good
+S1W7: morning
+S2W0: In
+S2W1: Spanish,
+S2W2: that's
+S2W3: Buenos
+S2W4: días
+S3W0: Can
+S3W1: you
+S3W2: try
+S3W3: saying
+S3W4: Buenos
+S3W5: días?
+RECENT EVENTS (20)
+Δ
+S3:
+w5
+"días?"
+1.69-2.01s
+Δ
+S3:
+w4
+"Buenos"
+1.36-1.69s
+Δ
+S3:
+w3
+"saying"
+0.96-1.36s
+Δ
+S3:
+w2
+"try"
+0.76-0.96s
+Δ
+S3:
+w1
+"you"
+0.57-0.76s
+Δ
+S3:
+w0
+"Can"
+0.34-0.57s
+Δ
+S2:
+w4
+"días"
+1.46-1.73s
+Δ
+S2:
+w3
+"Buenos"
+1.19-1.46s
+Δ
+S2:
+w2
+"that's"
+1.01-1.19s
+Δ
+S2:
+w1
+"Spanish,"
+0.34-0.91s
+TICK LOOP (First 5 frames)started 68.0s ago
+F1: ctx=109.733s, state=running, playing=true
+F2: ctx=109.904s, state=running, playing=true
+F3: ctx=110.133s, state=running, playing=true
+F4: ctx=110.272s, state=running, playing=true
+F5: ctx=110.453s, state=running, playing=true
+PLAYBACK STATE
+Loop Running:
+YES
+isPlaying:
+YES
+Loop Ticks:
+200
+Ctx Time:
+129.387s
+Ctx State:
+running
+Ctx ID:
+9250467_qiul
+Active Sentence:
+0
+Last Delta Sent:
+S3
+SENTENCE EVENTS
+Last Start:
+0
+Last End:
+3
+AUDIO CHUNKS RECEIVED
+Total Chunks:
+150
+Last Chunk S:
+3
+Per Sentence: S0:52, S1:50, S2:31, S3:17
+EMPTY CHUNKS & TRANSITIONS
+Empty Chunks:
+7
+Last Empty S:
+3
+EndTimes Set: [0, 1, 2, 3]
+Transitions:
+s-1→s0: started at 0.17s
+s-1→s0: started at 109.90s
+SCHEDULE (4 entries)
+MATCH INFO (1 sentences)
+S0 ✗
+end=undefined
+ENDED: now(129.39) >= end(113.96)
+range: 109.79 - 113.96
+SCHEDULE EVENTS (11)
+✅ ADD S3
+5:50:12 PM
+After: [0, 1, 2, 3] (4 entries)
+✅ ADD S2
+5:50:03 PM
+After: [0, 1, 2] (3 entries)
+✅ ADD S1
+5:49:44 PM
+After: [0, 1] (2 entries)
+✅ ADD S0
+5:49:21 PM
+After: [0] (1 entries)
+⚠️ CLEAR (0 removed)
+5:49:21 PM
+After: [] (0 entries)
+⚠️ CLEAR (0 removed)
+5:49:18 PM
+After: [] (0 entries)
+✅ ADD S2
+5:47:58 PM
+After: [0, 1, 2] (3 entries)
+✅ ADD S1
+5:47:38 PM
+After: [0, 1] (2 entries)
+✅ ADD S0
+5:47:30 PM
+After: [0] (1 entries)
+⚠️ CLEAR (0 removed)
+5:47:30 PM
+After: [] (0 entries)
+⚠️ CLEAR (0 removed)
+5:47:26 PM
+After: [] (0 entries)
