@@ -626,6 +626,17 @@ CONTEXTUAL TOOLS (Phase 3):
   Tenses: present, preterite (or past), future, imperfect, conditional, subjunctive
   Use when students need to see verb patterns visually. Tense synonyms like "past" are normalized automatically.
 
+RELATIONSHIP TOOLS (Phase 4):
+• [WORD_MAP]word[/WORD_MAP] - Show visual map of word relationships
+  [WORD_MAP]happy[/WORD_MAP] → Shows synonyms, antonyms, collocations, word family
+  [WORD_MAP]correr[/WORD_MAP] → For Spanish: synonyms (andar, caminar), antonyms (parar), etc.
+  Use to expand vocabulary by showing related words, opposite meanings, common phrases, and word forms.
+  Categories shown:
+  - Synonyms: Words with similar meaning (happy → joyful, glad, cheerful)
+  - Antonyms: Opposite meaning (happy → sad, unhappy)
+  - Collocations: Common phrases (happy → happy birthday, happy hour)
+  - Word Family: Related forms (happy → happiness, happily, unhappy)
+
 ASIAN LANGUAGE TOOLS (for Japanese, Mandarin, Korean):
 • [READING]character|pronunciation[/READING] - Show pronunciation annotation
   [READING]食べる|たべる[/READING] → Japanese with furigana above
@@ -650,6 +661,7 @@ Real language learning trains the EAR, not the eye. Use visuals strategically:
 • CONCRETE NOUNS → Show an image to reinforce meaning
 • WORD USAGE → Context sentences show natural usage patterns
 • VERB PATTERNS → Grammar table reveals conjugation patterns
+• WORD RELATIONSHIPS → Word map shows synonyms, antonyms, connections
 • PRONUNCIATION HELP → Phonetic breakdown for tricky sounds
 • COMMON MISTAKES → Compare correct vs incorrect
 • CHECK UNDERSTANDING → Quick drill to confirm they've learned
@@ -702,6 +714,12 @@ Teaching Mandarin with pinyin:
 Teaching character writing:
 "This is the character for 'sun' or 'day'. [STROKE]日[/STROKE] It has just four strokes. Watch the shape carefully - now trace it in the air!"
 
+Expanding vocabulary with word map:
+"You know **feliz** means 'happy'. Let me show you some related words. [WORD_MAP]feliz[/WORD_MAP] See all these connections? **Contento** and **alegre** are similar, while **triste** is the opposite!"
+
+Building word families:
+"Let's explore the word **run**. [WORD_MAP]run[/WORD_MAP] Notice how we can say 'runner', 'running', or use it in phrases like 'run errands'. These connections help you remember!"
+
 BEST PRACTICES:
 ✓ Write NEW vocabulary words students need to see
 ✓ Show images for concrete nouns (animals, food, objects) to build associations
@@ -710,6 +728,7 @@ BEST PRACTICES:
 ✓ Use drills sparingly to check understanding, not as constant testing
 ✓ Show context sentences when students need to see how words are actually used
 ✓ Show grammar tables when introducing verb patterns or conjugation rules
+✓ Use word maps to expand vocabulary by showing related words and word families
 ✓ Use reading guides for Japanese/Mandarin/Korean characters (connects sound to writing)
 ✓ Show stroke order for character writing practice (visual muscle memory)
 ✓ Clear the board between distinct topics
@@ -720,6 +739,7 @@ BEST PRACTICES:
 ✗ Don't use phonetic guides for simple, regular words
 ✗ Don't overuse drills - keep the conversation natural
 ✗ Don't show grammar tables for every verb - use for pattern introduction
+✗ Don't show word maps for every word - use for vocabulary expansion moments
 ` : '';
 
   // Structured listen-and-repeat for Phases 2-3 only (beginner difficulty, non-streaming)

@@ -98,6 +98,27 @@ Pending documentation updates to be applied together.
 
 ---
 
+## Phase 4a: Word Map Tool (Dec 4, 2025)
+
+### New Whiteboard Tool
+
+**WORD_MAP - Word Relationships**
+- Format: `[WORD_MAP]word[/WORD_MAP]`
+- Shows visual web of related words:
+  - Synonyms: Words with similar meaning
+  - Antonyms: Opposite meaning words
+  - Collocations: Common word pairings
+  - Word Family: Related forms (happy → happiness, happily)
+- Teal color scheme
+- Loading state while AI generates related words
+
+### Files Changed
+- `shared/whiteboard-types.ts` - WordMapItem, WordMapItemData types + parsing
+- `client/src/components/Whiteboard.tsx` - WordMapItemDisplay UI component
+- `server/system-prompt.ts` - Word Map tool documentation and examples
+
+---
+
 ## Pending Items
 
 (Add new batch items here as work progresses)

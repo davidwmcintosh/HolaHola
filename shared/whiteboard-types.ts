@@ -29,6 +29,7 @@
  * - [DRILL type="repeat"]Buenos días[/DRILL] → Quick pronunciation drill
  * - [CONTEXT]correr|Yo corro todos los días|Ella corre muy rápido|Los niños corren en el parque[/CONTEXT] → Show word in multiple contexts
  * - [GRAMMAR_TABLE]hablar|present[/GRAMMAR_TABLE] → Show verb conjugation table
+ * - [WORD_MAP]happy[/WORD_MAP] → Show word relationships (synonyms, antonyms, collocations, word family)
  * - [CLEAR] → Wipe the whiteboard
  * - [HOLD] → Explicit "keep current content" (for response without whiteboard changes)
  */
@@ -42,6 +43,7 @@ export const WHITEBOARD_TAGS = {
   GRAMMAR_TABLE: 'GRAMMAR_TABLE',
   READING: 'READING',
   STROKE: 'STROKE',
+  WORD_MAP: 'WORD_MAP',
   CLEAR: 'CLEAR',
   HOLD: 'HOLD',
 } as const;
@@ -51,7 +53,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'word_map';
 
 /**
  * Drill types for inline micro-exercises
@@ -143,6 +145,19 @@ export interface StrokeItemData {
 }
 
 /**
+ * Word map item data
+ * Shows visual web of related words: synonyms, antonyms, collocations, word family
+ */
+export interface WordMapItemData {
+  targetWord: string;           // The central word being explored
+  synonyms?: string[];          // Similar meaning words
+  antonyms?: string[];          // Opposite meaning words
+  collocations?: string[];      // Common word pairings (e.g., "make a decision")
+  wordFamily?: string[];        // Related forms (happy → happiness, happily)
+  isLoading?: boolean;          // True while AI generates related words
+}
+
+/**
  * Individual whiteboard item (one marked section)
  * Discriminated union for type-safe rendering
  */
@@ -208,6 +223,12 @@ export interface StrokeItem extends WhiteboardItemBase {
   data: StrokeItemData;
 }
 
+export interface WordMapItem extends WhiteboardItemBase {
+  type: 'word_map';
+  content: string;
+  data: WordMapItemData;
+}
+
 export type WhiteboardItem = 
   | WriteItem 
   | PhoneticItem 
@@ -218,7 +239,8 @@ export type WhiteboardItem =
   | ContextItem
   | GrammarTableItem
   | ReadingItem
-  | StrokeItem;
+  | StrokeItem
+  | WordMapItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -265,16 +287,17 @@ export const WHITEBOARD_PATTERNS = {
   GRAMMAR_TABLE: /\[GRAMMAR_TABLE\]([\s\S]*?)\[\/GRAMMAR_TABLE\]/gi,
   READING: /\[READING\]([\s\S]*?)\[\/READING\]/gi,
   STROKE: /\[STROKE\]([\s\S]*?)\[\/STROKE\]/gi,
+  WORD_MAP: /\[WORD_MAP\]([\s\S]*?)\[\/WORD_MAP\]/gi,
   CLEAR: /\[CLEAR\]/gi,
   HOLD: /\[HOLD\]/gi,
 } as const;
 
 /**
  * All whiteboard markup pattern (for stripping)
- * Updated to include all Phase 3 tags including Asian language tools
+ * Updated to include all Phase 4 tags including Word Map
  */
 export const ALL_WHITEBOARD_MARKUP_PATTERN = 
-  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[(CLEAR|HOLD)\]/gi;
+  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|WORD_MAP)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[(CLEAR|HOLD)\]/gi;
 
 /**
  * Generate unique ID for whiteboard items
@@ -378,6 +401,32 @@ function parseStrokeContent(content: string): StrokeItemData {
   return {
     character,
     language,
+  };
+}
+
+/**
+ * Parse WORD_MAP content: just the target word
+ * The AI will generate related words server-side
+ * Examples:
+ * - [WORD_MAP]happy[/WORD_MAP] → Show word map for "happy"
+ * - [WORD_MAP]correr[/WORD_MAP] → Show word map for Spanish "correr"
+ * 
+ * Validation: target word is required
+ */
+function parseWordMapContent(content: string): WordMapItemData {
+  const targetWord = content.trim();
+  
+  if (!targetWord) {
+    console.warn('[Whiteboard] WORD_MAP tag with empty content');
+    return {
+      targetWord: '?',
+      isLoading: true,
+    };
+  }
+  
+  return {
+    targetWord,
+    isLoading: true,
   };
 }
 
@@ -561,6 +610,24 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
     });
   }
 
+  // Parse WORD_MAP tags (Phase 4 - word relationships)
+  WHITEBOARD_PATTERNS.WORD_MAP.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.WORD_MAP.exec(text)) !== null) {
+    const content = match[1].trim();
+    const wordMapData = parseWordMapContent(content);
+    items.push({
+      type: 'word_map',
+      content,
+      timestamp: now,
+      id: generateItemId(),
+      data: wordMapData,
+    });
+    // Add the target word to vocabulary
+    if (wordMapData.targetWord && wordMapData.targetWord !== '?') {
+      vocabularyWords.push(wordMapData.targetWord);
+    }
+  }
+
   const cleanText = text
     .replace(ALL_WHITEBOARD_MARKUP_PATTERN, '')
     .replace(/\s{2,}/g, ' ')
@@ -619,6 +686,8 @@ export const whiteboardExamples = {
     `[READING]${character}|${reading}${language ? `|${language}` : ''}[/READING]`,
   stroke: (character: string, language?: string) => 
     `[STROKE]${character}${language ? `|${language}` : ''}[/STROKE]`,
+  wordMap: (targetWord: string) => 
+    `[WORD_MAP]${targetWord}[/WORD_MAP]`,
   clear: '[CLEAR]',
   hold: '[HOLD]',
 };
@@ -677,6 +746,13 @@ export function isReadingItem(item: WhiteboardItem): item is ReadingItem {
  */
 export function isStrokeItem(item: WhiteboardItem): item is StrokeItem {
   return item.type === 'stroke';
+}
+
+/**
+ * Type guard for checking if an item is a word map item
+ */
+export function isWordMapItem(item: WhiteboardItem): item is WordMapItem {
+  return item.type === 'word_map';
 }
 
 /**

@@ -35,6 +35,7 @@ import {
   Table2,
   Languages,
   PenTool,
+  Network,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -48,9 +49,10 @@ import type {
   GrammarTableItem,
   ReadingItem,
   StrokeItem,
+  WordMapItem,
   DrillState,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, getDrillInstructions } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isWordMapItem, getDrillInstructions } from "@shared/whiteboard-types";
 
 interface WhiteboardProps {
   items: WhiteboardItem[];
@@ -81,6 +83,8 @@ const getItemIcon = (type: WhiteboardItemType) => {
       return <Languages className="h-4 w-4" />;
     case "stroke":
       return <PenTool className="h-4 w-4" />;
+    case "word_map":
+      return <Network className="h-4 w-4" />;
     default:
       return null;
   }
@@ -108,6 +112,8 @@ const getItemStyle = (type: WhiteboardItemType): string => {
       return "bg-pink-500/10 border-pink-500/30 text-pink-700 dark:text-pink-300";
     case "stroke":
       return "bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300";
+    case "word_map":
+      return "bg-teal-500/10 border-teal-500/30 text-teal-700 dark:text-teal-300";
     default:
       return "bg-muted border-border text-foreground";
   }
@@ -583,6 +589,153 @@ const StrokeItemDisplay = ({ item, index }: StrokeItemDisplayProps) => {
   );
 };
 
+interface WordMapItemDisplayProps {
+  item: WordMapItem;
+  index: number;
+}
+
+/**
+ * Word map display - shows visual web of related words
+ * Displays synonyms, antonyms, collocations, and word family
+ * Uses radial layout to show word relationships
+ */
+const WordMapItemDisplay = ({ item, index }: WordMapItemDisplayProps) => {
+  const { data } = item;
+  
+  const hasRelations = data.synonyms?.length || data.antonyms?.length || 
+    data.collocations?.length || data.wordFamily?.length;
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-teal-500/10 border-teal-500/30"
+      data-testid={`whiteboard-item-word-map-${index}`}
+    >
+      <div className="flex items-center gap-2">
+        <Network className="h-4 w-4 text-teal-600 dark:text-teal-400 opacity-60" />
+        <span className="text-sm text-muted-foreground">Word Map</span>
+      </div>
+      
+      <div className="flex justify-center items-center py-2">
+        <motion.span
+          initial={{ scale: 0.9 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", stiffness: 200, damping: 10 }}
+          className="text-2xl font-bold text-teal-700 dark:text-teal-300 px-4 py-2 bg-teal-500/20 rounded-full"
+        >
+          {data.targetWord}
+        </motion.span>
+      </div>
+      
+      {data.isLoading ? (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="h-6 w-6 animate-spin text-teal-500" />
+          <span className="ml-2 text-sm text-muted-foreground">Finding related words...</span>
+        </div>
+      ) : hasRelations ? (
+        <div className="grid gap-3">
+          {data.synonyms && data.synonyms.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 }}
+              className="flex flex-wrap gap-1.5 items-center"
+            >
+              <span className="text-xs font-medium text-teal-600 dark:text-teal-400 w-20">Synonyms:</span>
+              {data.synonyms.map((word, i) => (
+                <motion.span
+                  key={i}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.15 + i * 0.05 }}
+                  className="px-2 py-0.5 text-sm bg-teal-500/15 rounded-md text-teal-700 dark:text-teal-300"
+                >
+                  {word}
+                </motion.span>
+              ))}
+            </motion.div>
+          )}
+          
+          {data.antonyms && data.antonyms.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+              className="flex flex-wrap gap-1.5 items-center"
+            >
+              <span className="text-xs font-medium text-rose-600 dark:text-rose-400 w-20">Antonyms:</span>
+              {data.antonyms.map((word, i) => (
+                <motion.span
+                  key={i}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.25 + i * 0.05 }}
+                  className="px-2 py-0.5 text-sm bg-rose-500/15 rounded-md text-rose-700 dark:text-rose-300"
+                >
+                  {word}
+                </motion.span>
+              ))}
+            </motion.div>
+          )}
+          
+          {data.collocations && data.collocations.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 }}
+              className="flex flex-wrap gap-1.5 items-center"
+            >
+              <span className="text-xs font-medium text-amber-600 dark:text-amber-400 w-20">Common:</span>
+              {data.collocations.map((phrase, i) => (
+                <motion.span
+                  key={i}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.35 + i * 0.05 }}
+                  className="px-2 py-0.5 text-sm bg-amber-500/15 rounded-md text-amber-700 dark:text-amber-300"
+                >
+                  {phrase}
+                </motion.span>
+              ))}
+            </motion.div>
+          )}
+          
+          {data.wordFamily && data.wordFamily.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+              className="flex flex-wrap gap-1.5 items-center"
+            >
+              <span className="text-xs font-medium text-violet-600 dark:text-violet-400 w-20">Family:</span>
+              {data.wordFamily.map((word, i) => (
+                <motion.span
+                  key={i}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.45 + i * 0.05 }}
+                  className="px-2 py-0.5 text-sm bg-violet-500/15 rounded-md text-violet-700 dark:text-violet-300"
+                >
+                  {word}
+                </motion.span>
+              ))}
+            </motion.div>
+          )}
+        </div>
+      ) : (
+        <div className="py-3 text-center">
+          <p className="text-sm text-muted-foreground italic">
+            Exploring word relationships for <span className="font-semibold">{data.targetWord}</span>
+          </p>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
 interface GrammarTableItemDisplayProps {
   item: GrammarTableItem;
   index: number;
@@ -688,6 +841,10 @@ const WhiteboardItemDisplay = ({
   
   if (isStrokeItem(item)) {
     return <StrokeItemDisplay item={item} index={index} />;
+  }
+  
+  if (isWordMapItem(item)) {
+    return <WordMapItemDisplay item={item} index={index} />;
   }
   
   return <TextItemDisplay item={item} index={index} />;

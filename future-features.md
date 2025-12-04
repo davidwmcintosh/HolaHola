@@ -278,7 +278,7 @@ Based on a consultation session with Gemini in tutor persona (Dec 4, 2025), aski
 
 ### Phase 4: Relationship & Culture Tools
 
-**Word Maps**
+**✅ Word Maps** (Completed Dec 4, 2025)
 - Visual web showing synonyms, antonyms, collocations
 - Word families (happy → happiness, happily)
 - Markup: `[WORD_MAP]target_word[/WORD_MAP]`
@@ -329,6 +329,18 @@ Based on a consultation session with Gemini in tutor persona (Dec 4, 2025), aski
 ---
 
 ## Recently Completed Features
+
+### ✅ Tutor Whiteboard Phase 4a (Dec 4, 2025)
+**Status:** Completed - Word Map Tool
+
+- **Word Map**: `[WORD_MAP]word[/WORD_MAP]`
+  - Visual web showing word relationships
+  - Shows synonyms, antonyms, collocations, word family
+  - Teal color scheme with animated pill badges
+  - Loading state while AI generates related words
+
+- System prompt updated with Word Map tool documentation and examples
+- Type guards and parsing functions for WordMapItem
 
 ### ✅ Tutor Whiteboard Phase 3c (Dec 4, 2025)
 **Status:** Completed - Asian Language Tools
