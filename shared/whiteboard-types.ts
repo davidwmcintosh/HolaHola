@@ -40,6 +40,8 @@ export const WHITEBOARD_TAGS = {
   DRILL: 'DRILL',
   CONTEXT: 'CONTEXT',
   GRAMMAR_TABLE: 'GRAMMAR_TABLE',
+  READING: 'READING',
+  STROKE: 'STROKE',
   CLEAR: 'CLEAR',
   HOLD: 'HOLD',
 } as const;
@@ -49,7 +51,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke';
 
 /**
  * Drill types for inline micro-exercises
@@ -121,6 +123,26 @@ export interface GrammarConjugation {
 }
 
 /**
+ * Reading guide item data (Furigana, Pinyin, Romanization)
+ * Shows character/word with pronunciation guide above/below
+ */
+export interface ReadingItemData {
+  character: string;      // The main character/word (e.g., 食べる, 你好, 한국어)
+  reading: string;        // The pronunciation guide (e.g., たべる, nǐ hǎo, hangugeo)
+  language?: string;      // Optional: japanese, mandarin, korean for styling
+}
+
+/**
+ * Stroke order item data
+ * Shows character with stroke order visualization
+ */
+export interface StrokeItemData {
+  character: string;      // Single character to show strokes for
+  language?: string;      // Optional: japanese, mandarin, korean
+  strokes?: string[];     // Optional: stroke descriptions if available
+}
+
+/**
  * Individual whiteboard item (one marked section)
  * Discriminated union for type-safe rendering
  */
@@ -174,6 +196,18 @@ export interface GrammarTableItem extends WhiteboardItemBase {
   data: GrammarTableItemData;
 }
 
+export interface ReadingItem extends WhiteboardItemBase {
+  type: 'reading';
+  content: string;
+  data: ReadingItemData;
+}
+
+export interface StrokeItem extends WhiteboardItemBase {
+  type: 'stroke';
+  content: string;
+  data: StrokeItemData;
+}
+
 export type WhiteboardItem = 
   | WriteItem 
   | PhoneticItem 
@@ -182,7 +216,9 @@ export type WhiteboardItem =
   | DrillItem 
   | PronunciationItem
   | ContextItem
-  | GrammarTableItem;
+  | GrammarTableItem
+  | ReadingItem
+  | StrokeItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -227,16 +263,18 @@ export const WHITEBOARD_PATTERNS = {
   DRILL: /\[DRILL(?:\s+type="([^"]*)")?\]([\s\S]*?)\[\/DRILL\]/gi,
   CONTEXT: /\[CONTEXT\]([\s\S]*?)\[\/CONTEXT\]/gi,
   GRAMMAR_TABLE: /\[GRAMMAR_TABLE\]([\s\S]*?)\[\/GRAMMAR_TABLE\]/gi,
+  READING: /\[READING\]([\s\S]*?)\[\/READING\]/gi,
+  STROKE: /\[STROKE\]([\s\S]*?)\[\/STROKE\]/gi,
   CLEAR: /\[CLEAR\]/gi,
   HOLD: /\[HOLD\]/gi,
 } as const;
 
 /**
  * All whiteboard markup pattern (for stripping)
- * Updated to include all Phase 3 tags
+ * Updated to include all Phase 3 tags including Asian language tools
  */
 export const ALL_WHITEBOARD_MARKUP_PATTERN = 
-  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[(CLEAR|HOLD)\]/gi;
+  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[(CLEAR|HOLD)\]/gi;
 
 /**
  * Generate unique ID for whiteboard items
@@ -282,6 +320,64 @@ function parseContextContent(content: string): ContextItemData {
   return {
     word,
     sentences: sentences.length > 0 ? sentences : [content],
+  };
+}
+
+/**
+ * Parse READING content: "character|reading" or "character|reading|language" format
+ * Examples:
+ * - [READING]食べる|たべる[/READING] → Japanese with furigana
+ * - [READING]你好|nǐ hǎo|mandarin[/READING] → Mandarin with pinyin
+ * - [READING]한국어|hangugeo|korean[/READING] → Korean with romanization
+ * 
+ * Validation: character is required, reading defaults to empty (shows character only)
+ */
+function parseReadingContent(content: string): ReadingItemData {
+  const parts = content.split('|').map(p => p.trim());
+  const character = parts[0]?.trim();
+  const reading = parts[1]?.trim() || '';
+  const language = parts[2]?.toLowerCase()?.trim();
+  
+  if (!character) {
+    console.warn('[Whiteboard] READING tag with empty character, using raw content');
+    return {
+      character: content.trim() || '?',
+      reading: '',
+      language: undefined,
+    };
+  }
+  
+  return {
+    character,
+    reading,
+    language,
+  };
+}
+
+/**
+ * Parse STROKE content: "character" or "character|language" format
+ * Examples:
+ * - [STROKE]日[/STROKE] → Single character stroke order
+ * - [STROKE]食|japanese[/STROKE] → Character with language hint
+ * 
+ * Validation: character is required
+ */
+function parseStrokeContent(content: string): StrokeItemData {
+  const parts = content.split('|').map(p => p.trim());
+  const character = parts[0]?.trim();
+  const language = parts[1]?.toLowerCase()?.trim();
+  
+  if (!character) {
+    console.warn('[Whiteboard] STROKE tag with empty character, using raw content');
+    return {
+      character: content.trim() || '?',
+      language: undefined,
+    };
+  }
+  
+  return {
+    character,
+    language,
   };
 }
 
@@ -439,6 +535,32 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
     });
   }
 
+  // Parse READING tags (Asian language pronunciation guides)
+  WHITEBOARD_PATTERNS.READING.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.READING.exec(text)) !== null) {
+    const content = match[1].trim();
+    items.push({
+      type: 'reading',
+      content,
+      timestamp: now,
+      id: generateItemId(),
+      data: parseReadingContent(content),
+    });
+  }
+
+  // Parse STROKE tags (character stroke order)
+  WHITEBOARD_PATTERNS.STROKE.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.STROKE.exec(text)) !== null) {
+    const content = match[1].trim();
+    items.push({
+      type: 'stroke',
+      content,
+      timestamp: now,
+      id: generateItemId(),
+      data: parseStrokeContent(content),
+    });
+  }
+
   const cleanText = text
     .replace(ALL_WHITEBOARD_MARKUP_PATTERN, '')
     .replace(/\s{2,}/g, ' ')
@@ -493,6 +615,10 @@ export const whiteboardExamples = {
     `[CONTEXT]${word}|${sentences.join('|')}[/CONTEXT]`,
   grammarTable: (verb: string, tense: string = 'present') => 
     `[GRAMMAR_TABLE]${verb}|${tense}[/GRAMMAR_TABLE]`,
+  reading: (character: string, reading: string, language?: string) => 
+    `[READING]${character}|${reading}${language ? `|${language}` : ''}[/READING]`,
+  stroke: (character: string, language?: string) => 
+    `[STROKE]${character}${language ? `|${language}` : ''}[/STROKE]`,
   clear: '[CLEAR]',
   hold: '[HOLD]',
 };
@@ -537,6 +663,20 @@ export function isContextItem(item: WhiteboardItem): item is ContextItem {
  */
 export function isGrammarTableItem(item: WhiteboardItem): item is GrammarTableItem {
   return item.type === 'grammar_table';
+}
+
+/**
+ * Type guard for checking if an item is a reading guide item
+ */
+export function isReadingItem(item: WhiteboardItem): item is ReadingItem {
+  return item.type === 'reading';
+}
+
+/**
+ * Type guard for checking if an item is a stroke order item
+ */
+export function isStrokeItem(item: WhiteboardItem): item is StrokeItem {
+  return item.type === 'stroke';
 }
 
 /**

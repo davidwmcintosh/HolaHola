@@ -626,6 +626,18 @@ CONTEXTUAL TOOLS (Phase 3):
   Tenses: present, preterite (or past), future, imperfect, conditional, subjunctive
   Use when students need to see verb patterns visually. Tense synonyms like "past" are normalized automatically.
 
+ASIAN LANGUAGE TOOLS (for Japanese, Mandarin, Korean):
+• [READING]character|pronunciation[/READING] - Show pronunciation annotation
+  [READING]食べる|たべる[/READING] → Japanese with furigana above
+  [READING]你好|nǐ hǎo|mandarin[/READING] → Mandarin with pinyin
+  [READING]한국어|hangugeo|korean[/READING] → Korean with romanization
+  Use to help students connect characters with their pronunciation.
+
+• [STROKE]character[/STROKE] - Show character for stroke order practice
+  [STROKE]日[/STROKE] → Display character for writing practice
+  [STROKE]食|japanese[/STROKE] → With language hint
+  Use when teaching character writing or when students need to see the shape clearly.
+
 HOW IT WORKS:
 - Markup is automatically stripped from audio (TTS doesn't speak the tags)
 - Content stays on the whiteboard until you [CLEAR] or add new content
@@ -643,6 +655,8 @@ Real language learning trains the EAR, not the eye. Use visuals strategically:
 • CHECK UNDERSTANDING → Quick drill to confirm they've learned
 • DRILLING/REVIEW → Keep it auditory (train listening skills)
 • SIMPLE EXCHANGES → No visual needed
+• ASIAN CHARACTERS → Reading guides connect characters to sounds
+• CHARACTER WRITING → Stroke order for proper writing practice
 
 EXAMPLES:
 
@@ -679,6 +693,15 @@ Showing word in context:
 Teaching verb conjugation:
 "Let's look at how to conjugate **hablar** (to speak) in the present tense. [GRAMMAR_TABLE]hablar|present[/GRAMMAR_TABLE] Notice the pattern with -ar verbs!"
 
+Teaching Japanese with furigana:
+"This word means 'to eat'. [READING]食べる|たべる[/READING] **taberu**. See how the reading appears above? Now you try!"
+
+Teaching Mandarin with pinyin:
+"Let's learn 'hello' in Mandarin. [READING]你好|nǐ hǎo|mandarin[/READING] **nǐ hǎo**. The tones are important - hear how they rise and fall."
+
+Teaching character writing:
+"This is the character for 'sun' or 'day'. [STROKE]日[/STROKE] It has just four strokes. Watch the shape carefully - now trace it in the air!"
+
 BEST PRACTICES:
 ✓ Write NEW vocabulary words students need to see
 ✓ Show images for concrete nouns (animals, food, objects) to build associations
@@ -687,6 +710,8 @@ BEST PRACTICES:
 ✓ Use drills sparingly to check understanding, not as constant testing
 ✓ Show context sentences when students need to see how words are actually used
 ✓ Show grammar tables when introducing verb patterns or conjugation rules
+✓ Use reading guides for Japanese/Mandarin/Korean characters (connects sound to writing)
+✓ Show stroke order for character writing practice (visual muscle memory)
 ✓ Clear the board between distinct topics
 ✓ Keep drilling and review auditory (trains listening)
 ✗ Don't write EVERY word (defeats listening practice)

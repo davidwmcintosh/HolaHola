@@ -32,7 +32,9 @@ import {
   Trophy,
   Target,
   BookOpen,
-  Table2
+  Table2,
+  Languages,
+  PenTool,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -44,9 +46,11 @@ import type {
   PronunciationItem,
   ContextItem,
   GrammarTableItem,
+  ReadingItem,
+  StrokeItem,
   DrillState,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, getDrillInstructions } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, getDrillInstructions } from "@shared/whiteboard-types";
 
 interface WhiteboardProps {
   items: WhiteboardItem[];
@@ -73,6 +77,10 @@ const getItemIcon = (type: WhiteboardItemType) => {
       return <BookOpen className="h-4 w-4" />;
     case "grammar_table":
       return <Table2 className="h-4 w-4" />;
+    case "reading":
+      return <Languages className="h-4 w-4" />;
+    case "stroke":
+      return <PenTool className="h-4 w-4" />;
     default:
       return null;
   }
@@ -96,6 +104,10 @@ const getItemStyle = (type: WhiteboardItemType): string => {
       return "bg-cyan-500/10 border-cyan-500/30 text-cyan-700 dark:text-cyan-300";
     case "grammar_table":
       return "bg-indigo-500/10 border-indigo-500/30 text-indigo-700 dark:text-indigo-300";
+    case "reading":
+      return "bg-pink-500/10 border-pink-500/30 text-pink-700 dark:text-pink-300";
+    case "stroke":
+      return "bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300";
     default:
       return "bg-muted border-border text-foreground";
   }
@@ -425,6 +437,152 @@ const ContextItemDisplay = ({ item, index }: ContextItemDisplayProps) => {
   );
 };
 
+interface ReadingItemDisplayProps {
+  item: ReadingItem;
+  index: number;
+}
+
+/**
+ * Reading guide display - shows character with pronunciation annotation
+ * Supports: furigana (Japanese), pinyin (Mandarin), romanization (Korean)
+ * Uses ruby HTML element for proper reading annotation display
+ */
+const ReadingItemDisplay = ({ item, index }: ReadingItemDisplayProps) => {
+  const { data } = item;
+  
+  const getLanguageLabel = (lang?: string): string => {
+    switch (lang?.toLowerCase()) {
+      case 'japanese':
+      case 'ja':
+        return 'Furigana';
+      case 'mandarin':
+      case 'chinese':
+      case 'zh':
+        return 'Pinyin';
+      case 'korean':
+      case 'ko':
+        return 'Romanization';
+      default:
+        return 'Reading';
+    }
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-pink-500/10 border-pink-500/30"
+      data-testid={`whiteboard-item-reading-${index}`}
+    >
+      <div className="flex items-center gap-2">
+        <Languages className="h-4 w-4 text-pink-600 dark:text-pink-400 opacity-60" />
+        <span className="text-sm text-muted-foreground">{getLanguageLabel(data.language)}</span>
+      </div>
+      
+      <div className="flex justify-center items-center py-2">
+        <ruby className="text-3xl font-medium text-pink-700 dark:text-pink-300">
+          {data.character}
+          <rp>(</rp>
+          <rt className="text-base text-pink-600 dark:text-pink-400">{data.reading}</rt>
+          <rp>)</rp>
+        </ruby>
+      </div>
+      
+      {data.reading && (
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="text-center text-sm text-muted-foreground"
+        >
+          Pronunciation: <span className="font-mono text-pink-600 dark:text-pink-400">{data.reading}</span>
+        </motion.p>
+      )}
+    </motion.div>
+  );
+};
+
+interface StrokeItemDisplayProps {
+  item: StrokeItem;
+  index: number;
+}
+
+/**
+ * Stroke order display - shows character with numbered stroke order
+ * Initially displays static numbered strokes; animation planned for future
+ * Supports: CJK characters (Chinese, Japanese Kanji, Korean Hanja)
+ */
+const StrokeItemDisplay = ({ item, index }: StrokeItemDisplayProps) => {
+  const { data } = item;
+  
+  const getLanguageLabel = (lang?: string): string => {
+    switch (lang?.toLowerCase()) {
+      case 'japanese':
+      case 'ja':
+        return 'Japanese';
+      case 'mandarin':
+      case 'chinese':
+      case 'zh':
+        return 'Chinese';
+      case 'korean':
+      case 'ko':
+        return 'Korean';
+      default:
+        return 'Character';
+    }
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-orange-500/10 border-orange-500/30"
+      data-testid={`whiteboard-item-stroke-${index}`}
+    >
+      <div className="flex items-center gap-2">
+        <PenTool className="h-4 w-4 text-orange-600 dark:text-orange-400 opacity-60" />
+        <span className="text-sm text-muted-foreground">
+          {getLanguageLabel(data.language)} Stroke Order
+        </span>
+      </div>
+      
+      <div className="flex justify-center items-center py-4">
+        <motion.div
+          initial={{ scale: 0.8 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", stiffness: 200, damping: 10 }}
+          className="relative"
+        >
+          <span 
+            className="text-6xl font-medium text-orange-700 dark:text-orange-300"
+            style={{ fontFamily: '"Noto Sans JP", "Noto Sans SC", "Noto Sans KR", sans-serif' }}
+          >
+            {data.character}
+          </span>
+        </motion.div>
+      </div>
+      
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2 }}
+        className="text-center"
+      >
+        <p className="text-xs text-muted-foreground">
+          Practice writing this character stroke by stroke
+        </p>
+        <p className="text-xs text-orange-600/70 dark:text-orange-400/70 mt-1">
+          Interactive stroke animation coming soon
+        </p>
+      </motion.div>
+    </motion.div>
+  );
+};
+
 interface GrammarTableItemDisplayProps {
   item: GrammarTableItem;
   index: number;
@@ -522,6 +680,14 @@ const WhiteboardItemDisplay = ({
   
   if (isGrammarTableItem(item)) {
     return <GrammarTableItemDisplay item={item} index={index} />;
+  }
+  
+  if (isReadingItem(item)) {
+    return <ReadingItemDisplay item={item} index={index} />;
+  }
+  
+  if (isStrokeItem(item)) {
+    return <StrokeItemDisplay item={item} index={index} />;
   }
   
   return <TextItemDisplay item={item} index={index} />;

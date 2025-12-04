@@ -297,12 +297,28 @@ Based on a consultation session with Gemini in tutor persona (Dec 4, 2025), aski
 - Markup: `[CULTURE]topic|description[/CULTURE]`
 - *Difficulty: High | Impact: Medium*
 
+### Phase 3c: Asian Language Tools (Completed Dec 4, 2025)
+
+**✅ Reading Guides** (Completed Dec 4, 2025)
+- Show pronunciation annotations for Asian characters
+- Supports: furigana (Japanese), pinyin (Mandarin), romanization (Korean)
+- Markup: `[READING]character|pronunciation|language[/READING]`
+- Uses HTML ruby elements for proper annotation display
+- *Difficulty: Medium | Impact: High for Asian languages*
+
+**✅ Stroke Order Display** (Completed Dec 4, 2025)
+- Show characters for stroke order practice
+- Large character display with writing guidance
+- Markup: `[STROKE]character|language[/STROKE]`
+- Static display (animated strokes planned for Phase 5)
+- *Difficulty: Low | Impact: High for Asian languages*
+
 ### Phase 5: Advanced Features
 
-**Stroke Order Animation**
+**Stroke Order Animation** (Future Enhancement)
 - For non-Latin scripts (Japanese, Korean, Arabic)
-- Animated character formation guides
-- Markup: `[STROKE_ORDER]character[/STROKE_ORDER]`
+- Animated character formation guides (step-by-step strokes)
+- Builds on completed `[STROKE]` static display
 - *Difficulty: High | Impact: Niche (high for specific languages)*
 
 **Whiteboard History**
@@ -313,6 +329,24 @@ Based on a consultation session with Gemini in tutor persona (Dec 4, 2025), aski
 ---
 
 ## Recently Completed Features
+
+### ✅ Tutor Whiteboard Phase 3c (Dec 4, 2025)
+**Status:** Completed - Asian Language Tools
+
+- **Reading Guides**: `[READING]character|pronunciation|language[/READING]`
+  - Pronunciation annotations for Asian characters (furigana, pinyin, romanization)
+  - Uses HTML ruby elements for proper annotation display
+  - Supports Japanese, Mandarin, and Korean
+  - Pink color scheme for reading guides
+
+- **Stroke Order Display**: `[STROKE]character|language[/STROKE]`
+  - Large character display for writing practice
+  - Static display with language hints
+  - Orange color scheme for stroke order
+  - Future: Animated stroke order planned for Phase 5
+
+- System prompt updated with Asian language tool documentation and examples
+- Type guards and parsing functions for new item types
 
 ### ✅ Tutor Whiteboard Phase 3a+3b (Dec 4, 2025)
 **Status:** Completed
