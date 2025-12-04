@@ -493,6 +493,29 @@ Internal tooling.
 
 ---
 
+## Completed Features
+
+### Phase 4c: Cultural Context Whiteboard Tool (December 2024)
+✅ **Cultural Infographics** - `[CULTURE]topic|context|category[/CULTURE]`
+
+Inline cultural teaching tool for the voice whiteboard system:
+- Displays cultural insights with amber/golden color scheme
+- Categories: food, dining, gestures, body language, holidays, festivals, etiquette, customs
+- Category-specific icons (Globe, Utensils, Users, Calendar, etc.)
+- Seamlessly integrated into streaming voice pipeline
+- AI tutor uses it to explain WHY phrases are used, cultural customs, etiquette
+
+**Examples:**
+- `[CULTURE]Tu vs Vous|In France, use 'vous' with strangers and 'tu' with friends|etiquette[/CULTURE]`
+- `[CULTURE]Tipping in Japan|Tipping is considered rude - good service is expected|dining[/CULTURE]`
+
+**Files Changed:**
+- `shared/whiteboard-types.ts` - CultureItem types and parsing
+- `client/src/components/Whiteboard.tsx` - CultureItemDisplay component
+- `server/system-prompt.ts` - Tutor documentation for using CULTURE tool
+
+---
+
 ## Notes
 
 - Priorities may shift based on user feedback and usage data
