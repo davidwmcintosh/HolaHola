@@ -40,3 +40,39 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 -   **UI Components**: Radix UI, Shadcn/ui, Tailwind CSS.
 -   **State Management**: TanStack Query, React Context.
 -   **Billing**: `stripe-replit-sync`.
+
+## Testing Setup (Playwright E2E)
+
+### OIDC Test Authentication
+When using the run_test tool with OIDC authentication, configure claims like this:
+```javascript
+{
+  sub: "unique-test-user-id",
+  email: "test@example.com",
+  first_name: "Test",
+  last_name: "User",
+  roles: ["developer"]  // REQUIRED for unlimited credits
+}
+```
+
+### Developer Access & Credits
+- **Developer role** (`roles: ["developer"]` or `roles: ["admin"]`) grants **unlimited credits**
+- The `checkDeveloperBypass` function in `server/services/usage-service.ts` checks user.role
+- Without developer role, tests will fail with "insufficient credits" errors
+- Dev tools floating menu (data-testid="button-dev-tools") appears for dev/admin users
+
+### Key Routes for Testing
+| Feature | Route | Notes |
+|---------|-------|-------|
+| Voice Chat / Call Tutor | `/chat` | Main chat interface with whiteboard tools |
+| Language Hub | `/` or `/dashboard` | Home page for authenticated users |
+| Vocabulary | `/vocabulary` | Flashcard management |
+| Grammar | `/grammar` | Grammar exercises |
+| Settings | `/settings` | User preferences |
+| Admin Command Center | `/admin` | Requires admin/developer role |
+
+### Common Test Data-TestIDs
+- `button-dev-tools` - Floating dev tools menu
+- `drill-left-{n}` / `drill-right-{n}` - Matching drill items
+- `drill-match-count` - Drill progress indicator
+- `drill-try-again` - Drill reset button

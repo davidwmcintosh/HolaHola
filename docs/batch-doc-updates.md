@@ -149,4 +149,12 @@ Pending documentation updates to be applied together.
 
 ## Pending Items
 
+### Route Alias Investigation
+- `/voice-tutor` returns 404 - the actual voice chat route is `/chat`
+- Consider adding route aliases or redirects for common alternative paths:
+  - `/voice-tutor` → `/chat`
+  - `/voice` → `/chat`
+  - `/tutor` → `/chat`
+- This would improve discoverability and reduce confusion
+
 (Add new batch items here as work progresses)
