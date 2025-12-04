@@ -1462,20 +1462,27 @@ export class StreamingAudioPlayer {
    * are coming. This prevents premature loop termination between sentences.
    */
   private checkAllSentencesEnded(): boolean {
+    // Log every call to track when this function is invoked
+    const scheduleInfo = Array.from(this.sentenceSchedule.entries()).map(([idx, e]) => 
+      `S${idx}(end=${e.endCtxTime?.toFixed(2)}, ended=${e.ended})`
+    ).join(', ');
+    console.error(`[checkAllEnded] called: expected=${this.expectedSentenceCount}, size=${this.sentenceSchedule.size}, entries=[${scheduleInfo}]`);
+    
     if (this.sentenceSchedule.size === 0) {
+      console.error(`[checkAllEnded] FAIL: size=0`);
       return true; // No sentences scheduled
     }
     
     // CRITICAL: If we don't know how many sentences to expect, we can't be sure all have arrived
     // Keep the loop running until response_complete tells us the expected count
     if (this.expectedSentenceCount === null) {
-      console.log(`[StreamingAudioPlayer] expectedSentenceCount=null, cannot determine if all sentences received`);
+      console.error(`[checkAllEnded] FAIL: expectedSentenceCount=null`);
       return false;
     }
     
     // Check if we've received all expected sentences
     if (this.sentenceSchedule.size < this.expectedSentenceCount) {
-      console.log(`[StreamingAudioPlayer] Only ${this.sentenceSchedule.size}/${this.expectedSentenceCount} sentences received, waiting for more`);
+      console.error(`[checkAllEnded] FAIL: size(${this.sentenceSchedule.size}) < expected(${this.expectedSentenceCount})`);
       return false;
     }
     
@@ -1486,12 +1493,12 @@ export class StreamingAudioPlayer {
       // 1. It has endCtxTime set (received isLast=true)
       // 2. It has been marked as ended (callback fired)
       if (entry.endCtxTime === undefined || !entry.ended) {
-        console.log(`[StreamingAudioPlayer] Sentence ${index} not complete: endCtxTime=${entry.endCtxTime}, ended=${entry.ended}`);
+        console.error(`[checkAllEnded] FAIL: S${index} not complete: endCtxTime=${entry.endCtxTime}, ended=${entry.ended}`);
         return false;
       }
     }
     
-    console.log(`[StreamingAudioPlayer] ✓ All ${this.expectedSentenceCount} sentences have ended`);
+    console.error(`[checkAllEnded] ✓ SUCCESS: All ${this.expectedSentenceCount} sentences have ended!`);
     
     // Update debug panel
     updateDebugTimingState({
