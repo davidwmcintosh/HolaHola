@@ -252,6 +252,78 @@ The streaming voice pipeline is working well. These optimizations can further re
 
 ---
 
+## Tutor Whiteboard Roadmap (from Tutor Consultation)
+
+Based on a consultation session with Gemini in tutor persona (Dec 4, 2025), asking what teaching tools would help it teach more effectively. See `docs/tutor-consultation-synthesis.md` for full details.
+
+### Phase 3: Grammar & Context Tools
+
+**Context Sentences**
+- Show multiple example sentences with highlighted target word
+- Essential for polysemous words (run, get, take)
+- Markup: `[CONTEXT]word|sentence1|sentence2[/CONTEXT]`
+- *Difficulty: Low | Impact: High*
+
+**Grammar Tables**
+- Visual conjugation and inflection patterns
+- Show verb tenses, noun declensions at a glance
+- Markup: `[GRAMMAR_TABLE]verb|tense[/GRAMMAR_TABLE]`
+- *Difficulty: Medium | Impact: High*
+
+**Pronunciation Feedback**
+- Compare student pronunciation to target
+- Visual feedback (waveform, phoneme highlighting)
+- *Difficulty: High | Impact: High*
+
+### Phase 4: Relationship & Culture Tools
+
+**Word Maps**
+- Visual web showing synonyms, antonyms, collocations
+- Word families (happy → happiness, happily)
+- Markup: `[WORD_MAP]target_word[/WORD_MAP]`
+- *Difficulty: Medium | Impact: Medium*
+
+**Matching Drills**
+- Drag-and-drop word ordering
+- Image-word matching pairs
+- Visual scene completion
+- Markup: `[DRILL type="match"]pairs[/DRILL]`
+- *Difficulty: Medium | Impact: Medium*
+
+**Cultural Infographics**
+- Visual guides to customs, etiquette, gestures
+- Formal vs informal usage contexts
+- Markup: `[CULTURE]topic|description[/CULTURE]`
+- *Difficulty: High | Impact: Medium*
+
+### Phase 5: Advanced Features
+
+**Stroke Order Animation**
+- For non-Latin scripts (Japanese, Korean, Arabic)
+- Animated character formation guides
+- Markup: `[STROKE_ORDER]character[/STROKE_ORDER]`
+- *Difficulty: High | Impact: Niche (high for specific languages)*
+
+**Whiteboard History**
+- Students review what tutor showed in past sessions
+- Persistent visual learning record
+- *Difficulty: Medium | Impact: Medium*
+
+---
+
+## Recently Completed Features
+
+### ✅ Tutor Whiteboard Phase 2 (Dec 4, 2025)
+**Status:** Completed
+
+- Extended whiteboard with IMAGE and DRILL interactive tools
+- Vocabulary image resolver: Stock images → AI generation → placeholder fallback
+- Drill orchestrator with Gemini-powered evaluation (repeat, translate, fill_blank)
+- Full integration into streaming voice flow via WebSocket
+- System prompt updated with comprehensive tool documentation
+
+---
+
 ## Recently Completed Features (Nov 24, 2025)
 
 ### ✅ Production Polish
@@ -276,4 +348,4 @@ The streaming voice pipeline is working well. These optimizations can further re
 
 ---
 
-*Last Updated: November 28, 2025*
+*Last Updated: December 4, 2025*
