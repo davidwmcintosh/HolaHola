@@ -236,8 +236,9 @@ export interface IStorage {
   createMediaFile(data: InsertMediaFile): Promise<MediaFile>;
   getMediaFile(id: string): Promise<MediaFile | undefined>;
   getUserMediaFiles(userId: string): Promise<MediaFile[]>;
-  getAllMediaFiles(options?: { source?: string; limit?: number; offset?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' }): Promise<{ files: MediaFile[]; total: number; newCount?: number }>;
-  updateMediaFile(id: string, data: { title?: string | null; description?: string | null; tags?: string[] | null; language?: string | null }): Promise<MediaFile | undefined>;
+  getAllMediaFiles(options?: { source?: string; limit?: number; offset?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' }): Promise<{ files: MediaFile[]; total: number; newCount?: number; unreviewedCount?: number }>;
+  updateMediaFile(id: string, data: { title?: string | null; description?: string | null; tags?: string[] | null; language?: string | null; isReviewed?: boolean; reviewedAt?: Date | null; reviewedBy?: string | null }): Promise<MediaFile | undefined>;
+  bulkUpdateMediaReviewStatus(ids: string[], isReviewed: boolean, reviewedBy: string): Promise<number>;
   deleteMediaFile(id: string): Promise<boolean>;
   
   // Message Media (images in conversations)
@@ -1872,7 +1873,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(mediaFiles.createdAt));
   }
 
-  async getAllMediaFiles(options: { source?: string; limit?: number; offset?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' } = {}): Promise<{ files: MediaFile[]; total: number; newCount?: number }> {
+  async getAllMediaFiles(options: { source?: string; limit?: number; offset?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' } = {}): Promise<{ files: MediaFile[]; total: number; newCount?: number; unreviewedCount?: number }> {
     const { source, limit = 50, offset = 0, sortBy = 'createdAt', sortOrder = 'desc' } = options;
     
     const whereClause = source ? eq(mediaFiles.imageSource, source) : undefined;
@@ -1890,29 +1891,34 @@ export class DatabaseStorage implements IStorage {
     
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     
-    const [files, countResult, newCountResult] = await Promise.all([
+    const [files, countResult, newCountResult, unreviewedCountResult] = await Promise.all([
       whereClause
         ? db.select().from(mediaFiles).where(whereClause).orderBy(orderByClause).limit(limit).offset(offset)
         : db.select().from(mediaFiles).orderBy(orderByClause).limit(limit).offset(offset),
       whereClause
         ? db.select({ count: sql<number>`count(*)` }).from(mediaFiles).where(whereClause)
         : db.select({ count: sql<number>`count(*)` }).from(mediaFiles),
-      db.select({ count: sql<number>`count(*)` }).from(mediaFiles).where(sql`${mediaFiles.createdAt} > ${oneDayAgo.toISOString()}`)
+      db.select({ count: sql<number>`count(*)` }).from(mediaFiles).where(sql`${mediaFiles.createdAt} > ${oneDayAgo.toISOString()}`),
+      db.select({ count: sql<number>`count(*)` }).from(mediaFiles).where(eq(mediaFiles.isReviewed, false))
     ]);
     
     return {
       files,
       total: Number(countResult[0]?.count || 0),
-      newCount: Number(newCountResult[0]?.count || 0)
+      newCount: Number(newCountResult[0]?.count || 0),
+      unreviewedCount: Number(unreviewedCountResult[0]?.count || 0)
     };
   }
 
-  async updateMediaFile(id: string, data: { title?: string | null; description?: string | null; tags?: string[] | null; language?: string | null }): Promise<MediaFile | undefined> {
+  async updateMediaFile(id: string, data: { title?: string | null; description?: string | null; tags?: string[] | null; language?: string | null; isReviewed?: boolean; reviewedAt?: Date | null; reviewedBy?: string | null }): Promise<MediaFile | undefined> {
     const allowedUpdates: Partial<typeof mediaFiles.$inferInsert> = {};
     if (data.title !== undefined) allowedUpdates.title = data.title;
     if (data.description !== undefined) allowedUpdates.description = data.description;
     if (data.tags !== undefined) allowedUpdates.tags = data.tags;
     if (data.language !== undefined) allowedUpdates.language = data.language;
+    if (data.isReviewed !== undefined) allowedUpdates.isReviewed = data.isReviewed;
+    if (data.reviewedAt !== undefined) allowedUpdates.reviewedAt = data.reviewedAt;
+    if (data.reviewedBy !== undefined) allowedUpdates.reviewedBy = data.reviewedBy;
     
     if (Object.keys(allowedUpdates).length === 0) {
       return await this.getMediaFile(id);
@@ -1923,6 +1929,17 @@ export class DatabaseStorage implements IStorage {
       .where(eq(mediaFiles.id, id))
       .returning();
     return updated;
+  }
+
+  async bulkUpdateMediaReviewStatus(ids: string[], isReviewed: boolean, reviewedBy: string): Promise<number> {
+    const result = await db.update(mediaFiles)
+      .set({
+        isReviewed,
+        reviewedAt: isReviewed ? new Date() : null,
+        reviewedBy: isReviewed ? reviewedBy : null,
+      })
+      .where(inArray(mediaFiles.id, ids));
+    return ids.length;
   }
 
   async deleteMediaFile(id: string): Promise<boolean> {

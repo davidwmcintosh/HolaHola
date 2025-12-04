@@ -8192,14 +8192,29 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.patch("/api/admin/media/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { id } = req.params;
-      const { title, description, tags, language } = req.body;
+      const adminId = req.user.claims.sub;
+      const { title, description, tags, language, isReviewed } = req.body;
       
-      const updated = await storage.updateMediaFile(id, {
-        title,
-        description,
-        tags,
-        language,
-      });
+      // Build update object with allowed fields
+      const updateData: any = {};
+      if (title !== undefined) updateData.title = title;
+      if (description !== undefined) updateData.description = description;
+      if (tags !== undefined) updateData.tags = tags;
+      if (language !== undefined) updateData.language = language;
+      
+      // Handle review status update
+      if (isReviewed !== undefined) {
+        updateData.isReviewed = isReviewed;
+        if (isReviewed) {
+          updateData.reviewedAt = new Date();
+          updateData.reviewedBy = adminId;
+        } else {
+          updateData.reviewedAt = null;
+          updateData.reviewedBy = null;
+        }
+      }
+      
+      const updated = await storage.updateMediaFile(id, updateData);
       
       if (!updated) {
         return res.status(404).json({ error: "Media file not found" });
@@ -8208,6 +8223,61 @@ Return ONLY the ${targetLanguage} phrase:`;
       res.json(updated);
     } catch (error: any) {
       console.error('Error updating media file:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Bulk review media files (admin only)
+  app.post("/api/admin/media/bulk-review", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const adminId = req.user.claims.sub;
+      const { ids, isReviewed } = req.body;
+      
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "IDs array is required" });
+      }
+      
+      if (typeof isReviewed !== 'boolean') {
+        return res.status(400).json({ error: "isReviewed boolean is required" });
+      }
+      
+      const count = await storage.bulkUpdateMediaReviewStatus(ids, isReviewed, adminId);
+      
+      res.json({ success: true, updated: count });
+    } catch (error: any) {
+      console.error('Error bulk reviewing media files:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Request new image for a word (admin only)
+  app.post("/api/admin/media/request-image", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const adminId = req.user.claims.sub;
+      const { word, language, description } = req.body;
+      
+      if (!word || !language) {
+        return res.status(400).json({ error: "Word and language are required" });
+      }
+      
+      // Import the vocabulary image resolver
+      const { resolveVocabularyImage } = await import('./services/vocabulary-image-resolver');
+      
+      const result = await resolveVocabularyImage({
+        word,
+        language,
+        description: description || word,
+        userId: adminId,
+      });
+      
+      res.json({
+        success: true,
+        imageUrl: result.imageUrl,
+        source: result.source,
+        word: result.word,
+      });
+    } catch (error: any) {
+      console.error('Error requesting image:', error);
       res.status(500).json({ error: error.message });
     }
   });

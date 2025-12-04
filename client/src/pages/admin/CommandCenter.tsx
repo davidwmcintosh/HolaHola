@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -63,7 +63,9 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Bell
+  Bell,
+  Check,
+  CheckCircle
 } from "lucide-react";
 import {
   AlertDialog,
@@ -1354,6 +1356,10 @@ interface MediaFile {
   promptHash?: string | null;
   usageCount?: number | null;
   attributionJson?: string | null;
+  targetWord?: string | null;
+  isReviewed?: boolean | null;
+  reviewedAt?: string | null;
+  reviewedBy?: string | null;
   createdAt: string;
 }
 
@@ -1369,15 +1375,24 @@ function ImageLibraryTab() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortField, setSortField] = useState<SortField>('createdAt');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showRequestDialog, setShowRequestDialog] = useState(false);
+  const [requestWord, setRequestWord] = useState("");
+  const [requestLanguage, setRequestLanguage] = useState("spanish");
   const limit = viewMode === 'list' ? 25 : 20;
 
   const queryUrl = sourceFilter === "all"
     ? `/api/admin/media?limit=${limit}&offset=${page * limit}&sortBy=${sortField}&sortOrder=${sortOrder}`
     : `/api/admin/media?source=${sourceFilter}&limit=${limit}&offset=${page * limit}&sortBy=${sortField}&sortOrder=${sortOrder}`;
 
-  const { data, isLoading, refetch } = useQuery<{ files: MediaFile[]; total: number; newCount?: number }>({
+  const { data, isLoading, refetch } = useQuery<{ files: MediaFile[]; total: number; newCount?: number; unreviewedCount?: number }>({
     queryKey: [queryUrl],
   });
+
+  // Clear selections when page, filter, or view changes to prevent stale selections
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [page, sourceFilter, viewMode, sortField, sortOrder]);
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -1394,6 +1409,29 @@ function ImageLibraryTab() {
     return sortOrder === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
   };
 
+  const toggleSelect = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAll = () => {
+    if (data?.files) {
+      setSelectedIds(new Set(data.files.map(f => f.id)));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       return apiRequest("DELETE", `/api/admin/media/${id}`);
@@ -1405,6 +1443,51 @@ function ImageLibraryTab() {
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to delete image", variant: "destructive" });
+    },
+  });
+
+  const reviewMutation = useMutation({
+    mutationFn: async ({ id, isReviewed }: { id: string; isReviewed: boolean }) => {
+      return apiRequest("PATCH", `/api/admin/media/${id}`, { isReviewed });
+    },
+    onSuccess: (_, variables) => {
+      toast({ title: variables.isReviewed ? "Marked as reviewed" : "Marked as unreviewed" });
+      refetch();
+      if (selectedImage) {
+        setSelectedImage({ ...selectedImage, isReviewed: variables.isReviewed });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update review status", variant: "destructive" });
+    },
+  });
+
+  const bulkReviewMutation = useMutation({
+    mutationFn: async ({ ids, isReviewed }: { ids: string[]; isReviewed: boolean }) => {
+      return apiRequest("POST", "/api/admin/media/bulk-review", { ids, isReviewed });
+    },
+    onSuccess: (_, variables) => {
+      toast({ title: `${variables.ids.length} images marked as ${variables.isReviewed ? 'reviewed' : 'unreviewed'}` });
+      refetch();
+      clearSelection();
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to bulk update", variant: "destructive" });
+    },
+  });
+
+  const requestImageMutation = useMutation({
+    mutationFn: async ({ word, language }: { word: string; language: string }) => {
+      return apiRequest("POST", "/api/admin/media/request-image", { word, language });
+    },
+    onSuccess: () => {
+      toast({ title: "Image requested successfully" });
+      refetch();
+      setShowRequestDialog(false);
+      setRequestWord("");
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to request image", variant: "destructive" });
     },
   });
 
@@ -1450,16 +1533,33 @@ function ImageLibraryTab() {
       >
         <div className="space-y-4 mt-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              Review and manage AI-generated educational images and cached stock photos used in lessons.
-            </p>
             <div className="flex items-center gap-2 flex-wrap">
-              {data?.newCount && data.newCount > 0 && (
+              <p className="text-sm text-muted-foreground">
+                Review and manage AI-generated educational images and cached stock photos used in lessons.
+              </p>
+              {data?.unreviewedCount !== undefined && data.unreviewedCount > 0 && (
+                <Badge className="bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/30 gap-1" data-testid="badge-unreviewed-count">
+                  <AlertTriangle className="h-3 w-3" />
+                  {data.unreviewedCount} unreviewed
+                </Badge>
+              )}
+              {data?.newCount !== undefined && data.newCount > 0 && (
                 <Badge className="bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/30 gap-1">
                   <Bell className="h-3 w-3" />
                   {data.newCount} new
                 </Badge>
               )}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowRequestDialog(true)}
+                data-testid="button-request-image"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Request Image
+              </Button>
               
               <div className="flex border rounded-md overflow-hidden">
                 <Button
@@ -1508,6 +1608,37 @@ function ImageLibraryTab() {
             </div>
           </div>
 
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg" data-testid="bulk-actions-bar">
+              <span className="text-sm font-medium">{selectedIds.size} selected</span>
+              <Button variant="outline" size="sm" onClick={selectAll}>
+                Select All
+              </Button>
+              <Button variant="outline" size="sm" onClick={clearSelection}>
+                Clear
+              </Button>
+              <div className="flex-1" />
+              <Button 
+                variant="default" 
+                size="sm"
+                onClick={() => bulkReviewMutation.mutate({ ids: Array.from(selectedIds), isReviewed: true })}
+                disabled={bulkReviewMutation.isPending}
+                data-testid="button-bulk-review"
+              >
+                {bulkReviewMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle className="h-4 w-4 mr-1" />}
+                Mark as Reviewed
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => bulkReviewMutation.mutate({ ids: Array.from(selectedIds), isReviewed: false })}
+                disabled={bulkReviewMutation.isPending}
+              >
+                Mark as Unreviewed
+              </Button>
+            </div>
+          )}
+
           {isLoading ? (
             viewMode === 'list' ? (
               <div className="space-y-2">
@@ -1526,13 +1657,22 @@ function ImageLibraryTab() {
               {data?.files && data.files.length > 0 ? (
                 viewMode === 'list' ? (
                   <div className="border rounded-lg overflow-hidden">
-                    <div className="grid grid-cols-[auto_1fr_100px_100px_120px_80px] gap-2 p-2 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
+                    <div className="grid grid-cols-[32px_40px_1fr_100px_100px_100px_80px_80px_60px] gap-2 p-2 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
+                      <div className="flex items-center justify-center">
+                        <input 
+                          type="checkbox" 
+                          checked={data.files.length > 0 && selectedIds.size === data.files.length}
+                          onChange={(e) => e.target.checked ? selectAll() : clearSelection()}
+                          className="rounded"
+                          data-testid="checkbox-select-all"
+                        />
+                      </div>
                       <div className="w-10" />
                       <button 
                         onClick={() => toggleSort('createdAt')} 
                         className="flex items-center gap-1 hover:text-foreground"
                       >
-                        Filename <SortIcon field="createdAt" />
+                        Word <SortIcon field="createdAt" />
                       </button>
                       <span>Source</span>
                       <button 
@@ -1553,15 +1693,25 @@ function ImageLibraryTab() {
                       >
                         Used <SortIcon field="usageCount" />
                       </button>
+                      <span>Reviewed</span>
                     </div>
                     <div className="divide-y">
                       {data.files.map((file) => (
                         <div 
                           key={file.id}
-                          className="grid grid-cols-[auto_1fr_100px_100px_120px_80px] gap-2 p-2 items-center cursor-pointer hover:bg-muted/50 transition-colors"
+                          className={`grid grid-cols-[32px_40px_1fr_100px_100px_100px_80px_80px_60px] gap-2 p-2 items-center cursor-pointer hover:bg-muted/50 transition-colors ${selectedIds.has(file.id) ? 'bg-primary/10' : ''}`}
                           onClick={() => setSelectedImage(file)}
                           data-testid={`row-image-${file.id}`}
                         >
+                          <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                            <input 
+                              type="checkbox" 
+                              checked={selectedIds.has(file.id)}
+                              onChange={(e) => toggleSelect(file.id, e as any)}
+                              className="rounded"
+                              data-testid={`checkbox-image-${file.id}`}
+                            />
+                          </div>
                           <div className="w-10 h-10 rounded bg-muted overflow-hidden flex-shrink-0">
                             <img 
                               src={file.thumbnailUrl || file.url} 
@@ -1570,11 +1720,27 @@ function ImageLibraryTab() {
                               loading="lazy"
                             />
                           </div>
-                          <p className="text-sm truncate" title={file.filename}>{file.filename}</p>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate" title={file.targetWord || file.searchQuery || file.filename}>
+                              {file.targetWord || file.searchQuery || '-'}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">{file.filename}</p>
+                          </div>
                           <div>{getSourceBadge(file.imageSource)}</div>
                           <span className="text-sm text-muted-foreground capitalize">{file.language || '-'}</span>
                           <span className="text-sm text-muted-foreground">{formatFileSize(file.fileSize)}</span>
                           <span className="text-sm text-muted-foreground">{file.usageCount || 0}x</span>
+                          <div className="flex items-center justify-center">
+                            {file.isReviewed ? (
+                              <Badge className="bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/30 text-xs">
+                                <Check className="h-3 w-3" />
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-xs text-muted-foreground">
+                                <Clock className="h-3 w-3" />
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1682,6 +1848,12 @@ function ImageLibraryTab() {
               </div>
               
               <div className="grid grid-cols-2 gap-3 text-sm">
+                {(selectedImage.targetWord || selectedImage.searchQuery) && (
+                  <div className="col-span-2">
+                    <p className="text-muted-foreground text-xs mb-0.5">Target Word</p>
+                    <p className="font-medium text-sm">{selectedImage.targetWord || selectedImage.searchQuery}</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-muted-foreground text-xs mb-0.5">Filename</p>
                   <p className="font-medium text-sm truncate">{selectedImage.filename}</p>
@@ -1691,8 +1863,20 @@ function ImageLibraryTab() {
                   <div>{getSourceBadge(selectedImage.imageSource)}</div>
                 </div>
                 <div>
-                  <p className="text-muted-foreground text-xs mb-0.5">Size</p>
-                  <p className="font-medium text-sm">{formatFileSize(selectedImage.fileSize)}</p>
+                  <p className="text-muted-foreground text-xs mb-0.5">Review Status</p>
+                  <div className="flex items-center gap-2">
+                    {selectedImage.isReviewed ? (
+                      <Badge className="bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/30">
+                        <Check className="h-3 w-3 mr-1" />
+                        Reviewed
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-muted-foreground">
+                        <Clock className="h-3 w-3 mr-1" />
+                        Pending Review
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <p className="text-muted-foreground text-xs mb-0.5">Dimensions</p>
@@ -1701,6 +1885,10 @@ function ImageLibraryTab() {
                       ? `${selectedImage.width} x ${selectedImage.height}`
                       : 'Unknown'}
                   </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs mb-0.5">Size</p>
+                  <p className="font-medium text-sm">{formatFileSize(selectedImage.fileSize)}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground text-xs mb-0.5">Created</p>
@@ -1713,12 +1901,6 @@ function ImageLibraryTab() {
                   <p className="text-muted-foreground text-xs mb-0.5">Usage Count</p>
                   <p className="font-medium text-sm">{selectedImage.usageCount || 0} times</p>
                 </div>
-                {selectedImage.searchQuery && (
-                  <div className="col-span-2">
-                    <p className="text-muted-foreground text-xs mb-0.5">Search Query</p>
-                    <p className="font-medium text-sm">{selectedImage.searchQuery}</p>
-                  </div>
-                )}
                 {selectedImage.language && (
                   <div>
                     <p className="text-muted-foreground text-xs mb-0.5">Language</p>
@@ -1740,7 +1922,23 @@ function ImageLibraryTab() {
           )}
           
           <AlertDialogFooter className="flex-shrink-0 flex-row justify-between sm:justify-between gap-2 pt-4 border-t">
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant={selectedImage?.isReviewed ? "outline" : "default"}
+                size="sm"
+                onClick={() => selectedImage && reviewMutation.mutate({ id: selectedImage.id, isReviewed: !selectedImage.isReviewed })}
+                disabled={reviewMutation.isPending}
+                data-testid="button-toggle-review"
+              >
+                {reviewMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : selectedImage?.isReviewed ? (
+                  <Clock className="h-4 w-4 mr-1" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                )}
+                {selectedImage?.isReviewed ? "Mark Unreviewed" : "Mark Reviewed"}
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -1781,6 +1979,72 @@ function ImageLibraryTab() {
               </AlertDialog>
             </div>
             <AlertDialogCancel data-testid="button-close-details">Close</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showRequestDialog} onOpenChange={setShowRequestDialog}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              Request New Image
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Generate a new AI image for a vocabulary word. The image will be added to the library for review.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Vocabulary Word</label>
+              <input
+                type="text"
+                value={requestWord}
+                onChange={(e) => setRequestWord(e.target.value)}
+                placeholder="e.g., apple, book, house"
+                className="w-full px-3 py-2 border rounded-md bg-background"
+                data-testid="input-request-word"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Language</label>
+              <Select value={requestLanguage} onValueChange={setRequestLanguage}>
+                <SelectTrigger data-testid="select-request-language">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="spanish">Spanish</SelectItem>
+                  <SelectItem value="french">French</SelectItem>
+                  <SelectItem value="german">German</SelectItem>
+                  <SelectItem value="italian">Italian</SelectItem>
+                  <SelectItem value="portuguese">Portuguese</SelectItem>
+                  <SelectItem value="mandarin">Mandarin</SelectItem>
+                  <SelectItem value="japanese">Japanese</SelectItem>
+                  <SelectItem value="korean">Korean</SelectItem>
+                  <SelectItem value="russian">Russian</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              onClick={() => requestImageMutation.mutate({ word: requestWord, language: requestLanguage })}
+              disabled={!requestWord.trim() || requestImageMutation.isPending}
+              data-testid="button-submit-request"
+            >
+              {requestImageMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Generate Image
+                </>
+              )}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

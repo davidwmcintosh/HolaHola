@@ -149,6 +149,8 @@ export async function resolveVocabularyImage(request: VocabImageRequest): Promis
         imageSource: 'stock',
         searchQuery: cacheKey,
         uploadedBy: userId,
+        targetWord: word,
+        language,
       });
     } catch (err: any) {
       console.log('[VocabImage] Cache save skipped:', err.message);
@@ -176,6 +178,8 @@ export async function resolveVocabularyImage(request: VocabImageRequest): Promis
         imageSource: 'ai_generated',
         promptHash,
         uploadedBy: userId,
+        targetWord: word,
+        language,
       });
     } catch (err: any) {
       console.log('[VocabImage] AI cache save skipped:', err.message);

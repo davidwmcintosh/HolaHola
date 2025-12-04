@@ -1147,11 +1147,17 @@ export const mediaFiles = pgTable("media_files", {
   promptHash: text("prompt_hash"), // For AI images - hash of the prompt for cache lookups
   usageCount: integer("usage_count").default(0), // Track how often this cached image is reused
   attributionJson: text("attribution_json"), // JSON with attribution data (photographer, URLs for Unsplash)
+  // Vocabulary and review workflow fields
+  targetWord: text("target_word"), // The vocabulary word that triggered this image (e.g., "café", "bonjour")
+  isReviewed: boolean("is_reviewed").default(false), // Has admin reviewed this image for appropriateness?
+  reviewedAt: timestamp("reviewed_at"), // When the image was reviewed
+  reviewedBy: varchar("reviewed_by").references(() => users.id), // Who reviewed it
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   // Indexes for fast cache lookups
   index("idx_media_search_query").on(table.searchQuery),
   index("idx_media_prompt_hash").on(table.promptHash),
+  index("idx_media_is_reviewed").on(table.isReviewed),
 ]);
 
 // Images shared in conversations (e.g., "What is this in Spanish?")
