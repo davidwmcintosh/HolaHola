@@ -557,6 +557,60 @@ The AI tutor's "whiteboard" is a real-time visual teaching system that displays 
 
 ## Completed Features
 
+### Image Library Review Workflow (December 2025)
+✅ **Admin Image Library with Quality Control**
+
+Comprehensive image management system in Command Center (`/admin`):
+
+**View Modes:**
+- Grid View: 5-column layout with large thumbnails (default)
+- Compact View: 8-column layout for quick browsing
+- List View: Table with sortable columns and bulk selection
+
+**Sorting & Filtering:**
+- Sort by: Date Added, Image Source, Usage Count, Language, File Size
+- Filter by source: All, Stock (Unsplash), AI Generated, User Upload
+- Pagination with 24/48/100 items per page
+
+**Review Workflow:**
+- `targetWord` field tracks which vocabulary word triggered each image
+- `isReviewed`, `reviewedAt`, `reviewedBy` fields for quality control
+- Unreviewed count badge in tab header (red warning badge)
+- Bulk selection with checkboxes in list view
+- Bulk "Mark as Reviewed" / "Mark as Unreviewed" actions
+- Selection auto-clears on page/filter/view change
+
+**Image Detail Modal:**
+- Full image preview with all metadata
+- Review status toggle button
+- Request replacement image option
+
+**Request New Image:**
+- Dialog to generate images for vocabulary words
+- Language selector (9 languages)
+- Uses vocabulary-image-resolver (stock fallback → AI generation)
+
+---
+
+### Student Empowerment Features (December 2025)
+✅ **Vocabulary Export** - CSV and Anki-compatible formats
+
+Export vocabulary for offline study:
+- CSV format for spreadsheets
+- Anki tab-separated format for flashcard import
+- Includes: word, translation, pronunciation, examples, dates
+- Language filter applied to exports
+
+✅ **Conversation Search** - Full-text search with highlights
+
+Search across all message history:
+- Debounced input (300ms) with 2-char minimum
+- Results show conversation title, message date, role indicator
+- Matching text highlighted with `<mark>` tags
+- Click result to navigate to conversation
+
+---
+
 ### Phase 4c: Cultural Context Whiteboard Tool (December 2024)
 ✅ **Cultural Infographics** - `[CULTURE]topic|context|category[/CULTURE]`
 
@@ -587,4 +641,4 @@ Inline cultural teaching tool for the voice whiteboard system:
 
 ---
 
-*Last updated: December 2024*
+*Last updated: December 2025*
