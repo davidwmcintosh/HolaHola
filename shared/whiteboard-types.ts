@@ -151,17 +151,23 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
  * Use this before sending text to Cartesia/Google TTS
  */
 export function stripWhiteboardMarkup(text: string): string {
-  return text
+  ALL_WHITEBOARD_MARKUP_PATTERN.lastIndex = 0;
+  const result = text
     .replace(ALL_WHITEBOARD_MARKUP_PATTERN, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
+  ALL_WHITEBOARD_MARKUP_PATTERN.lastIndex = 0;
+  return result;
 }
 
 /**
  * Check if text contains any whiteboard markup
  */
 export function hasWhiteboardMarkup(text: string): boolean {
-  return ALL_WHITEBOARD_MARKUP_PATTERN.test(text);
+  ALL_WHITEBOARD_MARKUP_PATTERN.lastIndex = 0;
+  const result = ALL_WHITEBOARD_MARKUP_PATTERN.test(text);
+  ALL_WHITEBOARD_MARKUP_PATTERN.lastIndex = 0;
+  return result;
 }
 
 /**

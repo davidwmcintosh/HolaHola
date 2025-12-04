@@ -31,16 +31,21 @@ export function useWhiteboard(): UseWhiteboardReturn {
   const lastProcessedRef = useRef<string>('');
 
   const processMessage = useCallback((text: string) => {
-    if (!text || text === lastProcessedRef.current) {
+    if (!text) {
+      return;
+    }
+    
+    const parsed = parseWhiteboardMarkup(text);
+    const hasActions = parsed.shouldClear || parsed.shouldHold || parsed.whiteboardItems.length > 0;
+    
+    if (!hasActions) {
+      return;
+    }
+    
+    if (text === lastProcessedRef.current) {
       return;
     }
     lastProcessedRef.current = text;
-
-    const parsed = parseWhiteboardMarkup(text);
-    
-    if (!parsed.shouldClear && !parsed.shouldHold && parsed.whiteboardItems.length === 0) {
-      return;
-    }
 
     console.log('[WHITEBOARD] Parsed markup:', {
       items: parsed.whiteboardItems.length,
