@@ -358,6 +358,41 @@ export class StreamingAudioPlayer {
   }
   
   /**
+   * Reset player state for a new turn (response)
+   * CRITICAL: Must be called when a new 'processing' message arrives
+   * This clears the sentence/word schedule from the previous turn,
+   * preventing stale callbacks from firing on the new turn's audio.
+   */
+  resetForNewTurn(): void {
+    console.error(`[StreamingAudioPlayer] ⚠️ RESET FOR NEW TURN - clearing ${this.sentenceSchedule.size} sentences, ${this.wordSchedule.size} words`);
+    
+    // Clear progressive playback state
+    this.progressiveFirstChunkStarted = false;
+    this.sentenceSchedule.clear();
+    this.wordSchedule.clear();
+    this.activeSentenceInLoop = -1;
+    this.progressiveSentenceIndex = -1;
+    this.progressiveChunks = [];
+    this.progressiveTotalDuration = 0;
+    
+    // Reset timing anchors
+    const ctx = this.audioContext;
+    if (ctx) {
+      this.progressiveScheduledTime = ctx.currentTime + 0.1;
+      this.progressivePlaybackStartCtxTime = 0;
+    }
+    
+    // Clear stored audio for replay
+    this.allAudioChunks = [];
+    this.combinedAudioBlob = null;
+    
+    // Log to debug panel
+    logScheduleEvent('clear', [], undefined, 0);
+    
+    console.log('[StreamingAudioPlayer] Reset complete - ready for new turn');
+  }
+  
+  /**
    * Get the number of pending audio chunks (queued + currently playing)
    */
   getPendingAudioCount(): number {

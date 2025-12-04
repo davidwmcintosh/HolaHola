@@ -205,12 +205,21 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * This sets the turnId for subtitle packet ordering, preventing phantom subtitles
    * 
    * CRITICAL: Uses subtitlesRef.current to avoid stale closure issues.
+   * CRITICAL: Must reset audio player to clear previous turn's schedule,
+   * preventing stale onSentenceStart callbacks from mixing with new turn.
    */
   const handleProcessing = useCallback((msg: StreamingProcessingMessage) => {
     console.log(`[StreamingVoice] Processing turn ${msg.turnId}: "${msg.userTranscript.substring(0, 30)}..."`);
     
     // Store turnId for use in callbacks
     currentTurnIdRef.current = msg.turnId;
+    
+    // CRITICAL FIX: Reset audio player for new turn
+    // This clears the previous turn's sentence/word schedule, preventing
+    // stale callbacks from firing when new audio starts playing
+    if (playerRef.current) {
+      playerRef.current.resetForNewTurn();
+    }
     
     // Initialize subtitle state for new turn
     subtitlesRef.current.setCurrentTurnId(msg.turnId);
