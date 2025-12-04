@@ -1303,12 +1303,14 @@ export class StreamingAudioPlayer {
       } else {
         // No active sentence - check for sentences that have ended but haven't fired onSentenceEnd
         const endCheckEntries = Array.from(this.sentenceSchedule.entries());
+        let anyEndedThisTick = false;
         for (let k = 0; k < endCheckEntries.length; k++) {
           const [index, entry] = endCheckEntries[k];
           if (entry.endCtxTime === undefined) continue;
           
           if (now >= entry.endCtxTime && entry.started && !entry.ended) {
             entry.ended = true;
+            anyEndedThisTick = true;
             
             // Update debug panel with sentences ended count
             const endedCount = Array.from(this.sentenceSchedule.values()).filter(e => e.ended).length;
@@ -1318,6 +1320,11 @@ export class StreamingAudioPlayer {
             
             this.callbacks.onSentenceEnd?.(index);
           }
+        }
+        
+        // If any sentence ended this tick, check if ALL are now complete
+        if (anyEndedThisTick) {
+          this.checkAllSentencesEnded();
         }
       }
       
@@ -1417,6 +1424,12 @@ export class StreamingAudioPlayer {
       this.callbacks.onSentenceEnd?.(sentenceIndex);
     } else {
       console.log(`[StreamingAudioPlayer] [Progressive] Sentence ${sentenceIndex} already ended via unified loop, skipping callback`);
+      
+      // Still update ended count in case timing loop set ended=true but didn't update counter
+      const endedCount = Array.from(this.sentenceSchedule.values()).filter(e => e.ended).length;
+      updateDebugTimingState({
+        sentencesEnded: endedCount,
+      });
     }
     
     // FIX: Check if ALL sentences in the schedule have completed
