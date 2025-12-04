@@ -210,6 +210,52 @@ Created comprehensive "Whiteboard Tools Roadmap" section documenting:
 
 ---
 
+## Phase 5: Audio & Session Tools (Dec 4, 2025)
+
+### New Whiteboard Tools
+
+**PLAY - Audio Replay Button**
+- Format: `[PLAY]text[/PLAY]` or `[PLAY speed="slow"]text[/PLAY]`
+- Speed options: slow (0.5x), normal (1x), fast (1.5x)
+- Shows text with interactive play button for pronunciation practice
+- Sky blue color scheme
+- Great for complex phrases students want to hear again
+
+**SCENARIO - Role-Play Scene Setup**
+- Format: `[SCENARIO]location|situation|mood[/SCENARIO]`
+- Moods (optional): formal, casual, urgent, friendly
+- Creates immersive scene cards before role-play exercises
+- Displays location with map pin icon, situation description, mood indicator
+- Optional role badges for multi-character scenarios
+- Purple color scheme
+
+**SUMMARY - Lesson Recap**
+- Format: `[SUMMARY]title|word1,word2,word3|phrase1,phrase2[/SUMMARY]`
+- Words section: comma-separated vocabulary learned (displayed as badges)
+- Phrases section: comma-separated key phrases (displayed as list)
+- Perfect for end-of-lesson takeaways
+- Emerald green color scheme
+
+### Examples
+```
+[PLAY speed="slow"]Encantado de conocerte[/PLAY]
+[SCENARIO]Café|You walk into a café in Barcelona and want to order coffee|casual[/SCENARIO]
+[SUMMARY]Today's Greetings|hola,adiós,gracias|Buenos días,Hasta luego[/SUMMARY]
+```
+
+### Files Changed
+- `shared/whiteboard-types.ts` - PlayItemData, ScenarioItemData, SummaryItemData types + parsing
+- `client/src/components/Whiteboard.tsx` - PlayItemDisplay, ScenarioItemDisplay, SummaryItemDisplay UI components
+- `server/system-prompt.ts` - Audio & Session Tools section with examples and best practices
+- `docs/future-features.md` - Updated roadmap to mark Phase 5 complete
+
+### Notes
+- PLAY button currently shows UI placeholder; backend TTS integration pending
+- SCENARIO roles are auto-extracted from situation text (e.g., "waiter", "customer")
+- SUMMARY totalItems count tracks combined words + phrases for analytics
+
+---
+
 ## Pending Items
 
 ### Route Alias Investigation
