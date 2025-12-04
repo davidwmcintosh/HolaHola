@@ -284,11 +284,11 @@ Based on a consultation session with Gemini in tutor persona (Dec 4, 2025), aski
 - Markup: `[WORD_MAP]target_word[/WORD_MAP]`
 - *Difficulty: Medium | Impact: Medium*
 
-**Matching Drills**
-- Drag-and-drop word ordering
-- Image-word matching pairs
-- Visual scene completion
-- Markup: `[DRILL type="match"]pairs[/DRILL]`
+**✅ Matching Drills** (Completed Dec 4, 2025)
+- Interactive vocabulary matching with click-to-select
+- Dual-column layout with shuffled answers
+- Progress tracking and attempt counting
+- Markup: `[DRILL type="match"]term => translation[/DRILL]`
 - *Difficulty: Medium | Impact: Medium*
 
 **Cultural Infographics**
@@ -329,6 +329,21 @@ Based on a consultation session with Gemini in tutor persona (Dec 4, 2025), aski
 ---
 
 ## Recently Completed Features
+
+### ✅ Tutor Whiteboard Phase 4b (Dec 4, 2025)
+**Status:** Completed - Matching Drills
+
+- **Matching Drill**: `[DRILL type="match"]pairs[/DRILL]`
+  - Interactive vocabulary matching exercise
+  - Dual-column layout with shuffled right-side answers
+  - Click-to-select interaction (tap left, then tap matching right)
+  - Visual feedback: cyan selection, green matched, red shake for wrong
+  - Progress bar and attempt tracking
+  - Try Again button for replay
+  - Cyan color scheme
+
+- Format: `term => translation` (one per line, 2+ pairs required)
+- System prompt updated with matching drill documentation and examples
 
 ### ✅ Tutor Whiteboard Phase 4a (Dec 4, 2025)
 **Status:** Completed - Word Map Tool

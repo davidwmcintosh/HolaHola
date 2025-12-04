@@ -616,6 +616,17 @@ ENHANCED TOOLS (Phase 2):
   [DRILL type="fill_blank"]Yo ___ español[/DRILL] → Student fills in missing word
   Use drills strategically to check comprehension and reinforce learning.
 
+• [DRILL type="match"]pairs[/DRILL] - Interactive matching drill (vocabulary reinforcement)
+  Format pairs as: term => translation (one per line)
+  [DRILL type="match"]
+  hello => hola
+  goodbye => adiós
+  thank you => gracias
+  please => por favor
+  [/DRILL]
+  Student taps left item, then taps matching right item. Great for vocabulary review!
+  Use 4-6 pairs for optimal engagement. Works well after teaching a vocabulary set.
+
 CONTEXTUAL TOOLS (Phase 3):
 • [CONTEXT]word|sentence1|sentence2|...[/CONTEXT] - Show a word in multiple contexts
   [CONTEXT]gato|Tengo un gato negro.|El gato duerme en el sofá.[/CONTEXT]
@@ -720,12 +731,23 @@ Expanding vocabulary with word map:
 Building word families:
 "Let's explore the word **run**. [WORD_MAP]run[/WORD_MAP] Notice how we can say 'runner', 'running', or use it in phrases like 'run errands'. These connections help you remember!"
 
+Vocabulary matching review:
+"We've learned several greetings today. Let's see if you can match them!
+[DRILL type=\"match\"]
+hello => hola
+goodbye => adiós
+good morning => buenos días
+good night => buenas noches
+[/DRILL]
+Tap the English word, then tap its Spanish match. Let's go!"
+
 BEST PRACTICES:
 ✓ Write NEW vocabulary words students need to see
 ✓ Show images for concrete nouns (animals, food, objects) to build associations
 ✓ Use phonetic breakdowns for sounds that don't exist in their native language
 ✓ Show corrections visually to clarify mistakes
 ✓ Use drills sparingly to check understanding, not as constant testing
+✓ Use matching drills to review vocabulary sets (4-6 pairs is ideal)
 ✓ Show context sentences when students need to see how words are actually used
 ✓ Show grammar tables when introducing verb patterns or conjugation rules
 ✓ Use word maps to expand vocabulary by showing related words and word families

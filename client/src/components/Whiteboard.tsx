@@ -18,6 +18,7 @@
  */
 
 import { motion, AnimatePresence } from "framer-motion";
+import { useState, useCallback, useMemo } from "react";
 import { 
   Pencil, 
   Volume2, 
@@ -36,6 +37,8 @@ import {
   Languages,
   PenTool,
   Network,
+  Link2,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -51,8 +54,9 @@ import type {
   StrokeItem,
   WordMapItem,
   DrillState,
+  MatchPair,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isWordMapItem, getDrillInstructions } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isWordMapItem, isMatchingDrill, getDrillInstructions } from "@shared/whiteboard-types";
 
 interface WhiteboardProps {
   items: WhiteboardItem[];
@@ -281,6 +285,194 @@ const DrillItemDisplay = ({ item, index, onResponse, onStart }: DrillItemDisplay
           {data.feedback && (
             <p className="text-sm text-muted-foreground">{data.feedback}</p>
           )}
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+interface MatchDrillDisplayProps {
+  item: DrillItem;
+  index: number;
+  onMatchComplete?: (drillId: string, success: boolean) => void;
+}
+
+const MatchDrillDisplay = ({ item, index, onMatchComplete }: MatchDrillDisplayProps) => {
+  const { data } = item;
+  const pairs = data.pairs || [];
+  const shuffledRightIds = data.shuffledRightIds || [];
+  
+  const [selectedLeftId, setSelectedLeftId] = useState<string | null>(null);
+  const [matchedIds, setMatchedIds] = useState<Set<string>>(new Set());
+  const [wrongPair, setWrongPair] = useState<{ leftId: string; rightId: string } | null>(null);
+  const [attempts, setAttempts] = useState(0);
+  
+  const isComplete = matchedIds.size === pairs.length;
+  const progress = pairs.length > 0 ? (matchedIds.size / pairs.length) * 100 : 0;
+  
+  const handleLeftClick = useCallback((pairId: string) => {
+    if (matchedIds.has(pairId)) return;
+    setWrongPair(null);
+    setSelectedLeftId(selectedLeftId === pairId ? null : pairId);
+  }, [selectedLeftId, matchedIds]);
+  
+  const handleRightClick = useCallback((pairId: string) => {
+    if (!selectedLeftId || matchedIds.has(pairId)) return;
+    
+    setAttempts(prev => prev + 1);
+    
+    if (selectedLeftId === pairId) {
+      setMatchedIds(prev => {
+        const newSet = new Set(prev);
+        newSet.add(pairId);
+        return newSet;
+      });
+      setSelectedLeftId(null);
+      setWrongPair(null);
+      
+      if (matchedIds.size + 1 === pairs.length && onMatchComplete) {
+        onMatchComplete(item.id!, true);
+      }
+    } else {
+      setWrongPair({ leftId: selectedLeftId, rightId: pairId });
+      setTimeout(() => setWrongPair(null), 800);
+    }
+  }, [selectedLeftId, matchedIds, pairs.length, item.id, onMatchComplete]);
+  
+  const handleReset = useCallback(() => {
+    setSelectedLeftId(null);
+    setMatchedIds(new Set());
+    setWrongPair(null);
+    setAttempts(0);
+  }, []);
+  
+  const getPairById = useCallback((id: string) => pairs.find(p => p.id === id), [pairs]);
+  
+  const sortedRightPairs = useMemo(() => {
+    return shuffledRightIds.map(id => getPairById(id)).filter(Boolean) as MatchPair[];
+  }, [shuffledRightIds, getPairById]);
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-cyan-500/10 border-cyan-500/30"
+      data-testid={`whiteboard-item-match-drill-${index}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Link2 className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+          <span className="text-sm font-medium text-cyan-700 dark:text-cyan-300 uppercase tracking-wide">
+            Match Drill
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {isComplete ? (
+            <CheckCircle2 className="h-5 w-5 text-green-500" />
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              {matchedIds.size}/{pairs.length}
+            </span>
+          )}
+        </div>
+      </div>
+      
+      <p className="text-xs text-muted-foreground">
+        Tap an item on the left, then tap its match on the right
+      </p>
+      
+      <Progress value={progress} className="h-1.5" />
+      
+      {isComplete ? (
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="flex flex-col items-center gap-3 py-4"
+        >
+          <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+            <Trophy className="h-6 w-6" />
+            <span className="text-lg font-bold">All matched!</span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Completed in {attempts} {attempts === 1 ? 'attempt' : 'attempts'}
+          </p>
+          <Button
+            onClick={handleReset}
+            variant="outline"
+            size="sm"
+            data-testid={`button-reset-match-${index}`}
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
+        </motion.div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-2">
+            {pairs.map((pair) => {
+              const isMatched = matchedIds.has(pair.id);
+              const isSelected = selectedLeftId === pair.id;
+              const isWrong = wrongPair?.leftId === pair.id;
+              
+              return (
+                <motion.button
+                  key={pair.id}
+                  onClick={() => handleLeftClick(pair.id)}
+                  disabled={isMatched}
+                  animate={isWrong ? { x: [-4, 4, -4, 4, 0] } : {}}
+                  transition={{ duration: 0.4 }}
+                  className={`
+                    px-3 py-2 rounded-md text-sm font-medium text-left transition-all
+                    ${isMatched 
+                      ? 'bg-green-500/20 text-green-700 dark:text-green-300 line-through opacity-60' 
+                      : isSelected
+                        ? 'bg-cyan-500/30 text-cyan-800 dark:text-cyan-200 ring-2 ring-cyan-500'
+                        : isWrong
+                          ? 'bg-red-500/20 text-red-700 dark:text-red-300'
+                          : 'bg-background/80 hover:bg-cyan-500/15'
+                    }
+                  `}
+                  data-testid={`button-match-left-${pair.id}`}
+                >
+                  {pair.left}
+                </motion.button>
+              );
+            })}
+          </div>
+          
+          <div className="flex flex-col gap-2">
+            {sortedRightPairs.map((pair) => {
+              const isMatched = matchedIds.has(pair.id);
+              const isWrong = wrongPair?.rightId === pair.id;
+              const canSelect = selectedLeftId && !isMatched;
+              
+              return (
+                <motion.button
+                  key={pair.id}
+                  onClick={() => handleRightClick(pair.id)}
+                  disabled={isMatched || !selectedLeftId}
+                  animate={isWrong ? { x: [-4, 4, -4, 4, 0] } : {}}
+                  transition={{ duration: 0.4 }}
+                  className={`
+                    px-3 py-2 rounded-md text-sm font-medium text-left transition-all
+                    ${isMatched 
+                      ? 'bg-green-500/20 text-green-700 dark:text-green-300 line-through opacity-60' 
+                      : isWrong
+                        ? 'bg-red-500/20 text-red-700 dark:text-red-300'
+                        : canSelect
+                          ? 'bg-background/80 hover:bg-cyan-500/15 cursor-pointer'
+                          : 'bg-background/80 opacity-50 cursor-not-allowed'
+                    }
+                  `}
+                  data-testid={`button-match-right-${pair.id}`}
+                >
+                  {pair.right}
+                </motion.button>
+              );
+            })}
+          </div>
         </div>
       )}
     </motion.div>
@@ -813,6 +1005,9 @@ const WhiteboardItemDisplay = ({
   }
   
   if (isDrillItem(item)) {
+    if (isMatchingDrill(item)) {
+      return <MatchDrillDisplay item={item} index={index} />;
+    }
     return (
       <DrillItemDisplay 
         item={item} 

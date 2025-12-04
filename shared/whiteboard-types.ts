@@ -58,12 +58,28 @@ export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'd
 /**
  * Drill types for inline micro-exercises
  */
-export type DrillType = 'repeat' | 'translate' | 'fill_blank';
+export type DrillType = 'repeat' | 'translate' | 'fill_blank' | 'match';
 
 /**
  * Drill state for interactive exercises
  */
 export type DrillState = 'waiting' | 'listening' | 'evaluating' | 'complete';
+
+/**
+ * Match pair for matching drills
+ * Format in markup: term => match (one per line)
+ */
+export interface MatchPair {
+  id: string;
+  left: string;
+  right: string;
+  matched?: boolean;
+}
+
+/**
+ * State for matching drill interactions
+ */
+export type MatchState = 'pending' | 'selecting_left' | 'selecting_right' | 'complete';
 
 /**
  * Image item metadata
@@ -86,6 +102,13 @@ export interface DrillItemData {
   studentResponse?: string;
   isCorrect?: boolean;
   feedback?: string;
+  // Matching drill specific fields
+  pairs?: MatchPair[];
+  shuffledRightIds?: string[];
+  selectedLeftId?: string | null;
+  matchedCount?: number;
+  attempts?: number;
+  matchState?: MatchState;
 }
 
 /**
@@ -319,14 +342,106 @@ function parseImageContent(content: string): ImageItemData {
 }
 
 /**
+ * Deterministic shuffle using a simple hash-based seed
+ * This ensures the same content always produces the same shuffle order
+ */
+function deterministicShuffle<T>(arr: T[], seed: string): T[] {
+  const result = [...arr];
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+    hash = hash & hash;
+  }
+  
+  for (let i = result.length - 1; i > 0; i--) {
+    hash = ((hash << 5) - hash) + i;
+    hash = hash & hash;
+    const j = Math.abs(hash) % (i + 1);
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  
+  return result;
+}
+
+/**
+ * Parse matching pairs from drill content
+ * Format: term => match (one per line)
+ * Example:
+ *   hello => hola
+ *   goodbye => adios
+ *   thank you => gracias
+ * 
+ * IDs are deterministic (index-based) so matching works across parses
+ */
+function parseMatchPairs(content: string): { pairs: MatchPair[], shuffledRightIds: string[] } {
+  const lines = content.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const pairs: MatchPair[] = [];
+  let pairIndex = 0;
+  
+  for (const line of lines) {
+    // Support both => and = as separators
+    const separatorMatch = line.match(/(.+?)\s*(?:=>|=)\s*(.+)/);
+    if (separatorMatch) {
+      const left = separatorMatch[1].trim();
+      const right = separatorMatch[2].trim();
+      if (left && right) {
+        pairs.push({
+          id: `pair-${pairIndex}`,
+          left,
+          right,
+          matched: false,
+        });
+        pairIndex++;
+      }
+    }
+  }
+  
+  // Deterministic shuffle using content as seed
+  const shuffledRightIds = deterministicShuffle(
+    pairs.map(p => p.id),
+    content
+  );
+  
+  return { pairs, shuffledRightIds };
+}
+
+/**
  * Parse DRILL content with optional type attribute
  */
 function parseDrillContent(typeAttr: string | undefined, content: string): DrillItemData {
   const drillType = (typeAttr?.toLowerCase() || 'repeat') as DrillType;
-  const validTypes: DrillType[] = ['repeat', 'translate', 'fill_blank'];
+  const validTypes: DrillType[] = ['repeat', 'translate', 'fill_blank', 'match'];
+  const validatedType = validTypes.includes(drillType) ? drillType : 'repeat';
+  
+  // Handle matching drills specially
+  if (validatedType === 'match') {
+    const { pairs, shuffledRightIds } = parseMatchPairs(content);
+    
+    // Validate minimum pairs
+    if (pairs.length < 2) {
+      console.warn('[Whiteboard] Match drill needs at least 2 pairs, falling back to repeat drill');
+      return {
+        drillType: 'repeat',
+        prompt: content.trim(),
+        state: 'waiting',
+      };
+    }
+    
+    return {
+      drillType: 'match',
+      prompt: `Match ${pairs.length} pairs`,
+      state: 'waiting',
+      pairs,
+      shuffledRightIds,
+      selectedLeftId: null,
+      matchedCount: 0,
+      attempts: 0,
+      matchState: 'pending',
+    };
+  }
   
   return {
-    drillType: validTypes.includes(drillType) ? drillType : 'repeat',
+    drillType: validatedType,
     prompt: content.trim(),
     state: 'waiting',
   };
@@ -678,6 +793,8 @@ export const whiteboardExamples = {
     `[IMAGE]${word}${description ? `|${description}` : ''}[/IMAGE]`,
   drill: (prompt: string, type: DrillType = 'repeat') => 
     `[DRILL type="${type}"]${prompt}[/DRILL]`,
+  drillMatch: (pairs: Array<{ left: string, right: string }>) => 
+    `[DRILL type="match"]\n${pairs.map(p => `${p.left} => ${p.right}`).join('\n')}\n[/DRILL]`,
   context: (word: string, sentences: string[]) => 
     `[CONTEXT]${word}|${sentences.join('|')}[/CONTEXT]`,
   grammarTable: (verb: string, tense: string = 'present') => 
@@ -753,6 +870,13 @@ export function isStrokeItem(item: WhiteboardItem): item is StrokeItem {
  */
 export function isWordMapItem(item: WhiteboardItem): item is WordMapItem {
   return item.type === 'word_map';
+}
+
+/**
+ * Check if a drill item is a matching drill
+ */
+export function isMatchingDrill(item: DrillItem): boolean {
+  return item.data.drillType === 'match' && Array.isArray(item.data.pairs);
 }
 
 /**

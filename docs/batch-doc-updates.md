@@ -119,6 +119,34 @@ Pending documentation updates to be applied together.
 
 ---
 
+## Phase 4b: Matching Drills (Dec 4, 2025)
+
+### New Drill Type
+
+**DRILL type="match" - Interactive Matching**
+- Format: `[DRILL type="match"]` with pairs as `term => translation` (one per line)
+- Example:
+  ```
+  [DRILL type="match"]
+  hello => hola
+  goodbye => adiós
+  thank you => gracias
+  [/DRILL]
+  ```
+- Dual-column layout with shuffled right side
+- Click-to-select interaction (tap left, then tap matching right)
+- Visual feedback: cyan for selection, green for matches, red shake for wrong
+- Progress bar and attempt counter
+- Try Again button after completion
+- Cyan color scheme
+
+### Files Changed
+- `shared/whiteboard-types.ts` - MatchPair, MatchState types, parseMatchPairs function, updated DrillItemData
+- `client/src/components/Whiteboard.tsx` - MatchDrillDisplay UI component
+- `server/system-prompt.ts` - Matching drill documentation and examples
+
+---
+
 ## Pending Items
 
 (Add new batch items here as work progresses)
