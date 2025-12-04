@@ -102,44 +102,50 @@ The tutor is instructed to recognize when actual ability differs from expected l
 - `DifficultyIndicator` - Legacy difficulty display (unused, removed)
 - Onboarding no longer asks "are you beginner/intermediate/advanced?"
 
-### Tutor Whiteboard System (Planned)
+### Tutor Whiteboard System (Phase 1 Complete)
 
-The current subtitle system will be replaced with a tutor-controlled "whiteboard" - a flexible visual channel the AI can use to teach effectively.
+The AI tutor now has a "whiteboard" - a flexible visual channel it can use strategically to teach.
 
-**Why:**
-- Subtitles as a student toggle train students to read, not listen
-- Language learning requires training the ear; visual aids should be strategic
-- A real tutor decides when to write on the board, not the student
+**Philosophy:**
+- Real language learning trains the EAR, not the eye
+- Visual aids should be strategic (tutor decides, not student)
+- A real tutor decides when to write on the board
 
 **How it works:**
-1. The LLM generates responses with optional markup for visual elements
-2. Markup is stripped before TTS (audio stays natural)
-3. UI displays marked content as visual teaching aids
-4. Content appears/fades as tutor directs
+1. Tutor includes optional markup in responses: `[WRITE]Hola[/WRITE]`
+2. Server strips markup before TTS (audio stays natural)
+3. Client renders marked content as animated visual teaching aids
+4. Content persists across messages until tutor sends `[CLEAR]`
 
 **Available tools for the tutor:**
 - `[WRITE]...[/WRITE]` - Display text on the whiteboard
 - `[PHONETIC]...[/PHONETIC]` - Show pronunciation guide
-- `[COMPARE]...[/COMPARE]` - Show correction (e.g., "NOT D → T")
+- `[COMPARE]...[/COMPARE]` - Show correction (e.g., "gracias NOT grassias")
 - `[CLEAR]` - Wipe the board
 - `[HOLD]` - Keep current content visible
 - No markup = audio only (trains the ear)
 
-**Examples of tutor decisions:**
-- New vocabulary word → WRITE it
-- Student struggling with pronunciation → PHONETIC breakdown
-- Common mistake → COMPARE the correct vs incorrect
-- Review/drilling → Keep it auditory
-- Complex grammar → WRITE the structure
+**When the tutor should use each:**
+- NEW vocabulary → WRITE it (students need to see spelling)
+- Pronunciation help → PHONETIC breakdown
+- Common mistakes → COMPARE correct vs incorrect
+- Drilling/review → Keep it auditory
+- Simple exchanges → No visual needed
 
-**Implementation status:** Planned. Will replace current karaoke-style word highlighting.
+**Key files:**
+- `shared/whiteboard-types.ts` - Types, markup parser, strip function
+- `client/src/hooks/useWhiteboard.ts` - State management hook
+- `client/src/components/Whiteboard.tsx` - UI component with animations
+- `server/system-prompt.ts` - Instructions for tutor (streaming mode section)
+
+**Implementation status:** Phase 1 complete. Markup parsing, TTS integration, and UI rendering functional.
 
 ---
 
 ## System Architecture
 
 ### UI/UX Decisions
-The frontend uses a mobile-first, responsive design with Shadcn/ui (Radix UI) and Tailwind CSS, adhering to Material Design principles. It supports light/dark modes, PWA features, and native iOS/Android builds via Capacitor, including voice interaction controls and a hint bar. Sidebar navigation organizes content into Learning, Library, Resources, Teaching, and Administration sections. The project emphasizes that the AI Tutor is the teacher, providing tools rather than constraints, and trusting the tutor's judgment. A tutor-controlled "whiteboard" system is planned to replace current subtitles, allowing the LLM to use specific markup (`[WRITE]`, `[PHONETIC]`, `[COMPARE]`, `[CLEAR]`, `[HOLD]`) for strategic visual teaching aids.
+The frontend uses a mobile-first, responsive design with Shadcn/ui (Radix UI) and Tailwind CSS, adhering to Material Design principles. It supports light/dark modes, PWA features, and native iOS/Android builds via Capacitor, including voice interaction controls and a hint bar. Sidebar navigation organizes content into Learning, Library, Resources, Teaching, and Administration sections. The project emphasizes that the AI Tutor is the teacher, providing tools rather than constraints, and trusting the tutor's judgment. The tutor-controlled "whiteboard" system (Phase 1 complete) allows the LLM to use markup (`[WRITE]`, `[PHONETIC]`, `[COMPARE]`, `[CLEAR]`, `[HOLD]`) for strategic visual teaching aids that display as animated modal overlays during voice chat.
 
 ### Technical Implementations
 The frontend is built with React and TypeScript (Vite), utilizing Wouter for routing and React Context with TanStack Query for state management. The backend is an Express.js (Node.js) server with TypeScript, exposing a RESTful API. Data is stored using Drizzle ORM for PostgreSQL. AI integration for text chat uses Gemini 2.5 Flash. Authentication is handled by Replit Auth (OIDC), and Stripe integration for subscriptions is managed by `stripe-replit-sync`.
