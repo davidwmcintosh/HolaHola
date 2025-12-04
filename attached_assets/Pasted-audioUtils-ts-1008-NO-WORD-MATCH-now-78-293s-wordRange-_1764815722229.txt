@@ -1,0 +1,202 @@
+audioUtils.ts:1008 [NO WORD MATCH] now=78.293s, wordRange=0.255-8.057s, scheduleSize=24
+findActiveWord @ audioUtils.ts:1008
+tick @ audioUtils.ts:1230
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+audioUtils.ts:981 [findActiveWord] now=78.304, closest="Hola?" 7.639-8.057 (diff=70.665s) | first3=[s0_w0:0.25-0.44, s0_w1:0.44-0.86, s0_w2:1.08-1.28]
+findActiveWord @ audioUtils.ts:981
+tick @ audioUtils.ts:1230
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+audioUtils.ts:1008 [NO WORD MATCH] now=78.304s, wordRange=0.255-8.057s, scheduleSize=24
+findActiveWord @ audioUtils.ts:1008
+tick @ audioUtils.ts:1230
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1332
+audioUtils.ts:981 [findActiveWord] now=78.325, closest="Hola?" 7.639-8.057 (diff=70.687s) | first3=[s0_w0:0.25-0.44, s0_w1:0.44-0.86, s0_w2:1.08-1.28]

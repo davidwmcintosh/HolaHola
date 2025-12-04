@@ -77,6 +77,10 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
     lastCheckAllReason,
     lastCheckAllTime,
     checkAllCallCount,
+    wsMessageTypes,
+    wsMessageCount,
+    wsLastMessageType,
+    wsResponseCompleteReceived,
   } = state;
   
   const timeSinceUpdate = Date.now() - lastUpdateTime;
@@ -239,6 +243,43 @@ export function DebugTimingPanel({ className }: DebugTimingPanelProps) {
                     {((Date.now() - lastCheckAllTime) / 1000).toFixed(1)}s ago
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+          
+          {/* SECTION 1.75: WebSocket Message Tracking (CRITICAL for debugging) */}
+          <div className={`border rounded p-2 ${
+            wsResponseCompleteReceived 
+              ? 'border-green-500/40 bg-green-900/20' 
+              : wsMessageCount > 0
+                ? 'border-orange-500/40 bg-orange-900/20'
+                : 'border-gray-500/40 bg-gray-900/20'
+          }`}>
+            <div className="font-bold text-orange-300 mb-2 flex items-center gap-2">
+              WS MESSAGES
+              <span className="text-gray-400 text-[10px]">#{wsMessageCount || 0}</span>
+              {wsResponseCompleteReceived ? (
+                <span className="text-green-400 text-[10px]">✓ response_complete RECEIVED</span>
+              ) : wsMessageCount > 0 ? (
+                <span className="text-red-400 text-[10px]">NO response_complete</span>
+              ) : null}
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Total:</span>
+                <span className="text-cyan-400">{wsMessageCount || 0}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Last:</span>
+                <span className="text-yellow-400 truncate max-w-[100px]">{wsLastMessageType || '—'}</span>
+              </div>
+            </div>
+            {wsMessageTypes && wsMessageTypes.length > 0 && (
+              <div className="mt-2 text-[10px]">
+                <div className="text-gray-400 mb-1">Recent types (last 20):</div>
+                <div className="text-cyan-300 break-words max-h-16 overflow-y-auto">
+                  {wsMessageTypes.join(' → ')}
+                </div>
               </div>
             )}
           </div>

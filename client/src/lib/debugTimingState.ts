@@ -207,6 +207,12 @@ export interface DebugTimingState {
   lastCheckAllReason: string;                 // Why it returned true/false
   lastCheckAllTime: number;                   // When was it last called
   checkAllCallCount: number;                  // How many times has it been called this session
+  
+  // NEW: WebSocket message type tracking (for debugging message reception)
+  wsMessageTypes: string[];                   // Last 20 message types received
+  wsMessageCount: number;                     // Total message count
+  wsLastMessageType: string;                  // Most recent message type
+  wsResponseCompleteReceived: boolean;        // Has response_complete been received?
 }
 
 // Maximum number of word events to keep in log
@@ -305,6 +311,12 @@ function getDebugState(): DebugTimingState {
       lastCheckAllReason: '',
       lastCheckAllTime: 0,
       checkAllCallCount: 0,
+      
+      // WebSocket message type tracking
+      wsMessageTypes: [],
+      wsMessageCount: 0,
+      wsLastMessageType: '',
+      wsResponseCompleteReceived: false,
     };
   }
   return window.__debugTimingState;
@@ -441,6 +453,26 @@ export function checkWordMismatch(highlightedWord: string, expectedWord: string)
   }
 }
 
+/**
+ * Track a WebSocket message type for debugging
+ */
+export function trackWsMessage(type: string): void {
+  const currentState = getDebugState();
+  const newTypes = [...currentState.wsMessageTypes, type];
+  
+  // Keep only last 20 message types
+  if (newTypes.length > 20) {
+    newTypes.shift();
+  }
+  
+  updateDebugTimingState({
+    wsMessageTypes: newTypes,
+    wsMessageCount: currentState.wsMessageCount + 1,
+    wsLastMessageType: type,
+    wsResponseCompleteReceived: type === 'response_complete' ? true : currentState.wsResponseCompleteReceived,
+  });
+}
+
 export function getDebugTimingState(): DebugTimingState {
   return getDebugState();
 }
@@ -541,6 +573,12 @@ export function resetDebugTimingState(): void {
     lastCheckAllReason: '',
     lastCheckAllTime: 0,
     checkAllCallCount: 0,
+    
+    // WebSocket message type tracking
+    wsMessageTypes: [],
+    wsMessageCount: 0,
+    wsLastMessageType: '',
+    wsResponseCompleteReceived: false,
   };
   window.__debugTimingState = newState;
   getListeners().forEach(listener => listener(newState));

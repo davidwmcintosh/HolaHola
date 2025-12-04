@@ -426,8 +426,10 @@ export class StreamingVoiceClient {
       win._allMessageTypes = win._allMessageTypes || [];
       win._allMessageTypes.push(message.type);
       
-      // AGGRESSIVE DEBUG: Log EVERY message type received (use console.error for visibility)
-      console.error(`[WS-PARSE] type="${message.type}" (#${win._parseSuccess})`);
+      // Track in debug state for on-screen display
+      import('./debugTimingState').then(({ trackWsMessage }) => {
+        trackWsMessage(message.type);
+      });
       
       // Keep only last 50 message types to prevent memory bloat
       if (win._allMessageTypes.length > 50) {
