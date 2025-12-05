@@ -82,3 +82,18 @@ When using the run_test tool with OIDC authentication, configure claims like thi
 - The Playwright test agent cannot use voice/microphone, so it defaults to text mode
 - Whiteboard features must be tested manually or via unit/component tests
 - Voice mode whiteboard tests require manual verification with a real microphone
+
+## Documentation
+
+Consolidated documentation organized by audience:
+
+| Document | Audience | Contents |
+|----------|----------|----------|
+| `docs/USER-MANUAL.md` | Learners | Voice learning, whiteboard tools, drills, Asian language features |
+| `docs/TEACHER-GUIDE.md` | Educators | Class management, syllabus builder, student monitoring |
+| `docs/ADMIN-GUIDE.md` | Administrators | Command Center, Image Library, user management |
+| `docs/TECHNICAL-REFERENCE.md` | Developers | API docs, schema, voice pipeline architecture |
+| `docs/ROADMAP.md` | All | Planned features, priorities, recently completed |
+
+**Batch Updates:** Use `docs/batch-doc-updates.md` as staging area for documentation changes.
+**Archive:** Historical docs preserved in `docs/archive/` for reference.
