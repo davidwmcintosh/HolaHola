@@ -93,6 +93,7 @@ Consolidated documentation organized by audience:
 | `docs/TEACHER-GUIDE.md` | Educators | Class management, syllabus builder, student monitoring |
 | `docs/ADMIN-GUIDE.md` | Administrators | Command Center, Image Library, user management |
 | `docs/TECHNICAL-REFERENCE.md` | Developers | API docs, schema, voice pipeline architecture |
+| `docs/SALES-GUIDE.md` | Sales/Marketing | Key differentiators, target markets, competitive positioning |
 | `docs/ROADMAP.md` | All | Planned features, priorities, recently completed |
 
 **Batch Updates:** Use `docs/batch-doc-updates.md` as staging area for documentation changes.
