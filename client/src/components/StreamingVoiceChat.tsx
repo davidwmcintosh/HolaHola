@@ -1672,31 +1672,10 @@ export function StreamingVoiceChat({
           isProcessing={isProcessing}
           isPlaying={avatarState === 'speaking'}
           isConnecting={useStreamingMode && (streamingVoice.state.connectionState === 'connecting' || streamingVoice.state.connectionState === 'connected')}
-          currentPlayingMessageId={currentPlayingMessageId ?? undefined}
-          audioElementRef={audioPlayerRef}
-          onReplay={replayLastAudio}
-          canReplay={!!lastAudioBlob && !isProcessing && avatarState !== 'speaking'}
-          onSlowRepeat={handleSlowRepeat}
-          canSlowRepeat={messages.some(m => m.role === 'assistant') && !isProcessing && avatarState !== 'speaking'}
-          isSlowRepeatLoading={isSlowRepeatLoading}
-          wordTimings={currentPlayingMessageId ? wordTimingsMapRef.current.get(currentPlayingMessageId) : undefined}
           tutorGender={tutorGender}
-          streamingText={useStreamingMode ? streamingVoice.subtitles.state.currentSentenceText : undefined}
-          streamingTargetText={useStreamingMode ? streamingVoice.subtitles.state.currentSentenceTargetText : undefined}
-          hasTargetContent={useStreamingMode ? streamingVoice.subtitles.state.hasTargetContent : undefined}
-          streamingWordIndex={useStreamingMode ? streamingVoice.subtitles.state.currentWordIndex : undefined}
-          streamingVisibleWordCount={useStreamingMode ? streamingVoice.subtitles.state.visibleWordCount : undefined}
-          streamingTargetWordIndex={useStreamingMode ? streamingVoice.subtitles.state.currentTargetWordIndex : undefined}
-          isWaitingForContent={useStreamingMode ? streamingVoice.subtitles.state.isWaitingForContent : undefined}
-          getIsWaitingForContent={useStreamingMode ? streamingVoice.subtitles.getIsWaitingForContent : undefined}
-          activeBlockIndex={useStreamingMode ? streamingVoice.subtitles.state.activeBlockIndex : undefined}
-          activeBlockText={useStreamingMode ? streamingVoice.subtitles.state.activeBlockText : undefined}
-          teachingBlockText={useStreamingMode ? streamingVoice.subtitles.state.teachingBlockText : undefined}
-          hasShownTeachingBlock={useStreamingMode ? streamingVoice.subtitles.state.hasShownTeachingBlock : undefined}
           voiceSpeed={voiceSpeed}
           setTutorGender={(gender) => {
             setTutorGender(gender);
-            // Also update the voice in the active streaming session
             if (useStreamingMode) {
               streamingVoice.updateVoice(gender);
             }
