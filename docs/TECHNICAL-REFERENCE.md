@@ -263,6 +263,109 @@ updateDebugTimingState(partial: Partial<DebugTimingState>): void;
 3. **Pronunciation Practice**: Compare user timing to tutor timing
 4. **Whiteboard Sync**: Trigger PHONETIC displays at exact word moments
 
+### Audio Performance Optimizations
+
+**Last Updated:** December 2024
+
+The streaming audio pipeline has been optimized to eliminate choppy audio caused by main thread blocking. The key principle: **zero console operations on the hot path**.
+
+**Problem Diagnosed:**
+
+During audio streaming, the following operations were blocking the main thread on every audio chunk (~30-50 chunks per tutor response):
+- `console.log()` / `console.error()` calls (synchronous I/O)
+- JSON stringification for debug logging
+- Dynamic `import()` calls creating microtask overhead
+- Array operations for debug tracking
+- Debug state updates
+
+**Hot Path Definition:**
+
+The "hot path" is any code executed per-message during audio streaming:
+
+| Component | Hot Path Functions |
+|-----------|-------------------|
+| `streamingVoiceClient.ts` | `handleMessage()`, `handleAudioChunk()`, `handleWordTimingDelta()`, `handleSentenceReady()`, `handleWordTimingFinal()` |
+| `audioUtils.ts` | `enqueue()`, `enqueueProgressivePcmChunk()`, `updatePendingCount()` |
+
+**Optimizations Applied:**
+
+1. **Removed all console logging from hot path handlers:**
+   - `handleMessage()` - No per-message logging
+   - `handleAudioChunk()` - Silent processing
+   - `handleWordTimingDelta()` - Emit only, no logging
+   - `handleWordTimingFinal()` - Emit only, no logging
+   - `handleSentenceReady()` - Minimal state update
+   - `handleSentenceStart()` - Silent state update
+   - `handleSentenceEnd()` - Silent callback
+   - `handleResponseComplete()` - Silent state transition
+
+2. **Removed dynamic imports on hot path:**
+   ```typescript
+   // REMOVED - was called on every message
+   import('./debugTimingState').then(({ trackWsMessage }) => {
+     trackWsMessage(message.type);
+   });
+   ```
+
+3. **Removed redundant tracking objects:**
+   - `window._allMessageTypes` array updates
+   - `window._wsMessageCounts` per-type counters
+   - `window._deltaBySentence` timing history
+   - `window._sentenceReadyHistory` arrays
+
+4. **Simplified WebSocket message handling:**
+   ```typescript
+   // Before: 60+ lines of logging/tracking per message
+   // After: ~5 lines - parse, count, switch, emit
+   ```
+
+5. **Audio player optimizations:**
+   - `enqueue()` - Removed queue status logging
+   - `enqueueProgressivePcmChunk()` - Removed per-chunk logging
+   - `updatePendingCount()` - Silent counter update
+
+6. **Increased audio prebuffer margin:**
+   ```typescript
+   // Before: 0.05-0.1s prebuffer
+   // After: 0.2s prebuffer (prevents audio starvation during GC/decode latency)
+   this.progressiveScheduledTime = ctx.currentTime + 0.2;
+   ```
+
+**What's Preserved for Debugging:**
+
+Lightweight window-level counters (no logging):
+```typescript
+// Access via browser DevTools console:
+window._wsDebug.messageCount     // Total messages received
+window._wsDebug.byType           // Message counts by type
+window._audioChunks.total        // Total audio chunks
+window._audioChunks.bySentence   // Chunks per sentence
+```
+
+**Performance Impact:**
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Console ops per chunk | 10-15 | 0 |
+| Main thread blocking | Significant | Minimal |
+| Audio gaps | Frequent | Rare |
+| GC sensitivity | High | Low |
+
+**Code Locations:**
+
+| File | Changes |
+|------|---------|
+| `client/src/lib/streamingVoiceClient.ts` | Removed logging from all message handlers |
+| `client/src/lib/audioUtils.ts` | Removed logging from enqueue functions |
+
+**Guidelines for Future Development:**
+
+1. **Never add console.log to hot path functions** - Use lightweight counters instead
+2. **No dynamic imports in message handlers** - Import at module level
+3. **No JSON.stringify on hot path** - Defer to cold path if needed
+4. **Test with real audio** - Verify no choppy playback after changes
+5. **Use prebuffer margin** - 0.2s minimum for network/decode variance
+
 ---
 
 ## Whiteboard System
