@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, MessageSquare, Turtle, Rabbit, RefreshCw, Trash2, Loader2 } from "lucide-react";
 import { type Message } from "@shared/schema";
-import { type SubtitleMode, type VoiceSpeed } from "@/contexts/LanguageContext";
+import { type VoiceSpeed } from "@/contexts/LanguageContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,66 +23,34 @@ import femaleTutorListeningUrl from "@assets/tutor-listening-no-background_17640
 import maleTutorSpeakingUrl from "@assets/Boy-tutor-speaking-No-Background_1764186322050.png";
 import maleTutorListeningUrl from "@assets/Boy-tutor-waiting-No-Background_1764186322051.png";
 
-interface WordTiming {
-  word: string;
-  startTime: number;
-  endTime: number;
-}
-
 interface ImmersiveTutorProps {
-  conversationId: string;
   messages: Message[];
   onRecordingStart: () => void;
   onRecordingStop: () => void;
   isRecording: boolean;
-  isMicPreparing?: boolean; // Show "Preparing mic..." before mic is ready
+  isMicPreparing?: boolean;
   isProcessing?: boolean;
   isPlaying: boolean;
-  isConnecting?: boolean; // True while WebSocket/Cartesia is warming up
-  currentPlayingMessageId?: string;
-  onToggleView?: () => void; // Toggle between live and history view
-  audioElementRef?: React.RefObject<HTMLAudioElement>; // Reference to the actual audio element
-  onReplay?: () => void; // Replay last audio
-  canReplay?: boolean; // Whether replay is available (requires stored audio blob)
-  onSlowRepeat?: () => void; // Request slow, simplified repeat
-  canSlowRepeat?: boolean; // Whether slow repeat is available (requires assistant message)
-  isSlowRepeatLoading?: boolean; // Whether slow repeat is loading
-  wordTimings?: WordTiming[]; // Word-level timing data for synchronized subtitles
-  subtitleMode?: SubtitleMode; // Subtitle display mode: off, target (target language only), all
-  tutorGender?: 'male' | 'female'; // Tutor avatar gender preference
-  streamingText?: string; // Text from streaming voice mode
-  streamingTargetText?: string; // Target language only text from streaming mode
-  hasTargetContent?: boolean; // Server-driven: whether current sentence has target language content
-  streamingWordIndex?: number; // Current word index for streaming subtitles
-  streamingVisibleWordCount?: number; // Number of words to show (progressive word-by-word reveal)
-  streamingTargetWordIndex?: number; // Current word index for target-only text (enables karaoke in Target mode)
-  isWaitingForContent?: boolean; // True after subtitle reset, false when new content arrives
-  getIsWaitingForContent?: () => boolean; // Synchronous getter for immediate access
-  // Block-based rendering for target mode
-  activeBlockIndex?: number; // Which target block is currently being spoken (-1 if none)
-  activeBlockText?: string; // Text of the currently active block
-  teachingBlockText?: string; // Text of the teaching block (persists until turn ends)
-  hasShownTeachingBlock?: boolean; // Whether teaching block has been spoken (for persistence)
-  voiceSpeed?: VoiceSpeed; // Voice speed: normal or slow
-  setTutorGender?: (gender: 'male' | 'female') => void; // Callback to change tutor gender
-  setVoiceSpeed?: (speed: VoiceSpeed) => void; // Callback to change voice speed
-  femaleVoiceName?: string; // Female voice name for display
-  maleVoiceName?: string; // Male voice name for display
-  baseSpeakingRate?: number; // Base speaking rate from Cartesia voice config (e.g. 0.7)
-  // Dev tools props
-  isDeveloper?: boolean; // Show dev tools
-  classId?: string | null; // Class ID for reload credits
-  onReloadCredits?: () => void; // Callback to reload credits
-  onResetData?: () => void; // Callback to reset learning data
-  isReloadingCredits?: boolean; // Loading state for reload credits
-  isResettingData?: boolean; // Loading state for reset data
-  // Whiteboard props - tutor-controlled visual teaching aids
-  whiteboardItems?: WhiteboardItem[]; // Current whiteboard items to display
-  onClearWhiteboard?: () => void; // Callback to manually clear whiteboard
+  isConnecting?: boolean;
+  onToggleView?: () => void;
+  tutorGender?: 'male' | 'female';
+  voiceSpeed?: VoiceSpeed;
+  setTutorGender?: (gender: 'male' | 'female') => void;
+  setVoiceSpeed?: (speed: VoiceSpeed) => void;
+  femaleVoiceName?: string;
+  maleVoiceName?: string;
+  baseSpeakingRate?: number;
+  isDeveloper?: boolean;
+  classId?: string | null;
+  onReloadCredits?: () => void;
+  onResetData?: () => void;
+  isReloadingCredits?: boolean;
+  isResettingData?: boolean;
+  whiteboardItems?: WhiteboardItem[];
+  onClearWhiteboard?: () => void;
 }
 
 export function ImmersiveTutor({
-  conversationId,
   messages,
   onRecordingStart,
   onRecordingStop,
@@ -91,29 +59,8 @@ export function ImmersiveTutor({
   isProcessing = false,
   isPlaying,
   isConnecting = false,
-  currentPlayingMessageId,
   onToggleView,
-  audioElementRef,
-  onReplay,
-  canReplay,
-  onSlowRepeat,
-  canSlowRepeat,
-  isSlowRepeatLoading = false,
-  wordTimings,
-  subtitleMode = "target",
   tutorGender = "female",
-  streamingText,
-  streamingTargetText,
-  hasTargetContent = false,
-  streamingWordIndex = -1,
-  streamingVisibleWordCount = 0,
-  streamingTargetWordIndex = -1,
-  isWaitingForContent = false,
-  getIsWaitingForContent,
-  activeBlockIndex = -1,
-  activeBlockText = '',
-  teachingBlockText = '',
-  hasShownTeachingBlock = false,
   voiceSpeed = "normal",
   setTutorGender,
   setVoiceSpeed,
@@ -129,252 +76,9 @@ export function ImmersiveTutor({
   whiteboardItems = [],
   onClearWhiteboard,
 }: ImmersiveTutorProps) {
-  const [currentWordTimings, setCurrentWordTimings] = useState<WordTiming[]>([]);
-  const [highlightedWordIndex, setHighlightedWordIndex] = useState<number>(-1);
-  const [visibleWordCount, setVisibleWordCount] = useState<number>(0);
-  // For target mode: track which specific word indices are visible (handles non-contiguous visibility)
-  const [visibleWordIndices, setVisibleWordIndices] = useState<Set<number>>(new Set());
-  const visibleWordIndicesRef = useRef<Set<number>>(new Set()); // Ref to compare against for diff-aware updates
-  const animationFrameRef = useRef<number | null>(null);
-  const subtitleTimersRef = useRef<NodeJS.Timeout[]>([]);
-  
   // Local ref to track if WE started recording via pointer down
   // This ensures pointer up always stops recording regardless of React state timing
   const isPointerRecordingRef = useRef<boolean>(false);
-
-  // Get the last assistant message for display
-  const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
-
-  // Helper function to normalize words for matching (strip punctuation, quotes, phoneme syntax, accents for comparison)
-  const normalizeWord = (word: string): string => {
-    return word
-      .toLowerCase()
-      // Strip Cartesia phoneme syntax <<phoneme1|phoneme2>> → extract just the phonemes as the word
-      .replace(/<<([^>]+)>>/g, '$1')
-      // Remove phoneme pipe separators (e.g., "o|l|a" → "ola")
-      .replace(/\|/g, '')
-      // Remove all types of quotes and apostrophes (straight, curly, smart, unicode)
-      .replace(/[\u0027\u0060\u00B4\u2018\u2019\u201A\u201B\u201C\u201D\u201E\u201F\u2032\u2033\u2035\u2036\u0022''""„‟`´]/g, '')
-      // Remove all common punctuation
-      .replace(/[¡!¿?,.:;()[\]{}<>]/g, '')
-      .trim();
-  };
-  
-  // Helper function to clean phoneme syntax and markdown for display
-  const cleanForDisplay = (word: string): string => {
-    let cleaned = word
-      // Replace <<phoneme>> syntax with just the phonemes joined (e.g., <<o|l|a>> → "ola")
-      .replace(/<<([^>]+)>>/g, (_, phonemes) => {
-        const cleanedPhonemes = phonemes.replace(/\|/g, '');
-        // Capitalize if word started with << (which replaced a capital letter)
-        return cleanedPhonemes.charAt(0).toUpperCase() + cleanedPhonemes.slice(1);
-      })
-      // Safety net: strip any markdown bold/italic markers that slipped through
-      .replace(/\*\*/g, '')
-      .replace(/\*/g, '')
-      // Strip leading/trailing quotes (but preserve apostrophes in contractions)
-      .replace(/^["'"'""]+/g, '')
-      .replace(/["'"'""]+$/g, '');
-    
-    return cleaned;
-  };
-
-  // Helper function to filter word timings to only include target language words
-  // Finds ALL occurrences of the target phrase (e.g., "Buenas noches" said twice)
-  const filterTargetLanguageTimings = (
-    allTimings: WordTiming[],
-    targetText: string
-  ): WordTiming[] => {
-    if (!targetText || !allTimings.length) return [];
-    
-    // Parse target language text into words (normalize for matching)
-    const targetWords = targetText
-      .split(/\s+/)
-      .map(normalizeWord)
-      .filter(w => w.length > 0);
-    
-    if (targetWords.length === 0) return [];
-    
-    
-    // Find ALL occurrences of the target phrase in the timing array
-    // This handles cases where the tutor says "Buenas noches" multiple times
-    const allOccurrences: WordTiming[] = [];
-    let i = 0;
-    
-    while (i < allTimings.length) {
-      const normalizedWord = normalizeWord(allTimings[i].word);
-      
-      // Check if this could be the start of a target phrase match
-      if (normalizedWord === targetWords[0]) {
-        // Try to match the full phrase starting here
-        let matchedTimings: WordTiming[] = [allTimings[i]];
-        let matched = true;
-        
-        for (let j = 1; j < targetWords.length; j++) {
-          const nextIndex = i + j;
-          if (nextIndex >= allTimings.length) {
-            matched = false;
-            break;
-          }
-          const nextNormalized = normalizeWord(allTimings[nextIndex].word);
-          if (nextNormalized !== targetWords[j]) {
-            matched = false;
-            break;
-          }
-          matchedTimings.push(allTimings[nextIndex]);
-        }
-        
-        if (matched && matchedTimings.length === targetWords.length) {
-          // Found a complete match - add all words from this occurrence
-          allOccurrences.push(...matchedTimings);
-          // Skip past this match to find the next occurrence
-          i += targetWords.length;
-          continue;
-        }
-      }
-      i++;
-    }
-    
-    if (allOccurrences.length > 0) {
-      return allOccurrences;
-    }
-    
-    // Fallback: couldn't find exact match, return empty
-    return [];
-  };
-
-  // Update word timings when a new message is playing
-  useEffect(() => {
-    // Clear any existing subtitle timers to prevent stale updates
-    subtitleTimersRef.current.forEach(timer => clearTimeout(timer));
-    subtitleTimersRef.current = [];
-    setVisibleWordCount(0);
-    setHighlightedWordIndex(-1);
-
-    // IMPORTANT: Hide subtitles when user is recording or processing their speech
-    // This prevents "phantom subtitles" - showing the previous tutor's words when the user releases the mic
-    if (isRecording || isProcessing) {
-      setCurrentWordTimings([]);
-      return;
-    }
-
-    if (subtitleMode === "off") {
-      setCurrentWordTimings([]);
-      return;
-    }
-
-    if (currentPlayingMessageId && isPlaying) {
-      const message = messages.find(m => m.id === currentPlayingMessageId);
-      if (message && message.role === "assistant" && wordTimings && wordTimings.length > 0) {
-        
-        if (subtitleMode === "target") {
-          // Target mode: show only target language words with progressive reveal
-          const targetText = message.targetLanguageText || "";
-          if (targetText) {
-            const filteredTimings = filterTargetLanguageTimings(wordTimings, targetText);
-            if (filteredTimings.length > 0) {
-              setCurrentWordTimings(filteredTimings);
-            } else {
-              setCurrentWordTimings([]);
-            }
-          } else {
-            setCurrentWordTimings([]);
-          }
-        } else if (subtitleMode === "all") {
-          // All mode: show all words with progressive reveal
-          setCurrentWordTimings(wordTimings);
-        }
-      } else {
-        setCurrentWordTimings([]);
-      }
-    } else if (!isPlaying && currentPlayingMessageId && !isRecording && !isProcessing) {
-      // Audio finished - Show all words for reading practice
-      // But NOT if user is recording/processing (prevents phantom subtitles)
-      setVisibleWordCount(currentWordTimings.length);
-      setHighlightedWordIndex(-1);
-    }
-
-    // Cleanup function: clear all subtitle timers on unmount or dependency change
-    return () => {
-      subtitleTimersRef.current.forEach(timer => clearTimeout(timer));
-      subtitleTimersRef.current = [];
-    };
-  }, [currentPlayingMessageId, isPlaying, isRecording, isProcessing, messages, subtitleMode, wordTimings]);
-
-  // Sync word highlighting with audio playback - progressive reveal
-  useEffect(() => {
-    if (!isPlaying || currentWordTimings.length === 0 || !audioElementRef?.current) {
-      setHighlightedWordIndex(-1);
-      if (visibleWordIndicesRef.current.size > 0) {
-        visibleWordIndicesRef.current = new Set();
-        setVisibleWordIndices(new Set());
-      }
-      return;
-    }
-
-    const updateHighlight = () => {
-      if (audioElementRef?.current) {
-        const currentTime = audioElementRef.current.currentTime;
-        
-        // Find which word should be highlighted based on current time
-        let currentWordIndex = -1;
-        let maxVisibleIndex = -1;
-        
-        // For target mode: track specific visible indices (handles non-contiguous visibility)
-        // This ensures repeated words (like "Hola" twice) appear and disappear independently
-        const isTargetMode = subtitleMode === "target";
-        const lingerTime = 0.5; // Words stay visible 0.5s after their end time
-        const newVisibleIndices = new Set<number>();
-        
-        for (let i = 0; i < currentWordTimings.length; i++) {
-          const timing = currentWordTimings[i];
-          
-          if (isTargetMode) {
-            // Target mode: word is visible during its window + brief linger
-            if (currentTime >= timing.startTime && currentTime < timing.endTime + lingerTime) {
-              newVisibleIndices.add(i);
-            }
-          } else {
-            // All mode: progressive reveal (words stay visible once reached)
-            if (currentTime >= timing.startTime) {
-              maxVisibleIndex = i;
-            }
-          }
-          
-          // Word is highlighted if we're within its time range
-          if (currentTime >= timing.startTime && currentTime < timing.endTime) {
-            currentWordIndex = i;
-          }
-        }
-        
-        if (isTargetMode) {
-          // Diff-aware update: only update state if membership actually changed
-          // This avoids re-rendering every animation frame
-          const oldSet = visibleWordIndicesRef.current;
-          const setsAreDifferent = newVisibleIndices.size !== oldSet.size ||
-            Array.from(newVisibleIndices).some(i => !oldSet.has(i));
-          
-          if (setsAreDifferent) {
-            visibleWordIndicesRef.current = newVisibleIndices;
-            setVisibleWordIndices(newVisibleIndices);
-            setVisibleWordCount(newVisibleIndices.size);
-          }
-        } else {
-          setVisibleWordCount(maxVisibleIndex + 1);
-        }
-        setHighlightedWordIndex(currentWordIndex);
-      }
-      animationFrameRef.current = requestAnimationFrame(updateHighlight);
-    };
-
-    animationFrameRef.current = requestAnimationFrame(updateHighlight);
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [isPlaying, currentWordTimings, audioElementRef, subtitleMode]);
 
   // Determine which tutor image to show based on state and gender preference
   const getTutorImage = () => {

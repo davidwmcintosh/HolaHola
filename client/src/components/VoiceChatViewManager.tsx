@@ -1,13 +1,11 @@
-import { useState, useRef, TouchEvent, useMemo } from "react";
+import { useState, useRef, TouchEvent } from "react";
 import { ImmersiveTutor } from "./ImmersiveTutor";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Radio } from "lucide-react";
 import { type Message, type Conversation } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
-import { type WordTiming } from "@/lib/restVoiceApi";
-import { useLanguage, type VoiceSpeed } from "@/contexts/LanguageContext";
-import { getEffectiveSubtitleMode } from "@/lib/subtitlePolicies";
+import { type VoiceSpeed } from "@/contexts/LanguageContext";
 import type { WhiteboardItem } from "@shared/whiteboard-types";
 
 interface VoiceChatViewManagerProps {
@@ -19,43 +17,20 @@ interface VoiceChatViewManagerProps {
   isMicPreparing?: boolean;
   isProcessing?: boolean;
   isPlaying: boolean;
-  isConnecting?: boolean;  // True while WebSocket/Cartesia is warming up
-  currentPlayingMessageId?: string;
-  audioElementRef?: React.RefObject<HTMLAudioElement>;
-  onReplay?: () => void;
-  canReplay?: boolean;
-  onSlowRepeat?: () => void;
-  canSlowRepeat?: boolean;
-  isSlowRepeatLoading?: boolean;
-  wordTimings?: WordTiming[];
+  isConnecting?: boolean;
   tutorGender?: 'male' | 'female';
-  streamingText?: string;
-  streamingTargetText?: string;
-  hasTargetContent?: boolean;  // Server-driven: whether current sentence has target language content
-  streamingWordIndex?: number;
-  streamingVisibleWordCount?: number;  // Number of words to show (progressive reveal)
-  streamingTargetWordIndex?: number;  // Word index in target-only text for Target mode karaoke
-  isWaitingForContent?: boolean;  // True after subtitle reset, false when new content arrives
-  getIsWaitingForContent?: () => boolean;  // Synchronous getter for immediate access
-  // Block-based rendering for target mode
-  activeBlockIndex?: number;
-  activeBlockText?: string;
-  teachingBlockText?: string;
-  hasShownTeachingBlock?: boolean;
   voiceSpeed?: VoiceSpeed;
   setTutorGender?: (gender: 'male' | 'female') => void;
   setVoiceSpeed?: (speed: VoiceSpeed) => void;
   femaleVoiceName?: string;
   maleVoiceName?: string;
-  baseSpeakingRate?: number; // Base speaking rate from Cartesia voice config
-  // Dev tools props
+  baseSpeakingRate?: number;
   isDeveloper?: boolean;
   classId?: string | null;
   onReloadCredits?: () => void;
   onResetData?: () => void;
   isReloadingCredits?: boolean;
   isResettingData?: boolean;
-  // Whiteboard props
   whiteboardItems?: WhiteboardItem[];
   onClearWhiteboard?: () => void;
 }
@@ -70,27 +45,7 @@ export function VoiceChatViewManager({
   isProcessing,
   isPlaying,
   isConnecting = false,
-  currentPlayingMessageId,
-  audioElementRef,
-  onReplay,
-  canReplay,
-  onSlowRepeat,
-  canSlowRepeat,
-  isSlowRepeatLoading,
-  wordTimings,
   tutorGender = "female",
-  streamingText,
-  streamingTargetText,
-  hasTargetContent,
-  streamingWordIndex,
-  streamingVisibleWordCount,
-  streamingTargetWordIndex,
-  isWaitingForContent,
-  getIsWaitingForContent,
-  activeBlockIndex,
-  activeBlockText,
-  teachingBlockText,
-  hasShownTeachingBlock,
   voiceSpeed,
   setTutorGender,
   setVoiceSpeed,
@@ -109,16 +64,6 @@ export function VoiceChatViewManager({
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
   const touchStartY = useRef<number>(0);
-  
-  // Get subtitles setting from context - now tutor-controlled via whiteboard
-  // User can still override in Settings, but no toggle button during voice chat
-  const { subtitleMode, difficulty } = useLanguage();
-  
-  // ACTFL-level-aware mode convergence: At higher levels, Target and All modes converge
-  // This reduces cognitive load for advanced learners where the distinction is minimal
-  const effectiveSubtitleMode = useMemo(() => {
-    return getEffectiveSubtitleMode(subtitleMode, difficulty);
-  }, [subtitleMode, difficulty]);
 
   // Fetch conversation metadata (includes resume info) - Week 1 Feature
   const { data: conversationData } = useQuery<Conversation & { resumeMetadata?: { 
@@ -199,7 +144,6 @@ export function VoiceChatViewManager({
           conversationId ? (
             <div className="flex-1 min-h-0 overflow-y-auto">
               <ImmersiveTutor
-                conversationId={conversationId}
                 messages={messages}
                 onRecordingStart={onRecordingStart}
                 onRecordingStop={onRecordingStop}
@@ -208,28 +152,8 @@ export function VoiceChatViewManager({
                 isProcessing={isProcessing}
                 isPlaying={isPlaying}
                 isConnecting={isConnecting}
-                currentPlayingMessageId={currentPlayingMessageId}
-                audioElementRef={audioElementRef}
-                onReplay={onReplay}
-                canReplay={canReplay}
-                onSlowRepeat={onSlowRepeat}
-                canSlowRepeat={canSlowRepeat}
-                isSlowRepeatLoading={isSlowRepeatLoading}
-                wordTimings={wordTimings}
-                subtitleMode={effectiveSubtitleMode}
+                onToggleView={toggleView}
                 tutorGender={tutorGender}
-                streamingText={streamingText}
-                streamingTargetText={streamingTargetText}
-                hasTargetContent={hasTargetContent}
-                streamingWordIndex={streamingWordIndex}
-                streamingVisibleWordCount={streamingVisibleWordCount}
-                streamingTargetWordIndex={streamingTargetWordIndex}
-                isWaitingForContent={isWaitingForContent}
-                getIsWaitingForContent={getIsWaitingForContent}
-                activeBlockIndex={activeBlockIndex}
-                activeBlockText={activeBlockText}
-                teachingBlockText={teachingBlockText}
-                hasShownTeachingBlock={hasShownTeachingBlock}
                 voiceSpeed={voiceSpeed}
                 setTutorGender={setTutorGender}
                 setVoiceSpeed={setVoiceSpeed}
