@@ -51,7 +51,7 @@ import {
   WordTiming,
   AUDIO_STREAMING_CONFIG,
 } from '../../../shared/streaming-voice-types';
-import { updateDebugTimingState, getDebugTimingState, addWordTimingEvent } from './debugTimingState';
+// Debug timing state available via: import { updateDebugTimingState, getDebugTimingState, addWordTimingEvent } from './debugTimingState';
 
 /**
  * Connection states
@@ -392,23 +392,14 @@ export class StreamingVoiceClient {
   private handleMessage(event: MessageEvent): void {
     // GLOBAL DEBUG: Track all messages with persistent counter
     if (typeof window !== 'undefined') {
+      // Lightweight message counter (no logging on hot path)
       const win = window as any;
-      win._wsDebug = win._wsDebug || { messageCount: 0, byType: {}, lastMessage: null, lastError: null, wsState: null };
+      win._wsDebug = win._wsDebug || { messageCount: 0, byType: {} };
       win._wsDebug.messageCount++;
-      win._wsDebug.wsState = this.ws?.readyState ?? null;
-      
-      // CRITICAL: Log every 10th message to confirm reception
-      if (win._wsDebug.messageCount % 10 === 0) {
-        console.error(`[WS-COUNTER] Received ${win._wsDebug.messageCount} messages total, byType:`, JSON.stringify(win._wsDebug.byType));
-      }
     }
     
     // Binary data = audio chunk
     if (event.data instanceof ArrayBuffer) {
-      if (typeof window !== 'undefined' && window._wsDebug) {
-        window._wsDebug.byType['binary_audio'] = (window._wsDebug.byType['binary_audio'] || 0) + 1;
-      }
-      console.log(`[StreamingVoiceClient] Received BINARY audio: ${event.data.byteLength} bytes`);
       this.callbacks.onAudioReady?.(
         this.currentSentenceIndex,
         event.data,
@@ -417,47 +408,13 @@ export class StreamingVoiceClient {
       return;
     }
     
-    // JSON message
+    // JSON message - minimal processing on hot path
     try {
       const message: StreamingMessage = JSON.parse(event.data);
-      
-      // CRITICAL: Track parse success at window level
       const win = window as any;
-      win._parseSuccess = (win._parseSuccess || 0) + 1;
-      win._lastMessageType = message.type;
-      win._allMessageTypes = win._allMessageTypes || [];
-      win._allMessageTypes.push(message.type);
       
-      // Track in debug state for on-screen display
-      import('./debugTimingState').then(({ trackWsMessage }) => {
-        trackWsMessage(message.type);
-      });
-      
-      // Keep only last 50 message types to prevent memory bloat
-      if (win._allMessageTypes.length > 50) {
-        win._allMessageTypes = win._allMessageTypes.slice(-50);
-      }
-      
-      // Track message counts in window for debugging
-      if (typeof window !== 'undefined') {
-        const win = window as any;
-        win._wsMessageCounts = win._wsMessageCounts || {};
-        win._wsMessageCounts[message.type] = (win._wsMessageCounts[message.type] || 0) + 1;
-      }
-      
-      // Track message types
-      if (typeof window !== 'undefined') {
-        const win = window as any;
-        win._wsDebug.byType[message.type] = (win._wsDebug.byType[message.type] || 0) + 1;
-      }
-      
-      // Track audio chunks at window level for debugging (no logging on hot path)
-      if (message.type === 'audio_chunk') {
-        const chunk = message as any;
-        win._audioChunks = win._audioChunks || { total: 0, bySentence: {} };
-        win._audioChunks.total++;
-        win._audioChunks.bySentence[chunk.sentenceIndex] = (win._audioChunks.bySentence[chunk.sentenceIndex] || 0) + 1;
-      }
+      // Single lightweight counter update
+      win._wsDebug.byType[message.type] = (win._wsDebug.byType[message.type] || 0) + 1;
       
       switch (message.type) {
         case 'connected':
@@ -556,7 +513,6 @@ export class StreamingVoiceClient {
   }
   
   private handleSentenceStart(message: StreamingSentenceStartMessage): void {
-    console.log(`[StreamingVoiceClient] Sentence ${message.sentenceIndex}: "${message.text.substring(0, 50)}..."`);
     this.currentSentenceIndex = message.sentenceIndex;
     this.setState('streaming');
     this.callbacks.onSentenceStart?.(message.sentenceIndex, message.text, message.targetLanguageText);
@@ -575,48 +531,11 @@ export class StreamingVoiceClient {
    * Client should use this as the signal to start playback - guaranteed to have timing data.
    */
   private handleSentenceReady(message: StreamingSentenceReadyMessage): void {
-    const { sentenceIndex, turnId, firstAudioChunk, firstWordTimings, estimatedTotalDuration } = message;
-    
-    console.error(`[SENTENCE_READY] sentence=${sentenceIndex}, turn=${turnId}, audio=${firstAudioChunk.audio.length} chars, timings=${firstWordTimings.length} words`);
-    
-    // Track at window level for debugging
-    if (typeof window !== 'undefined') {
-      const win = window as any;
-      win._sentenceReadyCount = (win._sentenceReadyCount || 0) + 1;
-      if (!win._sentenceReadyHistory) win._sentenceReadyHistory = [];
-      win._sentenceReadyHistory.push({
-        sentenceIndex,
-        turnId,
-        audioChunkIndex: firstAudioChunk.chunkIndex,
-        audioSize: firstAudioChunk.audio.length,
-        timingCount: firstWordTimings.length,
-        firstWord: firstWordTimings[0]?.word || '(none)',
-        receivedAt: Date.now()
-      });
-    }
+    const { sentenceIndex, firstWordTimings } = message;
     
     // Update sentence index
     this.currentSentenceIndex = sentenceIndex;
     this.setState('streaming');
-    
-    // Update debug panel
-    const currentState = getDebugTimingState();
-    updateDebugTimingState({
-      totalDeltasReceived: currentState.totalDeltasReceived + firstWordTimings.length,
-      lastDeltaSentence: sentenceIndex,
-    });
-    
-    // Add each timing to the word timing event log
-    for (const timing of firstWordTimings) {
-      addWordTimingEvent({
-        sentenceIndex,
-        wordIndex: firstWordTimings.indexOf(timing),
-        word: timing.word,
-        startTime: timing.startTime,
-        endTime: timing.endTime,
-        type: 'delta',  // Treat as delta for consistency
-      });
-    }
     
     // Emit the atomic message - listeners can use both audio and timing together
     this.emit('sentenceReady', message);
@@ -625,12 +544,7 @@ export class StreamingVoiceClient {
   private handleAudioChunk(message: StreamingAudioChunkMessage): void {
     // Store metadata for the upcoming binary frame
     this.currentSentenceIndex = message.sentenceIndex;
-    
-    // DEBUG: Log audio chunk receipt with details
-    const audioSize = message.audio?.length || 0;
-    console.log(`[StreamingVoiceClient] Audio chunk received: turn=${message.turnId}, sentence=${message.sentenceIndex}, chunk=${message.chunkIndex}, size=${audioSize} chars (base64), isLast=${message.isLast}`);
-    
-    // Emit audio chunk with embedded base64 data
+    // Emit audio chunk with embedded base64 data (no logging on hot path)
     this.emit('audioChunk', message);
   }
   
@@ -644,42 +558,7 @@ export class StreamingVoiceClient {
    * These arrive as words are timestamped during progressive TTS
    */
   private handleWordTimingDelta(message: StreamingWordTimingDeltaMessage): void {
-    // CRITICAL DEBUG: Use console.error to ensure visibility in logs
-    console.error(`[WORD DELTA] sentence=${message.sentenceIndex}, word=${message.wordIndex} "${message.word}" ${message.startTime.toFixed(3)}-${message.endTime.toFixed(3)}s, listeners=${this.eventListeners.get('wordTimingDelta')?.size || 0}`);
-    
-    // Track ALL deltas at window level for debugging in browser console
-    if (typeof window !== 'undefined') {
-      const win = window as any;
-      win._deltaCount = (win._deltaCount || 0) + 1;
-      if (!win._deltaBySentence) win._deltaBySentence = {};
-      const key = `s${message.sentenceIndex}_t${message.turnId}`;
-      if (!win._deltaBySentence[key]) win._deltaBySentence[key] = [];
-      win._deltaBySentence[key].push({
-        wordIndex: message.wordIndex,
-        word: message.word,
-        start: message.startTime,
-        end: message.endTime,
-        receivedAt: Date.now()
-      });
-    }
-    
-    // Update debug panel with cumulative delta count
-    const currentState = getDebugTimingState();
-    updateDebugTimingState({
-      totalDeltasReceived: currentState.totalDeltasReceived + 1,
-      lastDeltaSentence: message.sentenceIndex,
-    });
-    
-    // Add to word timing event log for debug panel
-    addWordTimingEvent({
-      sentenceIndex: message.sentenceIndex,
-      wordIndex: message.wordIndex,
-      word: message.word,
-      startTime: message.startTime,
-      endTime: message.endTime,
-      type: 'delta',
-    });
-    
+    // Emit immediately - no logging or tracking on hot path
     this.emit('wordTimingDelta', message);
   }
   
@@ -688,43 +567,16 @@ export class StreamingVoiceClient {
    * Sent when sentence synthesis completes with authoritative timings
    */
   private handleWordTimingFinal(message: StreamingWordTimingFinalMessage): void {
-    console.error(`[WORD FINAL] sentence=${message.sentenceIndex}, ${message.words.length} words, ${message.actualDurationMs}ms`);
-    
-    // Track final word count at window level for comparison with deltas
-    if (typeof window !== 'undefined') {
-      const win = window as any;
-      if (!win._finalBySentence) win._finalBySentence = {};
-      const key = `s${message.sentenceIndex}`;
-      win._finalBySentence[key] = {
-        wordCount: message.words.length,
-        words: message.words.map(w => w.word),
-        durationMs: message.actualDurationMs,
-        receivedAt: Date.now()
-      };
-      
-      // Log comparison with deltas
-      const deltasKey = `s${message.sentenceIndex}_t${message.turnId}`;
-      const deltasReceived = win._deltaBySentence?.[deltasKey]?.length || 0;
-      console.error(`[TIMING COMPARE] sentence=${message.sentenceIndex}: deltas=${deltasReceived}, final=${message.words.length}, match=${deltasReceived === message.words.length}`);
-    }
-    
-    // Update debug panel with cumulative final count
-    const currentState = getDebugTimingState();
-    updateDebugTimingState({
-      totalFinalsReceived: currentState.totalFinalsReceived + message.words.length,
-    });
-    
+    // Emit immediately - no logging on hot path
     this.emit('wordTimingFinal', message);
   }
   
   private handleSentenceEnd(message: StreamingSentenceEndMessage): void {
-    console.log(`[StreamingVoiceClient] Sentence ${message.sentenceIndex} complete (${message.totalDurationMs}ms)`);
     this.callbacks.onSentenceEnd?.(message.sentenceIndex, message.totalDurationMs);
     this.emit('sentenceEnd', message);
   }
   
   private handleResponseComplete(message: StreamingResponseCompleteMessage): void {
-    console.log(`[StreamingVoiceClient] Response complete: ${message.totalSentences} sentences in ${message.totalDurationMs}ms`);
     // Transition back to 'ready' so client can send more audio
     this.setState('ready');
     this.callbacks.onResponseComplete?.(message.fullText, message.totalSentences);
@@ -742,16 +594,9 @@ export class StreamingVoiceClient {
   
   private setState(state: StreamingConnectionState): void {
     if (this.state !== state) {
-      console.log(`[StreamingVoiceClient] State: ${this.state} → ${state}`);
       this.state = state;
       this.callbacks.onConnectionStateChange?.(state);
       this.emit('stateChange', state);
-      
-      // Update debug panel with connection status
-      const debugConnectionStatus = state === 'ready' ? 'connected' : state;
-      updateDebugTimingState({
-        connectionStatus: debugConnectionStatus as any,
-      });
     }
   }
   
@@ -762,8 +607,7 @@ export class StreamingVoiceClient {
     // Attempt reconnection if not intentional
     if (this.reconnectAttempts < this.maxReconnectAttempts && this.state !== 'disconnected') {
       this.reconnectAttempts++;
-      console.log(`[StreamingVoiceClient] Reconnecting (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
-      // Would need conversationId to reconnect - caller should handle this
+      // Caller should handle reconnection with conversationId
     }
     
     this.setState('disconnected');

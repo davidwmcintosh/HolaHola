@@ -474,7 +474,6 @@ export class StreamingAudioPlayer {
   
   private updatePendingCount(count: number): void {
     this.pendingAudioCount = count;
-    console.log(`[StreamingAudioPlayer] Pending audio count: ${count}`);
     this.callbacks.onPendingAudioChange?.(count);
   }
   
@@ -497,9 +496,6 @@ export class StreamingAudioPlayer {
    * Will start playing immediately if not already playing
    */
   enqueue(chunk: StreamingAudioChunk): void {
-    console.log(`[StreamingAudioPlayer] ▶ ENQUEUE sentence ${chunk.sentenceIndex}: ${chunk.audio.byteLength} bytes, isLast=${chunk.isLast}, duration=${chunk.durationMs}ms`);
-    console.log(`[StreamingAudioPlayer]   Queue before: ${this.queue.length} chunks, isPlaying=${this.isPlaying}`);
-    
     // Store chunk for replay functionality
     this.allAudioChunks.push(chunk.audio);
     // Invalidate combined blob so it will be regenerated on next getCombinedAudioBlob()
@@ -508,14 +504,9 @@ export class StreamingAudioPlayer {
     this.queue.push(chunk);
     this.updatePendingCount(this.pendingAudioCount + 1);
     
-    console.log(`[StreamingAudioPlayer]   Queue after: ${this.queue.length} chunks, pending=${this.pendingAudioCount}`);
-    
     // Start playback if not already playing
     if (!this.isPlaying) {
-      console.log(`[StreamingAudioPlayer]   Starting playback (was idle)`);
       this.playNext();
-    } else {
-      console.log(`[StreamingAudioPlayer]   Already playing, chunk queued`);
     }
   }
   
@@ -544,14 +535,9 @@ export class StreamingAudioPlayer {
     isLast: boolean,
     sampleRate: number = 24000
   ): Promise<void> {
-    // CRITICAL DEBUG: Log EVERY chunk that arrives
-    console.error(`[ENQUEUE] s=${sentenceIndex} c=${chunkIndex} bytes=${audio.byteLength} isLast=${isLast} scheduleSize=${this.sentenceSchedule.size}`);
-    
-    // CRITICAL FIX: Handle empty audio chunks (isLast=true marker chunks)
+    // Handle empty audio chunks (isLast=true marker chunks)
     // These chunks have 0 audio data but signal sentence completion
-    // We MUST process the isLast flag even if there's no audio to schedule
     if (audio.byteLength === 0) {
-      console.error(`[AUDIO PLAYER] *** EMPTY CHUNK *** s=${sentenceIndex} c=${chunkIndex} isLast=${isLast}`);
       if (isLast) {
         // Set the endCtxTime in the sentence schedule
         const entry = this.sentenceSchedule.get(sentenceIndex);
@@ -559,17 +545,6 @@ export class StreamingAudioPlayer {
         if (entry) {
           entry.endCtxTime = entry.startCtxTime + entry.totalDuration;
           endCtxTimeSet = true;
-          console.log(`[AUDIO SCHEDULE] ✓ Sentence ${sentenceIndex} endCtxTime set via EARLY PATH: ${entry.endCtxTime.toFixed(3)} (duration=${entry.totalDuration.toFixed(3)}s)`);
-          
-          // CRITICAL DEBUG: Verify the entry was actually updated in the Map
-          const verifyEntry = this.sentenceSchedule.get(sentenceIndex);
-          if (verifyEntry?.endCtxTime === undefined) {
-            console.error(`[BUG!] endCtxTime set but Map entry still shows undefined! entry===verifyEntry: ${entry === verifyEntry}`);
-          } else {
-            console.log(`[VERIFY] Map entry S${sentenceIndex} endCtxTime confirmed: ${verifyEntry.endCtxTime.toFixed(3)}`);
-          }
-        } else {
-          console.error(`[AUDIO SCHEDULE] ✗ No schedule entry for sentence ${sentenceIndex} when isLast received!`);
         }
         
         // Update debug panel with empty chunk info
@@ -583,17 +558,9 @@ export class StreamingAudioPlayer {
     
     const ctx = this.getAudioContext();
     
-    // CRITICAL DEBUG: Log EVERY non-empty chunk that passes the empty check
-    console.error(`[NON-EMPTY CHUNK] s=${sentenceIndex} c=${chunkIndex} bytes=${audio.byteLength} isLast=${isLast} - WILL ADD TO SCHEDULE`);
-    
-    // CRITICAL: Log AudioContext state for every chunk
-    console.log(`[AUDIO STATE] Chunk ${sentenceIndex}:${chunkIndex} - ctx.state=${ctx.state}, ctx.currentTime=${ctx.currentTime?.toFixed(3)}`);
-    
     // Resume AudioContext if suspended
     if (ctx.state === 'suspended') {
-      console.log('[AUDIO STATE] !!! AudioContext SUSPENDED - Resuming...');
       await ctx.resume();
-      console.log(`[AUDIO STATE] After resume: ctx.state=${ctx.state}`);
     }
     
     // Detect new sentence - DON'T stop current audio, let it finish naturally!
