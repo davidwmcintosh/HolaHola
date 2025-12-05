@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, MessageSquare, RotateCcw, Turtle, Rabbit, RefreshCw, Trash2, Loader2 } from "lucide-react";
+import { Mic, MicOff, MessageSquare, Turtle, Rabbit, RefreshCw, Trash2, Loader2 } from "lucide-react";
 import { type Message } from "@shared/schema";
 import { type SubtitleMode, type VoiceSpeed } from "@/contexts/LanguageContext";
 import {
@@ -195,8 +195,6 @@ export function ImmersiveTutor({
     
     if (targetWords.length === 0) return [];
     
-    console.log('[SUBTITLES] Looking for target phrase:', targetWords.join(' '));
-    console.log('[SUBTITLES] All timing words:', allTimings.map(t => `"${t.word}"`).join(', '));
     
     // Find ALL occurrences of the target phrase in the timing array
     // This handles cases where the tutor says "Buenas noches" multiple times
@@ -229,7 +227,6 @@ export function ImmersiveTutor({
         if (matched && matchedTimings.length === targetWords.length) {
           // Found a complete match - add all words from this occurrence
           allOccurrences.push(...matchedTimings);
-          console.log('[SUBTITLES] Found occurrence at index', i, ':', matchedTimings.map(t => t.word).join(' '));
           // Skip past this match to find the next occurrence
           i += targetWords.length;
           continue;
@@ -239,13 +236,10 @@ export function ImmersiveTutor({
     }
     
     if (allOccurrences.length > 0) {
-      const occurrenceCount = allOccurrences.length / targetWords.length;
-      console.log('[SUBTITLES] Found', occurrenceCount, 'occurrence(s) of target phrase,', allOccurrences.length, 'total words');
       return allOccurrences;
     }
     
     // Fallback: couldn't find exact match, return empty
-    console.log('[SUBTITLES] Could not match target words, showing text without timing');
     return [];
   };
 
@@ -279,7 +273,6 @@ export function ImmersiveTutor({
           if (targetText) {
             const filteredTimings = filterTargetLanguageTimings(wordTimings, targetText);
             if (filteredTimings.length > 0) {
-              console.log('[SUBTITLES] Target mode: progressive reveal with', filteredTimings.length, 'words');
               setCurrentWordTimings(filteredTimings);
             } else {
               setCurrentWordTimings([]);
@@ -289,7 +282,6 @@ export function ImmersiveTutor({
           }
         } else if (subtitleMode === "all") {
           // All mode: show all words with progressive reveal
-          console.log('[SUBTITLES] All mode: showing all', wordTimings.length, 'words');
           setCurrentWordTimings(wordTimings);
         }
       } else {
@@ -509,32 +501,10 @@ export function ImmersiveTutor({
               ? (streamingTargetText || '') 
               : streamingText;
             
-            // DEBUG: Log streaming subtitle state with visual separator
-            console.log('[SUBTITLE RENDER v2] ─────────────────────────────────────────');
-            console.log('[SUBTITLE RENDER v2] Rendering decision:', {
-              mode: subtitleMode,
-              hasTargetContent,
-              streamingText: streamingText?.substring(0, 50),
-              streamingTargetText,  // FULL VALUE for debugging
-              streamingWordIndex,
-              streamingTargetWordIndex,
-              isProcessing,
-            });
-            
-            // DEBUG: Check for phantom double words
-            if (streamingTargetText && streamingTargetText.includes(' ')) {
-              const words = streamingTargetText.split(/\s+/);
-              console.log('[SUBTITLE RENDER v2] ⚠ MULTI-WORD TARGET:', words);
-            }
-            
             // SERVER-DRIVEN: For "target" mode, hide subtitles if server says no target content
             // This eliminates phantom subtitles because we trust the server's explicit flag
             if (isTargetMode && !hasTargetContent) {
-              console.log('[SUBTITLE RENDER v2] ❌ HIDING: Target mode with hasTargetContent=false');
-              console.log('[SUBTITLE RENDER v2] ─────────────────────────────────────────');
               return null;
-            } else if (isTargetMode) {
-              console.log('[SUBTITLE RENDER v2] ✓ SHOWING: Target mode with hasTargetContent=true');
             }
             
             const allWords = displayTextForStreaming.split(/\s+/).filter(w => w.length > 0);
@@ -547,14 +517,6 @@ export function ImmersiveTutor({
             const activeWordIndex = (rawActiveWordIndex !== undefined && rawActiveWordIndex >= 0 && rawActiveWordIndex < allWords.length) 
               ? rawActiveWordIndex 
               : -1;
-            
-            console.log('[SUBTITLE RENDER v2] Words check:', {
-              allWordsCount: allWords.length,
-              rawActiveWordIndex,
-              activeWordIndex,
-              willRender: isTargetMode ? (allWords.length > 0 && activeWordIndex >= 0) : true
-            });
-            console.log('[SUBTITLE RENDER v2] ─────────────────────────────────────────');
             
             // In Target mode, use BLOCK-BASED rendering
             // - Encouragement blocks (earlier) appear when spoken, then fade
@@ -573,23 +535,18 @@ export function ImmersiveTutor({
                 // Currently speaking a block - show it
                 textToShow = activeBlockText;
                 isActiveBlock = true;
-                console.log(`[SUBTITLE BLOCK] Active block: "${activeBlockText}"`);
               } else if (hasShownTeachingBlock && teachingBlockText) {
                 // Teaching block was shown and should persist
                 textToShow = teachingBlockText;
                 isTeachingPersisting = true;
-                console.log(`[SUBTITLE BLOCK] Teaching persisting: "${teachingBlockText}"`);
               }
               
               // Nothing to show
               if (!textToShow) {
-                console.log(`[SUBTITLE BLOCK] Nothing to show (activeBlock="${activeBlockText}", teaching="${teachingBlockText}", shownTeaching=${hasShownTeachingBlock})`);
                 return null;
               }
               
               const wordsToShow = textToShow.split(/\s+/).filter(w => w.length > 0);
-              
-              console.log(`[SUBTITLE DISPLAY] Block-based: "${textToShow}" (active=${isActiveBlock}, persisting=${isTeachingPersisting})`);
               
               return (
                 <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-background/95 via-background/80 to-transparent">
@@ -628,9 +585,6 @@ export function ImmersiveTutor({
             const wordsToReveal = streamingVisibleWordCount > 0 
               ? allWords.slice(0, streamingVisibleWordCount) 
               : [];
-            
-            // DEBUG: Log karaoke state with progressive count
-            console.log(`[KARAOKE] All mode: totalWords=${allWords.length}, visible=${streamingVisibleWordCount}, revealed=${wordsToReveal.length}, activeIdx=${activeWordIndex}`);
             
             // Don't render anything until first word is visible
             if (wordsToReveal.length === 0) {
@@ -796,22 +750,8 @@ export function ImmersiveTutor({
           </Button>
         )}
 
-        {/* Replay Last Audio Button with label */}
-        {onReplay && (
-          <div className="flex flex-col items-center gap-1">
-            <Button
-              variant="secondary"
-              size="icon"
-              onClick={onReplay}
-              disabled={!canReplay}
-              className="h-10 w-10 md:h-12 md:w-12 bg-slate-500 hover:bg-slate-600 text-white disabled:bg-slate-300 disabled:text-slate-500"
-              data-testid="button-replay"
-            >
-              <RotateCcw style={{ width: 24, height: 24 }} />
-            </Button>
-            <span className="text-[10px] text-muted-foreground">Repeat</span>
-          </div>
-        )}
+        {/* Replay button removed: PLAY whiteboard tool handles repetition */}
+        {/* Hooks preserved for potential DevTools access */}
 
         {/* Main Recording Button (Push-to-Talk) */}
         {/* Uses explicit touch AND pointer events for reliable mobile support */}
@@ -887,23 +827,8 @@ export function ImmersiveTutor({
           <span className="text-[10px] text-muted-foreground">Hold or ENTER</span>
         </div>
 
-        {/* Slow Repeat Button with label - Ask AI to simplify and speak slowly */}
-        {onSlowRepeat && (
-          <div className="flex flex-col items-center gap-1">
-            <Button
-              variant="secondary"
-              size="icon"
-              onClick={onSlowRepeat}
-              disabled={!canSlowRepeat || isSlowRepeatLoading || isProcessing}
-              className="h-10 w-10 md:h-12 md:w-12 bg-slate-500 hover:bg-slate-600 text-white disabled:bg-slate-300 disabled:text-slate-500"
-              data-testid="button-slow-repeat"
-              title="Repeat slowly and simply"
-            >
-              <Turtle style={{ width: 24, height: 24 }} />
-            </Button>
-            <span className="text-[10px] text-muted-foreground whitespace-nowrap">Repeat Slowly</span>
-          </div>
-        )}
+        {/* Slow Repeat button removed: PLAY whiteboard tool with speed control handles this */}
+        {/* Hooks preserved for potential DevTools access */}
 
         {/* Developer Tools - Reload Credits and Reset Data */}
         {isDeveloper && (onReloadCredits || onResetData) && (
