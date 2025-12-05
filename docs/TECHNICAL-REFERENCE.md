@@ -153,6 +153,116 @@ validateOneUnitRule(text: string, language: string, difficulty: string)
 - "S'il vous plaît" → 1 unit (phrase)
 - "Hola buenos días" → 2 units
 
+### Word Timing Diagnostics System
+
+The audio pipeline includes a comprehensive word-level timing system for future karaoke-style subtitle synchronization. This system is **disabled by default** for performance but preserves all infrastructure for future development.
+
+**Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ StreamingAudioPlayer (client/src/lib/audioUtils.ts)                 │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌─────────────────┐     ┌─────────────────┐     ┌───────────────┐ │
+│  │ Sentence        │     │ Word Schedule   │     │ Timing Loop   │ │
+│  │ Schedule Map    │────▶│ per Sentence    │────▶│ (60fps RAF)   │ │
+│  └─────────────────┘     └─────────────────┘     └───────────────┘ │
+│         │                        │                       │         │
+│         ▼                        ▼                       ▼         │
+│  startCtxTime              WordTiming[]           onWordStart()    │
+│  endCtxTime                w/ offsets             onSentenceEnd()  │
+│  totalDuration                                    onComplete()     │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Files:**
+
+| File | Purpose |
+|------|---------|
+| `client/src/lib/audioUtils.ts` | StreamingAudioPlayer with timing loop |
+| `client/src/lib/debugTimingState.ts` | Debug state for on-screen diagnostics |
+
+**Feature Flag:**
+
+```typescript
+// client/src/lib/audioUtils.ts (top of file)
+const ENABLE_WORD_TIMING_DIAGNOSTICS = false;
+
+// Runtime override via DevTools
+declare global {
+  interface Window {
+    __enableWordTimingDiagnostics?: boolean;
+  }
+}
+
+function isWordTimingEnabled(): boolean {
+  return ENABLE_WORD_TIMING_DIAGNOSTICS || 
+         (typeof window !== 'undefined' && window.__enableWordTimingDiagnostics === true);
+}
+```
+
+**Enabling Diagnostics:**
+
+| Method | How | Persistence |
+|--------|-----|-------------|
+| DevTools (temporary) | `window.__enableWordTimingDiagnostics = true` | Until page refresh |
+| Code change (permanent) | Set `ENABLE_WORD_TIMING_DIAGNOSTICS = true` | Until reverted |
+
+**What's Preserved (disabled but intact):**
+
+- `sentenceSchedule` Map tracking all sentences' AudioContext times
+- `WordTiming[]` arrays with start/end offsets per word
+- Debug state updates to `debugTimingState.ts`
+- Frame-by-frame schedule scanning and match detection
+- `onWordStart`, `onSentenceStart`, `onSentenceEnd` callbacks
+- Detailed console logging for timing analysis
+
+**What Runs When Disabled:**
+
+- Minimal timing loop (essential AudioContext health checks)
+- Sentence start/end detection (for proper cleanup)
+- AudioContext suspend detection and auto-resume
+
+**Performance Impact:**
+
+| Mode | CPU Load | Console Output |
+|------|----------|----------------|
+| Disabled (default) | Minimal | AudioContext suspend warnings only |
+| Enabled | High (~60fps processing) | Verbose frame-by-frame logs |
+
+**Debug State Interface:**
+
+```typescript
+// client/src/lib/debugTimingState.ts
+interface DebugTimingState {
+  isLoopRunning: boolean;
+  loopTickCount: number;
+  currentCtxTime: number;
+  audioContextState: 'suspended' | 'running' | 'closed' | 'unknown';
+  audioContextId: string;
+  activeSentenceIndex: number;
+  sentenceSchedule: SentenceScheduleEntry[];
+  isPlaying: boolean;
+  tickFrameLogs: string[];
+  loopStartTime: number;
+}
+
+// Access current state
+getDebugTimingState(): DebugTimingState;
+
+// Update state (used by timing loop)
+updateDebugTimingState(partial: Partial<DebugTimingState>): void;
+```
+
+**Future Use Cases:**
+
+1. **Karaoke Subtitles**: Highlight words as they're spoken
+2. **Word-Level Replay**: Tap a word to replay just that segment
+3. **Pronunciation Practice**: Compare user timing to tutor timing
+4. **Whiteboard Sync**: Trigger PHONETIC displays at exact word moments
+
 ---
 
 ## Whiteboard System
