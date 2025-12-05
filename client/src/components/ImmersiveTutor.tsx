@@ -156,17 +156,20 @@ export function ImmersiveTutor({
         </p>
         
         <div className="flex justify-center items-center gap-3">
-        {/* Toggle to History View */}
+        {/* Toggle to History View - Read full conversation transcript */}
         {onToggleView && (
-          <Button
-            variant="secondary"
-            size="icon"
-            onClick={onToggleView}
-            className="h-10 w-10 md:h-12 md:w-12 bg-slate-500 hover:bg-slate-600 text-white"
-            data-testid="button-toggle-history"
-          >
-            <MessageSquare className="h-4 w-4 md:h-5 md:w-5" />
-          </Button>
+          <div className="flex flex-col items-center gap-1">
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={onToggleView}
+              className="h-10 w-10 md:h-12 md:w-12 bg-slate-500 hover:bg-slate-600 text-white"
+              data-testid="button-toggle-history"
+            >
+              <MessageSquare className="h-4 w-4 md:h-5 md:w-5" />
+            </Button>
+            <span className="text-[10px] text-muted-foreground">History</span>
+          </div>
         )}
 
         {/* Replay button removed: PLAY whiteboard tool handles repetition */}
