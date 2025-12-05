@@ -6,7 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Subtitles, CaptionsOff, Languages, Captions, Palette, Moon, Sun, Monitor, User as UserIcon, GraduationCap, AlertTriangle, CheckCircle2, Loader2, BookOpen } from "lucide-react";
+import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Mic, Palette, Moon, Sun, Monitor, User as UserIcon, GraduationCap, AlertTriangle, CheckCircle2, Loader2, BookOpen } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -64,7 +64,7 @@ interface SubscriptionResponse {
 
 export default function Settings() {
   const { user, isLoading: authLoading } = useAuth();
-  const { userName, language, subtitleMode, setSubtitleMode } = useLanguage();
+  const { userName, language } = useLanguage();
   const [isResetting, setIsResetting] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark" | "system">("light");
   const [tutorGender, setTutorGender] = useState<"male" | "female">((user?.tutorGender as "male" | "female") || "female");
@@ -361,49 +361,12 @@ export default function Settings() {
         <Card data-testid="card-voice-settings">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Subtitles className="h-5 w-5" />
+              <Mic className="h-5 w-5" />
               Voice Settings
             </CardTitle>
             <CardDescription>Customize your voice learning experience</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex items-center justify-between gap-4">
-              <div className="space-y-0.5 flex-1">
-                <Label htmlFor="subtitles-select" className="text-base">Subtitles</Label>
-                <p className="text-sm text-muted-foreground">
-                  Show text as the tutor speaks to help you follow along
-                </p>
-              </div>
-              <Select
-                value={subtitleMode}
-                onValueChange={(value) => setSubtitleMode(value as "off" | "target" | "all")}
-              >
-                <SelectTrigger className="w-40" id="subtitles-select" data-testid="select-subtitles">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="off" data-testid="select-subtitles-off">
-                    <div className="flex items-center gap-2">
-                      <CaptionsOff className="h-4 w-4" />
-                      <span>Off</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="target" data-testid="select-subtitles-target">
-                    <div className="flex items-center gap-2">
-                      <Languages className="h-4 w-4" />
-                      <span>Target Only</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="all" data-testid="select-subtitles-all">
-                    <div className="flex items-center gap-2">
-                      <Captions className="h-4 w-4" />
-                      <span>All Words</span>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
             <div className="flex items-center justify-between gap-4">
               <div className="space-y-0.5 flex-1">
                 <Label htmlFor="tutor-gender-select" className="text-base">Tutor Voice</Label>
