@@ -1,6 +1,46 @@
 import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition, logScheduleEvent, updateDebugTimingState, getDebugTimingState, registerPlayerInstance, type SentenceScheduleEntry, type SentenceMatchInfo } from './debugTimingState';
 
 /**
+ * WORD TIMING DIAGNOSTICS FEATURE FLAG
+ * 
+ * When disabled (false): The 60fps timing loop only performs minimal AudioContext health checks.
+ * When enabled (true): Full word-level timing, sentence matching, and debug logging runs every frame.
+ * 
+ * DISABLED FUNCTIONALITY (when false):
+ * - Per-frame word schedule scanning (findActiveWord)
+ * - Per-frame sentence schedule matching and logging
+ * - Debug state updates for timing visualization
+ * - Word match logging and callbacks
+ * - Sentence transition logging
+ * - Frame-by-frame debug console output
+ * 
+ * PRESERVED FUNCTIONALITY (always runs):
+ * - AudioContext suspend detection and auto-resume
+ * - Basic isPlaying state management
+ * - Sentence start/end callbacks (for audio scheduling only)
+ * - The loop itself (so it can be re-enabled without restart)
+ * 
+ * TO RE-ENABLE: Set this to true, or use DevTools: window.__enableWordTimingDiagnostics = true
+ * 
+ * FUTURE USE CASES:
+ * - Whiteboard PLAY tool with word-level highlighting
+ * - Karaoke-style subtitle display
+ * - Word-precise visual cues during tutor speech
+ */
+const ENABLE_WORD_TIMING_DIAGNOSTICS = false;
+
+// Allow runtime override via DevTools console
+declare global {
+  interface Window {
+    __enableWordTimingDiagnostics?: boolean;
+  }
+}
+
+function isWordTimingEnabled(): boolean {
+  return window.__enableWordTimingDiagnostics ?? ENABLE_WORD_TIMING_DIAGNOSTICS;
+}
+
+/**
  * CRITICAL: Store StreamingAudioPlayer singleton on window to prevent Vite bundler
  * duplicate module issue. Without this, Vite may create multiple module copies,
  * each with its own instance - one receives audio chunks while another runs the
@@ -1045,7 +1085,8 @@ export class StreamingAudioPlayer {
       frameCount++;
       
       // DEBUG: Log EVERY frame for first 5 frames to verify tick is running
-      if (frameCount <= 5) {
+      // Only when word timing diagnostics are enabled
+      if (frameCount <= 5 && isWordTimingEnabled()) {
         const ctxDebug = this.audioContext ? 
           `ctx=${this.audioContext.currentTime.toFixed(3)}s, state=${this.audioContext.state}` : 
           'NO CTX';
@@ -1083,11 +1124,11 @@ export class StreamingAudioPlayer {
       }
       
       const now = ctx.currentTime;
-      const ctxId = (ctx as any).__debugId || 'NO_ID';
       const ctxState = ctx.state;
       
-      // Log AudioContext ID every 60 frames to verify it's the same one scheduling audio
-      if (frameCount % 60 === 0) {
+      // Log AudioContext ID every 60 frames - only when diagnostics enabled
+      if (frameCount % 60 === 0 && isWordTimingEnabled()) {
+        const ctxId = (ctx as any).__debugId || 'NO_ID';
         console.log(`[TICK DEBUG] Frame ${frameCount}: ctx.currentTime=${now.toFixed(3)}, ctx.state=${ctxState}, ctxId=${ctxId}`);
       }
       
@@ -1100,6 +1141,54 @@ export class StreamingAudioPlayer {
         });
       }
       
+      // ═══════════════════════════════════════════════════════════════════════════
+      // WORD TIMING DIAGNOSTICS: Skip heavy per-frame processing when disabled
+      // This reduces CPU load significantly while preserving the loop for future use.
+      // Re-enable via: window.__enableWordTimingDiagnostics = true in DevTools
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (!isWordTimingEnabled()) {
+        // MINIMAL LOOP: Only check for sentence end to maintain audio scheduling
+        // Check if all sentences have ended (for proper cleanup)
+        let allEnded = true;
+        let anyStarted = false;
+        const entries = Array.from(this.sentenceSchedule.entries());
+        for (const [index, entry] of entries) {
+          const endTime = entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration);
+          
+          // Mark sentences as started when their time arrives
+          if (!entry.started && now >= entry.startCtxTime) {
+            entry.started = true;
+            this.currentSentenceIndex = index;
+            this.callbacks.onSentenceStart?.(index);
+          }
+          
+          // Mark sentences as ended when their time passes
+          if (entry.started && !entry.ended && entry.endCtxTime !== undefined && now >= endTime) {
+            entry.ended = true;
+            this.callbacks.onSentenceEnd?.(index);
+          }
+          
+          if (entry.started) anyStarted = true;
+          if (!entry.ended) allEnded = false;
+        }
+        
+        // Stop loop when all sentences complete
+        if (anyStarted && allEnded && entries.length > 0) {
+          this.isPlaying = false;
+          this.setState('idle');
+          this.callbacks.onComplete?.();
+          return;
+        }
+        
+        // Continue minimal loop
+        this.rafId = requestAnimationFrame(tick);
+        return;
+      }
+      
+      // ═══════════════════════════════════════════════════════════════════════════
+      // FULL WORD TIMING DIAGNOSTICS (below) - Only runs when enabled
+      // ═══════════════════════════════════════════════════════════════════════════
+      
       // Update debug state every 10 frames (~160ms) with current timing info
       if (frameCount % 10 === 0) {
         const scheduleArray = Array.from(this.sentenceSchedule.entries()).map(([idx, e]) => ({
@@ -1111,12 +1200,13 @@ export class StreamingAudioPlayer {
           ended: e.ended
         }));
         
+        const debugCtxId = (ctx as any).__debugId || 'NO_ID';
         updateDebugTimingState({
           isLoopRunning: true,
           loopTickCount: frameCount,
           currentCtxTime: now,
           audioContextState: ctxState as 'suspended' | 'running' | 'closed' | 'unknown',
-          audioContextId: ctxId,
+          audioContextId: debugCtxId,
           activeSentenceIndex: this.activeSentenceInLoop,
           sentenceSchedule: scheduleArray,
           isPlaying: true
