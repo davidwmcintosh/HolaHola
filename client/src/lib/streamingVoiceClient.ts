@@ -451,29 +451,17 @@ export class StreamingVoiceClient {
         win._wsDebug.byType[message.type] = (win._wsDebug.byType[message.type] || 0) + 1;
       }
       
-      // Use console.error for critical message types to ensure visibility
-      if (message.type === 'response_complete') {
-        // CRITICAL: This message MUST be received for turn completion to work
-        console.error(`[WS-CRITICAL] >>> RESPONSE_COMPLETE received: totalSentences=${(message as any).totalSentences}`);
-      } else if (message.type === 'word_timing_delta') {
-        const delta = message as any;
-        console.error(`[WS-DELTA-RCVD] s=${delta.sentenceIndex}, w=${delta.wordIndex} "${delta.word}" ${delta.startTime?.toFixed(3)}-${delta.endTime?.toFixed(3)}s`);
-      } else if (message.type === 'audio_chunk') {
-        // CRITICAL: Track EVERY audio chunk at window level
+      // Track audio chunks at window level for debugging (no logging on hot path)
+      if (message.type === 'audio_chunk') {
         const chunk = message as any;
         win._audioChunks = win._audioChunks || { total: 0, bySentence: {} };
         win._audioChunks.total++;
         win._audioChunks.bySentence[chunk.sentenceIndex] = (win._audioChunks.bySentence[chunk.sentenceIndex] || 0) + 1;
-        // ALWAYS log audio chunks with console.error for visibility
-        console.error(`[WS-AUDIO-CHUNK] sentence=${chunk.sentenceIndex}, chunk=${chunk.chunkIndex}, total=${win._audioChunks.total}, isLast=${chunk.isLast}`);
-      } else {
-        console.log('[WS-MSG]', message.type);
       }
       
       switch (message.type) {
         case 'connected':
           // Initial connection confirmed (no session yet)
-          console.log('[StreamingVoiceClient] ✓ Connection confirmed by server');
           break;
           
         case 'session_started':
@@ -489,8 +477,7 @@ export class StreamingVoiceClient {
           break;
           
         case 'sentence_ready':
-          // NEW: Atomic first audio + first timing (prevents timing race)
-          console.error(`[WS RECV] >>> SENTENCE_READY CASE HIT <<<`);
+          // Atomic first audio + first timing (prevents timing race)
           this.handleSentenceReady(message as StreamingSentenceReadyMessage);
           break;
           
@@ -503,12 +490,6 @@ export class StreamingVoiceClient {
           break;
           
         case 'word_timing_delta':
-          console.error(`[WS RECV] >>> WORD_TIMING_DELTA CASE HIT <<<`);
-          // CRITICAL DEBUG: Track that case was hit
-          if (typeof window !== 'undefined') {
-            (window as any)._deltaHits = ((window as any)._deltaHits || 0) + 1;
-            (window as any)._lastDelta = message;
-          }
           this.handleWordTimingDelta(message as StreamingWordTimingDeltaMessage);
           break;
           
@@ -521,7 +502,6 @@ export class StreamingVoiceClient {
           break;
           
         case 'response_complete':
-          console.error(`[WS RECV] >>> RESPONSE_COMPLETE: sentences=${(message as any).totalSentences}`);
           this.handleResponseComplete(message as StreamingResponseCompleteMessage);
           break;
           
@@ -531,28 +511,21 @@ export class StreamingVoiceClient {
           
         case 'feedback':
           // Pedagogical feedback (one-word rule, pronunciation tips, etc.)
-          // Non-blocking - just log for now, could display UI notifications
-          const feedbackMsg = message as { type: string; feedbackType: string; message: string };
-          console.log(`[StreamingVoiceClient] Feedback (${feedbackMsg.feedbackType}):`, feedbackMsg.message);
-          this.emit('feedback', feedbackMsg);
+          this.emit('feedback', message as { type: string; feedbackType: string; message: string });
           break;
           
         case 'voice_updated':
-          // Voice switch confirmation - the server has changed the tutor voice
-          const voiceMsg = message as { type: string; gender: string; voiceName: string; timestamp: number };
-          console.log(`[StreamingVoiceClient] Voice updated to ${voiceMsg.gender}: ${voiceMsg.voiceName}`);
-          this.emit('voiceUpdated', voiceMsg);
+          // Voice switch confirmation
+          this.emit('voiceUpdated', message as { type: string; gender: string; voiceName: string; timestamp: number });
           break;
           
         case 'whiteboard_update':
-          // Whiteboard content from tutor (vocabulary, drills, images, etc.)
-          const whiteboardMsg = message as StreamingWhiteboardMessage;
-          console.log(`[StreamingVoiceClient] Whiteboard update: ${whiteboardMsg.items.length} items, clear=${whiteboardMsg.shouldClear}`);
-          this.emit('whiteboardUpdate', whiteboardMsg);
+          // Whiteboard content from tutor
+          this.emit('whiteboardUpdate', message as StreamingWhiteboardMessage);
           break;
           
         default:
-          console.warn('[StreamingVoiceClient] Unknown message type:', (message as any).type);
+          // Unknown message types - no logging on hot path
       }
     } catch (error) {
       console.error('[StreamingVoiceClient] Failed to parse message:', error);

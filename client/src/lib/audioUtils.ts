@@ -609,45 +609,22 @@ export class StreamingAudioPlayer {
     // Previously: just checking s===0 && c===0 would wipe schedule mid-sentence
     const isNewTurnStarting = sentenceIndex === 0 && chunkIndex === 0 && !this.progressiveFirstChunkStarted;
     
-    // CRITICAL DEBUG: Log when guard prevents false turn reset
-    if (sentenceIndex === 0 && chunkIndex === 0 && this.progressiveFirstChunkStarted) {
-      console.warn(`[SCHEDULE GUARD] ⚠️ Ignoring duplicate s=0,c=0 - progressiveFirstChunkStarted=true. Would have WIPED schedule!`);
-    }
-    
-    // CRITICAL FIX: Capture isPlaying state BEFORE modifying it
+    // Capture isPlaying state BEFORE modifying it
     // This is needed for the restart loop logic below
     const wasPlayingBeforeThisChunk = this.isPlaying;
     
     if (isNewSentence || isNewTurnStarting) {
-      console.log(`[StreamingAudioPlayer] [Progressive] New sentence ${sentenceIndex} (previous: ${this.progressiveSentenceIndex}, isNewTurn=${isNewTurnStarting}, wasPlaying=${wasPlayingBeforeThisChunk})`);
-      
-      // DON'T call resetProgressiveState() - that stops all audio!
-      // Instead, just update tracking variables and let old audio finish
-      
       // Clear arrays for new sentence (old sources will continue playing)
       this.progressiveChunks = [];
       
-      // CRITICAL FIX: Only reset progressiveFirstChunkStarted for NEW TURNS
-      // NOT for new sentences within the same turn!
-      // This preserves the turn-level timing anchor across sentences
-      
-      // For new turn, ALWAYS clear the sentence schedule and reset timing
-      // A new turn is detected when we receive sentence 0, chunk 0
+      // For new turn, clear the sentence schedule and reset timing
       if (isNewTurnStarting) {
-        const entriesCleared = this.sentenceSchedule.size;
-        const wordsCleared = this.wordSchedule.size;
-        console.error(`[SCHEDULE CLEAR] ⚠️ NEW TURN detected (s=0,c=0) - clearing ${entriesCleared} sentences, ${wordsCleared} words from schedule`);
-        
-        // Log to debug panel BEFORE clearing
-        logScheduleEvent('clear', [], undefined, entriesCleared);
-        
-        this.progressiveFirstChunkStarted = false; // ONLY reset for new turn
+        this.progressiveFirstChunkStarted = false;
         this.sentenceSchedule.clear();
-        this.wordSchedule.clear();  // ALSO clear word schedule for new turn
+        this.wordSchedule.clear();
         this.activeSentenceInLoop = -1;
-        // CRITICAL: Reset scheduled time for new turn - don't wait for old schedule to finish
-        this.progressiveScheduledTime = ctx.currentTime + 0.1;
-        // Also reset the playback start time for the new turn
+        // Reset scheduled time with larger prebuffer for smoother playback
+        this.progressiveScheduledTime = ctx.currentTime + 0.2;
         this.progressivePlaybackStartCtxTime = 0;
       }
       
@@ -655,66 +632,35 @@ export class StreamingAudioPlayer {
       this.currentSentenceIndex = sentenceIndex;
       
       // Schedule new sentence after current audio ends (gapless playback)
-      // If no audio scheduled yet, start from now + buffer
+      // If no audio scheduled yet, start from now + prebuffer
       if (this.progressiveScheduledTime <= ctx.currentTime) {
-        this.progressiveScheduledTime = ctx.currentTime + 0.1;
+        this.progressiveScheduledTime = ctx.currentTime + 0.2;
       }
-      // Otherwise, new sentence will naturally follow previous (within same turn)
       
-      // DON'T set progressivePlaybackStartCtxTime here - it will be set when first chunk is scheduled below
-      this.progressiveTotalDuration = 0; // Reset duration for new sentence
+      this.progressiveTotalDuration = 0;
       this.isPlaying = true;
       this.setState('buffering');
-      
-      console.log(`[StreamingAudioPlayer] [Progressive] Sentence ${sentenceIndex} will start at ${this.progressiveScheduledTime.toFixed(3)}s (ctx.currentTime=${ctx.currentTime.toFixed(3)}s)`);
     }
     
     // SAFETY: Ensure scheduled time is always in the future
-    // If we've fallen behind, reset to current time + buffer
+    // If we've fallen behind, reset to current time + prebuffer
     if (this.progressiveScheduledTime < ctx.currentTime) {
-      console.warn(`[StreamingAudioPlayer] [Progressive] Scheduled time in past, resetting. Was ${this.progressiveScheduledTime.toFixed(3)}, now ${ctx.currentTime.toFixed(3)}`);
-      this.progressiveScheduledTime = ctx.currentTime + 0.05;
+      this.progressiveScheduledTime = ctx.currentTime + 0.2;
     }
     
     // Convert raw PCM bytes to Float32Array
-    // CRITICAL DEBUG: Log audio buffer size
-    const audioByteLength = audio.byteLength;
-    console.log(`[AUDIO PLAYER] Chunk s=${sentenceIndex} c=${chunkIndex} bytes=${audioByteLength} isLast=${isLast}`);
-    
     const float32Data = new Float32Array(audio);
     const numSamples = float32Data.length;
     const chunkDuration = numSamples / sampleRate;
     
-    // CRITICAL FIX: Handle empty audio chunks (isLast=true marker chunks)
+    // Handle empty audio chunks (isLast=true marker chunks)
     // These chunks have 0 audio data but signal sentence completion
-    // We MUST process the isLast flag even if there's no audio to schedule
     if (numSamples === 0) {
-      console.log(`[AUDIO PLAYER] *** EMPTY CHUNK DETECTED *** s=${sentenceIndex} c=${chunkIndex} isLast=${isLast}`);
       if (isLast) {
         const entry = this.sentenceSchedule.get(sentenceIndex);
-        let endCtxTimeSet = false;
         if (entry) {
           entry.endCtxTime = entry.startCtxTime + entry.totalDuration;
-          endCtxTimeSet = true;
-          console.log(`[AUDIO SCHEDULE] ✓ Sentence ${sentenceIndex} endCtxTime set: ${entry.endCtxTime.toFixed(3)} (duration=${entry.totalDuration.toFixed(3)}s)`);
-          
-          // CRITICAL DEBUG: Verify endCtxTime was actually saved to the Map
-          const verifyEntry = this.sentenceSchedule.get(sentenceIndex);
-          if (verifyEntry?.endCtxTime !== entry.endCtxTime) {
-            console.log(`[BUG!!] endCtxTime NOT saved! Set ${entry.endCtxTime} but Map has ${verifyEntry?.endCtxTime}`);
-          } else {
-            console.log(`[AUDIO SCHEDULE] ✓ VERIFIED: Map entry has endCtxTime=${verifyEntry.endCtxTime.toFixed(3)}`);
-          }
-          
-          // Log ALL entries to see current state
-          console.log(`[AUDIO SCHEDULE] Current Map state:`, Array.from(this.sentenceSchedule.entries()).map(([i, e]) => 
-            `S${i}: endCtxTime=${e.endCtxTime?.toFixed(3) ?? 'UNDEFINED'}`
-          ).join(' | '));
-        } else {
-          console.error(`[AUDIO SCHEDULE] ✗ No schedule entry for sentence ${sentenceIndex} when isLast received!`);
         }
-        // Update debug panel with empty chunk info
-        logEmptyChunkProcessed(sentenceIndex, endCtxTimeSet);
         this.scheduleProgressiveSentenceEnd(sentenceIndex, 0);
       }
       return; // Skip audio scheduling for empty chunks
@@ -739,36 +685,11 @@ export class StreamingAudioPlayer {
     const playTime = this.progressiveScheduledTime;
     source.start(playTime);
     this.progressiveScheduledTime += chunkDuration;
-    this.progressiveTotalDuration += chunkDuration; // Track total duration
+    this.progressiveTotalDuration += chunkDuration;
     
-    // CRITICAL DEBUG: Log ctx state EVERY chunk to catch if it gets suspended
-    const ctxId = (ctx as any).__debugId || 'NO_ID';
-    const ctxState = ctx.state;
-    
-    // Log first chunk with full details
-    if (chunkIndex === 0) {
-      console.log(`[AUDIO SCHEDULE] s=${sentenceIndex} c=0 scheduled at ${playTime.toFixed(3)}s via ctx=${ctxId}, ctx.currentTime=${ctx.currentTime.toFixed(3)}, ctx.state=${ctxState}`);
-    }
-    
-    // CRITICAL: If AudioContext becomes suspended, try to resume it
-    if (ctxState === 'suspended') {
-      console.error(`[AUDIO CRITICAL] ⚠️ AudioContext SUSPENDED during chunk ${sentenceIndex}:${chunkIndex}! Attempting resume...`);
-      ctx.resume().then(() => {
-        console.log(`[AUDIO CRITICAL] ✓ AudioContext resumed, new state: ${ctx.state}, currentTime: ${ctx.currentTime.toFixed(3)}`);
-      }).catch(err => {
-        console.error(`[AUDIO CRITICAL] ✗ Resume failed:`, err);
-      });
-    }
-    
-    // Log every 10th chunk with ctx.currentTime to track advancement
-    if (chunkIndex % 10 === 0 && chunkIndex > 0) {
-      console.log(`[AUDIO TICK] s${sentenceIndex}:c${chunkIndex} ctx.currentTime=${ctx.currentTime.toFixed(3)} state=${ctxState}`);
-    }
-    
-    // Track first chunk for timing - SCHEDULE-BASED APPROACH
-    // Only log first chunk of each sentence to reduce console noise
-    if (chunkIndex === 0) {
-      console.log(`[AUDIO] Chunk s=${sentenceIndex} c=0 started=${this.progressiveFirstChunkStarted}`);
+    // Auto-resume if AudioContext becomes suspended (check only, no logging)
+    if (ctx.state === 'suspended') {
+      ctx.resume();
     }
     
     // Register sentence in schedule if this is its first chunk
@@ -779,30 +700,9 @@ export class StreamingAudioPlayer {
         started: false,
         ended: false,
       });
-      // List all sentences now in schedule
-      const allSentences = Array.from(this.sentenceSchedule.keys());
-      console.error(`[SCHEDULE ADD] ✅ S${sentenceIndex} ADDED at ${playTime.toFixed(3)}s. Schedule now: [${allSentences.join(',')}] (${this.sentenceSchedule.size} entries)`);
       
-      // Log to debug panel
-      logScheduleEvent('add', allSentences, sentenceIndex);
-      
-      // IMMEDIATELY update debug state with new schedule entry
-      updateDebugSchedule(this.sentenceSchedule);
-      
-      // Update sentence received count for debug panel
-      updateDebugTimingState({
-        sentencesReceived: this.sentenceSchedule.size,
-      });
-      
-      // RACE CONDITION FIX: Process any queued word timings for this sentence
-      // Word timing deltas may arrive before the first audio chunk
+      // Process any queued word timings for this sentence
       this.processPendingWordTimings(sentenceIndex);
-    } else {
-      // Only log occasionally for subsequent chunks
-      if (chunkIndex % 5 === 0) {
-        const allSentences = Array.from(this.sentenceSchedule.keys()).join(',');
-        console.error(`[SCHEDULE CHECK] S${sentenceIndex} c${chunkIndex} - Schedule: [${allSentences}]`);
-      }
     }
     
     // Accumulate duration for this sentence
@@ -822,13 +722,10 @@ export class StreamingAudioPlayer {
       this.playbackStartTime = performance.now();
       this.isPlaying = true;
       this.setState('playing');
-      console.log(`[AUDIO] ${shouldRestartLoop && !shouldStartLoop ? 'Restarting' : 'Starting'} timing loop: s=${sentenceIndex}, c=${chunkIndex}`);
       this.startUnifiedTimingLoop();
     }
     
-    console.log(`[StreamingAudioPlayer] [Progressive] First chunk of sentence ${sentenceIndex} scheduled at ${playTime.toFixed(3)}s (ctx.currentTime=${ctx.currentTime.toFixed(3)}s)`);
-    
-    // For backward compatibility, also track progressive state for sentence 0
+    // Track progressive state for sentence 0
     if (sentenceIndex === 0 && !this.progressivePlaybackStartCtxTime) {
       this.progressivePlaybackStartCtxTime = playTime;
     }
@@ -836,14 +733,11 @@ export class StreamingAudioPlayer {
     // Update current duration for progress reporting
     this.currentDuration = this.progressiveTotalDuration;
     
-    console.log(`[StreamingAudioPlayer] [Progressive] Chunk ${chunkIndex}: ${numSamples} samples, ${chunkDuration.toFixed(3)}s, scheduled at ${playTime.toFixed(3)}s, isLast=${isLast}`);
-    
     // Handle last chunk - set end time in schedule
     if (isLast) {
       const entry = this.sentenceSchedule.get(sentenceIndex);
       if (entry) {
         entry.endCtxTime = entry.startCtxTime + entry.totalDuration;
-        console.log(`[AUDIO SCHEDULE] Sentence ${sentenceIndex} complete: endCtxTime=${entry.endCtxTime.toFixed(3)} (duration=${entry.totalDuration.toFixed(3)}s)`);
       }
       this.scheduleProgressiveSentenceEnd(sentenceIndex, chunkDuration);
     }
@@ -1068,57 +962,18 @@ export class StreamingAudioPlayer {
     // Cancel any existing timing loop
     this.stopPrecisionTiming();
     
-    console.log(`[LOOP] Starting: scheduleSize=${this.sentenceSchedule.size}`);
-    
-    // Update debug state: loop is now running
-    updateDebugTimingState({
-      isLoopRunning: true,
-      loopTickCount: 0,
-      isPlaying: true,
-      loopStartTime: Date.now(),
-      tickFrameLogs: []  // Clear previous frame logs
-    });
-    
     let frameCount = 0;
     
     const tick = (): void => {
       frameCount++;
       
-      // DEBUG: Log EVERY frame for first 5 frames to verify tick is running
-      // Only when word timing diagnostics are enabled
-      if (frameCount <= 5 && isWordTimingEnabled()) {
-        const ctxDebug = this.audioContext ? 
-          `ctx=${this.audioContext.currentTime.toFixed(3)}s, state=${this.audioContext.state}` : 
-          'NO CTX';
-        const frameLog = `F${frameCount}: ${ctxDebug}, playing=${this.isPlaying}`;
-        console.error(`[TICK RUNNING] ${frameLog}`);
-        
-        // Push to debug state for on-screen display
-        const currentLogs = getDebugTimingState().tickFrameLogs || [];
-        updateDebugTimingState({
-          tickFrameLogs: [...currentLogs, frameLog].slice(-5),  // Keep last 5
-          isLoopRunning: true,
-          loopTickCount: frameCount,
-          currentCtxTime: this.audioContext?.currentTime ?? 0,
-          audioContextState: (this.audioContext?.state || 'unknown') as 'suspended' | 'running' | 'closed' | 'unknown',
-          audioContextId: (this.audioContext as any)?.__debugId || 'NO_ID',
-          isPlaying: this.isPlaying
-        });
-      }
-      
       // Exit if playback stopped
       if (!this.isPlaying) {
-        // Update debug state: loop stopped
-        updateDebugTimingState({
-          isLoopRunning: false,
-          isPlaying: false
-        });
         return;
       }
       
       const ctx = this.audioContext;
       if (!ctx) {
-        console.error(`[TICK] Frame ${frameCount}: NO AudioContext! Scheduling next tick...`);
         this.rafId = requestAnimationFrame(tick);
         return;
       }
@@ -1132,13 +987,9 @@ export class StreamingAudioPlayer {
         console.log(`[TICK DEBUG] Frame ${frameCount}: ctx.currentTime=${now.toFixed(3)}, ctx.state=${ctxState}, ctxId=${ctxId}`);
       }
       
-      // CRITICAL: Detect if AudioContext became suspended mid-playback
+      // Auto-resume if AudioContext became suspended mid-playback
       if (ctxState === 'suspended' && frameCount > 0) {
-        console.error(`[TIMING LOOP] ⚠️ AudioContext SUSPENDED mid-playback! Frame ${frameCount}, currentTime stuck at ${now.toFixed(3)}`);
-        // Try to resume
-        ctx.resume().then(() => {
-          console.log(`[TIMING LOOP] ✓ Resumed AudioContext, new state: ${ctx.state}`);
-        });
+        ctx.resume();
       }
       
       // ═══════════════════════════════════════════════════════════════════════════
