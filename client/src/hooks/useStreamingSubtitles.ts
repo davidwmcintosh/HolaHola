@@ -20,7 +20,8 @@ import {
   logTimingEvent,
   difficultyToProficiencyBand
 } from '../lib/subtitlePolicies';
-import { updateDebugTimingState, updateTimingComparison, clearWordState, getDebugTimingState, isVerboseLoggingEnabled } from '../lib/debugTimingState';
+import { updateDebugTimingState, updateTimingComparison, clearWordState, getDebugTimingState } from '../lib/debugTimingState';
+import { isVerboseLoggingEnabled } from '../lib/audioUtils';
 
 /**
  * A contiguous block of target language words

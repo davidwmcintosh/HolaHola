@@ -51,7 +51,7 @@ import {
   WordTiming,
   AUDIO_STREAMING_CONFIG,
 } from '../../../shared/streaming-voice-types';
-import { isVerboseLoggingEnabled } from './debugTimingState';
+import { isVerboseLoggingEnabled } from './audioUtils';
 
 /**
  * Connection states
