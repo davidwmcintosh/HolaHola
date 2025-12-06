@@ -107,7 +107,7 @@ export function LearningPaceCard({ classId, className }: LearningPaceCardProps) 
 
   if (isLoading) {
     return (
-      <Card className={className}>
+      <Card className={className} data-testid="learning-pace-card-loading">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <TrendingUp className="h-4 w-4" />
@@ -130,7 +130,7 @@ export function LearningPaceCard({ classId, className }: LearningPaceCardProps) 
 
   if (error || !data) {
     return (
-      <Card className={className}>
+      <Card className={className} data-testid="learning-pace-card-empty">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <TrendingUp className="h-4 w-4" />
