@@ -79,9 +79,12 @@ export function AppSidebar() {
   };
   
   // Handle tutor selection from dropdown
-  const handleTutorSelect = (context: { id: string; language: string; type: "self-directed" | "class" }) => {
+  const handleTutorSelect = (context: { id: string; language: string; type: "self-directed" | "class" | "founder-mode" }) => {
     // Determine new context ID
-    const newContextId = context.type === "self-directed" ? "self-directed" : context.id;
+    // For founder-mode and self-directed, use the type as the ID; for classes, use the classId
+    const newContextId = context.type === "self-directed" || context.type === "founder-mode" 
+      ? context.type 
+      : context.id;
     
     // Only force new conversation when actually switching contexts
     // This allows resuming conversations when re-entering the same class
@@ -198,12 +201,16 @@ export function AppSidebar() {
                           data-testid={`option-tutor-${ctx.id}`}
                         >
                           <div className="flex items-center gap-2">
-                            {ctx.type === "self-directed" ? (
+                            {ctx.type === "founder-mode" ? (
+                              <Sparkles className="h-4 w-4 text-amber-500" />
+                            ) : ctx.type === "self-directed" ? (
                               <User className="h-4 w-4 text-muted-foreground" />
                             ) : (
                               <GraduationCap className="h-4 w-4 text-primary" />
                             )}
-                            <span className="truncate">{ctx.name}</span>
+                            <span className={`truncate ${ctx.type === "founder-mode" ? "text-amber-600 dark:text-amber-400 font-medium" : ""}`}>
+                              {ctx.name}
+                            </span>
                           </div>
                         </DropdownMenuItem>
                       ))}

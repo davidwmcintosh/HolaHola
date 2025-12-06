@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLanguage } from "./LanguageContext";
+import { useAuth } from "@/hooks/useAuth";
 
 export interface EnrolledClass {
   id: string;
@@ -21,7 +22,9 @@ export interface EnrolledClass {
   };
 }
 
-export type LearningContext = "all" | "self-directed" | "all-classes" | "all-learning" | string;
+export type LearningContext = "all" | "self-directed" | "founder-mode" | "all-classes" | "all-learning" | string;
+
+export type TutorContextType = "self-directed" | "class" | "founder-mode";
 
 interface LearningFilterContextType {
   learningContext: LearningContext;
@@ -30,13 +33,17 @@ interface LearningFilterContextType {
   isLoadingClasses: boolean;
   getSelectedClassName: () => string;
   getClassesForLanguage: (lang?: string) => EnrolledClass[];
-  getTutorContexts: () => Array<{ id: string; name: string; language: string; type: "self-directed" | "class" }>;
+  getTutorContexts: () => Array<{ id: string; name: string; language: string; type: TutorContextType }>;
+  isFounderMode: boolean;
 }
 
 const LearningFilterContext = createContext<LearningFilterContextType | undefined>(undefined);
 
 export function LearningFilterProvider({ children }: { children: ReactNode }) {
   const { language } = useLanguage();
+  const { user } = useAuth();
+  const isDeveloper = user?.role === 'developer' || user?.role === 'admin';
+  
   const [learningContext, setLearningContextState] = useState<LearningContext>(() => {
     const stored = localStorage.getItem("learningContext");
     // Never default to empty or "all" - use "self-directed" as default
@@ -88,11 +95,15 @@ export function LearningFilterProvider({ children }: { children: ReactNode }) {
   const getSelectedClassName = (): string => {
     if (learningContext === "all") return "Self-Directed"; // Fallback
     if (learningContext === "self-directed") return "Self-Directed";
+    if (learningContext === "founder-mode") return "Founder Mode";
     if (learningContext === "all-classes") return "All Classes";
     if (learningContext === "all-learning") return "All Learning";
     const cls = enrolledClasses.find(e => e.classId === learningContext);
     return cls?.class.name || "Self-Directed";
   };
+  
+  // Check if Founder Mode is currently active
+  const isFounderMode = learningContext === "founder-mode" && isDeveloper;
 
   const getClassesForLanguage = (lang?: string): EnrolledClass[] => {
     const targetLang = lang || language;
@@ -104,8 +115,8 @@ export function LearningFilterProvider({ children }: { children: ReactNode }) {
   };
 
   // Get all available tutor contexts (for the tutor selection menu)
-  const getTutorContexts = (): Array<{ id: string; name: string; language: string; type: "self-directed" | "class" }> => {
-    const contexts: Array<{ id: string; name: string; language: string; type: "self-directed" | "class" }> = [];
+  const getTutorContexts = (): Array<{ id: string; name: string; language: string; type: TutorContextType }> => {
+    const contexts: Array<{ id: string; name: string; language: string; type: TutorContextType }> = [];
     
     // Always include self-directed option with current language
     if (language) {
@@ -129,6 +140,17 @@ export function LearningFilterProvider({ children }: { children: ReactNode }) {
       }
     });
     
+    // Add Founder Mode option for developers/admins
+    // This enables open collaboration with Daniela about the product itself
+    if (isDeveloper && language) {
+      contexts.push({
+        id: "founder-mode",
+        name: "Founder Mode",
+        language: language,
+        type: "founder-mode"
+      });
+    }
+    
     return contexts;
   };
 
@@ -141,6 +163,7 @@ export function LearningFilterProvider({ children }: { children: ReactNode }) {
       getSelectedClassName,
       getClassesForLanguage,
       getTutorContexts,
+      isFounderMode,
     }}>
       {children}
     </LearningFilterContext.Provider>

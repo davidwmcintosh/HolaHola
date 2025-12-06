@@ -2003,7 +2003,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if student is enrolled in an active class for this language
       // This will link the conversation to their class for proper tracking
       let classId: string | undefined;
-      if (!isOnboarding) {
+      
+      // FOUNDER MODE: Developers can explicitly request a class-free conversation
+      // This enables open collaboration with Daniela about the product itself
+      // SECURITY: Only developers can use Founder Mode - non-developers are ignored
+      let founderModeGranted = false;
+      if (req.body.founderMode === true) {
+        const isDeveloper = await usageService.checkDeveloperBypass(userId);
+        if (isDeveloper) {
+          console.log('[CONVERSATION CREATE] Founder Mode granted to developer - skipping class assignment');
+          classId = undefined; // Explicitly no class
+          founderModeGranted = true;
+        } else {
+          console.log('[CONVERSATION CREATE] Founder Mode requested but DENIED - user is not a developer');
+          // Non-developers fall through to normal class detection
+        }
+      }
+      
+      if (!isOnboarding && !founderModeGranted) {
         // First, check if a specific classId was passed from the client (from learning context)
         if (req.body.classId) {
           // Validate that the user is enrolled in this class

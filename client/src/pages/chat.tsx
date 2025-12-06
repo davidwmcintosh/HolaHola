@@ -66,7 +66,11 @@ export default function Chat() {
   const isInClassMode = learningContext !== "self-directed" && 
                         learningContext !== "all" && 
                         learningContext !== "all-classes" && 
-                        learningContext !== "all-learning";
+                        learningContext !== "all-learning" &&
+                        learningContext !== "founder-mode";
+  
+  // Check if we're in Founder Mode (developer-only open collaboration)
+  const isFounderMode = learningContext === "founder-mode";
 
   // Auto-close sidebar when entering voice chat area
   // This runs ONLY ONCE on initial mount - works for Call Tutor, New Chat, and Start Practicing
@@ -191,7 +195,7 @@ export default function Chat() {
       // Use class ID from learning context if in class mode
       const selectedClassId = isInClassMode ? learningContext : undefined;
       
-      console.log('[SHARED CHAT] Creating shared conversation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)', 'forceNew:', forceNewConversation, 'mode:', mode, 'classId:', selectedClassId);
+      console.log('[SHARED CHAT] Creating shared conversation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)', 'forceNew:', forceNewConversation, 'mode:', mode, 'classId:', selectedClassId, 'founderMode:', isFounderMode);
       setIsCreatingConversation(true);
       
       apiRequest("POST", "/api/conversations", {
@@ -204,6 +208,7 @@ export default function Chat() {
         forceNew: forceNewConversation, // Force new conversation if user clicked "New Chat"
         mode, // Pass current mode (text or voice) to backend for greeting logic
         classId: selectedClassId, // Pass selected class from learning context
+        founderMode: isFounderMode, // Enable Founder Mode for developer open collaboration
       })
         .then(res => res.json())
         .then(async (data) => {
