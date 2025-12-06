@@ -6,7 +6,56 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
-_No pending updates._
+### [December 6, 2025] - Phase 2 Dual Time Tracking for Students
+**Target:** TECHNICAL-REFERENCE.md
+**Section:** API Endpoints / Services
+**Content:**
+New analytics service and endpoints for student time tracking:
+
+**SyllabusAnalyticsService** (`server/services/syllabus-analytics-service.ts`):
+- Aggregates expected vs actual time spent per syllabus lesson
+- Joins syllabusProgress, voiceSessions, and curriculum tables
+- Uses existing data relationships (syllabusProgress.evidenceConversationId → voiceSessions.conversationId)
+- Caching: Credit balance 1-min TTL, session data 5-min TTL
+
+**API Endpoints:**
+- `GET /api/analytics/syllabus-time/:classId` - Returns detailed time breakdown per unit/lesson for authenticated student
+- `GET /api/analytics/pace-summary?classId={optional}` - Returns weekly learning pace, streak, and stats
+
+**Response shapes documented in syllabus-analytics-service.ts interfaces.**
+
+---
+
+### [December 6, 2025] - Learning Pace UI Components
+**Target:** USER-MANUAL.md
+**Section:** Dashboard / Progress Tracking
+**Content:**
+New student-facing components for time awareness:
+
+**Learning Pace Card** (Dashboard sidebar):
+- Shows lessons completed, total time learned, current streak
+- 8-week activity sparkline showing weekly learning trends
+- Average minutes per lesson calculation
+- Visible on larger screens in dashboard sidebar
+
+**Syllabus Time Progress** (Review Hub - class context only):
+- Shows expected vs actual time per syllabus unit
+- Collapsible unit details with lesson-level breakdown
+- Green/amber color palette (no red - "learning journey" not "budget surveillance")
+- Progress indicators per unit
+- Only appears when viewing a class context (not self-directed learning)
+
+---
+
+### [December 6, 2025] - Design Philosophy Update
+**Target:** ROADMAP.md
+**Section:** Recently Completed / Phase 2
+**Content:**
+Phase 2 Dual Time Tracking complete:
+- Student-facing time displays showing expected vs actual learning time per syllabus section
+- Weekly learning pace trends with credit consumption visibility
+- UX philosophy: Frame as "learning journey" not surveillance - green/amber colors only
+- Uses existing data relationships rather than new schema fields
 
 ---
 
