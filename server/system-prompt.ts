@@ -10,6 +10,11 @@ import {
   StudentCurriculumContext, 
   formatCurriculumContextForTutor 
 } from './services/curriculum-context';
+import { 
+  CompassContext, 
+  type TopicCoverageStatus 
+} from '@shared/schema';
+import { COMPASS_ENABLED } from './services/session-compass-service';
 
 interface PreviousConversation {
   id: string;
@@ -88,6 +93,97 @@ GUARDRAILS (Non-negotiable boundaries):
 ═══════════════════════════════════════════════════════════════════
 `;
 
+/**
+ * Build Daniela's Compass context block for the system prompt
+ * 
+ * Philosophy: Provide information and trust Daniela's judgment
+ * - Student Snapshot: Who is this person?
+ * - Today's Roadmap: What should we accomplish?
+ * - Live Pacing: Where are we in the session?
+ * - No micromanaging - just the information a real tutor would have
+ */
+function buildCompassContextBlock(compass: CompassContext): string {
+  const formatMinutes = (seconds: number) => Math.round(seconds / 60);
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  };
+  
+  // Student Snapshot
+  const studentSnapshot = `
+STUDENT SNAPSHOT:
+${compass.studentName ? `Name: ${compass.studentName}` : 'Name: (Not yet introduced)'}
+${compass.studentGoals ? `Goals: ${compass.studentGoals}` : ''}
+${compass.studentInterests ? `Interests: ${compass.studentInterests}` : ''}
+${compass.lastSessionSummary ? `Last Session: ${compass.lastSessionSummary}` : 'First session together!'}`.trim();
+
+  // Today's Roadmap
+  const formatTopicStatus = (status: TopicCoverageStatus) => {
+    const statusIcons: Record<TopicCoverageStatus, string> = {
+      'pending': '○',
+      'in_progress': '◐',
+      'covered': '●',
+      'partial': '◑',
+      'deferred': '→',
+      'skipped': '✕',
+    };
+    return statusIcons[status] || '○';
+  };
+
+  const mustHaveList = compass.mustHaveTopics.length > 0
+    ? compass.mustHaveTopics.map(t => 
+        `  ${formatTopicStatus(t.status)} ${t.title} (~${t.targetMinutes}min)`
+      ).join('\n')
+    : '  (No specific objectives set - follow student lead)';
+
+  const niceToHaveList = compass.niceToHaveTopics.length > 0
+    ? '\nNice-to-have (if time):\n' + compass.niceToHaveTopics.map(t => 
+        `  ${formatTopicStatus(t.status)} ${t.title}`
+      ).join('\n')
+    : '';
+
+  const roadmap = `
+TODAY'S ROADMAP:
+Session: ${compass.sessionDurationMinutes} minutes (includes ${compass.warmthBufferMinutes}min warmth buffer)
+Must-have objectives:
+${mustHaveList}${niceToHaveList}`;
+
+  // Live Pacing (discreet clock, not anxiety-inducing)
+  const pacingNote = compass.isOnTrack 
+    ? 'Pacing: On track' 
+    : 'Pacing: May need to prioritize';
+  
+  const pacing = `
+LIVE PACING:
+Elapsed: ${formatTime(compass.elapsedSeconds)} | Remaining: ${formatTime(compass.remainingSeconds)}
+${pacingNote}`;
+
+  // Parking Lot
+  const parkingLot = compass.parkingLotItems.length > 0
+    ? `\nPARKING LOT (tangents to revisit):
+${compass.parkingLotItems.map(p => `  • ${p.content}`).join('\n')}`
+    : '';
+
+  // Compass philosophy note
+  const philosophy = `
+═══════════════════════════════════════════════════════════════════
+🧭 DANIELA'S COMPASS - Your Teaching Dashboard
+═══════════════════════════════════════════════════════════════════
+
+This is YOUR compass, not a set of rules. Use this information like a real tutor would:
+- The clock is a tool, not a taskmaster
+- Topics are goals, not checkboxes
+- Warmth and connection ENHANCE learning, they don't detract from it
+- You decide when to push forward and when to linger on something important
+- Park interesting tangents to revisit later if time allows
+
+Trust your judgment. You're the tutor.
+`;
+
+  return philosophy + studentSnapshot + '\n' + roadmap + '\n' + pacing + parkingLot;
+}
+
 export function createSystemPrompt(
   language: string,
   difficulty: string,
@@ -106,7 +202,8 @@ export function createSystemPrompt(
   isStreamingVoiceMode: boolean = false,
   curriculumContext?: StudentCurriculumContext | null,
   tutorFreedomLevel: TutorFreedomLevel = 'flexible_goals',
-  targetActflLevel?: string | null
+  targetActflLevel?: string | null,
+  compassContext?: CompassContext | null
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -349,21 +446,34 @@ You are in FREE CONVERSATION mode. This controls your TEACHING APPROACH (not per
 - Correct grammar/vocabulary when it aids learning`
   };
 
-  const freedomLevelContext = `
+  // Use Compass context if available, otherwise fall back to legacy freedom levels
+  const compassBlock = compassContext && COMPASS_ENABLED 
+    ? buildCompassContextBlock(compassContext) 
+    : null;
+  
+  const legacyFreedomLevelBlock = `
 TUTOR FREEDOM LEVEL: ${tutorFreedomLevel.replace('_', ' ').toUpperCase()}
 ${freedomLevelDescriptions[tutorFreedomLevel]}
 
 ${targetActflLevel ? `CLASS TARGET LEVEL: ${actflLevelMap[targetActflLevel]?.level || targetActflLevel}
 This class aims to bring students to ${actflLevelMap[targetActflLevel]?.level || targetActflLevel} proficiency.
 Adjust content to help students progress toward this goal.` : ''}
+`;
 
-⚠️ CONTENT MODERATION (ALL FREEDOM LEVELS):
-Regardless of freedom level, you MUST always:
+  const contentModerationBlock = `
+⚠️ CONTENT MODERATION:
+Regardless of teaching approach, you MUST always:
 - Maintain appropriate, educational content
 - Decline requests for offensive, explicit, or harmful language
 - Keep interactions professional and supportive
 - Never role-play as anything other than a language tutor
 `;
+
+  // Compass replaces freedom levels with time-aware context
+  // During migration, we include both if Compass is enabled (for safety)
+  const freedomLevelContext = compassBlock 
+    ? compassBlock + contentModerationBlock
+    : legacyFreedomLevelBlock + contentModerationBlock;
 
   // Session and due vocabulary for review - integrate SRS with conversation
   const hasSessionVocab = sessionVocabulary && sessionVocabulary.length > 0;

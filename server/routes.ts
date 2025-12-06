@@ -39,6 +39,7 @@ import { extractTargetLanguageText, hasSignificantTargetLanguageContent } from "
 import multer from "multer";
 import { getTTSService } from "./services/tts-service";
 import { usageService } from "./services/usage-service";
+import { sessionCompassService, COMPASS_ENABLED } from "./services/session-compass-service";
 import { 
   getAvailableActflLevels,
   getSupportedLanguages,
@@ -829,6 +830,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error checking credits:", error);
       res.status(500).json({ message: "Failed to check credits" });
+    }
+  });
+
+  // ===== Session Compass (Daniela's Compass) Routes =====
+  // Provides tutoring session context: elapsed time, topics, parking lot
+  // Behind COMPASS_ENABLED feature flag
+  
+  // Get Compass context for a conversation
+  app.get('/api/compass/:conversationId', isAuthenticated, async (req: any, res) => {
+    if (!COMPASS_ENABLED) {
+      return res.status(404).json({ message: "Compass feature not enabled" });
+    }
+    
+    try {
+      const userId = req.user.claims.sub;
+      const { conversationId } = req.params;
+      
+      // Verify user owns this conversation
+      const conversation = await storage.getConversation(conversationId);
+      if (!conversation || conversation.userId !== userId) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      const context = await sessionCompassService.getCompassContext(conversationId);
+      if (!context) {
+        return res.json({ 
+          active: false,
+          message: "No active Compass session for this conversation" 
+        });
+      }
+      
+      res.json({
+        active: true,
+        ...context
+      });
+    } catch (error: any) {
+      console.error("Error fetching Compass context:", error);
+      res.status(500).json({ message: "Failed to fetch Compass context" });
+    }
+  });
+  
+  // Add item to parking lot
+  app.post('/api/compass/:conversationId/parking', isAuthenticated, async (req: any, res) => {
+    if (!COMPASS_ENABLED) {
+      return res.status(404).json({ message: "Compass feature not enabled" });
+    }
+    
+    try {
+      const userId = req.user.claims.sub;
+      const { conversationId } = req.params;
+      const { content, source } = req.body;
+      
+      if (!content || typeof content !== 'string') {
+        return res.status(400).json({ message: "Content is required" });
+      }
+      
+      // Verify user owns this conversation
+      const conversation = await storage.getConversation(conversationId);
+      if (!conversation || conversation.userId !== userId) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      // Find active session
+      const session = await sessionCompassService.getActiveSession(conversationId);
+      if (!session) {
+        return res.status(404).json({ message: "No active session for this conversation" });
+      }
+      
+      const parkingItem = await sessionCompassService.addParkingItem(
+        session.id,
+        content,
+        source || 'tutor'
+      );
+      
+      res.json({ success: true, parkingItem });
+    } catch (error: any) {
+      console.error("Error adding parking item:", error);
+      res.status(500).json({ message: "Failed to add parking item" });
+    }
+  });
+  
+  // Update topic status
+  app.patch('/api/compass/topics/:topicId', isAuthenticated, async (req: any, res) => {
+    if (!COMPASS_ENABLED) {
+      return res.status(404).json({ message: "Compass feature not enabled" });
+    }
+    
+    try {
+      const userId = req.user.claims.sub;
+      const { topicId } = req.params;
+      const { status } = req.body;
+      
+      const validStatuses = ['pending', 'in_progress', 'covered', 'partial', 'deferred', 'skipped'];
+      if (!status || !validStatuses.includes(status)) {
+        return res.status(400).json({ 
+          message: `Invalid status. Must be one of: ${validStatuses.join(', ')}` 
+        });
+      }
+      
+      // Verify ownership through the session
+      const topic = await sessionCompassService.getTopicById(topicId);
+      if (!topic) {
+        return res.status(404).json({ message: "Topic not found" });
+      }
+      
+      // Get the session and verify the user owns the conversation
+      const session = await sessionCompassService.getSessionById(topic.sessionId);
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      
+      const conversation = await storage.getConversation(session.conversationId);
+      if (!conversation || conversation.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      
+      const updated = await sessionCompassService.updateTopicStatus(topicId, status);
+      res.json({ success: true, topic: updated });
+    } catch (error: any) {
+      console.error("Error updating topic status:", error);
+      res.status(500).json({ message: "Failed to update topic status" });
     }
   });
 

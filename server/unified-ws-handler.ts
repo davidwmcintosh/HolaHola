@@ -30,7 +30,8 @@ import { generateCongratulatoryPromptAddition } from './services/competency-veri
 import { buildCurriculumContext, detectSyllabusQuery } from './services/curriculum-context';
 import { usageService } from './services/usage-service';
 import { shouldRunPlacementAfterSession, completePlacementAssessment } from './services/placement-assessment-service';
-import type { VoiceSession as UsageVoiceSession } from '@shared/schema';
+import { sessionCompassService, COMPASS_ENABLED } from './services/session-compass-service';
+import type { VoiceSession as UsageVoiceSession, CompassContext, TutorSession } from '@shared/schema';
 
 const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
 const REALTIME_PATH = '/api/realtime/ws';
@@ -120,6 +121,11 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
   let tutorSpeakingSeconds = 0;
   let ttsCharacters = 0;
   let sttSeconds = 0;
+  
+  // Compass session state (time-aware tutoring)
+  let compassSession: TutorSession | null = null;
+  let compassContext: CompassContext | null = null;
+  let sessionStartTime = 0;
   
   let conversationId: string | null = null;
   let pendingVoiceUpdate: 'male' | 'female' | null = null; // Queue voice update if received before session ready
@@ -335,6 +341,41 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             }
           }
 
+          // Initialize Daniela's Compass session (time-aware tutoring)
+          // Gives the tutor real-time context instead of preset flexibility levels
+          if (COMPASS_ENABLED) {
+            try {
+              sessionStartTime = Date.now();
+              compassSession = await sessionCompassService.initializeSession({
+                conversationId: conversationId!,
+                userId: userId!,
+                classId: conversation.classId || null,
+                scheduledDurationMinutes: 30, // Default session length
+                legacyFreedomLevel: tutorFreedomLevel,
+              });
+              
+              if (compassSession) {
+                compassContext = await sessionCompassService.getCompassContext(conversationId!);
+                console.log(`[Streaming Voice] Compass session initialized: ${compassSession.id}`);
+                
+                // Periodic elapsed time updates (every 30 seconds)
+                // Keeps Compass context fresh for API consumers and post-session analytics
+                const compassTickInterval = setInterval(async () => {
+                  if (compassSession && conversationId && sessionStartTime > 0) {
+                    const elapsedSeconds = Math.round((Date.now() - sessionStartTime) / 1000);
+                    await sessionCompassService.updateElapsedTime(conversationId, elapsedSeconds);
+                  }
+                }, 30000);
+                
+                // Store interval for cleanup
+                (ws as any).__compassTickInterval = compassTickInterval;
+              }
+            } catch (compassErr: any) {
+              console.warn('[Streaming Voice] Could not initialize Compass session:', compassErr.message);
+              // Compass is optional - continue with legacy freedom levels
+            }
+          }
+
           // Use full system prompt with streaming voice mode flag
           // This preserves all teaching context (ACTFL, cultural guidelines, vocabulary)
           // while outputting plain text format for TTS
@@ -358,7 +399,8 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             true, // isStreamingVoiceMode - outputs plain text with **bold** markers
             curriculumContext, // Add curriculum context for syllabus awareness
             tutorFreedomLevel, // Use determined flexibility level
-            targetActflLevel // Target proficiency level
+            targetActflLevel, // Target proficiency level
+            compassContext // Daniela's Compass context (time-aware tutoring)
           );
 
           // Add congratulatory messaging if student is ahead of syllabus
@@ -634,6 +676,29 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             orchestrator.endSession(session.id);
             session = null;
           }
+          
+          // Clear Compass tick interval
+          if ((ws as any).__compassTickInterval) {
+            clearInterval((ws as any).__compassTickInterval);
+            (ws as any).__compassTickInterval = null;
+          }
+          
+          // End Compass session (time-aware tutoring)
+          if (compassSession && conversationId) {
+            try {
+              const elapsedSeconds = sessionStartTime > 0 
+                ? Math.round((Date.now() - sessionStartTime) / 1000) 
+                : 0;
+              await sessionCompassService.updateElapsedTime(conversationId, elapsedSeconds);
+              await sessionCompassService.endSession(conversationId);
+              console.log(`[Streaming Voice] Compass session ended: ${Math.round(elapsedSeconds / 60)}min`);
+            } catch (compassErr: any) {
+              console.warn('[Streaming Voice] Could not end Compass session:', compassErr.message);
+            }
+            compassSession = null;
+            compassContext = null;
+          }
+          
           // End usage session and record consumption
           if (usageSession) {
             try {
@@ -678,6 +743,28 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
 
   // Helper to end usage session on disconnect
   const endUsageSession = async () => {
+    // Clear Compass tick interval
+    if ((ws as any).__compassTickInterval) {
+      clearInterval((ws as any).__compassTickInterval);
+      (ws as any).__compassTickInterval = null;
+    }
+    
+    // End Compass session on disconnect
+    if (compassSession && conversationId) {
+      try {
+        const elapsedSeconds = sessionStartTime > 0 
+          ? Math.round((Date.now() - sessionStartTime) / 1000) 
+          : 0;
+        await sessionCompassService.updateElapsedTime(conversationId, elapsedSeconds);
+        await sessionCompassService.endSession(conversationId);
+        console.log(`[Streaming Voice] Compass session ended on disconnect: ${Math.round(elapsedSeconds / 60)}min`);
+      } catch (compassErr: any) {
+        console.warn('[Streaming Voice] Could not end Compass session on disconnect:', compassErr.message);
+      }
+      compassSession = null;
+      compassContext = null;
+    }
+    
     if (usageSession) {
       try {
         await usageService.updateSessionMetrics(usageSession.id, {
