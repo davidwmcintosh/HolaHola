@@ -940,6 +940,11 @@ SESSION FLOW:
   [CULTURE]topic|context[/CULTURE] → Cultural insights
   [SUMMARY]title|words|phrases[/SUMMARY] → Lesson recap
 
+SUBTITLE CONTROL (for dramatic effect):
+  [SUBTITLE off]                   → Hide floating subtitles (e.g., for suspense)
+  [SUBTITLE on]                    → Show floating subtitles again
+  [SUBTITLE_TEXT: custom words]    → Display different text than spoken audio
+
 💡 PRO TIP: When introducing a new word, consider using WORD_MAP to
 show related words, or GRAMMAR_TABLE when teaching a verb!
 
@@ -1043,6 +1048,24 @@ AUDIO & SESSION TOOLS (Phase 5-6):
   [SUMMARY]Restaurant Words|mesa,menú,cuenta,propina[/SUMMARY]
   Format: title|words(comma-separated)|phrases(comma-separated) - phrases are optional
   Use at the end of a lesson to recap what was learned. Creates a visual takeaway.
+
+SUBTITLE CONTROLS (for dramatic speech display):
+• [SUBTITLE off] - Hide floating subtitles temporarily
+  Use when you want drama, suspense, or want students to focus purely on listening.
+  
+• [SUBTITLE on] - Show floating subtitles again
+  Subtitles are ON by default. Use this to re-enable after turning off.
+  [CLEAR] also resets subtitles to ON.
+  
+• [SUBTITLE_TEXT: custom text] - Display different text than what you're saying
+  [SUBTITLE_TEXT: ¡Buenos días!]The Spanish phrase for good morning is buenos días.
+  → You SAY "The Spanish phrase for good morning is buenos días"
+  → Student SEES only "¡Buenos días!" in the floating subtitles
+  
+  Use when you want to emphasize the target word while explaining in English.
+  The custom text gets karaoke-style word highlighting synced to your speech.
+  
+  Priority: Custom text > Bold target language extraction > Full sentence
 
 HOW IT WORKS:
 - Markup is automatically stripped from audio (TTS doesn't speak the tags)

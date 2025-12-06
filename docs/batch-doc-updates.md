@@ -241,6 +241,66 @@ Production-ready console logging with developer-friendly debug toggles:
 
 ---
 
+### [December 6, 2025] - Subtitle Control Tools for Daniela
+**Target:** TECHNICAL-REFERENCE.md
+**Section:** Voice Pipeline / Whiteboard System
+**Content:**
+New subtitle control markup giving Daniela control over floating subtitle display:
+
+**New Markup Patterns:**
+- `[SUBTITLE off]` - Hide floating subtitles temporarily (for drama, pure listening focus)
+- `[SUBTITLE on]` - Re-enable floating subtitles (also reset by `[CLEAR]`)
+- `[SUBTITLE_TEXT: custom text]` - Display custom text instead of spoken audio in subtitles
+
+**Use Case for SUBTITLE_TEXT:**
+Daniela says: "The Spanish word for hello is hola"
+Daniela uses: `[SUBTITLE_TEXT: ¡Hola!]The Spanish word for hello is hola.`
+Student sees: Only "¡Hola!" in floating subtitles with karaoke highlighting
+
+**Priority for Subtitle Display:**
+1. Custom text from `[SUBTITLE_TEXT: ...]` (highest priority)
+2. Bold target language extraction (`**palabra**` → "palabra")
+3. Full spoken sentence (default)
+
+**Files Updated:**
+- `shared/whiteboard-types.ts` - Added SUBTITLE_TEXT regex pattern and parsing
+- `client/src/hooks/useWhiteboard.ts` - Added `customSubtitleText` state
+- `client/src/components/FloatingSubtitleOverlay.tsx` - Accepts customText prop
+- `client/src/components/ImmersiveTutor.tsx` - Passes customSubtitleText to overlay
+- `client/src/components/StreamingVoiceChat.tsx` - Wires through VoiceChatViewManager
+- `server/system-prompt.ts` - Added SUBTITLE CONTROL section to tool reference
+
+**Architecture:**
+- Parser in `parseWhiteboardMarkup()` extracts `customSubtitleText` from markup
+- State flows: StreamingVoiceChat → VoiceChatViewManager → ImmersiveTutor → FloatingSubtitleOverlay
+- Default behavior: Subtitles enabled, no custom text
+- `[CLEAR]` resets both `subtitlesEnabled` to true and `customSubtitleText` to null
+
+---
+
+### [December 6, 2025] - SYNC TESTING CLEANUP NEEDED
+**Target:** N/A (Internal cleanup task)
+**Section:** Post-testing cleanup
+**Content:**
+The following debugging aids were enabled for subtitle synchronization testing and should be reviewed/removed once sync is verified:
+
+**Runtime Toggles to disable after testing:**
+- `window.__verboseTimingLogs` - Runtime toggle in browser console
+- `window.__enableWordTimingDiagnostics` - Runtime toggle in browser console
+
+**Feature Flags to verify after testing:**
+- `VERBOSE_CONSOLE_LOGS` in `shared/streaming-voice-types.ts` - Should remain `false` for production
+- `ENABLE_WORD_TIMING_DIAGNOSTICS` in `shared/streaming-voice-types.ts` - Review if needed in production
+
+**Files with debugging logs to audit:**
+- `client/src/hooks/useStreamingSubtitles.ts` - Subtitle timing logs
+- `client/src/lib/debugTimingState.ts` - Timing state debug panel
+- `client/src/components/FloatingSubtitleOverlay.tsx` - Overlay render logs
+
+**Action:** After confirming karaoke subtitle sync works reliably, audit these files and remove any console.log statements that are no longer needed for production.
+
+---
+
 ## Instructions
 
 When user says "add to the batch" or "batch doc updates":
