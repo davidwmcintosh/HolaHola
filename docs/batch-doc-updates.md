@@ -152,6 +152,29 @@ Production-ready connection resilience for live classroom use:
 
 ---
 
+### [December 6, 2025] - Whiteboard Tools Quick Reference Moved to Top
+**Target:** TECHNICAL-REFERENCE.md
+**Section:** Voice Pipeline / System Prompt Architecture
+**Content:**
+Improved discoverability of whiteboard tools for Daniela:
+
+**Change:** Added condensed quick reference near top of IMMUTABLE_PERSONA (line 105), right after personality traits and guardrails.
+
+**Quick Reference includes:**
+- Essentials: WRITE, COMPARE, CLEAR
+- Vocabulary Power Tools: WORD_MAP, IMAGE, GRAMMAR_TABLE
+- Practice & Check: DRILL (repeat, match)
+- Asian Languages: READING, STROKE
+- Session Tools: SCENARIO, CULTURE, SUMMARY, PLAY
+
+**Pointer:** Ends with "→ Full documentation with examples appears later in this prompt."
+
+**Full docs:** Existing detailed section (line 910+) now titled "EXPANDED DETAILS (referenced above)"
+
+**Why:** Placing tools early in the prompt ensures they're seen before conversation context consumes attention.
+
+---
+
 ### [December 6, 2025] - Verbose Logging Cleanup & Runtime Toggles
 **Target:** TECHNICAL-REFERENCE.md
 **Section:** Voice Pipeline / Debugging & Diagnostics
