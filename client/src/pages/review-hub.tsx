@@ -27,7 +27,7 @@ import {
   ArrowRight,
   Trophy,
   Target,
-  Mic,
+  Phone,
   Calendar,
   ClipboardList,
   AlertCircle,
@@ -239,9 +239,9 @@ export default function ReviewHub() {
         <div className="flex items-center gap-3 flex-wrap mt-1">
           <LearningContextFilter />
           <Link href="/chat" onClick={() => forceNewConversation()}>
-            <Button size="lg" className="gap-2" data-testid="button-start-practice">
-              <Mic className="h-5 w-5" />
-              Start Practice
+            <Button size="lg" className="gap-2" data-testid="button-call-tutor">
+              <Phone className="h-5 w-5" />
+              Call a Tutor
             </Button>
           </Link>
         </div>
@@ -486,16 +486,16 @@ export default function ReviewHub() {
             );
           })()}
 
-          {/* Start New Practice */}
+          {/* Call a Tutor */}
           <Link href="/chat">
-            <div className="flex items-center justify-between p-3 rounded-lg border border-dashed hover-elevate cursor-pointer" data-testid="link-new-practice">
+            <div className="flex items-center justify-between p-3 rounded-lg border border-dashed hover-elevate cursor-pointer" data-testid="link-call-tutor">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-full bg-primary/10">
-                  <Mic className="h-5 w-5 text-primary" />
+                  <Phone className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="font-medium">Start new conversation</p>
-                  <p className="text-sm text-muted-foreground">Practice with your AI tutor</p>
+                  <p className="font-medium">Call a Tutor</p>
+                  <p className="text-sm text-muted-foreground">Start a conversation with your AI tutor</p>
                 </div>
               </div>
               <Button variant="ghost" size="icon">
@@ -856,16 +856,16 @@ export default function ReviewHub() {
           <CardContent>
             <div className="max-w-md mx-auto">
               <div className="p-4 rounded-full bg-primary/10 w-fit mx-auto mb-4">
-                <Mic className="h-12 w-12 text-primary" />
+                <Phone className="h-12 w-12 text-primary" />
               </div>
               <h2 className="text-xl font-semibold mb-2">Start Your Learning Journey</h2>
               <p className="text-muted-foreground mb-6">
-                Have your first conversation with your AI tutor to start building your personalized learning dashboard.
+                Call your AI tutor to start building your personalized learning dashboard.
               </p>
               <Link href="/chat">
                 <Button size="lg" className="gap-2">
-                  <Play className="h-5 w-5" />
-                  Start First Conversation
+                  <Phone className="h-5 w-5" />
+                  Call a Tutor
                 </Button>
               </Link>
             </div>
