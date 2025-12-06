@@ -18,6 +18,7 @@ interface VoiceChatViewManagerProps {
   isProcessing?: boolean;
   isPlaying: boolean;
   isConnecting?: boolean;
+  onEndCall?: () => void;
   tutorGender?: 'male' | 'female';
   voiceSpeed?: VoiceSpeed;
   setTutorGender?: (gender: 'male' | 'female') => void;
@@ -45,6 +46,7 @@ export function VoiceChatViewManager({
   isProcessing,
   isPlaying,
   isConnecting = false,
+  onEndCall,
   tutorGender = "female",
   voiceSpeed,
   setTutorGender,
@@ -153,6 +155,7 @@ export function VoiceChatViewManager({
                 isPlaying={isPlaying}
                 isConnecting={isConnecting}
                 onToggleView={toggleView}
+                onEndCall={onEndCall}
                 tutorGender={tutorGender}
                 voiceSpeed={voiceSpeed}
                 setTutorGender={setTutorGender}

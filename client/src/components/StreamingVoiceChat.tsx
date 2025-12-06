@@ -1242,6 +1242,57 @@ export function StreamingVoiceChat({
     }
   };
 
+  const handleEndCall = () => {
+    console.log('[END CALL] User requested to end voice session');
+    
+    // Disconnect streaming voice FIRST - this is synchronous and immediately:
+    // 1. Sets intentionalDisconnect = true (prevents auto-reconnect)
+    // 2. Clears any pending reconnect timer
+    // 3. Sends end_session message and closes WebSocket
+    streamingVoice.disconnect();
+    streamingConnectedRef.current = false;
+    
+    // Stop any ongoing recording - the stop() callback will trigger cleanupRecording()
+    // Only call cleanupRecording() directly if recorder isn't active
+    const recorderWasActive = mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording';
+    if (recorderWasActive) {
+      try {
+        mediaRecorderRef.current!.stop();
+        // The onstop callback will handle cleanup
+      } catch (e) {
+        console.log('[END CALL] MediaRecorder stop error, cleaning up directly');
+        cleanupRecording();
+      }
+    } else {
+      // Recorder not active, cleanup state directly
+      cleanupRecording();
+    }
+    
+    // Stop any audio playback
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current.currentTime = 0;
+    }
+    
+    // Reset all UI state
+    setAvatarState('idle');
+    setIsProcessing(false);
+    isProcessingRef.current = false;
+    setProcessingStage(null);
+    setIsRecording(false);
+    setIsMicPreparing(false);
+    setCurrentPlayingMessageId(null);
+    setError(null);
+    
+    // Clear whiteboard
+    whiteboard.clear();
+    
+    // Reset subtitles
+    streamingVoice.subtitles.reset();
+    
+    console.log('[END CALL] Voice session ended cleanly');
+  };
+
   const processRecording = async (audioBlob: Blob, targetConversationId: string) => {
     if (!targetConversationId) {
       console.log('[PROCESS] Skipping - no conversation');
@@ -1679,6 +1730,7 @@ export function StreamingVoiceChat({
           isProcessing={isProcessing}
           isPlaying={avatarState === 'speaking'}
           isConnecting={useStreamingMode && (streamingVoice.state.connectionState === 'connecting' || streamingVoice.state.connectionState === 'connected' || streamingVoice.state.connectionState === 'reconnecting')}
+          onEndCall={handleEndCall}
           tutorGender={tutorGender}
           voiceSpeed={voiceSpeed}
           setTutorGender={(gender) => {

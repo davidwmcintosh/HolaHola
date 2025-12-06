@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, MessageSquare, RefreshCw, Trash2, Loader2 } from "lucide-react";
+import { Mic, MicOff, MessageSquare, RefreshCw, Trash2, Loader2, PhoneOff } from "lucide-react";
 import { type Message } from "@shared/schema";
 import { type VoiceSpeed } from "@/contexts/LanguageContext";
 import {
@@ -33,6 +33,7 @@ interface ImmersiveTutorProps {
   isPlaying: boolean;
   isConnecting?: boolean;
   onToggleView?: () => void;
+  onEndCall?: () => void;
   tutorGender?: 'male' | 'female';
   voiceSpeed?: VoiceSpeed;
   setTutorGender?: (gender: 'male' | 'female') => void;
@@ -60,6 +61,7 @@ export function ImmersiveTutor({
   isPlaying,
   isConnecting = false,
   onToggleView,
+  onEndCall,
   tutorGender = "female",
   voiceSpeed = "normal",
   setTutorGender,
@@ -156,8 +158,22 @@ export function ImmersiveTutor({
         </p>
         
         <div className="flex justify-center items-center gap-3">
-        {/* History toggle removed from bottom - already available via Live/History badges at top */}
-        {/* Replay button removed: PLAY whiteboard tool handles repetition */}
+        {/* End Call Button - always enabled, allows hanging up even mid-processing */}
+        {onEndCall && (
+          <div className="flex flex-col items-center gap-1">
+            <Button
+              variant="destructive"
+              size="icon"
+              onClick={onEndCall}
+              className="rounded-full"
+              data-testid="button-end-call"
+              aria-label="End voice session"
+            >
+              <PhoneOff className="h-5 w-5" />
+            </Button>
+            <span className="text-[10px] text-muted-foreground">End Call</span>
+          </div>
+        )}
 
         {/* Main Recording Button (Push-to-Talk) */}
         {/* Uses explicit touch AND pointer events for reliable mobile support */}
