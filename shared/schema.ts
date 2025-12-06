@@ -19,7 +19,37 @@ export const syllabusStatusEnum = pgEnum('syllabus_status', ['not_started', 'in_
 // 2 = Flexible Goals: Student can choose topics within lesson objectives (e.g., pick travel destination)
 // 3 = Open Exploration: Student-led conversation, tutor suggests learning connections
 // 4 = Free Conversation: Minimal structure, maximum practice, still tracks progress
+// NOTE: Being deprecated in favor of Daniela's Compass time-aware system
 export const tutorFreedomLevelEnum = pgEnum('tutor_freedom_level', ['guided', 'flexible_goals', 'open_exploration', 'free_conversation']);
+
+// ===== Daniela's Compass Enums =====
+// Time-aware tutoring system that gives tutors real-time context instead of preset flexibility levels
+
+// Tutor session status - tracks the lifecycle of a tutoring session
+export const tutorSessionStatusEnum = pgEnum('tutor_session_status', [
+  'scheduled',     // Session planned but not started
+  'active',        // Session currently in progress
+  'paused',        // Session temporarily paused
+  'completed',     // Session ended normally
+  'abandoned'      // Session ended without proper wrap-up
+]);
+
+// Topic coverage status - tracks progress on individual topics within a session
+export const topicCoverageStatusEnum = pgEnum('topic_coverage_status', [
+  'pending',       // Topic not yet started
+  'in_progress',   // Currently being covered
+  'covered',       // Topic successfully covered
+  'partial',       // Topic partially covered, needs follow-up
+  'deferred',      // Topic explicitly moved to next session
+  'skipped'        // Topic skipped (not needed or out of time)
+]);
+
+// Topic priority - distinguishes must-have vs nice-to-have objectives
+export const topicPriorityEnum = pgEnum('topic_priority', [
+  'must_have',     // Essential objective for this session
+  'nice_to_have',  // Secondary objective if time permits
+  'bonus'          // Extra content for fast learners
+]);
 
 // Replit Auth Integration - Session storage table
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
@@ -1676,6 +1706,165 @@ export type LessonVisualAid = typeof lessonVisualAids.$inferSelect;
 
 export type InsertCulturalTipMedia = z.infer<typeof insertCulturalTipMediaSchema>;
 export type CulturalTipMedia = typeof culturalTipMedia.$inferSelect;
+
+// ===== Daniela's Compass - Time-Aware Tutoring System =====
+// Gives tutors real-time context (clock, syllabus, pacing) instead of preset flexibility levels
+
+// Tutor Sessions - Tracks each tutoring session with time awareness
+// This is the core table for Daniela's Compass - one record per tutoring session
+export const tutorSessions = pgTable("tutor_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  classId: varchar("class_id"), // Optional - links to teacherClasses for class-based sessions
+  
+  // Session timing
+  scheduledDurationMinutes: integer("scheduled_duration_minutes").default(30), // Expected session length
+  warmthBufferMinutes: integer("warmth_buffer_minutes").default(3), // Time budgeted for connection
+  startedAt: timestamp("started_at"), // When session actually started
+  endedAt: timestamp("ended_at"), // When session ended
+  
+  // Session status
+  status: tutorSessionStatusEnum("status").default("scheduled"),
+  
+  // Student context (snapshot at session start for fast prompt assembly)
+  studentName: varchar("student_name"),
+  studentGoals: text("student_goals"), // Why they're learning (travel, work, family)
+  studentInterests: text("student_interests"), // What lights them up
+  lastSessionSummary: text("last_session_summary"), // Brief recap of previous session
+  
+  // Pacing data (updated during session)
+  elapsedSeconds: integer("elapsed_seconds").default(0), // Running total
+  topicsCoveredJson: text("topics_covered_json"), // JSON array of completed topic IDs
+  topicsPendingJson: text("topics_pending_json"), // JSON array of remaining topic IDs
+  
+  // Post-session summary (filled at end)
+  sessionSummary: text("session_summary"), // What was accomplished
+  deferredTopicsJson: text("deferred_topics_json"), // Topics moved to next session
+  tutorNotes: text("tutor_notes"), // Daniela's notes for next time
+  
+  // Legacy compatibility - maps to old flexibility level during transition
+  legacyFreedomLevel: tutorFreedomLevelEnum("legacy_freedom_level"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_tutor_sessions_conversation").on(table.conversationId),
+  index("idx_tutor_sessions_user").on(table.userId),
+  index("idx_tutor_sessions_class").on(table.classId),
+  index("idx_tutor_sessions_status").on(table.status),
+]);
+
+// Session Topics - Individual learning objectives within a session
+// Tracks must-have vs nice-to-have goals and their completion status
+export const tutorSessionTopics = pgTable("tutor_session_topics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => tutorSessions.id),
+  
+  // Topic definition
+  title: varchar("title").notNull(), // "Learn greetings", "Practice numbers 1-10"
+  description: text("description"), // More detail if needed
+  priority: topicPriorityEnum("priority").default("must_have"),
+  
+  // Time estimation
+  targetMinutes: integer("target_minutes").default(10), // Suggested time for this topic
+  elapsedSeconds: integer("elapsed_seconds").default(0), // Actual time spent
+  
+  // Progress tracking
+  status: topicCoverageStatusEnum("status").default("pending"),
+  coverageNotes: text("coverage_notes"), // What was actually covered
+  
+  // Ordering
+  sortOrder: integer("sort_order").default(0), // Display order in roadmap
+  
+  // Source tracking (optional)
+  syllabusUnitId: varchar("syllabus_unit_id"), // If from a curriculum
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_session_topics_session").on(table.sessionId),
+  index("idx_session_topics_status").on(table.status),
+]);
+
+// Parking Lot Items - Tangents and ideas to revisit later
+// Daniela can "park" interesting tangents without derailing the lesson
+export const tutorParkingItems = pgTable("tutor_parking_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => tutorSessions.id),
+  
+  // Content
+  content: text("content").notNull(), // "Student curious about subjunctive mood"
+  context: text("context"), // What prompted this (e.g., "Asked during greetings lesson")
+  
+  // Tracking
+  carryForward: boolean("carry_forward").default(true), // Should this show in next session?
+  resolvedAt: timestamp("resolved_at"), // When this was addressed
+  resolvedInSessionId: varchar("resolved_in_session_id"), // Which session addressed it
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_parking_items_session").on(table.sessionId),
+  index("idx_parking_items_unresolved").on(table.carryForward, table.resolvedAt),
+]);
+
+// Insert schemas and types for Compass tables
+export const insertTutorSessionSchema = createInsertSchema(tutorSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTutorSessionTopicSchema = createInsertSchema(tutorSessionTopics).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTutorParkingItemSchema = createInsertSchema(tutorParkingItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertTutorSession = z.infer<typeof insertTutorSessionSchema>;
+export type TutorSession = typeof tutorSessions.$inferSelect;
+
+export type InsertTutorSessionTopic = z.infer<typeof insertTutorSessionTopicSchema>;
+export type TutorSessionTopic = typeof tutorSessionTopics.$inferSelect;
+
+export type InsertTutorParkingItem = z.infer<typeof insertTutorParkingItemSchema>;
+export type TutorParkingItem = typeof tutorParkingItems.$inferSelect;
+
+// Session status type
+export type TutorSessionStatus = 'scheduled' | 'active' | 'paused' | 'completed' | 'abandoned';
+export type TopicCoverageStatus = 'pending' | 'in_progress' | 'covered' | 'partial' | 'deferred' | 'skipped';
+export type TopicPriority = 'must_have' | 'nice_to_have' | 'bonus';
+
+// Compass context type - what Daniela receives each turn
+export interface CompassContext {
+  // Student snapshot
+  studentName: string | null;
+  studentGoals: string | null;
+  studentInterests: string | null;
+  lastSessionSummary: string | null;
+  
+  // Today's roadmap
+  sessionDurationMinutes: number;
+  warmthBufferMinutes: number;
+  mustHaveTopics: Array<{ id: string; title: string; targetMinutes: number; status: TopicCoverageStatus }>;
+  niceToHaveTopics: Array<{ id: string; title: string; targetMinutes: number; status: TopicCoverageStatus }>;
+  
+  // Live pacing
+  elapsedSeconds: number;
+  remainingSeconds: number;
+  topicsCovered: string[];
+  topicsPending: string[];
+  isOnTrack: boolean; // Soft indicator
+  
+  // Parking lot
+  parkingLotItems: Array<{ id: string; content: string; createdAt: Date }>;
+  
+  // Legacy fallback
+  legacyFreedomLevel?: TutorFreedomLevel;
+}
 
 // ===== Organization System Types (Phases 2 & 3) =====
 
