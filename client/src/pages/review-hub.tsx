@@ -40,6 +40,7 @@ import {
   Languages,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { SyllabusTimeProgress } from "@/components/SyllabusTimeProgress";
 import type { VocabularyWord, Conversation, CulturalTip, UserLesson, Topic } from "@shared/schema";
 
 interface UpcomingAssignment {
@@ -735,6 +736,21 @@ export default function ReviewHub() {
               </div>
             </CardContent>
           </Card>
+        );
+      })()}
+      
+      {/* Syllabus Time Progress - Shows expected vs actual time per unit */}
+      {(() => {
+        const isClassContext = learningContext && !learningContext.includes('self-directed') && learningContext !== 'all';
+        const syllabus = data?.syllabusOverview;
+        
+        if (!isClassContext || !syllabus) return null;
+        
+        return (
+          <SyllabusTimeProgress 
+            classId={syllabus.classId} 
+            compact={false}
+          />
         );
       })()}
 

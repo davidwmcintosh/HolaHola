@@ -6,6 +6,7 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { ActflFluencyDial } from "@/components/ActflFluencyDial";
 import { UsageOverview, SessionHistory } from "@/components/SessionHistory";
 import { LearningAlerts } from "@/components/LearningAlerts";
+import { LearningPaceCard } from "@/components/LearningPaceCard";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,7 @@ export default function Dashboard() {
           </div>
           <div className="space-y-6">
             <ActflFluencyDial />
+            <LearningPaceCard />
             <StreakIndicator />
           </div>
         </div>
