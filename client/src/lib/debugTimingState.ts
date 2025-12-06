@@ -11,6 +11,8 @@
  * another copy's listeners never receive updates.
  */
 
+import { isVerboseLoggingEnabled } from './audioUtils';
+
 // Forward declaration for window storage (defined after DebugTimingState interface)
 declare global {
   interface Window {
@@ -224,7 +226,9 @@ const MAX_WORD_EVENTS = 20;
  */
 function getDebugState(): DebugTimingState {
   if (!window.__debugTimingState) {
-    console.log('[DebugTimingState] Creating singleton state on window');
+    if (isVerboseLoggingEnabled()) {
+      console.log('[DebugTimingState] Creating singleton state on window');
+    }
     window.__debugTimingState = {
       isLoopRunning: false,
       currentCtxTime: 0,
@@ -329,7 +333,9 @@ function getDebugState(): DebugTimingState {
 type DebugStateListener = (state: DebugTimingState) => void;
 function getListeners(): Set<DebugStateListener> {
   if (!window.__debugTimingListeners) {
-    console.log('[DebugTimingState] Creating singleton listeners on window');
+    if (isVerboseLoggingEnabled()) {
+      console.log('[DebugTimingState] Creating singleton listeners on window');
+    }
     window.__debugTimingListeners = new Set();
   }
   return window.__debugTimingListeners;
@@ -409,7 +415,7 @@ export function registerPlayerInstance(instanceId: string): void {
   
   if (newCount > 1) {
     console.error(`[DebugTimingState] ⚠️ MULTIPLE PLAYER INSTANCES! Count=${newCount} New=${instanceId} Old=${currentState.playerInstanceId}`);
-  } else {
+  } else if (isVerboseLoggingEnabled()) {
     console.log(`[DebugTimingState] ✓ Player registered: ${instanceId}`);
   }
   

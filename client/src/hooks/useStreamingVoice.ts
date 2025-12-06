@@ -9,7 +9,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { getStreamingVoiceClient, StreamingVoiceClient } from '../lib/streamingVoiceClient';
-import { getStreamingAudioPlayer, StreamingAudioPlayer, StreamingAudioChunk, StreamingPlaybackState } from '../lib/audioUtils';
+import { getStreamingAudioPlayer, StreamingAudioPlayer, StreamingAudioChunk, StreamingPlaybackState, isVerboseLoggingEnabled } from '../lib/audioUtils';
 import { useStreamingSubtitles, UseStreamingSubtitlesReturn } from './useStreamingSubtitles';
 import { logAudioChunkReceived, updateDebugTimingState } from '../lib/debugTimingState';
 import { 
@@ -117,10 +117,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     const noPendingAudio = pendingAudioCountRef.current === 0;
     
     if (isComplete && noPendingAudio) {
-      console.log('[StreamingVoice] Response complete AND no pending audio - clearing isProcessing');
+      if (isVerboseLoggingEnabled()) {
+        console.log('[StreamingVoice] Response complete AND no pending audio - clearing isProcessing');
+      }
       setIsProcessingRef.current(false);
       // Don't reset responseCompleteRef here - let sendAudio do it
-    } else {
+    } else if (isVerboseLoggingEnabled()) {
       console.log(`[StreamingVoice] Not clearing: complete=${isComplete}, pending=${pendingAudioCountRef.current}`);
     }
   }, []);
@@ -148,7 +150,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // IMPORTANT: Use subtitlesRef.current to get latest subtitles (avoids stale closure)
     playerRef.current.setCallbacks({
       onStateChange: (state) => {
-        console.log(`[StreamingVoice] Playback state: ${state}`);
+        if (isVerboseLoggingEnabled()) {
+          console.log(`[StreamingVoice] Playback state: ${state}`);
+        }
         setPlaybackState(state);
       },
       onProgress: (currentTime, duration) => {
@@ -157,20 +161,26 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         subtitlesRef.current.updatePlaybackTime(currentTime, duration);
       },
       onSentenceStart: (sentenceIndex) => {
-        console.log(`[StreamingVoice] Sentence ${sentenceIndex} started (turn ${currentTurnIdRef.current})`);
+        if (isVerboseLoggingEnabled()) {
+          console.log(`[StreamingVoice] Sentence ${sentenceIndex} started (turn ${currentTurnIdRef.current})`);
+        }
         // Update debug state for tracking
         updateDebugTimingState({ lastOnSentenceStartFired: sentenceIndex });
         // Pass turnId for subtitle packet ordering (prevents phantom subtitles)
         subtitlesRef.current.startPlayback(sentenceIndex, currentTurnIdRef.current);
       },
       onSentenceEnd: (sentenceIndex) => {
-        console.log(`[StreamingVoice] Sentence ${sentenceIndex} ended (turn ${currentTurnIdRef.current})`);
+        if (isVerboseLoggingEnabled()) {
+          console.log(`[StreamingVoice] Sentence ${sentenceIndex} ended (turn ${currentTurnIdRef.current})`);
+        }
         // Update debug state for tracking
         updateDebugTimingState({ lastOnSentenceEndFired: sentenceIndex });
         subtitlesRef.current.completeSentence(sentenceIndex, currentTurnIdRef.current);
       },
       onComplete: () => {
-        console.log('[StreamingVoice] Playback queue empty');
+        if (isVerboseLoggingEnabled()) {
+          console.log('[StreamingVoice] Playback queue empty');
+        }
         // Only stop subtitles when response is truly complete
         // Don't stop during buffer gaps between sentences
         if (responseCompleteRef.current && pendingAudioCountRef.current === 0) {
@@ -187,7 +197,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         // Note: Don't reset refs here - player.stop() will handle that
       },
       onPendingAudioChange: (count) => {
-        console.log(`[StreamingVoice] Pending audio: ${count}`);
+        if (isVerboseLoggingEnabled()) {
+          console.log(`[StreamingVoice] Pending audio: ${count}`);
+        }
         pendingAudioCountRef.current = count;
         // If no pending audio and response complete, clear isProcessing
         if (count === 0) {
@@ -210,7 +222,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * preventing stale onSentenceStart callbacks from mixing with new turn.
    */
   const handleProcessing = useCallback((msg: StreamingProcessingMessage) => {
-    console.log(`[StreamingVoice] Processing turn ${msg.turnId}: "${msg.userTranscript.substring(0, 30)}..."`);
+    if (isVerboseLoggingEnabled()) {
+      console.log(`[StreamingVoice] Processing turn ${msg.turnId}: "${msg.userTranscript.substring(0, 30)}..."`);
+    }
     
     // Store turnId for use in callbacks
     currentTurnIdRef.current = msg.turnId;
@@ -233,7 +247,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * CRITICAL: Uses subtitlesRef.current to avoid stale closure issues.
    */
   const handleSentenceStart = useCallback((msg: StreamingSentenceStartMessage) => {
-    console.log(`[StreamingVoice] Sentence ${msg.sentenceIndex} (turn ${msg.turnId}): "${msg.text.substring(0, 40)}..." hasTarget=${msg.hasTargetContent}`);
+    if (isVerboseLoggingEnabled()) {
+      console.log(`[StreamingVoice] Sentence ${msg.sentenceIndex} (turn ${msg.turnId}): "${msg.text.substring(0, 40)}..." hasTarget=${msg.hasTargetContent}`);
+    }
     
     // Store turnId for callbacks (in case processing message wasn't received)
     if (msg.turnId > currentTurnIdRef.current) {
@@ -272,11 +288,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       w._lastChunk = { s: msg.sentenceIndex, c: msg.chunkIndex, t: Date.now() };
     }
     
-    // Force log with console.error to ensure capture
-    console.error(`[CHUNK RECEIVED] sentence=${msg.sentenceIndex}, chunk=${msg.chunkIndex}, format=${msg.audioFormat}, isLast=${msg.isLast}, audioLen=${msg.audio?.length || 0}`);
+    // Force log with console.error to ensure capture - only when verbose
+    if (isVerboseLoggingEnabled()) {
+      console.error(`[CHUNK RECEIVED] sentence=${msg.sentenceIndex}, chunk=${msg.chunkIndex}, format=${msg.audioFormat}, isLast=${msg.isLast}, audioLen=${msg.audio?.length || 0}`);
+    }
     
     // CRITICAL DEBUG: Track empty chunks specifically
-    if (msg.isLast && (!msg.audio || msg.audio.length === 0)) {
+    if (msg.isLast && (!msg.audio || msg.audio.length === 0) && isVerboseLoggingEnabled()) {
       console.error(`[EMPTY CHUNK RECEIVED] sentence=${msg.sentenceIndex}, chunk=${msg.chunkIndex} - THIS IS A SENTENCE-END MARKER`);
     }
     
@@ -288,7 +306,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     const formatLabel = msg.audioFormat === 'pcm_f32le' ? 'PCM' : 'MP3';
     // Ensure chunkIndex is a number, not a string
     const chunkIndex = typeof msg.chunkIndex === 'number' ? msg.chunkIndex : parseInt(msg.chunkIndex as any, 10) || 0;
-    console.log(`[StreamingVoice] Processing audio chunk (${formatLabel}): turn=${msg.turnId}, sentence=${msg.sentenceIndex}, chunk=${chunkIndex}, base64Len=${msg.audio?.length || 0}, isLast=${msg.isLast}`);
+    if (isVerboseLoggingEnabled()) {
+      console.log(`[StreamingVoice] Processing audio chunk (${formatLabel}): turn=${msg.turnId}, sentence=${msg.sentenceIndex}, chunk=${chunkIndex}, base64Len=${msg.audio?.length || 0}, isLast=${msg.isLast}`);
+    }
     
     // Decode base64 to ArrayBuffer
     const binaryString = atob(msg.audio);
@@ -297,7 +317,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       bytes[i] = binaryString.charCodeAt(i);
     }
     
-    console.log(`[StreamingVoice] Audio decoded: ${bytes.buffer.byteLength} bytes (${formatLabel}) for sentence ${msg.sentenceIndex}`);
+    if (isVerboseLoggingEnabled()) {
+      console.log(`[StreamingVoice] Audio decoded: ${bytes.buffer.byteLength} bytes (${formatLabel}) for sentence ${msg.sentenceIndex}`);
+    }
     
     // PROGRESSIVE STREAMING: Use progressive playback for PCM chunks
     // This schedules audio for gapless playback as chunks arrive,
@@ -344,7 +366,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    */
   const handleWordTiming = useCallback((msg: StreamingWordTimingMessage) => {
     const isBufferedMode = !STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING;
-    console.log(`[WORD_TIMING] Sentence ${msg.sentenceIndex}: ${msg.timings.length} words received (mode: ${isBufferedMode ? 'buffered' : 'progressive'})`);
+    if (isVerboseLoggingEnabled()) {
+      console.log(`[WORD_TIMING] Sentence ${msg.sentenceIndex}: ${msg.timings.length} words received (mode: ${isBufferedMode ? 'buffered' : 'progressive'})`);
+    }
     
     // BUFFERED MODE ONLY: Register ALL word timings with the audio player for karaoke highlighting
     // This populates wordSchedule BEFORE audio playback starts
@@ -360,7 +384,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
           timing.endTime
         );
       }
-      console.log(`[WORD_TIMING] Registered ${msg.timings.length} timings with audio player (buffered mode)`);
+      if (isVerboseLoggingEnabled()) {
+        console.log(`[WORD_TIMING] Registered ${msg.timings.length} timings with audio player (buffered mode)`);
+      }
     }
     
     // Always update subtitle hook for UI state (both modes)
@@ -376,7 +402,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * subtitles object, and progressive word timings would be lost.
    */
   const handleWordTimingDelta = useCallback((msg: StreamingWordTimingDeltaMessage) => {
-    console.log(`[DELTA RECEIVED] sentence=${msg.sentenceIndex}, word=${msg.wordIndex} "${msg.word}"`);
+    if (isVerboseLoggingEnabled()) {
+      console.log(`[DELTA RECEIVED] sentence=${msg.sentenceIndex}, word=${msg.wordIndex} "${msg.word}"`);
+    }
     
     // WORD-BASED TIMING: Register word with ABSOLUTE AudioContext times
     // This enables direct word matching in the timing loop
@@ -414,7 +442,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const handleSentenceReady = useCallback((msg: StreamingSentenceReadyMessage) => {
     const { sentenceIndex, turnId, firstAudioChunk, firstWordTimings, estimatedTotalDuration } = msg;
     
-    console.error(`[SENTENCE_READY HANDLER] sentence=${sentenceIndex}, turn=${turnId}, timings=${firstWordTimings.length} words`);
+    if (isVerboseLoggingEnabled()) {
+      console.error(`[SENTENCE_READY HANDLER] sentence=${sentenceIndex}, turn=${turnId}, timings=${firstWordTimings.length} words`);
+    }
     
     // SAFETY CHECK: Verify we have timing data before starting playback
     // This should never happen if server is correctly buffering, but belt-and-suspenders
@@ -463,7 +493,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         bytes[i] = binaryString.charCodeAt(i);
       }
       
-      console.error(`[SENTENCE_READY] Enqueueing first audio chunk: ${bytes.buffer.byteLength} bytes`);
+      if (isVerboseLoggingEnabled()) {
+        console.error(`[SENTENCE_READY] Enqueueing first audio chunk: ${bytes.buffer.byteLength} bytes`);
+      }
       
       // Enqueue for progressive playback
       if (firstAudioChunk.audioFormat === 'pcm_f32le') {
@@ -505,7 +537,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * premature timing loop termination between sentences.
    */
   const handleResponseComplete = useCallback((msg: StreamingResponseCompleteMessage) => {
-    console.log(`[StreamingVoice] Server signaled response complete: ${msg.totalSentences} sentences`);
+    if (isVerboseLoggingEnabled()) {
+      console.log(`[StreamingVoice] Server signaled response complete: ${msg.totalSentences} sentences`);
+    }
     setMetrics(msg.metrics || null);
     
     // CRITICAL: Tell the audio player how many sentences this turn has
@@ -541,7 +575,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * Connect to streaming voice service and start a session
    */
   const connect = useCallback(async (config: StreamingSessionConfig) => {
-    console.log(`[StreamingVoice] Connecting for conversation ${config.conversationId}`);
+    if (isVerboseLoggingEnabled()) {
+      console.log(`[StreamingVoice] Connecting for conversation ${config.conversationId}`);
+    }
     
     // Store config for callbacks (e.g., onResponseComplete)
     sessionConfigRef.current = config;
@@ -567,7 +603,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       
       // Connect WebSocket
       await clientRef.current.connect(config.conversationId);
-      console.log('[StreamingVoice] WebSocket connected, starting session...');
+      if (isVerboseLoggingEnabled()) {
+        console.log('[StreamingVoice] WebSocket connected, starting session...');
+      }
       
       // Start session with config - this triggers server to send 'connected' message
       // which will transition state to 'ready'
@@ -583,7 +621,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         voiceSpeed: config.voiceSpeed,
       });
       
-      console.log('[StreamingVoice] Session started, waiting for ready state...');
+      if (isVerboseLoggingEnabled()) {
+        console.log('[StreamingVoice] Session started, waiting for ready state...');
+      }
       
     } catch (err: any) {
       console.error('[StreamingVoice] Connection failed:', err);
@@ -596,7 +636,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * Disconnect from streaming voice service
    */
   const disconnect = useCallback(() => {
-    console.log('[StreamingVoice] Disconnecting');
+    if (isVerboseLoggingEnabled()) {
+      console.log('[StreamingVoice] Disconnecting');
+    }
     
     if (clientRef.current) {
       clientRef.current.off('stateChange', setConnectionState);
@@ -635,7 +677,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       throw new Error('Not connected to streaming voice service');
     }
     
-    console.log(`[StreamingVoice] Sending ${audioData.byteLength} bytes of audio`);
+    if (isVerboseLoggingEnabled()) {
+      console.log(`[StreamingVoice] Sending ${audioData.byteLength} bytes of audio`);
+    }
     
     // Reset state for new request
     responseCompleteRef.current = false;
@@ -676,7 +720,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       return;
     }
     
-    console.log(`[StreamingVoice] Requesting AI greeting... (resumed: ${isResumed || false})`);
+    if (isVerboseLoggingEnabled()) {
+      console.log(`[StreamingVoice] Requesting AI greeting... (resumed: ${isResumed || false})`);
+    }
     
     // Reset state for greeting
     responseCompleteRef.current = false;
@@ -701,7 +747,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       return;
     }
     
-    console.log(`[StreamingVoice] Updating voice to ${tutorGender}`);
+    if (isVerboseLoggingEnabled()) {
+      console.log(`[StreamingVoice] Updating voice to ${tutorGender}`);
+    }
     clientRef.current.updateVoice(tutorGender);
   }, []);
   
@@ -709,7 +757,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * Stop playback and processing
    */
   const stop = useCallback(() => {
-    console.log('[StreamingVoice] Stopping');
+    if (isVerboseLoggingEnabled()) {
+      console.log('[StreamingVoice] Stopping');
+    }
     
     playerRef.current?.stop();
     subtitles.stopPlayback();

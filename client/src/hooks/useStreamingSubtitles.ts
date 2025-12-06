@@ -20,7 +20,7 @@ import {
   logTimingEvent,
   difficultyToProficiencyBand
 } from '../lib/subtitlePolicies';
-import { updateDebugTimingState, updateTimingComparison, clearWordState, getDebugTimingState } from '../lib/debugTimingState';
+import { updateDebugTimingState, updateTimingComparison, clearWordState, getDebugTimingState, isVerboseLoggingEnabled } from '../lib/debugTimingState';
 
 /**
  * A contiguous block of target language words
@@ -167,9 +167,6 @@ function computeTargetBlocks(
     blocks[blocks.length - 1].isTeachingBlock = true;
   }
   
-  console.log(`[TargetBlocks] Computed ${blocks.length} block(s) from "${targetText}":`, 
-    blocks.map(b => `"${b.text}" (display ${b.displayStartIndex}-${b.displayEndIndex}, ${b.isTeachingBlock ? 'TEACHING' : 'encouragement'})`));
-  
   return blocks;
 }
 
@@ -240,43 +237,38 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
    */
   const setTurnId = useCallback((turnId: number) => {
     // ONLY reset state for a NEW (strictly greater) turn
-    // This prevents clearing state when the same turnId is received multiple times
     if (turnId <= currentTurnId) {
-      console.log(`[StreamingSubtitles v2] setTurnId(${turnId}) - same or older turn (current: ${currentTurnId}), skipping reset`);
       return;
     }
     
-    console.log(`[StreamingSubtitles v2] ═══════════════════════════════════════════`);
-    console.log(`[StreamingSubtitles v2] NEW TURN: ${turnId} (previous: ${currentTurnId})`);
-    console.log(`[StreamingSubtitles v2] Clearing all state and refs...`);
+    if (isVerboseLoggingEnabled()) {
+      console.log(`[StreamingSubtitles v2] NEW TURN: ${turnId} (previous: ${currentTurnId})`);
+    }
     
     // Clear ALL state for new turn - prevents stale data from persisting
     setCurrentTurnId(turnId);
-    setHasTargetContent(false);  // CRITICAL: Force immediate hiding of target subtitles
-    setHasShownTeachingBlock(false);  // Reset teaching block persistence
+    setHasTargetContent(false);
+    setHasShownTeachingBlock(false);
     setSentences([]);
     setCurrentSentenceIndex(-1);
     setCurrentWordIndex(-1);
     setVisibleWordCount(0);
     setMaxTargetWordIndex(-1);
-    setIsPlaying(false);  // Also stop playback to prevent stale timing
+    setIsPlaying(false);
     
     // Clear ALL refs to prevent stale data
     timingsBySentenceRef.current.clear();
-    progressiveWordMapRef.current.clear();  // PROGRESSIVE STREAMING: Clear sparse accumulator to prevent cross-turn contamination
+    progressiveWordMapRef.current.clear();
     currentTimingsRef.current = [];
-    currentWordMappingRef.current = undefined;  // Clear word mapping to prevent stale target highlighting
+    currentWordMappingRef.current = undefined;
     expectedDurationRef.current = undefined;
     actualDurationRef.current = undefined;
     playbackStartTimeRef.current = 0;
-    activeSentenceRef.current = -1;  // RACE CONDITION FIX: Reset active sentence tracking
+    activeSentenceRef.current = -1;
     
     // Set waiting flag
     isWaitingForContentRef.current = true;
     setIsWaitingForContent(true);
-    
-    console.log(`[StreamingSubtitles v2] State cleared: hasTargetContent=false, sentences=[], isWaitingForContent=true`);
-    console.log(`[StreamingSubtitles v2] ═══════════════════════════════════════════`);
   }, [currentTurnId]);
   
   /**
@@ -293,7 +285,6 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
   ) => {
     // STALE PACKET FILTER: Ignore packets from old turns
     if (turnId < currentTurnId) {
-      console.log(`[StreamingSubtitles v2] ⚠ DROPPING stale sentence (turnId ${turnId} < current ${currentTurnId})`);
       return;
     }
     
@@ -301,42 +292,23 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       ? new Map<number, number>(wordMappingArray)
       : undefined;
     
-    console.log(`[StreamingSubtitles v2] ───────────────────────────────────────────`);
-    console.log(`[StreamingSubtitles v2] ADD SENTENCE ${index} (turn ${turnId})`);
-    console.log(`[StreamingSubtitles v2]   hasTarget: ${hasTarget}`);
-    console.log(`[StreamingSubtitles v2]   targetText: "${targetLanguageText || '(none)'}"`);
-    console.log(`[StreamingSubtitles v2]   wordMapping: ${wordMappingArray ? JSON.stringify(wordMappingArray) : '(none)'}`);
-    console.log(`[StreamingSubtitles v2]   displayText: "${text.substring(0, 60)}..."`);
-    
-    // NOTE: Do NOT clear isWaitingForContent here!
-    // The waiting flag should only be cleared in startPlayback when the sentence ACTUALLY starts playing
-    // Clearing it here creates a race condition: isWaiting=false but streamingText is still empty
-    // because currentSentenceIndex hasn't been updated yet (that happens in startPlayback)
-    // This gap allows the fallback path in ImmersiveTutor to show OLD message text as phantom!
-    
-    // NOTE: Do NOT update hasTargetContent here!
-    // hasTargetContent should only be updated in startPlayback when the sentence ACTUALLY starts playing
-    // Setting it here causes race conditions where sentence N+1's hasTarget value is applied
-    // while sentence N is still playing, causing phantom subtitles
+    if (isVerboseLoggingEnabled()) {
+      console.log(`[StreamingSubtitles v2] ADD SENTENCE ${index} (turn ${turnId})`);
+      console.log(`[StreamingSubtitles v2]   hasTarget: ${hasTarget}, targetText: "${targetLanguageText || '(none)'}"`);
+    }
     
     // Compute target blocks for block-based rendering
     const targetBlocks = hasTarget 
       ? computeTargetBlocks(wordMapping, targetLanguageText)
       : [];
     
-    if (targetBlocks.length > 0) {
-      console.log(`[StreamingSubtitles v2]   TargetBlocks:`, targetBlocks);
-    }
-    
     setSentences(prev => {
       // Check if sentence already exists
       const existing = prev.find(s => s.index === index && s.turnId === turnId);
       if (existing) {
-        console.log(`[StreamingSubtitles v2]   Sentence already exists, skipping`);
         return prev;
       }
       
-      console.log(`[StreamingSubtitles v2]   Adding to sentences array (now ${prev.length + 1} sentences)`);
       return [...prev, {
         index,
         turnId,
@@ -349,7 +321,6 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
         isComplete: false,
       }];
     });
-    console.log(`[StreamingSubtitles v2] ───────────────────────────────────────────`);
   }, [currentTurnId]);
   
   /**
@@ -358,11 +329,12 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
   const setWordTimings = useCallback((sentenceIndex: number, turnId: number, timings: WordTiming[], expectedDurationMs?: number) => {
     // STALE PACKET FILTER
     if (turnId < currentTurnId) {
-      console.log(`[StreamingSubtitles v2] Ignoring stale timings (turnId ${turnId} < current ${currentTurnId})`);
       return;
     }
     
-    console.log(`[StreamingSubtitles v2] Set timings for sentence ${sentenceIndex} (turn ${turnId}): ${timings.length} words`);
+    if (isVerboseLoggingEnabled()) {
+      console.log(`[StreamingSubtitles v2] Set timings for sentence ${sentenceIndex} (turn ${turnId}): ${timings.length} words`);
+    }
     
     // Store in ref for immediate access
     timingsBySentenceRef.current.set(sentenceIndex, { timings, expectedDurationMs });
@@ -429,7 +401,6 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
   ) => {
     // Track first timing arrival for race condition debugging (per-sentence)
     if (wordIndex === 0) {
-      console.error(`[TIMING RECEIVED] FIRST word for sentence ${sentenceIndex}: "${word}" (active=${activeSentenceRef.current})`);
       const state = getDebugTimingState();
       const now = Date.now();
       
@@ -473,14 +444,12 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     
     // STALE PACKET FILTER
     if (turnId < currentTurnId) {
-      console.log(`[StreamingSubtitles v2] Ignoring stale progressive timing (turnId ${turnId} < current ${currentTurnId})`);
       return;
     }
     
     // Track first word's start time for this sentence (for normalization)
     if (wordIndex === 0 && !sentenceStartTimesRef.current.has(sentenceIndex)) {
       sentenceStartTimesRef.current.set(sentenceIndex, startTime);
-      console.log(`[StreamingSubtitles v2] Sentence ${sentenceIndex} start time: ${startTime.toFixed(3)}s`);
     }
     
     // Normalize times relative to sentence start (so first word starts at 0)
@@ -488,7 +457,9 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     const normalizedStartTime = startTime - sentenceStartTime;
     const normalizedEndTime = endTime - sentenceStartTime;
     
-    console.log(`[StreamingSubtitles v2] Progressive timing: sentence ${sentenceIndex}, word ${wordIndex} "${word}" ${normalizedStartTime.toFixed(3)}-${normalizedEndTime.toFixed(3)}s (raw: ${startTime.toFixed(3)}-${endTime.toFixed(3)}s)`);
+    if (isVerboseLoggingEnabled()) {
+      console.log(`[StreamingSubtitles v2] Progressive timing: sentence ${sentenceIndex}, word ${wordIndex} "${word}" ${normalizedStartTime.toFixed(3)}-${normalizedEndTime.toFixed(3)}s`);
+    }
     
     // Build word timing object with NORMALIZED times
     const newTiming: WordTiming = { word, startTime: normalizedStartTime, endTime: normalizedEndTime };
@@ -505,8 +476,8 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     // Convert sparse map to dense array (up to highest contiguous index)
     const timings = sparseToDenseTimings(wordMap);
     
-    // Log if we have out-of-order delivery (stored but not yet in dense array)
-    if (wordIndex >= timings.length && wordMap.size > timings.length) {
+    // Log if we have out-of-order delivery (stored but not yet in dense array) - only when verbose
+    if (isVerboseLoggingEnabled() && wordIndex >= timings.length && wordMap.size > timings.length) {
       console.log(`[StreamingSubtitles v2] Out-of-order word stored (index ${wordIndex}), awaiting earlier indices. Dense: ${timings.length}, Stored: ${wordMap.size}`);
     }
     
@@ -576,7 +547,6 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
   ) => {
     // STALE PACKET FILTER
     if (turnId < currentTurnId) {
-      console.log(`[StreamingSubtitles v2] Ignoring stale final timings (turnId ${turnId} < current ${currentTurnId})`);
       return;
     }
     
@@ -591,7 +561,9 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       endTime: w.endTime - sentenceStartTime
     }));
     
-    console.log(`[StreamingSubtitles v2] Finalize timings for sentence ${sentenceIndex} (turn ${turnId}): ${words.length} words, ${actualDurationMs}ms, normalized from ${sentenceStartTime.toFixed(3)}s`);
+    if (isVerboseLoggingEnabled()) {
+      console.log(`[StreamingSubtitles v2] Finalize timings for sentence ${sentenceIndex} (turn ${turnId}): ${words.length} words, ${actualDurationMs}ms`);
+    }
     
     // Clear progressive word map for this sentence (no longer needed)
     progressiveWordMapRef.current.delete(sentenceIndex);
@@ -618,21 +590,16 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     });
     
     // RACE CONDITION FIX: Use activeSentenceRef instead of currentSentenceIndex state
-    // The ref is updated synchronously in startPlayback, while state updates are async
-    // This ensures word_timing_final correctly updates currentTimingsRef for the active sentence
     if (sentenceIndex === activeSentenceRef.current) {
       currentTimingsRef.current = normalizedWords;
       expectedDurationRef.current = actualDurationMs;
       actualDurationRef.current = actualDurationMs;
-      console.log(`[StreamingSubtitles v2] Finalized timings applied to active sentence ${sentenceIndex}: ${normalizedWords.length} words`);
       
       // Update debug panel with final word count
       updateDebugTimingState({
         finalWordCount: normalizedWords.length,
         wordTimingCount: normalizedWords.length,
       });
-    } else {
-      console.log(`[StreamingSubtitles v2] Finalized timings cached (sentence ${sentenceIndex} != active ${activeSentenceRef.current})`);
     }
   }, [currentTurnId]);
   
@@ -648,12 +615,10 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
   const startPlayback = useCallback((sentenceIndex: number, turnId: number) => {
     // STALE PACKET FILTER
     if (turnId < currentTurnId) {
-      console.log(`[StreamingSubtitles v2] ⚠ DROPPING stale playback start (turnId ${turnId} < current ${currentTurnId})`);
       return;
     }
     
     const cachedCount = timingsBySentenceRef.current.get(sentenceIndex)?.timings.length || 0;
-    console.error(`[SUBTITLE DEBUG] ▶▶▶ startPlayback: sentence=${sentenceIndex}, turn=${turnId}, cachedTimings=${cachedCount}`);
     
     // Track timing race condition for debug panel (per-sentence)
     const state = getDebugTimingState();
@@ -713,17 +678,12 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     if (storedTimings) {
       currentTimingsRef.current = storedTimings.timings;
       expectedDurationRef.current = storedTimings.expectedDurationMs;
-      console.log(`[SUBTITLE DEBUG] LOADED ${storedTimings.timings.length} timings for sentence ${sentenceIndex}`);
     } else {
       currentTimingsRef.current = [];
       expectedDurationRef.current = undefined;
-      console.log(`[SUBTITLE DEBUG] NO CACHED timings for sentence ${sentenceIndex}`);
     }
     
     // ACTFL-level-aware text reveal policy
-    // - If progressiveReveal is false, show all words immediately
-    // - If showFullSentenceBeforeAudio is true, also show all words
-    // This allows intermediate/advanced learners to see full context
     const useProgressiveReveal = shouldRevealProgressively(difficultyRef.current);
     const showFullSentence = shouldShowFullSentenceBeforeAudio(difficultyRef.current);
     
@@ -732,8 +692,6 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       ? currentTimingsRef.current.length 
       : 0;
     
-    console.log(`[StreamingSubtitles v2]   Policy: progressive=${useProgressiveReveal}, fullSentence=${showFullSentence}, initialVisible=${initialVisibleCount}`);
-    
     // CRITICAL FIX: Look up sentence data SYNCHRONOUSLY before any state updates
     // This prevents race conditions where hasTargetContent updates async inside setSentences
     setSentences(prev => {
@@ -741,43 +699,26 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       if (sentence) {
         currentWordMappingRef.current = sentence.wordMapping;
         
-        // Log the transition for debugging
-        console.log(`[StreamingSubtitles v2]   Sentence ${sentenceIndex} hasTarget: ${sentence.hasTargetContent}`);
-        console.log(`[StreamingSubtitles v2]   Sentence ${sentenceIndex} targetText: "${sentence.targetLanguageText || '(none)'}"`);
-        
-        // CRITICAL: Update hasTargetContent FIRST, BEFORE returning from setSentences
-        // This ensures hasTargetContent is in sync with the sentence being played
-        // Previously this was a race condition because setHasTargetContent was async
+        // Update hasTargetContent and sentence state
         setHasTargetContent(sentence.hasTargetContent);
-        
-        // Also update sentence index and other state in same batch
         setCurrentSentenceIndex(sentenceIndex);
         setIsPlaying(true);
-        // ACTFL-aware initial visibility: show all words for non-progressive modes
         setVisibleWordCount(initialVisibleCount);
         setCurrentWordIndex(-1);
         setMaxTargetWordIndex(-1);
-        // CRITICAL: Reset teaching block tracking per sentence
-        // Prevents previous sentence's teaching block from showing before it's reached in new sentence
         setHasShownTeachingBlock(false);
         
         // Update debug panel with current sentence text
-        clearWordState(); // Clear previous sentence's word state
+        clearWordState();
         updateDebugTimingState({
           currentSentenceText: sentence.text,
           currentTargetText: sentence.targetLanguageText || '',
           activeSentenceIndex: sentenceIndex,
         });
       } else {
-        console.warn(`[StreamingSubtitles v2] ⚠ Sentence ${sentenceIndex} (turn ${turnId}) not found in sentences array!`);
-        console.warn(`[StreamingSubtitles v2]   Available sentences:`, prev.map(s => ({ idx: s.index, turnId: s.turnId })));
-        
-        // CRITICAL: Set hasTargetContent to FALSE when sentence not found
-        // This prevents stale hasTargetContent=true from causing phantom subtitles
+        // Sentence not found - set hasTargetContent to false to prevent phantom subtitles
         setHasTargetContent(false);
         currentWordMappingRef.current = undefined;
-        
-        // Still update sentence index even if sentence not found
         setCurrentSentenceIndex(sentenceIndex);
         setIsPlaying(true);
         setVisibleWordCount(0);
@@ -820,57 +761,45 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
    * ensuring subtitles stay locked to actual playback position.
    */
   const updatePlaybackTime = useCallback((currentTime: number, actualDuration?: number) => {
-    // CRITICAL FIX: Always try to get timings from cache if ref is empty
-    // This handles race conditions where progressive timings arrive during playback
+    // Try to get timings from cache if ref is empty
     let timings = currentTimingsRef.current;
     if (timings.length === 0 && activeSentenceRef.current >= 0) {
       const cached = timingsBySentenceRef.current.get(activeSentenceRef.current);
       if (cached && cached.timings.length > 0) {
         timings = cached.timings;
-        currentTimingsRef.current = timings; // Update ref for next call
-        console.log(`[SUBTITLE DEBUG] updatePlaybackTime: RECOVERED ${timings.length} timings from cache for S${activeSentenceRef.current}`);
+        currentTimingsRef.current = timings;
       }
     }
     
     if (timings.length === 0) {
-      // DEBUG: Log when timings are empty (rate limited to avoid spam)
-      if (Math.floor(currentTime * 5) % 5 === 0) {
-        console.log(`[SUBTITLE DEBUG] updatePlaybackTime: NO TIMINGS (activeSentence=${activeSentenceRef.current}, time=${currentTime.toFixed(2)}, storedSentences=${timingsBySentenceRef.current.size})`);
-      }
       return;
     }
     
-    
     // ACTFL-level-aware timing offset
-    // Lower levels get more lead time to process text before hearing it
     const policyOffset = getWordHighlightOffset(difficultyRef.current);
     const adjustedTime = Math.max(0, currentTime - policyOffset);
     
     // Store actual duration for rescaling server estimates
-    // Always update with latest valid duration - don't keep stale values from previous sentences
     const isValidDuration = actualDuration !== undefined && actualDuration > 0 && Number.isFinite(actualDuration);
     
     if (isValidDuration) {
-      actualDurationRef.current = actualDuration * 1000; // Convert seconds to ms
+      actualDurationRef.current = actualDuration * 1000;
     }
     
     // Calculate rescaling factor to recalibrate server estimates with actual duration
-    // This corrects for discrepancies between estimated and actual audio length
     let scaleFactor = 1;
     const expected = expectedDurationRef.current;
     const actual = actualDurationRef.current;
     
-    // DEBUG: Log word timing values every 0.5 seconds
-    const shouldLogDetails = Math.floor(currentTime * 2) % 2 === 0;
+    // Verbose logging for karaoke debugging
+    const shouldLogDetails = isVerboseLoggingEnabled() && Math.floor(currentTime * 2) % 2 === 0;
     
-    // DEBUG: Log the raw values to understand the unit mismatch
     if (shouldLogDetails) {
       console.log(`[KARAOKE DEBUG] Duration refs: expected=${expected}, actual=${actual}, actualDuration param=${actualDuration}`);
     }
     
     if (expected && actual && expected > 0 && Number.isFinite(actual)) {
       scaleFactor = actual / expected;
-      // Only apply rescaling if difference is significant (>5%)
       if (Math.abs(scaleFactor - 1) < 0.05) scaleFactor = 1;
     }
     
@@ -889,7 +818,6 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       if (adjustedTime >= scaledStartTime && adjustedTime < scaledEndTime) wordIndex = i;
     }
     
-    // DEBUG: Log wordIndex calculation result
     if (shouldLogDetails) {
       console.log(`[KARAOKE DEBUG] Result: wordIndex=${wordIndex}, maxVisibleIndex=${maxVisibleIndex}`);
     }
@@ -954,7 +882,6 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
    * Stop playback
    */
   const stopPlayback = useCallback(() => {
-    console.log('[StreamingSubtitles v2] Stop playback');
     setIsPlaying(false);
     
     if (animationFrameRef.current) {
@@ -1003,10 +930,8 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
    * Reset all state
    */
   const reset = useCallback(() => {
-    console.log('[StreamingSubtitles v2] Reset');
-    
     isWaitingForContentRef.current = true;
-    activeSentenceRef.current = -1;  // RACE CONDITION FIX: Reset active sentence tracking
+    activeSentenceRef.current = -1;
     
     setIsWaitingForContent(true);
     setSentences([]);
@@ -1083,12 +1008,6 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
   const currentSentence = useMemo(() => {
     const found = sentences.find(s => s.index === currentSentenceIndex && s.turnId === currentTurnId);
     
-    // Debug: Log if we can't find the sentence (indicates potential bug)
-    if (!found && sentences.length > 0 && currentSentenceIndex >= 0) {
-      console.warn(`[StreamingSubtitles v2] ⚠️ Sentence not found: idx=${currentSentenceIndex}, turnId=${currentTurnId}`);
-      console.warn(`[StreamingSubtitles v2]   Available:`, sentences.map(s => ({ idx: s.index, turnId: s.turnId })));
-    }
-    
     return found;
   }, [sentences, currentSentenceIndex, currentTurnId]);
   
@@ -1101,24 +1020,6 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
     ? (currentSentence?.targetLanguageText || '')
     : '';
   
-  // DEBUG: Log any time target text changes - especially catch duplicates!
-  if (currentSentenceTargetText) {
-    const wordCount = currentSentenceTargetText.split(/\s+/).filter(w => w.length > 0).length;
-    console.log(`[StreamingSubtitles v2] TARGET TEXT: "${currentSentenceTargetText}" (sentence ${currentSentenceIndex}, ${wordCount} words, hasTarget=${hasTargetContent})`);
-    
-    // CRITICAL: Flag multi-word targets - this is where duplicates might originate
-    if (wordCount > 1) {
-      console.warn(`[StreamingSubtitles v2] ⚠️ MULTI-WORD TARGET DETECTED: "${currentSentenceTargetText}"`);
-      console.warn(`[StreamingSubtitles v2]   currentSentence.targetLanguageText: "${currentSentence?.targetLanguageText}"`);
-      console.warn(`[StreamingSubtitles v2]   currentTurnId: ${currentTurnId}`);
-      console.warn(`[StreamingSubtitles v2]   sentences array:`, sentences.map(s => ({ 
-        idx: s.index, 
-        turnId: s.turnId,  // CRITICAL: Include turnId to detect cross-turn contamination
-        target: s.targetLanguageText, 
-        hasTarget: s.hasTargetContent 
-      })));
-    }
-  }
   
   // Compute current target word index from word mapping
   const instantTargetWordIndex = useMemo(() => {
@@ -1133,11 +1034,9 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
   // Progressive reveal for target words
   const currentTargetWordIndex = useMemo(() => {
     if (instantTargetWordIndex > maxTargetWordIndex) {
-      console.log(`[StreamingSubtitles v2] TargetWordIndex: instant=${instantTargetWordIndex} > max=${maxTargetWordIndex}, returning instant`);
       setTimeout(() => setMaxTargetWordIndex(instantTargetWordIndex), 0);
       return instantTargetWordIndex;
     }
-    console.log(`[StreamingSubtitles v2] TargetWordIndex: instant=${instantTargetWordIndex} <= max=${maxTargetWordIndex}, returning max`);
     return maxTargetWordIndex;
   }, [instantTargetWordIndex, maxTargetWordIndex]);
   
@@ -1172,22 +1071,13 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
   const teachingBlockText = teachingBlock?.text || '';
   
   // Track when teaching block has been reached (for persistence)
-  // Once shown, it stays until turn ends
   useMemo(() => {
     if (teachingBlock && currentWordIndex >= teachingBlock.displayStartIndex) {
       if (!hasShownTeachingBlock) {
-        console.log(`[StreamingSubtitles v2] 📌 Teaching block reached: "${teachingBlockText}" - will persist`);
         setTimeout(() => setHasShownTeachingBlock(true), 0);
       }
     }
   }, [currentWordIndex, teachingBlock, hasShownTeachingBlock, teachingBlockText]);
-  
-  // Log block transitions for debugging
-  useMemo(() => {
-    if (currentTargetBlocks.length > 0) {
-      console.log(`[StreamingSubtitles v2] BLOCK STATE: wordIdx=${currentWordIndex}, activeBlock=${activeBlockIndex}, activeText="${activeBlockText}", teaching="${teachingBlockText}", shownTeaching=${hasShownTeachingBlock}`);
-    }
-  }, [currentWordIndex, activeBlockIndex, activeBlockText, teachingBlockText, hasShownTeachingBlock, currentTargetBlocks.length]);
   
   return useMemo(() => ({
     state: {

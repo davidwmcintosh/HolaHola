@@ -36,7 +36,7 @@ function isWordTimingEnabled(): boolean {
   return window.__enableWordTimingDiagnostics ?? ENABLE_WORD_TIMING_DIAGNOSTICS;
 }
 
-function isVerboseLoggingEnabled(): boolean {
+export function isVerboseLoggingEnabled(): boolean {
   return window.__verboseTimingLogs ?? VERBOSE_TIMING_LOGS;
 }
 
@@ -61,13 +61,10 @@ declare global {
 export function getStreamingAudioPlayer(): StreamingAudioPlayer {
   if (!window.__streamingAudioPlayer) {
     const instanceId = `player_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-    console.log(`[StreamingAudioPlayer] Creating singleton on window.__streamingAudioPlayer (id=${instanceId})`);
     window.__streamingAudioPlayer = new StreamingAudioPlayer();
     
     // Register instance for debug panel visibility
     registerPlayerInstance(instanceId);
-  } else {
-    console.log('[StreamingAudioPlayer] Reusing existing singleton from window');
   }
   return window.__streamingAudioPlayer;
 }
@@ -164,31 +161,20 @@ export class AudioPlayer {
     this.audioContext = new AudioContext({ sampleRate: 24000 });
     this.gainNode = this.audioContext.createGain();
     this.gainNode.connect(this.audioContext.destination);
-    console.log('[AUDIO PLAYER] AudioPlayer created, initial state:', this.audioContext.state);
   }
 
   // Public method to resume AudioContext (called on user interaction)
   async resume(): Promise<void> {
     if (this.audioContext.state === 'suspended') {
-      console.log('[AUDIO PLAYER] Resuming AudioContext from suspended state...');
       await this.audioContext.resume();
-      console.log('[AUDIO PLAYER] ✓ AudioContext resumed! State:', this.audioContext.state);
-    } else {
-      console.log('[AUDIO PLAYER] AudioContext already running, state:', this.audioContext.state);
     }
   }
 
   async playAudio(base64Audio: string): Promise<void> {
     try {
-      console.log('[AUDIO PLAYER] playAudio called, AudioContext state:', this.audioContext.state);
-      
       // CRITICAL: Resume AudioContext if suspended (browser autoplay policy)
       if (this.audioContext.state === 'suspended') {
-        console.log('[AUDIO PLAYER] AudioContext is SUSPENDED - attempting to resume...');
         await this.audioContext.resume();
-        console.log('[AUDIO PLAYER] AudioContext resumed! New state:', this.audioContext.state);
-      } else {
-        console.log('[AUDIO PLAYER] AudioContext is already running:', this.audioContext.state);
       }
       
       const audioData = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0));
@@ -204,43 +190,38 @@ export class AudioPlayer {
       audioBuffer.getChannelData(0).set(float32);
 
       this.queue.push(audioBuffer);
-      console.log('[AUDIO PLAYER] Audio chunk added to queue. Queue size:', this.queue.length);
       
       if (!this.isPlaying) {
-        console.log('[AUDIO PLAYER] Starting playback...');
         this.playNext();
       }
     } catch (error) {
+      // Keep unguarded - essential operational error
       console.error('[AUDIO PLAYER] Error playing audio:', error);
     }
   }
 
   private playNext(): void {
     if (this.queue.length === 0) {
-      console.log('[AUDIO PLAYER] Queue empty, stopping playback');
       this.isPlaying = false;
       return;
     }
 
     this.isPlaying = true;
     const buffer = this.queue.shift()!;
-    console.log('[AUDIO PLAYER] Playing chunk, queue remaining:', this.queue.length);
     
     const source = this.audioContext.createBufferSource();
     source.buffer = buffer;
     source.connect(this.gainNode);
     
     source.onended = () => {
-      console.log('[AUDIO PLAYER] Chunk finished, playing next...');
       this.playNext();
     };
 
     try {
       source.start();
-      console.log('[AUDIO PLAYER] source.start() called successfully');
     } catch (error) {
+      // Keep unguarded - essential operational error
       console.error('[AUDIO PLAYER] Error calling source.start():', error);
-      // Try to recover by moving to next chunk
       this.playNext();
     }
   }
@@ -344,7 +325,7 @@ export class StreamingAudioPlayer {
   private expectedSentenceCount: number | null = null;
   
   constructor() {
-    console.log('[StreamingAudioPlayer] Initialized');
+    // Initialization - no logging needed
   }
   
   /**
@@ -353,7 +334,6 @@ export class StreamingAudioPlayer {
    * The timing loop will only stop when all expected sentences have ended.
    */
   setExpectedSentenceCount(count: number): void {
-    console.log(`[StreamingAudioPlayer] ⚙️ Expected sentence count set to ${count}`);
     this.expectedSentenceCount = count;
     
     // Update debug panel
@@ -372,7 +352,6 @@ export class StreamingAudioPlayer {
       this.audioContext = new AudioContext({ sampleRate: 24000 });
       // Assign unique ID for debugging
       (this.audioContext as any).__debugId = `ctx_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
-      console.log(`[StreamingAudioPlayer] Web Audio API initialized, state: ${this.audioContext.state}, ID: ${(this.audioContext as any).__debugId}`);
     }
     return this.audioContext;
   }
@@ -383,9 +362,7 @@ export class StreamingAudioPlayer {
   async resumeAudioContext(): Promise<void> {
     const ctx = this.getAudioContext();
     if (ctx.state === 'suspended') {
-      console.log('[StreamingAudioPlayer] Resuming AudioContext...');
       await ctx.resume();
-      console.log('[StreamingAudioPlayer] AudioContext resumed, state:', ctx.state);
     }
   }
   
@@ -401,7 +378,6 @@ export class StreamingAudioPlayer {
     // Combine all chunks into a single blob if not already done
     if (this.allAudioChunks.length > 0) {
       this.combinedAudioBlob = new Blob(this.allAudioChunks, { type: 'audio/mpeg' });
-      console.log(`[StreamingAudioPlayer] Combined ${this.allAudioChunks.length} chunks into ${this.combinedAudioBlob.size} bytes`);
       return this.combinedAudioBlob;
     }
     
@@ -414,7 +390,6 @@ export class StreamingAudioPlayer {
   clearStoredAudio(): void {
     this.allAudioChunks = [];
     this.combinedAudioBlob = null;
-    console.log('[StreamingAudioPlayer] Cleared stored audio');
   }
   
   /**
@@ -424,7 +399,6 @@ export class StreamingAudioPlayer {
    * preventing stale callbacks from firing on the new turn's audio.
    */
   resetForNewTurn(): void {
-    console.error(`[StreamingAudioPlayer] ⚠️ RESET FOR NEW TURN - clearing ${this.sentenceSchedule.size} sentences, ${this.wordSchedule.size} words, ${this.pendingWordTimings.size} pending`);
     
     // Clear progressive playback state
     this.progressiveFirstChunkStarted = false;
@@ -461,8 +435,6 @@ export class StreamingAudioPlayer {
     
     // Log to debug panel
     logScheduleEvent('clear', [], undefined, 0);
-    
-    console.log('[StreamingAudioPlayer] Reset complete - ready for new turn');
   }
   
   /**
@@ -1300,8 +1272,6 @@ export class StreamingAudioPlayer {
     const ctx = this.getAudioContext();
     const delayMs = (this.progressiveScheduledTime - ctx.currentTime) * 1000;
     
-    console.log(`[StreamingAudioPlayer] [Progressive] Scheduling sentence ${sentenceIndex} end in ${delayMs.toFixed(0)}ms`);
-    
     setTimeout(() => {
       this.finalizeProgressiveSentence(sentenceIndex);
     }, Math.max(0, delayMs));
@@ -1313,8 +1283,6 @@ export class StreamingAudioPlayer {
    * This method handles cleanup only if not already handled.
    */
   private finalizeProgressiveSentence(sentenceIndex: number): void {
-    console.log(`[StreamingAudioPlayer] [Progressive] Sentence ${sentenceIndex} complete (current: ${this.progressiveSentenceIndex})`);
-    
     // Check if unified loop already fired onSentenceEnd via the schedule
     const scheduleEntry = this.sentenceSchedule.get(sentenceIndex);
     if (scheduleEntry && !scheduleEntry.ended) {
@@ -1328,8 +1296,6 @@ export class StreamingAudioPlayer {
       
       this.callbacks.onSentenceEnd?.(sentenceIndex);
     } else {
-      console.log(`[StreamingAudioPlayer] [Progressive] Sentence ${sentenceIndex} already ended via unified loop, skipping callback`);
-      
       // Still update ended count in case timing loop set ended=true but didn't update counter
       const endedCount = Array.from(this.sentenceSchedule.values()).filter(e => e.ended).length;
       updateDebugTimingState({
@@ -1343,10 +1309,7 @@ export class StreamingAudioPlayer {
     // before sentences 1 and 2 could be processed by the timing loop
     const allSentencesEnded = this.checkAllSentencesEnded();
     
-    console.log(`[StreamingAudioPlayer] [Progressive] Sentence ${sentenceIndex} finalized, allEnded=${allSentencesEnded}, scheduleSize=${this.sentenceSchedule.size}`);
-    
     if (allSentencesEnded && this.queue.length === 0) {
-      console.log(`[StreamingAudioPlayer] [Progressive] All sentences complete, stopping playback`);
       this.progressiveSentenceIndex = -1;
       this.isPlaying = false;
       this.setState('idle');
@@ -1398,7 +1361,6 @@ export class StreamingAudioPlayer {
         const allHaveEnded = allEntries.every(([_, entry]) => entry.ended && entry.endCtxTime !== undefined);
         
         if (allHaveEnded && allEntries.length > 0) {
-          console.log(`[StreamingAudioPlayer] FALLBACK: response_complete received but expectedSentenceCount null. All ${allEntries.length} sentences ended.`);
           logResult(true, `FALLBACK: response_complete received, all ${allEntries.length} sentences ended`);
           return true;
         }
@@ -1436,7 +1398,6 @@ export class StreamingAudioPlayer {
    * Stop playback and clear queue
    */
   stop(): void {
-    console.log('[StreamingAudioPlayer] Stop');
     
     // Stop precision timing
     this.stopPrecisionTiming();
@@ -1505,13 +1466,10 @@ export class StreamingAudioPlayer {
     // Cancel any existing timing loop
     this.stopPrecisionTiming();
     
-    console.log('[StreamingAudioPlayer] Starting precision timing loop (audio.currentTime anchored)');
-    
     let frameCount = 0;
     const tick = () => {
       // Exit only if we've explicitly stopped playback
       if (!this.isPlaying) {
-        console.log('[StreamingAudioPlayer] RAF loop exiting: isPlaying=false');
         return;
       }
       
@@ -1534,12 +1492,7 @@ export class StreamingAudioPlayer {
       // Fire progress callback with timing
       this.callbacks.onProgress?.(currentTime, this.currentDuration);
       
-      // DEBUG: Log periodically to verify loop is running
       frameCount++;
-      if (frameCount % 60 === 0) { // Every ~1 second at 60fps
-        const source = this.currentAudio && !this.currentAudio.paused ? 'audio' : 'perf';
-        console.log(`[StreamingAudioPlayer] RAF frame ${frameCount}, time: ${currentTime.toFixed(3)}s (${source})`);
-      }
       
       // Continue the loop
       this.rafId = requestAnimationFrame(tick);
@@ -1566,8 +1519,6 @@ export class StreamingAudioPlayer {
    * Supports both MP3 (HTMLAudioElement) and raw PCM (Web Audio API)
    */
   private async playNext(): Promise<void> {
-    console.log(`[StreamingAudioPlayer] ▶ PLAY_NEXT called, queue has ${this.queue.length} chunks`);
-    
     // Stop any existing precision timing
     this.stopPrecisionTiming();
     
@@ -1585,7 +1536,6 @@ export class StreamingAudioPlayer {
     const chunk = this.queue.shift();
     
     if (!chunk) {
-      console.log('[StreamingAudioPlayer] ⏹ Queue empty - stopping playback');
       this.isPlaying = false;
       this.setState('idle');
       this.callbacks.onComplete?.();
@@ -1600,9 +1550,6 @@ export class StreamingAudioPlayer {
     // Set state to buffering BEFORE firing callbacks
     // This prevents race condition where isProcessing=false but playbackState still 'idle'
     this.setState('buffering');
-    
-    const formatLabel = this.currentAudioFormat === 'pcm_f32le' ? 'PCM' : 'MP3';
-    console.log(`[StreamingAudioPlayer] ▶ Playing sentence ${chunk.sentenceIndex} (${formatLabel}): ${chunk.audio.byteLength} bytes, expectedDuration=${(chunk.durationMs/1000).toFixed(2)}s, isLast=${chunk.isLast}`);
     
     try {
       if (this.currentAudioFormat === 'pcm_f32le') {
@@ -1643,7 +1590,6 @@ export class StreamingAudioPlayer {
       // Use actual duration from audio if available
       if (this.currentAudio && this.currentAudio.duration > 0 && Number.isFinite(this.currentAudio.duration)) {
         this.currentDuration = this.currentAudio.duration;
-        console.log(`[StreamingAudioPlayer] Audio loaded: ${this.currentDuration.toFixed(3)}s`);
       }
     };
     
@@ -1651,7 +1597,6 @@ export class StreamingAudioPlayer {
     this.currentAudio.onplaying = () => {
       this.setState('playing');
       this.playbackStartTime = performance.now();
-      console.log(`[StreamingAudioPlayer] MP3 started at ${this.playbackStartTime.toFixed(2)}ms`);
       
       // Fire onSentenceStart for precise sync with subtitle timing
       this.callbacks.onSentenceStart?.(this.currentSentenceIndex);
@@ -1661,7 +1606,6 @@ export class StreamingAudioPlayer {
     };
     
     this.currentAudio.onended = () => {
-      console.log(`[StreamingAudioPlayer] Sentence ${chunk.sentenceIndex} ended (MP3)`);
       this.stopPrecisionTiming();
       this.callbacks.onSentenceEnd?.(chunk.sentenceIndex);
       
@@ -1673,6 +1617,7 @@ export class StreamingAudioPlayer {
     };
     
     this.currentAudio.onerror = (event) => {
+      // Keep unguarded - essential operational error
       console.error('[StreamingAudioPlayer] MP3 audio error:', event);
       this.stopPrecisionTiming();
       this.callbacks.onError?.(new Error('MP3 playback failed'));
@@ -1698,7 +1643,6 @@ export class StreamingAudioPlayer {
     
     // Resume AudioContext if suspended (browser autoplay policy)
     if (ctx.state === 'suspended') {
-      console.log('[StreamingAudioPlayer] Resuming AudioContext for PCM playback...');
       await ctx.resume();
     }
     
@@ -1706,8 +1650,6 @@ export class StreamingAudioPlayer {
     // f32le = 32-bit float, little-endian = 4 bytes per sample
     const float32Data = new Float32Array(chunk.audio);
     const numSamples = float32Data.length;
-    
-    console.log(`[StreamingAudioPlayer] PCM: ${numSamples} samples at ${sampleRate}Hz = ${(numSamples / sampleRate).toFixed(3)}s`);
     
     // Create AudioBuffer
     const audioBuffer = ctx.createBuffer(1, numSamples, sampleRate);
@@ -1725,7 +1667,6 @@ export class StreamingAudioPlayer {
     // Set state and timing BEFORE starting playback
     this.setState('playing');
     this.playbackStartTime = performance.now();
-    console.log(`[StreamingAudioPlayer] PCM started at ${this.playbackStartTime.toFixed(2)}ms`);
     
     // Fire onSentenceStart for precise sync with subtitle timing
     this.callbacks.onSentenceStart?.(this.currentSentenceIndex);
@@ -1735,7 +1676,6 @@ export class StreamingAudioPlayer {
     
     // Handle playback end
     source.onended = () => {
-      console.log(`[StreamingAudioPlayer] Sentence ${chunk.sentenceIndex} ended (PCM)`);
       this.stopPrecisionTiming();
       this.currentPcmSource = null;
       this.callbacks.onSentenceEnd?.(chunk.sentenceIndex);
@@ -1756,7 +1696,6 @@ export class StreamingAudioPlayer {
    */
   private setState(state: StreamingPlaybackState): void {
     if (this.state !== state) {
-      console.log(`[StreamingAudioPlayer] State: ${this.state} → ${state}`);
       this.state = state;
       this.callbacks.onStateChange?.(state);
     }
@@ -1778,6 +1717,5 @@ export class StreamingAudioPlayer {
   destroy(): void {
     this.stopPrecisionTiming();
     this.stop();
-    console.log('[StreamingAudioPlayer] Destroyed');
   }
 }

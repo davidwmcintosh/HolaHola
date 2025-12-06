@@ -51,7 +51,7 @@ import {
   WordTiming,
   AUDIO_STREAMING_CONFIG,
 } from '../../../shared/streaming-voice-types';
-// Debug timing state available via: import { updateDebugTimingState, getDebugTimingState, addWordTimingEvent } from './debugTimingState';
+import { isVerboseLoggingEnabled } from './debugTimingState';
 
 /**
  * Connection states
@@ -146,7 +146,7 @@ export class StreamingVoiceClient {
   private intentionalDisconnect = false;  // Track if disconnect was user-initiated
   
   constructor() {
-    console.log('[StreamingVoiceClient] Initialized');
+    // Initialization complete
   }
   
   /**
@@ -174,16 +174,14 @@ export class StreamingVoiceClient {
    */
   private emit<T = any>(event: StreamingEventType, data: T): void {
     const listeners = this.eventListeners.get(event);
-    // DEBUG: Track all emits for key events
-    if (event === 'wordTimingDelta' || event === 'wordTimingFinal' || event === 'audioChunk') {
-      console.log(`[EMIT] ${event} -> ${listeners?.size || 0} listeners`);
-    }
     if (listeners) {
       listeners.forEach(listener => {
         try {
           listener(data);
         } catch (e) {
-          console.error(`[StreamingVoiceClient] Error in ${event} listener:`, e);
+          if (isVerboseLoggingEnabled()) {
+            console.error(`[StreamingVoiceClient] Error in ${event} listener:`, e);
+          }
         }
       });
     }
@@ -217,7 +215,6 @@ export class StreamingVoiceClient {
    */
   async connect(conversationId: string): Promise<void> {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      console.log('[StreamingVoiceClient] Already connected');
       return;
     }
     
@@ -241,46 +238,36 @@ export class StreamingVoiceClient {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/api/voice/stream/ws?conversationId=${conversationId}`;
       
-      console.log('[StreamingVoiceClient] Connecting to:', wsUrl, `(connId: ${currentConnectionId})`);
-      
       this.ws = new WebSocket(wsUrl);
       this.ws.binaryType = 'arraybuffer';
       
-      // CRITICAL DEBUG: Track WebSocket instance at window level
+      // Track WebSocket instance for debugging
       if (typeof window !== 'undefined') {
         const win = window as any;
         win._wsDebug = win._wsDebug || { connections: 0, lastWs: null, messages: 0 };
         win._wsDebug.connections++;
         win._wsDebug.lastWs = this.ws;
-        console.error(`[WS-CREATE] WebSocket created #${win._wsDebug.connections}, url=${wsUrl}`);
         
-        // Attach a RAW message listener directly to WebSocket
+        // Raw message listener for debugging
         const rawWs = this.ws;
         rawWs.addEventListener('message', (e: MessageEvent) => {
           win._wsDebug.messages++;
-          console.error(`[WS-RAW-MSG] Message #${win._wsDebug.messages} received, type=${e.data instanceof ArrayBuffer ? 'BINARY' : 'TEXT'}`);
         });
       }
       
       // Setup event handlers - check connectionId to ignore events from old connections
       this.ws.onopen = () => {
         if (this.connectionId !== currentConnectionId) {
-          console.log('[StreamingVoiceClient] Ignoring onopen from stale connection');
           return;
         }
-        console.log('[StreamingVoiceClient] ✓ WebSocket connected');
         // Reset reconnect state on successful connection
         this.reconnectAttempts = 0;
-        this.intentionalDisconnect = false;  // Allow future reconnects
+        this.intentionalDisconnect = false;
         this.setState('connected');
       };
       
       this.ws.onmessage = (event) => {
-        // CRITICAL DEBUG: Log immediately when ANY message arrives
-        console.error(`[WS-ONMESSAGE] Received message type=${event.data instanceof ArrayBuffer ? 'BINARY' : 'JSON'}, connId=${currentConnectionId}/${this.connectionId}`);
-        
         if (this.connectionId !== currentConnectionId) {
-          console.error('[WS-ONMESSAGE] Ignoring message from stale connection');
           return;
         }
         this.handleMessage(event);
@@ -288,19 +275,18 @@ export class StreamingVoiceClient {
       
       this.ws.onclose = (event) => {
         if (this.connectionId !== currentConnectionId) {
-          console.log('[StreamingVoiceClient] Ignoring onclose from stale connection');
           return;
         }
-        console.log(`[StreamingVoiceClient] WebSocket closed: ${event.code} - ${event.reason}`);
         this.handleDisconnect();
       };
       
       this.ws.onerror = (error) => {
         if (this.connectionId !== currentConnectionId) {
-          console.log('[StreamingVoiceClient] Ignoring onerror from stale connection');
           return;
         }
-        console.error('[StreamingVoiceClient] WebSocket error:', error);
+        if (isVerboseLoggingEnabled()) {
+          console.error('[StreamingVoiceClient] WebSocket error:', error);
+        }
         this.callbacks.onError?.('CONNECTION_FAILED', 'WebSocket connection failed', true);
       };
       
@@ -308,7 +294,9 @@ export class StreamingVoiceClient {
       await this.waitForOpen();
       
     } catch (error: any) {
-      console.error('[StreamingVoiceClient] Connection failed:', error);
+      if (isVerboseLoggingEnabled()) {
+        console.error('[StreamingVoiceClient] Connection failed:', error);
+      }
       this.setState('error');
       throw error;
     }
@@ -327,7 +315,6 @@ export class StreamingVoiceClient {
       ...config,
     };
     
-    console.log('[StreamingVoiceClient] Starting session:', config);
     this.ws!.send(JSON.stringify(message));
   }
   
@@ -338,8 +325,6 @@ export class StreamingVoiceClient {
     if (!this.isReady()) {
       throw new Error('WebSocket not connected');
     }
-    
-    console.log(`[StreamingVoiceClient] Sending ${audioData.byteLength} bytes of audio`);
     this.setState('processing');
     
     // Send binary audio data directly
@@ -357,7 +342,6 @@ export class StreamingVoiceClient {
       throw new Error('WebSocket not ready for greeting');
     }
     
-    console.log(`[StreamingVoiceClient] Requesting AI greeting... (resumed: ${isResumed || false})`);
     this.ws!.send(JSON.stringify({ 
       type: 'request_greeting',
       userName,
@@ -379,7 +363,6 @@ export class StreamingVoiceClient {
    */
   updateVoice(tutorGender: 'male' | 'female'): void {
     if (this.isReady()) {
-      console.log(`[StreamingVoiceClient] Updating voice to ${tutorGender}`);
       this.ws!.send(JSON.stringify({ 
         type: 'update_voice',
         tutorGender,
@@ -411,7 +394,6 @@ export class StreamingVoiceClient {
     }
     this.sessionId = null;
     this.setState('disconnected');
-    console.log('[StreamingVoiceClient] Disconnected (user-initiated)');
   }
   
   /**
@@ -513,7 +495,9 @@ export class StreamingVoiceClient {
           // Unknown message types - no logging on hot path
       }
     } catch (error) {
-      console.error('[StreamingVoiceClient] Failed to parse message:', error);
+      if (isVerboseLoggingEnabled()) {
+        console.error('[StreamingVoiceClient] Failed to parse message:', error);
+      }
       // Track parse errors at window level for debugging
       if (typeof window !== 'undefined') {
         const win = window as any;
@@ -525,18 +509,14 @@ export class StreamingVoiceClient {
   
   private handleSessionStarted(message: { type: string; sessionId: string; timestamp: number }): void {
     this.sessionId = message.sessionId;
-    console.log('[StreamingVoiceClient] Session started:', this.sessionId);
-    // Transition to 'ready' state - now client can send audio
     this.setState('ready');
     this.callbacks.onSessionStart?.(message.sessionId);
     this.emit('sessionStart', message.sessionId);
   }
   
   private handleProcessing(message: StreamingProcessingMessage): void {
-    console.log(`[StreamingVoiceClient] Processing (turn ${message.turnId}):`, message.userTranscript);
     this.setState('processing');
     this.callbacks.onProcessing?.(message.userTranscript);
-    // Emit full message so clients can access turnId for subtitle packet ordering
     this.emit('processing', message);
   }
   
@@ -612,7 +592,6 @@ export class StreamingVoiceClient {
   }
   
   private handleError(message: StreamingErrorMessage): void {
-    console.error(`[StreamingVoiceClient] Error: ${message.code} - ${message.message}`);
     this.callbacks.onError?.(message.code, message.message, message.recoverable);
     this.emit('error', new Error(message.message));
     if (!message.recoverable) {
@@ -634,14 +613,12 @@ export class StreamingVoiceClient {
     
     // Skip auto-reconnect if disconnect was user-initiated
     if (this.intentionalDisconnect) {
-      console.log('[StreamingVoiceClient] Intentional disconnect, no auto-reconnect');
       this.setState('disconnected');
       return;
     }
     
     // Skip if no conversationId to reconnect to
     if (!this.lastConversationId) {
-      console.log('[StreamingVoiceClient] No conversationId for reconnect');
       this.setState('disconnected');
       return;
     }
@@ -649,9 +626,8 @@ export class StreamingVoiceClient {
     // Attempt auto-reconnect with exponential backoff
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      const delay = Math.pow(2, this.reconnectAttempts - 1) * 1000; // 1s, 2s, 4s
+      const delay = Math.pow(2, this.reconnectAttempts - 1) * 1000;
       
-      console.log(`[StreamingVoiceClient] Auto-reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
       this.setState('reconnecting');
       
       // Emit error event so UI can show reconnecting message
@@ -662,22 +638,16 @@ export class StreamingVoiceClient {
       });
       
       this.reconnectTimer = setTimeout(async () => {
-        this.reconnectTimer = null;  // Clear timer reference
+        this.reconnectTimer = null;
         try {
-          console.log(`[StreamingVoiceClient] Attempting reconnect to ${this.lastConversationId}`);
           await this.connect(this.lastConversationId!);
-          
-          // Reset all reconnect state on successful reconnection
           this.reconnectAttempts = 0;
-          this.intentionalDisconnect = false;  // Allow future reconnects
-          console.log('[StreamingVoiceClient] Reconnected successfully');
+          this.intentionalDisconnect = false;
         } catch (err) {
-          console.error('[StreamingVoiceClient] Reconnect failed:', err);
           // handleDisconnect will be called again, triggering next attempt
         }
       }, delay);
     } else {
-      console.log('[StreamingVoiceClient] Max reconnect attempts reached');
       this.reconnectAttempts = 0;
       this.setState('disconnected');
       
