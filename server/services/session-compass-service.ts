@@ -30,6 +30,7 @@ import {
   type TopicCoverageStatus,
   type TutorFreedomLevel,
 } from "@shared/schema";
+import { usageService } from "./usage-service";
 
 // Feature flag for gradual rollout
 export const COMPASS_ENABLED = process.env.COMPASS_ENABLED === 'true';
@@ -40,12 +41,17 @@ interface CachedSession {
   topics: TutorSessionTopic[];
   parkingItems: TutorParkingItem[];
   lastUpdated: Date;
+  // Credit balance cached separately with its own TTL
+  creditBalance?: CompassContext['creditBalance'];
+  creditBalanceUpdated?: Date;
 }
 
 const sessionCache = new Map<string, CachedSession>();
 
 // Cache TTL: 5 minutes (sessions are long-lived, cache is refreshed on updates)
 const CACHE_TTL_MS = 5 * 60 * 1000;
+// Credit balance TTL: 1 minute (credits can change more frequently)
+const CREDIT_BALANCE_TTL_MS = 60 * 1000;
 
 export class SessionCompassService {
   /**
@@ -186,53 +192,136 @@ export class SessionCompassService {
   /**
    * Get Compass context for prompt assembly
    * Uses cache for fast access, falls back to DB if needed
+   * Includes dual time tracking (clock time + credit balance)
    */
   async getCompassContext(conversationId: string): Promise<CompassContext | null> {
     // Check cache first
-    const cached = sessionCache.get(conversationId);
+    let cached = sessionCache.get(conversationId);
+    
+    let baseContext: CompassContext;
+    let userId: string;
+    let classId: string | null = null;
+    let needsCreditRefresh = false;
     
     if (cached && (Date.now() - cached.lastUpdated.getTime()) < CACHE_TTL_MS) {
-      return this.buildContextFromCache(cached);
+      // Session cache is fresh - use it
+      baseContext = this.buildContextFromCache(cached);
+      userId = cached.session.userId;
+      classId = cached.session.classId;
+      
+      // Check if credit balance needs refresh (separate, shorter TTL)
+      needsCreditRefresh = !cached.creditBalanceUpdated || 
+        (Date.now() - cached.creditBalanceUpdated.getTime()) >= CREDIT_BALANCE_TTL_MS;
+    } else {
+      // Cache miss or stale - load from DB
+      const sessions = await db
+        .select()
+        .from(tutorSessions)
+        .where(eq(tutorSessions.conversationId, conversationId))
+        .orderBy(desc(tutorSessions.createdAt))
+        .limit(1);
+
+      const session = sessions[0];
+      if (!session) return null;
+
+      // Load topics and parking items
+      const topics = await db
+        .select()
+        .from(tutorSessionTopics)
+        .where(eq(tutorSessionTopics.sessionId, session.id))
+        .orderBy(tutorSessionTopics.sortOrder);
+
+      const parkingItems = await db
+        .select()
+        .from(tutorParkingItems)
+        .where(
+          and(
+            eq(tutorParkingItems.sessionId, session.id),
+            isNull(tutorParkingItems.resolvedAt)
+          )
+        );
+
+      // Update cache
+      const cacheEntry: CachedSession = {
+        session,
+        topics,
+        parkingItems,
+        lastUpdated: new Date(),
+      };
+      sessionCache.set(conversationId, cacheEntry);
+      cached = cacheEntry;
+
+      baseContext = this.buildContextFromCache(cacheEntry);
+      userId = session.userId;
+      classId = session.classId;
+      needsCreditRefresh = true; // New cache entry needs credit balance
     }
-
-    // Cache miss or stale - load from DB
-    const sessions = await db
-      .select()
-      .from(tutorSessions)
-      .where(eq(tutorSessions.conversationId, conversationId))
-      .orderBy(desc(tutorSessions.createdAt))
-      .limit(1);
-
-    const session = sessions[0];
-    if (!session) return null;
-
-    // Load topics and parking items
-    const topics = await db
-      .select()
-      .from(tutorSessionTopics)
-      .where(eq(tutorSessionTopics.sessionId, session.id))
-      .orderBy(tutorSessionTopics.sortOrder);
-
-    const parkingItems = await db
-      .select()
-      .from(tutorParkingItems)
-      .where(
-        and(
-          eq(tutorParkingItems.sessionId, session.id),
-          isNull(tutorParkingItems.resolvedAt)
-        )
-      );
-
-    // Update cache
-    const cacheEntry: CachedSession = {
-      session,
-      topics,
-      parkingItems,
-      lastUpdated: new Date(),
+    
+    // DUAL TIME TRACKING: Get credit balance (with its own cache TTL)
+    let creditBalance = cached?.creditBalance;
+    if (needsCreditRefresh) {
+      creditBalance = await this.getCreditBalance(userId, classId);
+      // Update cache with fresh credit balance
+      if (cached) {
+        cached.creditBalance = creditBalance;
+        cached.creditBalanceUpdated = new Date();
+      }
+    }
+    
+    return {
+      ...baseContext,
+      creditBalance,
     };
-    sessionCache.set(conversationId, cacheEntry);
-
-    return this.buildContextFromCache(cacheEntry);
+  }
+  
+  /**
+   * Get credit balance for dual time tracking
+   * Returns user's remaining credits with context for Daniela
+   */
+  private async getCreditBalance(userId: string, classId: string | null): Promise<CompassContext['creditBalance']> {
+    try {
+      // Check for developer bypass first
+      const isDeveloper = await usageService.checkDeveloperBypass(userId);
+      if (isDeveloper) {
+        return {
+          remainingSeconds: 999999,
+          remainingMinutes: 999999 / 60,
+          isLow: false,
+          estimatedSessionsLeft: 999,
+          source: 'unlimited' as const,
+        };
+      }
+      
+      // Get balance based on class context
+      if (classId) {
+        const classBalance = await usageService.getClassBalance(userId, classId);
+        if (classBalance) {
+          const remainingSeconds = classBalance.remainingSeconds;
+          return {
+            remainingSeconds,
+            remainingMinutes: Math.round(remainingSeconds / 60),
+            isLow: remainingSeconds < 600, // Under 10 minutes
+            estimatedSessionsLeft: Math.floor(remainingSeconds / 1800), // 30-min sessions
+            source: 'class_allocation' as const,
+          };
+        }
+      }
+      
+      // Fall back to purchased balance
+      const purchasedBalance = await usageService.getPurchasedBalance(userId);
+      const remainingSeconds = purchasedBalance.remainingSeconds;
+      
+      return {
+        remainingSeconds,
+        remainingMinutes: Math.round(remainingSeconds / 60),
+        isLow: remainingSeconds < 600, // Under 10 minutes
+        estimatedSessionsLeft: Math.floor(remainingSeconds / 1800), // 30-min sessions
+        source: 'purchased' as const,
+      };
+    } catch (error) {
+      console.error('[Compass] Failed to get credit balance:', error);
+      return undefined;
+    }
   }
 
   /**

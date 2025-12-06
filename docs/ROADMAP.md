@@ -93,7 +93,26 @@ Planned features and future development priorities.
 
 ## Recently Completed
 
-### December 2025
+### December 2025 - Phase 2: Daniela's Compass & Tool Discoverability
+
+**Daniela's Compass (Time-Aware Tutoring):**
+- Dual time tracking: Clock time (learning duration) + Credit time (billable)
+- Session Compass service with in-memory cache for fast prompt assembly
+- Credit balance integrated into system prompt with low-balance warnings
+- Tutor sessions, topics, and parking lot database tables
+
+**Tutor Tool Discoverability:**
+- Quick reference "cheat sheet" at session start showing all 14+ whiteboard tools
+- Tool activation syntax examples (WORD_MAP, GRAMMAR_TABLE, DRILL, etc.)
+- Pro tips for when to use vocabulary expansion and grammar visualization tools
+
+**Conversation Flow Improvements:**
+- Turn-taking context: Explains push-to-talk constraint, guides clear turn signals
+- Relaxed vocabulary rules: Thematic word clusters for intermediate+ students
+- Warmth-first flow: Encouragement before prompts, not after questions
+- Balance between pedagogical structure and natural conversation
+
+### December 2025 - Phase 1
 
 - Image Library review workflow with bulk actions
 - Whiteboard system with 14 teaching tools

@@ -1718,6 +1718,9 @@ export const tutorSessions = pgTable("tutor_sessions", {
   userId: varchar("user_id").notNull().references(() => users.id),
   classId: varchar("class_id"), // Optional - links to teacherClasses for class-based sessions
   
+  // DUAL TIME TRACKING: Link to voice session for credit consumption
+  voiceSessionId: varchar("voice_session_id").references(() => voiceSessions.id), // Links clock time to credit time
+  
   // Session timing
   scheduledDurationMinutes: integer("scheduled_duration_minutes").default(30), // Expected session length
   warmthBufferMinutes: integer("warmth_buffer_minutes").default(3), // Time budgeted for connection
@@ -1753,6 +1756,7 @@ export const tutorSessions = pgTable("tutor_sessions", {
   index("idx_tutor_sessions_user").on(table.userId),
   index("idx_tutor_sessions_class").on(table.classId),
   index("idx_tutor_sessions_status").on(table.status),
+  index("idx_tutor_sessions_voice").on(table.voiceSessionId),
 ]);
 
 // Session Topics - Individual learning objectives within a session
@@ -1807,6 +1811,40 @@ export const tutorParkingItems = pgTable("tutor_parking_items", {
   index("idx_parking_items_unresolved").on(table.carryForward, table.resolvedAt),
 ]);
 
+// Session Cost Summary - Reconciles clock time with credit consumption
+// Links the educational metric (how long they learned) with billing (what it cost)
+export const sessionCostSummary = pgTable("session_cost_summary", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tutorSessionId: varchar("tutor_session_id").notNull().references(() => tutorSessions.id),
+  voiceSessionId: varchar("voice_session_id").references(() => voiceSessions.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  
+  // Clock time (educational metric)
+  clockSeconds: integer("clock_seconds").notNull().default(0), // Wall-clock duration
+  
+  // Credit time (billing metric)
+  creditsConsumed: integer("credits_consumed").notNull().default(0), // Seconds of credits used
+  ttsCharacters: integer("tts_characters").default(0), // TTS characters used
+  sttSeconds: integer("stt_seconds").default(0), // STT seconds used
+  
+  // Efficiency metrics
+  creditsPerClockMinute: real("credits_per_clock_minute"), // Cost efficiency ratio
+  
+  // Context at time of session
+  classId: varchar("class_id"),
+  language: varchar("language"),
+  
+  // Credit balance snapshot (for "hours to fluency" tracking)
+  creditBalanceBefore: integer("credit_balance_before"), // Credits before session
+  creditBalanceAfter: integer("credit_balance_after"), // Credits after session
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_cost_summary_tutor_session").on(table.tutorSessionId),
+  index("idx_cost_summary_user").on(table.userId),
+  index("idx_cost_summary_class").on(table.classId),
+]);
+
 // Insert schemas and types for Compass tables
 export const insertTutorSessionSchema = createInsertSchema(tutorSessions).omit({
   id: true,
@@ -1824,6 +1862,11 @@ export const insertTutorParkingItemSchema = createInsertSchema(tutorParkingItems
   createdAt: true,
 });
 
+export const insertSessionCostSummarySchema = createInsertSchema(sessionCostSummary).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertTutorSession = z.infer<typeof insertTutorSessionSchema>;
 export type TutorSession = typeof tutorSessions.$inferSelect;
 
@@ -1832,6 +1875,9 @@ export type TutorSessionTopic = typeof tutorSessionTopics.$inferSelect;
 
 export type InsertTutorParkingItem = z.infer<typeof insertTutorParkingItemSchema>;
 export type TutorParkingItem = typeof tutorParkingItems.$inferSelect;
+
+export type InsertSessionCostSummary = z.infer<typeof insertSessionCostSummarySchema>;
+export type SessionCostSummary = typeof sessionCostSummary.$inferSelect;
 
 // Session status type
 export type TutorSessionStatus = 'scheduled' | 'active' | 'paused' | 'completed' | 'abandoned';
@@ -1852,12 +1898,21 @@ export interface CompassContext {
   mustHaveTopics: Array<{ id: string; title: string; targetMinutes: number; status: TopicCoverageStatus }>;
   niceToHaveTopics: Array<{ id: string; title: string; targetMinutes: number; status: TopicCoverageStatus }>;
   
-  // Live pacing
+  // Live pacing (clock time)
   elapsedSeconds: number;
   remainingSeconds: number;
   topicsCovered: string[];
   topicsPending: string[];
   isOnTrack: boolean; // Soft indicator
+  
+  // DUAL TIME TRACKING: Credit balance (billing time)
+  creditBalance?: {
+    remainingSeconds: number;
+    remainingMinutes: number;
+    isLow: boolean; // Under 10 minutes remaining
+    estimatedSessionsLeft: number; // At current consumption rate
+    source: 'class_allocation' | 'purchased' | 'unlimited'; // Where credits come from
+  };
   
   // Parking lot
   parkingLotItems: Array<{ id: string; content: string; createdAt: Date }>;
