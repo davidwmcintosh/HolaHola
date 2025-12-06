@@ -44,6 +44,15 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - **Google Cloud TTS** remains as reliable fallback and drill audio provider
 - **Cost optimization possible** but never at expense of word timestamps or emotional expression
 
+**Buffered Mode for Bulletproof Subtitle Sync (Dec 2025):**
+- **Feature flag:** `PROGRESSIVE_AUDIO_STREAMING: false` in `shared/streaming-voice-types.ts`
+- **Architecture:** All word timings sent BEFORE audio chunk for guaranteed synchronization
+- **Flow:** sentence_start → word_timing (ALL) → audio_chunk (complete) → sentence_end
+- **Trade-off:** ~100-200ms extra latency per sentence for 100% accurate karaoke highlighting
+- **Performance:** Still under 3-second target (~2.7-2.9s total response time)
+- **Client behavior:** Word timings registered with audio player's `wordSchedule` BEFORE playback starts
+- **Test accounts:** `isTestAccount: true` users bypass credit checks for automated testing
+
 **Future considerations:**
 - Deepgram Aura-2: Potential cost-saving fallback IF word timestamps confirmed
 - Open mic mode with intelligent VAD and barge-in support

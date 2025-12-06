@@ -875,18 +875,20 @@ export class UsageService {
   }
   
   /**
-   * Check developer/admin bypass for unlimited usage
+   * Check developer/admin/test account bypass for unlimited usage
+   * Test accounts (isTestAccount=true) also bypass credit checks to enable automated testing
    */
   async checkDeveloperBypass(userId: string): Promise<boolean> {
     const [user] = await db
-      .select({ role: users.role })
+      .select({ role: users.role, isTestAccount: users.isTestAccount })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
     
     if (!user) return false;
     
-    return user.role === 'admin' || user.role === 'developer';
+    // Bypass for admins, developers, and test accounts
+    return user.role === 'admin' || user.role === 'developer' || user.isTestAccount === true;
   }
   
   /**

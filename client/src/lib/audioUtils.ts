@@ -6,28 +6,20 @@ import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition, l
  * When disabled (false): The 60fps timing loop only performs minimal AudioContext health checks.
  * When enabled (true): Full word-level timing, sentence matching, and debug logging runs every frame.
  * 
- * DISABLED FUNCTIONALITY (when false):
+ * ENABLED: Required for karaoke-style subtitle highlighting:
  * - Per-frame word schedule scanning (findActiveWord)
  * - Per-frame sentence schedule matching and logging
  * - Debug state updates for timing visualization
  * - Word match logging and callbacks
  * - Sentence transition logging
- * - Frame-by-frame debug console output
  * 
- * PRESERVED FUNCTIONALITY (always runs):
- * - AudioContext suspend detection and auto-resume
- * - Basic isPlaying state management
- * - Sentence start/end callbacks (for audio scheduling only)
- * - The loop itself (so it can be re-enabled without restart)
+ * ARCHITECTURE: Works with buffered streaming (PROGRESSIVE_AUDIO_STREAMING: false)
+ * to guarantee all word timings are available before playback starts.
+ * AudioContext.currentTime is the single source of truth for synchronization.
  * 
- * TO RE-ENABLE: Set this to true, or use DevTools: window.__enableWordTimingDiagnostics = true
- * 
- * FUTURE USE CASES:
- * - Whiteboard PLAY tool with word-level highlighting
- * - Karaoke-style subtitle display
- * - Word-precise visual cues during tutor speech
+ * TO DISABLE: Set this to false, or use DevTools: window.__enableWordTimingDiagnostics = false
  */
-const ENABLE_WORD_TIMING_DIAGNOSTICS = false;
+const ENABLE_WORD_TIMING_DIAGNOSTICS = true;
 
 // Allow runtime override via DevTools console
 declare global {

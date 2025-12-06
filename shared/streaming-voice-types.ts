@@ -431,14 +431,16 @@ export const STREAMING_FEATURE_FLAGS = {
   ENABLE_SENTENCE_CHUNKING: true,
   
   /** 
-   * PROGRESSIVE STREAMING (Phase 1)
+   * PROGRESSIVE STREAMING
    * When enabled, audio chunks are sent to client as they arrive from Cartesia
    * instead of buffering the full sentence. Reduces time-to-first-audio by ~2s.
    * 
-   * Requires client support for:
-   * - Handling multiple small audio_chunk messages per sentence
-   * - Progressive word_timing_delta messages with final reconciliation
-   * - Gap smoothing in audio playback
+   * DISABLED: Buffered mode guarantees bulletproof subtitle sync because:
+   * - All word timings arrive BEFORE audio playback starts
+   * - No race conditions between timing data and playback
+   * - Single source of truth: AudioContext.currentTime
+   * 
+   * Trade-off: ~100-200ms extra latency per sentence (still well under 3s target)
    */
-  PROGRESSIVE_AUDIO_STREAMING: true,
+  PROGRESSIVE_AUDIO_STREAMING: false,
 } as const;

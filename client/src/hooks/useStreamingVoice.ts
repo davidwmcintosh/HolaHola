@@ -12,17 +12,18 @@ import { getStreamingVoiceClient, StreamingVoiceClient } from '../lib/streamingV
 import { getStreamingAudioPlayer, StreamingAudioPlayer, StreamingAudioChunk, StreamingPlaybackState } from '../lib/audioUtils';
 import { useStreamingSubtitles, UseStreamingSubtitlesReturn } from './useStreamingSubtitles';
 import { logAudioChunkReceived, updateDebugTimingState } from '../lib/debugTimingState';
-import type { 
-  StreamingClientState,
-  StreamingMetrics,
-  StreamingProcessingMessage,
-  StreamingSentenceStartMessage,
-  StreamingSentenceReadyMessage,
-  StreamingAudioChunkMessage,
-  StreamingWordTimingMessage,
-  StreamingWordTimingDeltaMessage,
-  StreamingWordTimingFinalMessage,
-  StreamingResponseCompleteMessage,
+import { 
+  STREAMING_FEATURE_FLAGS,
+  type StreamingClientState,
+  type StreamingMetrics,
+  type StreamingProcessingMessage,
+  type StreamingSentenceStartMessage,
+  type StreamingSentenceReadyMessage,
+  type StreamingAudioChunkMessage,
+  type StreamingWordTimingMessage,
+  type StreamingWordTimingDeltaMessage,
+  type StreamingWordTimingFinalMessage,
+  type StreamingResponseCompleteMessage,
 } from '../../../shared/streaming-voice-types';
 
 /**
@@ -328,15 +329,41 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   /**
-   * Handle word timing message
-   * Now includes turnId for packet ordering
+   * Handle word timing message (BUFFERED MODE ONLY)
+   * 
+   * In buffered mode (PROGRESSIVE_AUDIO_STREAMING: false), all word timings
+   * arrive BEFORE the audio chunk. This guarantees karaoke highlighting
+   * is properly synchronized because:
+   * 1. Timings are registered with audio player FIRST
+   * 2. Audio plays AFTER, using AudioContext.currentTime as truth
+   * 
+   * IMPORTANT: Only register with audio player in BUFFERED mode.
+   * In progressive mode, handleWordTimingDelta handles registration to avoid duplicates.
    * 
    * CRITICAL: Uses subtitlesRef.current to avoid stale closure issues.
-   * The event listener is registered once in connect(), but subtitles object
-   * changes when currentTurnId changes. Using the ref ensures we always
-   * call the latest version of the callback.
    */
   const handleWordTiming = useCallback((msg: StreamingWordTimingMessage) => {
+    const isBufferedMode = !STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING;
+    console.log(`[WORD_TIMING] Sentence ${msg.sentenceIndex}: ${msg.timings.length} words received (mode: ${isBufferedMode ? 'buffered' : 'progressive'})`);
+    
+    // BUFFERED MODE ONLY: Register ALL word timings with the audio player for karaoke highlighting
+    // This populates wordSchedule BEFORE audio playback starts
+    // In progressive mode, handleWordTimingDelta handles this to avoid duplicate registrations
+    if (isBufferedMode && playerRef.current && msg.timings && msg.timings.length > 0) {
+      for (let i = 0; i < msg.timings.length; i++) {
+        const timing = msg.timings[i];
+        playerRef.current.registerWordTiming(
+          msg.sentenceIndex,
+          i,
+          timing.word,
+          timing.startTime,
+          timing.endTime
+        );
+      }
+      console.log(`[WORD_TIMING] Registered ${msg.timings.length} timings with audio player (buffered mode)`);
+    }
+    
+    // Always update subtitle hook for UI state (both modes)
     subtitlesRef.current.setWordTimings(msg.sentenceIndex, msg.turnId, msg.timings, msg.expectedDurationMs);
   }, []);
   
