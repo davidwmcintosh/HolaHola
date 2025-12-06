@@ -1,35 +1,43 @@
 import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition, logScheduleEvent, updateDebugTimingState, getDebugTimingState, registerPlayerInstance, type SentenceScheduleEntry, type SentenceMatchInfo } from './debugTimingState';
 
 /**
- * WORD TIMING DIAGNOSTICS FEATURE FLAG
+ * WORD TIMING DIAGNOSTICS FEATURE FLAGS
  * 
- * When disabled (false): The 60fps timing loop only performs minimal AudioContext health checks.
- * When enabled (true): Full word-level timing, sentence matching, and debug logging runs every frame.
- * 
- * ENABLED: Required for karaoke-style subtitle highlighting:
- * - Per-frame word schedule scanning (findActiveWord)
- * - Per-frame sentence schedule matching and logging
- * - Debug state updates for timing visualization
- * - Word match logging and callbacks
- * - Sentence transition logging
+ * ENABLE_WORD_TIMING_DIAGNOSTICS (true):
+ *   - Enables full word-level timing in the 60fps loop (required for karaoke)
+ *   - Updates debug panel state for timing visualization
+ *   - Per-frame word schedule scanning (findActiveWord)
+ *   
+ * VERBOSE_TIMING_LOGS (false - DEFAULT OFF for clean architecture):
+ *   - Per-frame console.log/error output for deep debugging
+ *   - Word match logs, schedule dumps, timing loop frames
+ *   - Turn ON only when actively debugging timing issues
  * 
  * ARCHITECTURE: Works with buffered streaming (PROGRESSIVE_AUDIO_STREAMING: false)
  * to guarantee all word timings are available before playback starts.
  * AudioContext.currentTime is the single source of truth for synchronization.
  * 
- * TO DISABLE: Set this to false, or use DevTools: window.__enableWordTimingDiagnostics = false
+ * RUNTIME TOGGLE via DevTools:
+ *   window.__enableWordTimingDiagnostics = true/false  (timing loop behavior)
+ *   window.__verboseTimingLogs = true/false            (console output)
  */
 const ENABLE_WORD_TIMING_DIAGNOSTICS = true;
+const VERBOSE_TIMING_LOGS = false;  // OFF by default for clean/fast architecture
 
 // Allow runtime override via DevTools console
 declare global {
   interface Window {
     __enableWordTimingDiagnostics?: boolean;
+    __verboseTimingLogs?: boolean;
   }
 }
 
 function isWordTimingEnabled(): boolean {
   return window.__enableWordTimingDiagnostics ?? ENABLE_WORD_TIMING_DIAGNOSTICS;
+}
+
+function isVerboseLoggingEnabled(): boolean {
+  return window.__verboseTimingLogs ?? VERBOSE_TIMING_LOGS;
 }
 
 /**
@@ -765,9 +773,7 @@ export class StreamingAudioPlayer {
     // Get sentence start time from schedule
     const sentenceEntry = this.sentenceSchedule.get(sentenceIndex);
     if (!sentenceEntry) {
-      // RACE CONDITION FIX: Queue this word timing for later processing
-      console.warn(`[WORD SCHEDULE] Queuing word S${sentenceIndex}W${wordIndex} "${word}" - sentence not in schedule yet`);
-      
+      // Queue this word timing for later processing when sentence schedule exists
       if (!this.pendingWordTimings.has(sentenceIndex)) {
         this.pendingWordTimings.set(sentenceIndex, []);
       }
@@ -794,10 +800,12 @@ export class StreamingAudioPlayer {
       absoluteEndTime
     });
     
-    // Use console.error for more reliable capture in browser logs
-    console.error(`[WORD SCHEDULE] Registered: ${key} "${word}" abs=${absoluteStartTime.toFixed(3)}-${absoluteEndTime.toFixed(3)}s (sentenceStart=${sentenceEntry.startCtxTime.toFixed(3)}, relative=${relativeStartTime.toFixed(3)}-${relativeEndTime.toFixed(3)})`);
+    // Verbose logging for word registration
+    if (isVerboseLoggingEnabled()) {
+      console.error(`[WORD SCHEDULE] Registered: ${key} "${word}" abs=${absoluteStartTime.toFixed(3)}-${absoluteEndTime.toFixed(3)}s`);
+    }
     
-    // Update debug state with word schedule (limit to last 20 words for performance)
+    // Update debug state with word schedule
     this.updateWordScheduleDebugState();
   }
   
@@ -807,8 +815,6 @@ export class StreamingAudioPlayer {
   private processPendingWordTimings(sentenceIndex: number): void {
     const pending = this.pendingWordTimings.get(sentenceIndex);
     if (!pending || pending.length === 0) return;
-    
-    console.log(`[WORD SCHEDULE] Processing ${pending.length} queued words for S${sentenceIndex}`);
     
     for (const wordTiming of pending) {
       this.registerWordTiming(
@@ -857,8 +863,8 @@ export class StreamingAudioPlayer {
     // Use Array.from for broader compatibility (avoids downlevelIteration issues)
     const wordEntries = Array.from(this.wordSchedule.entries());
     
-    // DEBUG: Log word schedule state periodically (use console.error for reliable capture)
-    if (wordEntries.length > 0 && Math.floor(now * 2) % 4 === 0) {
+    // DEBUG: Log word schedule state periodically - only when verbose logging enabled
+    if (isVerboseLoggingEnabled() && wordEntries.length > 0 && Math.floor(now * 2) % 4 === 0) {
       // Find closest word for debugging
       let closestWord = wordEntries[0];
       let closestDiff = Math.abs(now - wordEntries[0][1].absoluteStartTime);
@@ -869,7 +875,6 @@ export class StreamingAudioPlayer {
           closestWord = wordEntries[i];
         }
       }
-      // Show first 3 words time ranges for debugging
       const first3 = wordEntries.slice(0, 3).map(([k, e]) => `${k}:${e.absoluteStartTime.toFixed(2)}-${e.absoluteEndTime.toFixed(2)}`).join(', ');
       console.error(`[findActiveWord] now=${now.toFixed(3)}, closest="${closestWord[1].word}" ${closestWord[1].absoluteStartTime.toFixed(3)}-${closestWord[1].absoluteEndTime.toFixed(3)} (diff=${closestDiff.toFixed(3)}s) | first3=[${first3}]`);
     }
@@ -878,10 +883,6 @@ export class StreamingAudioPlayer {
     for (let i = 0; i < wordEntries.length; i++) {
       const [key, entry] = wordEntries[i];
       if (now >= entry.absoluteStartTime && now < entry.absoluteEndTime) {
-        // Log successful match periodically (every ~0.5s)
-        if (Math.floor(now * 2) % 2 === 0) {
-          console.log(`[WORD MATCH FOUND] now=${now.toFixed(3)} matches ${key}:"${entry.word}" at ${entry.absoluteStartTime.toFixed(3)}-${entry.absoluteEndTime.toFixed(3)}s`);
-        }
         return {
           sentenceIndex: entry.sentenceIndex,
           wordIndex: entry.wordIndex,
@@ -890,9 +891,8 @@ export class StreamingAudioPlayer {
       }
     }
     
-    // Log when NO match is found (only if we have words in schedule)
-    if (wordEntries.length > 0 && Math.floor(now * 2) % 4 === 0) {
-      // Find range of all words
+    // Log when NO match is found - only when verbose logging enabled
+    if (isVerboseLoggingEnabled() && wordEntries.length > 0 && Math.floor(now * 2) % 4 === 0) {
       let minStart = Infinity, maxEnd = -Infinity;
       for (let i = 0; i < wordEntries.length; i++) {
         if (wordEntries[i][1].absoluteStartTime < minStart) minStart = wordEntries[i][1].absoluteStartTime;
@@ -940,8 +940,8 @@ export class StreamingAudioPlayer {
       const now = ctx.currentTime;
       const ctxState = ctx.state;
       
-      // Log AudioContext ID every 60 frames - only when diagnostics enabled
-      if (frameCount % 60 === 0 && isWordTimingEnabled()) {
+      // Log AudioContext ID every 60 frames - only when verbose logging enabled
+      if (frameCount % 60 === 0 && isVerboseLoggingEnabled()) {
         const ctxId = (ctx as any).__debugId || 'NO_ID';
         console.log(`[TICK DEBUG] Frame ${frameCount}: ctx.currentTime=${now.toFixed(3)}, ctx.state=${ctxState}, ctxId=${ctxId}`);
       }
@@ -1023,8 +1023,8 @@ export class StreamingAudioPlayer {
         });
       }
       
-      // Debug log every 60 frames (~1 second) to see schedule state
-      if (frameCount % 60 === 0) {
+      // Debug log every 60 frames (~1 second) to see schedule state - only when verbose
+      if (frameCount % 60 === 0 && isVerboseLoggingEnabled()) {
         const scheduleInfo: string[] = [];
         const entries = Array.from(this.sentenceSchedule.entries());
         for (let j = 0; j < entries.length; j++) {
@@ -1129,15 +1129,16 @@ export class StreamingAudioPlayer {
       // WORD-BASED TIMING: Find active word directly using AudioContext time
       const activeWord = this.findActiveWord();
       
-      // Log every word match (for first 50 matches, then throttle)
+      // Update debug state with active word (always update for debug panel)
       if (activeWord) {
         this.wordMatchCount++;
-        if (this.wordMatchCount <= 50 || frameCount % 60 === 0) {
+        
+        // Log word match only when verbose logging enabled
+        if (isVerboseLoggingEnabled() && (this.wordMatchCount <= 50 || frameCount % 60 === 0)) {
           console.error(`[WORD-MATCH] ✓ now=${now.toFixed(3)}s matched S${activeWord.sentenceIndex}W${activeWord.wordIndex}:"${activeWord.word}" (matchCount=${this.wordMatchCount})`);
         }
         
-        // ALWAYS update lastWordMatchTime when we have a match (not throttled)
-        // This ensures the debug panel shows the last successful match time
+        // Always update debug state for panel visualization
         updateDebugTimingState({
           activeWord: {
             sentenceIndex: activeWord.sentenceIndex,
@@ -1147,10 +1148,7 @@ export class StreamingAudioPlayer {
           lastWordMatchTime: now
         });
       } else if (shouldUpdateMatchInfo) {
-        // Only update with null when throttle allows (to avoid excessive updates)
-        updateDebugTimingState({
-          activeWord: null
-        });
+        updateDebugTimingState({ activeWord: null });
       }
       
       // Derive sentence from active word for more reliable sentence tracking
@@ -1160,8 +1158,8 @@ export class StreamingAudioPlayer {
       const effectiveSentenceIndex = wordBasedSentenceIndex >= 0 ? wordBasedSentenceIndex : activeIndex;
       const effectiveEntry = effectiveSentenceIndex >= 0 ? this.sentenceSchedule.get(effectiveSentenceIndex) : null;
       
-      // DEBUG: Log effective sentence detection every 30 frames
-      if (frameCount % 30 === 0) {
+      // DEBUG: Log effective sentence detection every 30 frames - only when verbose
+      if (isVerboseLoggingEnabled() && frameCount % 30 === 0) {
         const wordScheduleSize = this.wordSchedule.size;
         console.error(`[TIMING FRAME ${frameCount}] wordBasedIdx=${wordBasedSentenceIndex}, sentenceBasedIdx=${activeIndex}, effective=${effectiveSentenceIndex}, scheduleSize=${this.sentenceSchedule.size}, wordScheduleSize=${wordScheduleSize}`);
       }
@@ -1175,17 +1173,17 @@ export class StreamingAudioPlayer {
           this.activeSentenceInLoop = effectiveSentenceIndex;
           this.progressivePlaybackStartCtxTime = effectiveEntry.startCtxTime;
           
-          // CRITICAL: Use console.error for visibility
-          console.error(`[SENTENCE] ▶▶▶ STARTING S${effectiveSentenceIndex} (now=${ctx.currentTime.toFixed(3)}, scheduled=${effectiveEntry.startCtxTime.toFixed(3)}, via=${wordBasedSentenceIndex >= 0 ? 'word' : 'sentence'})`);
+          // Log sentence start only when verbose logging enabled
+          if (isVerboseLoggingEnabled()) {
+            console.error(`[SENTENCE] ▶▶▶ STARTING S${effectiveSentenceIndex} (now=${ctx.currentTime.toFixed(3)}, scheduled=${effectiveEntry.startCtxTime.toFixed(3)}, via=${wordBasedSentenceIndex >= 0 ? 'word' : 'sentence'})`);
+          }
           
           // Log sentence transition for debug panel
           logSentenceTransition(previousSentence, effectiveSentenceIndex, `started at ${ctx.currentTime.toFixed(2)}s`);
           
           // Update debug panel with sentences started count
           const startedCount = Array.from(this.sentenceSchedule.values()).filter(e => e.started).length;
-          updateDebugTimingState({
-            sentencesStarted: startedCount,
-          });
+          updateDebugTimingState({ sentencesStarted: startedCount });
           
           this.callbacks.onSentenceStart?.(effectiveSentenceIndex);
         }
@@ -1194,11 +1192,6 @@ export class StreamingAudioPlayer {
         const elapsedInSentence = now - effectiveEntry.startCtxTime;
         
         // Fire progress callback (drives subtitle word highlighting)
-        // DEBUG: Log word-based timing when available
-        if (activeWord && frameCount % 30 === 0) {
-          console.log(`[WORD MATCH] Active: S${activeWord.sentenceIndex} W${activeWord.wordIndex} "${activeWord.word}" | elapsed=${elapsedInSentence.toFixed(3)}s`);
-        }
-        
         this.callbacks.onProgress?.(elapsedInSentence, effectiveEntry.totalDuration);
       } else {
         // No active sentence - check for sentences that have ended but haven't fired onSentenceEnd
@@ -1229,22 +1222,19 @@ export class StreamingAudioPlayer {
       }
       
       // FALLBACK: Periodically check if we should stop (every 30 frames) when response_complete was received
-      // This handles the case where all sentences ended before the fallback code was deployed
       if (frameCount % 30 === 0) {
         const debugState = window.__debugTimingState;
         const wsReceived = debugState?.wsResponseCompleteReceived;
         const expCount = this.expectedSentenceCount;
         
-        // Log every 150 frames (~2.5s) to track fallback status
-        if (frameCount % 150 === 0) {
+        // Verbose logging for fallback status
+        if (isVerboseLoggingEnabled() && frameCount % 150 === 0) {
           console.log(`[FALLBACK CHECK] F${frameCount}: wsReceived=${wsReceived}, expectedCount=${expCount}, scheduleSize=${this.sentenceSchedule.size}`);
         }
         
         if (wsReceived && expCount === null) {
           const allEnded = this.checkAllSentencesEnded();
-          console.log(`[FALLBACK] F${frameCount}: wsReceived=true, expectedCount=null -> checkAllSentencesEnded=${allEnded}`);
           if (allEnded) {
-            console.log('[StreamingAudioPlayer] FALLBACK PERIODIC CHECK: All sentences ended, stopping loop');
             this.isPlaying = false;
             this.setState('idle');
             this.stopPrecisionTiming();
@@ -1267,47 +1257,36 @@ export class StreamingAudioPlayer {
    * @deprecated Use startUnifiedTimingLoop instead
    */
   private startProgressivePrecisionTiming(): void {
-    // Cancel any existing timing loop
     this.stopPrecisionTiming();
-    
-    console.log('[StreamingAudioPlayer] Starting progressive precision timing (AudioContext anchored)');
     
     let frameCount = 0;
     const tick = () => {
-      // Exit if playback stopped
       if (!this.isPlaying || this.progressiveSentenceIndex === -1) {
         return;
       }
       
-      // Calculate current playback time from AudioContext
       const ctx = this.audioContext;
       if (!ctx) {
         this.rafId = requestAnimationFrame(tick);
         return;
       }
       
-      // Current time = AudioContext time - when we started playing
       const elapsedCtxTime = ctx.currentTime - this.progressivePlaybackStartCtxTime;
       
-      // If we haven't reached the start time yet (audio scheduled for future), wait
       if (elapsedCtxTime < 0) {
-        // Continue loop but don't fire callbacks yet
         this.rafId = requestAnimationFrame(tick);
         return;
       }
       
       const currentTime = elapsedCtxTime;
-      
-      // Fire progress callback with current time and estimated total duration
       this.callbacks.onProgress?.(currentTime, this.progressiveTotalDuration);
       
-      // Debug log periodically - every 10 frames (~160ms at 60fps) for more visibility
+      // Verbose debug log only when enabled
       frameCount++;
-      if (frameCount % 10 === 0) {
+      if (isVerboseLoggingEnabled() && frameCount % 10 === 0) {
         console.log(`[TIMING LOOP] frame=${frameCount}, elapsed=${currentTime.toFixed(3)}s, total=${this.progressiveTotalDuration.toFixed(3)}s, ctx.state=${ctx?.state}`);
       }
       
-      // Continue the loop
       this.rafId = requestAnimationFrame(tick);
     };
     
