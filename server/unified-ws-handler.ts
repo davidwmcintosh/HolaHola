@@ -527,8 +527,10 @@ Reference past discussions when relevant, but don't force it.
               type: 'session_started',
               timestamp: Date.now(),
               sessionId: session.id,
+              conversationId: conversationId, // Exposed for Architect's Voice integration
+              isFounderMode: isFounderMode, // Flag for UI to show founder mode indicator
             }));
-            console.log('[Streaming Voice] session_started sent');
+            console.log(`[Streaming Voice] session_started sent (conversation: ${conversationId}${isFounderMode ? ', FOUNDER MODE' : ''})`);
           }
           
           // Apply any pending voice update that was queued before session was ready

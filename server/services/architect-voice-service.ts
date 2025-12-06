@@ -6,7 +6,34 @@
  * between the founder, the tutor, and the architect.
  * 
  * Notes are ephemeral - they're cleared after being delivered to Daniela.
+ * 
+ * SECURITY: Protected by ARCHITECT_SECRET environment variable.
+ * Only requests with the correct secret can inject notes.
+ * This prevents other AI agents (Gemini, etc.) from accessing the endpoint.
  */
+
+// Secret key for architect authentication - must match env var
+const ARCHITECT_SECRET = process.env.ARCHITECT_SECRET || '';
+
+/**
+ * Validate architect secret for injection requests
+ * Returns true only if a valid secret is configured AND matches
+ */
+export function validateArchitectSecret(providedSecret: string | undefined): boolean {
+  // Must have a configured secret (not empty)
+  if (!ARCHITECT_SECRET || ARCHITECT_SECRET.length < 16) {
+    console.warn('[Architect Voice] No valid ARCHITECT_SECRET configured - injection disabled');
+    return false;
+  }
+  
+  // Must match exactly
+  if (providedSecret !== ARCHITECT_SECRET) {
+    console.warn('[Architect Voice] Invalid architect secret provided');
+    return false;
+  }
+  
+  return true;
+}
 
 interface ArchitectNote {
   id: string;

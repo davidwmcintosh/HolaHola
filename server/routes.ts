@@ -40,7 +40,7 @@ import multer from "multer";
 import { getTTSService } from "./services/tts-service";
 import { usageService } from "./services/usage-service";
 import { sessionCompassService, COMPASS_ENABLED } from "./services/session-compass-service";
-import { architectVoiceService } from "./services/architect-voice-service";
+import { architectVoiceService, validateArchitectSecret } from "./services/architect-voice-service";
 import { 
   getAvailableActflLevels,
   getSupportedLanguages,
@@ -959,6 +959,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Enables the AI architect (Claude) to inject notes into active voice sessions
   
   // Inject a note into an active voice session
+  // SECURITY: Requires both developer role AND architect secret
   app.post('/api/architect/inject', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -967,6 +968,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isDeveloper = await usageService.checkDeveloperBypass(userId);
       if (!isDeveloper) {
         return res.status(403).json({ message: "Developer access required" });
+      }
+      
+      // SECURITY: Validate architect secret (protects from other AI agents)
+      const architectSecret = req.headers['x-architect-secret'] as string;
+      if (!validateArchitectSecret(architectSecret)) {
+        return res.status(403).json({ message: "Invalid architect credentials" });
       }
       
       const { conversationId, content } = req.body;
