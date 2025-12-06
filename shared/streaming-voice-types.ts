@@ -14,6 +14,7 @@ export type StreamingClientState =
   | 'connected'
   | 'ready'
   | 'processing'
+  | 'reconnecting'  // Auto-reconnecting after unexpected disconnect
   | 'error';
 
 /**

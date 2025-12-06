@@ -63,6 +63,7 @@ export type StreamingConnectionState =
   | 'ready'       // Session established, ready to send audio
   | 'processing'
   | 'streaming'
+  | 'reconnecting' // Auto-reconnecting after unexpected disconnect
   | 'error';
 
 /**
@@ -138,6 +139,11 @@ export class StreamingVoiceClient {
   // Connection ID to prevent race conditions when reconnecting
   // Events from old WebSockets are ignored if connectionId doesn't match
   private connectionId = 0;
+  
+  // Auto-reconnect state
+  private lastConversationId: string | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private intentionalDisconnect = false;  // Track if disconnect was user-initiated
   
   constructor() {
     console.log('[StreamingVoiceClient] Initialized');
@@ -215,6 +221,16 @@ export class StreamingVoiceClient {
       return;
     }
     
+    // Store conversationId for potential reconnection
+    this.lastConversationId = conversationId;
+    this.intentionalDisconnect = false;
+    
+    // Clear any pending reconnect timer
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    
     // Increment connection ID to invalidate any pending events from old connections
     this.connectionId++;
     const currentConnectionId = this.connectionId;
@@ -253,7 +269,9 @@ export class StreamingVoiceClient {
           return;
         }
         console.log('[StreamingVoiceClient] ✓ WebSocket connected');
+        // Reset reconnect state on successful connection
         this.reconnectAttempts = 0;
+        this.intentionalDisconnect = false;  // Allow future reconnects
         this.setState('connected');
       };
       
@@ -370,9 +388,19 @@ export class StreamingVoiceClient {
   }
   
   /**
-   * Disconnect and cleanup
+   * Disconnect and cleanup (user-initiated)
    */
   disconnect(): void {
+    // Mark as intentional to prevent auto-reconnect
+    this.intentionalDisconnect = true;
+    this.reconnectAttempts = 0;
+    
+    // Clear any pending reconnect timer
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    
     if (this.ws) {
       // Send end session message
       if (this.ws.readyState === WebSocket.OPEN) {
@@ -383,7 +411,7 @@ export class StreamingVoiceClient {
     }
     this.sessionId = null;
     this.setState('disconnected');
-    console.log('[StreamingVoiceClient] Disconnected');
+    console.log('[StreamingVoiceClient] Disconnected (user-initiated)');
   }
   
   /**
@@ -604,13 +632,62 @@ export class StreamingVoiceClient {
     this.ws = null;
     this.sessionId = null;
     
-    // Attempt reconnection if not intentional
-    if (this.reconnectAttempts < this.maxReconnectAttempts && this.state !== 'disconnected') {
-      this.reconnectAttempts++;
-      // Caller should handle reconnection with conversationId
+    // Skip auto-reconnect if disconnect was user-initiated
+    if (this.intentionalDisconnect) {
+      console.log('[StreamingVoiceClient] Intentional disconnect, no auto-reconnect');
+      this.setState('disconnected');
+      return;
     }
     
-    this.setState('disconnected');
+    // Skip if no conversationId to reconnect to
+    if (!this.lastConversationId) {
+      console.log('[StreamingVoiceClient] No conversationId for reconnect');
+      this.setState('disconnected');
+      return;
+    }
+    
+    // Attempt auto-reconnect with exponential backoff
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
+      const delay = Math.pow(2, this.reconnectAttempts - 1) * 1000; // 1s, 2s, 4s
+      
+      console.log(`[StreamingVoiceClient] Auto-reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
+      this.setState('reconnecting');
+      
+      // Emit error event so UI can show reconnecting message
+      this.emit('error', { 
+        code: 'RECONNECTING', 
+        message: `Connection lost. Reconnecting... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
+        recoverable: true 
+      });
+      
+      this.reconnectTimer = setTimeout(async () => {
+        this.reconnectTimer = null;  // Clear timer reference
+        try {
+          console.log(`[StreamingVoiceClient] Attempting reconnect to ${this.lastConversationId}`);
+          await this.connect(this.lastConversationId!);
+          
+          // Reset all reconnect state on successful reconnection
+          this.reconnectAttempts = 0;
+          this.intentionalDisconnect = false;  // Allow future reconnects
+          console.log('[StreamingVoiceClient] Reconnected successfully');
+        } catch (err) {
+          console.error('[StreamingVoiceClient] Reconnect failed:', err);
+          // handleDisconnect will be called again, triggering next attempt
+        }
+      }, delay);
+    } else {
+      console.log('[StreamingVoiceClient] Max reconnect attempts reached');
+      this.reconnectAttempts = 0;
+      this.setState('disconnected');
+      
+      // Emit final error to UI
+      this.emit('error', { 
+        code: 'CONNECTION_FAILED', 
+        message: 'Connection lost. Please restart the voice chat.',
+        recoverable: false 
+      });
+    }
   }
   
   private waitForOpen(): Promise<void> {

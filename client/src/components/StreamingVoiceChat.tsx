@@ -1338,8 +1338,15 @@ export function StreamingVoiceChat({
       }
     } else if (STREAMING_ONLY_MODE) {
       // Streaming mode required but not connected - show error
-      console.warn('[STREAMING] Not connected, waiting for connection...');
-      setError('Voice streaming is connecting. Please try again in a moment.');
+      const currentState = streamingVoice.state.connectionState;
+      console.warn('[STREAMING] Not connected, state:', currentState);
+      
+      // Give appropriate feedback based on connection state
+      if (currentState === 'reconnecting') {
+        setError('Reconnecting to voice session. Please wait...');
+      } else {
+        setError('Voice streaming is connecting. Please try again in a moment.');
+      }
       setIsProcessing(false);
       isProcessingRef.current = false;
       setAvatarState('idle');
@@ -1671,7 +1678,7 @@ export function StreamingVoiceChat({
           isMicPreparing={isMicPreparing}
           isProcessing={isProcessing}
           isPlaying={avatarState === 'speaking'}
-          isConnecting={useStreamingMode && (streamingVoice.state.connectionState === 'connecting' || streamingVoice.state.connectionState === 'connected')}
+          isConnecting={useStreamingMode && (streamingVoice.state.connectionState === 'connecting' || streamingVoice.state.connectionState === 'connected' || streamingVoice.state.connectionState === 'reconnecting')}
           tutorGender={tutorGender}
           voiceSpeed={voiceSpeed}
           setTutorGender={(gender) => {

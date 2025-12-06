@@ -149,6 +149,26 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
     console.error('[Streaming Voice] Error sending connected:', err);
   }
 
+  // HEARTBEAT: Send ping every 20 seconds to keep connection alive
+  // This prevents network proxies/firewalls from killing idle connections
+  let isAlive = true;
+  const heartbeatInterval = setInterval(() => {
+    if (!isAlive) {
+      console.log('[Streaming Voice] Heartbeat: No pong received, terminating connection');
+      clearInterval(heartbeatInterval);
+      ws.terminate();
+      return;
+    }
+    isAlive = false;
+    if (ws.readyState === WS.OPEN) {
+      ws.ping();
+    }
+  }, 20000);
+
+  ws.on('pong', () => {
+    isAlive = true;
+  });
+
   ws.on('message', async (data: Buffer | string) => {
     console.log('[Streaming Voice] Message received, length:', Buffer.isBuffer(data) ? data.length : data.length);
     
@@ -863,6 +883,7 @@ Reference past discussions when relevant, but don't force it.
 
   ws.on('close', (code, reason) => {
     console.log(`[Streaming Voice] Closed: ${code} - ${reason}`);
+    clearInterval(heartbeatInterval);  // Clean up heartbeat
     if (session) orchestrator.endSession(session.id);
     endUsageSession();
   });
