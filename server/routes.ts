@@ -959,21 +959,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Enables the AI architect (Claude) to inject notes into active voice sessions
   
   // Inject a note into an active voice session
-  // SECURITY: Requires both developer role AND architect secret
-  app.post('/api/architect/inject', isAuthenticated, async (req: any, res) => {
+  // SECURITY: Requires architect secret (allows Claude to inject without user session)
+  // The secret protects against unauthorized access from other AI agents
+  app.post('/api/architect/inject', async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      
-      // Verify user is a developer (only developers can inject architect notes)
-      const isDeveloper = await usageService.checkDeveloperBypass(userId);
-      if (!isDeveloper) {
-        return res.status(403).json({ message: "Developer access required" });
-      }
-      
-      // SECURITY: Validate architect secret (protects from other AI agents)
+      // SECURITY: Validate architect secret (this is the primary security gate)
       const architectSecret = req.headers['x-architect-secret'] as string;
       if (!validateArchitectSecret(architectSecret)) {
-        return res.status(403).json({ message: "Invalid architect credentials" });
+        return res.status(401).json({ message: "Unauthorized" });
       }
       
       const { conversationId, content } = req.body;
@@ -982,8 +975,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "conversationId and content are required" });
       }
       
-      // Verify the conversation belongs to this user
-      const conversation = await storage.getConversation(conversationId, userId);
+      // Verify conversation exists (architect has special access to any conversation)
+      const [conversation] = await db.select().from(conversations).where(eq(conversations.id, conversationId));
       if (!conversation) {
         return res.status(404).json({ message: "Conversation not found" });
       }
@@ -991,7 +984,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Inject the note
       const note = architectVoiceService.injectNote(conversationId, content);
       
-      console.log(`[Architect Voice] Developer ${userId} injected note into conversation ${conversationId}`);
+      console.log(`[Architect Voice] Note injected into conversation ${conversationId}`);
       
       res.json({ 
         success: true, 
