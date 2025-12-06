@@ -75,6 +75,12 @@ export function LearningFilterProvider({ children }: { children: ReactNode }) {
       return;
     }
     
+    // "founder-mode" is valid for developers (no class needed)
+    if (learningContext === "founder-mode") {
+      // Founder mode is validated by isDeveloper check elsewhere
+      return;
+    }
+    
     // If context is a class ID, validate it exists
     if (learningContext !== "self-directed") {
       const classExists = enrolledClasses.some(e => e.classId === learningContext && e.isActive);
