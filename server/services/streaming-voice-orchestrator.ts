@@ -156,6 +156,7 @@ export interface StreamingSession {
   ws: WS;
   startTime: number;
   isActive: boolean;
+  isFounderMode: boolean;  // Founder Mode uses English STT regardless of target language
   idleTimeoutId?: NodeJS.Timeout;  // Timer for idle cleanup
   lastActivityTime: number;         // Timestamp of last student activity
   currentTurnId: number;            // Monotonic counter for subtitle packet ordering (prevents phantom subtitles)
@@ -290,7 +291,8 @@ export class StreamingVoiceOrchestrator {
     config: ClientStartSessionMessage,
     systemPrompt: string,
     conversationHistory: Array<{ role: 'user' | 'model'; content: string }>,
-    voiceId?: string
+    voiceId?: string,
+    isFounderMode: boolean = false
   ): Promise<StreamingSession> {
     const sessionId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
@@ -311,6 +313,7 @@ export class StreamingVoiceOrchestrator {
       ws,
       startTime: Date.now(),
       isActive: true,
+      isFounderMode,  // Founder Mode uses English STT regardless of target language
       lastActivityTime: Date.now(),
       currentTurnId: 0,  // Start at 0, incremented on each new response
     };
@@ -395,7 +398,8 @@ export class StreamingVoiceOrchestrator {
       // Start both operations in parallel
       const [transcriptionResult, cartesiaWarmupTime] = await Promise.all([
         // STT: Transcribe user audio with Deepgram (returns transcript + confidence)
-        this.transcribeAudio(audioData, session.targetLanguage),
+        // Founder Mode uses multi-language detection for English/Spanish mixing
+        this.transcribeAudio(audioData, session.targetLanguage, session.nativeLanguage, session.isFounderMode),
         // Connection warmup: Ensure Cartesia WebSocket is ready (no-op if already connected)
         this.cartesiaService.ensureConnection().catch((err: Error) => {
           console.warn(`[Streaming Orchestrator] Cartesia warmup failed: ${err.message}`);
@@ -689,19 +693,32 @@ export class StreamingVoiceOrchestrator {
    * - Word timestamps: Enabled for karaoke highlighting
    * - Reliability: Two chances to get valid transcript
    * 
+   * FOUNDER MODE: Uses multi-language detection for English/Spanish mixing
+   * This allows developers to speak freely in both languages during open conversations.
+   * Regular students use single-language mode for higher accuracy (92% vs mid-80s).
+   * 
    * Returns transcript AND confidence for ACTFL tracking (no shared state)
    */
-  private async transcribeAudio(audioData: Buffer, targetLanguage: string): Promise<{ transcript: string; confidence: number }> {
-    const languageCode = getDeepgramLanguageCode(targetLanguage);
-    console.log(`[Deepgram Parallel] Transcribing ${audioData.length} bytes, language: ${languageCode}`);
+  private async transcribeAudio(
+    audioData: Buffer, 
+    targetLanguage: string,
+    nativeLanguage: string = 'english',
+    isFounderMode: boolean = false
+  ): Promise<{ transcript: string; confidence: number }> {
+    // FOUNDER MODE: Use multi-language detection for English/Spanish mixing
+    // This allows natural conversation in both languages
+    const useMultiLanguage = isFounderMode;
+    const languageCode = useMultiLanguage ? 'multi' : getDeepgramLanguageCode(targetLanguage);
+    
+    console.log(`[Deepgram Parallel] Transcribing ${audioData.length} bytes, language: ${languageCode}${isFounderMode ? ' (FOUNDER MODE - multi-language)' : ''}`);
     
     // Log header to verify WebM format (0x1A 0x45 0xDF 0xA3)
     const header = audioData.slice(0, 16);
     console.log(`[Deepgram Parallel] Audio header: ${header.toString('hex')}`);
     
     // PARALLEL RACE: Start both APIs simultaneously
-    const livePromise = this.transcribeWithLive(audioData, languageCode);
-    const prerecordedPromise = this.transcribeWithPrerecorded(audioData, languageCode);
+    const livePromise = this.transcribeWithLive(audioData, languageCode, isFounderMode);
+    const prerecordedPromise = this.transcribeWithPrerecorded(audioData, languageCode, isFounderMode);
     
     // Race for first VALID result (non-empty transcript)
     // We use a custom race that waits for valid results, not just first completion
@@ -782,13 +799,18 @@ export class StreamingVoiceOrchestrator {
   
   /**
    * Transcribe with Live Streaming API
+   * @param audioData - Audio buffer to transcribe
+   * @param languageCode - Language code (or 'multi' for multi-language detection)
+   * @param isFounderMode - If true, enables multi-language detection
    */
-  private async transcribeWithLive(audioData: Buffer, languageCode: string): Promise<{ transcript: string; confidence: number; source: string }> {
+  private async transcribeWithLive(audioData: Buffer, languageCode: string, isFounderMode: boolean = false): Promise<{ transcript: string; confidence: number; source: string }> {
     const startTime = Date.now();
     
     const result = await transcribeWithLiveAPI(audioData, {
       language: languageCode,
       model: 'nova-2',
+      // Multi-language detection for Founder Mode
+      ...(isFounderMode && { detect_language: true }),
     });
     
     const durationMs = Date.now() - startTime;
@@ -803,8 +825,11 @@ export class StreamingVoiceOrchestrator {
   
   /**
    * Transcribe with Prerecorded API
+   * @param audioData - Audio buffer to transcribe
+   * @param languageCode - Language code (or 'multi' for multi-language detection)
+   * @param isFounderMode - If true, enables multi-language detection
    */
-  private async transcribeWithPrerecorded(audioData: Buffer, languageCode: string): Promise<{ transcript: string; confidence: number; source: string }> {
+  private async transcribeWithPrerecorded(audioData: Buffer, languageCode: string, isFounderMode: boolean = false): Promise<{ transcript: string; confidence: number; source: string }> {
     const startTime = Date.now();
     
     const response = await deepgram.listen.prerecorded.transcribeFile(
@@ -815,12 +840,20 @@ export class StreamingVoiceOrchestrator {
         smart_format: true,
         punctuate: true,
         mimetype: 'audio/webm',
+        // Multi-language detection for Founder Mode
+        ...(isFounderMode && { detect_language: true }),
       }
     );
     
     const alternative = response.result?.results?.channels?.[0]?.alternatives?.[0];
     const transcript = alternative?.transcript || '';
     const confidence = alternative?.confidence || 0;
+    
+    // Log detected language if available (for monitoring multi-language accuracy)
+    const detectedLanguage = response.result?.results?.channels?.[0]?.detected_language;
+    if (detectedLanguage) {
+      console.log(`[Deepgram Prerecorded] Detected language: ${detectedLanguage}`);
+    }
     
     const durationMs = Date.now() - startTime;
     console.log(`[Deepgram Prerecorded] Result: "${transcript}" (${(confidence * 100).toFixed(0)}%, ${durationMs}ms)`);

@@ -502,7 +502,8 @@ Reference past discussions when relevant, but don't force it.
             config,
             systemPrompt,
             conversationHistory,
-            voiceId
+            voiceId,
+            isFounderMode  // Pass Founder Mode flag for multi-language STT
           );
 
           console.log(`[Streaming Voice] Session created: ${session.id}`);
