@@ -59,6 +59,42 @@ Phase 2 Dual Time Tracking complete:
 
 ---
 
+### [December 6, 2025] - Tutor Autonomy: Natural Session Openings
+**Target:** TECHNICAL-REFERENCE.md
+**Section:** Voice Pipeline / System Prompt Architecture
+**Content:**
+"Freeing Daniela" update - reducing prescriptive constraints on tutor behavior:
+
+**Speed Control Removed:**
+- Removed voice speed slider from ImmersiveTutor UI
+- Students now ask Daniela to repeat slowly (e.g., "Can you say that again slower?")
+- This is itself valuable language practice and keeps tutor in control of pacing
+
+**Greeting Prompt Simplified:**
+- `buildGreetingPrompt()` in streaming-voice-orchestrator.ts now provides context-only bullet points
+- Ends with simple directive: "speak first with a natural opening message"
+- No more prescriptive scripts for different student types
+
+**System Prompt Addition:**
+- Added "OPENING SESSIONS NATURALLY" section to IMMUTABLE_PERSONA
+- Guidance for different scenarios (returning student, class student, new student, after break)
+- Philosophy: "Read the context, trust your instincts, be yourself"
+
+---
+
+### [December 6, 2025] - Tutor Autonomy: Design Philosophy
+**Target:** ROADMAP.md
+**Section:** Recently Completed / Design Philosophy
+**Content:**
+"Freeing Daniela" philosophy reinforcement:
+- Tutors ARE the product - everything else is infrastructure to help them shine
+- Provide rich context about WHO the student is, not scripts for HOW to teach
+- Real tutors synthesize context and make judgment calls - AI tutors should too
+- Removed speed control UI (students ask tutor directly - language practice)
+- Replaced greeting scripts with context bullets + simple directive
+
+---
+
 ## Instructions
 
 When user says "add to the batch" or "batch doc updates":
