@@ -33,7 +33,7 @@ import {
   LATENCY_TARGETS,
   STREAMING_FEATURE_FLAGS,
 } from "@shared/streaming-voice-types";
-import { parseWhiteboardMarkup, WhiteboardItem } from "@shared/whiteboard-types";
+import { parseWhiteboardMarkup, WhiteboardItem, WordMapItem, isWordMapItem } from "@shared/whiteboard-types";
 
 /**
  * Lightweight metrics logger for performance monitoring
@@ -548,7 +548,7 @@ export class StreamingVoiceOrchestrator {
           if (whiteboardParsed.whiteboardItems.length > 0) {
             console.log(`[Whiteboard] Parsed ${whiteboardParsed.whiteboardItems.length} items from sentence ${chunk.index}`);
             
-            // Send whiteboard update to client
+            // Send whiteboard update to client (with isLoading: true for WORD_MAP)
             this.sendMessage(session.ws, {
               type: 'whiteboard_update',
               timestamp: Date.now(),
@@ -556,6 +556,10 @@ export class StreamingVoiceOrchestrator {
               items: whiteboardParsed.whiteboardItems,
               shouldClear: whiteboardParsed.shouldClear,
             } as StreamingWhiteboardMessage);
+            
+            // WORD_MAP ENRICHMENT: Asynchronously generate related words
+            // Don't await - let this run in background while audio streams
+            this.enrichWordMapItems(session.ws, whiteboardParsed.whiteboardItems, session.targetLanguage, turnId);
           } else if (whiteboardParsed.shouldClear) {
             // Send clear signal even if no items
             this.sendMessage(session.ws, {
@@ -1593,6 +1597,88 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
     } catch (error: any) {
       console.error('[Streaming Enrichment] Error:', error.message);
       await storage.updateMessage(messageId, { enrichmentStatus: 'failed' });
+    }
+  }
+  
+  /**
+   * Enrich WORD_MAP whiteboard items with related words (synonyms, antonyms, etc.)
+   * Runs asynchronously in background - sends update when complete
+   */
+  private async enrichWordMapItems(
+    ws: WS,
+    items: WhiteboardItem[],
+    language: string,
+    turnId: number
+  ): Promise<void> {
+    // Find word_map items that need enrichment using type guard
+    const wordMapItems = items.filter((item): item is WordMapItem => 
+      isWordMapItem(item) && item.data?.isLoading === true
+    );
+    
+    if (wordMapItems.length === 0) return;
+    
+    const gemini = getGeminiStreamingService();
+    
+    for (const item of wordMapItems) {
+      try {
+        const targetWord = item.data.targetWord;
+        if (!targetWord) continue;
+        
+        console.log(`[WORD_MAP] Enriching "${targetWord}" for ${language}...`);
+        const startTime = Date.now();
+        
+        const relatedWords = await gemini.generateRelatedWords(targetWord, language);
+        
+        const elapsed = Date.now() - startTime;
+        console.log(`[WORD_MAP] Enriched "${targetWord}" in ${elapsed}ms:`, {
+          synonyms: relatedWords.synonyms.length,
+          antonyms: relatedWords.antonyms.length,
+          collocations: relatedWords.collocations.length,
+          wordFamily: relatedWords.wordFamily.length,
+        });
+        
+        // Create updated item with enriched data
+        const enrichedItem: WordMapItem = {
+          ...item,
+          data: {
+            targetWord,
+            synonyms: relatedWords.synonyms,
+            antonyms: relatedWords.antonyms,
+            collocations: relatedWords.collocations,
+            wordFamily: relatedWords.wordFamily,
+            isLoading: false,
+          },
+        };
+        
+        // Send update to client with enriched item
+        this.sendMessage(ws, {
+          type: 'whiteboard_update',
+          timestamp: Date.now(),
+          turnId,
+          items: [enrichedItem],
+          shouldClear: false,
+        } as StreamingWhiteboardMessage);
+        
+      } catch (error: any) {
+        console.error(`[WORD_MAP] Error enriching "${item.data.targetWord}":`, error.message);
+        
+        // Send update with loading:false even on error (to stop spinner)
+        const fallbackItem: WordMapItem = {
+          ...item,
+          data: {
+            ...item.data,
+            isLoading: false,
+          },
+        };
+        
+        this.sendMessage(ws, {
+          type: 'whiteboard_update',
+          timestamp: Date.now(),
+          turnId,
+          items: [fallbackItem],
+          shouldClear: false,
+        } as StreamingWhiteboardMessage);
+      }
     }
   }
   

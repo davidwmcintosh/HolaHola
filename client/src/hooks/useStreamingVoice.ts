@@ -24,6 +24,7 @@ import {
   type StreamingWordTimingDeltaMessage,
   type StreamingWordTimingFinalMessage,
   type StreamingResponseCompleteMessage,
+  type StreamingWhiteboardMessage,
 } from '../../../shared/streaming-voice-types';
 
 /**
@@ -56,6 +57,8 @@ export interface StreamingSessionConfig {
   tutorGender?: 'male' | 'female';
   voiceSpeed?: 'normal' | 'slow';
   onResponseComplete?: (conversationId: string) => void;
+  /** Called when server sends whiteboard updates (e.g., enriched WORD_MAP items) */
+  onWhiteboardUpdate?: (items: any[], shouldClear: boolean) => void;
 }
 
 /**
@@ -572,6 +575,19 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   /**
+   * Handle whiteboard updates from server (e.g., enriched WORD_MAP items)
+   */
+  const handleWhiteboardUpdate = useCallback((message: StreamingWhiteboardMessage) => {
+    if (isVerboseLoggingEnabled()) {
+      console.log('[StreamingVoice] Whiteboard update received:', message.items?.length || 0, 'items');
+    }
+    
+    if (sessionConfigRef.current?.onWhiteboardUpdate && message.items) {
+      sessionConfigRef.current.onWhiteboardUpdate(message.items, message.shouldClear || false);
+    }
+  }, []);
+  
+  /**
    * Connect to streaming voice service and start a session
    */
   const connect = useCallback(async (config: StreamingSessionConfig) => {
@@ -599,6 +615,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('wordTimingDelta', handleWordTimingDelta);  // Progressive streaming
       clientRef.current.on('wordTimingFinal', handleWordTimingFinal);  // Progressive streaming
       clientRef.current.on('responseComplete', handleResponseComplete);
+      clientRef.current.on('whiteboardUpdate', handleWhiteboardUpdate);  // Enriched whiteboard items
       clientRef.current.on('error', handleError);
       
       // Connect WebSocket
@@ -630,7 +647,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleError]);
+  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleError]);
   
   /**
    * Disconnect from streaming voice service
@@ -650,6 +667,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('wordTimingDelta', handleWordTimingDelta);  // Progressive streaming
       clientRef.current.off('wordTimingFinal', handleWordTimingFinal);  // Progressive streaming
       clientRef.current.off('responseComplete', handleResponseComplete);
+      clientRef.current.off('whiteboardUpdate', handleWhiteboardUpdate);  // Enriched whiteboard items
       clientRef.current.off('error', handleError);
       clientRef.current.disconnect();
       clientRef.current = null;
@@ -664,7 +682,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     pendingAudioCountRef.current = 0;
     setConnectionState('disconnected');
     setIsProcessing(false);
-  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleError, subtitles]);
+  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleError, subtitles]);
   
   /**
    * Send audio for processing

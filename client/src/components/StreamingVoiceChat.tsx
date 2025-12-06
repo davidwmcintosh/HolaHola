@@ -456,6 +456,10 @@ export function StreamingVoiceChat({
               // Since invalidation is async, we'll set lastMessageId in a separate effect
             }
           },
+          // Handle whiteboard updates from server (e.g., enriched WORD_MAP items)
+          onWhiteboardUpdate: (items, shouldClear) => {
+            whiteboard.addOrUpdateItems(items, shouldClear);
+          },
         });
         streamingConnectedRef.current = true;
         console.log('[STREAMING] Connected successfully');
@@ -1487,6 +1491,9 @@ export function StreamingVoiceChat({
               subtitleMode,
               tutorPersonality: user?.tutorPersonality || 'warm',
               tutorExpressiveness: user?.tutorExpressiveness || 3,
+              onWhiteboardUpdate: (items, shouldClear) => {
+                whiteboard.addOrUpdateItems(items, shouldClear);
+              },
             });
             streamingConnectedRef.current = true;
             setError(null);

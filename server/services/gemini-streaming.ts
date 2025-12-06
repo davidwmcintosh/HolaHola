@@ -386,6 +386,70 @@ export class GeminiStreamingService {
     const endings: readonly string[] = SENTENCE_CHUNKING_CONFIG.SENTENCE_ENDINGS;
     return endings.includes(lastChar);
   }
+  
+  /**
+   * Generate related words for WORD_MAP whiteboard tool
+   * Returns synonyms, antonyms, collocations, and word family members
+   */
+  async generateRelatedWords(
+    targetWord: string,
+    language: string
+  ): Promise<{
+    synonyms: string[];
+    antonyms: string[];
+    collocations: string[];
+    wordFamily: string[];
+  }> {
+    const prompt = `You are a language learning assistant. For the ${language} word "${targetWord}", provide related words to help students learn vocabulary relationships.
+
+Return ONLY a JSON object with this exact structure (no markdown, no explanation):
+{
+  "synonyms": ["word1", "word2"],
+  "antonyms": ["word1", "word2"],
+  "collocations": ["common phrase 1", "common phrase 2"],
+  "wordFamily": ["related form 1", "related form 2"]
+}
+
+Rules:
+- synonyms: 2-4 words with similar meaning in ${language}
+- antonyms: 1-3 words with opposite meaning in ${language} (empty array if none exist)
+- collocations: 2-4 common phrases using this word in ${language}
+- wordFamily: 2-4 related word forms (noun/verb/adjective variants) in ${language}
+- All words and phrases must be in ${language}, not English
+- Keep it simple and appropriate for language learners`;
+
+    try {
+      const result = await this.client.models.generateContent({
+        model: this.defaultModel,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          temperature: 0.3,
+          maxOutputTokens: 256,
+        },
+      });
+
+      const text = result.text?.trim() || '';
+      
+      // Parse JSON response
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return {
+          synonyms: Array.isArray(parsed.synonyms) ? parsed.synonyms.slice(0, 4) : [],
+          antonyms: Array.isArray(parsed.antonyms) ? parsed.antonyms.slice(0, 3) : [],
+          collocations: Array.isArray(parsed.collocations) ? parsed.collocations.slice(0, 4) : [],
+          wordFamily: Array.isArray(parsed.wordFamily) ? parsed.wordFamily.slice(0, 4) : [],
+        };
+      }
+      
+      console.warn(`[WORD_MAP] Failed to parse response for "${targetWord}": ${text.substring(0, 100)}`);
+      return { synonyms: [], antonyms: [], collocations: [], wordFamily: [] };
+      
+    } catch (error: any) {
+      console.error(`[WORD_MAP] Error generating related words for "${targetWord}":`, error.message);
+      return { synonyms: [], antonyms: [], collocations: [], wordFamily: [] };
+    }
+  }
 }
 
 // Singleton instance

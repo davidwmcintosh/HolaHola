@@ -43,6 +43,7 @@ interface UseWhiteboardReturn {
   processMessage: (text: string, language?: string) => void;
   clear: () => void;
   addItem: (item: WhiteboardItem) => void;
+  addOrUpdateItems: (items: WhiteboardItem[], shouldClear?: boolean) => void;
   updateItem: (id: string, updates: Partial<WhiteboardItem>) => void;
   updateDrillState: (drillId: string, state: DrillState, response?: string, isCorrect?: boolean, feedback?: string) => void;
   addPronunciationFeedback: (transcript: string, analysis: Omit<PronunciationFeedbackData, 'transcript'>) => void;
@@ -135,6 +136,51 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
     }
   }, []);
 
+  /**
+   * Add or update items from streaming client (pre-parsed items with IDs)
+   * If an item with the same ID exists, it will be replaced (for enrichment updates)
+   */
+  const addOrUpdateItems = useCallback((newItems: WhiteboardItem[], shouldClear = false) => {
+    if (shouldClear) {
+      setItems(newItems);
+      setIsHolding(false);
+      setActiveDrill(null);
+      console.log('[WHITEBOARD] Cleared and set items from streaming:', newItems.length);
+      return;
+    }
+    
+    setItems(prev => {
+      // Create a map of existing items by ID for quick lookup
+      const itemMap = new Map(prev.map(item => [item.id, item]));
+      
+      // Process new items - update existing or add new
+      let updated = false;
+      for (const newItem of newItems) {
+        if (newItem.id && itemMap.has(newItem.id)) {
+          // Update existing item (e.g., WORD_MAP with enriched data)
+          itemMap.set(newItem.id, newItem);
+          updated = true;
+          console.log('[WHITEBOARD] Updated existing item:', newItem.id, newItem.type);
+        } else {
+          // Add new item
+          itemMap.set(newItem.id || `wb-${Date.now()}`, newItem);
+          console.log('[WHITEBOARD] Added new item:', newItem.id, newItem.type);
+        }
+      }
+      
+      return Array.from(itemMap.values());
+    });
+    
+    // Handle drill activation
+    const drillItems = newItems.filter(isDrillItem);
+    if (drillItems.length > 0) {
+      const newDrill = drillItems[drillItems.length - 1];
+      setActiveDrill(newDrill);
+      configRef.current?.onDrillStart?.(newDrill);
+      console.log('[WHITEBOARD] New drill activated:', newDrill.data.drillType);
+    }
+  }, []);
+
   const updateItem = useCallback((id: string, updates: Partial<WhiteboardItem>) => {
     setItems(prev => prev.map(item => {
       if (item.id === id) {
@@ -220,6 +266,7 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
     processMessage,
     clear,
     addItem,
+    addOrUpdateItems,
     updateItem,
     updateDrillState,
     addPronunciationFeedback,
