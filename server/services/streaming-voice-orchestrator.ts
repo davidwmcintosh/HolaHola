@@ -693,9 +693,10 @@ export class StreamingVoiceOrchestrator {
    * - Word timestamps: Enabled for karaoke highlighting
    * - Reliability: Two chances to get valid transcript
    * 
-   * FOUNDER MODE: Uses multi-language detection for English/Spanish mixing
-   * This allows developers to speak freely in both languages during open conversations.
-   * Regular students use single-language mode for higher accuracy (92% vs mid-80s).
+   * MULTI-LANGUAGE DETECTION: Always enabled for all users
+   * Students naturally code-switch between native and target languages during lessons.
+   * A beginner asking "How do I say 'thank you' in Spanish?" needs English recognized.
+   * The ~7% accuracy tradeoff is acceptable vs. missing English speech entirely.
    * 
    * Returns transcript AND confidence for ACTFL tracking (no shared state)
    */
@@ -705,20 +706,21 @@ export class StreamingVoiceOrchestrator {
     nativeLanguage: string = 'english',
     isFounderMode: boolean = false
   ): Promise<{ transcript: string; confidence: number }> {
-    // FOUNDER MODE: Use multi-language detection for English/Spanish mixing
-    // This allows natural conversation in both languages
-    const useMultiLanguage = isFounderMode;
-    const languageCode = useMultiLanguage ? 'multi' : getDeepgramLanguageCode(targetLanguage);
+    // MULTI-LANGUAGE: Always use multi-language detection
+    // Students naturally mix native + target language during lessons
+    // Better to get 85% accurate bilingual transcript than miss English entirely
+    const languageCode = 'multi';
     
-    console.log(`[Deepgram Parallel] Transcribing ${audioData.length} bytes, language: ${languageCode}${isFounderMode ? ' (FOUNDER MODE - multi-language)' : ''}`);
+    console.log(`[Deepgram Parallel] Transcribing ${audioData.length} bytes, language: ${languageCode} (bilingual: ${nativeLanguage}/${targetLanguage})`);
     
     // Log header to verify WebM format (0x1A 0x45 0xDF 0xA3)
     const header = audioData.slice(0, 16);
     console.log(`[Deepgram Parallel] Audio header: ${header.toString('hex')}`);
     
     // PARALLEL RACE: Start both APIs simultaneously
-    const livePromise = this.transcribeWithLive(audioData, languageCode, isFounderMode);
-    const prerecordedPromise = this.transcribeWithPrerecorded(audioData, languageCode, isFounderMode);
+    // Always use multi-language detection for natural code-switching
+    const livePromise = this.transcribeWithLive(audioData, languageCode, true);
+    const prerecordedPromise = this.transcribeWithPrerecorded(audioData, languageCode, true);
     
     // Race for first VALID result (non-empty transcript)
     // We use a custom race that waits for valid results, not just first completion
