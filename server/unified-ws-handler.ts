@@ -381,6 +381,13 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           // while outputting plain text format for TTS
           // Note: derivedDifficulty comes from class expectedActflMin or user's ACTFL assessment
           // NOT from user's self-selected difficultyLevel preference
+          // Founder Mode: Developer/admin users in non-class conversations get open collaboration mode
+          // This gives Daniela full freedom to discuss LinguaFlow itself, teaching tools, etc.
+          const isFounderMode = isDeveloper && !conversation.classId;
+          if (isFounderMode) {
+            console.log(`[Streaming Voice] Founder Mode enabled for ${user.firstName || 'developer'}`);
+          }
+          
           let systemPrompt = createSystemPrompt(
             config.targetLanguage,
             derivedDifficulty, // Use organically-derived difficulty, not user self-selection
@@ -400,7 +407,9 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             curriculumContext, // Add curriculum context for syllabus awareness
             tutorFreedomLevel, // Use determined flexibility level
             targetActflLevel, // Target proficiency level
-            compassContext // Daniela's Compass context (time-aware tutoring)
+            compassContext, // Daniela's Compass context (time-aware tutoring)
+            isFounderMode, // Founder Mode for developer conversations
+            user.firstName || undefined // Founder name for personalization
           );
 
           // Add congratulatory messaging if student is ahead of syllabus
