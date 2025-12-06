@@ -16,12 +16,14 @@ import { useUser } from "@/lib/auth";
 
 interface DevToolsFloatingMenuProps {
   classId?: string | null;
+  conversationId?: string | null;
   onCreditsReloaded?: () => void;
   onDataReset?: () => void;
 }
 
 export function DevToolsFloatingMenu({ 
   classId, 
+  conversationId,
   onCreditsReloaded,
   onDataReset 
 }: DevToolsFloatingMenuProps) {
@@ -98,21 +100,38 @@ export function DevToolsFloatingMenu({
   const isLoading = reloadCreditsMutation.isPending || resetDataMutation.isPending;
 
   return (
-    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          size="icon"
-          variant="outline"
-          className="fixed bottom-4 right-4 z-50 h-10 w-10 rounded-full shadow-lg bg-yellow-500/90 hover:bg-yellow-500 border-yellow-600 text-yellow-950"
-          data-testid="button-dev-tools"
+    <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2">
+      {conversationId && (
+        <div 
+          className="bg-background/80 backdrop-blur-sm border rounded-md px-2 py-1 text-xs font-mono text-muted-foreground cursor-pointer hover:bg-background/90 shadow-sm"
+          onClick={() => {
+            navigator.clipboard.writeText(conversationId);
+            toast({
+              title: "Copied",
+              description: "Conversation ID copied to clipboard",
+            });
+          }}
+          title="Click to copy conversation ID"
+          data-testid="text-conversation-id"
         >
-          {isLoading ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : (
-            <Wrench className="h-5 w-5" />
-          )}
-        </Button>
-      </DropdownMenuTrigger>
+          {conversationId.slice(0, 8)}...
+        </div>
+      )}
+      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-10 w-10 rounded-full shadow-lg bg-yellow-500/90 hover:bg-yellow-500 border-yellow-600 text-yellow-950"
+            data-testid="button-dev-tools"
+          >
+            {isLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Wrench className="h-5 w-5" />
+            )}
+          </Button>
+        </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="flex items-center gap-2">
           <Wrench className="h-4 w-4" />
@@ -155,6 +174,7 @@ export function DevToolsFloatingMenu({
           </div>
         </DropdownMenuItem>
       </DropdownMenuContent>
-    </DropdownMenu>
+      </DropdownMenu>
+    </div>
   );
 }

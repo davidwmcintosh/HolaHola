@@ -8,11 +8,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter, LearningContext } from "@/contexts/LearningFilterContext";
-import { GraduationCap, User, Filter } from "lucide-react";
+import { GraduationCap, User, Filter, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import type { User as UserType } from "@shared/schema";
 import { useMemo } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 const allLanguages = [
   { value: "all", label: "All Languages", flag: "🌍" },
@@ -45,6 +46,8 @@ export function LearningContextFilter({
     isLoadingClasses,
     getClassesForLanguage 
   } = useLearningFilter();
+  const { user: authUser } = useAuth();
+  const isDeveloper = authUser?.role === 'developer' || authUser?.role === 'admin';
 
   // Get user's target language for self-directed learning
   const { data: user } = useQuery<UserType>({
@@ -119,6 +122,7 @@ export function LearningContextFilter({
 
   const getContextLabel = (ctx: LearningContext): string => {
     if (ctx === "all" || ctx === "self-directed") return "Self-Directed";
+    if (ctx === "founder-mode") return "Founder Mode";
     if (ctx === "all-learning") return "All Learning";
     const cls = enrolledClasses.find(e => e.classId === ctx);
     return cls?.class.name || "Self-Directed";
@@ -126,6 +130,7 @@ export function LearningContextFilter({
 
   const getContextIcon = (ctx: LearningContext) => {
     if (ctx === "self-directed" || ctx === "all") return <User className="h-3 w-3" />;
+    if (ctx === "founder-mode") return <Sparkles className="h-3 w-3 text-amber-500" />;
     if (ctx === "all-learning") return <Filter className="h-3 w-3" />;
     return <GraduationCap className="h-3 w-3" />;
   };
@@ -207,6 +212,14 @@ export function LearningContextFilter({
                   </div>
                 </SelectItem>
               ))}
+              {isDeveloper && (
+                <SelectItem value="founder-mode" data-testid="option-context-founder-mode">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-amber-500" />
+                    <span className="text-amber-600 dark:text-amber-400 font-medium">Founder Mode</span>
+                  </div>
+                </SelectItem>
+              )}
             </SelectContent>
           </Select>
         )
