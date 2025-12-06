@@ -53,6 +53,7 @@ interface ImmersiveTutorProps {
   onClearWhiteboard?: () => void;
   subtitleState?: StreamingSubtitleState;
   subtitlesEnabled?: boolean;
+  customSubtitleText?: string | null;
 }
 
 export function ImmersiveTutor({
@@ -83,6 +84,7 @@ export function ImmersiveTutor({
   onClearWhiteboard,
   subtitleState,
   subtitlesEnabled = true,
+  customSubtitleText,
 }: ImmersiveTutorProps) {
   // Local ref to track if WE started recording via pointer down
   // This ensures pointer up always stops recording regardless of React state timing
@@ -157,10 +159,12 @@ export function ImmersiveTutor({
         
         {/* Floating Subtitle Overlay - Karaoke-style word highlighting */}
         {/* Tutor controls visibility via [SUBTITLE on/off] markup */}
+        {/* Custom text via [SUBTITLE_TEXT: custom words] markup */}
         {subtitleState && (
           <FloatingSubtitleOverlay 
             subtitleState={subtitleState}
             isVisible={subtitlesEnabled}
+            customText={customSubtitleText}
           />
         )}
       </div>

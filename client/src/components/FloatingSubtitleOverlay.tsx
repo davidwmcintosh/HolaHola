@@ -5,12 +5,14 @@ interface FloatingSubtitleOverlayProps {
   subtitleState: StreamingSubtitleState;
   isVisible: boolean;
   className?: string;
+  customText?: string | null;
 }
 
 export function FloatingSubtitleOverlay({
   subtitleState,
   isVisible,
   className = '',
+  customText,
 }: FloatingSubtitleOverlayProps) {
   const {
     currentSentenceText,
@@ -25,9 +27,12 @@ export function FloatingSubtitleOverlay({
     return null;
   }
 
-  const displayText = hasTargetContent && currentSentenceTargetText 
-    ? currentSentenceTargetText 
-    : currentSentenceText;
+  // Priority: customText > target language > full sentence
+  const displayText = customText 
+    ? customText
+    : hasTargetContent && currentSentenceTargetText 
+      ? currentSentenceTargetText 
+      : currentSentenceText;
 
   if (!displayText) {
     return null;

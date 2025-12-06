@@ -37,6 +37,7 @@ interface VoiceChatViewManagerProps {
   onClearWhiteboard?: () => void;
   subtitleState?: StreamingSubtitleState;
   subtitlesEnabled?: boolean;
+  customSubtitleText?: string | null;
 }
 
 export function VoiceChatViewManager({
@@ -67,6 +68,7 @@ export function VoiceChatViewManager({
   onClearWhiteboard,
   subtitleState,
   subtitlesEnabled = true,
+  customSubtitleText,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -178,6 +180,7 @@ export function VoiceChatViewManager({
                 onClearWhiteboard={onClearWhiteboard}
                 subtitleState={subtitleState}
                 subtitlesEnabled={subtitlesEnabled}
+                customSubtitleText={customSubtitleText}
               />
             </div>
           ) : (

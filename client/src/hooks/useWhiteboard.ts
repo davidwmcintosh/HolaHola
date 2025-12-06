@@ -41,6 +41,7 @@ interface UseWhiteboardReturn {
   isHolding: boolean;
   activeDrill: DrillItem | null;
   subtitlesEnabled: boolean;
+  customSubtitleText: string | null;
   processMessage: (text: string, language?: string) => void;
   clear: () => void;
   addItem: (item: WhiteboardItem) => void;
@@ -51,6 +52,7 @@ interface UseWhiteboardReturn {
   updateImageUrl: (itemId: string, imageUrl: string) => void;
   clearActiveDrill: () => void;
   setSubtitlesEnabled: (enabled: boolean) => void;
+  setCustomSubtitleText: (text: string | null) => void;
 }
 
 export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn {
@@ -58,6 +60,7 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
   const [isHolding, setIsHolding] = useState(false);
   const [activeDrill, setActiveDrill] = useState<DrillItem | null>(null);
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
+  const [customSubtitleText, setCustomSubtitleText] = useState<string | null>(null);
   const lastProcessedRef = useRef<string>('');
   const configRef = useRef(config);
   configRef.current = config;
@@ -68,7 +71,7 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
     }
     
     const parsed = parseWhiteboardMarkup(text);
-    const hasActions = parsed.shouldClear || parsed.shouldHold || parsed.whiteboardItems.length > 0 || parsed.subtitleControl !== undefined;
+    const hasActions = parsed.shouldClear || parsed.shouldHold || parsed.whiteboardItems.length > 0 || parsed.subtitleControl !== undefined || parsed.customSubtitleText !== undefined;
     
     if (!hasActions) {
       return;
@@ -85,13 +88,16 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
       shouldHold: parsed.shouldHold,
       hasContent: parsed.whiteboardItems.length > 0,
       vocabularyWords: parsed.vocabularyWords,
-      subtitleControl: parsed.subtitleControl
+      subtitleControl: parsed.subtitleControl,
+      customSubtitleText: parsed.customSubtitleText
     });
 
     if (parsed.shouldClear) {
       setItems([]);
       setIsHolding(false);
       setActiveDrill(null);
+      setCustomSubtitleText(null);
+      setSubtitlesEnabled(true);
       console.log('[WHITEBOARD] Cleared by [CLEAR] command');
     }
 
@@ -103,6 +109,11 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
     if (parsed.subtitleControl !== undefined) {
       setSubtitlesEnabled(parsed.subtitleControl === 'on');
       console.log('[WHITEBOARD] Subtitle control:', parsed.subtitleControl);
+    }
+
+    if (parsed.customSubtitleText !== undefined) {
+      setCustomSubtitleText(parsed.customSubtitleText);
+      console.log('[WHITEBOARD] Custom subtitle text:', parsed.customSubtitleText);
     }
 
     if (parsed.whiteboardItems.length > 0) {
@@ -273,6 +284,7 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
     isHolding,
     activeDrill,
     subtitlesEnabled,
+    customSubtitleText,
     processMessage,
     clear,
     addItem,
@@ -283,5 +295,6 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
     updateImageUrl,
     clearActiveDrill,
     setSubtitlesEnabled,
+    setCustomSubtitleText,
   };
 }

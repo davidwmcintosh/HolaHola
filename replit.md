@@ -58,9 +58,12 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - **Floating Subtitles:** Transparent overlay with karaoke word highlighting, positioned at bottom center
 - **Whiteboard Tools:** Solid background cards for teaching tools (WRITE, PHONETIC, WORD_MAP, GRAMMAR_TABLE, etc.)
 - **Tutor Control:** Daniela controls subtitle visibility via `[SUBTITLE on/off]` markup in responses
+- **Custom Subtitle Text:** Daniela can specify different text for subtitles via `[SUBTITLE_TEXT: custom words]` markup
+  - Example: Say "The word for hello is hola" but display only "Hola" in subtitles
+  - Priority: customText > target language extraction > full sentence
 - **Default Behavior:** Subtitles enabled by default, reset to enabled on `[CLEAR]` command
 - **Component Chain:** StreamingVoiceChat → VoiceChatViewManager → ImmersiveTutor → FloatingSubtitleOverlay
-- **State Flow:** useStreamingSubtitles provides word timing state; useWhiteboard manages subtitlesEnabled toggle
+- **State Flow:** useStreamingSubtitles provides word timing state; useWhiteboard manages subtitlesEnabled and customSubtitleText
 
 **Future considerations:**
 - Deepgram Aura-2: Potential cost-saving fallback IF word timestamps confirmed
