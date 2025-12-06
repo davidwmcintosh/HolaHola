@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, MessageSquare, Turtle, Rabbit, RefreshCw, Trash2, Loader2 } from "lucide-react";
+import { Mic, MicOff, MessageSquare, RefreshCw, Trash2, Loader2 } from "lucide-react";
 import { type Message } from "@shared/schema";
 import { type VoiceSpeed } from "@/contexts/LanguageContext";
 import {
@@ -297,54 +297,25 @@ export function ImmersiveTutor({
         )}
         </div>
         
-        {/* Voice Settings Row - voice names and speed slider on one line */}
-        {setTutorGender && setVoiceSpeed && (
-          <div className="flex items-center justify-center gap-3 mt-2 flex-wrap">
-            {/* Tutor Voice Toggle */}
-            <div className="flex items-center gap-1">
-              <Button
-                variant={tutorGender === "female" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setTutorGender("female")}
-                data-testid="button-voice-female"
-              >
-                {femaleVoiceName}
-              </Button>
-              <Button
-                variant={tutorGender === "male" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setTutorGender("male")}
-                data-testid="button-voice-male"
-              >
-                {maleVoiceName}
-              </Button>
-            </div>
-            
-            {/* Voice Speed Control - Compact slider with turtle/rabbit icons */}
-            <div className="flex items-center gap-1.5">
-              <Turtle className="h-4 w-4 text-muted-foreground" />
-              <div className="flex items-center gap-0.5">
-                {(["slower", "slow", "normal", "fast", "faster"] as const).map((speed, index) => {
-                  const speeds: VoiceSpeed[] = ["slower", "slow", "normal", "fast", "faster"];
-                  const currentIndex = speeds.indexOf(voiceSpeed);
-                  const isActive = index <= currentIndex;
-                  return (
-                    <button
-                      key={speed}
-                      onClick={() => setVoiceSpeed(speed)}
-                      className={`h-2 w-4 rounded-sm transition-colors ${
-                        isActive 
-                          ? "bg-primary" 
-                          : "bg-muted-foreground/30"
-                      }`}
-                      data-testid={`button-speed-${speed}`}
-                      aria-label={`Set speed to ${speed}`}
-                    />
-                  );
-                })}
-              </div>
-              <Rabbit className="h-4 w-4 text-muted-foreground" />
-            </div>
+        {/* Tutor Voice Toggle */}
+        {setTutorGender && (
+          <div className="flex items-center justify-center gap-1 mt-2">
+            <Button
+              variant={tutorGender === "female" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setTutorGender("female")}
+              data-testid="button-voice-female"
+            >
+              {femaleVoiceName}
+            </Button>
+            <Button
+              variant={tutorGender === "male" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setTutorGender("male")}
+              data-testid="button-voice-male"
+            >
+              {maleVoiceName}
+            </Button>
           </div>
         )}
       </div>

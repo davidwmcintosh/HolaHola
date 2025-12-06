@@ -1846,10 +1846,11 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
   }
   
   /**
-   * Build a personalized greeting prompt based on student context
-   * Implements "Steer but also Adhere" philosophy:
-   * - Enrolled students: Teach from syllabus immediately
-   * - Open-path students: Discover interests OR suggest topics based on history/ACTFL
+   * Build a simple context prompt for starting a conversation
+   * 
+   * Philosophy: Give Daniela context, not scripts. She decides how to open
+   * the conversation based on who the student is and what they're working on.
+   * This is what real tutors do - they synthesize context and make a judgment call.
    */
   private buildGreetingPrompt(
     session: StreamingSession,
@@ -1860,108 +1861,59 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
     classEnrollment: { className: string; curriculumLesson?: string; curriculumUnit?: string } | null,
     isResumed?: boolean
   ): string {
-    const name = userName ? `The student's name is ${userName}.` : '';
-    const topicContext = recentTopics.length > 0 
-      ? `Recently, the student practiced: ${recentTopics.join(', ')}.`
-      : '';
-    const progressContext = wordsLearned > 0 
-      ? `The student has learned ${wordsLearned} vocabulary words so far.`
-      : '';
+    // Build context summary
+    const contextParts: string[] = [];
     
-    // Check if this is a resumed conversation with existing history
+    if (userName) {
+      contextParts.push(`Student's name: ${userName}`);
+    }
+    
+    contextParts.push(`ACTFL level: ${actflLevel}`);
+    contextParts.push(`Target language: ${session.targetLanguage}`);
+    contextParts.push(`Native language: ${session.nativeLanguage}`);
+    
+    if (wordsLearned > 0) {
+      contextParts.push(`Vocabulary learned: ${wordsLearned} words`);
+    }
+    
+    if (recentTopics.length > 0) {
+      contextParts.push(`Recently practiced: ${recentTopics.join(', ')}`);
+    }
+    
+    // Class context
+    if (classEnrollment) {
+      contextParts.push(`Enrolled in class: "${classEnrollment.className}"`);
+      if (classEnrollment.curriculumUnit) {
+        contextParts.push(`Current unit: ${classEnrollment.curriculumUnit}`);
+      }
+      if (classEnrollment.curriculumLesson) {
+        contextParts.push(`Current lesson: ${classEnrollment.curriculumLesson}`);
+      }
+    } else {
+      contextParts.push('Learning path: Self-directed (no class enrollment)');
+    }
+    
+    // Check if this is a resumed conversation
     const hasConversationHistory = session.conversationHistory.length > 0;
     const isResumedConversation = isResumed && hasConversationHistory;
     
-    // For resumed conversations, summarize what was discussed
     if (isResumedConversation) {
-      // Extract key context from conversation history
+      // Include brief history context for resumed sessions
       const historyPreview = session.conversationHistory
-        .slice(-4) // Last 4 turns (2 exchanges)
-        .map(h => `${h.role === 'user' ? 'Student' : 'Tutor'}: ${h.content.slice(0, 100)}${h.content.length > 100 ? '...' : ''}`)
+        .slice(-4)
+        .map(h => `${h.role === 'user' ? 'Student' : 'You'}: ${h.content.slice(0, 80)}${h.content.length > 80 ? '...' : ''}`)
         .join('\n');
       
-      return `The student is resuming a previous conversation. Generate a brief welcome-back greeting.
-
-Context:
-- Student's ACTFL level: ${actflLevel}
-- Target language: ${session.targetLanguage}
-- Native language: ${session.nativeLanguage}
-${name}
-
-Recent conversation history:
-${historyPreview}
-
-Instructions:
-1. Welcome them back warmly (in ${session.nativeLanguage})
-2. Briefly reference what you were discussing before (e.g., "Great to continue! We were practicing greetings..." or "Welcome back! Last time we worked on...")
-3. Offer to continue OR introduce the next topic naturally
-4. Keep it to 2 sentences MAX
-5. Include ONE ${session.targetLanguage} word or phrase as a refresher
-
-Generate the welcome-back greeting now (speak as the tutor directly):`;
-    }
-    
-    // Determine learning path type for new conversations
-    const isEnrolledStudent = classEnrollment !== null;
-    const isReturningOpenPath = !isEnrolledStudent && (wordsLearned > 0 || recentTopics.length > 0);
-    const isNewOpenPath = !isEnrolledStudent && !isReturningOpenPath;
-    
-    // Build path-specific instructions
-    let pathInstructions = '';
-    
-    if (isEnrolledStudent) {
-      // ORGANIZED CLASS: Teach from syllabus immediately
-      pathInstructions = `
-ENROLLED STUDENT - CLASS: "${classEnrollment.className}"
-${classEnrollment.curriculumUnit ? `Current Unit: ${classEnrollment.curriculumUnit}` : ''}
-${classEnrollment.curriculumLesson ? `Current Lesson: ${classEnrollment.curriculumLesson}` : ''}
-
-TEACH IMMEDIATELY FROM SYLLABUS:
-- Welcome them briefly, then dive into the lesson content
-- Do NOT ask about motivation or interests - they're in a structured class
-- Start teaching the current lesson topic right away
-- Example: "Welcome to class! Today we're working on ${classEnrollment.curriculumLesson || 'greetings'}. Let's start with **Hola** (hello)."`;
-    } else if (isReturningOpenPath) {
-      // RETURNING OPEN-PATH: Suggest topic based on history or ACTFL progression
-      pathInstructions = `
-RETURNING OPEN-PATH STUDENT:
-${topicContext}
-${progressContext}
-
-SUGGEST A TOPIC (don't just ask what they want):
-- Briefly welcome them back
-- Suggest continuing OR offer a teaching word - pick ONE approach
-- Example: "Welcome back! Ready to learn **Gracias** (thank you)? Try saying it!"`;
+      contextParts.push(`\nThis is a RESUMED conversation. Recent history:\n${historyPreview}`);
     } else {
-      // NEW OPEN-PATH: Discover interests through teaching
-      pathInstructions = `
-NEW OPEN-PATH STUDENT:
-
-TEACH FIRST, ASK ABOUT INTERESTS LATER:
-- Start with a warm hello and teach a simple first word (like **Hola**)
-- Ask them to try saying it - that's your ONE question
-- Save interest questions for AFTER they respond
-- Example: "Hi David! Let's learn your first word: **Hola** means hello. Can you say Hola?"`;
+      contextParts.push('\nThis is the START of a new session.');
     }
     
-    return `Generate a brief, warm greeting for a ${session.targetLanguage} language learning session.
+    // Simple, non-prescriptive prompt with clear directive
+    return `Session context:
+${contextParts.join('\n')}
 
-Context:
-- Student's ACTFL level: ${actflLevel}
-- Native language: ${session.nativeLanguage}
-- Difficulty: ${session.difficultyLevel}
-${name}
-${pathInstructions}
-
-Requirements:
-1. Keep it short (2 sentences MAX)
-2. Be warm and encouraging
-3. The greeting should be primarily in ${session.nativeLanguage} (student's native language)
-4. Include ONE ${session.targetLanguage} teaching word with translation
-5. **CRITICAL: Ask only ONE question - do NOT pile on multiple questions!**
-6. End with a single prompt for them to respond (e.g., "Can you say Hola?")
-
-Generate the greeting now (speak as the tutor directly):`;
+Using this context, speak first to the student with a natural opening message. Open the conversation based on who they are and what you know about them - just like a real tutor would. Be warm, be brief (2 sentences max), and be yourself.`;
   }
   
   /**
