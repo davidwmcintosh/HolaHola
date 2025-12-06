@@ -50,6 +50,7 @@ import { validateOneUnitRule, UnitValidationResult } from "../phrase-detection";
 import { GoogleGenAI } from "@google/genai";
 import { assessAdvancementReadiness, formatLevel } from "../actfl-advancement";
 import { tagConversation } from "./conversation-tagger";
+import { architectVoiceService } from "./architect-voice-service";
 
 /**
  * Clean text for display by removing markdown, emotion tags, and other formatting
@@ -484,7 +485,16 @@ export class StreamingVoiceOrchestrator {
       
       // Process sentences as they arrive from Gemini
       // Include redirect note if mild content was detected
-      const userMessageWithNote = transcript + contentRedirectNote;
+      // Also check for architect notes (Claude's contributions to the conversation)
+      let architectContext = '';
+      if (session.conversationId) {
+        architectContext = architectVoiceService.buildArchitectContext(session.conversationId);
+        if (architectContext) {
+          console.log(`[Streaming Orchestrator] Including architect notes in context`);
+        }
+      }
+      
+      const userMessageWithNote = transcript + contentRedirectNote + architectContext;
       
       await this.geminiService.streamWithSentenceChunking({
         systemPrompt: session.systemPrompt,

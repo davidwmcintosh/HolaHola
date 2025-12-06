@@ -40,6 +40,7 @@ import multer from "multer";
 import { getTTSService } from "./services/tts-service";
 import { usageService } from "./services/usage-service";
 import { sessionCompassService, COMPASS_ENABLED } from "./services/session-compass-service";
+import { architectVoiceService } from "./services/architect-voice-service";
 import { 
   getAvailableActflLevels,
   getSupportedLanguages,
@@ -951,6 +952,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error updating topic status:", error);
       res.status(500).json({ message: "Failed to update topic status" });
+    }
+  });
+
+  // ===== Architect's Voice Routes =====
+  // Enables the AI architect (Claude) to inject notes into active voice sessions
+  
+  // Inject a note into an active voice session
+  app.post('/api/architect/inject', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Verify user is a developer (only developers can inject architect notes)
+      const isDeveloper = await usageService.checkDeveloperBypass(userId);
+      if (!isDeveloper) {
+        return res.status(403).json({ message: "Developer access required" });
+      }
+      
+      const { conversationId, content } = req.body;
+      
+      if (!conversationId || !content) {
+        return res.status(400).json({ message: "conversationId and content are required" });
+      }
+      
+      // Verify the conversation belongs to this user
+      const conversation = await storage.getConversation(conversationId, userId);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      // Inject the note
+      const note = architectVoiceService.injectNote(conversationId, content);
+      
+      console.log(`[Architect Voice] Developer ${userId} injected note into conversation ${conversationId}`);
+      
+      res.json({ 
+        success: true, 
+        note: {
+          id: note.id,
+          content: note.content,
+          timestamp: note.timestamp
+        }
+      });
+    } catch (error: any) {
+      console.error("Error injecting architect note:", error);
+      res.status(500).json({ message: "Failed to inject note" });
+    }
+  });
+  
+  // Get stats about architect notes (for debugging)
+  app.get('/api/architect/stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Verify user is a developer
+      const isDeveloper = await usageService.checkDeveloperBypass(userId);
+      if (!isDeveloper) {
+        return res.status(403).json({ message: "Developer access required" });
+      }
+      
+      const stats = architectVoiceService.getStats();
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Error getting architect stats:", error);
+      res.status(500).json({ message: "Failed to get stats" });
     }
   });
 

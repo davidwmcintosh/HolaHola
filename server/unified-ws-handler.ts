@@ -31,6 +31,7 @@ import { buildCurriculumContext, detectSyllabusQuery } from './services/curricul
 import { usageService } from './services/usage-service';
 import { shouldRunPlacementAfterSession, completePlacementAssessment } from './services/placement-assessment-service';
 import { sessionCompassService, COMPASS_ENABLED } from './services/session-compass-service';
+import { architectVoiceService } from './services/architect-voice-service';
 import type { VoiceSession as UsageVoiceSession, CompassContext, TutorSession } from '@shared/schema';
 
 const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
