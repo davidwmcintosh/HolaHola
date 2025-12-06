@@ -95,6 +95,63 @@ Phase 2 Dual Time Tracking complete:
 
 ---
 
+### [December 6, 2025] - Bilingual Voice Input (Multi-language STT)
+**Target:** TECHNICAL-REFERENCE.md
+**Section:** Voice Pipeline / Speech Recognition
+**Content:**
+Enhanced Deepgram STT to support natural code-switching between languages:
+
+**Configuration Changes** (`server/services/deepgram-parallel-service.ts`):
+- Changed from single language to `language: "multi"` with `detect_language: true`
+- Supports natural mixing of English and target language in same utterance
+- Example: Student says "Hola, I want to practice numbers" - both parts transcribed correctly
+
+**StreamingSession Tracking** (`server/services/streaming-voice-orchestrator.ts`):
+- Added `isFounderMode` flag to StreamingSession interface
+- Passed through from client config for potential future language detection tuning
+
+**UX Rationale:**
+- Originally planned for Founder Mode only due to accuracy concerns
+- Expanded to all users because code-switching is natural in language learning
+- Students often need to use their native language to ask questions or clarify
+
+---
+
+### [December 6, 2025] - Voice Session Auto-Reconnect & Heartbeat
+**Target:** TECHNICAL-REFERENCE.md
+**Section:** Voice Pipeline / WebSocket Connection Management
+**Content:**
+Production-ready connection resilience for live classroom use:
+
+**Server-Side Heartbeat** (`server/unified-ws-handler.ts`):
+- Sends WebSocket ping every 20 seconds to keep connection alive
+- Tracks pong responses to detect dead connections
+- Prevents network proxies/firewalls from terminating "idle" connections
+- Cleans up interval on connection close
+
+**Client-Side Auto-Reconnect** (`client/src/lib/streamingVoiceClient.ts`):
+- New connection state: `'reconnecting'` added to StreamingClientState
+- Stores `lastConversationId` for automatic session resumption
+- `intentionalDisconnect` flag distinguishes user-initiated vs unexpected disconnects
+- Exponential backoff: 1s → 2s → 4s delays between attempts (max 3 attempts)
+- Emits 'RECONNECTING' error with attempt count for UI feedback
+- Resets all reconnect state on successful connection
+
+**UI Integration** (`client/src/components/StreamingVoiceChat.tsx`):
+- `isConnecting` now includes 'reconnecting' state for visual feedback
+- Shows "Reconnecting to voice session. Please wait..." during recovery
+- Falls back to "Please restart the voice chat" after max attempts
+
+**Shared Types** (`shared/streaming-voice-types.ts`):
+- Added 'reconnecting' to StreamingClientState union type
+
+**Problem Solved:**
+- WebSocket drops (code 1006) during lessons no longer require manual restart
+- Network hiccups recover automatically within seconds
+- Critical for production classroom use where session interruptions are unacceptable
+
+---
+
 ## Instructions
 
 When user says "add to the batch" or "batch doc updates":
