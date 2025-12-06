@@ -384,8 +384,54 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           // Founder Mode: Developer/admin users in non-class conversations get open collaboration mode
           // This gives Daniela full freedom to discuss LinguaFlow itself, teaching tools, etc.
           const isFounderMode = isDeveloper && !conversation.classId;
+          let founderMemoryContext = '';
+          
           if (isFounderMode) {
             console.log(`[Streaming Voice] Founder Mode enabled for ${user.firstName || 'developer'}`);
+            
+            // Build memory from recent founder conversations
+            // This helps Daniela remember context from previous sessions
+            try {
+              const recentConversations = await storage.getUserConversations(userId!);
+              const founderConvos = recentConversations
+                .filter((c: any) => !c.classId) // Non-class conversations only
+                .filter((c: any) => c.id !== conversationId) // Exclude current
+                .slice(0, 3); // Last 3 conversations
+              
+              if (founderConvos.length > 0) {
+                const memorySnippets: string[] = [];
+                for (const convo of founderConvos) {
+                  const convoMessages = await storage.getMessagesByConversation(convo.id);
+                  const recentExchanges = convoMessages.slice(-6); // Last 3 exchanges
+                  if (recentExchanges.length > 0) {
+                    const date = new Date(convo.createdAt).toLocaleDateString();
+                    const snippet = recentExchanges
+                      .map((m: any) => `  ${m.role === 'user' ? 'Founder' : 'Daniela'}: ${m.content.slice(0, 150)}${m.content.length > 150 ? '...' : ''}`)
+                      .join('\n');
+                    memorySnippets.push(`[${date}]\n${snippet}`);
+                  }
+                }
+                
+                if (memorySnippets.length > 0) {
+                  founderMemoryContext = `
+
+═══════════════════════════════════════════════════════════════════
+📝 MEMORY FROM RECENT CONVERSATIONS
+═══════════════════════════════════════════════════════════════════
+
+Here's context from your recent conversations together:
+
+${memorySnippets.join('\n\n')}
+
+Use this context naturally - you're building an ongoing relationship.
+Reference past discussions when relevant, but don't force it.
+`;
+                  console.log(`[Streaming Voice] Built founder memory from ${memorySnippets.length} conversations`);
+                }
+              }
+            } catch (memErr: any) {
+              console.warn('[Streaming Voice] Could not build founder memory:', memErr.message);
+            }
           }
           
           let systemPrompt = createSystemPrompt(
@@ -411,6 +457,11 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             isFounderMode, // Founder Mode for developer conversations
             user.firstName || undefined // Founder name for personalization
           );
+
+          // Add founder memory context if in Founder Mode
+          if (isFounderMode && founderMemoryContext) {
+            systemPrompt += founderMemoryContext;
+          }
 
           // Add congratulatory messaging if student is ahead of syllabus
           if (conversation.classId) {
