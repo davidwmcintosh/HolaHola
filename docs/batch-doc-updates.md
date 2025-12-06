@@ -152,6 +152,36 @@ Production-ready connection resilience for live classroom use:
 
 ---
 
+### [December 6, 2025] - Verbose Logging Cleanup & Runtime Toggles
+**Target:** TECHNICAL-REFERENCE.md
+**Section:** Voice Pipeline / Debugging & Diagnostics
+**Content:**
+Production-ready console logging with developer-friendly debug toggles:
+
+**Feature Flags** (`shared/streaming-voice-types.ts`):
+- `VERBOSE_CONSOLE_LOGS: false` - Master flag for high-volume timing logs (default OFF)
+- `ENABLE_WORD_TIMING_DIAGNOSTICS: true` - Enables karaoke word highlighting
+
+**Runtime Toggles** (browser console):
+- `window.__verboseTimingLogs = true` - Enable verbose timing logs without code changes
+- `window.__enableWordTimingDiagnostics = false` - Disable word timing diagnostics
+
+**Logging Policy:**
+- High-volume verbose logs (timing loops, state transitions, chunk processing) → Guarded with `isVerboseLoggingEnabled()`
+- Essential operational errors (playback failures, connection errors, dropped audio) → Always visible
+- Export: `isVerboseLoggingEnabled()` exported from `client/src/lib/audioUtils.ts` for cross-module use
+
+**Files Updated:**
+- `client/src/lib/audioUtils.ts` - Flag definitions and exported helper
+- `client/src/hooks/useStreamingVoice.ts` - 20+ verbose logs wrapped
+- `client/src/hooks/useStreamingSubtitles.ts` - All logs guarded
+- `client/src/lib/streamingVoiceClient.ts` - All logs guarded
+- `client/src/lib/debugTimingState.ts` - Verbose logs guarded, essential warnings kept
+
+**Result:** Clean browser console by default; developers can enable verbose output when debugging timing issues.
+
+---
+
 ## Instructions
 
 When user says "add to the batch" or "batch doc updates":
