@@ -9015,6 +9015,60 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ============================================================================
+  // SYLLABUS ANALYTICS ROUTES
+  // Student time tracking: expected vs actual time per lesson/unit
+  // ============================================================================
+  
+  // Import the syllabus analytics service
+  const { syllabusAnalyticsService } = await import('./services/syllabus-analytics-service');
+  
+  // Get student's syllabus time data for a specific class
+  app.get("/api/analytics/syllabus-time/:classId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { classId } = req.params;
+      
+      const data = await syllabusAnalyticsService.getStudentSyllabusTime(userId, classId);
+      
+      if (!data) {
+        return res.status(404).json({ error: "Class not found or no syllabus data" });
+      }
+      
+      res.json(data);
+    } catch (error: any) {
+      console.error('[API] Error getting syllabus time data:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get student's learning pace summary (for dashboard cards)
+  app.get("/api/analytics/pace-summary", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const classId = req.query.classId as string | undefined;
+      
+      const data = await syllabusAnalyticsService.getStudentPaceSummary(userId, classId);
+      
+      if (!data) {
+        return res.status(500).json({ error: "Failed to calculate pace summary" });
+      }
+      
+      res.json(data);
+    } catch (error: any) {
+      console.error('[API] Error getting pace summary:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up unified WebSocket handler for all paths
