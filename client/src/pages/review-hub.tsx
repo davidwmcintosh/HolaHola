@@ -175,7 +175,7 @@ function getLanguageDisplayName(code: string): string {
 }
 
 export default function ReviewHub() {
-  const { language } = useLanguage();
+  const { language, tutorGender } = useLanguage();
   const { learningContext } = useLearningFilter();
   const { setOpen, isMobile, setOpenMobile } = useSidebar();
 
@@ -187,6 +187,28 @@ export default function ReviewHub() {
       setOpen(false);
     }
   }, []); // Only run on mount
+
+  // Query voice names for the current language (to show tutor name on button)
+  const { data: tutorVoices } = useQuery<{ 
+    language: string; 
+    female: { name: string; voiceId: string; speakingRate: number } | null; 
+    male: { name: string; voiceId: string; speakingRate: number } | null 
+  }>({
+    queryKey: ['/api/tutor-voices', language?.toLowerCase()],
+    enabled: !!language,
+  });
+  
+  // Helper to extract just the first name from voice name (e.g., "Daniela - Relaxed Woman" -> "Daniela")
+  const getVoiceFirstName = (fullName: string | undefined, fallback: string): string => {
+    if (!fullName) return fallback;
+    const dashIndex = fullName.indexOf(' - ');
+    return dashIndex > 0 ? fullName.substring(0, dashIndex) : fullName;
+  };
+  
+  // Get the current tutor's name based on gender preference
+  const currentTutorName = tutorGender === 'male' 
+    ? getVoiceFirstName(tutorVoices?.male?.name, "Your Tutor")
+    : getVoiceFirstName(tutorVoices?.female?.name, "Your Tutor");
 
   const { data, isLoading } = useQuery<ReviewHubData>({
     queryKey: ["/api/review-hub", { language, learningContext }],
@@ -241,7 +263,7 @@ export default function ReviewHub() {
           <Link href="/chat" onClick={() => forceNewConversation()}>
             <Button size="lg" className="gap-2" data-testid="button-call-tutor">
               <Phone className="h-5 w-5" />
-              Call a Tutor
+              Call {currentTutorName}
             </Button>
           </Link>
         </div>
@@ -486,7 +508,7 @@ export default function ReviewHub() {
             );
           })()}
 
-          {/* Call a Tutor */}
+          {/* Call Tutor */}
           <Link href="/chat">
             <div className="flex items-center justify-between p-3 rounded-lg border border-dashed hover-elevate cursor-pointer" data-testid="link-call-tutor">
               <div className="flex items-center gap-3">
@@ -494,8 +516,8 @@ export default function ReviewHub() {
                   <Phone className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="font-medium">Call a Tutor</p>
-                  <p className="text-sm text-muted-foreground">Start a conversation with your AI tutor</p>
+                  <p className="font-medium">Call {currentTutorName}</p>
+                  <p className="text-sm text-muted-foreground">Start a new conversation</p>
                 </div>
               </div>
               <Button variant="ghost" size="icon">
@@ -860,12 +882,12 @@ export default function ReviewHub() {
               </div>
               <h2 className="text-xl font-semibold mb-2">Start Your Learning Journey</h2>
               <p className="text-muted-foreground mb-6">
-                Call your AI tutor to start building your personalized learning dashboard.
+                Call {currentTutorName} to start building your personalized learning dashboard.
               </p>
               <Link href="/chat">
                 <Button size="lg" className="gap-2">
                   <Phone className="h-5 w-5" />
-                  Call a Tutor
+                  Call {currentTutorName}
                 </Button>
               </Link>
             </div>

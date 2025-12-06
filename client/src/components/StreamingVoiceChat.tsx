@@ -259,6 +259,14 @@ export function StreamingVoiceChat({
   const streamingConnectedRef = useRef(false);
   const useStreamingMode = ENABLE_STREAMING_MODE && streamingVoice.isSupported();
   
+  // Telephone ringing sound during connection
+  const ringingAudioRef = useRef<{ 
+    context: AudioContext; 
+    gainNode: GainNode;
+    oscillatorInterval: NodeJS.Timeout | null;
+    isPlaying: boolean;
+  } | null>(null);
+  
   // Mic warm-up: cache stream for instant recording start
   const cachedStreamRef = useRef<MediaStream | null>(null);
   const micWarmedUpRef = useRef(false);
@@ -300,6 +308,109 @@ export function StreamingVoiceChat({
         cachedStreamRef.current.getTracks().forEach(track => track.stop());
         cachedStreamRef.current = null;
       }
+    };
+  }, []);
+
+  // Telephone ringing sound functions
+  const startRinging = () => {
+    if (ringingAudioRef.current?.isPlaying) return;
+    
+    try {
+      const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const gainNode = context.createGain();
+      gainNode.connect(context.destination);
+      gainNode.gain.value = 0.15; // Subtle volume
+      
+      // Create a classic telephone ring pattern (two-tone alternating)
+      const playRingCycle = () => {
+        if (!ringingAudioRef.current?.isPlaying) return;
+        
+        // First tone (higher pitch)
+        const osc1 = context.createOscillator();
+        osc1.type = 'sine';
+        osc1.frequency.value = 440; // A4
+        osc1.connect(gainNode);
+        osc1.start(context.currentTime);
+        osc1.stop(context.currentTime + 0.4);
+        
+        // Second tone (lower pitch, slight delay)
+        const osc2 = context.createOscillator();
+        osc2.type = 'sine';
+        osc2.frequency.value = 480; // B4 flat
+        osc2.connect(gainNode);
+        osc2.start(context.currentTime + 0.05);
+        osc2.stop(context.currentTime + 0.35);
+      };
+      
+      ringingAudioRef.current = {
+        context,
+        gainNode,
+        oscillatorInterval: null,
+        isPlaying: true,
+      };
+      
+      // Play initial ring
+      playRingCycle();
+      
+      // Ring pattern: ring for 0.4s, pause for 2s, repeat
+      ringingAudioRef.current.oscillatorInterval = setInterval(() => {
+        if (ringingAudioRef.current?.isPlaying) {
+          playRingCycle();
+        }
+      }, 2400);
+      
+      console.log('[RINGING] Started telephone ring sound');
+    } catch (err) {
+      console.error('[RINGING] Failed to start ring sound:', err);
+    }
+  };
+  
+  const stopRinging = () => {
+    if (!ringingAudioRef.current) return;
+    
+    ringingAudioRef.current.isPlaying = false;
+    
+    if (ringingAudioRef.current.oscillatorInterval) {
+      clearInterval(ringingAudioRef.current.oscillatorInterval);
+    }
+    
+    try {
+      ringingAudioRef.current.context.close();
+    } catch (err) {
+      // Ignore close errors
+    }
+    
+    ringingAudioRef.current = null;
+    console.log('[RINGING] Stopped telephone ring sound');
+  };
+  
+  // Play ringing sound during voice connection
+  // Ringing should continue through 'connecting' → 'connected' → until 'ready' (session started)
+  useEffect(() => {
+    if (!useStreamingMode) return;
+    
+    const { connectionState } = streamingVoice.state;
+    
+    // Start ringing when connecting (WebSocket opening)
+    if (connectionState === 'connecting') {
+      startRinging();
+    }
+    // Continue ringing during 'connected' state (WebSocket open, but session not yet started)
+    // This is intentional - no action needed, ringing continues
+    
+    // Stop ringing when session is ready (tutor has "picked up") or connection ends
+    if (connectionState === 'ready' || connectionState === 'disconnected' || connectionState === 'error') {
+      stopRinging();
+    }
+    
+    // Note: We only cleanup on unmount, NOT on state changes
+    // This allows ringing to continue through state transitions
+  }, [streamingVoice.state.connectionState, useStreamingMode]);
+  
+  // Separate cleanup effect for unmount only
+  useEffect(() => {
+    return () => {
+      stopRinging();
     };
   }, []);
 
