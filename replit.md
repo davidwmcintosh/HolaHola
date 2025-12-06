@@ -34,6 +34,21 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 -   **Unsplash**: Stock educational images.
 -   **Gemini Flash-Image**: AI-generated contextual images.
 
+### Voice Stack Strategic Decisions (Dec 2025)
+**Consultation:** See `docs/daniela-voice-stack-consultation.md` for full analysis.
+**Key decisions:**
+- **Keep Cartesia Sonic-3** as primary TTS - latency + word timestamps + emotions unmatched
+- **Word timestamps are sacred** - Critical for karaoke subtitles and language learning pedagogy
+- **Open mic is the future** - Next major voice feature priority
+- **Emotions matter** - 60+ emotion tags make Daniela feel human and approachable
+- **Google Cloud TTS** remains as reliable fallback and drill audio provider
+- **Cost optimization possible** but never at expense of word timestamps or emotional expression
+
+**Future considerations:**
+- Deepgram Aura-2: Potential cost-saving fallback IF word timestamps confirmed
+- Open mic mode with intelligent VAD and barge-in support
+- Real-time pronunciation feedback integration
+
 ### Libraries & Tools
 -   **Database**: Neon PostgreSQL, Drizzle ORM, Drizzle Kit.
 -   **UI Framework**: React, TypeScript, Vite, Wouter.
