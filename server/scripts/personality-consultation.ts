@@ -117,8 +117,10 @@ async function runConsultation(): Promise<void> {
     console.log(`\n${q.question}\n`);
 
     try {
+      // Build conversation with alternating turns (Gemini requires this)
       const messages = [
         { role: 'system', content: DANIELA_PERSONA },
+        { role: 'assistant', content: 'I understand. I am Daniela, and I will reflect honestly on my experience as a tutor. Please ask me your questions.' },
         { role: 'user', content: q.question }
       ];
 
