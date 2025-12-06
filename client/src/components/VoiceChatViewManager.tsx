@@ -7,6 +7,7 @@ import { type Message, type Conversation } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { type VoiceSpeed } from "@/contexts/LanguageContext";
 import type { WhiteboardItem } from "@shared/whiteboard-types";
+import type { StreamingSubtitleState } from "../hooks/useStreamingSubtitles";
 
 interface VoiceChatViewManagerProps {
   conversationId: string | null;
@@ -34,6 +35,8 @@ interface VoiceChatViewManagerProps {
   isResettingData?: boolean;
   whiteboardItems?: WhiteboardItem[];
   onClearWhiteboard?: () => void;
+  subtitleState?: StreamingSubtitleState;
+  subtitlesEnabled?: boolean;
 }
 
 export function VoiceChatViewManager({
@@ -62,6 +65,8 @@ export function VoiceChatViewManager({
   isResettingData = false,
   whiteboardItems = [],
   onClearWhiteboard,
+  subtitleState,
+  subtitlesEnabled = true,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -171,6 +176,8 @@ export function VoiceChatViewManager({
                 isResettingData={isResettingData}
                 whiteboardItems={whiteboardItems}
                 onClearWhiteboard={onClearWhiteboard}
+                subtitleState={subtitleState}
+                subtitlesEnabled={subtitlesEnabled}
               />
             </div>
           ) : (

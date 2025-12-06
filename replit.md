@@ -53,6 +53,15 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - **Client behavior:** Word timings registered with audio player's `wordSchedule` BEFORE playback starts
 - **Test accounts:** `isTestAccount: true` users bypass credit checks for automated testing
 
+**Hybrid Visual System (Dec 2025):**
+- **Architecture:** Two visual layers - floating subtitles for real-time speech + whiteboard cards for structured teaching
+- **Floating Subtitles:** Transparent overlay with karaoke word highlighting, positioned at bottom center
+- **Whiteboard Tools:** Solid background cards for teaching tools (WRITE, PHONETIC, WORD_MAP, GRAMMAR_TABLE, etc.)
+- **Tutor Control:** Daniela controls subtitle visibility via `[SUBTITLE on/off]` markup in responses
+- **Default Behavior:** Subtitles enabled by default, reset to enabled on `[CLEAR]` command
+- **Component Chain:** StreamingVoiceChat → VoiceChatViewManager → ImmersiveTutor → FloatingSubtitleOverlay
+- **State Flow:** useStreamingSubtitles provides word timing state; useWhiteboard manages subtitlesEnabled toggle
+
 **Future considerations:**
 - Deepgram Aura-2: Potential cost-saving fallback IF word timestamps confirmed
 - Open mic mode with intelligent VAD and barge-in support

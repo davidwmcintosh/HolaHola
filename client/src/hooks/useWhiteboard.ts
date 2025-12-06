@@ -40,6 +40,7 @@ interface UseWhiteboardReturn {
   items: WhiteboardItem[];
   isHolding: boolean;
   activeDrill: DrillItem | null;
+  subtitlesEnabled: boolean;
   processMessage: (text: string, language?: string) => void;
   clear: () => void;
   addItem: (item: WhiteboardItem) => void;
@@ -49,12 +50,14 @@ interface UseWhiteboardReturn {
   addPronunciationFeedback: (transcript: string, analysis: Omit<PronunciationFeedbackData, 'transcript'>) => void;
   updateImageUrl: (itemId: string, imageUrl: string) => void;
   clearActiveDrill: () => void;
+  setSubtitlesEnabled: (enabled: boolean) => void;
 }
 
 export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn {
   const [items, setItems] = useState<WhiteboardItem[]>([]);
   const [isHolding, setIsHolding] = useState(false);
   const [activeDrill, setActiveDrill] = useState<DrillItem | null>(null);
+  const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
   const lastProcessedRef = useRef<string>('');
   const configRef = useRef(config);
   configRef.current = config;
@@ -65,7 +68,7 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
     }
     
     const parsed = parseWhiteboardMarkup(text);
-    const hasActions = parsed.shouldClear || parsed.shouldHold || parsed.whiteboardItems.length > 0;
+    const hasActions = parsed.shouldClear || parsed.shouldHold || parsed.whiteboardItems.length > 0 || parsed.subtitleControl !== undefined;
     
     if (!hasActions) {
       return;
@@ -81,7 +84,8 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
       shouldClear: parsed.shouldClear,
       shouldHold: parsed.shouldHold,
       hasContent: parsed.whiteboardItems.length > 0,
-      vocabularyWords: parsed.vocabularyWords
+      vocabularyWords: parsed.vocabularyWords,
+      subtitleControl: parsed.subtitleControl
     });
 
     if (parsed.shouldClear) {
@@ -94,6 +98,11 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
     if (parsed.shouldHold) {
       setIsHolding(true);
       console.log('[WHITEBOARD] Hold mode enabled');
+    }
+
+    if (parsed.subtitleControl !== undefined) {
+      setSubtitlesEnabled(parsed.subtitleControl === 'on');
+      console.log('[WHITEBOARD] Subtitle control:', parsed.subtitleControl);
     }
 
     if (parsed.whiteboardItems.length > 0) {
@@ -263,6 +272,7 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
     items,
     isHolding,
     activeDrill,
+    subtitlesEnabled,
     processMessage,
     clear,
     addItem,
@@ -272,5 +282,6 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
     addPronunciationFeedback,
     updateImageUrl,
     clearActiveDrill,
+    setSubtitlesEnabled,
   };
 }

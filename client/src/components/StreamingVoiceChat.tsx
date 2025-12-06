@@ -1871,6 +1871,8 @@ export function StreamingVoiceChat({
           isResettingData={resetDataMutation.isPending}
           whiteboardItems={whiteboard.items}
           onClearWhiteboard={whiteboard.clear}
+          subtitleState={streamingVoice.subtitles.state}
+          subtitlesEnabled={whiteboard.subtitlesEnabled}
         />
       </div>
     </div>

@@ -50,6 +50,7 @@ export const WHITEBOARD_TAGS = {
   SUMMARY: 'SUMMARY',
   ERROR_PATTERNS: 'ERROR_PATTERNS',
   VOCABULARY_TIMELINE: 'VOCABULARY_TIMELINE',
+  SUBTITLE: 'SUBTITLE',
   CLEAR: 'CLEAR',
   HOLD: 'HOLD',
 } as const;
@@ -452,6 +453,7 @@ export interface WhiteboardParseResult {
   shouldHold: boolean;
   hasNewVocabulary: boolean;
   vocabularyWords: string[];
+  subtitleControl?: 'on' | 'off';
 }
 
 /**
@@ -475,6 +477,7 @@ export const WHITEBOARD_PATTERNS = {
   SUMMARY: /\[SUMMARY\]([\s\S]*?)\[\/SUMMARY\]/gi,
   ERROR_PATTERNS: /\[ERROR_PATTERNS\]([\s\S]*?)\[\/ERROR_PATTERNS\]/gi,
   VOCABULARY_TIMELINE: /\[VOCABULARY_TIMELINE\]([\s\S]*?)\[\/VOCABULARY_TIMELINE\]/gi,
+  SUBTITLE: /\[SUBTITLE\s*(on|off)\s*\]/gi,
   CLEAR: /\[CLEAR\]/gi,
   HOLD: /\[HOLD\]/gi,
 } as const;
@@ -484,7 +487,7 @@ export const WHITEBOARD_PATTERNS = {
  * Updated to include all Phase 4 tags including Word Map and Culture
  */
 export const ALL_WHITEBOARD_MARKUP_PATTERN = 
-  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[(CLEAR|HOLD)\]/gi;
+  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:on|off)\s*\]|\[(CLEAR|HOLD)\]/gi;
 
 /**
  * Generate unique ID for whiteboard items
@@ -1082,6 +1085,14 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
     });
   }
 
+  // Parse SUBTITLE control tags (on/off toggle for floating subtitles)
+  let subtitleControl: 'on' | 'off' | undefined = undefined;
+  WHITEBOARD_PATTERNS.SUBTITLE.lastIndex = 0;
+  const subtitleMatch = WHITEBOARD_PATTERNS.SUBTITLE.exec(text);
+  if (subtitleMatch) {
+    subtitleControl = subtitleMatch[1].toLowerCase() as 'on' | 'off';
+  }
+
   const cleanText = text
     .replace(ALL_WHITEBOARD_MARKUP_PATTERN, '')
     .replace(/\s{2,}/g, ' ')
@@ -1094,6 +1105,7 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
     shouldHold,
     hasNewVocabulary: vocabularyWords.length > 0,
     vocabularyWords,
+    subtitleControl,
   };
 }
 

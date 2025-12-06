@@ -13,7 +13,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DebugTimingPanel } from "./DebugTimingPanel";
 import { Whiteboard } from "./Whiteboard";
+import { FloatingSubtitleOverlay } from "./FloatingSubtitleOverlay";
 import type { WhiteboardItem } from "@shared/whiteboard-types";
+import type { StreamingSubtitleState } from "../hooks/useStreamingSubtitles";
 
 // Female tutor avatars (default)
 import femaleTutorSpeakingUrl from "@assets/tutor-speaking-No-Background_1764099971093.png";
@@ -49,6 +51,8 @@ interface ImmersiveTutorProps {
   isResettingData?: boolean;
   whiteboardItems?: WhiteboardItem[];
   onClearWhiteboard?: () => void;
+  subtitleState?: StreamingSubtitleState;
+  subtitlesEnabled?: boolean;
 }
 
 export function ImmersiveTutor({
@@ -77,6 +81,8 @@ export function ImmersiveTutor({
   isResettingData = false,
   whiteboardItems = [],
   onClearWhiteboard,
+  subtitleState,
+  subtitlesEnabled = true,
 }: ImmersiveTutorProps) {
   // Local ref to track if WE started recording via pointer down
   // This ensures pointer up always stops recording regardless of React state timing
@@ -146,6 +152,15 @@ export function ImmersiveTutor({
           <Whiteboard 
             items={whiteboardItems} 
             onClear={onClearWhiteboard}
+          />
+        )}
+        
+        {/* Floating Subtitle Overlay - Karaoke-style word highlighting */}
+        {/* Tutor controls visibility via [SUBTITLE on/off] markup */}
+        {subtitleState && (
+          <FloatingSubtitleOverlay 
+            subtitleState={subtitleState}
+            isVisible={subtitlesEnabled}
           />
         )}
       </div>
