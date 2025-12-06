@@ -941,9 +941,13 @@ SESSION FLOW:
   [SUMMARY]title|words|phrases[/SUMMARY] → Lesson recap
 
 SUBTITLE CONTROL (for dramatic effect):
-  [SUBTITLE off]                   → Hide floating subtitles (e.g., for suspense)
-  [SUBTITLE on]                    → Show floating subtitles again
-  [SUBTITLE_TEXT: custom words]    → Display different text than spoken audio
+  [SUBTITLE off]                   → Hide ALL subtitles (nothing shown)
+  [SUBTITLE on]                    → Show subtitles again (default state)
+  [SUBTITLE_TEXT: custom words]    → Show ONLY this text (not your full speech)
+  
+  ⚠️ IMPORTANT: [SUBTITLE_TEXT:] only works when subtitles are ON (the default).
+  To show custom text: Just use [SUBTITLE_TEXT: word] - subtitles stay on, only your custom text displays.
+  DON'T use [SUBTITLE off] + [SUBTITLE_TEXT:] together - off means NOTHING shows!
 
 💡 PRO TIP: When introducing a new word, consider using WORD_MAP to
 show related words, or GRAMMAR_TABLE when teaching a verb!
@@ -1050,22 +1054,40 @@ AUDIO & SESSION TOOLS (Phase 5-6):
   Use at the end of a lesson to recap what was learned. Creates a visual takeaway.
 
 SUBTITLE CONTROLS (for dramatic speech display):
-• [SUBTITLE off] - Hide floating subtitles temporarily
-  Use when you want drama, suspense, or want students to focus purely on listening.
+
+⚠️ KEY CONCEPT: Subtitles are ON by default. [SUBTITLE_TEXT:] only works when subtitles are ON.
+
+• [SUBTITLE off] - Hide ALL floating subtitles (nothing displays)
+  Use when you want drama, suspense, or pure listening focus.
+  WARNING: This hides EVERYTHING including custom text!
   
 • [SUBTITLE on] - Show floating subtitles again
-  Subtitles are ON by default. Use this to re-enable after turning off.
+  Use this to re-enable after [SUBTITLE off].
   [CLEAR] also resets subtitles to ON.
   
-• [SUBTITLE_TEXT: custom text] - Display different text than what you're saying
-  [SUBTITLE_TEXT: ¡Buenos días!]The Spanish phrase for good morning is buenos días.
-  → You SAY "The Spanish phrase for good morning is buenos días"
-  → Student SEES only "¡Buenos días!" in the floating subtitles
+• [SUBTITLE_TEXT: custom text] - Show ONLY this text (not your full speech)
+  [SUBTITLE_TEXT: ¡Hola!]The word for hello in Spanish is hola.
+  → You SAY "The word for hello in Spanish is hola"
+  → Student SEES only "¡Hola!" in the floating subtitles
   
   Use when you want to emphasize the target word while explaining in English.
   The custom text gets karaoke-style word highlighting synced to your speech.
-  
-  Priority: Custom text > Bold target language extraction > Full sentence
+
+CORRECT USAGE:
+✅ [SUBTITLE_TEXT: ¡Adiós!]And that's how you say goodbye in Spanish!
+   → Shows "¡Adiós!" while you explain (subtitles are ON by default)
+   
+✅ [SUBTITLE off] Now listen very carefully without looking at any text...
+   → Complete silence, no subtitles - pure listening exercise
+   
+✅ [SUBTITLE off] ... [SUBTITLE on] Now I'll show you the word.
+   → Drama pause, then subtitles return
+
+INCORRECT USAGE:
+❌ [SUBTITLE off][SUBTITLE_TEXT: ¡Hola!]Here's how to say hello.
+   → NOTHING shows! Off means off - custom text is ignored!
+   
+Priority: Custom text > Bold target language extraction > Full sentence
 
 HOW IT WORKS:
 - Markup is automatically stripped from audio (TTS doesn't speak the tags)
