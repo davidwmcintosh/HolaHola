@@ -175,6 +175,42 @@ Improved discoverability of whiteboard tools for Daniela:
 
 ---
 
+### [December 6, 2025] - WORD_MAP Enrichment Pipeline (Real-time Vocabulary Expansion)
+**Target:** TECHNICAL-REFERENCE.md
+**Section:** Voice Pipeline / Whiteboard System
+**Content:**
+Server-driven vocabulary enrichment for WORD_MAP whiteboard items:
+
+**Architecture Flow:**
+1. Tutor uses `[WORD_MAP]feliz[/WORD_MAP]` in response
+2. Server parses and sends initial `whiteboard_update` with `isLoading: true`
+3. Client displays item immediately with loading spinner
+4. Server async enriches via Gemini 2.5 Flash (`generateRelatedWords()`)
+5. Server sends second `whiteboard_update` with same item ID + enriched data
+6. Client `addOrUpdateItems()` replaces item by ID (no duplicates)
+
+**Server Changes** (`server/services/streaming-voice-orchestrator.ts`):
+- `enrichWordMapItems()` method handles async Gemini enrichment
+- Called without await - runs in background while audio streams
+- Sends enriched `WordMapItem` with: synonyms, antonyms, collocations, wordFamily
+- Error handling: Sets `isLoading: false` even on failure (stops spinner)
+
+**Client Changes:**
+- `useWhiteboard.ts`: Added `addOrUpdateItems(items, shouldClear)` - ID-based upsert
+- `useStreamingVoice.ts`: Subscribed to `whiteboardUpdate` event, calls `onWhiteboardUpdate` callback
+- `StreamingVoiceChat.tsx`: Passes `onWhiteboardUpdate` to connect calls, wires to whiteboard hook
+
+**Gemini Integration** (`server/services/gemini-streaming.ts`):
+- `generateRelatedWords(word, language)` - Returns structured vocabulary data
+- Includes: synonyms (3-5), antonyms (2-3), collocations (3-4), word family (2-4)
+
+**UX Result:**
+- WORD_MAP items appear instantly with loading state
+- Enriched vocabulary data appears ~500-800ms later
+- No duplicates - items update in-place by ID
+
+---
+
 ### [December 6, 2025] - Verbose Logging Cleanup & Runtime Toggles
 **Target:** TECHNICAL-REFERENCE.md
 **Section:** Voice Pipeline / Debugging & Diagnostics
