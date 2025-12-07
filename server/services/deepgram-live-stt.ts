@@ -267,9 +267,18 @@ export class OpenMicSession {
    */
   sendAudio(audioBuffer: Buffer): void {
     if (this.isOpen && this.connection) {
+      // Log first chunk to verify we're sending WebM header
+      if (!this.hasLoggedFirstChunk) {
+        this.hasLoggedFirstChunk = true;
+        // WebM files start with 0x1A 0x45 0xDF 0xA3 (EBML header)
+        const header = audioBuffer.slice(0, 4).toString('hex');
+        console.log(`[OpenMic] First chunk: ${audioBuffer.length} bytes, header: ${header}`);
+      }
       this.connection.send(audioBuffer);
     }
   }
+  
+  private hasLoggedFirstChunk = false;
   
   /**
    * Check if session is active
