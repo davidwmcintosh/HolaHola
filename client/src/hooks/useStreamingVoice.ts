@@ -59,6 +59,12 @@ export interface StreamingSessionConfig {
   onResponseComplete?: (conversationId: string) => void;
   /** Called when server sends whiteboard updates (e.g., enriched WORD_MAP items) */
   onWhiteboardUpdate?: (items: any[], shouldClear: boolean) => void;
+  /** Called when VAD detects speech start (open mic mode) */
+  onVadSpeechStarted?: () => void;
+  /** Called when VAD detects utterance end (open mic mode) */
+  onVadUtteranceEnd?: (transcript: string) => void;
+  /** Called when interim transcript available (open mic mode) */
+  onInterimTranscript?: (transcript: string) => void;
 }
 
 /**
@@ -77,6 +83,10 @@ export interface UseStreamingVoiceReturn {
   isReady: () => boolean;
   getCombinedAudioBlob: () => Blob | null;
   clearStoredAudio: () => void;
+  sendStreamingChunk: (audioData: ArrayBuffer, sequenceId: number) => void;
+  stopStreaming: () => void;
+  setInputMode: (mode: 'push-to-talk' | 'open-mic') => void;
+  sendInterrupt: () => void;
 }
 
 /**
@@ -588,6 +598,36 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   /**
+   * Handle VAD speech started event (open mic mode)
+   */
+  const handleVadSpeechStarted = useCallback((message: { type: string }) => {
+    if (isVerboseLoggingEnabled()) {
+      console.log('[StreamingVoice] VAD speech started');
+    }
+    sessionConfigRef.current?.onVadSpeechStarted?.();
+  }, []);
+  
+  /**
+   * Handle VAD utterance end event (open mic mode)
+   */
+  const handleVadUtteranceEnd = useCallback((message: { type: string; transcript?: string }) => {
+    if (isVerboseLoggingEnabled()) {
+      console.log('[StreamingVoice] VAD utterance end, transcript:', message.transcript);
+    }
+    sessionConfigRef.current?.onVadUtteranceEnd?.(message.transcript || '');
+  }, []);
+  
+  /**
+   * Handle interim transcript (open mic mode)
+   */
+  const handleInterimTranscript = useCallback((message: { type: string; transcript: string }) => {
+    if (isVerboseLoggingEnabled()) {
+      console.log('[StreamingVoice] Interim transcript:', message.transcript);
+    }
+    sessionConfigRef.current?.onInterimTranscript?.(message.transcript);
+  }, []);
+  
+  /**
    * Connect to streaming voice service and start a session
    */
   const connect = useCallback(async (config: StreamingSessionConfig) => {
@@ -617,6 +657,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('responseComplete', handleResponseComplete);
       clientRef.current.on('whiteboardUpdate', handleWhiteboardUpdate);  // Enriched whiteboard items
       clientRef.current.on('error', handleError);
+      clientRef.current.on('vadSpeechStarted', handleVadSpeechStarted);  // Open mic VAD
+      clientRef.current.on('vadUtteranceEnd', handleVadUtteranceEnd);  // Open mic VAD
+      clientRef.current.on('interimTranscript', handleInterimTranscript);  // Open mic interim
       
       // Connect WebSocket
       await clientRef.current.connect(config.conversationId);
@@ -647,7 +690,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleError]);
+  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript]);
   
   /**
    * Disconnect from streaming voice service
@@ -669,6 +712,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('responseComplete', handleResponseComplete);
       clientRef.current.off('whiteboardUpdate', handleWhiteboardUpdate);  // Enriched whiteboard items
       clientRef.current.off('error', handleError);
+      clientRef.current.off('vadSpeechStarted', handleVadSpeechStarted);  // Open mic VAD
+      clientRef.current.off('vadUtteranceEnd', handleVadUtteranceEnd);  // Open mic VAD
+      clientRef.current.off('interimTranscript', handleInterimTranscript);  // Open mic interim
       clientRef.current.disconnect();
       clientRef.current = null;
     }
@@ -682,7 +728,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     pendingAudioCountRef.current = 0;
     setConnectionState('disconnected');
     setIsProcessing(false);
-  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleError, subtitles]);
+  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, subtitles]);
   
   /**
    * Send audio for processing
@@ -724,6 +770,34 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    */
   const clearStoredAudio = useCallback(() => {
     playerRef.current?.clearStoredAudio();
+  }, []);
+  
+  /**
+   * Send streaming audio chunk for open mic mode
+   */
+  const sendStreamingChunk = useCallback((audioData: ArrayBuffer, sequenceId: number) => {
+    clientRef.current?.sendStreamingChunk(audioData, sequenceId);
+  }, []);
+  
+  /**
+   * Stop streaming audio (open mic mode)
+   */
+  const stopStreaming = useCallback(() => {
+    clientRef.current?.stopStreaming();
+  }, []);
+  
+  /**
+   * Set input mode (push-to-talk or open-mic)
+   */
+  const setInputMode = useCallback((mode: 'push-to-talk' | 'open-mic') => {
+    clientRef.current?.setInputMode(mode);
+  }, []);
+  
+  /**
+   * Send interrupt signal (user started speaking - stop TTS)
+   */
+  const sendInterrupt = useCallback(() => {
+    clientRef.current?.sendInterrupt();
   }, []);
   
   /**
@@ -835,5 +909,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     isReady,
     getCombinedAudioBlob,
     clearStoredAudio,
+    sendStreamingChunk,
+    stopStreaming,
+    setInputMode,
+    sendInterrupt,
   };
 }

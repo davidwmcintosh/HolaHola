@@ -165,3 +165,131 @@ export function getDeepgramLanguageCode(language: string): string {
   };
   return languageMap[language.toLowerCase()] || 'en';
 }
+
+/**
+ * Open Mic Streaming Session
+ * 
+ * Continuous audio streaming with VAD events for natural conversation flow.
+ * Emits events for speech detection and provides transcripts for each utterance.
+ */
+export interface OpenMicEvents {
+  onSpeechStarted?: () => void;
+  onUtteranceEnd?: (transcript: string, confidence: number) => void;
+  onInterimTranscript?: (transcript: string) => void;
+  onError?: (error: Error) => void;
+  onClose?: () => void;
+}
+
+export class OpenMicSession {
+  private connection: any = null;
+  private isOpen = false;
+  private events: OpenMicEvents;
+  private language: string;
+  private currentTranscript = '';
+  private currentConfidence = 0;
+  
+  constructor(language: string, events: OpenMicEvents) {
+    this.language = language;
+    this.events = events;
+  }
+  
+  /**
+   * Start the open mic session - opens connection to Deepgram with VAD enabled
+   */
+  async start(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        this.connection = deepgramClient.listen.live({
+          model: 'nova-2',
+          language: this.language,
+          punctuate: true,
+          smart_format: true,
+          vad_events: true,
+          utterance_end_ms: 1000,
+          interim_results: true,
+        });
+        
+        this.connection.on(LiveTranscriptionEvents.Open, () => {
+          console.log('[OpenMic] Deepgram connection opened');
+          this.isOpen = true;
+          resolve();
+        });
+        
+        this.connection.on(LiveTranscriptionEvents.SpeechStarted, () => {
+          console.log('[OpenMic] Speech started (VAD)');
+          this.events.onSpeechStarted?.();
+        });
+        
+        this.connection.on(LiveTranscriptionEvents.UtteranceEnd, () => {
+          console.log(`[OpenMic] Utterance end - transcript: "${this.currentTranscript}"`);
+          if (this.currentTranscript.trim()) {
+            this.events.onUtteranceEnd?.(this.currentTranscript, this.currentConfidence);
+          }
+          this.currentTranscript = '';
+          this.currentConfidence = 0;
+        });
+        
+        this.connection.on(LiveTranscriptionEvents.Transcript, (data: any) => {
+          const alternative = data.channel?.alternatives?.[0];
+          if (!alternative) return;
+          
+          const transcript = alternative.transcript || '';
+          const confidence = alternative.confidence || 0;
+          
+          if (data.is_final && transcript.length > 0) {
+            this.currentTranscript += (this.currentTranscript ? ' ' : '') + transcript;
+            this.currentConfidence = confidence;
+            console.log(`[OpenMic] Final segment: "${transcript}"`);
+          } else if (transcript.length > 0) {
+            this.events.onInterimTranscript?.(transcript);
+          }
+        });
+        
+        this.connection.on(LiveTranscriptionEvents.Error, (error: any) => {
+          console.error('[OpenMic] Error:', error);
+          this.events.onError?.(new Error(error.message || 'Deepgram error'));
+        });
+        
+        this.connection.on(LiveTranscriptionEvents.Close, () => {
+          console.log('[OpenMic] Connection closed');
+          this.isOpen = false;
+          this.events.onClose?.();
+        });
+        
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+  
+  /**
+   * Send audio chunk to Deepgram
+   */
+  sendAudio(audioBuffer: Buffer): void {
+    if (this.isOpen && this.connection) {
+      this.connection.send(audioBuffer);
+    }
+  }
+  
+  /**
+   * Check if session is active
+   */
+  isActive(): boolean {
+    return this.isOpen;
+  }
+  
+  /**
+   * Close the session
+   */
+  close(): void {
+    if (this.connection) {
+      try {
+        this.connection.requestClose();
+      } catch (e) {
+        console.warn('[OpenMic] Error closing connection:', e);
+      }
+      this.connection = null;
+      this.isOpen = false;
+    }
+  }
+}

@@ -30,6 +30,7 @@ import { useUser } from "@/lib/auth";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { useToast } from "@/hooks/use-toast";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
+import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types";
 
 // ============================================================================
 // STREAMING MODE CONFIGURATION
@@ -223,6 +224,11 @@ export function StreamingVoiceChat({
   const [error, setError] = useState<string | null>(null);
   const [avatarState, setAvatarState] = useState<AvatarState>('idle');
   const [currentPlayingMessageId, setCurrentPlayingMessageId] = useState<string | null>(null);
+  
+  // Voice input mode: push-to-talk (default) or open-mic
+  const [inputMode, setInputMode] = useState<VoiceInputMode>('push-to-talk');
+  // Open mic visual state for feedback
+  const [openMicState, setOpenMicState] = useState<OpenMicState>('idle');
   
   // Store last audio for replay functionality
   const [lastAudioBlob, setLastAudioBlob] = useState<Blob | null>(null);
@@ -459,6 +465,24 @@ export function StreamingVoiceChat({
           // Handle whiteboard updates from server (e.g., enriched WORD_MAP items)
           onWhiteboardUpdate: (items, shouldClear) => {
             whiteboard.addOrUpdateItems(items, shouldClear);
+          },
+          onVadSpeechStarted: () => {
+            console.log('[OPEN MIC] VAD speech started');
+            setOpenMicState('listening');
+            
+            // Barge-in: Interrupt tutor if playing (don't call stop() - let server handle it)
+            if (avatarState === 'speaking') {
+              console.log('[BARGE-IN] User speaking - sending interrupt signal');
+              streamingVoice.sendInterrupt();
+              // Note: Server will handle stopping TTS and client will receive response_complete
+            }
+          },
+          onVadUtteranceEnd: (transcript) => {
+            console.log('[OPEN MIC] VAD utterance end, transcript:', transcript);
+            setOpenMicState('processing');
+          },
+          onInterimTranscript: (transcript) => {
+            console.log('[OPEN MIC] Interim transcript:', transcript);
           },
         });
         streamingConnectedRef.current = true;
@@ -1356,6 +1380,109 @@ export function StreamingVoiceChat({
       cleanupRecording();
     }
   };
+  
+  // Open mic mode refs
+  const openMicSequenceIdRef = useRef(0);
+  const openMicStreamRef = useRef<MediaStream | null>(null);
+  const openMicRecorderRef = useRef<MediaRecorder | null>(null);
+  
+  /**
+   * Start continuous recording for open mic mode.
+   * Streams audio chunks to server via WebSocket.
+   * Server handles VAD to detect speech start/end.
+   */
+  const startOpenMicRecording = async () => {
+    if (openMicRecorderRef.current || isRecording) {
+      console.log('[OPEN MIC] Already recording, ignoring');
+      return;
+    }
+    
+    try {
+      setError(null);
+      console.log('[OPEN MIC] Starting continuous recording...');
+      
+      // Notify server of input mode change
+      streamingVoice.setInputMode('open-mic');
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      openMicStreamRef.current = stream;
+      
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm',
+      });
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          const sequenceId = openMicSequenceIdRef.current++;
+          event.data.arrayBuffer().then((buffer) => {
+            streamingVoice.sendStreamingChunk(buffer, sequenceId);
+          });
+        }
+      };
+      
+      mediaRecorder.onstop = () => {
+        console.log('[OPEN MIC] Recording stopped');
+        // Cleanup stream
+        if (openMicStreamRef.current) {
+          openMicStreamRef.current.getTracks().forEach(track => track.stop());
+          openMicStreamRef.current = null;
+        }
+        openMicRecorderRef.current = null;
+        setOpenMicState('idle');
+      };
+      
+      openMicRecorderRef.current = mediaRecorder;
+      // Stream audio every 250ms for continuous processing
+      mediaRecorder.start(250);
+      setOpenMicState('idle');
+      setIsRecording(true);
+      isRecordingRef.current = true;
+      console.log('[OPEN MIC] Continuous recording started');
+    } catch (err: any) {
+      console.error('[OPEN MIC] Failed to start recording:', err);
+      setError(err.message || 'Failed to access microphone');
+      setOpenMicState('idle');
+    }
+  };
+  
+  /**
+   * Stop open mic continuous recording.
+   */
+  const stopOpenMicRecording = () => {
+    console.log('[OPEN MIC] Stopping continuous recording...');
+    
+    // Notify server to stop streaming
+    streamingVoice.stopStreaming();
+    
+    // Notify server of input mode change back to push-to-talk
+    streamingVoice.setInputMode('push-to-talk');
+    
+    if (openMicRecorderRef.current && openMicRecorderRef.current.state !== 'inactive') {
+      openMicRecorderRef.current.stop();
+    }
+    
+    if (openMicStreamRef.current) {
+      openMicStreamRef.current.getTracks().forEach(track => track.stop());
+      openMicStreamRef.current = null;
+    }
+    
+    openMicRecorderRef.current = null;
+    openMicSequenceIdRef.current = 0;
+    setOpenMicState('idle');
+    setIsRecording(false);
+    isRecordingRef.current = false;
+  };
+  
+  /**
+   * Toggle open mic recording on/off (for click behavior)
+   */
+  const toggleOpenMicRecording = () => {
+    if (openMicRecorderRef.current) {
+      stopOpenMicRecording();
+    } else {
+      startOpenMicRecording();
+    }
+  };
 
   const handleEndCall = () => {
     console.log('[END CALL] User requested to end voice session');
@@ -1366,6 +1493,20 @@ export function StreamingVoiceChat({
     // 3. Sends end_session message and closes WebSocket
     streamingVoice.disconnect();
     streamingConnectedRef.current = false;
+    
+    // Stop open mic recording if active
+    if (openMicRecorderRef.current) {
+      console.log('[END CALL] Stopping open mic recording');
+      if (openMicRecorderRef.current.state !== 'inactive') {
+        openMicRecorderRef.current.stop();
+      }
+      if (openMicStreamRef.current) {
+        openMicStreamRef.current.getTracks().forEach(track => track.stop());
+        openMicStreamRef.current = null;
+      }
+      openMicRecorderRef.current = null;
+      openMicSequenceIdRef.current = 0;
+    }
     
     // Stop any ongoing recording - the stop() callback will trigger cleanupRecording()
     // Only call cleanupRecording() directly if recorder isn't active
@@ -1493,6 +1634,24 @@ export function StreamingVoiceChat({
               tutorExpressiveness: user?.tutorExpressiveness || 3,
               onWhiteboardUpdate: (items, shouldClear) => {
                 whiteboard.addOrUpdateItems(items, shouldClear);
+              },
+              onVadSpeechStarted: () => {
+                console.log('[OPEN MIC] VAD speech started');
+                setOpenMicState('listening');
+                
+                // Barge-in: Interrupt tutor if playing (don't call stop() - let server handle it)
+                if (avatarState === 'speaking') {
+                  console.log('[BARGE-IN] User speaking - sending interrupt signal');
+                  streamingVoice.sendInterrupt();
+                  // Note: Server will handle stopping TTS and client will receive response_complete
+                }
+              },
+              onVadUtteranceEnd: (transcript) => {
+                console.log('[OPEN MIC] VAD utterance end, transcript:', transcript);
+                setOpenMicState('processing');
+              },
+              onInterimTranscript: (transcript) => {
+                console.log('[OPEN MIC] Interim transcript:', transcript);
               },
             });
             streamingConnectedRef.current = true;
@@ -1841,8 +2000,8 @@ export function StreamingVoiceChat({
         <VoiceChatViewManager
           conversationId={conversationId}
           messages={messages}
-          onRecordingStart={startPushToTalkRecording}
-          onRecordingStop={stopPushToTalkRecording}
+          onRecordingStart={inputMode === 'open-mic' ? toggleOpenMicRecording : startPushToTalkRecording}
+          onRecordingStop={inputMode === 'open-mic' ? toggleOpenMicRecording : stopPushToTalkRecording}
           isRecording={isRecording}
           isMicPreparing={isMicPreparing}
           isProcessing={isProcessing}
@@ -1874,6 +2033,9 @@ export function StreamingVoiceChat({
           subtitleState={streamingVoice.subtitles.state}
           regularSubtitleMode={whiteboard.regularSubtitleMode}
           customOverlayText={whiteboard.customOverlayText}
+          inputMode={inputMode}
+          setInputMode={setInputMode}
+          openMicState={openMicState}
         />
       </div>
     </div>

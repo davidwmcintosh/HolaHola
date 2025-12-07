@@ -115,6 +115,10 @@ type StreamingEventType =
   | 'wordTimingDelta'    // Progressive streaming: incremental word timing
   | 'wordTimingFinal'    // Progressive streaming: final reconciliation
   | 'sentenceEnd'
+  | 'vadSpeechStarted'   // Open mic: VAD detected speech start
+  | 'vadUtteranceEnd'    // Open mic: VAD detected utterance end
+  | 'interimTranscript'  // Open mic: Real-time interim transcript
+  | 'inputModeChanged'   // Input mode switched
   | 'responseComplete'
   | 'feedback'
   | 'voiceUpdated'
@@ -332,6 +336,65 @@ export class StreamingVoiceClient {
   }
   
   /**
+   * Send streaming audio chunk for open mic mode
+   * @param audioData - Audio chunk to stream
+   * @param sequenceId - Sequence number for ordering
+   */
+  sendStreamingChunk(audioData: ArrayBuffer, sequenceId: number): void {
+    if (!this.isReady()) {
+      throw new Error('WebSocket not connected');
+    }
+    
+    // Convert to base64 for JSON transport
+    const base64Audio = this.arrayBufferToBase64(audioData);
+    this.ws!.send(JSON.stringify({
+      type: 'stream_audio_chunk',
+      audio: base64Audio,
+      format: 'webm',
+      sequenceId,
+    }));
+  }
+  
+  /**
+   * Stop streaming audio (open mic mode)
+   */
+  stopStreaming(): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'stop_streaming' }));
+    }
+  }
+  
+  /**
+   * Set input mode (push-to-talk or open-mic)
+   */
+  setInputMode(mode: 'push-to-talk' | 'open-mic'): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'set_input_mode', inputMode: mode }));
+    }
+  }
+  
+  /**
+   * Send interrupt signal (user started speaking - stop TTS)
+   */
+  sendInterrupt(): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'interrupt' }));
+    }
+  }
+  
+  /**
+   * Convert ArrayBuffer to base64 string
+   */
+  private arrayBufferToBase64(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+  
+  /**
    * Request AI-generated personalized greeting
    * Called when starting a new conversation or resuming a previous one
    * @param userName - Optional student name for personalization
@@ -420,7 +483,7 @@ export class StreamingVoiceClient {
     
     // JSON message - minimal processing on hot path
     try {
-      const message: StreamingMessage = JSON.parse(event.data);
+      const message = JSON.parse(event.data) as { type: string; [key: string]: any };
       const win = window as any;
       
       // Single lightweight counter update
@@ -432,7 +495,7 @@ export class StreamingVoiceClient {
           break;
           
         case 'session_started':
-          this.handleSessionStarted(message);
+          this.handleSessionStarted(message as { type: string; sessionId: string; timestamp: number });
           break;
           
         case 'processing':
@@ -489,6 +552,22 @@ export class StreamingVoiceClient {
         case 'whiteboard_update':
           // Whiteboard content from tutor
           this.emit('whiteboardUpdate', message as StreamingWhiteboardMessage);
+          break;
+          
+        case 'vad_speech_started':
+          this.emit('vadSpeechStarted', message);
+          break;
+          
+        case 'vad_utterance_end':
+          this.emit('vadUtteranceEnd', message);
+          break;
+          
+        case 'interim_transcript':
+          this.emit('interimTranscript', message);
+          break;
+          
+        case 'input_mode_changed':
+          this.emit('inputModeChanged', message);
           break;
           
         default:

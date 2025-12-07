@@ -161,6 +161,7 @@ export interface StreamingSession {
   lastActivityTime: number;         // Timestamp of last student activity
   currentTurnId: number;            // Monotonic counter for subtitle packet ordering (prevents phantom subtitles)
   warmupPromise?: Promise<void>;    // Gemini + Cartesia warmup promise to await before greeting
+  isInterrupted: boolean;           // Set to true when user barges in (for open mic mode)
 }
 
 /**
@@ -316,6 +317,7 @@ export class StreamingVoiceOrchestrator {
       isFounderMode,  // Founder Mode uses English STT regardless of target language
       lastActivityTime: Date.now(),
       currentTurnId: 0,  // Start at 0, incremented on each new response
+      isInterrupted: false,  // Reset on each new request
     };
     
     // PARALLEL WARMUP: Pre-warm both Cartesia and Gemini connections concurrently
@@ -466,6 +468,7 @@ export class StreamingVoiceOrchestrator {
       
       // NEW TURN: Increment turnId for this response (for subtitle packet ordering)
       session.currentTurnId++;
+      session.isInterrupted = false;  // Reset interrupt flag for new turn
       const turnId = session.currentTurnId;
       
       // Notify client that processing has started
@@ -681,6 +684,183 @@ export class StreamingVoiceOrchestrator {
       
     } catch (error: any) {
       console.error(`[Streaming Orchestrator] Error:`, error.message);
+      this.sendError(session.ws, 'UNKNOWN', error.message, true);
+      throw error;
+    }
+  }
+  
+  /**
+   * Process open mic transcript directly (no STT needed - Deepgram already transcribed)
+   * Used when VAD detects utterance end in open mic mode
+   */
+  async processOpenMicTranscript(
+    sessionId: string,
+    transcript: string,
+    confidence: number
+  ): Promise<StreamingMetrics> {
+    const session = this.sessions.get(sessionId);
+    if (!session || !session.isActive) {
+      throw new Error(`Session not found or inactive: ${sessionId}`);
+    }
+    
+    // Student activity detected - reset idle timeout
+    this.resetIdleTimeout(session);
+    
+    const startTime = Date.now();
+    const metrics: StreamingMetrics = {
+      sessionId,
+      sttLatencyMs: 0, // Already done by Deepgram live session
+      aiFirstTokenMs: 0,
+      ttsFirstByteMs: 0,
+      totalLatencyMs: 0,
+      sentenceCount: 0,
+      audioBytes: 0,
+    };
+    
+    try {
+      console.log(`[Streaming Orchestrator] Open mic transcript: "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
+      
+      if (!transcript.trim()) {
+        console.log('[Streaming Orchestrator] Empty transcript in open mic');
+        return metrics;
+      }
+      
+      // CONTENT MODERATION: Check for severely inappropriate content
+      if (containsSeverelyInappropriateContent(transcript)) {
+        console.log('[Streaming Orchestrator] Content moderation: Severely inappropriate content blocked');
+        this.sendMessage(session.ws, {
+          type: 'error',
+          timestamp: Date.now(),
+          code: 'CONTENT_REJECTED',
+          message: 'Let\'s keep our conversation focused on language learning!',
+          recoverable: true,
+        });
+        return metrics;
+      }
+      
+      // NEW TURN: Increment turnId for this response
+      session.currentTurnId++;
+      session.isInterrupted = false;  // Reset interrupt flag for new turn
+      const turnId = session.currentTurnId;
+      
+      // Notify client that processing has started
+      this.sendMessage(session.ws, {
+        type: 'processing',
+        timestamp: Date.now(),
+        turnId,
+        userTranscript: transcript,
+      } as StreamingProcessingMessage);
+      
+      // Step 2: Stream AI response with sentence chunking
+      const aiStart = Date.now();
+      let firstTokenReceived = false;
+      let fullText = '';
+      
+      // DEDUPLICATION GUARD: Track seen sentences to prevent LLM repetition loops
+      const seenSentences = new Set<string>();
+      const MAX_SENTENCES = 5;
+      let actualSentenceCount = 0;
+      
+      // Check for architect notes
+      let architectContext = '';
+      if (session.conversationId) {
+        architectContext = architectVoiceService.buildArchitectContext(session.conversationId);
+      }
+      
+      const userMessageWithNote = transcript + architectContext;
+      
+      await this.geminiService.streamWithSentenceChunking({
+        systemPrompt: session.systemPrompt,
+        conversationHistory: session.conversationHistory,
+        userMessage: userMessageWithNote,
+        onSentence: async (chunk: SentenceChunk) => {
+          if (!firstTokenReceived) {
+            metrics.aiFirstTokenMs = Date.now() - aiStart;
+            firstTokenReceived = true;
+            console.log(`[Streaming Orchestrator] AI first token: ${metrics.aiFirstTokenMs}ms`);
+          }
+          
+          const displayText = cleanTextForDisplay(chunk.text);
+          if (!displayText) return;
+          
+          const normalizedText = displayText.toLowerCase().trim();
+          if (seenSentences.has(normalizedText)) return;
+          seenSentences.add(normalizedText);
+          
+          if (actualSentenceCount >= MAX_SENTENCES) return;
+          actualSentenceCount++;
+          
+          // Parse whiteboard markup
+          const whiteboardParsed = parseWhiteboardMarkup(chunk.text);
+          if (whiteboardParsed.whiteboardItems.length > 0) {
+            this.sendMessage(session.ws, {
+              type: 'whiteboard_update',
+              timestamp: Date.now(),
+              turnId,
+              items: whiteboardParsed.whiteboardItems,
+              shouldClear: whiteboardParsed.shouldClear,
+            } as StreamingWhiteboardMessage);
+          }
+          
+          // Extract target language with word mapping
+          const extraction = extractTargetLanguageWithMapping(displayText, chunk.text);
+          const wordMappingArray: [number, number][] = extraction.wordMapping.size > 0
+            ? Array.from(extraction.wordMapping.entries())
+            : [];
+          const hasTargetContent = !!(extraction.targetText && extraction.targetText.trim().length > 0);
+          
+          // Send sentence start
+          this.sendMessage(session.ws, {
+            type: 'sentence_start',
+            timestamp: Date.now(),
+            turnId,
+            sentenceIndex: chunk.index,
+            text: displayText,
+            hasTargetContent,
+            targetLanguageText: hasTargetContent ? extraction.targetText : undefined,
+            wordMapping: hasTargetContent && wordMappingArray.length > 0 ? wordMappingArray : undefined,
+          } as StreamingSentenceStartMessage);
+          
+          // Stream TTS for this sentence
+          if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+            await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
+          } else {
+            await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
+          }
+          
+          fullText += displayText + ' ';
+          metrics.sentenceCount++;
+        },
+      });
+      
+      console.log(`[Streaming Orchestrator] AI complete: ${actualSentenceCount} sentences`);
+      
+      // Update conversation history
+      if (transcript.trim()) {
+        session.conversationHistory.push({ role: 'user', content: transcript });
+      }
+      if (fullText.trim()) {
+        session.conversationHistory.push({ role: 'model', content: fullText.trim() });
+      }
+      
+      // Response complete
+      this.sendMessage(session.ws, {
+        type: 'response_complete',
+        timestamp: Date.now(),
+        turnId,
+      } as StreamingResponseCompleteMessage);
+      
+      metrics.totalLatencyMs = Date.now() - startTime;
+      
+      // Persist messages
+      this.persistMessages(session.conversationId, transcript, fullText.trim(), session, confidence).catch((err: Error) => {
+        console.error('[Streaming Orchestrator] Failed to persist messages:', err.message);
+      });
+      
+      return metrics;
+      
+    } catch (error: any) {
+      console.error(`[Streaming Orchestrator] Open mic error:`, error.message);
       this.sendError(session.ws, 'UNKNOWN', error.message, true);
       throw error;
     }
@@ -2061,12 +2241,26 @@ Using this context, speak first to the student with a natural opening message. O
   
   /**
    * Handle client interrupt (user started speaking while AI is responding)
+   * Used for barge-in support in open mic mode
    */
   handleInterrupt(sessionId: string): void {
     const session = this.sessions.get(sessionId);
     if (session) {
       console.log(`[Streaming Orchestrator] Interrupt received for session: ${sessionId}`);
-      // Future: Cancel in-progress synthesis
+      
+      // Set interrupted flag to stop ongoing TTS streaming
+      session.isInterrupted = true;
+      
+      // Send response_complete to signal client to stop playback
+      this.sendMessage(session.ws, {
+        type: 'response_complete',
+        timestamp: Date.now(),
+        turnId: session.currentTurnId,
+        totalSentences: 0,  // Indicates interrupted response
+        wasInterrupted: true,
+      } as StreamingResponseCompleteMessage);
+      
+      console.log(`[Streaming Orchestrator] Interrupt processed - TTS stopped`);
     }
   }
   

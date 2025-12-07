@@ -24,8 +24,11 @@ import {
 import {
   ClientStartSessionMessage,
   ClientAudioDataMessage,
+  ClientStreamAudioChunkMessage,
   StreamingErrorMessage,
+  VoiceInputMode,
 } from '@shared/streaming-voice-types';
+import { OpenMicSession, getDeepgramLanguageCode } from './services/deepgram-live-stt';
 import { generateCongratulatoryPromptAddition } from './services/competency-verifier';
 import { buildCurriculumContext, detectSyllabusQuery } from './services/curriculum-context';
 import { usageService } from './services/usage-service';
@@ -114,6 +117,10 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
   let session: StreamingSession | null = null;
   let userId: string | null = null;
   let isAuthenticated = false;
+  
+  // Open mic mode state
+  let openMicSession: OpenMicSession | null = null;
+  let currentInputMode: VoiceInputMode = 'push-to-talk';
   
   // Usage tracking state
   let usageSession: UsageVoiceSession | null = null;
@@ -699,6 +706,133 @@ Reference past discussions when relevant, but don't force it.
         case 'interrupt':
           if (session) orchestrator.handleInterrupt(session.id);
           break;
+
+        case 'set_input_mode': {
+          const modeMessage = message as { type: 'set_input_mode'; inputMode: VoiceInputMode };
+          currentInputMode = modeMessage.inputMode;
+          console.log(`[Streaming Voice] Input mode changed to: ${currentInputMode}`);
+          
+          // Close existing open mic session if switching to push-to-talk
+          if (currentInputMode === 'push-to-talk' && openMicSession) {
+            openMicSession.close();
+            openMicSession = null;
+          }
+          
+          ws.send(JSON.stringify({
+            type: 'input_mode_changed',
+            timestamp: Date.now(),
+            inputMode: currentInputMode,
+          }));
+          break;
+        }
+
+        case 'stream_audio_chunk': {
+          if (!isAuthenticated || !session) {
+            sendError(ws, 'UNKNOWN', 'Session not ready for streaming', true);
+            return;
+          }
+          
+          if (currentInputMode !== 'open-mic') {
+            console.warn('[Streaming Voice] Received stream_audio_chunk but not in open-mic mode');
+            return;
+          }
+          
+          const chunkMessage = message as ClientStreamAudioChunkMessage;
+          let audioBuffer: Buffer;
+          if (typeof chunkMessage.audio === 'string') {
+            audioBuffer = Buffer.from(chunkMessage.audio, 'base64');
+          } else {
+            audioBuffer = Buffer.from(chunkMessage.audio);
+          }
+          
+          // Create open mic session if not exists
+          if (!openMicSession) {
+            const languageCode = getDeepgramLanguageCode(session.targetLanguage || 'spanish');
+            console.log(`[OpenMic] Starting session for language: ${languageCode}`);
+            
+            openMicSession = new OpenMicSession(languageCode, {
+              onSpeechStarted: () => {
+                console.log('[OpenMic] VAD: Speech started');
+                if (ws.readyState === WS.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'vad_speech_started',
+                    timestamp: Date.now(),
+                  }));
+                }
+                // Trigger barge-in: interrupt any playing audio
+                if (session) orchestrator.handleInterrupt(session.id);
+              },
+              onUtteranceEnd: async (transcript, confidence) => {
+                console.log(`[OpenMic] VAD: Utterance end - "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
+                
+                // Send VAD event to client
+                if (ws.readyState === WS.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'vad_utterance_end',
+                    timestamp: Date.now(),
+                  }));
+                }
+                
+                // Process the transcript like a completed push-to-talk recording
+                if (transcript.trim() && session) {
+                  try {
+                    // Create a synthetic audio buffer with the transcript embedded as metadata
+                    // The orchestrator will use the transcript directly for open mic
+                    await orchestrator.processOpenMicTranscript(
+                      session.id,
+                      transcript,
+                      confidence
+                    );
+                  } catch (err: any) {
+                    console.error('[OpenMic] Error processing utterance:', err);
+                    sendError(ws, 'AI_FAILED', 'Failed to process speech', true);
+                  }
+                }
+              },
+              onInterimTranscript: (transcript) => {
+                // Send interim transcript for real-time feedback
+                if (ws.readyState === WS.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'interim_transcript',
+                    timestamp: Date.now(),
+                    text: transcript,
+                  }));
+                }
+              },
+              onError: (error) => {
+                console.error('[OpenMic] Session error:', error);
+                sendError(ws, 'STT_FAILED', error.message, true);
+              },
+              onClose: () => {
+                console.log('[OpenMic] Session closed');
+                openMicSession = null;
+              },
+            });
+            
+            try {
+              await openMicSession.start();
+              console.log('[OpenMic] Session started successfully');
+            } catch (err: any) {
+              console.error('[OpenMic] Failed to start session:', err);
+              sendError(ws, 'STT_FAILED', 'Failed to start open mic session', true);
+              openMicSession = null;
+              return;
+            }
+          }
+          
+          // Send audio chunk to Deepgram
+          openMicSession.sendAudio(audioBuffer);
+          break;
+        }
+
+        case 'stop_streaming': {
+          console.log('[Streaming Voice] Stop streaming received');
+          if (openMicSession) {
+            openMicSession.close();
+            openMicSession = null;
+          }
+          break;
+        }
 
         case 'update_voice': {
           // Update voice mid-session when user changes tutor

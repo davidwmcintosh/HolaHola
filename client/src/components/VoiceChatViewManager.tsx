@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { type VoiceSpeed } from "@/contexts/LanguageContext";
 import type { WhiteboardItem, SubtitleMode } from "@shared/whiteboard-types";
 import type { StreamingSubtitleState } from "../hooks/useStreamingSubtitles";
+import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types";
 
 interface VoiceChatViewManagerProps {
   conversationId: string | null;
@@ -40,6 +41,10 @@ interface VoiceChatViewManagerProps {
   regularSubtitleMode?: SubtitleMode;
   // Custom overlay text (independent from regular subtitles)
   customOverlayText?: string | null;
+  // Voice input mode: push-to-talk (default) or open-mic
+  inputMode?: VoiceInputMode;
+  setInputMode?: (mode: VoiceInputMode) => void;
+  openMicState?: OpenMicState;
 }
 
 export function VoiceChatViewManager({
@@ -71,6 +76,9 @@ export function VoiceChatViewManager({
   subtitleState,
   regularSubtitleMode = 'off',
   customOverlayText,
+  inputMode = 'push-to-talk',
+  setInputMode,
+  openMicState = 'idle',
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -183,6 +191,9 @@ export function VoiceChatViewManager({
                 subtitleState={subtitleState}
                 regularSubtitleMode={regularSubtitleMode}
                 customOverlayText={customOverlayText}
+                inputMode={inputMode}
+                setInputMode={setInputMode}
+                openMicState={openMicState}
               />
             </div>
           ) : (

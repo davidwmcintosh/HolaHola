@@ -18,6 +18,21 @@ export type StreamingClientState =
   | 'error';
 
 /**
+ * Voice input mode for recording
+ * - push-to-talk: User holds button/key to record (default)
+ * - open-mic: Continuous listening with VAD-triggered auto-submit
+ */
+export type VoiceInputMode = 'push-to-talk' | 'open-mic';
+
+/**
+ * Open mic state for visual feedback
+ * - idle: Mic is open but no speech detected
+ * - listening: Speech detected, actively capturing
+ * - processing: Audio submitted, waiting for response
+ */
+export type OpenMicState = 'idle' | 'listening' | 'processing';
+
+/**
  * Streaming performance metrics
  */
 export interface StreamingMetrics {
@@ -47,6 +62,10 @@ export type StreamingVoiceMessageType =
   | 'feedback'            // Pedagogical feedback (non-blocking)
   | 'whiteboard_update'   // Visual teaching aids (vocabulary, drills, images)
   | 'voice_updated'       // Voice switch confirmation (tutor voice changed)
+  | 'vad_speech_started'  // Open mic: User started speaking (VAD detected speech)
+  | 'vad_utterance_end'   // Open mic: User stopped speaking (VAD detected silence)
+  | 'interim_transcript'  // Open mic: Real-time interim transcript for feedback
+  | 'input_mode_changed'  // Input mode switched (push-to-talk ↔ open-mic)
   | 'error';              // Error occurred
 
 /**
@@ -220,10 +239,11 @@ export interface StreamingResponseCompleteMessage extends StreamingVoiceMessage 
   type: 'response_complete';
   turnId: number;         // Which turn this completes
   totalSentences: number;
-  totalDurationMs: number;
-  fullText: string;       // Complete AI response text
+  totalDurationMs?: number;
+  fullText?: string;       // Complete AI response text
   emotion?: string;       // Final emotion used
   metrics?: StreamingMetrics;  // Performance metrics
+  wasInterrupted?: boolean;  // True if response was interrupted (barge-in)
 }
 
 /**
@@ -264,6 +284,23 @@ export interface StreamingErrorMessage extends StreamingVoiceMessage {
 }
 
 /**
+ * VAD speech started message - User started speaking (open mic mode)
+ * Sent from server when Deepgram detects speech start
+ */
+export interface StreamingVADSpeechStartedMessage extends StreamingVoiceMessage {
+  type: 'vad_speech_started';
+}
+
+/**
+ * VAD utterance end message - User stopped speaking (open mic mode)
+ * Sent from server when Deepgram detects utterance end
+ * This triggers auto-submit in open mic mode
+ */
+export interface StreamingVADUtteranceEndMessage extends StreamingVoiceMessage {
+  type: 'vad_utterance_end';
+}
+
+/**
  * Error codes for streaming voice
  */
 export type StreamingErrorCode = 
@@ -295,16 +332,21 @@ export type StreamingMessage =
   | StreamingResponseCompleteMessage
   | StreamingFeedbackMessage
   | StreamingWhiteboardMessage
-  | StreamingErrorMessage;
+  | StreamingErrorMessage
+  | StreamingVADSpeechStartedMessage
+  | StreamingVADUtteranceEndMessage;
 
 /**
  * Client-to-server message types
  */
 export type ClientVoiceMessageType = 
   | 'start_session'       // Initialize streaming session
-  | 'audio_data'          // User's audio recording
+  | 'audio_data'          // User's audio recording (push-to-talk)
+  | 'stream_audio_chunk'  // Streaming audio chunk (open-mic)
+  | 'stop_streaming'      // Stop open-mic streaming
   | 'request_greeting'    // Request AI-generated personalized greeting
   | 'interrupt'           // User interrupted (started speaking)
+  | 'set_input_mode'      // Switch between push-to-talk and open-mic
   | 'end_session';        // Close session
 
 /**
@@ -321,15 +363,34 @@ export interface ClientStartSessionMessage {
   tutorExpressiveness?: number;
   tutorGender?: 'male' | 'female';
   voiceSpeed?: 'slower' | 'slow' | 'normal' | 'fast' | 'faster';
+  inputMode?: VoiceInputMode;  // Push-to-talk (default) or open-mic
 }
 
 /**
- * Client message with audio data
+ * Client message with audio data (push-to-talk: complete recording)
  */
 export interface ClientAudioDataMessage {
   type: 'audio_data';
   audio: ArrayBuffer;     // Raw audio data (will be transcribed)
   format: 'webm' | 'wav' | 'mp3';
+}
+
+/**
+ * Client message with streaming audio chunk (open-mic: real-time streaming)
+ * Audio is streamed continuously while mic is active, VAD detects speech boundaries
+ */
+export interface ClientStreamAudioChunkMessage {
+  type: 'stream_audio_chunk';
+  audio: ArrayBuffer;     // Audio chunk for real-time streaming
+  format: 'webm' | 'wav';
+  sequenceId: number;     // For ordering chunks
+}
+
+/**
+ * Client message to stop open-mic streaming
+ */
+export interface ClientStopStreamingMessage {
+  type: 'stop_streaming';
 }
 
 /**
@@ -346,6 +407,15 @@ export interface ClientInterruptMessage {
 export interface ClientRequestGreetingMessage {
   type: 'request_greeting';
   userName?: string;  // Student's name for personalization
+}
+
+/**
+ * Client message to switch input mode mid-session
+ * Used when user toggles between push-to-talk and open-mic
+ */
+export interface ClientSetInputModeMessage {
+  type: 'set_input_mode';
+  inputMode: VoiceInputMode;
 }
 
 /**
