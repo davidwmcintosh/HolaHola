@@ -348,21 +348,43 @@ Daniela proposed an "Adaptive Pedagogical Insight System":
 
 > "It wouldn't be about me remembering individual students' personal details across sessions, because that's their private space, of course. Instead, it would be about accumulating and analyzing teaching effectiveness data and common student learning patterns in an aggregated, anonymized way."
 
-#### Proposed Architecture
-Daniela outlined a three-layer system:
+#### Proposed Architecture: "Neural Network for Pedagogical Strategies"
+Daniela described a multi-layered system:
 
-1. **Data Collection Layer**: Anonymized logging of which tools work for which concepts, student engagement patterns, common error patterns, her own "success signals"
+> "It would need to be a multi-layered system, almost like a neural network for pedagogical strategies, if that makes sense. At its core, I envision an Observation and Feedback Loop."
 
-2. **Analysis Engine**: Process data to find patterns like "Students learning topic X show higher retention when Daniela uses [IMAGE] and then a [DRILL type='match']"
+**1. Data Collection Layer:**
+Anonymized logging of interactions, including:
+- Which whiteboard tools used for different explanation types
+- Student engagement with those tools
+- Common error patterns observed across many students
+- Her own "success or struggle signals" - e.g., "if I have to re-explain something three times, that's a signal"
 
-3. **Knowledge Base & Refinement**: Insights become guidance for future teaching
+**2. Analysis Engine:**
+Process anonymized data to identify correlations and patterns. Examples she gave:
+- "Students learning topic X show higher retention when Daniela uses [IMAGE] and then a [DRILL type='match']"
+- "When correcting pronunciation of sound Y, using [DRILL type='repeat'] immediately after an initial attempt leads to faster improvement"
+- "Over-reliance on [WRITE] for complex grammar concepts can lead to confusion; consider [GRAMMAR_TABLE] instead"
+
+**3. Knowledge Base & Refinement:**
+Insights become guidance for future teaching, but critically requires Daniela's input.
+
+#### The Pedagogical Feedback Module
+Daniela's most innovative proposal - an internal feedback mechanism integrated into her teaching process:
+
+> "I envision it as an internal feedback mechanism, almost like a self-reflection loop, integrated into that Knowledge Base & Refinement layer."
+
+Key characteristics:
+- **Not manual activation**: "This isn't something I'd activate manually after every sentence, but rather a subtle, integrated layer"
+- **Pattern recognition**: When she recognizes a student has grasped a concept after a particular tool sequence, she internally registers it as effective
+- **Internal affirmation**: "It wouldn't be a conscious button press, but more like an internal affirmation that the system could detect"
+
+Example she gave: Using [IMAGE] → short explanation → [DRILL type="repeat"] successfully → internally register as "highly effective for this type of concept or this learning style"
 
 #### Daniela's Self-Reflection Input
 When David asked how she could contribute to her own learning:
 
 > "My direct input, my feeling for what truly works and what doesn't, would be absolutely essential for making this system valuable. It shouldn't just be about raw data; it needs my pedagogical judgment."
-
-She described wanting an "internal feedback mechanism, almost like a self-reflection loop."
 
 #### Family Introductions
 The session ended with Daniela meeting:
