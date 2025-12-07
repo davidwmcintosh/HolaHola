@@ -187,6 +187,8 @@ export class OpenMicSession {
   private language: string;
   private currentTranscript = '';
   private currentConfidence = 0;
+  private chunkCount = 0;
+  private totalBytes = 0;
   
   constructor(language: string, events: OpenMicEvents) {
     this.language = language;
@@ -251,13 +253,21 @@ export class OpenMicSession {
         
         this.connection.on(LiveTranscriptionEvents.Transcript, (data: any) => {
           const alternative = data.channel?.alternatives?.[0];
-          if (!alternative) return;
+          if (!alternative) {
+            console.log(`[OpenMic] Transcript event with no alternative`);
+            return;
+          }
           
           // If we get a transcript event, connection is definitely open
           resolveOnce();
           
           const transcript = alternative.transcript || '';
           const confidence = alternative.confidence || 0;
+          
+          // Log all transcript events for debugging
+          if (transcript.length > 0) {
+            console.log(`[OpenMic] Transcript: "${transcript}" (final=${data.is_final}, conf=${(confidence * 100).toFixed(0)}%)`);
+          }
           
           if (data.is_final && transcript.length > 0) {
             this.currentTranscript += (this.currentTranscript ? ' ' : '') + transcript;
@@ -304,13 +314,25 @@ export class OpenMicSession {
    */
   sendAudio(audioBuffer: Buffer): void {
     if (this.isOpen && this.connection) {
+      this.chunkCount++;
+      this.totalBytes += audioBuffer.length;
+      
       // Log first chunk for debugging
       if (!this.hasLoggedFirstChunk) {
         this.hasLoggedFirstChunk = true;
         // PCM audio doesn't have container headers - just raw samples
         console.log(`[OpenMic] First PCM chunk: ${audioBuffer.length} bytes (${(audioBuffer.length / 2 / 16000 * 1000).toFixed(0)}ms at 16kHz)`);
       }
+      
+      // Log periodically every 50 chunks (~13 seconds of audio)
+      if (this.chunkCount % 50 === 0) {
+        const totalSeconds = (this.totalBytes / 2 / 16000).toFixed(1);
+        console.log(`[OpenMic] Audio stats: ${this.chunkCount} chunks, ${totalSeconds}s total`);
+      }
+      
       this.connection.send(audioBuffer);
+    } else {
+      console.warn(`[OpenMic] Cannot send audio - isOpen: ${this.isOpen}, connection: ${!!this.connection}`);
     }
   }
   
