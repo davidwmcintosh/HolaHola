@@ -118,6 +118,7 @@ type StreamingEventType =
   | 'vadSpeechStarted'   // Open mic: VAD detected speech start
   | 'vadUtteranceEnd'    // Open mic: VAD detected utterance end
   | 'interimTranscript'  // Open mic: Real-time interim transcript
+  | 'openMicSessionClosed' // Open mic: Server session closed (e.g., Deepgram timeout)
   | 'inputModeChanged'   // Input mode switched
   | 'responseComplete'
   | 'feedback'
@@ -568,6 +569,10 @@ export class StreamingVoiceClient {
           
         case 'input_mode_changed':
           this.emit('inputModeChanged', message);
+          break;
+          
+        case 'open_mic_session_closed':
+          this.emit('openMicSessionClosed', message);
           break;
           
         default:

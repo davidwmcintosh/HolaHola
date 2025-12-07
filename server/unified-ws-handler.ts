@@ -817,6 +817,14 @@ Reference past discussions when relevant, but don't force it.
             onClose: () => {
               console.log('[OpenMic] Session closed');
               openMicSession = null;
+              
+              // Notify client that open mic session closed (so it can restart if needed)
+              if (ws.readyState === WS.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'open_mic_session_closed',
+                  timestamp: Date.now(),
+                }));
+              }
             },
           });
           

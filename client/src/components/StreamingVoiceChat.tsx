@@ -498,6 +498,26 @@ export function StreamingVoiceChat({
           onInterimTranscript: (transcript) => {
             console.log('[OPEN MIC] Interim transcript:', transcript);
           },
+          onOpenMicSessionClosed: () => {
+            console.log('[OPEN MIC] Server session closed');
+            // If still in open mic mode and not awaiting response, restart the session
+            if (inputMode === 'open-mic' && !isAwaitingResponseRef.current) {
+              console.log('[OPEN MIC] Restarting open mic session after server close');
+              setOpenMicState('idle');
+              // Use a small delay to allow any cleanup to complete
+              setTimeout(() => {
+                if (inputMode === 'open-mic') {
+                  streamingVoice.startOpenMicRecording().then(() => {
+                    console.log('[OPEN MIC] Session restarted successfully');
+                    setOpenMicState('listening');
+                  }).catch((err) => {
+                    console.error('[OPEN MIC] Failed to restart session:', err);
+                    setOpenMicState('idle');
+                  });
+                }
+              }, 100);
+            }
+          },
         });
         streamingConnectedRef.current = true;
         console.log('[STREAMING] Connected successfully');
@@ -1742,6 +1762,13 @@ export function StreamingVoiceChat({
               },
               onInterimTranscript: (transcript) => {
                 console.log('[OPEN MIC] Interim transcript:', transcript);
+              },
+              onOpenMicSessionClosed: () => {
+                console.log('[OPEN MIC] Server session closed (reconnect context)');
+                // Session closed handler in reconnection context
+                if (!isAwaitingResponseRef.current) {
+                  setOpenMicState('idle');
+                }
               },
             });
             streamingConnectedRef.current = true;

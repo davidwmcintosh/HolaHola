@@ -94,6 +94,8 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - **VAD States:** idle → listening → processing → idle (visual feedback via `openMicState`)
 - **Cleanup:** Open mic sessions cleaned up on `stop_streaming` or mode switch
 - **Connection Handling:** Deepgram connection uses `resolveOnce()` pattern to handle race conditions
+- **Session Restart:** Server sends `open_mic_session_closed` when Deepgram session closes; client automatically restarts if still in open-mic mode
+- **Bilingual Support:** Uses 'multi' language code for natural English/Spanish code-switching
 
 **Future considerations:**
 - Deepgram Aura-2: Potential cost-saving fallback IF word timestamps confirmed

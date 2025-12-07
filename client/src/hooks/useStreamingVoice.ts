@@ -65,6 +65,8 @@ export interface StreamingSessionConfig {
   onVadUtteranceEnd?: (transcript: string) => void;
   /** Called when interim transcript available (open mic mode) */
   onInterimTranscript?: (transcript: string) => void;
+  /** Called when open mic session closes (e.g., Deepgram timeout) */
+  onOpenMicSessionClosed?: () => void;
 }
 
 /**
@@ -628,6 +630,14 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   /**
+   * Handle open mic session closed (e.g., Deepgram timeout)
+   */
+  const handleOpenMicSessionClosed = useCallback(() => {
+    console.log('[StreamingVoice] Open mic session closed - client should restart if in open mic mode');
+    sessionConfigRef.current?.onOpenMicSessionClosed?.();
+  }, []);
+  
+  /**
    * Connect to streaming voice service and start a session
    */
   const connect = useCallback(async (config: StreamingSessionConfig) => {
@@ -660,6 +670,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('vadSpeechStarted', handleVadSpeechStarted);  // Open mic VAD
       clientRef.current.on('vadUtteranceEnd', handleVadUtteranceEnd);  // Open mic VAD
       clientRef.current.on('interimTranscript', handleInterimTranscript);  // Open mic interim
+      clientRef.current.on('openMicSessionClosed', handleOpenMicSessionClosed);  // Open mic session ended
       
       // Connect WebSocket
       await clientRef.current.connect(config.conversationId);
