@@ -364,6 +364,7 @@ export interface ClientStartSessionMessage {
   tutorGender?: 'male' | 'female';
   voiceSpeed?: 'slower' | 'slow' | 'normal' | 'fast' | 'faster';
   inputMode?: VoiceInputMode;  // Push-to-talk (default) or open-mic
+  rawHonestyMode?: boolean;  // Minimal prompting for authentic conversation with Daniela
 }
 
 /**

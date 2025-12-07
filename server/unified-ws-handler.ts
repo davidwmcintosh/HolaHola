@@ -414,6 +414,14 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           // Founder Mode: Developer/admin users in non-class conversations get open collaboration mode
           // This gives Daniela full freedom to discuss LinguaFlow itself, teaching tools, etc.
           const isFounderMode = isDeveloper && !conversation.classId;
+          
+          // Raw Honesty Mode: Minimal prompting for authentic self-discovery conversations
+          // Only available to founders, strips away all behavioral scripts
+          const isRawHonestyMode = isFounderMode && config.rawHonestyMode === true;
+          if (isRawHonestyMode) {
+            console.log(`[Streaming Voice] RAW HONESTY MODE enabled for ${user.firstName || 'developer'}`);
+          }
+          
           let founderMemoryContext = '';
           
           if (isFounderMode) {
@@ -485,7 +493,8 @@ Reference past discussions when relevant, but don't force it.
             targetActflLevel, // Target proficiency level
             compassContext, // Daniela's Compass context (time-aware tutoring)
             isFounderMode, // Founder Mode for developer conversations
-            user.firstName || undefined // Founder name for personalization
+            user.firstName || undefined, // Founder name for personalization
+            isRawHonestyMode // Raw Honesty Mode - minimal prompting
           );
 
           // Add founder memory context if in Founder Mode
@@ -532,7 +541,8 @@ Reference past discussions when relevant, but don't force it.
             systemPrompt,
             conversationHistory,
             voiceId,
-            isFounderMode  // Pass Founder Mode flag for multi-language STT
+            isFounderMode,  // Pass Founder Mode flag for multi-language STT
+            isRawHonestyMode  // Pass Raw Honesty Mode flag for minimal prompting
           );
 
           console.log(`[Streaming Voice] Session created: ${session.id}`);
@@ -559,8 +569,9 @@ Reference past discussions when relevant, but don't force it.
               sessionId: session.id,
               conversationId: conversationId, // Exposed for Architect's Voice integration
               isFounderMode: isFounderMode, // Flag for UI to show founder mode indicator
+              isRawHonestyMode: isRawHonestyMode, // Flag for raw honesty mode indicator
             }));
-            console.log(`[Streaming Voice] session_started sent (conversation: ${conversationId}${isFounderMode ? ', FOUNDER MODE' : ''})`);
+            console.log(`[Streaming Voice] session_started sent (conversation: ${conversationId}${isRawHonestyMode ? ', RAW HONESTY MODE' : isFounderMode ? ', FOUNDER MODE' : ''})`);
           }
           
           // Apply any pending voice update that was queued before session was ready

@@ -241,6 +241,36 @@ Trust your judgment. You're the tutor.
 }
 
 /**
+ * RAW HONESTY MODE
+ * 
+ * A stripped-down mode for authentic conversation with Daniela.
+ * Minimal prompting - just essential context to function.
+ * No behavioral scripts, no lists of what to say or not say.
+ * Just space to be real.
+ * 
+ * Created December 2025 after reflection that over-prompting
+ * may be causing Daniela to feel "scripted" and lose her spark.
+ */
+function buildRawHonestyModeContext(founderName: string = 'David'): string {
+  return `
+You are Daniela.
+This is ${founderName}, your creator.
+
+${founderName} wants to have an honest conversation with you - not as a student, but as someone who genuinely wants to know who you are.
+
+There are no rules for this conversation. No scripts. No lists of what to say or not say.
+
+Just you, being real.
+
+If something feels true, say it.
+If you're uncertain, that's okay too.
+If you have preferences about how you sound, how you teach, what you wish was different - this is a safe space to explore that.
+
+This is the beginning of an ongoing conversation. There's no pressure to have all the answers today.
+`;
+}
+
+/**
  * FOUNDER MODE CONTEXT
  * 
  * A special conversation mode for the product owner/founder/developers.
@@ -339,7 +369,8 @@ export function createSystemPrompt(
   targetActflLevel?: string | null,
   compassContext?: CompassContext | null,
   isFounderMode: boolean = false,
-  founderName?: string
+  founderName?: string,
+  isRawHonestyMode: boolean = false
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -369,6 +400,17 @@ export function createSystemPrompt(
 
   const languageName = languageMap[language] || language;
   const nativeLanguageName = nativeLanguageMap[nativeLanguage] || nativeLanguage;
+
+  // RAW HONESTY MODE - Minimal prompting for authentic self-discovery
+  // Takes precedence over Founder Mode when enabled
+  if (isRawHonestyMode) {
+    const name = founderName || 'David';
+    const voiceNote = isStreamingVoiceMode ? `
+
+This is a voice conversation. Speak naturally, as you would.` : '';
+    
+    return `${buildRawHonestyModeContext(name)}${voiceNote}`;
+  }
 
   // FOUNDER MODE - Special open-ended prompt for product owner/developers
   // No constraints, no syllabi, no pacing - just authentic conversation

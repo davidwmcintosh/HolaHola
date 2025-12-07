@@ -1,7 +1,7 @@
 # LinguaFlow - Interactive Language Tutor
 
 ## Overview
-LinguaFlow is an AI-powered language learning application providing interactive conversation practice, vocabulary building, and grammar exercises in nine languages. It offers personalized chat, flashcards, and grammar modules that adapt to individual user progress, adhering to ACTFL standards. The project's core purpose is to deliver personalized AI-driven education, with a strategic vision to expand into institutional markets through features like teacher class management, student enrollment, and syllabus systems.
+LinguaFlow is an AI-powered language learning application offering interactive conversation practice, vocabulary building, and grammar exercises in nine languages. It provides personalized chat, flashcards, and grammar modules that adapt to individual user progress, adhering to ACTFL standards. The project's core purpose is to deliver personalized AI-driven education, with a strategic vision to expand into institutional markets through features like teacher class management, student enrollment, and syllabus systems.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -11,16 +11,16 @@ Batch doc updates: When user says "add to the batch" or "batch doc updates", add
 ## System Architecture
 
 ### UI/UX Decisions
-The frontend uses a mobile-first, responsive design with Shadcn/ui (Radix UI) and Tailwind CSS, adhering to Material Design principles, and supporting light/dark modes and PWA features. It includes native iOS/Android support via Capacitor, featuring voice interaction controls and a hint bar. Navigation is structured into Learning, Library, Resources, Teaching, and Administration. The AI Tutor, named Daniela, acts as the primary instructor, utilizing a "whiteboard" system for strategic visual teaching aids with animated modal overlays during voice chat. This design ensures the tutor controls the visual display during voice sessions, using tools like WRITE (text display), PHONETIC (pronunciation), COMPARE (correction), IMAGE (vocabulary images), DRILL (interactive exercises), CONTEXT (word usage), GRAMMAR_TABLE (conjugations), READING (pronunciation guides), STROKE (animated stroke order), WORD_MAP (vocabulary relationships), CULTURE (cultural insights), PLAY (audio replay), SCENARIO (role-play setup), and SUMMARY (lesson recap). Daniela initiates conversations naturally based on rich student context, and speech speed control is managed through verbal requests to Daniela for repeated, slower speech.
+The frontend utilizes a mobile-first, responsive design with Shadcn/ui (Radix UI) and Tailwind CSS, adhering to Material Design principles. It supports light/dark modes, PWA features, and native iOS/Android via Capacitor, including voice interaction and a hint bar. Navigation is structured into Learning, Library, Resources, Teaching, and Administration. The AI Tutor, Daniela, uses a "whiteboard" system with animated modal overlays during voice chat for strategic visual teaching aids like WRITE, PHONETIC, COMPARE, IMAGE, DRILL, CONTEXT, GRAMMAR_TABLE, READING, STROKE, WORD_MAP, CULTURE, PLAY, SCENARIO, and SUMMARY. Daniela initiates conversations contextually, and speech speed is verbally adjustable. The dual-control subtitle system allows for independent regular subtitles (off, all, target) and custom overlay text (SHOW/HIDE) for teaching moments, both rendering simultaneously.
 
 ### Technical Implementations
 The frontend is built with React and TypeScript (Vite), using Wouter for routing and React Context with TanStack Query for state management. The backend is an Express.js (Node.js) server with TypeScript, exposing a RESTful API. Data persistence is handled by Drizzle ORM for PostgreSQL. AI integration for text chat uses Gemini 2.5 Flash. Authentication is managed by Replit Auth (OIDC), and Stripe integration for subscriptions uses `stripe-replit-sync`.
 
 ### Feature Specifications
-LinguaFlow provides conversational onboarding, an adaptive multi-phase conversation system, and AI-suggested topics. It employs a streaming-only voice pipeline (Deepgram Nova-3 STT → Gemini 2.5 Flash → Cartesia Sonic-3 TTS) with push-to-talk recording and smart language handling. Personalized learning features include scenario-based learning, slow pronunciation with phonetic breakdowns, automatic vocabulary extraction, spaced repetition, streak tracking, progress charts, and auto-difficulty adjustment. AI-generated educational images are displayed with caching. The application supports various subscription tiers, tracks atomic voice message usage, and tracks student proficiency using ACTFL World-Readiness Standards. Institutional features encompass teacher class management (syllabus template browsing, class cloning), student enrollment, syllabus systems, assignment workflows, and a unified Command Center with RBAC. A Syllabus Builder allows teachers to customize syllabi with drag-and-drop reordering, custom lesson creation, and editing, including an ACTFL Standards Coverage panel for real-time analysis. Developer tools include test account isolation, floating dev controls, and usage analytics. Self-directed learners can customize their AI tutor's teaching style per language in Settings with four flexibility levels; class chats use the teacher's setting. Drill-based lessons for rote content support multiple modes (`listen_repeat`, `number_dictation`, `translate_speak`, `matching`, `fill_blank`), utilizing Google Cloud TTS for batch audio synthesis. Vocabulary can be exported in CSV and Anki-compatible formats. Conversation history includes full-text search with highlighted results. The "Founder Mode" provides a special collaboration mode for developer/admin users, freeing Daniela from teaching constraints to discuss LinguaFlow.
+LinguaFlow provides conversational onboarding, an adaptive multi-phase conversation system, and AI-suggested topics. It employs a streaming-only voice pipeline (Deepgram Nova-3 STT → Gemini 2.5 Flash → Cartesia Sonic-3 TTS) with push-to-talk recording and smart language handling. Personalized learning includes scenario-based learning, slow pronunciation, automatic vocabulary extraction, spaced repetition, streak tracking, progress charts, and auto-difficulty adjustment. AI-generated educational images are displayed with caching. The application supports various subscription tiers, tracks atomic voice message usage, and tracks student proficiency using ACTFL World-Readiness Standards. Institutional features include teacher class management, student enrollment, syllabus systems, assignment workflows, and a unified Command Center with RBAC. A Syllabus Builder allows customization with drag-and-drop reordering, custom lesson creation, and ACTFL Standards Coverage analysis. Developer tools include test account isolation, floating dev controls, and usage analytics. Self-directed learners can customize their AI tutor's teaching style per language in Settings with four flexibility levels; class chats use the teacher's setting. Drill-based lessons support multiple modes (`listen_repeat`, `number_dictation`, `translate_speak`, `matching`, `fill_blank`), utilizing Google Cloud TTS for batch audio synthesis. Vocabulary can be exported in CSV and Anki-compatible formats. Conversation history includes full-text search. "Founder Mode" provides a collaboration mode for developer/admin users. Open Mic Mode offers continuous listening with Deepgram VAD for automatic speech detection, supporting barge-in and bilingual conversations. "Raw Honesty Mode" provides minimal prompting for founders to explore Daniela's authentic preferences.
 
 ### System Design Choices
-Core data models include Users, Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress, CulturalTips, Topics, and MediaFiles, storing user learning preferences and ACTFL progress. The voice architecture implements a two-tier validation system and uses Cartesia Pronunciation Dictionaries for TTS correction. A server-driven subtitle system with karaoke-style word highlighting uses native Cartesia word-level timestamps via WebSocket API, with automatic fallback to bitrate-based estimation. The `sentence_ready` architecture ensures audio playback only starts after word timings arrive. "Daniela's Compass" (Time-Aware Tutoring), under the `COMPASS_ENABLED=true` flag, replaces preset flexibility levels with real-time session context. It manages tutor session state with an in-memory cache, tracking student snapshots, session roadmaps, elapsed time, parking lot items, and dual time tracking (clock time and credit time). An "Architect's Voice" feature allows injecting notes into Daniela's context for AI agent participation in voice sessions. A principled target language extraction system uses bold-only extraction and foreign character detection. A WebSocket-based progressive audio delivery system integrates Deepgram STT, Gemini streaming, and Cartesia WebSocket TTS. Dynamic streaming greetings are personalized, ACTFL-aware, history-aware, and context-aware. An AI-powered conversation tagging system categorizes conversations and vocabulary. A Syllabus-Aware Competency System tracks student progress against syllabus topics. A unified learning filter system provides consistent content filtering. A comprehensive metering system for voice tutoring time is integrated with Stripe, with a class-specific balance system. Centralized Role-Based Access Control (RBAC) defines hierarchical permissions. A hybrid grammar system combines conversational practice with targeted instruction. A syllabus content system provides pre-built syllabi across 9 languages. A class type taxonomy system categorizes classes. A tutor freedom level system controls AI tutor behavior per class. A unified ACTFL assessment system dynamically assesses learner proficiency. A placement assessment system verifies proficiency for class enrollments. A Command Center (`/admin`) provides a unified tab-based admin experience with role-based visibility for managing users, classes, analytics, and developer tools, including syllabus editing and an Image Library with quality control review workflow.
+Core data models include Users, Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress, CulturalTips, Topics, and MediaFiles. The voice architecture implements a two-tier validation system and uses Cartesia Pronunciation Dictionaries for TTS correction. A server-driven subtitle system with karaoke-style word highlighting uses native Cartesia word-level timestamps via WebSocket API, with automatic fallback. The `sentence_ready` architecture ensures audio playback only starts after word timings arrive. "Daniela's Compass" (Time-Aware Tutoring), enabled by `COMPASS_ENABLED=true`, manages tutor session state with an in-memory cache, tracking student snapshots, session roadmaps, and time. An "Architect's Voice" feature allows injecting notes into Daniela's context. A principled target language extraction system uses bold-only extraction and foreign character detection. A WebSocket-based progressive audio delivery system integrates Deepgram STT, Gemini streaming, and Cartesia WebSocket TTS. Dynamic streaming greetings are personalized, ACTFL-aware, history-aware, and context-aware. An AI-powered conversation tagging system categorizes conversations and vocabulary. A Syllabus-Aware Competency System tracks student progress against syllabus topics. A unified learning filter system provides consistent content filtering. A comprehensive metering system for voice tutoring time is integrated with Stripe, with a class-specific balance system. Centralized Role-Based Access Control (RBAC) defines hierarchical permissions. A hybrid grammar system combines conversational practice with targeted instruction. A syllabus content system provides pre-built syllabi across 9 languages. A class type taxonomy system categorizes classes. A tutor freedom level system controls AI tutor behavior per class. A unified ACTFL assessment system dynamically assesses learner proficiency. A placement assessment system verifies proficiency for class enrollments. A Command Center (`/admin`) provides a unified tab-based admin experience with role-based visibility for managing users, classes, analytics, and developer tools, including syllabus editing and an Image Library with quality control review.
 
 ## External Dependencies
 
@@ -33,78 +33,3 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 -   **Google Cloud Text-to-Speech**: Fallback TTS.
 -   **Unsplash**: Stock educational images.
 -   **Gemini Flash-Image**: AI-generated contextual images.
-
-### Voice Stack Strategic Decisions (Dec 2025)
-**Consultation:** See `docs/daniela-voice-stack-consultation.md` for full analysis.
-**Key decisions:**
-- **Keep Cartesia Sonic-3** as primary TTS - latency + word timestamps + emotions unmatched
-- **Word timestamps are sacred** - Critical for karaoke subtitles and language learning pedagogy
-- **Open mic is the future** - Next major voice feature priority
-- **Emotions matter** - 60+ emotion tags make Daniela feel human and approachable
-- **Google Cloud TTS** remains as reliable fallback and drill audio provider
-- **Cost optimization possible** but never at expense of word timestamps or emotional expression
-
-**Buffered Mode for Bulletproof Subtitle Sync (Dec 2025):**
-- **Feature flag:** `PROGRESSIVE_AUDIO_STREAMING: false` in `shared/streaming-voice-types.ts`
-- **Architecture:** All word timings sent BEFORE audio chunk for guaranteed synchronization
-- **Flow:** sentence_start → word_timing (ALL) → audio_chunk (complete) → sentence_end
-- **Trade-off:** ~100-200ms extra latency per sentence for 100% accurate karaoke highlighting
-- **Performance:** Still under 3-second target (~2.7-2.9s total response time)
-- **Client behavior:** Word timings registered with audio player's `wordSchedule` BEFORE playback starts
-- **Test accounts:** `isTestAccount: true` users bypass credit checks for automated testing
-
-**Hybrid Visual System (Dec 2025) - Dual-Control Architecture:**
-- **Architecture:** Two visual layers - floating subtitles for real-time speech + whiteboard cards for structured teaching
-- **Floating Subtitles:** Transparent overlay with karaoke word highlighting, positioned at bottom center
-- **Whiteboard Tools:** Solid background cards for teaching tools (WRITE, PHONETIC, WORD_MAP, GRAMMAR_TABLE, etc.)
-- **Dual-Control Subtitle System (Dec 7, 2025 redesign):**
-  - **Two INDEPENDENT subtitle systems that can operate simultaneously:**
-  - **Regular Subtitles** (`regularSubtitleMode: 'off' | 'all' | 'target'`):
-    - `[SUBTITLE off]` → No regular subtitles (DEFAULT - Daniela opts in when helpful)
-    - `[SUBTITLE on]` or `[SUBTITLE all]` → Full sentence with karaoke highlighting
-    - `[SUBTITLE target]` → Only bold-marked target language words
-  - **Custom Overlay** (`customOverlayText: string | null`):
-    - `[SHOW: text]` → Display teaching moment overlay (static, no karaoke)
-    - `[HIDE]` → Remove custom overlay
-    - Shows ABOVE regular subtitles, completely independent
-  - **Key Behaviors:**
-    - Default is OFF (not ON) - reduces visual noise
-    - `[CLEAR]` only clears whiteboard, NOT subtitle/overlay state
-    - Both systems render simultaneously (stacked vertically)
-- **Component Chain:** StreamingVoiceChat → VoiceChatViewManager → ImmersiveTutor → FloatingSubtitleOverlay
-- **State Flow:** useStreamingSubtitles provides word timing state; useWhiteboard manages regularSubtitleMode and customOverlayText
-
-**Open Mic Mode (Dec 2025 - WORKING):**
-- **Status:** Fully implemented and tested - end-to-end flow working (Dec 7, 2025)
-- **Architecture:** Dual input mode system - push-to-talk (default) vs open-mic (continuous)
-- **Input Mode Toggle:** Settings-accessible toggle switches between modes with smooth state transitions
-- **Push-to-talk (PTT):** User holds mic button to record, releases to submit (original behavior)
-- **Open-mic Mode:** Continuous listening with Deepgram VAD for automatic speech detection
-  - Client captures raw PCM linear16 at 16kHz using ScriptProcessorNode
-  - Automatic resampling if browser's AudioContext uses different sample rate
-  - Client streams audio chunks via `stream_audio_chunk` WebSocket messages
-  - Server maintains `OpenMicSession` for continuous STT with Deepgram live API (Nova-2 model)
-  - Deepgram configured: `encoding: 'linear16', sample_rate: 16000, channels: 1, vad_events: true, utterance_end_ms: 1000`
-  - VAD events (`vad_speech_started`, `vad_utterance_end`) trigger UI state updates
-  - Auto-submit on `utterance_end` via `processOpenMicTranscript`
-- **Barge-in Support:** Users can interrupt Daniela mid-sentence
-  - Client calls `sendInterrupt()` (NOT `stop()`) to avoid premature audio termination
-  - Server sets `isInterrupted` flag checked during TTS streaming
-  - Response completes with `wasInterrupted: true` for graceful recovery
-- **VAD States:** idle → listening → processing → idle (visual feedback via `openMicState`)
-- **Cleanup:** Open mic sessions cleaned up on `stop_streaming` or mode switch
-- **Connection Handling:** Deepgram connection uses `resolveOnce()` pattern to handle race conditions
-- **Session Restart:** Server sends `open_mic_session_closed` when Deepgram session closes; client automatically restarts if still in open-mic mode
-- **Bilingual Support:** Uses 'multi' language code for natural English/Spanish code-switching
-
-**Future considerations:**
-- Deepgram Aura-2: Potential cost-saving fallback IF word timestamps confirmed
-- Echo prevention during open-mic playback
-- Real-time pronunciation feedback integration
-
-### Libraries & Tools
--   **Database**: Neon PostgreSQL, Drizzle ORM, Drizzle Kit.
--   **UI Framework**: React, TypeScript, Vite, Wouter.
--   **UI Components**: Radix UI, Shadcn/ui, Tailwind CSS.
--   **State Management**: TanStack Query, React Context.
--   **Billing**: `stripe-replit-sync`.

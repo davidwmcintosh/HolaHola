@@ -56,6 +56,7 @@ export interface StreamingSessionConfig {
   tutorExpressiveness?: number;
   tutorGender?: 'male' | 'female';
   voiceSpeed?: 'normal' | 'slow';
+  rawHonestyMode?: boolean;  // Minimal prompting for authentic conversation with Daniela
   onResponseComplete?: (conversationId: string) => void;
   /** Called when server sends whiteboard updates (e.g., enriched WORD_MAP items) */
   onWhiteboardUpdate?: (items: any[], shouldClear: boolean) => void;
@@ -690,6 +691,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         tutorExpressiveness: config.tutorExpressiveness,
         tutorGender: config.tutorGender,
         voiceSpeed: config.voiceSpeed,
+        rawHonestyMode: config.rawHonestyMode,  // Minimal prompting mode
       });
       
       if (isVerboseLoggingEnabled()) {

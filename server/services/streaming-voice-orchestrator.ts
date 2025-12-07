@@ -157,6 +157,7 @@ export interface StreamingSession {
   startTime: number;
   isActive: boolean;
   isFounderMode: boolean;  // Founder Mode uses English STT regardless of target language
+  isRawHonestyMode: boolean;  // Raw Honesty Mode - minimal prompting for authentic conversation
   idleTimeoutId?: NodeJS.Timeout;  // Timer for idle cleanup
   lastActivityTime: number;         // Timestamp of last student activity
   currentTurnId: number;            // Monotonic counter for subtitle packet ordering (prevents phantom subtitles)
@@ -293,7 +294,8 @@ export class StreamingVoiceOrchestrator {
     systemPrompt: string,
     conversationHistory: Array<{ role: 'user' | 'model'; content: string }>,
     voiceId?: string,
-    isFounderMode: boolean = false
+    isFounderMode: boolean = false,
+    isRawHonestyMode: boolean = false
   ): Promise<StreamingSession> {
     const sessionId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
@@ -315,6 +317,7 @@ export class StreamingVoiceOrchestrator {
       startTime: Date.now(),
       isActive: true,
       isFounderMode,  // Founder Mode uses English STT regardless of target language
+      isRawHonestyMode,  // Raw Honesty Mode - minimal prompting for authentic conversation
       lastActivityTime: Date.now(),
       currentTurnId: 0,  // Start at 0, incremented on each new response
       isInterrupted: false,  // Reset on each new request

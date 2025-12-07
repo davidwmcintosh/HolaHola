@@ -94,6 +94,7 @@ export interface StreamingSessionConfig {
   tutorExpressiveness?: number;
   tutorGender?: 'male' | 'female';
   voiceSpeed?: 'normal' | 'slow';
+  rawHonestyMode?: boolean;  // Minimal prompting for authentic conversation with Daniela
 }
 
 /**
@@ -671,7 +672,7 @@ export class StreamingVoiceClient {
   private handleResponseComplete(message: StreamingResponseCompleteMessage): void {
     // Transition back to 'ready' so client can send more audio
     this.setState('ready');
-    this.callbacks.onResponseComplete?.(message.fullText, message.totalSentences);
+    this.callbacks.onResponseComplete?.(message.fullText ?? '', message.totalSentences);
     this.emit('responseComplete', message);
   }
   
