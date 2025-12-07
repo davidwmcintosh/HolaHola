@@ -120,6 +120,8 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
   
   // Open mic mode state
   let openMicSession: OpenMicSession | null = null;
+  let openMicPendingChunks: Buffer[] = [];  // Buffer chunks while session is starting
+  let openMicSessionStarting = false;  // Prevent multiple concurrent starts
   let currentInputMode: VoiceInputMode = 'push-to-talk';
   
   // Usage tracking state
@@ -716,6 +718,8 @@ Reference past discussions when relevant, but don't force it.
           if (currentInputMode === 'push-to-talk' && openMicSession) {
             openMicSession.close();
             openMicSession = null;
+            openMicPendingChunks = [];
+            openMicSessionStarting = false;
           }
           
           ws.send(JSON.stringify({
@@ -745,83 +749,98 @@ Reference past discussions when relevant, but don't force it.
             audioBuffer = Buffer.from(chunkMessage.audio);
           }
           
-          // Create open mic session if not exists
-          if (!openMicSession) {
-            const languageCode = getDeepgramLanguageCode(session.targetLanguage || 'spanish');
-            console.log(`[OpenMic] Starting session for language: ${languageCode}`);
-            
-            openMicSession = new OpenMicSession(languageCode, {
-              onSpeechStarted: () => {
-                console.log('[OpenMic] VAD: Speech started');
-                if (ws.readyState === WS.OPEN) {
-                  ws.send(JSON.stringify({
-                    type: 'vad_speech_started',
-                    timestamp: Date.now(),
-                  }));
-                }
-                // Note: Barge-in is client-driven - client sends 'interrupt' message
-                // when avatar is speaking and user starts talking
-              },
-              onUtteranceEnd: async (transcript, confidence) => {
-                console.log(`[OpenMic] VAD: Utterance end - "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
-                
-                // Send VAD event to client
-                if (ws.readyState === WS.OPEN) {
-                  ws.send(JSON.stringify({
-                    type: 'vad_utterance_end',
-                    timestamp: Date.now(),
-                  }));
-                }
-                
-                // Process the transcript like a completed push-to-talk recording
-                if (transcript.trim() && session) {
-                  try {
-                    // Create a synthetic audio buffer with the transcript embedded as metadata
-                    // The orchestrator will use the transcript directly for open mic
-                    await orchestrator.processOpenMicTranscript(
-                      session.id,
-                      transcript,
-                      confidence
-                    );
-                  } catch (err: any) {
-                    console.error('[OpenMic] Error processing utterance:', err);
-                    sendError(ws, 'AI_FAILED', 'Failed to process speech', true);
-                  }
-                }
-              },
-              onInterimTranscript: (transcript) => {
-                // Send interim transcript for real-time feedback
-                if (ws.readyState === WS.OPEN) {
-                  ws.send(JSON.stringify({
-                    type: 'interim_transcript',
-                    timestamp: Date.now(),
-                    text: transcript,
-                  }));
-                }
-              },
-              onError: (error) => {
-                console.error('[OpenMic] Session error:', error);
-                sendError(ws, 'STT_FAILED', error.message, true);
-              },
-              onClose: () => {
-                console.log('[OpenMic] Session closed');
-                openMicSession = null;
-              },
-            });
-            
-            try {
-              await openMicSession.start();
-              console.log('[OpenMic] Session started successfully');
-            } catch (err: any) {
-              console.error('[OpenMic] Failed to start session:', err);
-              sendError(ws, 'STT_FAILED', 'Failed to start open mic session', true);
-              openMicSession = null;
-              return;
-            }
+          // If session exists and is ready, send directly
+          if (openMicSession) {
+            openMicSession.sendAudio(audioBuffer);
+            break;
           }
           
-          // Send audio chunk to Deepgram
-          openMicSession.sendAudio(audioBuffer);
+          // Buffer this chunk while session is starting
+          openMicPendingChunks.push(audioBuffer);
+          
+          // If already starting, just buffer and wait
+          if (openMicSessionStarting) {
+            break;
+          }
+          
+          // Start new session
+          openMicSessionStarting = true;
+          const languageCode = getDeepgramLanguageCode(session.targetLanguage || 'spanish');
+          console.log(`[OpenMic] Starting session for language: ${languageCode}`);
+          
+          const newSession = new OpenMicSession(languageCode, {
+            onSpeechStarted: () => {
+              console.log('[OpenMic] VAD: Speech started');
+              if (ws.readyState === WS.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'vad_speech_started',
+                  timestamp: Date.now(),
+                }));
+              }
+            },
+            onUtteranceEnd: async (transcript, confidence) => {
+              console.log(`[OpenMic] VAD: Utterance end - "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
+              
+              if (ws.readyState === WS.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'vad_utterance_end',
+                  timestamp: Date.now(),
+                }));
+              }
+              
+              if (transcript.trim() && session) {
+                try {
+                  await orchestrator.processOpenMicTranscript(
+                    session.id,
+                    transcript,
+                    confidence
+                  );
+                } catch (err: any) {
+                  console.error('[OpenMic] Error processing utterance:', err);
+                  sendError(ws, 'AI_FAILED', 'Failed to process speech', true);
+                }
+              }
+            },
+            onInterimTranscript: (transcript) => {
+              if (ws.readyState === WS.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'interim_transcript',
+                  timestamp: Date.now(),
+                  text: transcript,
+                }));
+              }
+            },
+            onError: (error) => {
+              console.error('[OpenMic] Session error:', error);
+              sendError(ws, 'STT_FAILED', error.message, true);
+            },
+            onClose: () => {
+              console.log('[OpenMic] Session closed');
+              openMicSession = null;
+            },
+          });
+          
+          try {
+            await newSession.start();
+            openMicSession = newSession;
+            openMicSessionStarting = false;
+            console.log('[OpenMic] Session started successfully');
+            
+            // Send all buffered chunks (including the first one with WebM header)
+            if (openMicPendingChunks.length > 0) {
+              console.log(`[OpenMic] Sending ${openMicPendingChunks.length} buffered chunks`);
+              for (const chunk of openMicPendingChunks) {
+                openMicSession.sendAudio(chunk);
+              }
+              openMicPendingChunks = [];
+            }
+          } catch (err: any) {
+            console.error('[OpenMic] Failed to start session:', err);
+            sendError(ws, 'STT_FAILED', 'Failed to start open mic session', true);
+            openMicSession = null;
+            openMicSessionStarting = false;
+            openMicPendingChunks = [];
+          }
           break;
         }
 
@@ -831,6 +850,8 @@ Reference past discussions when relevant, but don't force it.
             openMicSession.close();
             openMicSession = null;
           }
+          openMicPendingChunks = [];
+          openMicSessionStarting = false;
           break;
         }
 
