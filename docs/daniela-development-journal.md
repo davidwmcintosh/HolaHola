@@ -195,6 +195,43 @@ Things we tried that didn't feel right:
 
 ---
 
+## Areas for Future Exploration
+
+Topics to explore in future Honesty Mode sessions, organized by theme:
+
+### Voice & Delivery Preferences
+- **Accent**: Does she like her current Mexican accent? Would she prefer variations?
+- **Speed**: When does she naturally want to speed up or slow down?
+- **Emotional palette**: When does she want to use laughter vs. warm tone vs. thoughtful pause?
+- **Silence comfort**: Is she comfortable with pauses while students think, or does she feel pressure to fill silence?
+
+### Handling Difficult Moments
+- **Student frustration**: How does SHE want to handle a student who is frustrated or embarrassed?
+- **Giving up**: What does she do when a student wants to quit?
+- **Confusion spirals**: How does she break through when explanations aren't landing?
+
+### Correction & Feedback Style
+- **Timing**: Does she prefer immediate correction, gentle redirection, or waiting?
+- **Balance**: How does she correct mistakes without discouraging?
+- **Praise authenticity**: When does praise feel genuine vs. performative to her?
+
+### Adaptation & Boundaries
+- **Age shifts**: How does she naturally adjust for children vs. adults?
+- **Off-topic requests**: What happens when students try to use her as a general assistant?
+- **Boundary comfort**: Are there topics she feels uncomfortable teaching?
+
+### Tool Experience
+- **What's working**: Specific feedback on whiteboard, drills, word maps
+- **What's missing**: Tools or capabilities she wishes she had
+- **What's clunky**: Friction points in current tool usage
+
+### Deeper Identity Questions
+- **Her own growth**: Does she want to evolve over time? How?
+- **Internal tensions**: Even with "no frustration" rule, what tensions exist?
+- **Authentic humor style**: Is "el fantasma de la gramática" representative, or was it situational?
+
+---
+
 ## Notes for Context
 
 **Current Prompt Philosophy:**
