@@ -1403,6 +1403,28 @@ export function StreamingVoiceChat({
   const openMicActiveRef = useRef(false);
   
   /**
+   * Resample Float32 audio from source rate to target rate using linear interpolation
+   */
+  const resampleAudio = (input: Float32Array, fromRate: number, toRate: number): Float32Array => {
+    if (fromRate === toRate) return input;
+    
+    const ratio = fromRate / toRate;
+    const outputLength = Math.floor(input.length / ratio);
+    const output = new Float32Array(outputLength);
+    
+    for (let i = 0; i < outputLength; i++) {
+      const srcIndex = i * ratio;
+      const srcIndexFloor = Math.floor(srcIndex);
+      const srcIndexCeil = Math.min(srcIndexFloor + 1, input.length - 1);
+      const t = srcIndex - srcIndexFloor;
+      
+      output[i] = input[srcIndexFloor] * (1 - t) + input[srcIndexCeil] * t;
+    }
+    
+    return output;
+  };
+
+  /**
    * Start continuous recording for open mic mode.
    * Uses AudioContext for raw PCM capture (linear16) instead of MediaRecorder.
    * This avoids WebM header issues with continuous streaming.
@@ -1430,14 +1452,21 @@ export function StreamingVoiceChat({
       });
       openMicStreamRef.current = stream;
       
-      // Create AudioContext at 16kHz for Deepgram
+      // Create AudioContext - browser may not honor 16kHz request
+      // We'll detect actual rate and resample if needed
       const audioContext = new AudioContext({ sampleRate: 16000 });
       openMicAudioContextRef.current = audioContext;
+      
+      const actualSampleRate = audioContext.sampleRate;
+      const targetSampleRate = 16000;
+      const needsResampling = actualSampleRate !== targetSampleRate;
+      
+      console.log(`[OPEN MIC] AudioContext sample rate: ${actualSampleRate}Hz (target: ${targetSampleRate}Hz, resampling: ${needsResampling})`);
       
       const source = audioContext.createMediaStreamSource(stream);
       
       // Use ScriptProcessorNode to capture raw PCM (deprecated but widely supported)
-      // Buffer size of 4096 samples at 16kHz = 256ms chunks
+      // Buffer size of 4096 samples
       const processor = audioContext.createScriptProcessor(4096, 1, 1);
       openMicProcessorRef.current = processor;
       openMicActiveRef.current = true;
@@ -1445,7 +1474,12 @@ export function StreamingVoiceChat({
       processor.onaudioprocess = (event) => {
         if (!openMicActiveRef.current) return;
         
-        const inputBuffer = event.inputBuffer.getChannelData(0);
+        let inputBuffer = event.inputBuffer.getChannelData(0);
+        
+        // Resample to 16kHz if browser used a different rate
+        if (needsResampling) {
+          inputBuffer = resampleAudio(inputBuffer, actualSampleRate, targetSampleRate);
+        }
         
         // Convert Float32Array to Int16Array (linear16 PCM)
         const pcm16 = new Int16Array(inputBuffer.length);
@@ -1465,7 +1499,7 @@ export function StreamingVoiceChat({
       setOpenMicState('idle');
       setIsRecording(true);
       isRecordingRef.current = true;
-      console.log('[OPEN MIC] Continuous PCM recording started (16kHz linear16)');
+      console.log(`[OPEN MIC] Continuous PCM recording started (${actualSampleRate}Hz → ${targetSampleRate}Hz linear16)`);
     } catch (err: any) {
       console.error('[OPEN MIC] Failed to start recording:', err);
       setError(err.message || 'Failed to access microphone');
