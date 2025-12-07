@@ -1997,23 +1997,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // This will link the conversation to their class for proper tracking
       let classId: string | undefined;
       
-      // FOUNDER MODE: Developers can explicitly request a class-free conversation
-      // This enables open collaboration with Daniela about the product itself
-      // SECURITY: Only developers can use Founder Mode - non-developers are ignored
-      let founderModeGranted = false;
-      if (req.body.founderMode === true) {
+      // SPECIAL CONTEXT MODES: Developers can request special conversation modes
+      // - founder-mode: Open collaboration with Daniela about the product
+      // - honesty-mode: Minimal prompting to explore Daniela's authentic preferences
+      // SECURITY: Only developers can use these modes - non-developers are ignored
+      let specialModeGranted = false;
+      const requestedClassId = req.body.classId;
+      const isSpecialContext = requestedClassId === 'founder-mode' || requestedClassId === 'honesty-mode';
+      
+      if (req.body.founderMode === true || isSpecialContext) {
         const isDeveloper = await usageService.checkDeveloperBypass(userId);
         if (isDeveloper) {
-          console.log('[CONVERSATION CREATE] Founder Mode granted to developer - skipping class assignment');
-          classId = undefined; // Explicitly no class
-          founderModeGranted = true;
+          const modeName = requestedClassId === 'honesty-mode' ? 'Honesty Mode' : 'Founder Mode';
+          console.log(`[CONVERSATION CREATE] ${modeName} granted to developer - skipping class assignment`);
+          classId = undefined; // Explicitly no class for special modes
+          specialModeGranted = true;
         } else {
-          console.log('[CONVERSATION CREATE] Founder Mode requested but DENIED - user is not a developer');
+          console.log('[CONVERSATION CREATE] Special mode requested but DENIED - user is not a developer');
           // Non-developers fall through to normal class detection
         }
       }
       
-      if (!isOnboarding && !founderModeGranted) {
+      if (!isOnboarding && !specialModeGranted) {
         // First, check if a specific classId was passed from the client (from learning context)
         if (req.body.classId) {
           // Validate that the user is enrolled in this class
