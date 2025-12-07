@@ -74,9 +74,25 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - **Component Chain:** StreamingVoiceChat → VoiceChatViewManager → ImmersiveTutor → FloatingSubtitleOverlay
 - **State Flow:** useStreamingSubtitles provides word timing state; useWhiteboard manages regularSubtitleMode and customOverlayText
 
+**Open Mic Mode (Dec 2025 Implementation):**
+- **Architecture:** Dual input mode system - push-to-talk (default) vs open-mic (continuous)
+- **Input Mode Toggle:** Settings-accessible toggle switches between modes with smooth state transitions
+- **Push-to-talk (PTT):** User holds mic button to record, releases to submit (original behavior)
+- **Open-mic Mode:** Continuous listening with Deepgram VAD for automatic speech detection
+  - Client streams audio chunks via `stream_audio_chunk` WebSocket messages
+  - Server maintains `OpenMicSession` for continuous STT with Deepgram live API
+  - VAD events (`vad_speech_started`, `vad_utterance_end`) trigger UI state updates
+  - Auto-submit on `utterance_end` via `processOpenMicTranscript`
+- **Barge-in Support:** Users can interrupt Daniela mid-sentence
+  - Client calls `sendInterrupt()` (NOT `stop()`) to avoid premature audio termination
+  - Server sets `isInterrupted` flag checked during TTS streaming
+  - Response completes with `wasInterrupted: true` for graceful recovery
+- **VAD States:** idle → listening → processing → idle (visual feedback via `openMicState`)
+- **Cleanup:** Open mic sessions cleaned up on `stop_streaming` or mode switch
+
 **Future considerations:**
 - Deepgram Aura-2: Potential cost-saving fallback IF word timestamps confirmed
-- Open mic mode with intelligent VAD and barge-in support
+- Echo prevention during open-mic playback
 - Real-time pronunciation feedback integration
 
 ### Libraries & Tools
