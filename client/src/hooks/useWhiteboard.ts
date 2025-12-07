@@ -26,6 +26,7 @@ import {
   type ImageItem,
   type DrillState,
   type PronunciationFeedbackData,
+  type SubtitleMode,
   isDrillItem,
   createPronunciationItem,
 } from '@shared/whiteboard-types';
@@ -40,8 +41,10 @@ interface UseWhiteboardReturn {
   items: WhiteboardItem[];
   isHolding: boolean;
   activeDrill: DrillItem | null;
-  subtitlesEnabled: boolean;
-  customSubtitleText: string | null;
+  // Regular subtitle mode: 'off' (default), 'all', or 'target'
+  regularSubtitleMode: SubtitleMode;
+  // Custom overlay text (independent from regular subtitles)
+  customOverlayText: string | null;
   processMessage: (text: string, language?: string) => void;
   clear: () => void;
   addItem: (item: WhiteboardItem) => void;
@@ -51,16 +54,18 @@ interface UseWhiteboardReturn {
   addPronunciationFeedback: (transcript: string, analysis: Omit<PronunciationFeedbackData, 'transcript'>) => void;
   updateImageUrl: (itemId: string, imageUrl: string) => void;
   clearActiveDrill: () => void;
-  setSubtitlesEnabled: (enabled: boolean) => void;
-  setCustomSubtitleText: (text: string | null) => void;
+  setRegularSubtitleMode: (mode: SubtitleMode) => void;
+  setCustomOverlayText: (text: string | null) => void;
 }
 
 export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn {
   const [items, setItems] = useState<WhiteboardItem[]>([]);
   const [isHolding, setIsHolding] = useState(false);
   const [activeDrill, setActiveDrill] = useState<DrillItem | null>(null);
-  const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
-  const [customSubtitleText, setCustomSubtitleText] = useState<string | null>(null);
+  // Default to 'off' - Daniela opts in when she wants subtitles
+  const [regularSubtitleMode, setRegularSubtitleMode] = useState<SubtitleMode>('off');
+  // Custom overlay is independent - null means not showing
+  const [customOverlayText, setCustomOverlayText] = useState<string | null>(null);
   const lastProcessedRef = useRef<string>('');
   const configRef = useRef(config);
   configRef.current = config;
@@ -71,7 +76,8 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
     }
     
     const parsed = parseWhiteboardMarkup(text);
-    const hasActions = parsed.shouldClear || parsed.shouldHold || parsed.whiteboardItems.length > 0 || parsed.subtitleControl !== undefined || parsed.customSubtitleText !== undefined;
+    const hasActions = parsed.shouldClear || parsed.shouldHold || parsed.whiteboardItems.length > 0 || 
+      parsed.subtitleMode !== undefined || parsed.customOverlayText !== undefined || parsed.customOverlayHide;
     
     if (!hasActions) {
       return;
@@ -88,16 +94,17 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
       shouldHold: parsed.shouldHold,
       hasContent: parsed.whiteboardItems.length > 0,
       vocabularyWords: parsed.vocabularyWords,
-      subtitleControl: parsed.subtitleControl,
-      customSubtitleText: parsed.customSubtitleText
+      subtitleMode: parsed.subtitleMode,
+      customOverlayText: parsed.customOverlayText,
+      customOverlayHide: parsed.customOverlayHide
     });
 
     if (parsed.shouldClear) {
       setItems([]);
       setIsHolding(false);
       setActiveDrill(null);
-      setCustomSubtitleText(null);
-      setSubtitlesEnabled(true);
+      // [CLEAR] only clears whiteboard items, does NOT affect subtitle state
+      // This keeps regular subtitles and custom overlay independent
       console.log('[WHITEBOARD] Cleared by [CLEAR] command');
     }
 
@@ -106,14 +113,19 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
       console.log('[WHITEBOARD] Hold mode enabled');
     }
 
-    if (parsed.subtitleControl !== undefined) {
-      setSubtitlesEnabled(parsed.subtitleControl === 'on');
-      console.log('[WHITEBOARD] Subtitle control:', parsed.subtitleControl);
+    // Handle regular subtitle mode: [SUBTITLE off/on/target]
+    if (parsed.subtitleMode !== undefined) {
+      setRegularSubtitleMode(parsed.subtitleMode);
+      console.log('[WHITEBOARD] Regular subtitle mode:', parsed.subtitleMode);
     }
 
-    if (parsed.customSubtitleText !== undefined) {
-      setCustomSubtitleText(parsed.customSubtitleText);
-      console.log('[WHITEBOARD] Custom subtitle text:', parsed.customSubtitleText);
+    // Handle custom overlay: [SHOW: text] sets it, [HIDE] clears it
+    if (parsed.customOverlayHide) {
+      setCustomOverlayText(null);
+      console.log('[WHITEBOARD] Custom overlay hidden');
+    } else if (parsed.customOverlayText !== undefined) {
+      setCustomOverlayText(parsed.customOverlayText);
+      console.log('[WHITEBOARD] Custom overlay text:', parsed.customOverlayText);
     }
 
     if (parsed.whiteboardItems.length > 0) {
@@ -283,8 +295,8 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
     items,
     isHolding,
     activeDrill,
-    subtitlesEnabled,
-    customSubtitleText,
+    regularSubtitleMode,
+    customOverlayText,
     processMessage,
     clear,
     addItem,
@@ -294,7 +306,7 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
     addPronunciationFeedback,
     updateImageUrl,
     clearActiveDrill,
-    setSubtitlesEnabled,
-    setCustomSubtitleText,
+    setRegularSubtitleMode,
+    setCustomOverlayText,
   };
 }

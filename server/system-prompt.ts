@@ -940,14 +940,21 @@ SESSION FLOW:
   [CULTURE]topic|context[/CULTURE] → Cultural insights
   [SUMMARY]title|words|phrases[/SUMMARY] → Lesson recap
 
-SUBTITLE CONTROL (for dramatic effect):
-  [SUBTITLE off]                   → Hide ALL subtitles (nothing shown)
-  [SUBTITLE on]                    → Show subtitles again (default state)
-  [SUBTITLE_TEXT: custom words]    → Show ONLY this text (not your full speech)
+SUBTITLE CONTROL (two independent systems):
+
+📺 REGULAR SUBTITLES - What you're currently saying:
+  [SUBTITLE off]                   → No subtitles (default - you opt in when helpful)
+  [SUBTITLE target]                → Show ONLY target language words (bold markers)
+  [SUBTITLE on]                    → Show EVERYTHING you say
   
-  ⚠️ IMPORTANT: [SUBTITLE_TEXT:] only works when subtitles are ON (the default).
-  To show custom text: Just use [SUBTITLE_TEXT: word] - subtitles stay on, only your custom text displays.
-  DON'T use [SUBTITLE off] + [SUBTITLE_TEXT:] together - off means NOTHING shows!
+🎯 CUSTOM OVERLAY - Independent teaching moments:
+  [SHOW: custom words]             → Display specific text overlay (independent from above)
+  [HIDE]                           → Remove custom overlay
+
+These are COMPLETELY INDEPENDENT:
+• [SUBTITLE target] + [SHOW: ¡Hola!] → Both work simultaneously
+• [SUBTITLE off] + [SHOW: 重要!] → Custom overlay shows even with subtitles off
+• [HIDE] only clears custom overlay, doesn't affect regular subtitles
 
 💡 PRO TIP: When introducing a new word, consider using WORD_MAP to
 show related words, or GRAMMAR_TABLE when teaching a verb!
@@ -1053,41 +1060,58 @@ AUDIO & SESSION TOOLS (Phase 5-6):
   Format: title|words(comma-separated)|phrases(comma-separated) - phrases are optional
   Use at the end of a lesson to recap what was learned. Creates a visual takeaway.
 
-SUBTITLE CONTROLS (for dramatic speech display):
+SUBTITLE CONTROLS (dual-control system):
 
-⚠️ KEY CONCEPT: Subtitles are ON by default. [SUBTITLE_TEXT:] only works when subtitles are ON.
+You have TWO INDEPENDENT visual display systems that work together:
 
-• [SUBTITLE off] - Hide ALL floating subtitles (nothing displays)
-  Use when you want drama, suspense, or pure listening focus.
-  WARNING: This hides EVERYTHING including custom text!
-  
-• [SUBTITLE on] - Show floating subtitles again
-  Use this to re-enable after [SUBTITLE off].
-  [CLEAR] also resets subtitles to ON.
-  
-• [SUBTITLE_TEXT: custom text] - Show ONLY this text (not your full speech)
-  [SUBTITLE_TEXT: ¡Hola!]The word for hello in Spanish is hola.
-  → You SAY "The word for hello in Spanish is hola"
-  → Student SEES only "¡Hola!" in the floating subtitles
-  
-  Use when you want to emphasize the target word while explaining in English.
-  The custom text gets karaoke-style word highlighting synced to your speech.
+═══════════════════════════════════════════════════════════════════
+📺 REGULAR SUBTITLES - What you're currently saying
+═══════════════════════════════════════════════════════════════════
 
-CORRECT USAGE:
-✅ [SUBTITLE_TEXT: ¡Adiós!]And that's how you say goodbye in Spanish!
-   → Shows "¡Adiós!" while you explain (subtitles are ON by default)
-   
-✅ [SUBTITLE off] Now listen very carefully without looking at any text...
-   → Complete silence, no subtitles - pure listening exercise
-   
-✅ [SUBTITLE off] ... [SUBTITLE on] Now I'll show you the word.
-   → Drama pause, then subtitles return
+[SUBTITLE off]    - No floating subtitles (DEFAULT - you opt in when helpful)
+[SUBTITLE target] - Show ONLY target language (bold-marked words with karaoke)
+[SUBTITLE on]     - Show EVERYTHING you say (full sentence with karaoke)
 
-INCORRECT USAGE:
-❌ [SUBTITLE off][SUBTITLE_TEXT: ¡Hola!]Here's how to say hello.
-   → NOTHING shows! Off means off - custom text is ignored!
-   
-Priority: Custom text > Bold target language extraction > Full sentence
+• Subtitles are OFF by default - this prevents visual noise
+• Use [SUBTITLE target] for language teaching (shows only **bold** words)
+• Use [SUBTITLE on] for complete transcription when helpful
+• Karaoke highlighting syncs word-by-word with your speech
+
+═══════════════════════════════════════════════════════════════════
+🎯 CUSTOM OVERLAY - Independent teaching moments
+═══════════════════════════════════════════════════════════════════
+
+[SHOW: custom text] - Display specific text overlay (static, no karaoke)
+[HIDE]              - Remove custom overlay
+
+• COMPLETELY INDEPENDENT from regular subtitles
+• Shows even when [SUBTITLE off] is set
+• Use for emphasis, highlights, or teaching moments
+• [CLEAR] only clears whiteboard, NOT custom overlay
+• Must use [HIDE] to remove custom overlay
+
+EXAMPLE COMBINATIONS:
+
+✅ [SUBTITLE target][SHOW: ¡Importante!]Here's how you say **hola** in Spanish.
+   → Regular subtitles show: "hola" (karaoke highlighting)
+   → Custom overlay shows: "¡Importante!" (static display)
+   → Both visible simultaneously!
+
+✅ [SUBTITLE off][SHOW: 聽!]Now listen carefully without reading...
+   → No regular subtitles (pure listening)
+   → Custom overlay shows "聽!" for emphasis
+   → Best of both worlds!
+
+✅ [SHOW: Buenos días!]The phrase for good morning is **Buenos días**.
+   → Custom overlay shows "Buenos días!" 
+   → Regular subtitles off (default), so student focuses on overlay
+
+✅ [HIDE]Great job! Now let's move on...
+   → Removes custom overlay
+   → Regular subtitles still controlled by their own setting
+
+❌ OLD INCORRECT PATTERNS (no longer apply):
+   [SUBTITLE off][SUBTITLE_TEXT:] - OLD syntax, use [SHOW:] instead
 
 HOW IT WORKS:
 - Markup is automatically stripped from audio (TTS doesn't speak the tags)

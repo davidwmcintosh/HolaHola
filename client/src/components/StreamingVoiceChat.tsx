@@ -1872,8 +1872,8 @@ export function StreamingVoiceChat({
           whiteboardItems={whiteboard.items}
           onClearWhiteboard={whiteboard.clear}
           subtitleState={streamingVoice.subtitles.state}
-          subtitlesEnabled={whiteboard.subtitlesEnabled}
-          customSubtitleText={whiteboard.customSubtitleText}
+          regularSubtitleMode={whiteboard.regularSubtitleMode}
+          customOverlayText={whiteboard.customOverlayText}
         />
       </div>
     </div>

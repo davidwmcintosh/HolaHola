@@ -444,6 +444,14 @@ export interface WhiteboardState {
 }
 
 /**
+ * Subtitle mode for regular speech display
+ * - 'off': No subtitles shown (default - Daniela opts in when needed)
+ * - 'all': Show all speech with karaoke highlighting
+ * - 'target': Show only target language words (bold extraction)
+ */
+export type SubtitleMode = 'off' | 'all' | 'target';
+
+/**
  * Result of parsing a tutor response for whiteboard content
  */
 export interface WhiteboardParseResult {
@@ -453,8 +461,11 @@ export interface WhiteboardParseResult {
   shouldHold: boolean;
   hasNewVocabulary: boolean;
   vocabularyWords: string[];
-  subtitleControl?: 'on' | 'off';
-  customSubtitleText?: string;
+  // Regular subtitle mode control: [SUBTITLE off/on/target]
+  subtitleMode?: SubtitleMode;
+  // Custom overlay control (independent from regular subtitles)
+  customOverlayText?: string;      // [SHOW: text] - what to display
+  customOverlayHide?: boolean;     // [HIDE] - hide the custom overlay
 }
 
 /**
@@ -478,7 +489,12 @@ export const WHITEBOARD_PATTERNS = {
   SUMMARY: /\[SUMMARY\]([\s\S]*?)\[\/SUMMARY\]/gi,
   ERROR_PATTERNS: /\[ERROR_PATTERNS\]([\s\S]*?)\[\/ERROR_PATTERNS\]/gi,
   VOCABULARY_TIMELINE: /\[VOCABULARY_TIMELINE\]([\s\S]*?)\[\/VOCABULARY_TIMELINE\]/gi,
-  SUBTITLE: /\[SUBTITLE\s*(on|off)\s*\]/gi,
+  // Regular subtitle mode: [SUBTITLE off], [SUBTITLE on], [SUBTITLE target]
+  SUBTITLE: /\[SUBTITLE\s*(off|on|target)\s*\]/gi,
+  // Custom overlay: [SHOW: text] displays independent overlay, [HIDE] hides it
+  SHOW: /\[SHOW:\s*([\s\S]*?)\s*\]/gi,
+  HIDE: /\[HIDE\]/gi,
+  // Legacy pattern (deprecated - use SHOW instead)
   SUBTITLE_TEXT: /\[SUBTITLE_TEXT:\s*([\s\S]*?)\s*\]/gi,
   CLEAR: /\[CLEAR\]/gi,
   HOLD: /\[HOLD\]/gi,
@@ -487,9 +503,10 @@ export const WHITEBOARD_PATTERNS = {
 /**
  * All whiteboard markup pattern (for stripping)
  * Updated to include all Phase 4 tags including Word Map and Culture
+ * Also includes subtitle controls: SUBTITLE, SHOW, HIDE, SUBTITLE_TEXT (legacy)
  */
 export const ALL_WHITEBOARD_MARKUP_PATTERN = 
-  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:on|off)\s*\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[(CLEAR|HOLD)\]/gi;
+  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[(CLEAR|HOLD)\]/gi;
 
 /**
  * Generate unique ID for whiteboard items
@@ -1087,22 +1104,40 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
     });
   }
 
-  // Parse SUBTITLE control tags (on/off toggle for floating subtitles)
-  let subtitleControl: 'on' | 'off' | undefined = undefined;
+  // Parse SUBTITLE control tags: [SUBTITLE off/on/target]
+  // Controls regular subtitle display (what Daniela is saying)
+  let subtitleMode: SubtitleMode | undefined = undefined;
   WHITEBOARD_PATTERNS.SUBTITLE.lastIndex = 0;
   const subtitleMatch = WHITEBOARD_PATTERNS.SUBTITLE.exec(text);
   if (subtitleMatch) {
-    subtitleControl = subtitleMatch[1].toLowerCase() as 'on' | 'off';
+    subtitleMode = subtitleMatch[1].toLowerCase() as SubtitleMode;
   }
 
-  // Parse SUBTITLE_TEXT for custom subtitle display
-  // Allows tutor to specify different text for subtitles than what is spoken
-  let customSubtitleText: string | undefined = undefined;
-  WHITEBOARD_PATTERNS.SUBTITLE_TEXT.lastIndex = 0;
-  const subtitleTextMatch = WHITEBOARD_PATTERNS.SUBTITLE_TEXT.exec(text);
-  if (subtitleTextMatch) {
-    customSubtitleText = subtitleTextMatch[1].trim();
+  // Parse SHOW for custom overlay display: [SHOW: text]
+  // Independent from regular subtitles - for teaching moments
+  let customOverlayText: string | undefined = undefined;
+  WHITEBOARD_PATTERNS.SHOW.lastIndex = 0;
+  const showMatch = WHITEBOARD_PATTERNS.SHOW.exec(text);
+  if (showMatch) {
+    customOverlayText = showMatch[1].trim();
   }
+  
+  // Also check legacy SUBTITLE_TEXT pattern for backwards compatibility
+  if (!customOverlayText) {
+    WHITEBOARD_PATTERNS.SUBTITLE_TEXT.lastIndex = 0;
+    const subtitleTextMatch = WHITEBOARD_PATTERNS.SUBTITLE_TEXT.exec(text);
+    if (subtitleTextMatch) {
+      customOverlayText = subtitleTextMatch[1].trim();
+    }
+  }
+
+  // Parse HIDE for hiding custom overlay: [HIDE]
+  let customOverlayHide = false;
+  WHITEBOARD_PATTERNS.HIDE.lastIndex = 0;
+  if (WHITEBOARD_PATTERNS.HIDE.test(text)) {
+    customOverlayHide = true;
+  }
+  WHITEBOARD_PATTERNS.HIDE.lastIndex = 0;
 
   const cleanText = text
     .replace(ALL_WHITEBOARD_MARKUP_PATTERN, '')
@@ -1116,8 +1151,9 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
     shouldHold,
     hasNewVocabulary: vocabularyWords.length > 0,
     vocabularyWords,
-    subtitleControl,
-    customSubtitleText,
+    subtitleMode,
+    customOverlayText,
+    customOverlayHide,
   };
 }
 

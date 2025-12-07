@@ -14,7 +14,7 @@ import {
 import { DebugTimingPanel } from "./DebugTimingPanel";
 import { Whiteboard } from "./Whiteboard";
 import { FloatingSubtitleOverlay } from "./FloatingSubtitleOverlay";
-import type { WhiteboardItem } from "@shared/whiteboard-types";
+import type { WhiteboardItem, SubtitleMode } from "@shared/whiteboard-types";
 import type { StreamingSubtitleState } from "../hooks/useStreamingSubtitles";
 
 // Female tutor avatars (default)
@@ -52,8 +52,10 @@ interface ImmersiveTutorProps {
   whiteboardItems?: WhiteboardItem[];
   onClearWhiteboard?: () => void;
   subtitleState?: StreamingSubtitleState;
-  subtitlesEnabled?: boolean;
-  customSubtitleText?: string | null;
+  // Regular subtitle mode: 'off' (default), 'all', or 'target'
+  regularSubtitleMode?: SubtitleMode;
+  // Custom overlay text (independent from regular subtitles)
+  customOverlayText?: string | null;
 }
 
 export function ImmersiveTutor({
@@ -83,8 +85,8 @@ export function ImmersiveTutor({
   whiteboardItems = [],
   onClearWhiteboard,
   subtitleState,
-  subtitlesEnabled = true,
-  customSubtitleText,
+  regularSubtitleMode = 'off',
+  customOverlayText,
 }: ImmersiveTutorProps) {
   // Local ref to track if WE started recording via pointer down
   // This ensures pointer up always stops recording regardless of React state timing
@@ -158,13 +160,14 @@ export function ImmersiveTutor({
         )}
         
         {/* Floating Subtitle Overlay - Karaoke-style word highlighting */}
-        {/* Tutor controls visibility via [SUBTITLE on/off] markup */}
-        {/* Custom text via [SUBTITLE_TEXT: custom words] markup */}
+        {/* Two independent display systems: */}
+        {/* 1. Regular subtitles: [SUBTITLE off/on/target] - what Daniela is saying */}
+        {/* 2. Custom overlay: [SHOW: text] / [HIDE] - teaching moments overlay */}
         {subtitleState && (
           <FloatingSubtitleOverlay 
             subtitleState={subtitleState}
-            isVisible={subtitlesEnabled}
-            customText={customSubtitleText}
+            regularSubtitleMode={regularSubtitleMode}
+            customOverlayText={customOverlayText}
           />
         )}
       </div>

@@ -53,17 +53,26 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - **Client behavior:** Word timings registered with audio player's `wordSchedule` BEFORE playback starts
 - **Test accounts:** `isTestAccount: true` users bypass credit checks for automated testing
 
-**Hybrid Visual System (Dec 2025):**
+**Hybrid Visual System (Dec 2025) - Dual-Control Architecture:**
 - **Architecture:** Two visual layers - floating subtitles for real-time speech + whiteboard cards for structured teaching
 - **Floating Subtitles:** Transparent overlay with karaoke word highlighting, positioned at bottom center
 - **Whiteboard Tools:** Solid background cards for teaching tools (WRITE, PHONETIC, WORD_MAP, GRAMMAR_TABLE, etc.)
-- **Tutor Control:** Daniela controls subtitle visibility via `[SUBTITLE on/off]` markup in responses
-- **Custom Subtitle Text:** Daniela can specify different text for subtitles via `[SUBTITLE_TEXT: custom words]` markup
-  - Example: Say "The word for hello is hola" but display only "Hola" in subtitles
-  - Priority: customText > target language extraction > full sentence
-- **Default Behavior:** Subtitles enabled by default, reset to enabled on `[CLEAR]` command
+- **Dual-Control Subtitle System (Dec 7, 2025 redesign):**
+  - **Two INDEPENDENT subtitle systems that can operate simultaneously:**
+  - **Regular Subtitles** (`regularSubtitleMode: 'off' | 'all' | 'target'`):
+    - `[SUBTITLE off]` → No regular subtitles (DEFAULT - Daniela opts in when helpful)
+    - `[SUBTITLE on]` or `[SUBTITLE all]` → Full sentence with karaoke highlighting
+    - `[SUBTITLE target]` → Only bold-marked target language words
+  - **Custom Overlay** (`customOverlayText: string | null`):
+    - `[SHOW: text]` → Display teaching moment overlay (static, no karaoke)
+    - `[HIDE]` → Remove custom overlay
+    - Shows ABOVE regular subtitles, completely independent
+  - **Key Behaviors:**
+    - Default is OFF (not ON) - reduces visual noise
+    - `[CLEAR]` only clears whiteboard, NOT subtitle/overlay state
+    - Both systems render simultaneously (stacked vertically)
 - **Component Chain:** StreamingVoiceChat → VoiceChatViewManager → ImmersiveTutor → FloatingSubtitleOverlay
-- **State Flow:** useStreamingSubtitles provides word timing state; useWhiteboard manages subtitlesEnabled and customSubtitleText
+- **State Flow:** useStreamingSubtitles provides word timing state; useWhiteboard manages regularSubtitleMode and customOverlayText
 
 **Future considerations:**
 - Deepgram Aura-2: Potential cost-saving fallback IF word timestamps confirmed

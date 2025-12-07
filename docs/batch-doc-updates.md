@@ -278,6 +278,62 @@ Student sees: Only "¡Hola!" in floating subtitles with karaoke highlighting
 
 ---
 
+### [December 7, 2025] - Subtitle Dual-Control Architecture Redesign
+**Target:** TECHNICAL-REFERENCE.md, replit.md
+**Section:** Voice Pipeline / Whiteboard System / Subtitle System
+**Content:**
+Major architectural redesign: Split subtitle system into two completely independent controls.
+
+**PROBLEM SOLVED:**
+Daniela was confused about subtitle controls because `[SUBTITLE off]` and `[SUBTITLE_TEXT:]` had unclear interaction. The old system where `[CLEAR]` reset subtitles to ON caused command leaking into display.
+
+**NEW ARCHITECTURE - Two Independent Systems:**
+
+**1. Regular Subtitles** (`regularSubtitleMode: 'off' | 'all' | 'target'`):
+- Controls what Daniela is currently saying
+- Default: `'off'` - Daniela opts IN when subtitles help
+- `[SUBTITLE off]` → No regular subtitles
+- `[SUBTITLE on]` or `[SUBTITLE all]` → Full sentence with karaoke
+- `[SUBTITLE target]` → Only bold-marked target language words
+
+**2. Custom Overlay** (`customOverlayText: string | null`):
+- Completely independent teaching moments overlay
+- `[SHOW: text]` → Display custom text (static, no karaoke)
+- `[HIDE]` → Remove custom overlay
+- Shows even when regular subtitles are OFF
+- Independent from `[CLEAR]` command
+
+**KEY BEHAVIOR CHANGES:**
+- Default is OFF (was ON) - reduces visual noise
+- `[CLEAR]` only clears whiteboard, NOT subtitle/overlay state
+- Two systems work simultaneously - can show both regular + overlay
+- Old `[SUBTITLE_TEXT:]` syntax deprecated, replaced by `[SHOW:]`
+
+**FILES CHANGED:**
+- `shared/whiteboard-types.ts` - New `SubtitleMode` type, new regex patterns
+- `client/src/hooks/useWhiteboard.ts` - New state: `regularSubtitleMode`, `customOverlayText`
+- `client/src/components/FloatingSubtitleOverlay.tsx` - Dual-mode rendering logic
+- `client/src/components/VoiceChatViewManager.tsx` - Props updated
+- `client/src/components/ImmersiveTutor.tsx` - Props updated
+- `client/src/components/StreamingVoiceChat.tsx` - Wiring updated
+- `server/system-prompt.ts` - Full dual-control documentation for Daniela
+
+**DANIELA'S NEW MARKUP:**
+```
+📺 REGULAR SUBTITLES:
+  [SUBTITLE off]    → No floating subtitles (DEFAULT)
+  [SUBTITLE target] → Show ONLY target language (bold words)
+  [SUBTITLE on]     → Show EVERYTHING you say
+
+🎯 CUSTOM OVERLAY:
+  [SHOW: ¡Hola!]    → Display teaching moment overlay
+  [HIDE]            → Remove custom overlay
+
+These work INDEPENDENTLY - can use both simultaneously!
+```
+
+---
+
 ### [December 6, 2025] - SYNC TESTING CLEANUP NEEDED
 **Target:** N/A (Internal cleanup task)
 **Section:** Post-testing cleanup

@@ -6,7 +6,7 @@ import { MessageSquare, Radio } from "lucide-react";
 import { type Message, type Conversation } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { type VoiceSpeed } from "@/contexts/LanguageContext";
-import type { WhiteboardItem } from "@shared/whiteboard-types";
+import type { WhiteboardItem, SubtitleMode } from "@shared/whiteboard-types";
 import type { StreamingSubtitleState } from "../hooks/useStreamingSubtitles";
 
 interface VoiceChatViewManagerProps {
@@ -36,8 +36,10 @@ interface VoiceChatViewManagerProps {
   whiteboardItems?: WhiteboardItem[];
   onClearWhiteboard?: () => void;
   subtitleState?: StreamingSubtitleState;
-  subtitlesEnabled?: boolean;
-  customSubtitleText?: string | null;
+  // Regular subtitle mode: 'off' (default), 'all', or 'target'
+  regularSubtitleMode?: SubtitleMode;
+  // Custom overlay text (independent from regular subtitles)
+  customOverlayText?: string | null;
 }
 
 export function VoiceChatViewManager({
@@ -67,8 +69,8 @@ export function VoiceChatViewManager({
   whiteboardItems = [],
   onClearWhiteboard,
   subtitleState,
-  subtitlesEnabled = true,
-  customSubtitleText,
+  regularSubtitleMode = 'off',
+  customOverlayText,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -179,8 +181,8 @@ export function VoiceChatViewManager({
                 whiteboardItems={whiteboardItems}
                 onClearWhiteboard={onClearWhiteboard}
                 subtitleState={subtitleState}
-                subtitlesEnabled={subtitlesEnabled}
-                customSubtitleText={customSubtitleText}
+                regularSubtitleMode={regularSubtitleMode}
+                customOverlayText={customOverlayText}
               />
             </div>
           ) : (
