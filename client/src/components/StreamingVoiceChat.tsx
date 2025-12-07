@@ -1398,64 +1398,79 @@ export function StreamingVoiceChat({
   // Open mic mode refs
   const openMicSequenceIdRef = useRef(0);
   const openMicStreamRef = useRef<MediaStream | null>(null);
-  const openMicRecorderRef = useRef<MediaRecorder | null>(null);
+  const openMicAudioContextRef = useRef<AudioContext | null>(null);
+  const openMicProcessorRef = useRef<ScriptProcessorNode | null>(null);
+  const openMicActiveRef = useRef(false);
   
   /**
    * Start continuous recording for open mic mode.
-   * Streams audio chunks to server via WebSocket.
-   * Server handles VAD to detect speech start/end.
+   * Uses AudioContext for raw PCM capture (linear16) instead of MediaRecorder.
+   * This avoids WebM header issues with continuous streaming.
    */
   const startOpenMicRecording = async () => {
-    if (openMicRecorderRef.current || isRecording) {
+    if (openMicActiveRef.current || isRecording) {
       console.log('[OPEN MIC] Already recording, ignoring');
       return;
     }
     
     try {
       setError(null);
-      console.log('[OPEN MIC] Starting continuous recording...');
+      console.log('[OPEN MIC] Starting continuous PCM recording...');
       
       // Notify server of input mode change
       streamingVoice.setInputMode('open-mic');
       
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+        } 
+      });
       openMicStreamRef.current = stream;
       
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm',
-      });
+      // Create AudioContext at 16kHz for Deepgram
+      const audioContext = new AudioContext({ sampleRate: 16000 });
+      openMicAudioContextRef.current = audioContext;
       
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          const sequenceId = openMicSequenceIdRef.current++;
-          event.data.arrayBuffer().then((buffer) => {
-            streamingVoice.sendStreamingChunk(buffer, sequenceId);
-          });
+      const source = audioContext.createMediaStreamSource(stream);
+      
+      // Use ScriptProcessorNode to capture raw PCM (deprecated but widely supported)
+      // Buffer size of 4096 samples at 16kHz = 256ms chunks
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      openMicProcessorRef.current = processor;
+      openMicActiveRef.current = true;
+      
+      processor.onaudioprocess = (event) => {
+        if (!openMicActiveRef.current) return;
+        
+        const inputBuffer = event.inputBuffer.getChannelData(0);
+        
+        // Convert Float32Array to Int16Array (linear16 PCM)
+        const pcm16 = new Int16Array(inputBuffer.length);
+        for (let i = 0; i < inputBuffer.length; i++) {
+          // Clamp and scale float [-1, 1] to int16 [-32768, 32767]
+          const s = Math.max(-1, Math.min(1, inputBuffer[i]));
+          pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
         }
+        
+        const sequenceId = openMicSequenceIdRef.current++;
+        streamingVoice.sendStreamingChunk(pcm16.buffer, sequenceId);
       };
       
-      mediaRecorder.onstop = () => {
-        console.log('[OPEN MIC] Recording stopped');
-        // Cleanup stream
-        if (openMicStreamRef.current) {
-          openMicStreamRef.current.getTracks().forEach(track => track.stop());
-          openMicStreamRef.current = null;
-        }
-        openMicRecorderRef.current = null;
-        setOpenMicState('idle');
-      };
+      source.connect(processor);
+      processor.connect(audioContext.destination);
       
-      openMicRecorderRef.current = mediaRecorder;
-      // Stream audio every 250ms for continuous processing
-      mediaRecorder.start(250);
       setOpenMicState('idle');
       setIsRecording(true);
       isRecordingRef.current = true;
-      console.log('[OPEN MIC] Continuous recording started');
+      console.log('[OPEN MIC] Continuous PCM recording started (16kHz linear16)');
     } catch (err: any) {
       console.error('[OPEN MIC] Failed to start recording:', err);
       setError(err.message || 'Failed to access microphone');
       setOpenMicState('idle');
+      openMicActiveRef.current = false;
     }
   };
   
@@ -1463,7 +1478,7 @@ export function StreamingVoiceChat({
    * Stop open mic continuous recording.
    */
   const stopOpenMicRecording = () => {
-    console.log('[OPEN MIC] Stopping continuous recording...');
+    console.log('[OPEN MIC] Stopping continuous PCM recording...');
     
     // Notify server to stop streaming
     streamingVoice.stopStreaming();
@@ -1471,16 +1486,25 @@ export function StreamingVoiceChat({
     // Notify server of input mode change back to push-to-talk
     streamingVoice.setInputMode('push-to-talk');
     
-    if (openMicRecorderRef.current && openMicRecorderRef.current.state !== 'inactive') {
-      openMicRecorderRef.current.stop();
+    // Stop the ScriptProcessorNode
+    openMicActiveRef.current = false;
+    if (openMicProcessorRef.current) {
+      openMicProcessorRef.current.disconnect();
+      openMicProcessorRef.current = null;
     }
     
+    // Close AudioContext
+    if (openMicAudioContextRef.current) {
+      openMicAudioContextRef.current.close().catch(console.error);
+      openMicAudioContextRef.current = null;
+    }
+    
+    // Stop media stream
     if (openMicStreamRef.current) {
       openMicStreamRef.current.getTracks().forEach(track => track.stop());
       openMicStreamRef.current = null;
     }
     
-    openMicRecorderRef.current = null;
     openMicSequenceIdRef.current = 0;
     setOpenMicState('idle');
     setIsRecording(false);
@@ -1491,7 +1515,7 @@ export function StreamingVoiceChat({
    * Toggle open mic recording on/off (for click behavior)
    */
   const toggleOpenMicRecording = () => {
-    if (openMicRecorderRef.current) {
+    if (openMicActiveRef.current) {
       stopOpenMicRecording();
     } else {
       startOpenMicRecording();
@@ -1509,16 +1533,21 @@ export function StreamingVoiceChat({
     streamingConnectedRef.current = false;
     
     // Stop open mic recording if active
-    if (openMicRecorderRef.current) {
-      console.log('[END CALL] Stopping open mic recording');
-      if (openMicRecorderRef.current.state !== 'inactive') {
-        openMicRecorderRef.current.stop();
+    if (openMicActiveRef.current) {
+      console.log('[END CALL] Stopping open mic PCM recording');
+      openMicActiveRef.current = false;
+      if (openMicProcessorRef.current) {
+        openMicProcessorRef.current.disconnect();
+        openMicProcessorRef.current = null;
+      }
+      if (openMicAudioContextRef.current) {
+        openMicAudioContextRef.current.close().catch(console.error);
+        openMicAudioContextRef.current = null;
       }
       if (openMicStreamRef.current) {
         openMicStreamRef.current.getTracks().forEach(track => track.stop());
         openMicStreamRef.current = null;
       }
-      openMicRecorderRef.current = null;
       openMicSequenceIdRef.current = 0;
     }
     

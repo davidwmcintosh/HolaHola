@@ -195,6 +195,7 @@ export class OpenMicSession {
   
   /**
    * Start the open mic session - opens connection to Deepgram with VAD enabled
+   * Configured for raw PCM linear16 audio at 16kHz sample rate
    */
   async start(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -207,6 +208,9 @@ export class OpenMicSession {
           vad_events: true,
           utterance_end_ms: 1000,
           interim_results: true,
+          encoding: 'linear16',
+          sample_rate: 16000,
+          channels: 1,
         });
         
         this.connection.on(LiveTranscriptionEvents.Open, () => {
@@ -263,16 +267,15 @@ export class OpenMicSession {
   }
   
   /**
-   * Send audio chunk to Deepgram
+   * Send audio chunk to Deepgram (raw PCM linear16 format)
    */
   sendAudio(audioBuffer: Buffer): void {
     if (this.isOpen && this.connection) {
-      // Log first chunk to verify we're sending WebM header
+      // Log first chunk for debugging
       if (!this.hasLoggedFirstChunk) {
         this.hasLoggedFirstChunk = true;
-        // WebM files start with 0x1A 0x45 0xDF 0xA3 (EBML header)
-        const header = audioBuffer.slice(0, 4).toString('hex');
-        console.log(`[OpenMic] First chunk: ${audioBuffer.length} bytes, header: ${header}`);
+        // PCM audio doesn't have container headers - just raw samples
+        console.log(`[OpenMic] First PCM chunk: ${audioBuffer.length} bytes (${(audioBuffer.length / 2 / 16000 * 1000).toFixed(0)}ms at 16kHz)`);
       }
       this.connection.send(audioBuffer);
     }

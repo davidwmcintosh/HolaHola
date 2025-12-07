@@ -749,7 +749,7 @@ Reference past discussions when relevant, but don't force it.
             audioBuffer = Buffer.from(chunkMessage.audio);
           }
           
-          // If session exists and is ready, send directly
+          // If session exists and is ready, send directly (raw PCM - no headers needed)
           if (openMicSession) {
             openMicSession.sendAudio(audioBuffer);
             break;
@@ -766,7 +766,7 @@ Reference past discussions when relevant, but don't force it.
           // Start new session
           openMicSessionStarting = true;
           const languageCode = getDeepgramLanguageCode(session.targetLanguage || 'spanish');
-          console.log(`[OpenMic] Starting session for language: ${languageCode}`);
+          console.log(`[OpenMic] Starting PCM session for language: ${languageCode}`);
           
           const newSession = new OpenMicSession(languageCode, {
             onSpeechStarted: () => {
@@ -826,9 +826,9 @@ Reference past discussions when relevant, but don't force it.
             openMicSessionStarting = false;
             console.log('[OpenMic] Session started successfully');
             
-            // Send all buffered chunks (including the first one with WebM header)
+            // Send all buffered PCM chunks (no header needed for raw PCM)
             if (openMicPendingChunks.length > 0) {
-              console.log(`[OpenMic] Sending ${openMicPendingChunks.length} buffered chunks`);
+              console.log(`[OpenMic] Sending ${openMicPendingChunks.length} buffered PCM chunks`);
               for (const chunk of openMicPendingChunks) {
                 openMicSession.sendAudio(chunk);
               }
