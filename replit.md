@@ -74,13 +74,17 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
 - **Component Chain:** StreamingVoiceChat → VoiceChatViewManager → ImmersiveTutor → FloatingSubtitleOverlay
 - **State Flow:** useStreamingSubtitles provides word timing state; useWhiteboard manages regularSubtitleMode and customOverlayText
 
-**Open Mic Mode (Dec 2025 Implementation):**
+**Open Mic Mode (Dec 2025 - WORKING):**
+- **Status:** Fully implemented and tested - end-to-end flow working (Dec 7, 2025)
 - **Architecture:** Dual input mode system - push-to-talk (default) vs open-mic (continuous)
 - **Input Mode Toggle:** Settings-accessible toggle switches between modes with smooth state transitions
 - **Push-to-talk (PTT):** User holds mic button to record, releases to submit (original behavior)
 - **Open-mic Mode:** Continuous listening with Deepgram VAD for automatic speech detection
+  - Client captures raw PCM linear16 at 16kHz using ScriptProcessorNode
+  - Automatic resampling if browser's AudioContext uses different sample rate
   - Client streams audio chunks via `stream_audio_chunk` WebSocket messages
-  - Server maintains `OpenMicSession` for continuous STT with Deepgram live API
+  - Server maintains `OpenMicSession` for continuous STT with Deepgram live API (Nova-2 model)
+  - Deepgram configured: `encoding: 'linear16', sample_rate: 16000, channels: 1, vad_events: true, utterance_end_ms: 1000`
   - VAD events (`vad_speech_started`, `vad_utterance_end`) trigger UI state updates
   - Auto-submit on `utterance_end` via `processOpenMicTranscript`
 - **Barge-in Support:** Users can interrupt Daniela mid-sentence
@@ -89,6 +93,7 @@ Core data models include Users, Conversations, Messages, VocabularyWords, Gramma
   - Response completes with `wasInterrupted: true` for graceful recovery
 - **VAD States:** idle → listening → processing → idle (visual feedback via `openMicState`)
 - **Cleanup:** Open mic sessions cleaned up on `stop_streaming` or mode switch
+- **Connection Handling:** Deepgram connection uses `resolveOnce()` pattern to handle race conditions
 
 **Future considerations:**
 - Deepgram Aura-2: Potential cost-saving fallback IF word timestamps confirmed

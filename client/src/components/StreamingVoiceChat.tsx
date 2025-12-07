@@ -1490,7 +1490,13 @@ export function StreamingVoiceChat({
         }
         
         const sequenceId = openMicSequenceIdRef.current++;
-        streamingVoice.sendStreamingChunk(pcm16.buffer, sequenceId);
+        try {
+          streamingVoice.sendStreamingChunk(pcm16.buffer, sequenceId);
+        } catch (err) {
+          // Connection may have closed - stop open mic
+          console.warn('[OPEN MIC] Failed to send chunk, stopping recording');
+          openMicActiveRef.current = false;
+        }
       };
       
       source.connect(processor);
