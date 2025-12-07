@@ -187,6 +187,8 @@ export class OpenMicSession {
   private language: string;
   private currentTranscript = '';
   private currentConfidence = 0;
+  private lastInterimTranscript = '';
+  private lastInterimConfidence = 0;
   private chunkCount = 0;
   private totalBytes = 0;
   
@@ -213,11 +215,15 @@ export class OpenMicSession {
       };
       
       try {
-        console.log(`[OpenMic] Creating Deepgram live connection (language: ${this.language})`);
+        // MULTI-LANGUAGE: Always use 'multi' for bilingual detection
+        // Students naturally mix native + target language during lessons
+        // Better to get 85% accurate bilingual transcript than miss English entirely
+        const languageCode = 'multi';
+        console.log(`[OpenMic] Creating Deepgram live connection (language: ${languageCode}, target: ${this.language})`);
         
         this.connection = deepgramClient.listen.live({
           model: 'nova-2',
-          language: this.language,
+          language: languageCode,
           punctuate: true,
           smart_format: true,
           vad_events: true,
@@ -275,12 +281,41 @@ export class OpenMicSession {
             console.log(`[OpenMic] Transcript: "${transcript}" (final=${data.is_final}, conf=${(confidence * 100).toFixed(0)}%)`);
           }
           
-          if (data.is_final && transcript.length > 0) {
-            this.currentTranscript += (this.currentTranscript ? ' ' : '') + transcript;
-            this.currentConfidence = confidence;
-            console.log(`[OpenMic] Final segment: "${transcript}"`);
-          } else if (transcript.length > 0) {
-            this.events.onInterimTranscript?.(transcript);
+          // Track the latest transcript (both interim and final)
+          if (transcript.length > 0) {
+            if (data.is_final) {
+              // Accumulate final segments
+              this.currentTranscript += (this.currentTranscript ? ' ' : '') + transcript;
+              this.currentConfidence = confidence;
+              console.log(`[OpenMic] Final segment accumulated: "${this.currentTranscript}"`);
+            } else {
+              // For interim results, update UI but also track for fallback
+              this.events.onInterimTranscript?.(transcript);
+              // Store interim as potential fallback if no final comes
+              if (!this.currentTranscript) {
+                this.lastInterimTranscript = transcript;
+                this.lastInterimConfidence = confidence;
+              }
+            }
+          }
+          
+          // When speech_final=true, trigger auto-submit with whatever we have
+          if (data.speech_final) {
+            const finalText = this.currentTranscript.trim() || this.lastInterimTranscript?.trim() || '';
+            const finalConf = this.currentConfidence || this.lastInterimConfidence || 0;
+            
+            if (finalText) {
+              console.log(`[OpenMic] Speech final - submitting: "${finalText}"`);
+              this.events.onUtteranceEnd?.(finalText, finalConf);
+            } else {
+              console.log(`[OpenMic] Speech final but no transcript to submit`);
+            }
+            
+            // Reset for next utterance
+            this.currentTranscript = '';
+            this.currentConfidence = 0;
+            this.lastInterimTranscript = '';
+            this.lastInterimConfidence = 0;
           }
         });
         
