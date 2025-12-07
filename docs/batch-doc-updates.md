@@ -393,6 +393,39 @@ New dual input mode system allowing continuous listening alongside existing push
 
 ---
 
+### [December 7, 2025] - Open Mic Alternative: Auto-PTT Fallback
+**Target:** TECHNICAL-REFERENCE.md, ROADMAP.md
+**Section:** Voice Pipeline / Input Modes / Future Considerations
+**Content:**
+If raw PCM streaming continues to have issues, a simpler "Auto-PTT" approach could be implemented as a fallback:
+
+**Current Approach (Live Streaming):**
+- Continuous raw PCM (linear16) audio streaming to Deepgram Live API
+- Server-side VAD for speech detection and auto-submit
+- Enables interim transcripts while speaking
+- Challenges: Sample rate mismatches, audio format complexities
+
+**Simpler Fallback (Auto-PTT):**
+- Keep mic always listening with client-side voice activity detection
+- When speech starts, begin a PTT-style MediaRecorder recording (WebM format)
+- When speech ends (silence detected), auto-submit the complete audio file
+- Reuses the proven PTT audio pipeline that works reliably
+- Trade-off: No interim transcripts, but more reliable audio quality
+
+**Why This Works:**
+- PTT uses MediaRecorder with WebM format - mature and well-tested
+- Complete WebM files have proper headers Deepgram can decode
+- Same code path as existing PTT, just with automatic start/stop triggers
+
+**Implementation Notes:**
+- Would require client-side VAD (e.g., hark.js or Web Audio API energy detection)
+- MediaRecorder start on speech detected, stop after silence threshold
+- Submit complete blob via existing `process_audio` message type
+
+**Status:** Documented as potential fallback if live streaming approach proves unreliable.
+
+---
+
 ### [December 6, 2025] - SYNC TESTING CLEANUP NEEDED
 **Target:** N/A (Internal cleanup task)
 **Section:** Post-testing cleanup
