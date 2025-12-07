@@ -334,6 +334,65 @@ These work INDEPENDENTLY - can use both simultaneously!
 
 ---
 
+### [December 7, 2025] - Open Mic Mode with VAD & Barge-in
+**Target:** TECHNICAL-REFERENCE.md, replit.md
+**Section:** Voice Pipeline / Input Modes
+**Content:**
+New dual input mode system allowing continuous listening alongside existing push-to-talk.
+
+**ARCHITECTURE - Dual Input Modes:**
+
+**1. Push-to-Talk (PTT) - Default:**
+- User holds mic button to record, releases to submit
+- Audio captured as complete WAV, sent via `process_audio` message
+- Original behavior preserved exactly
+
+**2. Open-Mic Mode - Continuous Listening:**
+- User toggles once to start, once to stop
+- Audio streams continuously via `stream_audio_chunk` WebSocket messages
+- Server maintains `OpenMicSession` for live Deepgram STT
+- Deepgram VAD detects speech start/end events
+- Auto-submit on `utterance_end` via `processOpenMicTranscript`
+
+**VAD EVENT FLOW:**
+1. Client streams audio chunks → Server buffers in OpenMicSession
+2. Deepgram VAD fires `vad_speech_started` → Server forwards to client
+3. Client updates `openMicState: 'listening'` for visual feedback
+4. Deepgram VAD fires `utterance_end` → Server auto-submits transcript
+5. Client updates `openMicState: 'processing'` → AI response generates
+
+**BARGE-IN SUPPORT:**
+- Users can interrupt Daniela mid-sentence
+- Client calls `sendInterrupt()` (NOT `stop()`) to avoid premature audio termination
+- Server sets `isInterrupted` flag on StreamingSession
+- TTS streaming loop checks flag and halts generation
+- Response completes with `wasInterrupted: true` for graceful recovery
+- New turn resets `isInterrupted = false`
+
+**CLIENT CHANGES:**
+- `streamingVoiceClient.ts`: New methods `sendStreamingChunk()`, `stopStreaming()`, `setInputMode()`, `sendInterrupt()`
+- `useStreamingVoice.ts`: VAD callbacks `onVadSpeechStarted`, `onVadUtteranceEnd`, `onInterimTranscript`
+- `StreamingVoiceChat.tsx`: Continuous recording via MediaRecorder with 100ms timeslices
+
+**SERVER CHANGES:**
+- `unified-ws-handler.ts`: Message handlers for `stream_audio_chunk`, `stop_streaming`, `set_input_mode`, `interrupt`
+- `streaming-voice-orchestrator.ts`: `handleInterrupt()` method, `isInterrupted` flag on session
+- `deepgram-live-stt.ts`: OpenMicSession class with Deepgram live API integration
+
+**SHARED TYPES:**
+- `StreamingResponseCompleteMessage` now includes optional `wasInterrupted: boolean`
+
+**VAD STATES (for visual feedback):**
+- `idle` → Ready for input
+- `listening` → Speech detected, actively listening
+- `processing` → Utterance complete, AI responding
+
+**CLEANUP:**
+- Open mic sessions cleaned up on `stop_streaming` message or mode switch
+- MediaRecorder and audio tracks properly released on unmount
+
+---
+
 ### [December 6, 2025] - SYNC TESTING CLEANUP NEEDED
 **Target:** N/A (Internal cleanup task)
 **Section:** Post-testing cleanup
