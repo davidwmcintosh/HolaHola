@@ -207,6 +207,7 @@ export class OpenMicSession {
           vad_events: true,
           utterance_end_ms: 1000,
           interim_results: true,
+          encoding: 'webm-opus',  // Match client MediaRecorder format
         });
         
         this.connection.on(LiveTranscriptionEvents.Open, () => {
