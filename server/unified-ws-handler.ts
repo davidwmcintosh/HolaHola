@@ -472,6 +472,10 @@ Reference past discussions when relevant, but don't force it.
             }
           }
           
+          // In Founder Mode or Raw Honesty Mode, don't pass curriculum context
+          // This prevents class enrollments from bleeding into developer conversations
+          const effectiveCurriculumContext = (isFounderMode || isRawHonestyMode) ? null : curriculumContext;
+          
           let systemPrompt = createSystemPrompt(
             config.targetLanguage,
             derivedDifficulty, // Use organically-derived difficulty, not user self-selection
@@ -488,7 +492,7 @@ Reference past discussions when relevant, but don't force it.
             (user.tutorPersonality || 'warm') as any,
             user.tutorExpressiveness || 3,
             true, // isStreamingVoiceMode - outputs plain text with **bold** markers
-            curriculumContext, // Add curriculum context for syllabus awareness
+            effectiveCurriculumContext, // Skip curriculum in special modes
             tutorFreedomLevel, // Use determined flexibility level
             targetActflLevel, // Target proficiency level
             compassContext, // Daniela's Compass context (time-aware tutoring)
