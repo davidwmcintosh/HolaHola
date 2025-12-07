@@ -252,6 +252,9 @@ export class OpenMicSession {
         });
         
         this.connection.on(LiveTranscriptionEvents.Transcript, (data: any) => {
+          // Log EVERY transcript event raw
+          console.log(`[OpenMic] RAW Transcript event: is_final=${data.is_final}, speech_final=${data.speech_final}, type=${data.type}`);
+          
           const alternative = data.channel?.alternatives?.[0];
           if (!alternative) {
             console.log(`[OpenMic] Transcript event with no alternative`);
