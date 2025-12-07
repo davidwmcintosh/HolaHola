@@ -759,8 +759,8 @@ Reference past discussions when relevant, but don't force it.
                     timestamp: Date.now(),
                   }));
                 }
-                // Trigger barge-in: interrupt any playing audio
-                if (session) orchestrator.handleInterrupt(session.id);
+                // Note: Barge-in is client-driven - client sends 'interrupt' message
+                // when avatar is speaking and user starts talking
               },
               onUtteranceEnd: async (transcript, confidence) => {
                 console.log(`[OpenMic] VAD: Utterance end - "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
