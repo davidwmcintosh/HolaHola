@@ -199,7 +199,20 @@ export class OpenMicSession {
    */
   async start(): Promise<void> {
     return new Promise((resolve, reject) => {
+      let resolved = false;
+      
+      const resolveOnce = () => {
+        if (!resolved) {
+          resolved = true;
+          console.log('[OpenMic] Deepgram connection ready');
+          this.isOpen = true;
+          resolve();
+        }
+      };
+      
       try {
+        console.log(`[OpenMic] Creating Deepgram live connection (language: ${this.language})`);
+        
         this.connection = deepgramClient.listen.live({
           model: 'nova-2',
           language: this.language,
@@ -213,14 +226,17 @@ export class OpenMicSession {
           channels: 1,
         });
         
+        // Attach Open handler first
         this.connection.on(LiveTranscriptionEvents.Open, () => {
-          console.log('[OpenMic] Deepgram connection opened');
-          this.isOpen = true;
-          resolve();
+          console.log('[OpenMic] Deepgram Open event received');
+          resolveOnce();
         });
         
+        // Attach other handlers immediately after Open
         this.connection.on(LiveTranscriptionEvents.SpeechStarted, () => {
           console.log('[OpenMic] Speech started (VAD)');
+          // If we get a SpeechStarted event, connection is definitely open
+          resolveOnce();
           this.events.onSpeechStarted?.();
         });
         
@@ -237,6 +253,9 @@ export class OpenMicSession {
           const alternative = data.channel?.alternatives?.[0];
           if (!alternative) return;
           
+          // If we get a transcript event, connection is definitely open
+          resolveOnce();
+          
           const transcript = alternative.transcript || '';
           const confidence = alternative.confidence || 0;
           
@@ -252,6 +271,10 @@ export class OpenMicSession {
         this.connection.on(LiveTranscriptionEvents.Error, (error: any) => {
           console.error('[OpenMic] Error:', error);
           this.events.onError?.(new Error(error.message || 'Deepgram error'));
+          if (!resolved) {
+            resolved = true;
+            reject(new Error(error.message || 'Deepgram connection error'));
+          }
         });
         
         this.connection.on(LiveTranscriptionEvents.Close, () => {
@@ -260,7 +283,17 @@ export class OpenMicSession {
           this.events.onClose?.();
         });
         
+        // Timeout after 10 seconds if connection never opens
+        setTimeout(() => {
+          if (!resolved) {
+            console.error('[OpenMic] Connection timeout - no Open event after 10s');
+            resolved = true;
+            reject(new Error('Deepgram connection timeout'));
+          }
+        }, 10000);
+        
       } catch (error) {
+        console.error('[OpenMic] Failed to create connection:', error);
         reject(error);
       }
     });

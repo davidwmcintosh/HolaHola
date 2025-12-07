@@ -1,0 +1,117 @@
+{
+  "colorScheme": "light",
+  "fonts": [
+    {
+      "family": "Google Sans",
+      "role": "body"
+    },
+    {
+      "family": "Noto Sans",
+      "role": "body"
+    },
+    {
+      "family": "Noto Sans JP",
+      "role": "body"
+    },
+    {
+      "family": "Noto Sans KR",
+      "role": "body"
+    },
+    {
+      "family": "Noto Naskh Arabic",
+      "role": "body"
+    }
+  ],
+  "colors": {
+    "primary": "#1A73E8",
+    "accent": "#185ABC",
+    "background": "#FFFFFF",
+    "textPrimary": "#202124",
+    "link": "#185ABC"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "Google Sans",
+      "heading": "Google Sans"
+    },
+    "fontStacks": {
+      "heading": [
+        "Google Sans",
+        "Noto Sans",
+        "Noto Naskh Arabic",
+        "sans-serif"
+      ],
+      "body": [
+        "Google Sans",
+        "Noto Sans",
+        "Noto Naskh Arabic",
+        "sans-serif"
+      ],
+      "paragraph": [
+        "Google Sans",
+        "Noto Sans",
+        "Noto Naskh Arabic",
+        "sans-serif"
+      ]
+    },
+    "fontSizes": {
+      "h1": "48px",
+      "h2": "24px",
+      "body": "16px"
+    }
+  },
+  "spacing": {
+    "baseUnit": 4,
+    "borderRadius": "0px"
+  },
+  "components": {
+    "input": {
+      "borderColor": "#CCCCCC",
+      "borderRadius": "0px"
+    },
+    "buttonPrimary": {
+      "background": "#FFFFFF",
+      "textColor": "#1A73E8",
+      "borderRadius": "25px",
+      "shadow": "none"
+    }
+  },
+  "images": {
+    "logo": "File saved at: attached_assets/logo.svg",
+    "favicon": "File saved at: attached_assets/favicon.png",
+    "ogImage": null
+  },
+  "__framework_hints": [],
+  "__llm_logo_reasoning": {
+    "selectedIndex": 0,
+    "reasoning": "Logo #0 matches the brand name 'Chrome for Developers' and is located in the header, linking to the homepage, making it the primary brand logo.",
+    "confidence": 0.98
+  },
+  "__llm_button_reasoning": {
+    "primary": {
+      "index": 0,
+      "text": "Sign in",
+      "reasoning": "Button #0 ('Sign in') has vibrant brand color text (#1A73E8) and is action-oriented, making it the primary CTA. The background is white, which is common for primary buttons that stand out with colored text."
+    },
+    "secondary": {
+      "index": 1,
+      "text": "content_copy",
+      "reasoning": "Button #1 ('content_copy') has a muted text color (#202124) on a white background, making it less prominent and suitable as a secondary action. It does not have the same vibrant appeal as Button #0."
+    },
+    "confidence": 0.95
+  },
+  "personality": {
+    "tone": "professional",
+    "energy": "medium",
+    "targetAudience": "developers and tech professionals"
+  },
+  "designSystem": {
+    "framework": "unknown",
+    "componentLibrary": null
+  },
+  "confidence": {
+    "buttons": 0.95,
+    "colors": 0.9,
+    "overall": 0.925
+  }
+}
