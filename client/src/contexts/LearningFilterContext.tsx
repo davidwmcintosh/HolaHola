@@ -22,9 +22,9 @@ export interface EnrolledClass {
   };
 }
 
-export type LearningContext = "all" | "self-directed" | "founder-mode" | "all-classes" | "all-learning" | string;
+export type LearningContext = "all" | "self-directed" | "founder-mode" | "honesty-mode" | "all-classes" | "all-learning" | string;
 
-export type TutorContextType = "self-directed" | "class" | "founder-mode";
+export type TutorContextType = "self-directed" | "class" | "founder-mode" | "honesty-mode";
 
 interface LearningFilterContextType {
   learningContext: LearningContext;
@@ -35,6 +35,7 @@ interface LearningFilterContextType {
   getClassesForLanguage: (lang?: string) => EnrolledClass[];
   getTutorContexts: () => Array<{ id: string; name: string; language: string; type: TutorContextType }>;
   isFounderMode: boolean;
+  isHonestyMode: boolean;
 }
 
 const LearningFilterContext = createContext<LearningFilterContextType | undefined>(undefined);
@@ -75,9 +76,12 @@ export function LearningFilterProvider({ children }: { children: ReactNode }) {
       return;
     }
     
-    // "founder-mode" is valid for developers (no class needed)
-    if (learningContext === "founder-mode") {
-      // Founder mode is validated by isDeveloper check elsewhere
+    // "founder-mode" and "honesty-mode" are valid for developers only
+    if (learningContext === "founder-mode" || learningContext === "honesty-mode") {
+      // Non-developers should not be in these modes - reset to self-directed
+      if (!isDeveloper) {
+        setLearningContext("self-directed");
+      }
       return;
     }
     
@@ -102,14 +106,16 @@ export function LearningFilterProvider({ children }: { children: ReactNode }) {
     if (learningContext === "all") return "Self-Directed"; // Fallback
     if (learningContext === "self-directed") return "Self-Directed";
     if (learningContext === "founder-mode") return "Founder Mode";
+    if (learningContext === "honesty-mode") return "Honesty Mode";
     if (learningContext === "all-classes") return "All Classes";
     if (learningContext === "all-learning") return "All Learning";
     const cls = enrolledClasses.find(e => e.classId === learningContext);
     return cls?.class.name || "Self-Directed";
   };
   
-  // Check if Founder Mode is currently active
+  // Check if Founder Mode or Honesty Mode is currently active
   const isFounderMode = learningContext === "founder-mode" && isDeveloper;
+  const isHonestyMode = learningContext === "honesty-mode" && isDeveloper;
 
   const getClassesForLanguage = (lang?: string): EnrolledClass[] => {
     const targetLang = lang || language;
@@ -146,14 +152,21 @@ export function LearningFilterProvider({ children }: { children: ReactNode }) {
       }
     });
     
-    // Add Founder Mode option for developers/admins
-    // This enables open collaboration with Daniela about the product itself
+    // Add Founder Mode and Honesty Mode options for developers/admins
+    // Founder Mode: open collaboration with Daniela about the product
+    // Honesty Mode: minimal prompting for authentic self-discovery conversations
     if (isDeveloper && language) {
       contexts.push({
         id: "founder-mode",
         name: "Founder Mode",
         language: language,
         type: "founder-mode"
+      });
+      contexts.push({
+        id: "honesty-mode",
+        name: "Honesty Mode",
+        language: language,
+        type: "honesty-mode"
       });
     }
     
@@ -170,6 +183,7 @@ export function LearningFilterProvider({ children }: { children: ReactNode }) {
       getClassesForLanguage,
       getTutorContexts,
       isFounderMode,
+      isHonestyMode,
     }}>
       {children}
     </LearningFilterContext.Provider>

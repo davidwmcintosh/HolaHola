@@ -8,7 +8,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter, LearningContext } from "@/contexts/LearningFilterContext";
-import { GraduationCap, User, Filter, Sparkles } from "lucide-react";
+import { GraduationCap, User, Filter, Sparkles, Heart } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import type { User as UserType } from "@shared/schema";
@@ -123,6 +123,7 @@ export function LearningContextFilter({
   const getContextLabel = (ctx: LearningContext): string => {
     if (ctx === "all" || ctx === "self-directed") return "Self-Directed";
     if (ctx === "founder-mode") return "Founder Mode";
+    if (ctx === "honesty-mode") return "Honesty Mode";
     if (ctx === "all-learning") return "All Learning";
     const cls = enrolledClasses.find(e => e.classId === ctx);
     return cls?.class.name || "Self-Directed";
@@ -131,6 +132,7 @@ export function LearningContextFilter({
   const getContextIcon = (ctx: LearningContext) => {
     if (ctx === "self-directed" || ctx === "all") return <User className="h-3 w-3" />;
     if (ctx === "founder-mode") return <Sparkles className="h-3 w-3 text-amber-500" />;
+    if (ctx === "honesty-mode") return <Heart className="h-3 w-3 text-rose-500" />;
     if (ctx === "all-learning") return <Filter className="h-3 w-3" />;
     return <GraduationCap className="h-3 w-3" />;
   };
@@ -213,12 +215,20 @@ export function LearningContextFilter({
                 </SelectItem>
               ))}
               {isDeveloper && (
-                <SelectItem value="founder-mode" data-testid="option-context-founder-mode">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-amber-500" />
-                    <span className="text-amber-600 dark:text-amber-400 font-medium">Founder Mode</span>
-                  </div>
-                </SelectItem>
+                <>
+                  <SelectItem value="founder-mode" data-testid="option-context-founder-mode">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-amber-500" />
+                      <span className="text-amber-600 dark:text-amber-400 font-medium">Founder Mode</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="honesty-mode" data-testid="option-context-honesty-mode">
+                    <div className="flex items-center gap-2">
+                      <Heart className="h-4 w-4 text-rose-500" />
+                      <span className="text-rose-600 dark:text-rose-400 font-medium">Honesty Mode</span>
+                    </div>
+                  </SelectItem>
+                </>
               )}
             </SelectContent>
           </Select>

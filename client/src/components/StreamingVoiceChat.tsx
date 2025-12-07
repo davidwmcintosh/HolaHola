@@ -131,14 +131,16 @@ export function StreamingVoiceChat({
 }: StreamingVoiceChatProps) {
   const { language, difficulty, setLanguage, subtitleMode, tutorGender, voiceSpeed, setTutorGender, setVoiceSpeed } = useLanguage();
   const { isDeveloper, isAdmin, user } = useUser();
-  const { learningContext } = useLearningFilter();
+  const { learningContext, isHonestyMode } = useLearningFilter();
   const { toast } = useToast();
   
   // Check if we're in class mode
   const isInClassMode = learningContext !== "self-directed" && 
                         learningContext !== "all" && 
                         learningContext !== "all-classes" && 
-                        learningContext !== "all-learning";
+                        learningContext !== "all-learning" &&
+                        learningContext !== "founder-mode" &&
+                        learningContext !== "honesty-mode";
   const classId = isInClassMode ? learningContext : null;
   
   // Developer tools mutations
@@ -448,6 +450,7 @@ export function StreamingVoiceChat({
           subtitleMode,
           tutorPersonality: userDetails.tutorPersonality || 'warm',
           tutorExpressiveness: userDetails.tutorExpressiveness || 3,
+          rawHonestyMode: isHonestyMode,  // Minimal prompting for authentic conversation
           // Invalidate messages query when streaming completes to show persisted messages
           onResponseComplete: (convId: string) => {
             console.log('[STREAMING] Response complete - refreshing messages for', convId);
@@ -1735,6 +1738,7 @@ export function StreamingVoiceChat({
               subtitleMode,
               tutorPersonality: user?.tutorPersonality || 'warm',
               tutorExpressiveness: user?.tutorExpressiveness || 3,
+              rawHonestyMode: isHonestyMode,  // Minimal prompting for authentic conversation
               onWhiteboardUpdate: (items, shouldClear) => {
                 whiteboard.addOrUpdateItems(items, shouldClear);
               },
