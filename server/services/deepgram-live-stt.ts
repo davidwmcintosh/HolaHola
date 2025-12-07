@@ -252,8 +252,11 @@ export class OpenMicSession {
         });
         
         this.connection.on(LiveTranscriptionEvents.Transcript, (data: any) => {
-          // Log EVERY transcript event raw
-          console.log(`[OpenMic] RAW Transcript event: is_final=${data.is_final}, speech_final=${data.speech_final}, type=${data.type}`);
+          // Log EVERY transcript event raw with actual content
+          const alt = data.channel?.alternatives?.[0];
+          const text = alt?.transcript || '';
+          const conf = alt?.confidence || 0;
+          console.log(`[OpenMic] RAW Transcript: is_final=${data.is_final}, speech_final=${data.speech_final}, text="${text}", conf=${conf.toFixed(2)}`);
           
           const alternative = data.channel?.alternatives?.[0];
           if (!alternative) {
