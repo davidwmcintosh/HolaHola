@@ -229,6 +229,8 @@ export function StreamingVoiceChat({
   const [inputMode, setInputMode] = useState<VoiceInputMode>('push-to-talk');
   // Open mic visual state for feedback
   const [openMicState, setOpenMicState] = useState<OpenMicState>('idle');
+  // Track if we're awaiting/playing a response (to ignore VAD events)
+  const isAwaitingResponseRef = useRef(false);
   
   // Store last audio for replay functionality
   const [lastAudioBlob, setLastAudioBlob] = useState<Blob | null>(null);
@@ -451,6 +453,10 @@ export function StreamingVoiceChat({
             console.log('[STREAMING] Response complete - refreshing messages for', convId);
             queryClient.invalidateQueries({ queryKey: ["/api/conversations", convId, "messages"] });
             
+            // Reset open mic state for next utterance
+            isAwaitingResponseRef.current = false;
+            setOpenMicState('idle');
+            
             // Store combined audio blob for replay functionality
             const combinedBlob = streamingVoice.getCombinedAudioBlob();
             if (combinedBlob) {
@@ -467,6 +473,11 @@ export function StreamingVoiceChat({
             whiteboard.addOrUpdateItems(items, shouldClear);
           },
           onVadSpeechStarted: () => {
+            // Ignore VAD events while awaiting/playing a response (unless barge-in)
+            if (isAwaitingResponseRef.current) {
+              console.log('[OPEN MIC] VAD speech started - ignored (awaiting response)');
+              return;
+            }
             console.log('[OPEN MIC] VAD speech started');
             setOpenMicState('listening');
             
@@ -474,12 +485,15 @@ export function StreamingVoiceChat({
             if (avatarState === 'speaking') {
               console.log('[BARGE-IN] User speaking - sending interrupt signal');
               streamingVoice.sendInterrupt();
+              // Reset awaiting flag so new speech is captured
+              isAwaitingResponseRef.current = false;
               // Note: Server will handle stopping TTS and client will receive response_complete
             }
           },
           onVadUtteranceEnd: (transcript) => {
             console.log('[OPEN MIC] VAD utterance end, transcript:', transcript);
             setOpenMicState('processing');
+            isAwaitingResponseRef.current = true; // Block further VAD until response complete
           },
           onInterimTranscript: (transcript) => {
             console.log('[OPEN MIC] Interim transcript:', transcript);
@@ -1636,6 +1650,11 @@ export function StreamingVoiceChat({
                 whiteboard.addOrUpdateItems(items, shouldClear);
               },
               onVadSpeechStarted: () => {
+                // Ignore VAD events while awaiting/playing a response (unless barge-in)
+                if (isAwaitingResponseRef.current) {
+                  console.log('[OPEN MIC] VAD speech started - ignored (awaiting response)');
+                  return;
+                }
                 console.log('[OPEN MIC] VAD speech started');
                 setOpenMicState('listening');
                 
@@ -1643,12 +1662,14 @@ export function StreamingVoiceChat({
                 if (avatarState === 'speaking') {
                   console.log('[BARGE-IN] User speaking - sending interrupt signal');
                   streamingVoice.sendInterrupt();
+                  isAwaitingResponseRef.current = false;
                   // Note: Server will handle stopping TTS and client will receive response_complete
                 }
               },
               onVadUtteranceEnd: (transcript) => {
                 console.log('[OPEN MIC] VAD utterance end, transcript:', transcript);
                 setOpenMicState('processing');
+                isAwaitingResponseRef.current = true;
               },
               onInterimTranscript: (transcript) => {
                 console.log('[OPEN MIC] Interim transcript:', transcript);
