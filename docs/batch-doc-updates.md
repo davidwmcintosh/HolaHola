@@ -6,6 +6,65 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 11: Neural Network Auto-Sync & Password Recovery (Dec 8, 2025)
+
+#### Automated Nightly Sync Scheduler
+- **Purpose**: Auto-promote best practices without manual review, with post-hoc retraction capability
+- **Schedule**: Runs at 3 AM daily via `sync-scheduler.ts`
+- **Workflow**:
+  1. Scheduler starts on server boot, calculates next 3 AM
+  2. At 3 AM, calls `performAutoSync()` to promote all pending best practices
+  3. Pending items become "synced" and active for teaching
+  4. Reschedules for next day's 3 AM
+- **Manual Trigger**: "Sync Now" button in Command Center for immediate sync
+- **Service Methods** (`neural-network-sync.ts`):
+  - `performAutoSync()`: Syncs all pending best practices without review
+  - `retractBestPractice(id, reason)`: Marks synced practice as rejected/inactive
+  - `getSyncHistory()`: Returns all syncs with retract eligibility
+  - `getAutoSyncStatus()`: Returns next sync time and pending count
+  - `getNextSyncTime()`: Calculates next 3 AM (tomorrow if past today's)
+
+#### Retract Functionality
+- **Purpose**: Allow post-hoc removal of auto-synced practices from active teaching
+- **Behavior**: Sets `isActive: false` and `status: 'rejected'` with retraction reason
+- **UI**: Retract button on each synced item in Command Center with confirmation dialog
+- **Philosophy**: "Auto-everything with ability to review/edit/retract" - efficiency-first approach
+
+#### API Endpoints
+- `POST /api/sync/auto` - Manual trigger for auto-sync
+- `POST /api/sync/retract/:id` - Retract a synced best practice (requires reason)
+- `GET /api/sync/auto-status` - Get next sync time and pending count
+- `GET /api/sync/history` - Get detailed sync history with retract buttons
+
+#### Command Center UI Updates
+- Auto-Sync Status Card: Shows countdown to next sync, pending count, "Sync Now" button
+- Sync History Panel: List of all syncs with timestamps and item counts
+- Retract Dialogs: Confirmation with reason input before retracting
+
+#### Password Recovery Flow (Complete)
+- **Forgot Password Page** (`/auth/forgot-password`):
+  - Email input → sends reset link with secure token
+  - Success message shows even if email not found (prevents enumeration)
+- **Reset Password Page** (`/auth/reset-password?token=...`):
+  - Token validation before showing form
+  - New password + confirmation with validation
+  - On success: Invalidates ALL reset tokens for user (prevents replay)
+  - Increments password version (invalidates existing sessions)
+- **Security Features**:
+  - Tokens expire after 1 hour
+  - Single-use tokens (consumed on use)
+  - All tokens invalidated on successful reset
+  - Brute-force lockout: 5 failed attempts = 15 minute lockout
+
+#### Files Modified
+- `server/services/sync-scheduler.ts` - New file for nightly scheduler
+- `server/services/neural-network-sync.ts` - Added auto-sync and retract methods
+- `server/routes.ts` - Added auto-sync API endpoints
+- `server/index.ts` - Integrated scheduler startup
+- `client/src/pages/admin/CommandCenter.tsx` - Added sync status card, history panel, retract dialogs
+
+---
+
 ### Session 10: Password Authentication Security Hardening (Dec 8, 2025)
 
 #### Token Invalidation Security Fix
