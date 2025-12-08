@@ -80,7 +80,10 @@ import type {
   DrillState,
   MatchPair,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isMatchingDrill, getDrillInstructions } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, getDrillInstructions } from "@shared/whiteboard-types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { GripVertical } from "lucide-react";
 
 interface WhiteboardProps {
   items: WhiteboardItem[];
@@ -522,6 +525,356 @@ const MatchDrillDisplay = ({ item, index, onMatchComplete }: MatchDrillDisplayPr
               );
             })}
           </div>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+interface FillBlankDrillDisplayProps {
+  item: DrillItem;
+  index: number;
+  onComplete?: (drillId: string, isCorrect: boolean) => void;
+}
+
+const FillBlankDrillDisplay = ({ item, index, onComplete }: FillBlankDrillDisplayProps) => {
+  const { data } = item;
+  const [selectedAnswer, setSelectedAnswer] = useState<string>('');
+  const [textInput, setTextInput] = useState<string>('');
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  
+  const hasOptions = data.options && data.options.length > 0;
+  const instructions = getDrillInstructions(data.drillType);
+  
+  const handleSubmit = useCallback(() => {
+    const answer = hasOptions ? selectedAnswer : textInput.trim();
+    const correct = answer.toLowerCase() === data.correctAnswer?.toLowerCase();
+    setIsCorrect(correct);
+    setIsSubmitted(true);
+    if (onComplete) {
+      onComplete(item.id!, correct);
+    }
+  }, [selectedAnswer, textInput, hasOptions, data.correctAnswer, item.id, onComplete]);
+  
+  const handleReset = useCallback(() => {
+    setSelectedAnswer('');
+    setTextInput('');
+    setIsSubmitted(false);
+    setIsCorrect(null);
+  }, []);
+  
+  const renderBlankedText = () => {
+    const text = data.blankedText || data.prompt;
+    const parts = text.split('___');
+    
+    return (
+      <div className="text-lg md:text-xl font-medium text-center py-3 bg-background/50 rounded-lg flex flex-wrap items-center justify-center gap-1">
+        {parts.map((part, i) => (
+          <span key={i}>
+            {part}
+            {i < parts.length - 1 && (
+              <span className={`inline-block min-w-[80px] mx-1 px-2 py-1 rounded border-2 border-dashed ${
+                isSubmitted 
+                  ? isCorrect 
+                    ? 'border-green-500 bg-green-500/10 text-green-700 dark:text-green-300'
+                    : 'border-red-500 bg-red-500/10 text-red-700 dark:text-red-300'
+                  : 'border-violet-500/50'
+              }`}>
+                {isSubmitted 
+                  ? (hasOptions ? selectedAnswer : textInput) || '___'
+                  : hasOptions 
+                    ? (selectedAnswer || '___')
+                    : (textInput || '___')
+                }
+              </span>
+            )}
+          </span>
+        ))}
+      </div>
+    );
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-violet-500/10 border-violet-500/30"
+      data-testid={`whiteboard-item-fill-blank-${index}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Target className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+          <span className="text-sm font-medium text-violet-700 dark:text-violet-300 uppercase tracking-wide">
+            Fill in the Blank
+          </span>
+        </div>
+        {isSubmitted && (
+          isCorrect 
+            ? <CheckCircle2 className="h-5 w-5 text-green-500" />
+            : <XCircle className="h-5 w-5 text-red-500" />
+        )}
+      </div>
+      
+      <p className="text-xs text-muted-foreground">{instructions}</p>
+      
+      {renderBlankedText()}
+      
+      {!isSubmitted ? (
+        <div className="flex flex-col gap-3">
+          {hasOptions ? (
+            <Select value={selectedAnswer} onValueChange={setSelectedAnswer}>
+              <SelectTrigger className="w-full" data-testid={`select-fill-blank-${index}`}>
+                <SelectValue placeholder="Choose an answer..." />
+              </SelectTrigger>
+              <SelectContent>
+                {data.options?.map((option, i) => (
+                  <SelectItem key={i} value={option} data-testid={`option-${option}`}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Input
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              placeholder="Type your answer..."
+              className="text-center"
+              onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+              data-testid={`input-fill-blank-${index}`}
+            />
+          )}
+          
+          <Button
+            onClick={handleSubmit}
+            disabled={hasOptions ? !selectedAnswer : !textInput.trim()}
+            className="w-full"
+            data-testid={`button-submit-fill-blank-${index}`}
+          >
+            <CheckCircle2 className="h-4 w-4 mr-2" />
+            Check Answer
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <div className={`flex items-center gap-2 ${isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            {isCorrect ? (
+              <>
+                <CheckCircle2 className="h-5 w-5" />
+                <span className="font-medium">Correct!</span>
+              </>
+            ) : (
+              <>
+                <XCircle className="h-5 w-5" />
+                <span className="font-medium">
+                  The answer is: <strong>{data.correctAnswer}</strong>
+                </span>
+              </>
+            )}
+          </div>
+          <Button
+            onClick={handleReset}
+            variant="outline"
+            size="sm"
+            data-testid={`button-reset-fill-blank-${index}`}
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+interface SentenceOrderDrillDisplayProps {
+  item: DrillItem;
+  index: number;
+  onComplete?: (drillId: string, isCorrect: boolean) => void;
+}
+
+const SentenceOrderDrillDisplay = ({ item, index, onComplete }: SentenceOrderDrillDisplayProps) => {
+  const { data } = item;
+  const [currentOrder, setCurrentOrder] = useState<string[]>(data.currentOrder || data.words || []);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  
+  const instructions = getDrillInstructions(data.drillType);
+  
+  const handleDragStart = useCallback((index: number) => {
+    setDraggedIndex(index);
+  }, []);
+  
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+    
+    setCurrentOrder(prev => {
+      const newOrder = [...prev];
+      const draggedItem = newOrder[draggedIndex];
+      newOrder.splice(draggedIndex, 1);
+      newOrder.splice(index, 0, draggedItem);
+      return newOrder;
+    });
+    setDraggedIndex(index);
+  }, [draggedIndex]);
+  
+  const handleDragEnd = useCallback(() => {
+    setDraggedIndex(null);
+  }, []);
+  
+  const moveWord = useCallback((fromIndex: number, direction: 'left' | 'right') => {
+    const toIndex = direction === 'left' ? fromIndex - 1 : fromIndex + 1;
+    if (toIndex < 0 || toIndex >= currentOrder.length) return;
+    
+    setCurrentOrder(prev => {
+      const newOrder = [...prev];
+      [newOrder[fromIndex], newOrder[toIndex]] = [newOrder[toIndex], newOrder[fromIndex]];
+      return newOrder;
+    });
+  }, [currentOrder.length]);
+  
+  const handleSubmit = useCallback(() => {
+    const correct = JSON.stringify(currentOrder) === JSON.stringify(data.correctOrder);
+    setIsCorrect(correct);
+    setIsSubmitted(true);
+    if (onComplete) {
+      onComplete(item.id!, correct);
+    }
+  }, [currentOrder, data.correctOrder, item.id, onComplete]);
+  
+  const handleReset = useCallback(() => {
+    setCurrentOrder(data.words || []);
+    setIsSubmitted(false);
+    setIsCorrect(null);
+  }, [data.words]);
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-indigo-500/10 border-indigo-500/30"
+      data-testid={`whiteboard-item-sentence-order-${index}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <GripVertical className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+          <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300 uppercase tracking-wide">
+            Sentence Builder
+          </span>
+        </div>
+        {isSubmitted && (
+          isCorrect 
+            ? <CheckCircle2 className="h-5 w-5 text-green-500" />
+            : <XCircle className="h-5 w-5 text-red-500" />
+        )}
+      </div>
+      
+      <p className="text-xs text-muted-foreground">{instructions}</p>
+      
+      <div className="flex flex-wrap gap-2 p-3 bg-background/50 rounded-lg min-h-[60px] justify-center">
+        {currentOrder.map((word, i) => (
+          <motion.div
+            key={`${word}-${i}`}
+            draggable={!isSubmitted}
+            onDragStart={() => handleDragStart(i)}
+            onDragOver={(e) => handleDragOver(e, i)}
+            onDragEnd={handleDragEnd}
+            layout
+            className={`
+              flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium
+              ${isSubmitted 
+                ? isCorrect
+                  ? 'bg-green-500/20 text-green-700 dark:text-green-300 border border-green-500/30'
+                  : 'bg-red-500/20 text-red-700 dark:text-red-300 border border-red-500/30'
+                : draggedIndex === i
+                  ? 'bg-indigo-500/30 text-indigo-800 dark:text-indigo-200 ring-2 ring-indigo-500 cursor-grabbing'
+                  : 'bg-background border border-indigo-500/30 cursor-grab hover:bg-indigo-500/10'
+              }
+            `}
+            data-testid={`word-${i}-${word}`}
+          >
+            {!isSubmitted && (
+              <GripVertical className="h-3 w-3 text-muted-foreground" />
+            )}
+            {word}
+          </motion.div>
+        ))}
+      </div>
+      
+      {!isSubmitted && (
+        <div className="flex flex-wrap gap-1 justify-center text-xs text-muted-foreground">
+          <span>Tap arrows or drag to reorder:</span>
+          <div className="flex gap-1">
+            {currentOrder.map((_, i) => (
+              <div key={i} className="flex gap-0.5">
+                <button
+                  onClick={() => moveWord(i, 'left')}
+                  disabled={i === 0}
+                  className="px-1 py-0.5 rounded text-xs hover:bg-muted disabled:opacity-30"
+                  data-testid={`button-move-left-${i}`}
+                >
+                  ←
+                </button>
+                <span className="text-muted-foreground/50">{i + 1}</span>
+                <button
+                  onClick={() => moveWord(i, 'right')}
+                  disabled={i === currentOrder.length - 1}
+                  className="px-1 py-0.5 rounded text-xs hover:bg-muted disabled:opacity-30"
+                  data-testid={`button-move-right-${i}`}
+                >
+                  →
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {!isSubmitted ? (
+        <Button
+          onClick={handleSubmit}
+          className="w-full"
+          data-testid={`button-submit-sentence-order-${index}`}
+        >
+          <CheckCircle2 className="h-4 w-4 mr-2" />
+          Check Order
+        </Button>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <div className={`flex items-center gap-2 ${isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            {isCorrect ? (
+              <>
+                <CheckCircle2 className="h-5 w-5" />
+                <span className="font-medium">Perfect order!</span>
+              </>
+            ) : (
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <XCircle className="h-5 w-5" />
+                  <span className="font-medium">Not quite right</span>
+                </div>
+                <p className="text-sm">
+                  Correct order: <strong>{data.correctOrder?.join(' ')}</strong>
+                </p>
+              </div>
+            )}
+          </div>
+          <Button
+            onClick={handleReset}
+            variant="outline"
+            size="sm"
+            data-testid={`button-reset-sentence-order-${index}`}
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
         </div>
       )}
     </motion.div>
@@ -1760,6 +2113,12 @@ const WhiteboardItemDisplay = ({
   if (isDrillItem(item)) {
     if (isMatchingDrill(item)) {
       return <MatchDrillDisplay item={item} index={index} />;
+    }
+    if (isFillBlankDrill(item)) {
+      return <FillBlankDrillDisplay item={item} index={index} />;
+    }
+    if (isSentenceOrderDrill(item)) {
+      return <SentenceOrderDrillDisplay item={item} index={index} />;
     }
     return (
       <DrillItemDisplay 

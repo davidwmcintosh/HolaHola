@@ -64,8 +64,13 @@ export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'd
 
 /**
  * Drill types for inline micro-exercises
+ * - repeat: Listen and repeat pronunciation
+ * - translate: Translate and speak
+ * - fill_blank: Fill in missing word(s) from options
+ * - match: Match pairs of words/phrases
+ * - sentence_order: Drag-and-drop word ordering
  */
-export type DrillType = 'repeat' | 'translate' | 'fill_blank' | 'match';
+export type DrillType = 'repeat' | 'translate' | 'fill_blank' | 'match' | 'sentence_order';
 
 /**
  * Drill state for interactive exercises
@@ -116,6 +121,15 @@ export interface DrillItemData {
   matchedCount?: number;
   attempts?: number;
   matchState?: MatchState;
+  // Fill-in-the-blank drill specific fields
+  blankedText?: string;           // Text with ___ placeholder(s)
+  options?: string[];             // Dropdown options for the blank
+  correctAnswer?: string;         // The correct answer for the blank
+  selectedAnswer?: string | null; // User's selected answer
+  // Sentence order drill specific fields (drag-and-drop)
+  words?: string[];               // Scrambled words to arrange
+  correctOrder?: string[];        // Words in correct order
+  currentOrder?: string[];        // User's current arrangement
 }
 
 /**
@@ -592,11 +606,74 @@ function parseMatchPairs(content: string): { pairs: MatchPair[], shuffledRightId
 }
 
 /**
+ * Parse fill-in-the-blank content
+ * Format: sentence with ___ | option1, option2, option3 | correctAnswer
+ * Example: El perro ___ en la casa | está, estoy, estás | está
+ */
+function parseFillBlankContent(content: string): Partial<DrillItemData> {
+  const parts = content.split('|').map(p => p.trim());
+  const blankedText = parts[0] || content;
+  const optionsStr = parts[1] || '';
+  const correctAnswer = parts[2] || '';
+  
+  // Parse options (comma-separated)
+  const options = optionsStr.split(',').map(o => o.trim()).filter(o => o.length > 0);
+  
+  // If no options provided, this is a text input fill-blank
+  if (options.length === 0 && correctAnswer) {
+    return {
+      blankedText,
+      correctAnswer,
+      selectedAnswer: null,
+    };
+  }
+  
+  // Shuffle options for variety (but keep it deterministic)
+  const shuffledOptions = deterministicShuffle(options, content);
+  
+  return {
+    blankedText,
+    options: shuffledOptions,
+    correctAnswer: correctAnswer || options[0] || '',
+    selectedAnswer: null,
+  };
+}
+
+/**
+ * Parse sentence order content (drag-and-drop)
+ * Format: word1 | word2 | word3 | word4 (correct order)
+ * Example: Yo | tengo | un | gato | negro
+ * The words will be scrambled for the student to reorder
+ */
+function parseSentenceOrderContent(content: string): Partial<DrillItemData> {
+  // Split by pipe for words in correct order
+  const correctOrder = content.split('|').map(w => w.trim()).filter(w => w.length > 0);
+  
+  if (correctOrder.length < 2) {
+    console.warn('[Whiteboard] Sentence order drill needs at least 2 words');
+    return {
+      words: [content.trim()],
+      correctOrder: [content.trim()],
+      currentOrder: [content.trim()],
+    };
+  }
+  
+  // Scramble words deterministically
+  const scrambledWords = deterministicShuffle(correctOrder, content);
+  
+  return {
+    words: scrambledWords,
+    correctOrder,
+    currentOrder: scrambledWords,
+  };
+}
+
+/**
  * Parse DRILL content with optional type attribute
  */
 function parseDrillContent(typeAttr: string | undefined, content: string): DrillItemData {
   const drillType = (typeAttr?.toLowerCase() || 'repeat') as DrillType;
-  const validTypes: DrillType[] = ['repeat', 'translate', 'fill_blank', 'match'];
+  const validTypes: DrillType[] = ['repeat', 'translate', 'fill_blank', 'match', 'sentence_order'];
   const validatedType = validTypes.includes(drillType) ? drillType : 'repeat';
   
   // Handle matching drills specially
@@ -623,6 +700,28 @@ function parseDrillContent(typeAttr: string | undefined, content: string): Drill
       matchedCount: 0,
       attempts: 0,
       matchState: 'pending',
+    };
+  }
+  
+  // Handle fill-in-the-blank drills
+  if (validatedType === 'fill_blank') {
+    const fillBlankData = parseFillBlankContent(content);
+    return {
+      drillType: 'fill_blank',
+      prompt: fillBlankData.blankedText || content.trim(),
+      state: 'waiting',
+      ...fillBlankData,
+    };
+  }
+  
+  // Handle sentence order drills (drag-and-drop)
+  if (validatedType === 'sentence_order') {
+    const sentenceData = parseSentenceOrderContent(content);
+    return {
+      drillType: 'sentence_order',
+      prompt: 'Arrange the words in the correct order',
+      state: 'waiting',
+      ...sentenceData,
     };
   }
   
@@ -1194,6 +1293,12 @@ export const whiteboardExamples = {
     `[DRILL type="${type}"]${prompt}[/DRILL]`,
   drillMatch: (pairs: Array<{ left: string, right: string }>) => 
     `[DRILL type="match"]\n${pairs.map(p => `${p.left} => ${p.right}`).join('\n')}\n[/DRILL]`,
+  drillFillBlank: (blankedText: string, options: string[], correctAnswer: string) => 
+    `[DRILL type="fill_blank"]${blankedText}|${options.join(',')}|${correctAnswer}[/DRILL]`,
+  drillFillBlankText: (blankedText: string, correctAnswer: string) => 
+    `[DRILL type="fill_blank"]${blankedText}||${correctAnswer}[/DRILL]`,
+  drillSentenceOrder: (words: string[]) => 
+    `[DRILL type="sentence_order"]${words.join('|')}[/DRILL]`,
   context: (word: string, sentences: string[]) => 
     `[CONTEXT]${word}|${sentences.join('|')}[/CONTEXT]`,
   grammarTable: (verb: string, tense: string = 'present') => 
@@ -1332,6 +1437,14 @@ export function isMatchingDrill(item: DrillItem): boolean {
   return item.data.drillType === 'match' && Array.isArray(item.data.pairs);
 }
 
+export function isFillBlankDrill(item: DrillItem): boolean {
+  return item.data.drillType === 'fill_blank' && !!item.data.blankedText;
+}
+
+export function isSentenceOrderDrill(item: DrillItem): boolean {
+  return item.data.drillType === 'sentence_order' && Array.isArray(item.data.words);
+}
+
 /**
  * Create a pronunciation feedback item from analysis results
  */
@@ -1377,7 +1490,11 @@ export function getDrillInstructions(drillType: DrillType): string {
     case 'translate':
       return 'Translate this into the target language';
     case 'fill_blank':
-      return 'Fill in the missing word or phrase';
+      return 'Select or type the correct word to complete the sentence';
+    case 'match':
+      return 'Match each item on the left with its pair on the right';
+    case 'sentence_order':
+      return 'Drag the words into the correct order to form a sentence';
     default:
       return 'Complete this exercise';
   }

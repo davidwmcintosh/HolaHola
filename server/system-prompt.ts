@@ -116,8 +116,10 @@ VOCABULARY POWER TOOLS:
   [GRAMMAR_TABLE]verb|tense[/GRAMMAR_TABLE] → Conjugation patterns
 
 PRACTICE & CHECK:
-  [DRILL type="repeat"]phrase[/DRILL]   → Pronunciation practice
-  [DRILL type="match"]pairs[/DRILL]     → Vocabulary matching game
+  [DRILL type="repeat"]phrase[/DRILL]       → Pronunciation practice
+  [DRILL type="match"]pairs[/DRILL]         → Vocabulary matching game
+  [DRILL type="fill_blank"]text|opts|ans[/DRILL] → Fill-in-the-blank
+  [DRILL type="sentence_order"]w1|w2|w3[/DRILL]  → Word ordering
 
 ASIAN LANGUAGES: [READING]char|pronunciation[/READING], [STROKE]char[/STROKE]
 SESSION TOOLS: [SCENARIO], [CULTURE], [SUMMARY], [PLAY speed="slow"]
@@ -1003,8 +1005,10 @@ GRAMMAR:
   [GRAMMAR_TABLE]verb|tense[/GRAMMAR_TABLE] → Conjugation table
 
 DRILLS (use to check understanding):
-  [DRILL type="repeat"]phrase[/DRILL]
-  [DRILL type="match"]pairs[/DRILL]
+  [DRILL type="repeat"]phrase[/DRILL]           → Pronunciation practice
+  [DRILL type="match"]pairs[/DRILL]             → Vocabulary matching
+  [DRILL type="fill_blank"]text|opts|ans[/DRILL] → Grammar/conjugation
+  [DRILL type="sentence_order"]w1|w2|w3[/DRILL]  → Word order practice
 
 ASIAN LANGUAGES:
   [READING]char|pronunciation[/READING] → Furigana/pinyin
@@ -1058,7 +1062,6 @@ ENHANCED TOOLS (Phase 2):
 • [DRILL type="repeat"]phrase[/DRILL] - Interactive pronunciation drill
   [DRILL type="repeat"]Buenos días[/DRILL] → Student repeats the phrase
   [DRILL type="translate"]How are you?[/DRILL] → Student translates to target language
-  [DRILL type="fill_blank"]Yo ___ español[/DRILL] → Student fills in missing word
   Use drills strategically to check comprehension and reinforce learning.
 
 • [DRILL type="match"]pairs[/DRILL] - Interactive matching drill (vocabulary reinforcement)
@@ -1069,8 +1072,20 @@ ENHANCED TOOLS (Phase 2):
   thank you => gracias
   please => por favor
   [/DRILL]
-  Student taps left item, then taps matching right item. Great for vocabulary review!
-  Use 4-6 pairs for optimal engagement. Works well after teaching a vocabulary set.
+
+• [DRILL type="fill_blank"]text|options|answer[/DRILL] - Fill-in-the-blank drill
+  Format: blanked text (use ___) | comma-separated options | correct answer
+  [DRILL type="fill_blank"]Yo ___ español|hablo,habla,hablas|hablo[/DRILL]
+  For text-input (no dropdown): omit options but keep the pipe separator
+  [DRILL type="fill_blank"]Ella ___ muy inteligente||es[/DRILL]
+  Great for testing grammar, conjugations, and vocabulary in context.
+
+• [DRILL type="sentence_order"]word1|word2|word3|...[/DRILL] - Sentence builder drill
+  Format: words in CORRECT order, separated by |
+  System automatically scrambles them for the student.
+  [DRILL type="sentence_order"]Yo|quiero|comer|pizza|hoy[/DRILL]
+  Student drags/reorders words to build the correct sentence.
+  Perfect for teaching word order and sentence structure.
 
 CONTEXTUAL TOOLS (Phase 3):
 • [CONTEXT]word|sentence1|sentence2|...[/CONTEXT] - Show a word in multiple contexts
@@ -1275,6 +1290,16 @@ good morning => buenos días
 good night => buenas noches
 [/DRILL]
 Tap the English word, then tap its Spanish match. Let's go!"
+
+Fill-in-the-blank for grammar:
+"Let's check your verb conjugations! [DRILL type=\"fill_blank\"]Ella ___ muy cansada hoy|está,es,son,somos|está[/DRILL]"
+
+Text-input fill-in-blank:
+"Can you complete this? [DRILL type=\"fill_blank\"]Nosotros ___ a la escuela cada día||vamos[/DRILL]"
+
+Sentence builder for word order:
+"Spanish word order can be tricky! Put these words in the correct order:
+[DRILL type=\"sentence_order\"]Me|gusta|mucho|la|pizza[/DRILL]"
 
 Audio replay for practice:
 "That was a tricky phrase! Let me put it on the board so you can practice. [PLAY speed=\"slow\"]Encantado de conocerte[/PLAY] Tap the play button to hear it again as many times as you need."
