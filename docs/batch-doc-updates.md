@@ -594,6 +594,54 @@ Two new tables in `shared/schema.ts`:
 
 ---
 
+### [December 8, 2025] - Phase 4b: Drill Result WebSocket Pipeline
+**Target:** TECHNICAL-REFERENCE.md
+**Section:** Voice Pipeline / Pedagogical Tracking
+**Content:**
+Complete client-to-server pipeline for tracking drill completion outcomes via WebSocket.
+
+**CLIENT SIDE:**
+
+1. **StreamingVoiceClient** (`client/src/lib/streamingVoiceClient.ts`):
+   - New method: `sendDrillResult(drillId, drillType, isCorrect, responseTimeMs, toolContent?)`
+   - Sends JSON message with `type: 'drill_result'` over WebSocket
+
+2. **useStreamingVoice hook** (`client/src/hooks/useStreamingVoice.ts`):
+   - Exposed `sendDrillResult()` method in hook return interface
+   - Delegates to client method when client is connected
+
+3. **Component Callback Chain**:
+   - `StreamingVoiceChat` → `VoiceChatViewManager` → `ImmersiveTutor` → `Whiteboard`
+   - `onDrillComplete` callback passes: drillId, drillType, isCorrect, responseTimeMs, toolContent
+
+4. **Drill Components Updated**:
+   - `MatchDrillDisplay`: Added `onMatchComplete` callback (was missing), tracks `wrongAttempts` separately
+     - Reports `isPerfect = (wrongAttempts === 0)` for accurate completion tracking
+   - `FillBlankDrillDisplay`: Already had `onComplete` - unchanged
+   - `SentenceOrderDrillDisplay`: Already had `onComplete` - unchanged
+
+**SERVER SIDE** (already implemented in Phase 4):
+- `unified-ws-handler.ts`: `drill_result` message handler calls `updateToolEventEngagement()`
+- `pedagogical-insights-service.ts`: `updateToolEventEngagement()` updates drill result tracking
+
+**MESSAGE FLOW:**
+```
+Client: User completes drill
+  → Whiteboard: handleDrillComplete(drillId, isCorrect)
+  → ImmersiveTutor: onDrillComplete(drillId, drillType, isCorrect, responseTimeMs, toolContent)
+  → VoiceChatViewManager: onDrillComplete(...)
+  → StreamingVoiceChat: streamingVoice.sendDrillResult(...)
+  → WebSocket: { type: 'drill_result', drillId, drillType, isCorrect, responseTimeMs, toolContent }
+  → Server: updateToolEventEngagement(drillId, isCorrect, responseTimeMs)
+```
+
+**DRILL ACCURACY TRACKING:**
+- **Match drills**: `isPerfect = true` only if zero wrong attempts before completion
+- **Fill-blank**: `isCorrect` based on exact answer matching (case-insensitive)
+- **Sentence order**: `isCorrect` based on word order matching expected sequence
+
+---
+
 ## Instructions
 
 When user says "add to the batch" or "batch doc updates":
