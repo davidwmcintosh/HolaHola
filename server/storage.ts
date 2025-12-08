@@ -601,6 +601,12 @@ export interface IStorage {
   getPeopleConnections(personId: string): Promise<PeopleConnection[]>;
   getAllPeopleConnections(): Promise<PeopleConnection[]>;
   updatePeopleConnection(id: string, data: Partial<PeopleConnection>): Promise<PeopleConnection | undefined>;
+  // Find pending connections that might match a new user (by name)
+  findPendingConnectionsByName(firstName: string, lastName?: string): Promise<PeopleConnection[]>;
+  // Get connections where this person is the subject (personB or pending match)
+  getConnectionsAboutPerson(personId: string, firstName?: string, lastName?: string): Promise<PeopleConnection[]>;
+  // Link a pending connection to an actual user
+  linkPendingConnection(connectionId: string, personBId: string): Promise<PeopleConnection | undefined>;
   
   // Student Insights - Per-student learning observations
   createStudentInsight(data: InsertStudentInsight): Promise<StudentInsight>;
@@ -4731,6 +4737,57 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db.update(peopleConnections)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(peopleConnections.id, id))
+      .returning();
+    return updated;
+  }
+
+  async findPendingConnectionsByName(firstName: string, lastName?: string): Promise<PeopleConnection[]> {
+    // Build a search pattern for the name
+    const fullName = lastName ? `${firstName} ${lastName}` : firstName;
+    const searchPattern = `%${fullName}%`;
+    
+    return db.select().from(peopleConnections)
+      .where(and(
+        eq(peopleConnections.isActive, true),
+        eq(peopleConnections.status, 'pending_match'),
+        sql`LOWER(${peopleConnections.pendingPersonName}) LIKE LOWER(${searchPattern})`
+      ))
+      .orderBy(desc(peopleConnections.confidenceScore));
+  }
+
+  async getConnectionsAboutPerson(personId: string, firstName?: string, lastName?: string): Promise<PeopleConnection[]> {
+    // Get connections where this person is personB (confirmed) or matches pending name
+    const conditions = [eq(peopleConnections.isActive, true)];
+    
+    // Either personBId matches OR pending name matches
+    if (firstName) {
+      const fullName = lastName ? `${firstName} ${lastName}` : firstName;
+      const searchPattern = `%${fullName}%`;
+      conditions.push(sql`(
+        ${peopleConnections.personBId} = ${personId} 
+        OR (${peopleConnections.status} = 'pending_match' AND LOWER(${peopleConnections.pendingPersonName}) LIKE LOWER(${searchPattern}))
+      )`);
+    } else {
+      conditions.push(eq(peopleConnections.personBId, personId));
+    }
+    
+    return db.select().from(peopleConnections)
+      .where(and(...conditions))
+      .orderBy(desc(peopleConnections.confidenceScore));
+  }
+
+  async linkPendingConnection(connectionId: string, personBId: string): Promise<PeopleConnection | undefined> {
+    const [updated] = await db.update(peopleConnections)
+      .set({
+        personBId: personBId,
+        status: 'confirmed',
+        confidenceScore: 1.0,
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(peopleConnections.id, connectionId),
+        eq(peopleConnections.status, 'pending_match')
+      ))
       .returning();
     return updated;
   }

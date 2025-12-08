@@ -8,6 +8,29 @@ Staging area for documentation changes to be consolidated later.
 
 ### Session 9: TEXT_INPUT Tool & Memory System Completion (Dec 8, 2025)
 
+#### Organic Connection Discovery - Warm Introductions System
+- **Purpose**: When students mention people in their lives, Daniela records connections even for non-users
+- **Workflow**:
+  1. Student mentions someone naturally ("My friend Ricardo taught me salsa")
+  2. Daniela records as PENDING connection with name, relationship, and context
+  3. When that person signs up, greeting flow matches by name
+  4. First greeting includes warm introduction: "I know you taught David salsa!"
+- **Schema Extensions**:
+  - `status`: 'confirmed' | 'pending' | 'inferred' for connection lifecycle
+  - `pendingPersonName`: Store first name for people not yet users
+  - `pendingPersonContext`: Additional context about the pending person
+  - `confidenceScore`: Certainty level for pending connections
+- **New Storage Functions**:
+  - `findPendingConnectionsByName(firstName, lastName?)`: Match pending connections
+  - `getConnectionsAboutPerson(userId, firstName, lastName?)`: Find what others said about this person
+  - `linkPendingConnection(connectionId, userId)`: Link pending connection to confirmed user
+- **Greeting Integration**:
+  - Parallel fetch includes user lookup + connections about student
+  - `buildGreetingPrompt()` now includes `connectionsAboutStudent` context
+  - Prompt guides Daniela to use connections naturally for warm introduction
+- **Self-Learning Update**: Added SHOW/HIDE timing rule to selfBestPractices
+- **Founder Mode Update**: Added 🔗 ORGANIC CONNECTION DISCOVERY section
+
 #### TEXT_INPUT Whiteboard Tool - Complete End-to-End Implementation
 - **Purpose**: Writing exercises during voice chat - Daniela can request typed responses
 - **Format**: `[TEXT_INPUT:Write a sentence using the verb "estar"]`

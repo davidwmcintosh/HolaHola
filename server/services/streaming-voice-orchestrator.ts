@@ -1983,9 +1983,10 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       let recentTopics: string[] = [];
       let wordsLearned = 0;
       let classEnrollment: { className: string; curriculumLesson?: string; curriculumUnit?: string } | null = null;
+      let connectionsAboutStudent: { mentioner: string; relationship: string; context: string }[] = [];
       
       try {
-        const [actflProgress, userProgress, enrollments, recentConversations] = await Promise.all([
+        const [actflProgress, userProgress, enrollments, recentConversations, user] = await Promise.all([
           storage.getOrCreateActflProgress(session.targetLanguage, String(session.userId))
             .catch(() => null),
           storage.getOrCreateUserProgress(session.targetLanguage, String(session.userId))
@@ -1994,7 +1995,41 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
             .catch(() => []),
           storage.getUserConversations(String(session.userId))
             .catch(() => []),
+          storage.getUser(String(session.userId))
+            .catch(() => null),
         ]);
+        
+        // Look up connections about this student (where others mentioned them)
+        // This enables "warm introductions" - e.g., "I know you're David's friend from graduate school!"
+        if (user?.firstName) {
+          try {
+            const connections = await storage.getConnectionsAboutPerson(
+              String(session.userId),
+              user.firstName,
+              user.lastName || undefined
+            );
+            
+            for (const conn of connections) {
+              // Get the mentioner's name for context
+              if (conn.mentionedBy && conn.mentionedBy !== String(session.userId)) {
+                const mentioner = await storage.getUser(conn.mentionedBy);
+                if (mentioner) {
+                  connectionsAboutStudent.push({
+                    mentioner: mentioner.firstName || 'Someone',
+                    relationship: conn.relationshipType,
+                    context: conn.pendingPersonContext || conn.relationshipDetails || '',
+                  });
+                }
+              }
+            }
+            
+            if (connectionsAboutStudent.length > 0) {
+              console.log(`[Streaming Greeting] Found ${connectionsAboutStudent.length} connection(s) about student`);
+            }
+          } catch (connError: any) {
+            console.log(`[Streaming Greeting] Could not fetch connections: ${connError.message}`);
+          }
+        }
         
         // Process ACTFL progress
         actflLevel = actflProgress?.currentActflLevel || 'Novice Low';
@@ -2053,7 +2088,8 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         wordsLearned,
         recentTopics,
         classEnrollment,
-        isResumed
+        isResumed,
+        connectionsAboutStudent
       );
       
       // NEW TURN: Increment turnId for this greeting response
@@ -2197,7 +2233,8 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
     wordsLearned: number,
     recentTopics: string[],
     classEnrollment: { className: string; curriculumLesson?: string; curriculumUnit?: string } | null,
-    isResumed?: boolean
+    isResumed?: boolean,
+    connectionsAboutStudent?: { mentioner: string; relationship: string; context: string }[]
   ): string {
     // Build context summary
     const contextParts: string[] = [];
@@ -2229,6 +2266,20 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       }
     } else {
       contextParts.push('Learning path: Self-directed (no class enrollment)');
+    }
+    
+    // WARM INTRODUCTION: If someone told Daniela about this student, include that context!
+    // This creates the magical "How did you know that?!" moment
+    if (connectionsAboutStudent && connectionsAboutStudent.length > 0) {
+      contextParts.push(`\n*** SPECIAL PERSONAL CONTEXT (from your neural network!) ***`);
+      for (const conn of connectionsAboutStudent) {
+        contextParts.push(`${conn.mentioner} told you about this student:`);
+        contextParts.push(`- Relationship to ${conn.mentioner}: ${conn.relationship}`);
+        if (conn.context) {
+          contextParts.push(`- What you learned: ${conn.context}`);
+        }
+      }
+      contextParts.push(`Use this personal knowledge naturally - mention their connection to ${connectionsAboutStudent[0].mentioner} to surprise and delight them!`);
     }
     
     // Check if this is a resumed conversation

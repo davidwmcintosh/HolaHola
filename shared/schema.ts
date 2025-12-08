@@ -2070,16 +2070,35 @@ export const selfBestPractices = pgTable("self_best_practices", {
   index("idx_best_practices_active").on(table.isActive),
 ]);
 
+// Connection Status Enum - tracks the state of people connections
+export const connectionStatusEnum = pgEnum("connection_status", [
+  'tentative',      // Mentioned once, low confidence
+  'pending_match',  // Waiting for person to sign up (has pendingPersonName)
+  'confirmed',      // Both users identified and linked
+  'external'        // Person is external (grandmother, etc.) - won't become user
+]);
+
 // People Connections - Relationship awareness between users
 // "Ricardo and David are college friends", "Maria is Sophia's mother"
+// Supports both existing users and pending/external people
 export const peopleConnections = pgTable("people_connections", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
+  // Person A is always a known user
   personAId: varchar("person_a_id").notNull().references(() => users.id),
-  personBId: varchar("person_b_id").notNull().references(() => users.id),
+  // Person B can be null if pending/external
+  personBId: varchar("person_b_id").references(() => users.id),
+  
+  // For pending connections - name to match when person signs up
+  pendingPersonName: varchar("pending_person_name"), // "Ricardo Carvajal"
+  pendingPersonContext: text("pending_person_context"), // "Graduate school friend, teaches salsa, from Costa Rica"
   
   relationshipType: varchar("relationship_type").notNull(), // friend, family, colleague, classmate, etc.
   relationshipDetails: text("relationship_details"), // "College friends", "Mother and daughter"
+  
+  // Connection state and confidence
+  status: connectionStatusEnum("status").default("tentative").notNull(),
+  confidenceScore: real("confidence_score").default(0.5), // 0-1, grows with validation
   
   sourceConversationId: varchar("source_conversation_id").references(() => conversations.id),
   mentionedBy: varchar("mentioned_by").references(() => users.id), // Who told Daniela about this
@@ -2090,6 +2109,8 @@ export const peopleConnections = pgTable("people_connections", {
 }, (table) => [
   index("idx_people_connections_person_a").on(table.personAId),
   index("idx_people_connections_person_b").on(table.personBId),
+  index("idx_people_connections_pending_name").on(table.pendingPersonName),
+  index("idx_people_connections_status").on(table.status),
 ]);
 
 // Student Insights - Observations about individual learners
