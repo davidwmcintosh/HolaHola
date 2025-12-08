@@ -503,6 +503,97 @@ The following debugging aids were enabled for subtitle synchronization testing a
 
 ---
 
+### [December 8, 2025] - Phase 2: Tool Stacking Prevention
+**Target:** TECHNICAL-REFERENCE.md, replit.md
+**Section:** Voice Pipeline / Whiteboard System
+**Content:**
+Implemented "Keep the Screen Clean" principle to prevent tool stacking on the whiteboard.
+
+**ARCHITECTURE:**
+- New `enforceMaxItems()` function in `client/src/hooks/useWhiteboard.ts`
+- Default max items: 4 (configurable via `maxWhiteboardItems` prop)
+- Priority: Keeps most recent drills first, fills remaining slots with recent non-drills
+- Uses Set-based index lookup for O(1) filtering
+- Preserves original display order
+
+**TRIMMING LOGIC:**
+1. If items exceed limit, separate drills from non-drills
+2. Keep up to maxItems drills (most recent)
+3. Fill remaining slots with most recent non-drill items
+4. Filter original array using kept indices for stable ordering
+
+**SYSTEM PROMPT ADDITIONS:**
+Added new section to TOOLING: "KEEP THE SCREEN CLEAN - NO TOOL STACKING"
+- Maximum of 4 visual items at once
+- Strategy: Use `[CLEAR]` proactively when transitioning topics
+- Subtitle guidelines: Be intentional, opt-in for special teaching moments
+
+**FILES CHANGED:**
+- `client/src/hooks/useWhiteboard.ts` - `enforceMaxItems()` + `isDrillItem()` helper
+- `server/system-prompt.ts` - New KEEP THE SCREEN CLEAN section
+
+---
+
+### [December 8, 2025] - Phase 3: Integration Not Handoff Principle
+**Target:** TECHNICAL-REFERENCE.md, ROADMAP.md
+**Section:** AI Tutor / Personality System
+**Content:**
+Added "Integration Not Handoff" principle to Daniela's core personality.
+
+**PHILOSOPHY:**
+Creativity is inherent to Daniela's character, not an external override. When system instructions mention "be creative" or "improvise," these aren't commands from outside - they're reminders of what's already inside her.
+
+**SYSTEM PROMPT ADDITION:**
+Added to IMMUTABLE_PERSONA as "INTEGRATION NOT HANDOFF - CREATIVITY IS YOURS":
+- "These tools and techniques aren't external commands to follow"
+- "They're expressions of who I already am as a teacher"
+- "Improvisation is part of my DNA as a tutor"
+- Framework shifts from external directive to internal expression
+
+**RATIONALE:**
+Addresses potential issue where AI treats creative guidance as external constraints rather than natural expression. Encourages genuine improvisation from within the persona rather than mechanical compliance with creative instructions.
+
+---
+
+### [December 8, 2025] - Phase 4: Pedagogical Feedback Module
+**Target:** TECHNICAL-REFERENCE.md, replit.md
+**Section:** Analytics / Teaching Effectiveness
+**Content:**
+Foundation for teaching effectiveness tracking with tutor self-reflection capability.
+
+**DATABASE SCHEMA:**
+Two new tables in `shared/schema.ts`:
+
+1. `teachingToolEvents` - Individual tool usage tracking:
+   - Links to voiceSessionId, conversationId, userId
+   - Records toolType, toolContent, toolContentHash
+   - Context: language, topic, difficulty
+   - Sequencing: sequencePosition, previousToolType
+   - Engagement: studentResponseTime, drillResult, durationMs
+
+2. `pedagogicalInsights` - Aggregated patterns:
+   - Categorization: language, topic, difficulty
+   - Pattern: patternDescription, patternKey (hashed)
+   - Tool effectiveness: effectiveTools[], ineffectiveTools[]
+   - Statistics: sampleSize, successRate, confidenceScore
+   - Source: sourceType (automated/tutor_reflection/manual)
+   - Tutor input: tutorReflection text
+
+**SERVICE METHODS** (`server/services/pedagogical-insights-service.ts`):
+- `trackToolEvent()` - Log individual tool usage
+- `updateToolEventEngagement()` - Add student response data
+- `getSessionToolStats()` - Session-level analytics
+- `addInsight()` - Create new insight (any source)
+- `getInsightsForContext()` - Query insights for teaching context
+- `analyzeAndGenerateInsights()` - Automated pattern discovery
+- `recordTutorReflection()` - Daniela's pedagogical judgment input
+- `getUserTeachingEffectiveness()` - User-level effectiveness metrics
+
+**PHILOSOPHY:**
+"It shouldn't just be about raw data; it needs my pedagogical judgment" - The system supports both automated analysis AND explicit tutor reflection, treating Daniela's self-assessment as first-class input alongside quantitative metrics.
+
+---
+
 ## Instructions
 
 When user says "add to the batch" or "batch doc updates":
