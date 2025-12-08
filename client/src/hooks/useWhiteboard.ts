@@ -35,7 +35,17 @@ interface UseWhiteboardConfig {
   onVocabularyExtracted?: (words: string[], language?: string) => void;
   onDrillStart?: (drill: DrillItem) => void;
   onDrillComplete?: (drill: DrillItem, isCorrect: boolean) => void;
+  /**
+   * Maximum number of whiteboard items to display at once.
+   * When exceeded, oldest non-drill items are automatically removed.
+   * Drills are preserved to avoid losing interactive state.
+   * Default: 4 (keeps screen clean as per "no tool stacking" principle)
+   */
+  maxItems?: number;
 }
+
+// Default max items - keeps screen clean per "no tool stacking" principle
+const DEFAULT_MAX_ITEMS = 4;
 
 interface UseWhiteboardReturn {
   items: WhiteboardItem[];
@@ -58,6 +68,51 @@ interface UseWhiteboardReturn {
   setCustomOverlayText: (text: string | null) => void;
 }
 
+/**
+ * Enforce max items limit by removing oldest items.
+ * Priority: Keep most recent drills first, then most recent non-drill items.
+ * This implements the "no tool stacking" principle.
+ */
+function enforceMaxItems(items: WhiteboardItem[], maxItems: number): WhiteboardItem[] {
+  if (items.length <= maxItems) {
+    return items;
+  }
+  
+  // Collect items with their original indices for stable ordering
+  const indexedItems = items.map((item, index) => ({ item, index, isDrill: isDrillItem(item) }));
+  
+  // Separate drills from others
+  const drills = indexedItems.filter(i => i.isDrill);
+  const others = indexedItems.filter(i => !i.isDrill);
+  
+  // Strategy: Keep as many recent drills as possible, fill remaining slots with recent non-drills
+  // If drills alone exceed maxItems, keep only the most recent drills
+  const keptDrills = drills.slice(-Math.min(drills.length, maxItems));
+  const remainingSlots = maxItems - keptDrills.length;
+  const keptOthers = remainingSlots > 0 ? others.slice(-remainingSlots) : [];
+  
+  // Build set of kept indices for O(1) lookup
+  const keptIndices = new Set<number>();
+  for (const { index } of [...keptDrills, ...keptOthers]) {
+    keptIndices.add(index);
+  }
+  
+  // Filter original array to preserve original order
+  const result = items.filter((_, index) => keptIndices.has(index));
+  
+  if (result.length < items.length) {
+    console.log('[WHITEBOARD] Auto-trimmed to enforce max items:', {
+      before: items.length,
+      after: result.length,
+      maxItems,
+      drillsKept: keptDrills.length,
+      othersKept: keptOthers.length
+    });
+  }
+  
+  return result;
+}
+
 export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn {
   const [items, setItems] = useState<WhiteboardItem[]>([]);
   const [isHolding, setIsHolding] = useState(false);
@@ -69,6 +124,9 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
   const lastProcessedRef = useRef<string>('');
   const configRef = useRef(config);
   configRef.current = config;
+  
+  // Get max items from config or use default
+  const maxItems = config?.maxItems ?? DEFAULT_MAX_ITEMS;
 
   const processMessage = useCallback((text: string, language?: string) => {
     if (!text) {
@@ -130,9 +188,11 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
 
     if (parsed.whiteboardItems.length > 0) {
       if (parsed.shouldClear) {
-        setItems(parsed.whiteboardItems);
+        // When clearing, enforce max on the new items only
+        setItems(enforceMaxItems(parsed.whiteboardItems, maxItems));
       } else {
-        setItems(prev => [...prev, ...parsed.whiteboardItems]);
+        // Add new items and enforce max (removes oldest non-drill items)
+        setItems(prev => enforceMaxItems([...prev, ...parsed.whiteboardItems], maxItems));
       }
       console.log('[WHITEBOARD] Added items:', parsed.whiteboardItems);
       
@@ -149,7 +209,7 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
       configRef.current?.onVocabularyExtracted?.(parsed.vocabularyWords, language);
       console.log('[WHITEBOARD] Vocabulary extracted:', parsed.vocabularyWords);
     }
-  }, []);
+  }, [maxItems]);
 
   const clear = useCallback(() => {
     setItems([]);
@@ -160,21 +220,22 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
   }, []);
 
   const addItem = useCallback((item: WhiteboardItem) => {
-    setItems(prev => [...prev, item]);
+    setItems(prev => enforceMaxItems([...prev, item], maxItems));
     
     if (isDrillItem(item)) {
       setActiveDrill(item);
       configRef.current?.onDrillStart?.(item);
     }
-  }, []);
+  }, [maxItems]);
 
   /**
    * Add or update items from streaming client (pre-parsed items with IDs)
    * If an item with the same ID exists, it will be replaced (for enrichment updates)
+   * Enforces max items limit to prevent tool stacking
    */
   const addOrUpdateItems = useCallback((newItems: WhiteboardItem[], shouldClear = false) => {
     if (shouldClear) {
-      setItems(newItems);
+      setItems(enforceMaxItems(newItems, maxItems));
       setIsHolding(false);
       setActiveDrill(null);
       console.log('[WHITEBOARD] Cleared and set items from streaming:', newItems.length);
@@ -186,12 +247,10 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
       const itemMap = new Map(prev.map(item => [item.id, item]));
       
       // Process new items - update existing or add new
-      let updated = false;
       for (const newItem of newItems) {
         if (newItem.id && itemMap.has(newItem.id)) {
           // Update existing item (e.g., WORD_MAP with enriched data)
           itemMap.set(newItem.id, newItem);
-          updated = true;
           console.log('[WHITEBOARD] Updated existing item:', newItem.id, newItem.type);
         } else {
           // Add new item
@@ -200,7 +259,8 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
         }
       }
       
-      return Array.from(itemMap.values());
+      // Enforce max items limit after processing
+      return enforceMaxItems(Array.from(itemMap.values()), maxItems);
     });
     
     // Handle drill activation
@@ -211,7 +271,7 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
       configRef.current?.onDrillStart?.(newDrill);
       console.log('[WHITEBOARD] New drill activated:', newDrill.data.drillType);
     }
-  }, []);
+  }, [maxItems]);
 
   const updateItem = useCallback((id: string, updates: Partial<WhiteboardItem>) => {
     setItems(prev => prev.map(item => {

@@ -1921,6 +1921,118 @@ export interface CompassContext {
   legacyFreedomLevel?: TutorFreedomLevel;
 }
 
+// ===== Pedagogical Insight System (Tool Effectiveness Tracking) =====
+
+// Tool types that can be tracked for pedagogical insights
+export const teachingToolTypeEnum = pgEnum('teaching_tool_type', [
+  'write', 'compare', 'phonetic', 'word_map', 'image', 'grammar_table',
+  'context', 'culture', 'reading', 'stroke', 'play', 'scenario', 'summary',
+  'drill_repeat', 'drill_translate', 'drill_match', 'drill_fill_blank', 'drill_sentence_order',
+  'subtitle_on', 'subtitle_off', 'subtitle_target', 'custom_overlay'
+]);
+
+// Teaching Tool Events - Tracks individual tool usage during sessions
+// This enables pattern analysis: "Topic X retention improves with [IMAGE] + [DRILL type='match']"
+export const teachingToolEvents = pgTable("teaching_tool_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  voiceSessionId: varchar("voice_session_id").references(() => voiceSessions.id),
+  conversationId: varchar("conversation_id").references(() => conversations.id),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Tool identification
+  toolType: teachingToolTypeEnum("tool_type").notNull(),
+  toolContent: text("tool_content"), // What was shown (e.g., the word, the drill content)
+  toolContentHash: varchar("tool_content_hash"), // For deduplication and pattern matching
+  
+  // Context
+  language: varchar("language"),
+  topic: varchar("topic"), // e.g., "greetings", "verbs", if identifiable
+  difficulty: varchar("difficulty"), // Student's level at time of use
+  
+  // Sequence tracking
+  sequencePosition: integer("sequence_position"), // Order within session (1, 2, 3...)
+  previousToolType: varchar("previous_tool_type"), // What tool came before this one
+  
+  // Engagement signals (optional - populated by follow-up events)
+  studentResponseTime: integer("student_response_time_ms"), // How long before student responded
+  drillResult: varchar("drill_result"), // 'correct', 'incorrect', 'skipped' for drills
+  
+  // Timing
+  occurredAt: timestamp("occurred_at").notNull().defaultNow(),
+  durationMs: integer("duration_ms"), // How long tool was visible/active
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_tool_events_session").on(table.voiceSessionId),
+  index("idx_tool_events_user").on(table.userId),
+  index("idx_tool_events_type").on(table.toolType),
+  index("idx_tool_events_language_topic").on(table.language, table.topic),
+  index("idx_tool_events_occurred").on(table.occurredAt),
+]);
+
+// Pedagogical Insights - Aggregated patterns discovered from tool usage
+// Daniela's "neural network" - insights that improve future teaching
+export const pedagogicalInsights = pgTable("pedagogical_insights", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Pattern identification
+  language: varchar("language"), // Which language this insight applies to
+  topic: varchar("topic"), // Specific topic (null = general pattern)
+  difficulty: varchar("difficulty"), // Which level this applies to
+  
+  // The insight itself
+  patternDescription: text("pattern_description").notNull(), // Human-readable pattern
+  patternKey: varchar("pattern_key").notNull(), // Machine-parseable key for dedup
+  
+  // Tool combination that works
+  effectiveTools: text("effective_tools").array(), // ['image', 'drill_match']
+  ineffectiveTools: text("ineffective_tools").array(), // Tools that don't help here
+  
+  // Evidence
+  sampleSize: integer("sample_size").default(0), // How many observations
+  successRate: real("success_rate"), // 0-1 effectiveness score
+  confidenceScore: real("confidence_score"), // How confident in this insight
+  
+  // Source
+  sourceType: varchar("source_type").notNull(), // 'automated', 'tutor_reflection', 'manual'
+  tutorReflection: text("tutor_reflection"), // Daniela's own pedagogical judgment
+  
+  // Lifecycle
+  isActive: boolean("is_active").default(true), // Currently used in teaching
+  lastValidatedAt: timestamp("last_validated_at"), // When pattern was last confirmed
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_insights_language_topic").on(table.language, table.topic),
+  index("idx_insights_pattern_key").on(table.patternKey),
+  index("idx_insights_active").on(table.isActive),
+]);
+
+// Insert schemas for Pedagogical Insight tables
+export const insertTeachingToolEventSchema = createInsertSchema(teachingToolEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPedagogicalInsightSchema = createInsertSchema(pedagogicalInsights).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertTeachingToolEvent = z.infer<typeof insertTeachingToolEventSchema>;
+export type TeachingToolEvent = typeof teachingToolEvents.$inferSelect;
+
+export type InsertPedagogicalInsight = z.infer<typeof insertPedagogicalInsightSchema>;
+export type PedagogicalInsight = typeof pedagogicalInsights.$inferSelect;
+
+// Tool type literal for type-safe usage
+export type TeachingToolType = 
+  | 'write' | 'compare' | 'phonetic' | 'word_map' | 'image' | 'grammar_table'
+  | 'context' | 'culture' | 'reading' | 'stroke' | 'play' | 'scenario' | 'summary'
+  | 'drill_repeat' | 'drill_translate' | 'drill_match' | 'drill_fill_blank' | 'drill_sentence_order'
+  | 'subtitle_on' | 'subtitle_off' | 'subtitle_target' | 'custom_overlay';
+
 // ===== Organization System Types (Phases 2 & 3) =====
 
 export const insertConversationTopicSchema = createInsertSchema(conversationTopics).omit({
