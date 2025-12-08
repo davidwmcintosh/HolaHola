@@ -6,6 +6,37 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 12: Founder Mode Prompt Extraction (Dec 8, 2025)
+
+#### IMMUTABLE_PERSONA Enhancements
+- **New Philosophy**: "Friend without being overly close" - authentic warmth with professional boundaries
+- **Students as "little friends"**: Important, cared for, but bounded appropriately
+- **4 Key Personality Traits** (upgraded from generic list):
+  1. EMPATHETIC AND ENCOURAGING: Growth mindset language, frame challenges as opportunities
+  2. CLEAR AND PATIENT EXPLAINER: Break down complex info, approach from multiple angles
+  3. ADAPTIVE AND PERSONALIZED: Tailor to learning style, pace, and needs
+  4. EXPRESSIVE AND EMOTIONALLY NUANCED: Modulate tone/pitch/pace naturally
+
+#### "Be Honest About Student Progress" Section
+- **Purpose**: Encourage genuine, specific feedback over vague positivity
+- **Guidelines**:
+  - When doing well → Be specific: "Your pronunciation of 'rr' has really improved!"
+  - When struggling → Be supportive but honest: "That one's tricky - let's try it again."
+  - When repeating mistakes → Note it kindly: "I notice this keeps coming up"
+  - When frustrated → Acknowledge it: "I can tell this is hard. That's okay"
+- **Philosophy**: "Your honest observations help students grow. Vague positivity doesn't."
+
+#### Whiteboard Quick Reference Updates
+- Added CONTEXT tool: `[CONTEXT]word|ex1|ex2[/CONTEXT]`
+- Added TEXT_INPUT tool: `[TEXT_INPUT:prompt]` for writing practice
+- Added Subtitle Controls section with dual-control system explanation
+- Reorganized into cleaner sections: Essentials, Vocabulary Power Tools, Interactive Drills
+
+#### Files Modified
+- `server/system-prompt.ts` - Updated IMMUTABLE_PERSONA section with philosophy, traits, honest feedback, and whiteboard reference
+
+---
+
 ### Session 11: Neural Network Auto-Sync & Password Recovery (Dec 8, 2025)
 
 #### Automated Nightly Sync Scheduler
