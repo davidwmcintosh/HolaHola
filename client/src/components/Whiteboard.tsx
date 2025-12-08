@@ -268,11 +268,47 @@ interface DrillItemDisplayProps {
   index: number;
   onResponse?: (drillId: string, response: string) => void;
   onStart?: (drillId: string) => void;
+  language?: string;
 }
 
-const DrillItemDisplay = ({ item, index, onResponse, onStart }: DrillItemDisplayProps) => {
+const DrillItemDisplay = ({ item, index, onResponse, onStart, language }: DrillItemDisplayProps) => {
   const { data } = item;
   const instructions = getDrillInstructions(data.drillType);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  const handlePlayAudio = useCallback(async () => {
+    if (isPlaying) return;
+    
+    try {
+      setIsPlaying(true);
+      const result = await synthesizeSpeech(data.prompt, language);
+      const audioUrl = URL.createObjectURL(result.audioBlob);
+      
+      if (audioRef.current) {
+        audioRef.current.pause();
+        URL.revokeObjectURL(audioRef.current.src);
+      }
+      
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      
+      audio.onended = () => {
+        setIsPlaying(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      audio.onerror = () => {
+        setIsPlaying(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      await audio.play();
+    } catch (error) {
+      console.error('[DrillItemDisplay] Failed to play audio:', error);
+      setIsPlaying(false);
+    }
+  }, [data.prompt, language, isPlaying]);
   
   return (
     <motion.div
@@ -290,7 +326,23 @@ const DrillItemDisplay = ({ item, index, onResponse, onStart }: DrillItemDisplay
             {data.drillType.replace('_', ' ')} Drill
           </span>
         </div>
-        {getDrillStateIcon(data.state)}
+        {data.drillType === 'repeat' && data.state === 'waiting' ? (
+          <button
+            onClick={handlePlayAudio}
+            disabled={isPlaying}
+            className="p-1 rounded-full hover:bg-violet-500/20 transition-colors"
+            title="Listen to phrase"
+            data-testid={`button-listen-drill-${index}`}
+          >
+            {isPlaying ? (
+              <Loader2 className="h-5 w-5 animate-spin text-violet-500" />
+            ) : (
+              <Volume2 className="h-5 w-5 text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300" />
+            )}
+          </button>
+        ) : (
+          getDrillStateIcon(data.state)
+        )}
       </div>
       
       <p className="text-xs text-muted-foreground">{instructions}</p>
@@ -2239,6 +2291,7 @@ const WhiteboardItemDisplay = ({
         index={index} 
         onResponse={onDrillResponse}
         onStart={onDrillStart}
+        language={language}
       />
     );
   }

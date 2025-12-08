@@ -82,6 +82,12 @@ Staging area for documentation changes to be consolidated later.
 - `shared/streaming-voice-types.ts` - Added `ClientTextInputMessage` type
 - `server/unified-ws-handler.ts` - Added `text_input` case handler
 
+#### Repeat Drill "Listen" Button
+- **Purpose**: Allow students to replay the drill phrase audio before attempting to repeat
+- **Implementation**: Speaker icon (🔊) replaces decorative mic icon on repeat drill cards
+- **Behavior**: Click speaker to hear phrase via TTS, loading spinner while fetching, then auto-plays
+- **File Modified**: `client/src/components/Whiteboard.tsx` - DrillItemDisplay updated with audio playback
+
 #### Test Data Seeded
 - Ricardo Carvajal as pending connection (David's grad school friend who taught salsa/merengue, from Costa Rica)
 - SHOW/HIDE timing rule added to selfBestPractices
