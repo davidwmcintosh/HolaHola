@@ -393,6 +393,60 @@ New dual input mode system allowing continuous listening alongside existing push
 
 ---
 
+### [December 8, 2025] - New Interactive Drill Types: Fill-in-Blank & Sentence Order
+**Target:** TECHNICAL-REFERENCE.md, replit.md
+**Section:** Voice Pipeline / Whiteboard System / Drill Types
+**Content:**
+Two new interactive drill types added to the whiteboard system for grammar and word order practice.
+
+**NEW DRILL TYPES:**
+
+**1. Fill-in-the-Blank (`fill_blank`):**
+- **Dropdown mode**: `[DRILL type="fill_blank"]Yo ___ español|hablo,habla,hablas|hablo[/DRILL]`
+- **Text input mode**: `[DRILL type="fill_blank"]Ella ___ muy inteligente||es[/DRILL]`
+- Format: `blankedText|options(comma-separated)|correctAnswer`
+- Options are automatically shuffled for variety
+- Shows sentence with highlighted blank, checks answer on submit, provides feedback
+
+**2. Sentence Order/Builder (`sentence_order`):**
+- Format: `[DRILL type="sentence_order"]Yo|quiero|comer|pizza|hoy[/DRILL]`
+- Words provided in CORRECT order, system automatically scrambles them
+- Supports both drag-and-drop AND button-based reordering (accessibility)
+- Shows correct/incorrect feedback with proper answer on submit
+
+**FILES CHANGED:**
+- `shared/whiteboard-types.ts`:
+  - Added `sentence_order` to `DrillType` union
+  - Added `isFillBlankDrill()`, `isSentenceOrderDrill()` type guards
+  - Added `parseFillBlankContent()`, `parseSentenceOrderContent()` parsing functions
+  - Added `deterministicShuffle()` helper for consistent scrambling
+  - Added `drillFillBlank()`, `drillFillBlankText()`, `drillSentenceOrder()` to `whiteboardMarkup` helpers
+  - Updated `getDrillInstructions()` with new drill types
+
+- `client/src/components/Whiteboard.tsx`:
+  - Added `FillBlankDrillDisplay` component with dropdown/text input support
+  - Added `SentenceOrderDrillDisplay` component with drag-and-drop + button reordering
+  - Both components: state management, animations, submit/reset, feedback display
+  - Integrated into drill routing logic
+
+- `server/system-prompt.ts`:
+  - Added new drills to quick reference section
+  - Added full syntax documentation with examples
+  - Added conversation examples showing usage
+
+**DRILL TYPE SUMMARY (Complete list):**
+- `repeat` - Pronunciation practice (listen and repeat)
+- `translate` - Translation exercise
+- `match` - Vocabulary matching pairs
+- `fill_blank` - Grammar/conjugation fill-in-the-blank (dropdown or text)
+- `sentence_order` - Word order/sentence building (drag-and-drop)
+
+**USE CASES:**
+- Fill-blank: Verb conjugations, article usage, preposition practice
+- Sentence order: Word order rules, sentence structure, syntax patterns
+
+---
+
 ### [December 7, 2025] - Open Mic Alternative: Auto-PTT Fallback
 **Target:** TECHNICAL-REFERENCE.md, ROADMAP.md
 **Section:** Voice Pipeline / Input Modes / Future Considerations
