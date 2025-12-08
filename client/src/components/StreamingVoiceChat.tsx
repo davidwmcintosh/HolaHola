@@ -13,6 +13,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Loader2 } from "lucide-react";
@@ -129,6 +130,7 @@ export function StreamingVoiceChat({
   isResumedConversation,
   onResumeHandled
 }: StreamingVoiceChatProps) {
+  const [, navigate] = useLocation();
   const { language, difficulty, setLanguage, subtitleMode, tutorGender, voiceSpeed, setTutorGender, setVoiceSpeed } = useLanguage();
   const { isDeveloper, isAdmin, user } = useUser();
   const { learningContext, isHonestyMode } = useLearningFilter();
@@ -1653,6 +1655,9 @@ export function StreamingVoiceChat({
     streamingVoice.subtitles.reset();
     
     console.log('[END CALL] Voice session ended cleanly');
+    
+    // Navigate back to dashboard/language hub
+    navigate('/');
   };
 
   const processRecording = async (audioBlob: Blob, targetConversationId: string) => {
