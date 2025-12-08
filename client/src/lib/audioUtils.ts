@@ -1194,6 +1194,7 @@ export class StreamingAudioPlayer {
       }
       
       // FALLBACK: Periodically check if we should stop (every 30 frames) when response_complete was received
+      // or when we have expectedSentenceCount set and all sentences may have ended
       if (frameCount % 30 === 0) {
         const debugState = window.__debugTimingState;
         const wsReceived = debugState?.wsResponseCompleteReceived;
@@ -1204,7 +1205,11 @@ export class StreamingAudioPlayer {
           console.log(`[FALLBACK CHECK] F${frameCount}: wsReceived=${wsReceived}, expectedCount=${expCount}, scheduleSize=${this.sentenceSchedule.size}`);
         }
         
-        if (wsReceived && expCount === null) {
+        // Check if loop should stop in two cases:
+        // 1. wsReceived && expCount === null (fallback path when playerRef was null)
+        // 2. expCount !== null (we know how many sentences to expect)
+        // FIX: Previously only checked case 1, causing loop to run forever when expCount was set
+        if (wsReceived || expCount !== null) {
           const allEnded = this.checkAllSentencesEnded();
           if (allEnded) {
             this.isPlaying = false;
