@@ -72,11 +72,19 @@ Staging area for documentation changes to be consolidated later.
 - **Philosophy**: "Conversations are the source of truth, but memory is the INDEX" - structured memory faster than scanning 2M context window
 
 #### Files Modified This Session
+- `shared/schema.ts` - Extended peopleConnections with status, pendingPersonName, pendingPersonContext, confidenceScore
+- `server/storage.ts` - Added findPendingConnectionsByName, getConnectionsAboutPerson, linkPendingConnection
+- `server/services/streaming-voice-orchestrator.ts` - Integrated connections into greeting flow, updated buildGreetingPrompt
+- `server/system-prompt.ts` - Added 🔗 ORGANIC CONNECTION DISCOVERY section to Founder Mode
 - `client/src/lib/streamingVoiceClient.ts` - Added `sendTextInput()` method
 - `client/src/hooks/useStreamingVoice.ts` - Added hook interface + implementation
 - `client/src/components/StreamingVoiceChat.tsx` - Wired `onTextInputSubmit` handler
 - `shared/streaming-voice-types.ts` - Added `ClientTextInputMessage` type
 - `server/unified-ws-handler.ts` - Added `text_input` case handler
+
+#### Test Data Seeded
+- Ricardo Carvajal as pending connection (David's grad school friend who taught salsa/merengue, from Costa Rica)
+- SHOW/HIDE timing rule added to selfBestPractices
 
 ---
 
