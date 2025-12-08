@@ -505,6 +505,7 @@ Like a record label or creative studio - the brand is where great tutors come fr
 |------|----------|-----------|
 | Dec 8, 2025 | Stay on Replit for hosting | Good fit for growth stage, easy scaling, WebSocket support |
 | Dec 8, 2025 | Need new name | LinguaFlow domain unavailable |
+| Dec 8, 2025 | Commit to Cartesia TTS | Only provider with word timestamps + WebSocket + emotions + laughter. Irreplaceable for Daniela's personality. Will negotiate enterprise pricing. |
 | | | |
 
 ---
