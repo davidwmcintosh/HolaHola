@@ -2171,6 +2171,21 @@ export const bestPracticeCategoryEnum = pgEnum('best_practice_category', [
   'system'            // Technical/system awareness
 ]);
 
+// Sync status enum for neural network promotion workflow
+export const syncStatusEnum = pgEnum('sync_status', [
+  'local',            // Only exists in current environment
+  'pending_review',   // Submitted for promotion, awaiting review
+  'approved',         // Approved and synced to other environment
+  'rejected',         // Rejected during review
+  'synced'            // Successfully synced from other environment
+]);
+
+// Environment origin enum
+export const environmentOriginEnum = pgEnum('environment_origin', [
+  'development',
+  'production'
+]);
+
 // Self Best Practices - Universal teaching wisdom (applies to all students)
 // "Don't put 5 whiteboards up at once", "Clear the board when finished"
 export const selfBestPractices = pgTable("self_best_practices", {
@@ -2184,12 +2199,65 @@ export const selfBestPractices = pgTable("self_best_practices", {
   confidenceScore: real("confidence_score").default(0.5), // 0-1, grows with validation
   timesApplied: integer("times_applied").default(0), // Track how often used
   
+  // Sync metadata for bidirectional environment sync
+  version: integer("version").default(1), // Increments on each update for conflict resolution
+  originEnvironment: environmentOriginEnum("origin_environment"), // Where this was created
+  syncStatus: syncStatusEnum("sync_status").default("local"), // Promotion workflow status
+  originId: varchar("origin_id"), // Original ID in source environment (for linking)
+  promotedAt: timestamp("promoted_at"), // When it was synced to other environment
+  reviewedBy: varchar("reviewed_by").references(() => users.id), // Who approved the promotion
+  
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_best_practices_category").on(table.category),
   index("idx_best_practices_active").on(table.isActive),
+  index("idx_best_practices_sync_status").on(table.syncStatus),
+  index("idx_best_practices_origin_id").on(table.originId),
+]);
+
+// Promotion Queue - Tracks pending best practice promotions between environments
+export const promotionQueue = pgTable("promotion_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  bestPracticeId: varchar("best_practice_id").notNull().references(() => selfBestPractices.id),
+  sourceEnvironment: environmentOriginEnum("source_environment").notNull(),
+  targetEnvironment: environmentOriginEnum("target_environment").notNull(),
+  
+  status: varchar("status").default("pending").notNull(), // pending, approved, rejected
+  submittedBy: varchar("submitted_by").references(() => users.id),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewNotes: text("review_notes"),
+  
+  submittedAt: timestamp("submitted_at").notNull().defaultNow(),
+  reviewedAt: timestamp("reviewed_at"),
+}, (table) => [
+  index("idx_promotion_queue_status").on(table.status),
+  index("idx_promotion_queue_best_practice").on(table.bestPracticeId),
+]);
+
+// Sync Log - Audit trail of all sync operations
+export const syncLog = pgTable("sync_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  operation: varchar("operation").notNull(), // export, import, promote, anonymize
+  tableName: varchar("table_name").notNull(), // Which table was synced
+  recordCount: integer("record_count").default(0),
+  
+  sourceEnvironment: environmentOriginEnum("source_environment").notNull(),
+  targetEnvironment: environmentOriginEnum("target_environment").notNull(),
+  
+  performedBy: varchar("performed_by").references(() => users.id),
+  status: varchar("status").default("success").notNull(), // success, failed, partial
+  errorMessage: text("error_message"),
+  metadata: jsonb("metadata"), // Additional details about the sync
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_sync_log_operation").on(table.operation),
+  index("idx_sync_log_table").on(table.tableName),
+  index("idx_sync_log_created").on(table.createdAt),
 ]);
 
 // Connection Status Enum - tracks the state of people connections
@@ -2369,9 +2437,25 @@ export const insertSessionNoteSchema = createInsertSchema(sessionNotes).omit({
   createdAt: true,
 });
 
+export const insertPromotionQueueSchema = createInsertSchema(promotionQueue).omit({
+  id: true,
+  submittedAt: true,
+});
+
+export const insertSyncLogSchema = createInsertSchema(syncLog).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types for Daniela's Memory System
 export type InsertSelfBestPractice = z.infer<typeof insertSelfBestPracticeSchema>;
 export type SelfBestPractice = typeof selfBestPractices.$inferSelect;
+
+export type InsertPromotionQueue = z.infer<typeof insertPromotionQueueSchema>;
+export type PromotionQueue = typeof promotionQueue.$inferSelect;
+
+export type InsertSyncLog = z.infer<typeof insertSyncLogSchema>;
+export type SyncLog = typeof syncLog.$inferSelect;
 
 export type InsertPeopleConnection = z.infer<typeof insertPeopleConnectionSchema>;
 export type PeopleConnection = typeof peopleConnections.$inferSelect;
