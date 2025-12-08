@@ -240,6 +240,19 @@ export class PasswordAuthService {
     return result.length > 0;
   }
   
+  async invalidateAllUserTokens(userId: string, tokenType: 'password_reset' | 'invitation'): Promise<void> {
+    await db
+      .update(authTokens)
+      .set({ consumedAt: new Date() })
+      .where(
+        and(
+          eq(authTokens.userId, userId),
+          eq(authTokens.tokenType, tokenType),
+          isNull(authTokens.consumedAt)
+        )
+      );
+  }
+  
   async createInvitation(
     invitation: CreateInvitation,
     invitedBy: string
@@ -356,7 +369,7 @@ export class PasswordAuthService {
         .where(eq(pendingInvites.tokenId, authToken.id));
     }
     
-    await this.consumeToken(token);
+    await this.invalidateAllUserTokens(user.id, 'invitation');
     
     const [updatedUser] = await db
       .select()
@@ -374,7 +387,8 @@ export class PasswordAuthService {
     }
     
     await this.setUserPassword(validation.userId, newPassword);
-    await this.consumeToken(token);
+    
+    await this.invalidateAllUserTokens(validation.userId, 'password_reset');
     
     const [user] = await db
       .select()

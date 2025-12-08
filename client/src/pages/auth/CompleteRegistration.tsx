@@ -61,10 +61,17 @@ export default function CompleteRegistration() {
 
   const completeMutation = useMutation({
     mutationFn: async (data: RegistrationFormData) => {
+      if (!token) {
+        throw new Error('Missing invitation token');
+      }
       const response = await apiRequest('POST', '/api/auth/invitations/complete', {
         token,
         password: data.password,
       });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to complete registration');
+      }
       return response.json();
     },
     onSuccess: (data) => {

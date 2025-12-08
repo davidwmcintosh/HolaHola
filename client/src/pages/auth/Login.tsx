@@ -34,6 +34,10 @@ export default function Login() {
   const loginMutation = useMutation({
     mutationFn: async (data: LoginFormData) => {
       const response = await apiRequest('POST', '/api/auth/password/login', data);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Invalid email or password');
+      }
       return response.json();
     },
     onSuccess: (data) => {

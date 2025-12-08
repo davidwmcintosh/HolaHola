@@ -46,10 +46,17 @@ export default function ResetPassword() {
 
   const resetMutation = useMutation({
     mutationFn: async (data: ResetPasswordFormData) => {
+      if (!token) {
+        throw new Error('Missing reset token');
+      }
       const response = await apiRequest('POST', '/api/auth/password/reset', {
         token,
         password: data.password,
       });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to reset password');
+      }
       return response.json();
     },
     onSuccess: (data) => {
@@ -70,6 +77,14 @@ export default function ResetPassword() {
   });
 
   const onSubmit = (data: ResetPasswordFormData) => {
+    if (!token) {
+      toast({
+        title: 'Missing token',
+        description: 'Please use the link from your password reset email.',
+        variant: 'destructive',
+      });
+      return;
+    }
     resetMutation.mutate(data);
   };
 
