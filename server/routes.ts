@@ -33,7 +33,11 @@ import {
 import { franc } from "franc-min";
 import { createSystemPrompt } from "./system-prompt";
 import { assessMessage, analyzePerformance } from "./difficulty-adjustment";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated, getSession } from "./replitAuth";
+import { passwordAuthService } from "./services/password-auth-service";
+import { emailService } from "./services/email-service";
+import { passwordLoginSchema, passwordResetRequestSchema, setNewPasswordSchema, completeRegistrationSchema, createInvitationSchema } from "@shared/schema";
+import passport from "passport";
 import { generateConversationTitle, generateConversationContextSummary } from "./conversation-utils";
 import { extractTargetLanguageText, hasSignificantTargetLanguageContent } from "./text-utils";
 import multer from "multer";
@@ -455,14 +459,273 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app, authLimiter);
 
   // Auth user route (with rate limiting)
-  app.get('/api/auth/user', authLimiter, isAuthenticated, async (req: any, res) => {
+  // Supports both Replit Auth (claims.sub) and password auth (userId directly in session)
+  app.get('/api/auth/user', authLimiter, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
+      // Check for password auth first (userId stored directly in session)
+      if (req.session?.userId) {
+        const user = await storage.getUser(req.session.userId);
+        if (user) {
+          return res.json(user);
+        }
+      }
+      
+      // Fall back to Replit Auth (claims.sub)
+      if (req.isAuthenticated() && req.user?.claims?.sub) {
+        const user = await storage.getUser(req.user.claims.sub);
+        return res.json(user);
+      }
+      
+      // Not authenticated
+      return res.status(401).json({ message: "Unauthorized" });
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // ===== Password Auth Routes =====
+  
+  // Password login
+  app.post('/api/auth/password/login', authLimiter, async (req: any, res) => {
+    try {
+      const validation = passwordLoginSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Invalid request", 
+          errors: validation.error.errors 
+        });
+      }
+      
+      const { email, password } = validation.data;
+      const result = await passwordAuthService.validateLogin(email, password);
+      
+      if (!result.success || !result.user) {
+        return res.status(401).json({ message: result.error || "Invalid credentials" });
+      }
+      
+      // Set session
+      req.session.userId = result.user.id;
+      req.session.authProvider = 'password';
+      
+      res.json({ success: true, user: result.user });
+    } catch (error) {
+      console.error("Password login error:", error);
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+  
+  // Password logout
+  app.post('/api/auth/password/logout', async (req: any, res) => {
+    try {
+      req.session.destroy((err: any) => {
+        if (err) {
+          console.error("Session destroy error:", err);
+          return res.status(500).json({ message: "Logout failed" });
+        }
+        res.json({ success: true });
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+      res.status(500).json({ message: "Logout failed" });
+    }
+  });
+  
+  // Request password reset
+  app.post('/api/auth/password/request-reset', authLimiter, async (req: any, res) => {
+    try {
+      const validation = passwordResetRequestSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Invalid email address",
+          errors: validation.error.errors 
+        });
+      }
+      
+      const { email } = validation.data;
+      const result = await passwordAuthService.createPasswordResetToken(email);
+      
+      // Always return success to prevent email enumeration
+      if (result.token) {
+        const user = await passwordAuthService.getUserByEmail(email);
+        await emailService.sendPasswordReset({
+          to: email,
+          firstName: user?.firstName || undefined,
+          token: result.token,
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: "If an account exists with this email, you will receive a password reset link." 
+      });
+    } catch (error) {
+      console.error("Password reset request error:", error);
+      res.status(500).json({ message: "Failed to process request" });
+    }
+  });
+  
+  // Reset password with token
+  app.post('/api/auth/password/reset', authLimiter, async (req: any, res) => {
+    try {
+      const validation = setNewPasswordSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Invalid request",
+          errors: validation.error.errors 
+        });
+      }
+      
+      const { token, password } = validation.data;
+      const result = await passwordAuthService.resetPassword(token, password);
+      
+      if (!result.success) {
+        return res.status(400).json({ message: result.error || "Failed to reset password" });
+      }
+      
+      // Auto-login after reset
+      if (result.user) {
+        req.session.userId = result.user.id;
+        req.session.authProvider = 'password';
+      }
+      
+      res.json({ success: true, user: result.user });
+    } catch (error) {
+      console.error("Password reset error:", error);
+      res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+  
+  // Verify invitation token
+  app.get('/api/auth/invitations/verify', async (req: any, res) => {
+    try {
+      const token = req.query.token as string;
+      if (!token) {
+        return res.status(400).json({ message: "Token is required" });
+      }
+      
+      const validation = await passwordAuthService.validateToken(token, 'invitation');
+      if (!validation.valid) {
+        return res.status(400).json({ message: validation.error || "Invalid or expired invitation" });
+      }
+      
+      const invite = await passwordAuthService.getInviteByToken(token);
+      res.json({ 
+        valid: true, 
+        email: invite?.email,
+        firstName: invite?.firstName,
+        lastName: invite?.lastName,
+        role: invite?.role,
+      });
+    } catch (error) {
+      console.error("Invitation verify error:", error);
+      res.status(500).json({ message: "Failed to verify invitation" });
+    }
+  });
+  
+  // Complete registration (accept invitation)
+  app.post('/api/auth/invitations/complete', authLimiter, async (req: any, res) => {
+    try {
+      const validation = completeRegistrationSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Invalid request",
+          errors: validation.error.errors 
+        });
+      }
+      
+      const { token, password } = validation.data;
+      const result = await passwordAuthService.completeRegistration(token, password);
+      
+      if (!result.success) {
+        return res.status(400).json({ message: result.error || "Failed to complete registration" });
+      }
+      
+      // Auto-login after registration
+      if (result.user) {
+        req.session.userId = result.user.id;
+        req.session.authProvider = 'password';
+      }
+      
+      res.json({ success: true, user: result.user });
+    } catch (error) {
+      console.error("Complete registration error:", error);
+      res.status(500).json({ message: "Failed to complete registration" });
+    }
+  });
+  
+  // Create invitation (admin/teacher only)
+  app.post('/api/auth/invitations', authLimiter, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser || !hasTeacherAccess(currentUser.role)) {
+        return res.status(403).json({ message: "Only teachers and admins can create invitations" });
+      }
+      
+      const validation = createInvitationSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Invalid request",
+          errors: validation.error.errors 
+        });
+      }
+      
+      const result = await passwordAuthService.createInvitation(validation.data, userId);
+      
+      if (!result.success) {
+        return res.status(400).json({ message: result.error || "Failed to create invitation" });
+      }
+      
+      // Send invitation email
+      if (result.token) {
+        await emailService.sendInvitation({
+          to: validation.data.email,
+          firstName: validation.data.firstName,
+          inviterName: `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || undefined,
+          role: validation.data.role || 'student',
+          token: result.token,
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: "Invitation sent successfully",
+        userId: result.user?.id,
+      });
+    } catch (error) {
+      console.error("Create invitation error:", error);
+      res.status(500).json({ message: "Failed to create invitation" });
+    }
+  });
+  
+  // Get pending invitations (admin/teacher only)
+  app.get('/api/auth/invitations', authLimiter, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser || !hasTeacherAccess(currentUser.role)) {
+        return res.status(403).json({ message: "Only teachers and admins can view invitations" });
+      }
+      
+      // Admins see all, teachers see their own
+      const invitedBy = currentUser.role === 'admin' || currentUser.role === 'developer' 
+        ? undefined 
+        : userId;
+      
+      const invites = await passwordAuthService.getPendingInvites(invitedBy);
+      res.json({ invitations: invites });
+    } catch (error) {
+      console.error("Get invitations error:", error);
+      res.status(500).json({ message: "Failed to fetch invitations" });
     }
   });
 

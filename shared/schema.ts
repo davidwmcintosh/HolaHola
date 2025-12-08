@@ -5,6 +5,12 @@ import { z } from "zod";
 
 // ===== Enums =====
 
+// Auth provider enum - distinguishes how user authenticates
+export const authProviderEnum = pgEnum('auth_provider', ['replit', 'password', 'pending']);
+
+// Token type enum for password reset and invitations
+export const authTokenTypeEnum = pgEnum('auth_token_type', ['password_reset', 'invitation']);
+
 // User role enum for multi-role system
 export const userRoleEnum = pgEnum('user_role', ['student', 'teacher', 'developer', 'admin']);
 
@@ -71,6 +77,8 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  // Auth provider - how this user authenticates
+  authProvider: authProviderEnum("auth_provider").default("replit"), // replit, password, pending (for invites)
   // User role for multi-role system
   role: userRoleEnum("role").default("student").notNull(), // student, teacher, developer, admin
   learningPathMode: varchar("learning_path_mode").default("open"), // open, structured
@@ -137,6 +145,120 @@ export type TutorFreedomLevel = 'guided' | 'flexible_goals' | 'open_exploration'
 export type UpdateUserPreferences = z.infer<typeof updateUserPreferencesSchema>;
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+
+// ===== Password Auth Tables =====
+
+// User credentials - stores password hashes for users with password auth
+export const userCredentials = pgTable("user_credentials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  passwordHash: varchar("password_hash").notNull(),
+  passwordVersion: integer("password_version").notNull().default(1),
+  requiresReset: boolean("requires_reset").notNull().default(false),
+  lastPasswordChange: timestamp("last_password_change").defaultNow(),
+  failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),
+  lockedUntil: timestamp("locked_until"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_user_credentials_user_id").on(table.userId),
+]);
+
+export const insertUserCredentialsSchema = createInsertSchema(userCredentials).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertUserCredentials = z.infer<typeof insertUserCredentialsSchema>;
+export type UserCredentials = typeof userCredentials.$inferSelect;
+
+// Auth tokens - for password reset and invitation links
+export const authTokens = pgTable("auth_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tokenHash: varchar("token_hash").notNull(),
+  tokenType: authTokenTypeEnum("token_type").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  consumedAt: timestamp("consumed_at"),
+  metadata: jsonb("metadata"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_auth_tokens_user_id").on(table.userId),
+  index("idx_auth_tokens_type").on(table.tokenType),
+  index("idx_auth_tokens_expires").on(table.expiresAt),
+]);
+
+export const insertAuthTokenSchema = createInsertSchema(authTokens).omit({ id: true, createdAt: true });
+export type InsertAuthToken = z.infer<typeof insertAuthTokenSchema>;
+export type AuthToken = typeof authTokens.$inferSelect;
+
+// Pending invitations - tracks teacher-initiated student invitations
+export const pendingInvites = pgTable("pending_invites", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").notNull(),
+  role: userRoleEnum("role").notNull().default("student"),
+  invitedBy: varchar("invited_by").notNull().references(() => users.id),
+  classId: varchar("class_id"),
+  tokenId: varchar("token_id").notNull().references(() => authTokens.id, { onDelete: 'cascade' }),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  initialCreditsSeconds: integer("initial_credits_seconds").default(0),
+  expiresAt: timestamp("expires_at").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  acceptedUserId: varchar("accepted_user_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_pending_invites_email").on(table.email),
+  index("idx_pending_invites_invited_by").on(table.invitedBy),
+  index("idx_pending_invites_token").on(table.tokenId),
+]);
+
+export const insertPendingInviteSchema = createInsertSchema(pendingInvites).omit({ id: true, createdAt: true });
+export type InsertPendingInvite = z.infer<typeof insertPendingInviteSchema>;
+export type PendingInvite = typeof pendingInvites.$inferSelect;
+
+// Schema for creating an invitation from admin UI
+export const createInvitationSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  firstName: z.string().min(1, "First name is required").optional(),
+  lastName: z.string().optional(),
+  role: z.enum(['student', 'teacher']).default('student'),
+  classId: z.string().optional(),
+  initialCreditsSeconds: z.number().min(0).default(0),
+});
+export type CreateInvitation = z.infer<typeof createInvitationSchema>;
+
+// Schema for completing registration (setting password)
+export const completeRegistrationSchema = z.object({
+  token: z.string().min(1, "Token is required"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+export type CompleteRegistration = z.infer<typeof completeRegistrationSchema>;
+
+// Schema for password reset request
+export const passwordResetRequestSchema = z.object({
+  email: z.string().email("Invalid email address"),
+});
+export type PasswordResetRequest = z.infer<typeof passwordResetRequestSchema>;
+
+// Schema for setting new password
+export const setNewPasswordSchema = z.object({
+  token: z.string().min(1, "Token is required"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+export type SetNewPassword = z.infer<typeof setNewPasswordSchema>;
+
+// Schema for password login
+export const passwordLoginSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+export type PasswordLogin = z.infer<typeof passwordLoginSchema>;
 
 // Per-language self-directed preferences
 // Allows users to have different flexibility settings per language

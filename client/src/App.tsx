@@ -50,6 +50,12 @@ const Lessons = lazy(() => import("@/pages/lessons"));
 const ReviewHub = lazy(() => import("@/pages/review-hub"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
+// Auth pages
+const Login = lazy(() => import("@/pages/auth/Login"));
+const CompleteRegistration = lazy(() => import("@/pages/auth/CompleteRegistration"));
+const ForgotPassword = lazy(() => import("@/pages/auth/ForgotPassword"));
+const ResetPassword = lazy(() => import("@/pages/auth/ResetPassword"));
+
 // Loading fallback component
 function PageLoader() {
   return (
@@ -99,12 +105,16 @@ function Router() {
     return <PageLoader />;
   }
 
-  // For unauthenticated users, show landing page
+  // For unauthenticated users, show landing page and auth routes
   if (!isAuthenticated) {
     return (
       <PageWrapper>
         <Switch>
           <Route path="/" component={Landing} />
+          <Route path="/login" component={Login} />
+          <Route path="/complete-registration" component={CompleteRegistration} />
+          <Route path="/forgot-password" component={ForgotPassword} />
+          <Route path="/reset-password" component={ResetPassword} />
           <Route component={NotFound} />
         </Switch>
       </PageWrapper>
