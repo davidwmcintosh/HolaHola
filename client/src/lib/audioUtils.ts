@@ -1219,6 +1219,28 @@ export class StreamingAudioPlayer {
             return; // Exit the loop
           }
         }
+        
+        // SAFETY NET: If we're 30+ seconds past the last sentence's end time, force stop
+        // This prevents zombie loops when state tracking fails
+        if (this.sentenceSchedule.size > 0) {
+          let maxEndTime = 0;
+          const scheduleIter = Array.from(this.sentenceSchedule.values());
+          for (let i = 0; i < scheduleIter.length; i++) {
+            const entry = scheduleIter[i];
+            const endT = entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration);
+            if (endT > maxEndTime) maxEndTime = endT;
+          }
+          
+          const secondsPastEnd = now - maxEndTime;
+          if (secondsPastEnd > 30) {
+            console.warn(`[SAFETY NET] Loop running ${secondsPastEnd.toFixed(1)}s past last audio - forcing stop`);
+            this.isPlaying = false;
+            this.setState('idle');
+            this.stopPrecisionTiming();
+            this.callbacks.onComplete?.();
+            return; // Force exit
+          }
+        }
       }
       
       // Continue the loop

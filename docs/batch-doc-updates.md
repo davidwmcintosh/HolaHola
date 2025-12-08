@@ -82,6 +82,12 @@ Staging area for documentation changes to be consolidated later.
 - `shared/streaming-voice-types.ts` - Added `ClientTextInputMessage` type
 - `server/unified-ws-handler.ts` - Added `text_input` case handler
 
+#### Audio Timing Loop Robustness
+- **Bug fixed**: Loop would run forever when `expectedSentenceCount` was set (fallback check was too restrictive)
+- **Fix 1**: Expanded fallback to check when `wsReceived || expCount !== null` (not just when null)
+- **Fix 2**: Added 30-second safety net - force-stops loop if 30+ seconds past last audio end time
+- **File Modified**: `client/src/lib/audioUtils.ts` - `startUnifiedTimingLoop` fallback checks
+
 #### Repeat Drill "Listen" Button
 - **Purpose**: Allow students to replay the drill phrase audio before attempting to repeat
 - **Implementation**: Speaker icon (🔊) replaces decorative mic icon on repeat drill cards
