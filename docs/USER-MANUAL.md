@@ -129,20 +129,47 @@ During lessons, you'll encounter practice exercises to reinforce learning.
 - Try to answer before looking at hints
 - Practice both directions (English ↔ target language)
 
-### Fill in the Blank
+### Fill in the Blank (December 2025)
 
-**What It Is:** Complete a sentence with the missing word.
+**What It Is:** Complete a sentence with the missing word using dropdown or text input.
 
-**How It Works:**
-1. See a sentence with a blank (___)
-2. Figure out what word belongs
-3. Say or type the missing word
-4. Get explanation if needed
+**Two Input Modes:**
+
+**Dropdown Mode:**
+1. See a sentence with a blank and a dropdown menu
+2. Click the dropdown to see options
+3. Select the correct word
+4. Get instant feedback (green ✓ or try again)
+
+**Text Input Mode:**
+1. See a sentence with a blank text field
+2. Type the missing word
+3. Click "Check" or press Enter
+4. Correct answer shown if needed
 
 **Tips:**
 - Read the whole sentence first
 - Consider grammar rules
 - Check verb conjugations
+- Case doesn't matter for text input
+
+### Sentence Order (December 2025)
+
+**What It Is:** Put scrambled words in the correct order to form a sentence.
+
+**How It Works:**
+1. See a set of scrambled word tiles
+2. Arrange them in the correct order:
+   - **Drag and drop** the tiles, OR
+   - **Click tiles** in order to build the sentence
+3. Submit your answer
+4. Get feedback with the correct order shown if needed
+
+**Tips:**
+- Start with the subject or first word
+- Look for verb position patterns
+- Remember adjective placement rules
+- Use word endings as clues
 
 ### Matching
 
@@ -332,6 +359,15 @@ Check your progress in the Dashboard to see:
 - Vocabulary growth charts
 - Proficiency breakdown by skill
 - Achievements and milestones
+
+### Learning Pace Card (December 2025)
+
+On larger screens, your dashboard sidebar shows a Learning Pace card with:
+- **Lessons completed** - Total lessons finished
+- **Total time learned** - Cumulative practice time
+- **Current streak** - Days of consecutive practice
+- **8-week activity sparkline** - Visual trend of your weekly learning
+- **Average minutes per lesson** - Your typical session length
 
 ---
 

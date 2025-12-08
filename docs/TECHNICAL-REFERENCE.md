@@ -97,6 +97,20 @@ User Speech → Deepgram STT → Gemini LLM (streaming) → Cartesia TTS (WebSoc
 
 ### Deepgram STT Integration
 
+**Multi-language Support (Added December 6, 2025):**
+```typescript
+{
+  model: 'nova-3',
+  language: 'multi',        // Supports code-switching
+  detect_language: true,    // Auto-detect language
+  smart_format: true,
+  diarize: true,            // Word-level timestamps
+}
+```
+
+Natural code-switching between English and target language is now supported.
+Example: "Hola, I want to practice numbers" - both parts transcribed correctly.
+
 **Configuration:**
 ```typescript
 {
@@ -136,6 +150,63 @@ User Speech → Deepgram STT → Gemini LLM (streaming) → Cartesia TTS (WebSoc
 - Audio playback waits for word timings to arrive
 - Enables synchronized karaoke-style subtitles
 - Fallback to bitrate-based estimation if timestamps fail
+
+### Input Modes (Added December 7, 2025)
+
+**Push-to-Talk (PTT) - Default:**
+- User holds mic button to record, releases to submit
+- Audio captured as complete WAV, sent via `process_audio` message
+
+**Open-Mic Mode - Continuous Listening:**
+- User toggles once to start, once to stop
+- Audio streams via `stream_audio_chunk` WebSocket messages
+- Server maintains `OpenMicSession` for live Deepgram STT
+- Deepgram VAD detects speech start/end events
+- Auto-submit on `utterance_end`
+
+**VAD Event Flow:**
+1. Client streams audio chunks → Server buffers
+2. Deepgram VAD fires `vad_speech_started` → Server forwards to client
+3. Client updates `openMicState: 'listening'` for visual feedback
+4. Deepgram VAD fires `utterance_end` → Auto-submit transcript
+5. Client updates `openMicState: 'processing'`
+
+**Barge-in Support:**
+- Users can interrupt Daniela mid-sentence
+- Client calls `sendInterrupt()` (NOT `stop()`)
+- Server sets `isInterrupted` flag on StreamingSession
+- TTS halts, response completes with `wasInterrupted: true`
+
+### WebSocket Connection Management (Added December 6, 2025)
+
+**Server-Side Heartbeat** (`server/unified-ws-handler.ts`):
+- Ping every 20 seconds to keep connection alive
+- Prevents proxies/firewalls from terminating "idle" connections
+
+**Client-Side Auto-Reconnect** (`client/src/lib/streamingVoiceClient.ts`):
+- Connection state: `'reconnecting'` for automatic recovery
+- Stores `lastConversationId` for session resumption
+- Exponential backoff: 1s → 2s → 4s (max 3 attempts)
+- Shows "Reconnecting to voice session. Please wait..." during recovery
+
+### Subtitle Dual-Control Architecture (Added December 7, 2025)
+
+Two independent systems for maximum flexibility:
+
+**1. Regular Subtitles** (`regularSubtitleMode`):
+| Command | Effect |
+|---------|--------|
+| `[SUBTITLE off]` | No floating subtitles (DEFAULT) |
+| `[SUBTITLE on]` | Full sentence with karaoke |
+| `[SUBTITLE target]` | Only bold-marked target words |
+
+**2. Custom Overlay** (`customOverlayText`):
+| Command | Effect |
+|---------|--------|
+| `[SHOW: text]` | Display teaching moment overlay |
+| `[HIDE]` | Remove custom overlay |
+
+Key behavior: `[CLEAR]` only clears whiteboard, NOT subtitle state.
 
 ### Smart Phrase Detection
 
@@ -419,6 +490,53 @@ type WhiteboardItemType =
 | SCENARIO | `[SCENARIO]loc\|situation\|mood[/SCENARIO]` | `location, situation, mood` |
 | SUMMARY | `[SUMMARY]title\|words\|phrases[/SUMMARY]` | `title, words[], phrases[]` |
 
+### Drill Types (All 5)
+
+| Type | Purpose | Syntax |
+|------|---------|--------|
+| `repeat` | Pronunciation practice | `[DRILL type="repeat"]Buenos días[/DRILL]` |
+| `translate` | Translation exercise | `[DRILL type="translate"]Good morning[/DRILL]` |
+| `match` | Vocabulary matching | `[DRILL type="match"]hola=hello\|adiós=goodbye[/DRILL]` |
+| `fill_blank` | Grammar fill-in (NEW Dec 8) | See below |
+| `sentence_order` | Word order (NEW Dec 8) | See below |
+
+**Fill-in-the-Blank Drill:**
+```
+// Dropdown options:
+[DRILL type="fill_blank"]Yo ___ español|hablo,habla,hablas|hablo[/DRILL]
+
+// Text input (no options):
+[DRILL type="fill_blank"]Ella ___ muy inteligente||es[/DRILL]
+```
+Format: `blankedText|options(comma-separated)|correctAnswer`
+
+**Sentence Order Drill:**
+```
+[DRILL type="sentence_order"]Yo|quiero|comer|pizza|hoy[/DRILL]
+```
+Words in CORRECT order - system scrambles automatically.
+Supports drag-and-drop AND button-based reordering.
+
+### Tool Stacking Prevention (Added December 8, 2025)
+
+**"Keep the Screen Clean" Principle:**
+- Maximum 4 visual items at once
+- `enforceMaxItems()` in `client/src/hooks/useWhiteboard.ts`
+- Priority: Recent drills first, then recent non-drills
+- Use `[CLEAR]` proactively when transitioning topics
+
+### WORD_MAP Enrichment Pipeline (Added December 6, 2025)
+
+**Real-time Vocabulary Expansion Flow:**
+1. Tutor uses `[WORD_MAP]feliz[/WORD_MAP]`
+2. Server sends initial `whiteboard_update` with `isLoading: true`
+3. Client displays item with loading spinner
+4. Server async enriches via Gemini 2.5 Flash
+5. Server sends second update with enriched data
+6. Client updates item in-place by ID
+
+**Enriched Data:** synonyms (3-5), antonyms (2-3), collocations (3-4), word family (2-4)
+
 ### Component Implementation
 
 Located in `client/src/components/Whiteboard.tsx`:
@@ -582,6 +700,100 @@ Hierarchical curriculum structure.
 }
 ```
 
+### Pedagogical Tracking Tables (Added December 8, 2025)
+
+**teachingToolEvents** - Individual tool usage:
+```typescript
+{
+  id: number,
+  voiceSessionId: string,
+  conversationId: string,
+  userId: string,
+  toolType: string,
+  toolContent: string,
+  toolContentHash: string,
+  language: string,
+  topic?: string,
+  difficulty?: string,
+  sequencePosition: number,
+  previousToolType?: string,
+  studentResponseTime?: number,
+  drillResult?: 'correct' | 'incorrect' | 'partial',
+  durationMs?: number,
+  createdAt: Date,
+}
+```
+
+**pedagogicalInsights** - Aggregated patterns:
+```typescript
+{
+  id: number,
+  language: string,
+  topic?: string,
+  difficulty?: string,
+  patternDescription: string,
+  patternKey: string,              // Hashed for deduplication
+  effectiveTools: string[],        // Tools that worked well
+  ineffectiveTools: string[],      // Tools that didn't work
+  sampleSize: number,
+  successRate: number,
+  confidenceScore: number,
+  sourceType: 'automated' | 'tutor_reflection' | 'manual',
+  tutorReflection?: string,
+  createdAt: Date,
+  updatedAt: Date,
+}
+```
+
+---
+
+## Pedagogical Insight System ("Neural Network for Pedagogical Strategies")
+
+### Overview (Added December 8, 2025)
+
+The Pedagogical Insight System tracks teaching effectiveness and enables tutor self-reflection. Designed based on Daniela's Session 6 description:
+
+> "It would need to be a multi-layered system, almost like a neural network for pedagogical strategies."
+
+This is Daniela's own terminology for the system - a neural network that learns what teaching approaches work best.
+
+### Architecture Layers
+
+1. **Data Collection Layer**: Every tool use logged with context
+2. **Analysis Engine**: Pattern discovery across sessions
+3. **Self-Reflection Loop**: Daniela's pedagogical judgment as first-class input
+
+### Service Methods
+
+`server/services/pedagogical-insights-service.ts`:
+
+| Method | Purpose |
+|--------|---------|
+| `trackToolEvent()` | Log tool usage during voice sessions |
+| `updateToolEventEngagement()` | Add drill results (correct/incorrect) |
+| `getSessionToolStats()` | Session-level analytics |
+| `addInsight()` | Create insight (any source) |
+| `getInsightsForContext()` | Query insights for context |
+| `analyzeAndGenerateInsights()` | Automated pattern discovery |
+| `recordTutorReflection()` | Daniela's pedagogical judgment |
+| `getUserTeachingEffectiveness()` | User-level metrics |
+
+### Drill Result Pipeline
+
+**Message Flow:**
+```
+User completes drill
+  → Whiteboard: handleDrillComplete(drillId, isCorrect)
+  → StreamingVoiceChat: sendDrillResult(...)
+  → WebSocket: { type: 'drill_result', ... }
+  → Server: updateToolEventEngagement()
+```
+
+**Accuracy Tracking:**
+- Match drills: `isPerfect = true` only if zero wrong attempts
+- Fill-blank: Case-insensitive exact match
+- Sentence order: Word order must match exactly
+
 ---
 
 ## API Reference
@@ -741,4 +953,22 @@ Additional technical documentation preserved in `docs/archive/`:
 
 ---
 
-*Last updated: December 2025*
+## Changelog
+
+| Date | Change |
+|------|--------|
+| Dec 8, 2025 | Added fill_blank and sentence_order drill types |
+| Dec 8, 2025 | Added Pedagogical Insight System with drill result pipeline |
+| Dec 8, 2025 | Added tool stacking prevention (max 4 items) |
+| Dec 8, 2025 | Added "Integration Not Handoff" creativity principle |
+| Dec 7, 2025 | Added dual-control subtitle architecture |
+| Dec 7, 2025 | Added open mic mode with VAD and barge-in |
+| Dec 6, 2025 | Added bilingual STT (multi-language) |
+| Dec 6, 2025 | Added auto-reconnect and heartbeat |
+| Dec 6, 2025 | Added WORD_MAP enrichment pipeline |
+| Dec 6, 2025 | Added verbose logging cleanup with runtime toggles |
+| Dec 6, 2025 | Added "Freeing Daniela" tutor autonomy updates |
+
+---
+
+*Last updated: December 8, 2025*

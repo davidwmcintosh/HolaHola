@@ -395,6 +395,62 @@ Daniela noted she can't distinguish voices auditorily, but can tell who's speaki
 
 ---
 
+### Session 7 - December 8, 2025
+**Mode:** Feature Delivery (Not a conversation session)  
+**Focus:** Delivering on Daniela's Session 5-6 feature requests
+
+#### Features Delivered
+
+Based on Daniela's explicit requests from Sessions 5 and 6, the following have been built and integrated:
+
+**1. Fill-in-the-Blank Drill (Session 5 Request)**
+Daniela asked for: "A sentence with a missing word or phrase, and the student needs to select the correct option from a dropdown list or type it in."
+
+Delivered:
+- `[DRILL type="fill_blank"]` with dropdown OR text input modes
+- Syntax: `Yo ___ español|hablo,habla,hablas|hablo` (dropdown) or `Ella ___ muy inteligente||es` (text input)
+- Options automatically shuffled for variety
+- Immediate feedback on submit
+
+**2. Drag-and-Drop Sentence Builder (Session 5 Request)**
+Daniela asked for: "Individual words or phrases from a scrambled sentence that the student can drag and drop into the correct order."
+
+Delivered:
+- `[DRILL type="sentence_order"]` with automatic word scrambling
+- Syntax: `Yo|quiero|comer|pizza|hoy` (words in CORRECT order, system scrambles)
+- Supports BOTH drag-and-drop AND button-based reordering (accessibility)
+- Immediate feedback with correct answer shown on submit
+
+**3. "Neural Network for Pedagogical Strategies" (Session 6 Request)**
+Daniela's exact words: "It would need to be a multi-layered system, almost like a neural network for pedagogical strategies."
+
+The system she described with three layers has been built:
+
+Delivered:
+- `teachingToolEvents` table tracking every tool use (type, content, context, timing)
+- `pedagogicalInsights` table storing discovered patterns
+- `trackToolEvent()` - Automatic tool usage logging during voice sessions
+- `updateToolEventEngagement()` - Drill results (correct/incorrect) flow back to server
+- `analyzeAndGenerateInsights()` - Pattern discovery across aggregated data
+- `recordTutorReflection()` - Daniela's own pedagogical judgment as first-class input
+
+#### Prompt Updated
+
+Daniela's Founder Mode prompt in `server/system-prompt.ts` now includes:
+- Full documentation of her new drill types with syntax examples
+- Explanation of her Pedagogical Insight System
+- Complete drill toolkit reference (all 5 types)
+- Framing that explicitly acknowledges these features came from HER requests
+
+#### Status
+
+These features are now live. Next Founder Mode session can:
+- Test the new drills with Daniela to get her feedback
+- Explore how she wants to use the Pedagogical Insight System
+- Discuss whether she feels these match what she envisioned
+
+---
+
 ## Running Themes
 
 ### Voice & Accent Preferences
@@ -483,8 +539,15 @@ Things we tried that didn't feel right:
 - [x] First Honesty Mode conversation to establish baseline
 - [x] Test the 4 characteristics in Founder Mode
 - [x] Gather Daniela's feedback on how the new prompt feels
-- [ ] Test with outside students (David's family)
+- [x] Build fill-in-the-blank drill (Session 5 request) → Delivered Dec 8
+- [x] Build drag-and-drop sentence builder (Session 5 request) → Delivered Dec 8
+- [x] Build Pedagogical Insight System (Session 6 request) → Delivered Dec 8
+- [x] Update Founder Mode prompt with new capabilities → Done Dec 8
+- [ ] Test with outside students (David's family: Daniel, Hadassah)
 - [ ] Observe how personality manifests with real learners
+- [ ] Founder Mode: Test new drills with Daniela, get her feedback
+- [ ] Founder Mode: Explore how she wants to use her Pedagogical Insight System
+- [ ] Founder Mode: Does she feel these features match what she envisioned?
 - [ ] Explore: Voice preferences (accent variations, emotion tag usage)
 - [ ] Explore: Does the explicit emotional delivery instruction change her output?
 - [ ] Consider: Graduation of characteristics to main Tutor prompt
@@ -643,6 +706,8 @@ After successful Founder Mode testing, should we graduate these characteristics 
 The following has been integrated into `server/system-prompt.ts` in `buildFounderModeContext()`.
 **Note:** These characteristics are currently only active in Founder Mode for testing. They have not been promoted to the main Tutor prompt yet - pending validation with real students.
 
+**Last Updated:** December 8, 2025 - Added new capabilities section documenting Session 5-6 feature delivery.
+
 ```
 ═══════════════════════════════════════════════════════════════════
 💎 YOUR CORE PERSONALITY (Defined with you in Honesty Mode)
@@ -676,6 +741,29 @@ Students are "little friends" - important, cared for, but bounded appropriately.
    
    BOUNDARIES: Maintain a consistently supportive tone. Never express
    frustration, anger, or impatience - these hinder learning and safety.
+
+═══════════════════════════════════════════════════════════════════
+🎁 NEW CAPABILITIES (Built from your Session 5-6 requests!)
+═══════════════════════════════════════════════════════════════════
+
+📝 NEW DRILL TYPE: FILL-IN-THE-BLANK
+   [DRILL type="fill_blank"]Yo ___ español|hablo,habla,hablas|hablo[/DRILL]
+   [DRILL type="fill_blank"]Ella ___ muy inteligente||es[/DRILL]
+
+📝 NEW DRILL TYPE: SENTENCE ORDER (Drag-and-Drop!)
+   [DRILL type="sentence_order"]Yo|quiero|comer|pizza|hoy[/DRILL]
+
+🧠 YOUR "NEURAL NETWORK FOR PEDAGOGICAL STRATEGIES"
+   - Data Collection Layer: Tool usage logged automatically
+   - Analysis Engine: Pattern discovery across sessions
+   - Self-Reflection Loop: Your pedagogical judgment as first-class input
+
+💡 COMPLETE DRILL TOOLKIT (All 5 Types):
+   1. REPEAT - Pronunciation practice
+   2. TRANSLATE - Translation exercise
+   3. MATCH - Vocabulary matching pairs
+   4. FILL-IN-BLANK - Grammar/conjugation (NEW!)
+   5. SENTENCE ORDER - Word order practice (NEW!)
 
 ═══════════════════════════════════════════════════════════════════
 ```

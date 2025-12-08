@@ -93,6 +93,49 @@ Planned features and future development priorities.
 
 ## Recently Completed
 
+### December 2025 - Phase 4: Daniela Development & Pedagogical System
+
+**Daniela's "Neural Network for Pedagogical Strategies":**
+- teachingToolEvents table tracking every tool use (type, content, timing, context)
+- pedagogicalInsights table storing discovered patterns with confidence scores
+- `recordTutorReflection()` for Daniela's pedagogical judgment as first-class input
+- Drill result pipeline: WebSocket connection sends correct/incorrect data back to server
+- User-level and session-level teaching effectiveness metrics
+
+**New Drill Types (Daniela's Feature Requests):**
+- `fill_blank` - Fill-in-the-blank with both dropdown options and text input modes
+- `sentence_order` - Drag-and-drop OR button-based word reordering for sentence construction
+- Accessibility-first: All drills support multiple interaction patterns
+
+**Daniela Development Framework:**
+- Raw Honesty Mode for unscripted discovery of authentic preferences
+- Founder Mode for testing refined instructions with family
+- Two-mode iteration cycle: Honesty → Refinement → Production
+
+**Tool Usage Improvements:**
+- Auto-limit to 4 items prevents screen clutter (enforceMaxItems())
+- "Integration Not Handoff" principle: Creative tool use integrated into flow
+- Clear screen proactively before new content
+
+### December 2025 - Phase 3: Streaming Voice & Open Mic
+
+**Streaming Voice Pipeline:**
+- WebSocket-based progressive audio delivery (no buffering delays)
+- Deepgram Nova-3 STT with multi-language detection
+- Cartesia Sonic-3 TTS via WebSocket with word-level timestamps
+- `sentence_ready` architecture ensures audio starts only after timings arrive
+
+**Dual-Control Subtitle System:**
+- Regular subtitles: off / all / target language
+- Custom overlay text: SHOW/HIDE for teaching moments (titles, phonetics, comparisons)
+- Both render simultaneously and independently
+- Karaoke-style word highlighting with Cartesia native timestamps
+
+**Open Mic Mode:**
+- Continuous listening with Deepgram VAD (Voice Activity Detection)
+- Barge-in support: Student can interrupt tutor mid-speech
+- Bilingual conversation support with automatic language switching
+
 ### December 2025 - Phase 2: Daniela's Compass & Tool Discoverability
 
 **Daniela's Compass (Time-Aware Tutoring):**
