@@ -1615,6 +1615,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Export anonymized student insights (for one-way prod→dev sync)
+  app.get('/api/sync/export/anonymized-insights', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Only developers and admins can export anonymized data
+      if (user?.role !== 'developer' && user?.role !== 'admin') {
+        return res.status(403).json({ message: "Developer or admin access required" });
+      }
+      
+      // Verify anonymization is properly configured before proceeding
+      const configCheck = neuralNetworkSync.verifyAnonymizationConfig();
+      if (!configCheck.configured) {
+        return res.status(503).json({ 
+          message: "Anonymization system not configured",
+          error: configCheck.error 
+        });
+      }
+      
+      const exportData = await neuralNetworkSync.exportAnonymizedInsights();
+      res.json(exportData);
+    } catch (error: any) {
+      console.error("Error exporting anonymized insights:", error);
+      
+      // Handle configuration errors specifically
+      if (error.message?.includes('SYNC_HASH_SALT')) {
+        return res.status(503).json({ 
+          message: "Anonymization system not configured",
+          error: error.message 
+        });
+      }
+      
+      res.status(500).json({ message: "Failed to export anonymized insights" });
+    }
+  });
+  
+  // Get aggregate student statistics (privacy-preserving analytics)
+  app.get('/api/sync/stats/aggregate', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Only developers and admins can view aggregate stats
+      if (user?.role !== 'developer' && user?.role !== 'admin') {
+        return res.status(403).json({ message: "Developer or admin access required" });
+      }
+      
+      const stats = await neuralNetworkSync.getAggregateStudentStats();
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Error getting aggregate stats:", error);
+      res.status(500).json({ message: "Failed to get aggregate stats" });
+    }
+  });
+
   // ===== Developer Usage Analytics Routes =====
   
   // Reload credits for a class (developer only)
