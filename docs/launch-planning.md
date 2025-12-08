@@ -120,6 +120,30 @@ We're preparing to take our AI-powered language tutoring platform from developme
 | Scale | $299/month | 8M chars (~$0.000037/char) |
 | Free | $0 | 10K chars |
 
+##### Why Cartesia? (Daniela's Non-Negotiables)
+
+| Feature | Cartesia | ElevenLabs | Google TTS |
+|---------|----------|------------|------------|
+| **Word-level timestamps** | ✅ Native WebSocket | ✅ Character-level | ⚠️ Not in streaming |
+| **WebSocket streaming** | ✅ Native, ~90ms | ✅ Yes, ~75ms | ❌ HTTP only |
+| **Emotion control** | ✅ 10+ emotions | ❌ Limited | ❌ No |
+| **Variable speed** | ✅ 0.6-1.5x | ✅ Yes | ✅ SSML |
+| **Pronunciation dicts** | ✅ IPA support | ❌ No | ✅ SSML phonemes |
+| **Natural laughter** | ✅ Yes | ❌ No | ❌ No |
+| **Multi-language** | ✅ 42 languages | ✅ 32+ | ✅ 40+ |
+
+**The killer combo:** Word timestamps + WebSocket streaming + emotion control + laughter. 
+
+No other provider offers all of these together. ElevenLabs comes close on timestamps/streaming but lacks emotion control and natural vocalizations. Google lacks WebSocket streaming entirely.
+
+**For Daniela to feel alive, we need:**
+- Karaoke-style word highlighting (requires timestamps in stream)
+- Sub-100ms response (requires WebSocket)
+- Emotional range (happy, curious, encouraging, etc.)
+- Natural laughter for warmth
+
+**Verdict:** Cartesia is expensive but irreplaceable for Daniela's personality. Budget accordingly.
+
 #### Google Gemini (LLM)
 | Model | Input | Output |
 |-------|-------|--------|
