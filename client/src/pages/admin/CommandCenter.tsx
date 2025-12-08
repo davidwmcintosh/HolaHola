@@ -128,6 +128,7 @@ export default function CommandCenter() {
     { id: "analytics", label: "Analytics", icon: BarChart3, roles: ['admin', 'developer'] },
     { id: "images", label: "Images", icon: Image, roles: ['admin', 'developer'] },
     { id: "voice-lab", label: "Voice Lab", icon: Volume2, roles: ['admin', 'developer'] },
+    { id: "neural-network", label: "Neural Network", icon: Zap, roles: ['developer', 'admin'] },
     { id: "dev-tools", label: "Dev Tools", icon: Code, roles: ['developer', 'admin'] },
     { id: "audit", label: "Audit", icon: FileText, roles: ['admin'] },
   ].filter(tab => {
@@ -205,6 +206,10 @@ export default function CommandCenter() {
 
           <TabsContent value="voice-lab" className="space-y-4">
             <VoiceLabTab />
+          </TabsContent>
+
+          <TabsContent value="neural-network" className="space-y-4">
+            <NeuralNetworkTab />
           </TabsContent>
 
           <TabsContent value="dev-tools" className="space-y-4">
@@ -2048,6 +2053,322 @@ function ImageLibraryTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function NeuralNetworkTab() {
+  const { toast } = useToast();
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+  
+  const { data: syncStats, isLoading: statsLoading } = useQuery<{
+    pendingPromotions: number;
+    approvedToday: number;
+    lastSyncTime: string | null;
+    currentEnvironment: string;
+  }>({
+    queryKey: ["/api/sync/stats"],
+  });
+  
+  const { data: pendingPromotions, isLoading: pendingLoading, refetch: refetchPending } = useQuery<Array<{
+    id: string;
+    bestPracticeId: string;
+    sourceEnvironment: string;
+    targetEnvironment: string;
+    status: string;
+    submittedAt: string;
+    bestPractice: {
+      id: string;
+      category: string;
+      insight: string;
+      context: string;
+      source: string;
+      confidenceScore: number;
+    };
+  }>>({
+    queryKey: ["/api/sync/promotions/pending"],
+  });
+  
+  const { data: promotionHistory, isLoading: historyLoading } = useQuery<Array<{
+    id: string;
+    bestPracticeId: string;
+    status: string;
+    submittedAt: string;
+    reviewedAt: string | null;
+    reviewNotes: string | null;
+  }>>({
+    queryKey: ["/api/sync/promotions/history", { limit: 20 }],
+  });
+  
+  const { data: syncLogs } = useQuery<Array<{
+    id: string;
+    operation: string;
+    tableName: string;
+    recordCount: number;
+    status: string;
+    createdAt: string;
+  }>>({
+    queryKey: ["/api/sync/logs", { limit: 10 }],
+  });
+  
+  const reviewMutation = useMutation({
+    mutationFn: async ({ id, approved, notes }: { id: string; approved: boolean; notes?: string }) => {
+      return apiRequest("POST", `/api/sync/promotions/${id}/review`, { approved, reviewNotes: notes });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sync/promotions/pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sync/promotions/history"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sync/stats"] });
+      toast({ title: "Review submitted", description: "Promotion has been reviewed" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+  
+  const exportMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/sync/export/best-practices");
+      if (!response.ok) throw new Error("Export failed");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `best-practices-export-${new Date().toISOString().split("T")[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: "Exported", description: `${data.count} best practices exported` });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+  
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "Never";
+    const date = new Date(dateStr);
+    return date.toLocaleDateString() + " " + date.toLocaleTimeString();
+  };
+  
+  const getCategoryColor = (category: string) => {
+    const colors: Record<string, string> = {
+      tool_usage: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+      teaching_style: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+      pacing: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      communication: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+      content: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+      system: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
+    };
+    return colors[category] || "bg-gray-100 text-gray-800";
+  };
+  
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Environment</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold capitalize">
+              {statsLoading ? <Skeleton className="h-8 w-24" /> : syncStats?.currentEnvironment}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Pending Promotions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {statsLoading ? <Skeleton className="h-8 w-12" /> : syncStats?.pendingPromotions || 0}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Approved Today</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {statsLoading ? <Skeleton className="h-8 w-12" /> : syncStats?.approvedToday || 0}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Last Sync</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm font-medium">
+              {statsLoading ? <Skeleton className="h-5 w-32" /> : formatDate(syncStats?.lastSyncTime || null)}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      
+      <div className="flex gap-2">
+        <Button 
+          variant="outline" 
+          onClick={() => exportMutation.mutate()}
+          disabled={exportMutation.isPending}
+          data-testid="button-export-practices"
+        >
+          {exportMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+          Export Best Practices
+        </Button>
+        <Button 
+          variant="outline"
+          onClick={() => refetchPending()}
+          data-testid="button-refresh-pending"
+        >
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
+      </div>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5" />
+            Pending Promotions
+          </CardTitle>
+          <CardDescription>
+            Best practices waiting for review before syncing to other environment
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {pendingLoading ? (
+            <div className="space-y-4">
+              {[1, 2].map(i => <Skeleton key={i} className="h-24 w-full" />)}
+            </div>
+          ) : !pendingPromotions?.length ? (
+            <p className="text-muted-foreground text-center py-8">No pending promotions</p>
+          ) : (
+            <div className="space-y-4">
+              {pendingPromotions.map(item => (
+                <Card key={item.id} className="p-4">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge className={getCategoryColor(item.bestPractice.category)}>
+                            {item.bestPractice.category.replace("_", " ")}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {item.sourceEnvironment} → {item.targetEnvironment}
+                          </span>
+                        </div>
+                        <p className="font-medium">{item.bestPractice.insight}</p>
+                        {item.bestPractice.context && (
+                          <p className="text-sm text-muted-foreground mt-1">{item.bestPractice.context}</p>
+                        )}
+                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                          <span>Source: {item.bestPractice.source}</span>
+                          <span>Confidence: {Math.round((item.bestPractice.confidenceScore || 0) * 100)}%</span>
+                          <span>Submitted: {formatDate(item.submittedAt)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Input
+                        placeholder="Review notes (optional)"
+                        value={reviewNotes[item.id] || ""}
+                        onChange={(e) => setReviewNotes(prev => ({ ...prev, [item.id]: e.target.value }))}
+                        className="flex-1"
+                        data-testid={`input-review-notes-${item.id}`}
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => reviewMutation.mutate({ id: item.id, approved: true, notes: reviewNotes[item.id] })}
+                        disabled={reviewMutation.isPending}
+                        data-testid={`button-approve-${item.id}`}
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => reviewMutation.mutate({ id: item.id, approved: false, notes: reviewNotes[item.id] })}
+                        disabled={reviewMutation.isPending}
+                        data-testid={`button-reject-${item.id}`}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Recent History
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {historyLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-8 w-full" />)}
+              </div>
+            ) : !promotionHistory?.length ? (
+              <p className="text-muted-foreground text-center py-4">No promotion history</p>
+            ) : (
+              <div className="space-y-2">
+                {promotionHistory.slice(0, 10).map(item => (
+                  <div key={item.id} className="flex items-center justify-between text-sm">
+                    <span className="truncate flex-1">{item.bestPracticeId.slice(0, 8)}...</span>
+                    <Badge variant={item.status === "approved" ? "default" : item.status === "rejected" ? "destructive" : "secondary"}>
+                      {item.status}
+                    </Badge>
+                    <span className="text-muted-foreground ml-2">{formatDate(item.reviewedAt)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Sync Logs
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!syncLogs?.length ? (
+              <p className="text-muted-foreground text-center py-4">No sync operations yet</p>
+            ) : (
+              <div className="space-y-2">
+                {syncLogs.slice(0, 10).map(log => (
+                  <div key={log.id} className="flex items-center justify-between text-sm">
+                    <span className="font-medium">{log.operation}</span>
+                    <span>{log.tableName}</span>
+                    <Badge variant={log.status === "success" ? "default" : "destructive"}>{log.recordCount}</Badge>
+                    <span className="text-muted-foreground">{formatDate(log.createdAt)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

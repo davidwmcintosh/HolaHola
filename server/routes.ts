@@ -36,6 +36,7 @@ import { assessMessage, analyzePerformance } from "./difficulty-adjustment";
 import { setupAuth, isAuthenticated, getSession } from "./replitAuth";
 import { passwordAuthService } from "./services/password-auth-service";
 import { emailService } from "./services/email-service";
+import { neuralNetworkSync } from "./services/neural-network-sync";
 import { passwordLoginSchema, passwordResetRequestSchema, setNewPasswordSchema, completeRegistrationSchema, createInvitationSchema } from "@shared/schema";
 import passport from "passport";
 import { generateConversationTitle, generateConversationContextSummary } from "./conversation-utils";
@@ -1462,6 +1463,155 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error fetching people connections:", error);
       res.status(500).json({ message: "Failed to fetch people connections" });
+    }
+  });
+
+  // ===== Neural Network Sync Routes =====
+  
+  // Get sync stats (pending promotions, last sync, etc.)
+  app.get('/api/sync/stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const stats = await neuralNetworkSync.getSyncStats();
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Error getting sync stats:", error);
+      res.status(500).json({ message: "Failed to get sync stats" });
+    }
+  });
+  
+  // Get pending promotions
+  app.get('/api/sync/promotions/pending', isAuthenticated, async (req: any, res) => {
+    try {
+      const pending = await neuralNetworkSync.getPendingPromotions();
+      res.json(pending);
+    } catch (error: any) {
+      console.error("Error getting pending promotions:", error);
+      res.status(500).json({ message: "Failed to get pending promotions" });
+    }
+  });
+  
+  // Get promotion history
+  app.get('/api/sync/promotions/history', isAuthenticated, async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const history = await neuralNetworkSync.getPromotionHistory(limit);
+      res.json(history);
+    } catch (error: any) {
+      console.error("Error getting promotion history:", error);
+      res.status(500).json({ message: "Failed to get promotion history" });
+    }
+  });
+  
+  // Submit a best practice for promotion
+  app.post('/api/sync/promotions/submit', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { bestPracticeId } = req.body;
+      
+      if (!bestPracticeId) {
+        return res.status(400).json({ message: "bestPracticeId is required" });
+      }
+      
+      const result = await neuralNetworkSync.submitForPromotion(bestPracticeId, userId);
+      
+      if (!result.success) {
+        return res.status(400).json({ message: result.error });
+      }
+      
+      res.json(result.queueItem);
+    } catch (error: any) {
+      console.error("Error submitting for promotion:", error);
+      res.status(500).json({ message: "Failed to submit for promotion" });
+    }
+  });
+  
+  // Review a promotion (approve/reject)
+  app.post('/api/sync/promotions/:id/review', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const { approved, reviewNotes } = req.body;
+      
+      if (typeof approved !== 'boolean') {
+        return res.status(400).json({ message: "approved (boolean) is required" });
+      }
+      
+      const result = await neuralNetworkSync.reviewPromotion(id, userId, approved, reviewNotes);
+      
+      if (!result.success) {
+        return res.status(400).json({ message: result.error });
+      }
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error reviewing promotion:", error);
+      res.status(500).json({ message: "Failed to review promotion" });
+    }
+  });
+  
+  // Get sync logs
+  app.get('/api/sync/logs', isAuthenticated, async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await neuralNetworkSync.getSyncLogs(limit);
+      res.json(logs);
+    } catch (error: any) {
+      console.error("Error getting sync logs:", error);
+      res.status(500).json({ message: "Failed to get sync logs" });
+    }
+  });
+  
+  // Export approved best practices (for manual sync)
+  app.get('/api/sync/export/best-practices', isAuthenticated, async (req: any, res) => {
+    try {
+      const practices = await neuralNetworkSync.getBestPracticesForExport();
+      res.json({
+        exportedAt: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development',
+        count: practices.length,
+        practices
+      });
+    } catch (error: any) {
+      console.error("Error exporting best practices:", error);
+      res.status(500).json({ message: "Failed to export best practices" });
+    }
+  });
+  
+  // Import best practices (for manual sync)
+  app.post('/api/sync/import/best-practices', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { practices } = req.body;
+      
+      if (!Array.isArray(practices)) {
+        return res.status(400).json({ message: "practices array is required" });
+      }
+      
+      const results = [];
+      for (const practice of practices) {
+        const result = await neuralNetworkSync.importBestPractice(practice, userId);
+        results.push({ originId: practice.id, ...result });
+      }
+      
+      await neuralNetworkSync.logSyncOperation({
+        operation: 'import',
+        tableName: 'self_best_practices',
+        recordCount: practices.length,
+        sourceEnvironment: 'production',
+        targetEnvironment: 'development',
+        performedBy: userId,
+        status: 'success',
+        metadata: { importedCount: results.filter(r => r.success).length }
+      });
+      
+      res.json({
+        imported: results.filter(r => r.success).length,
+        failed: results.filter(r => !r.success).length,
+        results
+      });
+    } catch (error: any) {
+      console.error("Error importing best practices:", error);
+      res.status(500).json({ message: "Failed to import best practices" });
     }
   });
 
