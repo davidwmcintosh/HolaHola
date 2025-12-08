@@ -114,11 +114,14 @@ We're preparing to take our AI-powered language tutoring platform from developme
 | Free trial | $200 credit (~45K min) | Credits never expire |
 
 #### Cartesia (TTS - Text-to-Speech)
-| Plan | Cost | Characters |
-|------|------|------------|
-| Pro | $5/month | 100K chars (~$0.00005/char) |
-| Scale | $299/month | 8M chars (~$0.000037/char) |
-| Free | $0 | 10K chars |
+| Plan | Cost | Characters | Per-Char Rate |
+|------|------|------------|---------------|
+| Free | $0 | 10K chars | N/A |
+| Pro | $5/month | 100K chars | $0.00005/char |
+| **Growth (Current)** | **$39/month** | **1.25M chars** | **$0.0000312/char** |
+| Scale | $299/month | 8M chars | $0.0000374/char |
+
+**Our Plan:** Growth tier at $39/month - gives us 1.25M characters, enough for ~400 15-min voice sessions.
 
 ##### Why Cartesia? (Daniela's Non-Negotiables)
 
@@ -160,16 +163,26 @@ No other provider offers all of these together. ElevenLabs comes close on timest
 - TTS: ~3,000 characters generated (tutor responses)
 - LLM: ~10K tokens input + 2K tokens output
 
+*Note: These are estimates. See "Metrics-Based Refinement" below for how we'll tighten these with real data.*
+
+#### Early Stage: Within Growth Plan Limits
+**Cartesia Growth Plan:** $39/month for 1.25M characters (~400 sessions @ 3K chars/session)
+
+| Students | Sessions/mo | TTS Chars | Fits in $39 Plan? | Total Fixed Costs |
+|----------|-------------|-----------|-------------------|-------------------|
+| 20 | 400 | 1.2M | ✅ Yes | ~$49/mo |
+| 40 | 800 | 2.4M | ❌ Need 2x | ~$88/mo |
+
 #### 100 Active Students (20 sessions/month each = 2,000 sessions)
 | Component | Monthly Cost |
 |-----------|-------------|
 | Replit Reserved VM | $40 |
 | Database | $5 |
 | Deepgram STT (30K min) | $129 |
-| Cartesia TTS (6M chars) | $224 (Scale plan) |
+| Cartesia TTS (6M chars @ $0.0000312) | $187 |
 | Gemini LLM (24M tokens) | ~$10 |
-| **Total** | **~$408/month** |
-| **Per student** | **~$4.08/month** |
+| **Total** | **~$371/month** |
+| **Per student** | **~$3.71/month** |
 
 #### 1,000 Active Students (20,000 sessions/month)
 | Component | Monthly Cost |
@@ -177,10 +190,10 @@ No other provider offers all of these together. ElevenLabs comes close on timest
 | Replit Reserved VM | $80 |
 | Database | $15 |
 | Deepgram STT (300K min) | $1,290 |
-| Cartesia TTS (60M chars) | ~$2,240 (enterprise pricing likely) |
+| Cartesia TTS (60M chars @ $0.0000312) | $1,872 |
 | Gemini LLM (240M tokens) | ~$100 |
-| **Total** | **~$3,725/month** |
-| **Per student** | **~$3.73/month** |
+| **Total** | **~$3,357/month** |
+| **Per student** | **~$3.36/month** |
 
 #### 10,000 Active Students (200,000 sessions/month)
 | Component | Monthly Cost |
@@ -188,14 +201,42 @@ No other provider offers all of these together. ElevenLabs comes close on timest
 | Replit Reserved VM | $160 |
 | Database | $50 |
 | Deepgram STT (3M min) | ~$12,900 (volume discount likely) |
-| Cartesia TTS (600M chars) | ~$15,000 (enterprise) |
+| Cartesia TTS (600M chars) | ~$12,500 (enterprise pricing) |
 | Gemini LLM (2.4B tokens) | ~$1,000 |
-| **Total** | **~$29,110/month** |
-| **Per student** | **~$2.91/month** |
+| **Total** | **~$26,610/month** |
+| **Per student** | **~$2.66/month** |
 
 **Key insight:** Per-student cost decreases with scale due to enterprise pricing and fixed hosting costs amortized.
 
-**Pricing strategy implication:** At $15-20/month subscription, you're profitable after ~200-300 students. Before that, you're investing in growth.
+**Pricing strategy implication:** At $15-20/month subscription, you're profitable after ~100-150 students. Before that, you're investing in growth.
+
+---
+
+### Metrics-Based Refinement
+
+**We track real usage data to refine these estimates:**
+
+The `voiceSessions` table captures:
+| Metric | Purpose |
+|--------|---------|
+| `durationSeconds` | Clock time - how long user was in session |
+| `ttsCharacters` | Cost time - actual TTS characters billed to Cartesia |
+| `sttSeconds` | STT seconds billed to Deepgram |
+| `tutorSpeakingSeconds` | Daniela's speaking time |
+| `studentSpeakingSeconds` | Student's speaking time |
+| `exchangeCount` | Number of back-and-forth exchanges |
+
+**Key ratios to monitor:**
+1. **TTS chars per session minute** - If we assume 3K chars/15 min = 200 chars/min, is reality higher or lower?
+2. **Clock time vs cost time** - Sessions have pauses, thinking time. How much of a 15-min session is actually billable audio?
+3. **Speaking ratio** - If student speaks 60% of the time, that's 60% less TTS than if tutor dominates
+4. **Exchange efficiency** - Shorter, punchier responses = less TTS cost
+
+**Action items:**
+- [ ] Build admin dashboard showing aggregated metrics
+- [ ] Establish baseline ratios from beta testing
+- [ ] Adjust cost projections with real data before finalizing pricing tiers
+- [ ] Track trend over time (do users talk more as they get comfortable?)
 
 ---
 
@@ -506,7 +547,76 @@ Like a record label or creative studio - the brand is where great tutors come fr
 | Dec 8, 2025 | Stay on Replit for hosting | Good fit for growth stage, easy scaling, WebSocket support |
 | Dec 8, 2025 | Need new name | LinguaFlow domain unavailable |
 | Dec 8, 2025 | Commit to Cartesia TTS | Only provider with word timestamps + WebSocket + emotions + laughter. Irreplaceable for Daniela's personality. Will negotiate enterprise pricing. |
+| Dec 8, 2025 | Upgraded to Cartesia Growth | $39/month for 1.25M chars. Enough for ~20 active students. Will use tracked metrics to refine cost model. |
 | | | |
+
+---
+
+## Part 5: Class Costs & Tier Pricing (Draft)
+
+*To be finalized after beta testing with real metrics data.*
+
+### Cost Per Voice Hour
+
+**Based on current Cartesia Growth rate ($0.0000312/char):**
+
+| Component | Per Hour | Notes |
+|-----------|----------|-------|
+| Cartesia TTS | ~$0.75 | ~24K chars/hour (assuming 400 chars/min × 60) |
+| Deepgram STT | ~$0.26 | ~60 min @ $0.0043/min |
+| Gemini LLM | ~$0.04 | ~40K tokens @ blended rate |
+| **Total API cost** | **~$1.05/hour** | Before hosting overhead |
+
+*These estimates assume tutor speaks ~50% of the time. Reality TBD from metrics.*
+
+### Class Allocation Model
+
+Teachers allocate voice tutoring hours to their classes. Students draw from this pool.
+
+| Class Size | Hours Allocated | API Cost | Suggested Class Price |
+|------------|-----------------|----------|----------------------|
+| 5 students | 10 hrs/month | ~$10.50 | $25-35/month |
+| 10 students | 20 hrs/month | ~$21.00 | $45-65/month |
+| 20 students | 40 hrs/month | ~$42.00 | $85-120/month |
+
+**Markup rationale:** 2-3x API cost covers hosting, support, platform development.
+
+### Self-Directed Learner Tiers (B2C)
+
+| Tier | Voice Hours/mo | Price | API Cost | Margin |
+|------|----------------|-------|----------|--------|
+| **Free Trial** | 0.5 hrs (30 min) | $0 | ~$0.53 | Acquisition |
+| **Starter** | 2 hrs | $9.99 | ~$2.10 | 79% |
+| **Standard** | 5 hrs | $19.99 | ~$5.25 | 74% |
+| **Premium** | 15 hrs | $39.99 | ~$15.75 | 61% |
+| **Unlimited** | Unlimited | $79.99 | Variable | Risk-based |
+
+**Notes:**
+- Heavy users on Premium may exceed margin - acceptable for engagement
+- Unlimited tier needs usage cap or fair-use policy
+- Consider annual discounts (20% off = 2 months free)
+
+### Institutional Tiers (B2B)
+
+| Tier | Teachers | Students | Voice Hours | Price/mo |
+|------|----------|----------|-------------|----------|
+| **School Starter** | 3 | 50 | 100 | $199 |
+| **School Pro** | 10 | 200 | 500 | $599 |
+| **District** | Unlimited | Unlimited | 2000 | $1,999 |
+
+### Refinement Strategy
+
+**Before finalizing pricing:**
+
+1. **Baseline metrics** - Run beta sessions, measure actual TTS chars/session
+2. **Clock vs Cost ratio** - What % of session time is billable audio?
+3. **Speaking patterns** - Do students speak more over time? (reduces TTS cost)
+4. **Session length** - Are 15-min averages accurate?
+
+**After 100 sessions of data:**
+- [ ] Calculate actual cost per voice hour
+- [ ] Adjust tier allocations based on reality
+- [ ] Set final prices with real margin data
 
 ---
 
@@ -517,6 +627,8 @@ Like a record label or creative studio - the brand is where great tutors come fr
 3. **Create production deployment** - Set up Reserved VM on Replit
 4. **Configure custom domain** - Point new domain to Replit
 5. **Beta test** - Family validation before wider launch
+6. **Gather metrics** - Run 100+ sessions to establish baseline cost ratios
+7. **Finalize pricing** - Set tier prices based on real data
 
 ---
 
