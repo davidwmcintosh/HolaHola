@@ -357,139 +357,67 @@ export class NeuralNetworkSyncService {
   
   /**
    * Anonymize a pedagogical insight record for cross-environment sync
+   * Uses the actual PedagogicalInsight schema from the database
    */
   anonymizePedagogicalInsight(insight: {
     id: string;
-    studentId: string;
-    teacherId?: string | null;
-    insightType: string;
-    insight: string;
-    actionTaken?: string | null;
-    outcome?: string | null;
-    language?: string | null;
-    proficiencyLevel?: string | null;
-    sessionContext?: any;
-    effectivenessScore?: number | null;
-    createdAt?: Date;
-  }): {
-    anonymizedStudentHash: string;
-    insightType: string;
-    insight: string;
-    actionTaken: string;
-    outcome: string;
     language: string | null;
-    proficiencyLevel: string | null;
-    effectivenessScore: number | null;
-    sessionContextSummary: { 
-      hasContext: boolean; 
-      contextType?: string;
-    };
+    topic: string | null;
+    difficulty: string | null;
+    patternDescription: string;
+    patternKey: string;
+    effectiveTools: string[] | null;
+    ineffectiveTools: string[] | null;
+    sampleSize: number | null;
+    successRate: number | null;
+    confidenceScore: number | null;
+    sourceType: string;
+    tutorReflection: string | null;
+    isActive: boolean | null;
+  }): {
+    id: string;
+    language: string | null;
+    topic: string | null;
+    difficulty: string | null;
+    patternDescription: string;
+    patternKey: string;
+    effectiveTools: string[] | null;
+    ineffectiveTools: string[] | null;
+    sampleSize: number | null;
+    successRate: number | null;
+    confidenceScore: number | null;
+    sourceType: string;
+    tutorReflection: string;
+    isActive: boolean | null;
   } {
     return {
-      anonymizedStudentHash: this.hashStudentId(insight.studentId),
-      insightType: insight.insightType,
-      insight: this.redactSensitiveText(insight.insight),
-      actionTaken: this.redactSensitiveText(insight.actionTaken),
-      outcome: this.redactSensitiveText(insight.outcome),
+      id: insight.id,
       language: insight.language,
-      proficiencyLevel: insight.proficiencyLevel,
-      effectivenessScore: insight.effectivenessScore,
-      sessionContextSummary: {
-        hasContext: !!insight.sessionContext,
-        contextType: insight.sessionContext?.type
-      }
+      topic: insight.topic,
+      difficulty: insight.difficulty,
+      patternDescription: this.redactSensitiveText(insight.patternDescription),
+      patternKey: insight.patternKey,
+      effectiveTools: insight.effectiveTools,
+      ineffectiveTools: insight.ineffectiveTools,
+      sampleSize: insight.sampleSize,
+      successRate: insight.successRate,
+      confidenceScore: insight.confidenceScore,
+      sourceType: insight.sourceType,
+      tutorReflection: this.redactSensitiveText(insight.tutorReflection),
+      isActive: insight.isActive
     };
   }
   
   /**
-   * Anonymize a student connection record
-   */
-  anonymizeStudentConnection(connection: {
-    studentId: string;
-    connectionType: string;
-    description?: string | null;
-    strength?: number | null;
-    language?: string | null;
-  }): {
-    anonymizedStudentHash: string;
-    connectionType: string;
-    description: string;
-    strength: number | null;
-    language: string | null;
-  } {
-    return {
-      anonymizedStudentHash: this.hashStudentId(connection.studentId),
-      connectionType: connection.connectionType,
-      description: this.redactSensitiveText(connection.description),
-      strength: connection.strength,
-      language: connection.language
-    };
-  }
-  
-  /**
-   * Anonymize a student motivation record
-   */
-  anonymizeStudentMotivation(motivation: {
-    studentId: string;
-    motivationType: string;
-    description?: string | null;
-    intensity?: number | null;
-    language?: string | null;
-  }): {
-    anonymizedStudentHash: string;
-    motivationType: string;
-    description: string;
-    intensity: number | null;
-    language: string | null;
-  } {
-    return {
-      anonymizedStudentHash: this.hashStudentId(motivation.studentId),
-      motivationType: motivation.motivationType,
-      description: this.redactSensitiveText(motivation.description),
-      intensity: motivation.intensity,
-      language: motivation.language
-    };
-  }
-  
-  /**
-   * Anonymize a student struggle record
-   */
-  anonymizeStudentStruggle(struggle: {
-    studentId: string;
-    struggleType: string;
-    description?: string | null;
-    severity?: number | null;
-    language?: string | null;
-    interventionsTried?: string[] | null;
-  }): {
-    anonymizedStudentHash: string;
-    struggleType: string;
-    description: string;
-    severity: number | null;
-    language: string | null;
-    interventionCount: number;
-  } {
-    return {
-      anonymizedStudentHash: this.hashStudentId(struggle.studentId),
-      struggleType: struggle.struggleType,
-      description: this.redactSensitiveText(struggle.description),
-      severity: struggle.severity,
-      language: struggle.language,
-      interventionCount: struggle.interventionsTried?.length || 0
-    };
-  }
-  
-  /**
-   * Batch export anonymized student insights for one-way prod→dev sync
-   * Returns aggregated, anonymized data suitable for ML training
+   * Batch export anonymized pedagogical insights for one-way prod→dev sync
+   * Returns aggregated data suitable for improving Daniela's teaching
    */
   async exportAnonymizedInsights(): Promise<{
     exportedAt: string;
     environment: string;
     insightCount: number;
-    insights: Array<ReturnType<typeof this.anonymizePedagogicalInsight>>;
+    insights: Array<ReturnType<NeuralNetworkSyncService['anonymizePedagogicalInsight']>>;
   }> {
-    // Import the pedagogicalInsights table
     const { pedagogicalInsights } = await import('@shared/schema');
     
     const allInsights = await db
@@ -521,16 +449,16 @@ export class NeuralNetworkSyncService {
   }
   
   /**
-   * Generate aggregate statistics from student data without exposing individuals
-   * Useful for understanding patterns across all students
+   * Generate aggregate statistics from pedagogical insights
+   * Useful for understanding teaching patterns
    */
   async getAggregateStudentStats(): Promise<{
     totalInsights: number;
-    insightsByType: Record<string, number>;
+    insightsBySourceType: Record<string, number>;
     insightsByLanguage: Record<string, number>;
-    insightsByProficiency: Record<string, number>;
-    avgEffectivenessScore: number;
-    topEffectiveInterventions: Array<{ type: string; avgScore: number; count: number }>;
+    insightsByDifficulty: Record<string, number>;
+    avgSuccessRate: number;
+    topEffectiveTools: Array<{ tool: string; count: number }>;
   }> {
     const { pedagogicalInsights } = await import('@shared/schema');
     
@@ -538,58 +466,271 @@ export class NeuralNetworkSyncService {
       .select()
       .from(pedagogicalInsights);
     
-    const insightsByType: Record<string, number> = {};
+    const insightsBySourceType: Record<string, number> = {};
     const insightsByLanguage: Record<string, number> = {};
-    const insightsByProficiency: Record<string, number> = {};
-    const effectivenessScores: number[] = [];
-    const interventionEffectiveness: Record<string, { total: number; count: number }> = {};
+    const insightsByDifficulty: Record<string, number> = {};
+    const successRates: number[] = [];
+    const toolCounts: Record<string, number> = {};
     
     for (const insight of allInsights) {
-      // Count by type
-      insightsByType[insight.insightType] = (insightsByType[insight.insightType] || 0) + 1;
+      // Count by source type
+      insightsBySourceType[insight.sourceType] = (insightsBySourceType[insight.sourceType] || 0) + 1;
       
       // Count by language
       if (insight.language) {
         insightsByLanguage[insight.language] = (insightsByLanguage[insight.language] || 0) + 1;
       }
       
-      // Count by proficiency
-      if (insight.proficiencyLevel) {
-        insightsByProficiency[insight.proficiencyLevel] = (insightsByProficiency[insight.proficiencyLevel] || 0) + 1;
+      // Count by difficulty
+      if (insight.difficulty) {
+        insightsByDifficulty[insight.difficulty] = (insightsByDifficulty[insight.difficulty] || 0) + 1;
       }
       
-      // Track effectiveness
-      if (insight.effectivenessScore != null) {
-        effectivenessScores.push(insight.effectivenessScore);
-        
-        if (!interventionEffectiveness[insight.insightType]) {
-          interventionEffectiveness[insight.insightType] = { total: 0, count: 0 };
+      // Track success rates
+      if (insight.successRate != null) {
+        successRates.push(insight.successRate);
+      }
+      
+      // Count effective tools
+      if (insight.effectiveTools) {
+        for (const tool of insight.effectiveTools) {
+          toolCounts[tool] = (toolCounts[tool] || 0) + 1;
         }
-        interventionEffectiveness[insight.insightType].total += insight.effectivenessScore;
-        interventionEffectiveness[insight.insightType].count += 1;
       }
     }
     
-    const avgEffectiveness = effectivenessScores.length > 0
-      ? effectivenessScores.reduce((a, b) => a + b, 0) / effectivenessScores.length
+    const avgSuccess = successRates.length > 0
+      ? successRates.reduce((a, b) => a + b, 0) / successRates.length
       : 0;
     
-    const topEffective = Object.entries(interventionEffectiveness)
-      .map(([type, data]) => ({
-        type,
-        avgScore: data.total / data.count,
-        count: data.count
-      }))
-      .sort((a, b) => b.avgScore - a.avgScore)
+    const topTools = Object.entries(toolCounts)
+      .map(([tool, count]) => ({ tool, count }))
+      .sort((a, b) => b.count - a.count)
       .slice(0, 10);
     
     return {
       totalInsights: allInsights.length,
-      insightsByType,
+      insightsBySourceType,
       insightsByLanguage,
-      insightsByProficiency,
-      avgEffectivenessScore: avgEffectiveness,
-      topEffectiveInterventions: topEffective
+      insightsByDifficulty,
+      avgSuccessRate: avgSuccess,
+      topEffectiveTools: topTools
+    };
+  }
+  
+  // ============================================================
+  // AUTO-SYNC SYSTEM
+  // ============================================================
+  
+  /**
+   * Perform automatic sync of best practices
+   * Auto-approves and syncs without manual review
+   */
+  async performAutoSync(performedBy: string = 'system'): Promise<{
+    success: boolean;
+    syncedCount: number;
+    syncLogId?: string;
+    error?: string;
+  }> {
+    try {
+      // Get all unsynced best practices that are active
+      const unsyncedPractices = await db
+        .select()
+        .from(selfBestPractices)
+        .where(
+          and(
+            eq(selfBestPractices.isActive, true),
+            eq(selfBestPractices.syncStatus, 'local')
+          )
+        );
+      
+      if (unsyncedPractices.length === 0) {
+        return { success: true, syncedCount: 0 };
+      }
+      
+      // Auto-approve and mark as synced
+      const syncedIds: string[] = [];
+      for (const practice of unsyncedPractices) {
+        await db
+          .update(selfBestPractices)
+          .set({
+            syncStatus: 'synced',
+            promotedAt: new Date(),
+            reviewedBy: performedBy,
+            updatedAt: new Date()
+          })
+          .where(eq(selfBestPractices.id, practice.id));
+        syncedIds.push(practice.id);
+      }
+      
+      // Log the sync operation
+      const [logEntry] = await db.insert(syncLog).values({
+        operation: 'auto_sync',
+        tableName: 'self_best_practices',
+        recordCount: syncedIds.length,
+        sourceEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+        targetEnvironment: CURRENT_ENVIRONMENT === 'production' ? 'development' : 'production',
+        performedBy,
+        status: 'success',
+        metadata: { 
+          syncType: 'automatic',
+          syncedIds,
+          timestamp: new Date().toISOString()
+        }
+      }).returning();
+      
+      console.log(`[AUTO-SYNC] Synced ${syncedIds.length} best practices`);
+      
+      return {
+        success: true,
+        syncedCount: syncedIds.length,
+        syncLogId: logEntry.id
+      };
+    } catch (error: any) {
+      console.error('[AUTO-SYNC] Error:', error);
+      
+      await this.logSyncOperation({
+        operation: 'auto_sync',
+        tableName: 'self_best_practices',
+        recordCount: 0,
+        sourceEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+        targetEnvironment: CURRENT_ENVIRONMENT === 'production' ? 'development' : 'production',
+        performedBy,
+        status: 'error',
+        errorMessage: error.message
+      });
+      
+      return { success: false, syncedCount: 0, error: error.message };
+    }
+  }
+  
+  /**
+   * Retract a synced best practice
+   * Marks it as retracted and logs the action
+   */
+  async retractBestPractice(
+    bestPracticeId: string, 
+    retractedBy: string,
+    reason?: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const [practice] = await db
+        .select()
+        .from(selfBestPractices)
+        .where(eq(selfBestPractices.id, bestPracticeId))
+        .limit(1);
+      
+      if (!practice) {
+        return { success: false, error: 'Best practice not found' };
+      }
+      
+      // Mark as retracted (using 'rejected' status to indicate retraction)
+      await db
+        .update(selfBestPractices)
+        .set({
+          syncStatus: 'rejected',
+          isActive: false,
+          updatedAt: new Date()
+        })
+        .where(eq(selfBestPractices.id, bestPracticeId));
+      
+      // Log the retraction
+      await this.logSyncOperation({
+        operation: 'retract',
+        tableName: 'self_best_practices',
+        recordCount: 1,
+        sourceEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+        targetEnvironment: CURRENT_ENVIRONMENT === 'production' ? 'development' : 'production',
+        performedBy: retractedBy,
+        status: 'success',
+        metadata: { 
+          bestPracticeId,
+          reason,
+          previousStatus: practice.syncStatus,
+          retractedAt: new Date().toISOString()
+        }
+      });
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error('[RETRACT] Error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+  
+  /**
+   * Get sync history with detailed information
+   * Includes retraction status and ability to filter
+   */
+  async getSyncHistory(options: {
+    limit?: number;
+    includeRetracted?: boolean;
+    operation?: string;
+  } = {}): Promise<Array<typeof syncLog.$inferSelect & { canRetract: boolean }>> {
+    const { limit = 50, operation } = options;
+    
+    let query = db
+      .select()
+      .from(syncLog)
+      .orderBy(desc(syncLog.createdAt))
+      .limit(limit);
+    
+    const logs = await query;
+    
+    // Add retract capability info
+    return logs.map(log => ({
+      ...log,
+      canRetract: log.operation === 'auto_sync' || log.operation === 'promote'
+    }));
+  }
+  
+  /**
+   * Get the next scheduled sync time (3 AM local time)
+   */
+  getNextSyncTime(): Date {
+    const now = new Date();
+    const next = new Date(now);
+    next.setHours(3, 0, 0, 0);
+    
+    // If it's past 3 AM today, schedule for tomorrow
+    if (now >= next) {
+      next.setDate(next.getDate() + 1);
+    }
+    
+    return next;
+  }
+  
+  /**
+   * Get auto-sync configuration and status
+   */
+  async getAutoSyncStatus(): Promise<{
+    enabled: boolean;
+    nextSyncTime: string;
+    lastAutoSync: Date | null;
+    pendingCount: number;
+  }> {
+    const [lastAutoSyncLog] = await db
+      .select()
+      .from(syncLog)
+      .where(eq(syncLog.operation, 'auto_sync'))
+      .orderBy(desc(syncLog.createdAt))
+      .limit(1);
+    
+    const pendingPractices = await db
+      .select()
+      .from(selfBestPractices)
+      .where(
+        and(
+          eq(selfBestPractices.isActive, true),
+          eq(selfBestPractices.syncStatus, 'local')
+        )
+      );
+    
+    return {
+      enabled: true, // Auto-sync is always enabled
+      nextSyncTime: this.getNextSyncTime().toISOString(),
+      lastAutoSync: lastAutoSyncLog?.createdAt || null,
+      pendingCount: pendingPractices.length
     };
   }
 }

@@ -65,7 +65,8 @@ import {
   ArrowDown,
   Bell,
   Check,
-  CheckCircle
+  CheckCircle,
+  Undo2
 } from "lucide-react";
 import {
   AlertDialog,
@@ -2060,6 +2061,7 @@ function ImageLibraryTab() {
 function NeuralNetworkTab() {
   const { toast } = useToast();
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+  const [retractReason, setRetractReason] = useState<Record<string, string>>({});
   
   const { data: syncStats, isLoading: statsLoading } = useQuery<{
     pendingPromotions: number;
@@ -2068,6 +2070,15 @@ function NeuralNetworkTab() {
     currentEnvironment: string;
   }>({
     queryKey: ["/api/sync/stats"],
+  });
+  
+  const { data: autoSyncStatus, isLoading: autoStatusLoading } = useQuery<{
+    enabled: boolean;
+    nextSyncTime: string;
+    lastAutoSync: string | null;
+    pendingCount: number;
+  }>({
+    queryKey: ["/api/sync/auto-status"],
   });
   
   const { data: pendingPromotions, isLoading: pendingLoading, refetch: refetchPending } = useQuery<Array<{
@@ -2100,6 +2111,19 @@ function NeuralNetworkTab() {
     queryKey: ["/api/sync/promotions/history", { limit: 20 }],
   });
   
+  const { data: syncHistory, refetch: refetchHistory } = useQuery<Array<{
+    id: string;
+    operation: string;
+    tableName: string;
+    recordCount: number;
+    status: string;
+    createdAt: string;
+    metadata: any;
+    canRetract: boolean;
+  }>>({
+    queryKey: ["/api/sync/history"],
+  });
+  
   const { data: syncLogs } = useQuery<Array<{
     id: string;
     operation: string;
@@ -2120,6 +2144,39 @@ function NeuralNetworkTab() {
       queryClient.invalidateQueries({ queryKey: ["/api/sync/promotions/history"] });
       queryClient.invalidateQueries({ queryKey: ["/api/sync/stats"] });
       toast({ title: "Review submitted", description: "Promotion has been reviewed" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+  
+  const autoSyncMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/sync/auto");
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sync/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sync/auto-status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sync/history"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sync/logs"] });
+      toast({ 
+        title: "Auto-sync complete", 
+        description: `Synced ${data.syncedCount} best practices` 
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Sync failed", description: error.message, variant: "destructive" });
+    },
+  });
+  
+  const retractMutation = useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason?: string }) => {
+      return apiRequest("POST", `/api/sync/retract/${id}`, { reason });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sync/history"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sync/stats"] });
+      toast({ title: "Retracted", description: "Best practice has been retracted" });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -2165,8 +2222,80 @@ function NeuralNetworkTab() {
     return colors[category] || "bg-gray-100 text-gray-800";
   };
   
+  const formatRelativeTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = date.getTime() - now.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (diffMs < 0) return "Now";
+    if (diffHours > 0) return `${diffHours}h ${diffMins}m`;
+    return `${diffMins}m`;
+  };
+  
   return (
     <div className="space-y-6">
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-primary" />
+            Auto-Sync Status
+          </CardTitle>
+          <CardDescription>
+            Automatic nightly sync runs at 3 AM - syncs all pending best practices without manual review
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-6">
+              <div>
+                <p className="text-sm text-muted-foreground">Next Sync</p>
+                <p className="font-medium">
+                  {autoStatusLoading ? (
+                    <Skeleton className="h-5 w-20" />
+                  ) : (
+                    formatRelativeTime(autoSyncStatus?.nextSyncTime || "")
+                  )}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Last Auto-Sync</p>
+                <p className="font-medium">
+                  {autoStatusLoading ? (
+                    <Skeleton className="h-5 w-24" />
+                  ) : (
+                    formatDate(autoSyncStatus?.lastAutoSync || null)
+                  )}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Pending Items</p>
+                <p className="font-medium">
+                  {autoStatusLoading ? (
+                    <Skeleton className="h-5 w-8" />
+                  ) : (
+                    autoSyncStatus?.pendingCount || 0
+                  )}
+                </p>
+              </div>
+            </div>
+            <Button 
+              onClick={() => autoSyncMutation.mutate()}
+              disabled={autoSyncMutation.isPending || (autoSyncStatus?.pendingCount || 0) === 0}
+              data-testid="button-sync-now"
+            >
+              {autoSyncMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Zap className="h-4 w-4 mr-2" />
+              )}
+              Sync Now
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
@@ -2181,18 +2310,18 @@ function NeuralNetworkTab() {
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Pending Promotions</CardTitle>
+            <CardTitle className="text-sm font-medium">Pending Sync</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {statsLoading ? <Skeleton className="h-8 w-12" /> : syncStats?.pendingPromotions || 0}
+              {autoStatusLoading ? <Skeleton className="h-8 w-12" /> : autoSyncStatus?.pendingCount || 0}
             </div>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Approved Today</CardTitle>
+            <CardTitle className="text-sm font-medium">Synced Today</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -2225,7 +2354,10 @@ function NeuralNetworkTab() {
         </Button>
         <Button 
           variant="outline"
-          onClick={() => refetchPending()}
+          onClick={() => {
+            refetchPending();
+            refetchHistory();
+          }}
           data-testid="button-refresh-pending"
         >
           <RefreshCw className="h-4 w-4 mr-2" />
@@ -2313,12 +2445,108 @@ function NeuralNetworkTab() {
         </CardContent>
       </Card>
       
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            Sync History
+          </CardTitle>
+          <CardDescription>
+            View synced items and retract if needed
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!syncHistory?.length ? (
+            <p className="text-muted-foreground text-center py-4">No sync operations yet</p>
+          ) : (
+            <div className="space-y-3">
+              {syncHistory.slice(0, 15).map(log => (
+                <div key={log.id} className="flex items-center justify-between gap-2 p-3 border rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant={log.operation === "auto_sync" ? "default" : log.operation === "retract" ? "destructive" : "secondary"}>
+                        {log.operation.replace("_", " ")}
+                      </Badge>
+                      <span className="text-sm">{log.tableName}</span>
+                      <Badge variant="outline">{log.recordCount} items</Badge>
+                      <Badge variant={log.status === "success" ? "default" : "destructive"} className="text-xs">
+                        {log.status}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatDate(log.createdAt)}
+                      {log.metadata?.syncedIds && (
+                        <span className="ml-2">IDs: {(log.metadata.syncedIds as string[]).slice(0, 3).map(id => id.slice(0, 6)).join(", ")}...</span>
+                      )}
+                    </p>
+                  </div>
+                  {log.canRetract && log.operation !== "retract" && log.metadata?.syncedIds && (
+                    <div className="flex items-center gap-2">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            data-testid={`button-retract-${log.id}`}
+                          >
+                            <Undo2 className="h-4 w-4 mr-1" />
+                            Retract
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Retract Synced Items?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will mark {log.recordCount} synced best practice(s) as retracted. 
+                              They will no longer be active in teaching.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <div className="py-2">
+                            <Input
+                              placeholder="Reason for retraction (optional)"
+                              value={retractReason[log.id] || ""}
+                              onChange={(e) => setRetractReason(prev => ({ ...prev, [log.id]: e.target.value }))}
+                              data-testid={`input-retract-reason-${log.id}`}
+                            />
+                          </div>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <Button
+                              variant="destructive"
+                              onClick={() => {
+                                const syncedIds = log.metadata?.syncedIds as string[] || [];
+                                syncedIds.forEach(id => {
+                                  retractMutation.mutate({ id, reason: retractReason[log.id] });
+                                });
+                              }}
+                              disabled={retractMutation.isPending}
+                              data-testid={`button-confirm-retract-${log.id}`}
+                            >
+                              {retractMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              ) : (
+                                <Undo2 className="h-4 w-4 mr-2" />
+                              )}
+                              Retract Items
+                            </Button>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
-              Recent History
+              Promotion History
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -2331,12 +2559,12 @@ function NeuralNetworkTab() {
             ) : (
               <div className="space-y-2">
                 {promotionHistory.slice(0, 10).map(item => (
-                  <div key={item.id} className="flex items-center justify-between text-sm">
+                  <div key={item.id} className="flex items-center justify-between gap-2 text-sm">
                     <span className="truncate flex-1">{item.bestPracticeId.slice(0, 8)}...</span>
                     <Badge variant={item.status === "approved" ? "default" : item.status === "rejected" ? "destructive" : "secondary"}>
                       {item.status}
                     </Badge>
-                    <span className="text-muted-foreground ml-2">{formatDate(item.reviewedAt)}</span>
+                    <span className="text-muted-foreground">{formatDate(item.reviewedAt)}</span>
                   </div>
                 ))}
               </div>
@@ -2357,7 +2585,7 @@ function NeuralNetworkTab() {
             ) : (
               <div className="space-y-2">
                 {syncLogs.slice(0, 10).map(log => (
-                  <div key={log.id} className="flex items-center justify-between text-sm">
+                  <div key={log.id} className="flex items-center justify-between gap-2 text-sm">
                     <span className="font-medium">{log.operation}</span>
                     <span>{log.tableName}</span>
                     <Badge variant={log.status === "success" ? "default" : "destructive"}>{log.recordCount}</Badge>

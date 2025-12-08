@@ -1671,6 +1671,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Trigger manual auto-sync (syncs all pending best practices)
+  app.post('/api/sync/auto', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'developer' && user?.role !== 'admin') {
+        return res.status(403).json({ message: "Developer or admin access required" });
+      }
+      
+      const result = await neuralNetworkSync.performAutoSync(userId);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error performing auto-sync:", error);
+      res.status(500).json({ message: "Failed to perform auto-sync" });
+    }
+  });
+
+  // Retract a synced best practice
+  app.post('/api/sync/retract/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'developer' && user?.role !== 'admin') {
+        return res.status(403).json({ message: "Developer or admin access required" });
+      }
+      
+      const { id } = req.params;
+      const { reason } = req.body;
+      
+      const result = await neuralNetworkSync.retractBestPractice(id, userId, reason);
+      
+      if (!result.success) {
+        return res.status(400).json({ message: result.error });
+      }
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error retracting best practice:", error);
+      res.status(500).json({ message: "Failed to retract best practice" });
+    }
+  });
+
+  // Get auto-sync status
+  app.get('/api/sync/auto-status', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'developer' && user?.role !== 'admin') {
+        return res.status(403).json({ message: "Developer or admin access required" });
+      }
+      
+      const status = await neuralNetworkSync.getAutoSyncStatus();
+      res.json(status);
+    } catch (error: any) {
+      console.error("Error getting auto-sync status:", error);
+      res.status(500).json({ message: "Failed to get auto-sync status" });
+    }
+  });
+
+  // Get detailed sync history with retract capability info
+  app.get('/api/sync/history', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'developer' && user?.role !== 'admin') {
+        return res.status(403).json({ message: "Developer or admin access required" });
+      }
+      
+      const limit = parseInt(req.query.limit as string) || 50;
+      const history = await neuralNetworkSync.getSyncHistory({ limit });
+      res.json(history);
+    } catch (error: any) {
+      console.error("Error getting sync history:", error);
+      res.status(500).json({ message: "Failed to get sync history" });
+    }
+  });
+
   // ===== Developer Usage Analytics Routes =====
   
   // Reload credits for a class (developer only)
