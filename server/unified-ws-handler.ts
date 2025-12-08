@@ -25,6 +25,7 @@ import {
   ClientStartSessionMessage,
   ClientAudioDataMessage,
   ClientStreamAudioChunkMessage,
+  ClientDrillResultMessage,
   StreamingErrorMessage,
   VoiceInputMode,
 } from '@shared/streaming-voice-types';
@@ -35,6 +36,7 @@ import { usageService } from './services/usage-service';
 import { shouldRunPlacementAfterSession, completePlacementAssessment } from './services/placement-assessment-service';
 import { sessionCompassService, COMPASS_ENABLED } from './services/session-compass-service';
 import { architectVoiceService } from './services/architect-voice-service';
+import { updateToolEventEngagement, mapWhiteboardTypeToToolType } from './services/pedagogical-insights-service';
 import type { VoiceSession as UsageVoiceSession, CompassContext, TutorSession } from '@shared/schema';
 
 const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
@@ -742,6 +744,21 @@ Reference past discussions when relevant, but don't force it.
             timestamp: Date.now(),
             inputMode: currentInputMode,
           }));
+          break;
+        }
+
+        case 'drill_result': {
+          // PEDAGOGICAL TRACKING: Record drill completion for effectiveness analysis
+          const drillMessage = message as ClientDrillResultMessage;
+          console.log(`[Pedagogical] Drill result: ${drillMessage.drillType} - ${drillMessage.isCorrect ? 'correct' : 'incorrect'} (${drillMessage.responseTimeMs}ms)`);
+          
+          // Update the tool event with engagement data
+          // Note: We use drillId as eventId since drills are tracked individually
+          updateToolEventEngagement(drillMessage.drillId, {
+            studentResponseTime: drillMessage.responseTimeMs,
+            drillResult: drillMessage.isCorrect ? 'correct' : 'incorrect',
+            durationMs: drillMessage.responseTimeMs,
+          });
           break;
         }
 

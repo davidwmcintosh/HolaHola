@@ -424,6 +424,27 @@ export class StreamingVoiceClient {
   }
   
   /**
+   * Send drill result for pedagogical tracking
+   * @param drillId - Unique identifier for the drill
+   * @param drillType - Type of drill (repeat, translate, match, fill_blank, sentence_order)
+   * @param isCorrect - Whether the student answered correctly
+   * @param responseTimeMs - Time taken to respond in milliseconds
+   * @param toolContent - Optional content that was displayed for the drill
+   */
+  sendDrillResult(drillId: string, drillType: string, isCorrect: boolean, responseTimeMs: number, toolContent?: string): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({
+        type: 'drill_result',
+        drillId,
+        drillType,
+        isCorrect,
+        responseTimeMs,
+        toolContent,
+      }));
+    }
+  }
+  
+  /**
    * Update the voice mid-session (when user changes tutor)
    */
   updateVoice(tutorGender: 'male' | 'female'): void {

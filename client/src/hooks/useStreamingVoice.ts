@@ -90,6 +90,7 @@ export interface UseStreamingVoiceReturn {
   stopStreaming: () => void;
   setInputMode: (mode: 'push-to-talk' | 'open-mic') => void;
   sendInterrupt: () => void;
+  sendDrillResult: (drillId: string, drillType: string, isCorrect: boolean, responseTimeMs: number, toolContent?: string) => void;
 }
 
 /**
@@ -887,6 +888,15 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     return clientRef.current?.isReady() ?? false;
   }, []);
   
+  /**
+   * Send drill result for pedagogical tracking
+   */
+  const sendDrillResult = useCallback((drillId: string, drillType: string, isCorrect: boolean, responseTimeMs: number, toolContent?: string) => {
+    if (clientRef.current) {
+      clientRef.current.sendDrillResult(drillId, drillType, isCorrect, responseTimeMs, toolContent);
+    }
+  }, []);
+  
   // Store disconnect in a ref so cleanup can use latest version without dependency
   const disconnectRef = useRef(disconnect);
   disconnectRef.current = disconnect;
@@ -926,5 +936,6 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     stopStreaming,
     setInputMode,
     sendInterrupt,
+    sendDrillResult,
   };
 }

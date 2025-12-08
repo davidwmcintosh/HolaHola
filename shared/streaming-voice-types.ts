@@ -347,6 +347,7 @@ export type ClientVoiceMessageType =
   | 'request_greeting'    // Request AI-generated personalized greeting
   | 'interrupt'           // User interrupted (started speaking)
   | 'set_input_mode'      // Switch between push-to-talk and open-mic
+  | 'drill_result'        // User completed a drill (correct/incorrect)
   | 'end_session';        // Close session
 
 /**
@@ -417,6 +418,19 @@ export interface ClientRequestGreetingMessage {
 export interface ClientSetInputModeMessage {
   type: 'set_input_mode';
   inputMode: VoiceInputMode;
+}
+
+/**
+ * Client message reporting drill completion result
+ * Used for pedagogical tracking - records whether student answered correctly
+ */
+export interface ClientDrillResultMessage {
+  type: 'drill_result';
+  drillId: string;           // ID of the whiteboard drill item
+  drillType: string;         // Type of drill (repeat, translate, fill_blank, etc.)
+  isCorrect: boolean;        // Whether the student answered correctly
+  responseTimeMs: number;    // Time from drill display to submission
+  toolContent?: string;      // The drill content (for tracking)
 }
 
 /**

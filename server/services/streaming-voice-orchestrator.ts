@@ -51,6 +51,7 @@ import { GoogleGenAI } from "@google/genai";
 import { assessAdvancementReadiness, formatLevel } from "../actfl-advancement";
 import { tagConversation } from "./conversation-tagger";
 import { architectVoiceService } from "./architect-voice-service";
+import { trackToolEvent, mapWhiteboardTypeToToolType } from "./pedagogical-insights-service";
 
 /**
  * Clean text for display by removing markdown, emotion tags, and other formatting
@@ -553,6 +554,39 @@ export class StreamingVoiceOrchestrator {
           const whiteboardParsed = parseWhiteboardMarkup(chunk.text);
           if (whiteboardParsed.whiteboardItems.length > 0) {
             console.log(`[Whiteboard] Parsed ${whiteboardParsed.whiteboardItems.length} items from sentence ${chunk.index}`);
+            
+            // PEDAGOGICAL TRACKING: Log each tool usage for effectiveness analysis
+            // Don't await - runs in background, non-blocking
+            for (let i = 0; i < whiteboardParsed.whiteboardItems.length; i++) {
+              const item = whiteboardParsed.whiteboardItems[i];
+              // Extract drillType from drill items (DrillItem has data.drillType)
+              const drillType = item.type === 'drill' && 'data' in item && item.data && 'drillType' in item.data 
+                ? (item.data as { drillType: string }).drillType 
+                : undefined;
+              const toolType = mapWhiteboardTypeToToolType(item.type, drillType);
+              
+              if (toolType) {
+                // Extract content based on item type - use content field or data fields
+                let toolContent: string | undefined;
+                if ('content' in item && typeof item.content === 'string') {
+                  toolContent = item.content;
+                } else if ('data' in item && item.data) {
+                  const data = item.data as unknown as Record<string, unknown>;
+                  toolContent = (data.targetWord as string) || (data.word as string) || (data.text as string) || (data.prompt as string);
+                }
+                
+                trackToolEvent({
+                  voiceSessionId: session.id,
+                  conversationId: session.conversationId,
+                  userId: session.userId.toString(),
+                  toolType,
+                  toolContent,
+                  language: session.targetLanguage,
+                  difficulty: session.difficultyLevel,
+                  sequencePosition: turnId * 100 + chunk.index * 10 + i, // Unique position within session
+                });
+              }
+            }
             
             // Send whiteboard update to client (with isLoading: true for WORD_MAP)
             this.sendMessage(session.ws, {

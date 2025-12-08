@@ -2151,6 +2151,11 @@ export function StreamingVoiceChat({
           isResettingData={resetDataMutation.isPending}
           whiteboardItems={whiteboard.items}
           onClearWhiteboard={whiteboard.clear}
+          onDrillComplete={(drillId, drillType, isCorrect, responseTimeMs, toolContent) => {
+            if (useStreamingMode) {
+              streamingVoice.sendDrillResult(drillId, drillType, isCorrect, responseTimeMs, toolContent);
+            }
+          }}
           subtitleState={streamingVoice.subtitles.state}
           regularSubtitleMode={whiteboard.regularSubtitleMode}
           customOverlayText={whiteboard.customOverlayText}

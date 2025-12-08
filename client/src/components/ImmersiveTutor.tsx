@@ -52,6 +52,7 @@ interface ImmersiveTutorProps {
   isResettingData?: boolean;
   whiteboardItems?: WhiteboardItem[];
   onClearWhiteboard?: () => void;
+  onDrillComplete?: (drillId: string, drillType: string, isCorrect: boolean, responseTimeMs: number, toolContent?: string) => void;
   subtitleState?: StreamingSubtitleState;
   // Regular subtitle mode: 'off' (default), 'all', or 'target'
   regularSubtitleMode?: SubtitleMode;
@@ -89,6 +90,7 @@ export function ImmersiveTutor({
   isResettingData = false,
   whiteboardItems = [],
   onClearWhiteboard,
+  onDrillComplete,
   subtitleState,
   regularSubtitleMode = 'off',
   customOverlayText,
@@ -164,6 +166,7 @@ export function ImmersiveTutor({
           <Whiteboard 
             items={whiteboardItems} 
             onClear={onClearWhiteboard}
+            onDrillComplete={onDrillComplete}
           />
         )}
         

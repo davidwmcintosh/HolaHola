@@ -90,6 +90,7 @@ interface WhiteboardProps {
   onClear?: () => void;
   onDrillResponse?: (drillId: string, response: string) => void;
   onDrillStart?: (drillId: string) => void;
+  onDrillComplete?: (drillId: string, drillType: string, isCorrect: boolean, responseTimeMs: number, toolContent?: string) => void;
   language?: string;
 }
 
@@ -358,6 +359,7 @@ const MatchDrillDisplay = ({ item, index, onMatchComplete }: MatchDrillDisplayPr
   const [matchedIds, setMatchedIds] = useState<Set<string>>(new Set());
   const [wrongPair, setWrongPair] = useState<{ leftId: string; rightId: string } | null>(null);
   const [attempts, setAttempts] = useState(0);
+  const [wrongAttempts, setWrongAttempts] = useState(0);
   
   const isComplete = matchedIds.size === pairs.length;
   const progress = pairs.length > 0 ? (matchedIds.size / pairs.length) * 100 : 0;
@@ -374,6 +376,7 @@ const MatchDrillDisplay = ({ item, index, onMatchComplete }: MatchDrillDisplayPr
     setAttempts(prev => prev + 1);
     
     if (selectedLeftId === pairId) {
+      const newMatchedSize = matchedIds.size + 1;
       setMatchedIds(prev => {
         const newSet = new Set(prev);
         newSet.add(pairId);
@@ -382,20 +385,23 @@ const MatchDrillDisplay = ({ item, index, onMatchComplete }: MatchDrillDisplayPr
       setSelectedLeftId(null);
       setWrongPair(null);
       
-      if (matchedIds.size + 1 === pairs.length && onMatchComplete) {
-        onMatchComplete(item.id!, true);
+      if (newMatchedSize === pairs.length && onMatchComplete) {
+        const isPerfect = wrongAttempts === 0;
+        onMatchComplete(item.id!, isPerfect);
       }
     } else {
+      setWrongAttempts(prev => prev + 1);
       setWrongPair({ leftId: selectedLeftId, rightId: pairId });
       setTimeout(() => setWrongPair(null), 800);
     }
-  }, [selectedLeftId, matchedIds, pairs.length, item.id, onMatchComplete]);
+  }, [selectedLeftId, matchedIds, pairs.length, item.id, onMatchComplete, wrongAttempts]);
   
   const handleReset = useCallback(() => {
     setSelectedLeftId(null);
     setMatchedIds(new Set());
     setWrongPair(null);
     setAttempts(0);
+    setWrongAttempts(0);
   }, []);
   
   const getPairById = useCallback((id: string) => pairs.find(p => p.id === id), [pairs]);
@@ -2098,27 +2104,41 @@ const WhiteboardItemDisplay = ({
   index,
   onDrillResponse,
   onDrillStart,
+  onDrillComplete,
   language,
 }: { 
   item: WhiteboardItem; 
   index: number;
   onDrillResponse?: (drillId: string, response: string) => void;
   onDrillStart?: (drillId: string) => void;
+  onDrillComplete?: (drillId: string, drillType: string, isCorrect: boolean, responseTimeMs: number, toolContent?: string) => void;
   language?: string;
 }) => {
+  // Track when drills are displayed for response time calculation
+  const drillDisplayTimeRef = useRef<number>(Date.now());
+  
   if (isImageItem(item)) {
     return <ImageItemDisplay item={item} index={index} />;
   }
   
   if (isDrillItem(item)) {
+    // Create a wrapper for drill completion that calculates response time
+    const handleDrillComplete = (drillId: string, isCorrect: boolean) => {
+      if (onDrillComplete) {
+        const responseTimeMs = Date.now() - drillDisplayTimeRef.current;
+        const toolContent = item.data?.prompt || item.content;
+        onDrillComplete(drillId, item.data?.drillType || 'unknown', isCorrect, responseTimeMs, toolContent);
+      }
+    };
+    
     if (isMatchingDrill(item)) {
-      return <MatchDrillDisplay item={item} index={index} />;
+      return <MatchDrillDisplay item={item} index={index} onMatchComplete={handleDrillComplete} />;
     }
     if (isFillBlankDrill(item)) {
-      return <FillBlankDrillDisplay item={item} index={index} />;
+      return <FillBlankDrillDisplay item={item} index={index} onComplete={handleDrillComplete} />;
     }
     if (isSentenceOrderDrill(item)) {
-      return <SentenceOrderDrillDisplay item={item} index={index} />;
+      return <SentenceOrderDrillDisplay item={item} index={index} onComplete={handleDrillComplete} />;
     }
     return (
       <DrillItemDisplay 
@@ -2181,7 +2201,7 @@ const WhiteboardItemDisplay = ({
   return <TextItemDisplay item={item} index={index} />;
 };
 
-export function Whiteboard({ items, onClear, onDrillResponse, onDrillStart, language: propLanguage }: WhiteboardProps) {
+export function Whiteboard({ items, onClear, onDrillResponse, onDrillStart, onDrillComplete, language: propLanguage }: WhiteboardProps) {
   const { language: contextLanguage } = useLanguage();
   const language = propLanguage || contextLanguage;
   
@@ -2216,6 +2236,7 @@ export function Whiteboard({ items, onClear, onDrillResponse, onDrillStart, lang
                   index={index}
                   onDrillResponse={onDrillResponse}
                   onDrillStart={onDrillStart}
+                  onDrillComplete={onDrillComplete}
                   language={language}
                 />
               ))}
