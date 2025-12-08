@@ -85,6 +85,7 @@ Staging area for documentation changes to be consolidated later.
 #### Test Data Seeded
 - Ricardo Carvajal as pending connection (David's grad school friend who taught salsa/merengue, from Costa Rica)
 - SHOW/HIDE timing rule added to selfBestPractices
+- Connection confirmation guidance added to selfBestPractices ("treat warm introductions as questions, not statements")
 
 ---
 
