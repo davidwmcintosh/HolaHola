@@ -51,6 +51,7 @@ export const WHITEBOARD_TAGS = {
   ERROR_PATTERNS: 'ERROR_PATTERNS',
   VOCABULARY_TIMELINE: 'VOCABULARY_TIMELINE',
   SUBTITLE: 'SUBTITLE',
+  TEXT_INPUT: 'TEXT_INPUT',
   CLEAR: 'CLEAR',
   HOLD: 'HOLD',
 } as const;
@@ -60,7 +61,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input';
 
 /**
  * Drill types for inline micro-exercises
@@ -419,6 +420,24 @@ export interface VocabularyTimelineItem extends WhiteboardItemBase {
   data: VocabularyTimelineItemData;
 }
 
+/**
+ * Text input item data - Writing practice during voice chat
+ * Format: [TEXT_INPUT:prompt text] - Shows input field for student to type response
+ * The student's typed response is sent back as their next message
+ */
+export interface TextInputItemData {
+  prompt: string;           // The writing prompt (e.g., "Write a sentence using 'bonjour'")
+  placeholder?: string;     // Optional placeholder text in the input field
+  studentResponse?: string; // What the student typed (filled after submission)
+  isSubmitted?: boolean;    // Whether the response has been submitted
+}
+
+export interface TextInputItem extends WhiteboardItemBase {
+  type: 'text_input';
+  content: string;
+  data: TextInputItemData;
+}
+
 export type WhiteboardItem = 
   | WriteItem 
   | PhoneticItem 
@@ -436,7 +455,8 @@ export type WhiteboardItem =
   | ScenarioItem
   | SummaryItem
   | ErrorPatternsItem
-  | VocabularyTimelineItem;
+  | VocabularyTimelineItem
+  | TextInputItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -510,6 +530,8 @@ export const WHITEBOARD_PATTERNS = {
   HIDE: /\[HIDE\]/gi,
   // Legacy pattern (deprecated - use SHOW instead)
   SUBTITLE_TEXT: /\[SUBTITLE_TEXT:\s*([\s\S]*?)\s*\]/gi,
+  // Text input for writing practice during voice chat: [TEXT_INPUT:prompt]
+  TEXT_INPUT: /\[TEXT_INPUT:([\s\S]*?)\]/gi,
   CLEAR: /\[CLEAR\]/gi,
   HOLD: /\[HOLD\]/gi,
 } as const;
@@ -520,7 +542,7 @@ export const WHITEBOARD_PATTERNS = {
  * Also includes subtitle controls: SUBTITLE, SHOW, HIDE, SUBTITLE_TEXT (legacy)
  */
 export const ALL_WHITEBOARD_MARKUP_PATTERN = 
-  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[(CLEAR|HOLD)\]/gi;
+  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[(CLEAR|HOLD)\]/gi;
 
 /**
  * Generate unique ID for whiteboard items
@@ -1203,6 +1225,23 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
     });
   }
 
+  // Parse TEXT_INPUT tags (Session 8 - writing practice during voice chat)
+  // Format: [TEXT_INPUT:Write a sentence using "bonjour"]
+  WHITEBOARD_PATTERNS.TEXT_INPUT.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.TEXT_INPUT.exec(text)) !== null) {
+    const prompt = match[1].trim();
+    items.push({
+      type: 'text_input',
+      content: prompt,
+      timestamp: now,
+      id: generateItemId(),
+      data: {
+        prompt,
+        isSubmitted: false,
+      },
+    });
+  }
+
   // Parse SUBTITLE control tags: [SUBTITLE off/on/target]
   // Controls regular subtitle display (what Daniela is saying)
   let subtitleMode: SubtitleMode | undefined = undefined;
@@ -1428,6 +1467,13 @@ export function isErrorPatternsItem(item: WhiteboardItem): item is ErrorPatterns
  */
 export function isVocabularyTimelineItem(item: WhiteboardItem): item is VocabularyTimelineItem {
   return item.type === 'vocabulary_timeline';
+}
+
+/**
+ * Type guard for checking if an item is a text input item
+ */
+export function isTextInputItem(item: WhiteboardItem): item is TextInputItem {
+  return item.type === 'text_input';
 }
 
 /**

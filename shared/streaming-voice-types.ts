@@ -434,6 +434,16 @@ export interface ClientDrillResultMessage {
 }
 
 /**
+ * Client message submitting text input from TEXT_INPUT whiteboard tool
+ * Used when student submits written response during voice chat
+ */
+export interface ClientTextInputMessage {
+  type: 'text_input';
+  itemId: string;            // ID of the whiteboard item
+  response: string;          // The student's typed response
+}
+
+/**
  * Sentence chunking configuration
  */
 export const SENTENCE_CHUNKING_CONFIG = {

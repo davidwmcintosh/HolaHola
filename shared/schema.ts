@@ -1928,7 +1928,8 @@ export const teachingToolTypeEnum = pgEnum('teaching_tool_type', [
   'write', 'compare', 'phonetic', 'word_map', 'image', 'grammar_table',
   'context', 'culture', 'reading', 'stroke', 'play', 'scenario', 'summary',
   'drill_repeat', 'drill_translate', 'drill_match', 'drill_fill_blank', 'drill_sentence_order',
-  'subtitle_on', 'subtitle_off', 'subtitle_target', 'custom_overlay'
+  'subtitle_on', 'subtitle_off', 'subtitle_target', 'custom_overlay',
+  'text_input' // Writing tool - student types response during voice chat
 ]);
 
 // Teaching Tool Events - Tracks individual tool usage during sessions
@@ -2031,7 +2032,221 @@ export type TeachingToolType =
   | 'write' | 'compare' | 'phonetic' | 'word_map' | 'image' | 'grammar_table'
   | 'context' | 'culture' | 'reading' | 'stroke' | 'play' | 'scenario' | 'summary'
   | 'drill_repeat' | 'drill_translate' | 'drill_match' | 'drill_fill_blank' | 'drill_sentence_order'
-  | 'subtitle_on' | 'subtitle_off' | 'subtitle_target' | 'custom_overlay';
+  | 'subtitle_on' | 'subtitle_off' | 'subtitle_target' | 'custom_overlay'
+  | 'text_input';
+
+// ===== Daniela's Neural Network Memory System =====
+// Structured memory for teaching wisdom, student insights, and relationship awareness
+// The "index" to Daniela's knowledge - faster than scanning conversation history
+
+// Category enum for self best practices
+export const bestPracticeCategoryEnum = pgEnum('best_practice_category', [
+  'tool_usage',       // How to use whiteboard tools effectively
+  'teaching_style',   // Communication patterns and approaches
+  'pacing',           // Timing and session flow
+  'communication',    // How she expresses things
+  'content',          // What types of content work best
+  'system'            // Technical/system awareness
+]);
+
+// Self Best Practices - Universal teaching wisdom (applies to all students)
+// "Don't put 5 whiteboards up at once", "Clear the board when finished"
+export const selfBestPractices = pgTable("self_best_practices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  category: bestPracticeCategoryEnum("category").notNull(),
+  insight: text("insight").notNull(), // The actual wisdom/learning
+  context: text("context"), // When this applies (optional)
+  
+  source: varchar("source").default("experience"), // experience, user_feedback, founder_mode
+  confidenceScore: real("confidence_score").default(0.5), // 0-1, grows with validation
+  timesApplied: integer("times_applied").default(0), // Track how often used
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_best_practices_category").on(table.category),
+  index("idx_best_practices_active").on(table.isActive),
+]);
+
+// People Connections - Relationship awareness between users
+// "Ricardo and David are college friends", "Maria is Sophia's mother"
+export const peopleConnections = pgTable("people_connections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  personAId: varchar("person_a_id").notNull().references(() => users.id),
+  personBId: varchar("person_b_id").notNull().references(() => users.id),
+  
+  relationshipType: varchar("relationship_type").notNull(), // friend, family, colleague, classmate, etc.
+  relationshipDetails: text("relationship_details"), // "College friends", "Mother and daughter"
+  
+  sourceConversationId: varchar("source_conversation_id").references(() => conversations.id),
+  mentionedBy: varchar("mentioned_by").references(() => users.id), // Who told Daniela about this
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_people_connections_person_a").on(table.personAId),
+  index("idx_people_connections_person_b").on(table.personBId),
+]);
+
+// Student Insights - Observations about individual learners
+// "This student learns better with images", "Responds well to humor"
+export const studentInsights = pgTable("student_insights", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  studentId: varchar("student_id").notNull().references(() => users.id),
+  language: varchar("language"), // null = general insight, specific = for that language
+  
+  insightType: varchar("insight_type").notNull(), // learning_style, preference, strength, personality
+  insight: text("insight").notNull(),
+  evidence: text("evidence"), // What observation led to this insight
+  
+  confidenceScore: real("confidence_score").default(0.5), // 0-1
+  observationCount: integer("observation_count").default(1), // Times confirmed
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_student_insights_student").on(table.studentId),
+  index("idx_student_insights_student_lang").on(table.studentId, table.language),
+]);
+
+// Learning Motivations - Why students are learning (qualitative purpose)
+// "Learning French for honeymoon in Paris next June"
+// Different from studentGoals which tracks quantitative metrics (hours, word count)
+export const learningMotivations = pgTable("learning_motivations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  studentId: varchar("student_id").notNull().references(() => users.id),
+  language: varchar("language"), // Which language this relates to
+  
+  motivation: text("motivation").notNull(), // The purpose itself
+  details: text("details"), // Additional context
+  targetDate: timestamp("target_date"), // When they want to achieve it (e.g., trip date)
+  
+  priority: varchar("priority").default("primary"), // primary, secondary, nice_to_have
+  status: varchar("status").default("active"), // active, achieved, changed, abandoned
+  
+  sourceConversationId: varchar("source_conversation_id").references(() => conversations.id),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_learning_motivations_student").on(table.studentId),
+  index("idx_learning_motivations_status").on(table.status),
+]);
+
+// Recurring Struggles - Persistent per-student challenges
+// "Always mixes up ser/estar", "Struggles with gendered nouns"
+export const recurringStruggles = pgTable("recurring_struggles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  studentId: varchar("student_id").notNull().references(() => users.id),
+  language: varchar("language").notNull(),
+  
+  struggleArea: varchar("struggle_area").notNull(), // grammar, pronunciation, vocabulary, cultural, etc.
+  description: text("description").notNull(),
+  specificExamples: text("specific_examples"), // "ser vs estar", "rolling R"
+  
+  approachesAttempted: text("approaches_attempted").array(), // What we've tried
+  successfulApproaches: text("successful_approaches").array(), // What worked
+  
+  occurrenceCount: integer("occurrence_count").default(1),
+  lastOccurredAt: timestamp("last_occurred_at").defaultNow(),
+  status: varchar("status").default("active"), // active, improving, resolved
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_recurring_struggles_student").on(table.studentId),
+  index("idx_recurring_struggles_student_lang").on(table.studentId, table.language),
+  index("idx_recurring_struggles_status").on(table.status),
+]);
+
+// Session Notes - Post-session reflections and next-steps
+// "Covered ordering food, struggled with numbers, try visual approach next time"
+export const sessionNotes = pgTable("session_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id),
+  studentId: varchar("student_id").notNull().references(() => users.id),
+  
+  summary: text("summary").notNull(), // What happened in the session
+  topicsCovered: text("topics_covered").array(), // List of topics
+  wins: text("wins"), // What went well
+  challenges: text("challenges"), // What was difficult
+  nextSteps: text("next_steps"), // Recommended follow-up
+  
+  sessionMood: varchar("session_mood"), // engaged, struggling, distracted, enthusiastic
+  sessionDuration: integer("session_duration_minutes"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_session_notes_conversation").on(table.conversationId),
+  index("idx_session_notes_student").on(table.studentId),
+]);
+
+// Insert schemas for Daniela's Memory System
+export const insertSelfBestPracticeSchema = createInsertSchema(selfBestPractices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPeopleConnectionSchema = createInsertSchema(peopleConnections).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertStudentInsightSchema = createInsertSchema(studentInsights).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLearningMotivationSchema = createInsertSchema(learningMotivations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertRecurringStruggleSchema = createInsertSchema(recurringStruggles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSessionNoteSchema = createInsertSchema(sessionNotes).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types for Daniela's Memory System
+export type InsertSelfBestPractice = z.infer<typeof insertSelfBestPracticeSchema>;
+export type SelfBestPractice = typeof selfBestPractices.$inferSelect;
+
+export type InsertPeopleConnection = z.infer<typeof insertPeopleConnectionSchema>;
+export type PeopleConnection = typeof peopleConnections.$inferSelect;
+
+export type InsertStudentInsight = z.infer<typeof insertStudentInsightSchema>;
+export type StudentInsight = typeof studentInsights.$inferSelect;
+
+export type InsertLearningMotivation = z.infer<typeof insertLearningMotivationSchema>;
+export type LearningMotivation = typeof learningMotivations.$inferSelect;
+
+export type InsertRecurringStruggle = z.infer<typeof insertRecurringStruggleSchema>;
+export type RecurringStruggle = typeof recurringStruggles.$inferSelect;
+
+export type InsertSessionNote = z.infer<typeof insertSessionNoteSchema>;
+export type SessionNote = typeof sessionNotes.$inferSelect;
+
+// Category type for type-safe best practice categories
+export type BestPracticeCategory = 'tool_usage' | 'teaching_style' | 'pacing' | 'communication' | 'content' | 'system';
 
 // ===== Organization System Types (Phases 2 & 3) =====
 

@@ -91,6 +91,7 @@ export interface UseStreamingVoiceReturn {
   setInputMode: (mode: 'push-to-talk' | 'open-mic') => void;
   sendInterrupt: () => void;
   sendDrillResult: (drillId: string, drillType: string, isCorrect: boolean, responseTimeMs: number, toolContent?: string) => void;
+  sendTextInput: (itemId: string, response: string) => void;
 }
 
 /**
@@ -897,6 +898,15 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
   }, []);
   
+  /**
+   * Send text input response (from TEXT_INPUT whiteboard tool)
+   */
+  const sendTextInput = useCallback((itemId: string, response: string) => {
+    if (clientRef.current) {
+      clientRef.current.sendTextInput(itemId, response);
+    }
+  }, []);
+  
   // Store disconnect in a ref so cleanup can use latest version without dependency
   const disconnectRef = useRef(disconnect);
   disconnectRef.current = disconnect;
@@ -937,5 +947,6 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     setInputMode,
     sendInterrupt,
     sendDrillResult,
+    sendTextInput,
   };
 }

@@ -445,6 +445,22 @@ export class StreamingVoiceClient {
   }
   
   /**
+   * Send a text input response (from TEXT_INPUT whiteboard tool)
+   * This sends the student's written response as input to the voice conversation
+   * @param itemId - The whiteboard item ID
+   * @param response - The student's typed response
+   */
+  sendTextInput(itemId: string, response: string): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({
+        type: 'text_input',
+        itemId,
+        response,
+      }));
+    }
+  }
+  
+  /**
    * Update the voice mid-session (when user changes tutor)
    */
   updateVoice(tutorGender: 'male' | 'female'): void {

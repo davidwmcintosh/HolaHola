@@ -1019,6 +1019,189 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== Daniela's Neural Network Memory System Routes =====
+  
+  // Get all best practices (universal teaching wisdom)
+  app.get('/api/memory/best-practices', isAuthenticated, async (req: any, res) => {
+    try {
+      const { category, activeOnly } = req.query;
+      const practices = await storage.getBestPractices(
+        category as any,
+        activeOnly !== 'false'
+      );
+      res.json(practices);
+    } catch (error: any) {
+      console.error("Error fetching best practices:", error);
+      res.status(500).json({ message: "Failed to fetch best practices" });
+    }
+  });
+
+  // Create a new best practice
+  app.post('/api/memory/best-practices', isAuthenticated, async (req: any, res) => {
+    try {
+      const practice = await storage.createBestPractice(req.body);
+      console.log('[Memory] Created best practice:', practice.insight?.substring(0, 50));
+      res.json(practice);
+    } catch (error: any) {
+      console.error("Error creating best practice:", error);
+      res.status(500).json({ message: "Failed to create best practice" });
+    }
+  });
+
+  // Update a best practice
+  app.patch('/api/memory/best-practices/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const practice = await storage.updateBestPractice(req.params.id, req.body);
+      if (!practice) {
+        return res.status(404).json({ message: "Best practice not found" });
+      }
+      res.json(practice);
+    } catch (error: any) {
+      console.error("Error updating best practice:", error);
+      res.status(500).json({ message: "Failed to update best practice" });
+    }
+  });
+
+  // Get student memory context (insights, motivations, struggles, notes, connections)
+  app.get('/api/memory/student/:studentId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { studentId } = req.params;
+      const { language } = req.query;
+      const context = await storage.getStudentMemoryContext(studentId, language as string);
+      res.json(context);
+    } catch (error: any) {
+      console.error("Error fetching student memory context:", error);
+      res.status(500).json({ message: "Failed to fetch student memory" });
+    }
+  });
+
+  // Create a student insight
+  app.post('/api/memory/student-insights', isAuthenticated, async (req: any, res) => {
+    try {
+      const insight = await storage.createStudentInsight(req.body);
+      console.log('[Memory] Created student insight:', insight.insight?.substring(0, 50));
+      res.json(insight);
+    } catch (error: any) {
+      console.error("Error creating student insight:", error);
+      res.status(500).json({ message: "Failed to create student insight" });
+    }
+  });
+
+  // Update a student insight
+  app.patch('/api/memory/student-insights/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const insight = await storage.updateStudentInsight(req.params.id, req.body);
+      if (!insight) {
+        return res.status(404).json({ message: "Student insight not found" });
+      }
+      res.json(insight);
+    } catch (error: any) {
+      console.error("Error updating student insight:", error);
+      res.status(500).json({ message: "Failed to update student insight" });
+    }
+  });
+
+  // Create a learning motivation
+  app.post('/api/memory/learning-motivations', isAuthenticated, async (req: any, res) => {
+    try {
+      const motivation = await storage.createLearningMotivation(req.body);
+      console.log('[Memory] Created learning motivation:', motivation.motivation?.substring(0, 50));
+      res.json(motivation);
+    } catch (error: any) {
+      console.error("Error creating learning motivation:", error);
+      res.status(500).json({ message: "Failed to create learning motivation" });
+    }
+  });
+
+  // Update a learning motivation
+  app.patch('/api/memory/learning-motivations/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const motivation = await storage.updateLearningMotivation(req.params.id, req.body);
+      if (!motivation) {
+        return res.status(404).json({ message: "Learning motivation not found" });
+      }
+      res.json(motivation);
+    } catch (error: any) {
+      console.error("Error updating learning motivation:", error);
+      res.status(500).json({ message: "Failed to update learning motivation" });
+    }
+  });
+
+  // Create a recurring struggle
+  app.post('/api/memory/recurring-struggles', isAuthenticated, async (req: any, res) => {
+    try {
+      const struggle = await storage.createRecurringStruggle(req.body);
+      console.log('[Memory] Created recurring struggle:', struggle.description?.substring(0, 50));
+      res.json(struggle);
+    } catch (error: any) {
+      console.error("Error creating recurring struggle:", error);
+      res.status(500).json({ message: "Failed to create recurring struggle" });
+    }
+  });
+
+  // Update a recurring struggle
+  app.patch('/api/memory/recurring-struggles/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const struggle = await storage.updateRecurringStruggle(req.params.id, req.body);
+      if (!struggle) {
+        return res.status(404).json({ message: "Recurring struggle not found" });
+      }
+      res.json(struggle);
+    } catch (error: any) {
+      console.error("Error updating recurring struggle:", error);
+      res.status(500).json({ message: "Failed to update recurring struggle" });
+    }
+  });
+
+  // Create a session note
+  app.post('/api/memory/session-notes', isAuthenticated, async (req: any, res) => {
+    try {
+      const note = await storage.createSessionNote(req.body);
+      console.log('[Memory] Created session note for conversation:', note.conversationId);
+      res.json(note);
+    } catch (error: any) {
+      console.error("Error creating session note:", error);
+      res.status(500).json({ message: "Failed to create session note" });
+    }
+  });
+
+  // Get session note for a conversation
+  app.get('/api/memory/session-notes/conversation/:conversationId', isAuthenticated, async (req: any, res) => {
+    try {
+      const note = await storage.getSessionNoteByConversation(req.params.conversationId);
+      if (!note) {
+        return res.status(404).json({ message: "Session note not found" });
+      }
+      res.json(note);
+    } catch (error: any) {
+      console.error("Error fetching session note:", error);
+      res.status(500).json({ message: "Failed to fetch session note" });
+    }
+  });
+
+  // Create a people connection
+  app.post('/api/memory/people-connections', isAuthenticated, async (req: any, res) => {
+    try {
+      const connection = await storage.createPeopleConnection(req.body);
+      console.log('[Memory] Created people connection:', connection.relationshipType);
+      res.json(connection);
+    } catch (error: any) {
+      console.error("Error creating people connection:", error);
+      res.status(500).json({ message: "Failed to create people connection" });
+    }
+  });
+
+  // Get all people connections
+  app.get('/api/memory/people-connections', isAuthenticated, async (req: any, res) => {
+    try {
+      const connections = await storage.getAllPeopleConnections();
+      res.json(connections);
+    } catch (error: any) {
+      console.error("Error fetching people connections:", error);
+      res.status(500).json({ message: "Failed to fetch people connections" });
+    }
+  });
+
   // ===== Developer Usage Analytics Routes =====
   
   // Reload credits for a class (developer only)

@@ -26,6 +26,7 @@ import {
   ClientAudioDataMessage,
   ClientStreamAudioChunkMessage,
   ClientDrillResultMessage,
+  ClientTextInputMessage,
   StreamingErrorMessage,
   VoiceInputMode,
 } from '@shared/streaming-voice-types';
@@ -759,6 +760,35 @@ Reference past discussions when relevant, but don't force it.
             drillResult: drillMessage.isCorrect ? 'correct' : 'incorrect',
             durationMs: drillMessage.responseTimeMs,
           });
+          break;
+        }
+
+        case 'text_input': {
+          // TEXT_INPUT WHITEBOARD TOOL: Process student's typed response
+          if (!isAuthenticated || !session) {
+            sendError(ws, 'UNKNOWN', 'Session not ready for text input', true);
+            return;
+          }
+          
+          const textInputMessage = message as ClientTextInputMessage;
+          console.log(`[TEXT_INPUT] Student submitted response: "${textInputMessage.response.substring(0, 50)}${textInputMessage.response.length > 50 ? '...' : ''}"`);
+          
+          try {
+            // Update the tool event with engagement data
+            updateToolEventEngagement(textInputMessage.itemId, {
+              durationMs: Date.now() - (session.lastActivityTime || Date.now()),
+            });
+            
+            // Process the text input as if it were a transcript - Daniela will respond
+            await orchestrator.processOpenMicTranscript(
+              session.id,
+              `[Student written response]: ${textInputMessage.response}`,
+              1.0 // High confidence since it's typed
+            );
+          } catch (err: any) {
+            console.error('[TEXT_INPUT] Error processing text input:', err);
+            sendError(ws, 'AI_FAILED', 'Failed to process text input', true);
+          }
           break;
         }
 

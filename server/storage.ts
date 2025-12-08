@@ -110,6 +110,25 @@ import {
   lessonCanDoStatements,
   type LessonCanDoStatement,
   usageLedger,
+  selfBestPractices,
+  peopleConnections,
+  studentInsights,
+  learningMotivations,
+  recurringStruggles,
+  sessionNotes,
+  type SelfBestPractice,
+  type InsertSelfBestPractice,
+  type PeopleConnection,
+  type InsertPeopleConnection,
+  type StudentInsight,
+  type InsertStudentInsight,
+  type LearningMotivation,
+  type InsertLearningMotivation,
+  type RecurringStruggle,
+  type InsertRecurringStruggle,
+  type SessionNote,
+  type InsertSessionNote,
+  type BestPracticeCategory,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -566,6 +585,52 @@ export interface IStorage {
     vocabularyDeleted: number;
     assignmentSubmissionsDeleted: number;
     placementReset: boolean;
+  }>;
+
+  // ===== Daniela's Neural Network Memory System =====
+  
+  // Self Best Practices - Universal teaching wisdom
+  createBestPractice(data: InsertSelfBestPractice): Promise<SelfBestPractice>;
+  getBestPractices(category?: BestPracticeCategory, activeOnly?: boolean): Promise<SelfBestPractice[]>;
+  getBestPractice(id: string): Promise<SelfBestPractice | undefined>;
+  updateBestPractice(id: string, data: Partial<SelfBestPractice>): Promise<SelfBestPractice | undefined>;
+  incrementBestPracticeUsage(id: string): Promise<void>;
+  
+  // People Connections - Relationship awareness
+  createPeopleConnection(data: InsertPeopleConnection): Promise<PeopleConnection>;
+  getPeopleConnections(personId: string): Promise<PeopleConnection[]>;
+  getAllPeopleConnections(): Promise<PeopleConnection[]>;
+  updatePeopleConnection(id: string, data: Partial<PeopleConnection>): Promise<PeopleConnection | undefined>;
+  
+  // Student Insights - Per-student learning observations
+  createStudentInsight(data: InsertStudentInsight): Promise<StudentInsight>;
+  getStudentInsights(studentId: string, language?: string): Promise<StudentInsight[]>;
+  updateStudentInsight(id: string, data: Partial<StudentInsight>): Promise<StudentInsight | undefined>;
+  incrementInsightObservation(id: string): Promise<void>;
+  
+  // Learning Motivations - Why students are learning
+  createLearningMotivation(data: InsertLearningMotivation): Promise<LearningMotivation>;
+  getLearningMotivations(studentId: string, language?: string): Promise<LearningMotivation[]>;
+  updateLearningMotivation(id: string, data: Partial<LearningMotivation>): Promise<LearningMotivation | undefined>;
+  
+  // Recurring Struggles - Persistent challenges
+  createRecurringStruggle(data: InsertRecurringStruggle): Promise<RecurringStruggle>;
+  getRecurringStruggles(studentId: string, language?: string, status?: string): Promise<RecurringStruggle[]>;
+  updateRecurringStruggle(id: string, data: Partial<RecurringStruggle>): Promise<RecurringStruggle | undefined>;
+  incrementStruggleOccurrence(id: string): Promise<void>;
+  
+  // Session Notes - Post-session reflections
+  createSessionNote(data: InsertSessionNote): Promise<SessionNote>;
+  getSessionNotes(studentId: string, limit?: number): Promise<SessionNote[]>;
+  getSessionNoteByConversation(conversationId: string): Promise<SessionNote | undefined>;
+  
+  // Aggregate Memory Context (for injecting into prompts)
+  getStudentMemoryContext(studentId: string, language?: string): Promise<{
+    insights: StudentInsight[];
+    motivations: LearningMotivation[];
+    struggles: RecurringStruggle[];
+    recentNotes: SessionNote[];
+    connections: PeopleConnection[];
   }>;
 }
 
@@ -4590,6 +4655,233 @@ export class DatabaseStorage implements IStorage {
       vocabularyDeleted,
       assignmentSubmissionsDeleted,
       placementReset
+    };
+  }
+
+  // ===== Daniela's Neural Network Memory System =====
+  
+  // Self Best Practices - Universal teaching wisdom
+  async createBestPractice(data: InsertSelfBestPractice): Promise<SelfBestPractice> {
+    const [practice] = await db.insert(selfBestPractices).values(data).returning();
+    return practice;
+  }
+
+  async getBestPractices(category?: BestPracticeCategory, activeOnly: boolean = true): Promise<SelfBestPractice[]> {
+    const conditions = [];
+    if (category) {
+      conditions.push(eq(selfBestPractices.category, category));
+    }
+    if (activeOnly) {
+      conditions.push(eq(selfBestPractices.isActive, true));
+    }
+    
+    if (conditions.length === 0) {
+      return db.select().from(selfBestPractices).orderBy(desc(selfBestPractices.confidenceScore));
+    }
+    
+    return db.select().from(selfBestPractices)
+      .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+      .orderBy(desc(selfBestPractices.confidenceScore));
+  }
+
+  async getBestPractice(id: string): Promise<SelfBestPractice | undefined> {
+    const [practice] = await db.select().from(selfBestPractices).where(eq(selfBestPractices.id, id));
+    return practice;
+  }
+
+  async updateBestPractice(id: string, data: Partial<SelfBestPractice>): Promise<SelfBestPractice | undefined> {
+    const [updated] = await db.update(selfBestPractices)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(selfBestPractices.id, id))
+      .returning();
+    return updated;
+  }
+
+  async incrementBestPracticeUsage(id: string): Promise<void> {
+    await db.update(selfBestPractices)
+      .set({ 
+        timesApplied: sql`${selfBestPractices.timesApplied} + 1`,
+        updatedAt: new Date()
+      })
+      .where(eq(selfBestPractices.id, id));
+  }
+
+  // People Connections - Relationship awareness
+  async createPeopleConnection(data: InsertPeopleConnection): Promise<PeopleConnection> {
+    const [connection] = await db.insert(peopleConnections).values(data).returning();
+    return connection;
+  }
+
+  async getPeopleConnections(personId: string): Promise<PeopleConnection[]> {
+    return db.select().from(peopleConnections)
+      .where(and(
+        eq(peopleConnections.isActive, true),
+        sql`(${peopleConnections.personAId} = ${personId} OR ${peopleConnections.personBId} = ${personId})`
+      ))
+      .orderBy(desc(peopleConnections.createdAt));
+  }
+
+  async getAllPeopleConnections(): Promise<PeopleConnection[]> {
+    return db.select().from(peopleConnections)
+      .where(eq(peopleConnections.isActive, true))
+      .orderBy(desc(peopleConnections.createdAt));
+  }
+
+  async updatePeopleConnection(id: string, data: Partial<PeopleConnection>): Promise<PeopleConnection | undefined> {
+    const [updated] = await db.update(peopleConnections)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(peopleConnections.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Student Insights - Per-student learning observations
+  async createStudentInsight(data: InsertStudentInsight): Promise<StudentInsight> {
+    const [insight] = await db.insert(studentInsights).values(data).returning();
+    return insight;
+  }
+
+  async getStudentInsights(studentId: string, language?: string): Promise<StudentInsight[]> {
+    const conditions = [
+      eq(studentInsights.studentId, studentId),
+      eq(studentInsights.isActive, true)
+    ];
+    
+    if (language) {
+      conditions.push(sql`(${studentInsights.language} = ${language} OR ${studentInsights.language} IS NULL)`);
+    }
+    
+    return db.select().from(studentInsights)
+      .where(and(...conditions))
+      .orderBy(desc(studentInsights.confidenceScore));
+  }
+
+  async updateStudentInsight(id: string, data: Partial<StudentInsight>): Promise<StudentInsight | undefined> {
+    const [updated] = await db.update(studentInsights)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(studentInsights.id, id))
+      .returning();
+    return updated;
+  }
+
+  async incrementInsightObservation(id: string): Promise<void> {
+    await db.update(studentInsights)
+      .set({ 
+        observationCount: sql`${studentInsights.observationCount} + 1`,
+        updatedAt: new Date()
+      })
+      .where(eq(studentInsights.id, id));
+  }
+
+  // Learning Motivations - Why students are learning
+  async createLearningMotivation(data: InsertLearningMotivation): Promise<LearningMotivation> {
+    const [motivation] = await db.insert(learningMotivations).values(data).returning();
+    return motivation;
+  }
+
+  async getLearningMotivations(studentId: string, language?: string): Promise<LearningMotivation[]> {
+    const conditions = [
+      eq(learningMotivations.studentId, studentId),
+      eq(learningMotivations.status, 'active')
+    ];
+    
+    if (language) {
+      conditions.push(sql`(${learningMotivations.language} = ${language} OR ${learningMotivations.language} IS NULL)`);
+    }
+    
+    return db.select().from(learningMotivations)
+      .where(and(...conditions))
+      .orderBy(desc(learningMotivations.createdAt));
+  }
+
+  async updateLearningMotivation(id: string, data: Partial<LearningMotivation>): Promise<LearningMotivation | undefined> {
+    const [updated] = await db.update(learningMotivations)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(learningMotivations.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Recurring Struggles - Persistent challenges
+  async createRecurringStruggle(data: InsertRecurringStruggle): Promise<RecurringStruggle> {
+    const [struggle] = await db.insert(recurringStruggles).values(data).returning();
+    return struggle;
+  }
+
+  async getRecurringStruggles(studentId: string, language?: string, status: string = 'active'): Promise<RecurringStruggle[]> {
+    const conditions = [
+      eq(recurringStruggles.studentId, studentId),
+      eq(recurringStruggles.status, status)
+    ];
+    
+    if (language) {
+      conditions.push(eq(recurringStruggles.language, language));
+    }
+    
+    return db.select().from(recurringStruggles)
+      .where(and(...conditions))
+      .orderBy(desc(recurringStruggles.occurrenceCount));
+  }
+
+  async updateRecurringStruggle(id: string, data: Partial<RecurringStruggle>): Promise<RecurringStruggle | undefined> {
+    const [updated] = await db.update(recurringStruggles)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(recurringStruggles.id, id))
+      .returning();
+    return updated;
+  }
+
+  async incrementStruggleOccurrence(id: string): Promise<void> {
+    await db.update(recurringStruggles)
+      .set({ 
+        occurrenceCount: sql`${recurringStruggles.occurrenceCount} + 1`,
+        lastOccurredAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(recurringStruggles.id, id));
+  }
+
+  // Session Notes - Post-session reflections
+  async createSessionNote(data: InsertSessionNote): Promise<SessionNote> {
+    const [note] = await db.insert(sessionNotes).values(data).returning();
+    return note;
+  }
+
+  async getSessionNotes(studentId: string, limit: number = 10): Promise<SessionNote[]> {
+    return db.select().from(sessionNotes)
+      .where(eq(sessionNotes.studentId, studentId))
+      .orderBy(desc(sessionNotes.createdAt))
+      .limit(limit);
+  }
+
+  async getSessionNoteByConversation(conversationId: string): Promise<SessionNote | undefined> {
+    const [note] = await db.select().from(sessionNotes)
+      .where(eq(sessionNotes.conversationId, conversationId));
+    return note;
+  }
+
+  // Aggregate Memory Context (for injecting into prompts)
+  async getStudentMemoryContext(studentId: string, language?: string): Promise<{
+    insights: StudentInsight[];
+    motivations: LearningMotivation[];
+    struggles: RecurringStruggle[];
+    recentNotes: SessionNote[];
+    connections: PeopleConnection[];
+  }> {
+    const [insights, motivations, struggles, recentNotes, connections] = await Promise.all([
+      this.getStudentInsights(studentId, language),
+      this.getLearningMotivations(studentId, language),
+      this.getRecurringStruggles(studentId, language),
+      this.getSessionNotes(studentId, 5), // Last 5 session notes
+      this.getPeopleConnections(studentId)
+    ]);
+
+    return {
+      insights,
+      motivations,
+      struggles,
+      recentNotes,
+      connections
     };
   }
 }

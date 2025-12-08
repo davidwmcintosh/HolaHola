@@ -37,6 +37,7 @@ interface VoiceChatViewManagerProps {
   whiteboardItems?: WhiteboardItem[];
   onClearWhiteboard?: () => void;
   onDrillComplete?: (drillId: string, drillType: string, isCorrect: boolean, responseTimeMs: number, toolContent?: string) => void;
+  onTextInputSubmit?: (itemId: string, response: string) => void;
   subtitleState?: StreamingSubtitleState;
   // Regular subtitle mode: 'off' (default), 'all', or 'target'
   regularSubtitleMode?: SubtitleMode;
@@ -75,6 +76,7 @@ export function VoiceChatViewManager({
   whiteboardItems = [],
   onClearWhiteboard,
   onDrillComplete,
+  onTextInputSubmit,
   subtitleState,
   regularSubtitleMode = 'off',
   customOverlayText,
@@ -191,6 +193,7 @@ export function VoiceChatViewManager({
                 whiteboardItems={whiteboardItems}
                 onClearWhiteboard={onClearWhiteboard}
                 onDrillComplete={onDrillComplete}
+                onTextInputSubmit={onTextInputSubmit}
                 subtitleState={subtitleState}
                 regularSubtitleMode={regularSubtitleMode}
                 customOverlayText={customOverlayText}

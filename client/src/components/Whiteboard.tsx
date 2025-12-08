@@ -77,13 +77,15 @@ import type {
   SummaryItem,
   ErrorPatternsItem,
   VocabularyTimelineItem,
+  TextInputItem,
   DrillState,
   MatchPair,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, getDrillInstructions } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, getDrillInstructions } from "@shared/whiteboard-types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { GripVertical } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { GripVertical, PenLine, Send } from "lucide-react";
 
 interface WhiteboardProps {
   items: WhiteboardItem[];
@@ -91,6 +93,7 @@ interface WhiteboardProps {
   onDrillResponse?: (drillId: string, response: string) => void;
   onDrillStart?: (drillId: string) => void;
   onDrillComplete?: (drillId: string, drillType: string, isCorrect: boolean, responseTimeMs: number, toolContent?: string) => void;
+  onTextInputSubmit?: (itemId: string, response: string) => void;
   language?: string;
 }
 
@@ -130,6 +133,8 @@ const getItemIcon = (type: WhiteboardItemType) => {
       return <AlertTriangle className="h-4 w-4" />;
     case "vocabulary_timeline":
       return <TrendingUp className="h-4 w-4" />;
+    case "text_input":
+      return <PenLine className="h-4 w-4" />;
     default:
       return null;
   }
@@ -171,6 +176,8 @@ const getItemStyle = (type: WhiteboardItemType): string => {
       return "bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300";
     case "vocabulary_timeline":
       return "bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-300";
+    case "text_input":
+      return "bg-lime-500/10 border-lime-500/30 text-lime-700 dark:text-lime-300";
     default:
       return "bg-muted border-border text-foreground";
   }
@@ -2099,12 +2106,97 @@ const GrammarTableItemDisplay = ({ item, index }: GrammarTableItemDisplayProps) 
   );
 };
 
+interface TextInputItemDisplayProps {
+  item: TextInputItem;
+  index: number;
+  onSubmit?: (itemId: string, response: string) => void;
+}
+
+const TextInputItemDisplay = ({ item, index, onSubmit }: TextInputItemDisplayProps) => {
+  const [text, setText] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(item.data.isSubmitted || false);
+  
+  const handleSubmit = () => {
+    if (!text.trim() || isSubmitting || isSubmitted) return;
+    setIsSubmitting(true);
+    onSubmit?.(item.id || '', text.trim());
+    setIsSubmitted(true);
+    setIsSubmitting(false);
+  };
+  
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-lime-500/10 border-lime-500/30"
+      data-testid={`whiteboard-item-text-input-${index}`}
+    >
+      <div className="flex items-center gap-2">
+        <PenLine className="h-4 w-4 text-lime-600 dark:text-lime-400 opacity-60" />
+        <span className="text-sm font-medium text-lime-700 dark:text-lime-300">
+          Writing Practice
+        </span>
+      </div>
+      
+      <p className="text-foreground font-medium">
+        {item.data.prompt}
+      </p>
+      
+      {isSubmitted ? (
+        <div className="flex items-center gap-2 py-2 px-3 bg-lime-500/20 rounded-lg">
+          <CheckCircle2 className="h-4 w-4 text-lime-600 dark:text-lime-400" />
+          <span className="text-sm text-lime-700 dark:text-lime-300">
+            Response submitted! Listen for feedback...
+          </span>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <Textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={item.data.placeholder || "Type your response here..."}
+            className="min-h-[60px] resize-none bg-background/50 border-lime-500/30 focus:border-lime-500/50"
+            disabled={isSubmitting}
+            data-testid={`input-text-response-${index}`}
+          />
+          <Button
+            onClick={handleSubmit}
+            disabled={!text.trim() || isSubmitting}
+            className="self-end gap-2"
+            size="sm"
+            data-testid={`button-submit-text-response-${index}`}
+          >
+            {isSubmitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+            Submit
+          </Button>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
 const WhiteboardItemDisplay = ({ 
   item, 
   index,
   onDrillResponse,
   onDrillStart,
   onDrillComplete,
+  onTextInputSubmit,
   language,
 }: { 
   item: WhiteboardItem; 
@@ -2112,6 +2204,7 @@ const WhiteboardItemDisplay = ({
   onDrillResponse?: (drillId: string, response: string) => void;
   onDrillStart?: (drillId: string) => void;
   onDrillComplete?: (drillId: string, drillType: string, isCorrect: boolean, responseTimeMs: number, toolContent?: string) => void;
+  onTextInputSubmit?: (itemId: string, response: string) => void;
   language?: string;
 }) => {
   // Track when drills are displayed for response time calculation
@@ -2198,10 +2291,14 @@ const WhiteboardItemDisplay = ({
     return <VocabularyTimelineItemDisplay item={item} index={index} />;
   }
   
+  if (isTextInputItem(item)) {
+    return <TextInputItemDisplay item={item} index={index} onSubmit={onTextInputSubmit} />;
+  }
+  
   return <TextItemDisplay item={item} index={index} />;
 };
 
-export function Whiteboard({ items, onClear, onDrillResponse, onDrillStart, onDrillComplete, language: propLanguage }: WhiteboardProps) {
+export function Whiteboard({ items, onClear, onDrillResponse, onDrillStart, onDrillComplete, onTextInputSubmit, language: propLanguage }: WhiteboardProps) {
   const { language: contextLanguage } = useLanguage();
   const language = propLanguage || contextLanguage;
   
@@ -2237,6 +2334,7 @@ export function Whiteboard({ items, onClear, onDrillResponse, onDrillStart, onDr
                   onDrillResponse={onDrillResponse}
                   onDrillStart={onDrillStart}
                   onDrillComplete={onDrillComplete}
+                  onTextInputSubmit={onTextInputSubmit}
                   language={language}
                 />
               ))}
@@ -2256,11 +2354,13 @@ export function InlineWhiteboard({
   items,
   onDrillResponse,
   onDrillStart,
+  onTextInputSubmit,
   language: propLanguage,
 }: { 
   items: WhiteboardItem[];
   onDrillResponse?: (drillId: string, response: string) => void;
   onDrillStart?: (drillId: string) => void;
+  onTextInputSubmit?: (itemId: string, response: string) => void;
   language?: string;
 }) {
   const { language: contextLanguage } = useLanguage();
@@ -2283,6 +2383,7 @@ export function InlineWhiteboard({
             index={index}
             onDrillResponse={onDrillResponse}
             onDrillStart={onDrillStart}
+            onTextInputSubmit={onTextInputSubmit}
             language={language}
           />
         ))}

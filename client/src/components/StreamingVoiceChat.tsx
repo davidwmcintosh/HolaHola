@@ -2156,6 +2156,11 @@ export function StreamingVoiceChat({
               streamingVoice.sendDrillResult(drillId, drillType, isCorrect, responseTimeMs, toolContent);
             }
           }}
+          onTextInputSubmit={(itemId, response) => {
+            if (useStreamingMode) {
+              streamingVoice.sendTextInput(itemId, response);
+            }
+          }}
           subtitleState={streamingVoice.subtitles.state}
           regularSubtitleMode={whiteboard.regularSubtitleMode}
           customOverlayText={whiteboard.customOverlayText}
