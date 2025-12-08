@@ -204,8 +204,16 @@ Like a record label or creative studio - the brand is where great tutors come fr
 
 3. **SpeakHouse** (.com, .ai) - Voice-first method baked in. "House" implies a roster of talent. "Daniela is a SpeakHouse tutor."
 
-**The pitch:**
+**The core pitch:**
 > "At [Brand], you don't just get an app. You get a tutor who knows you."
+
+**Pitch variations:**
+- "Not an app. A tutor."
+- "Your tutor remembers. Your tutor adapts. Your tutor cares."
+- "Apps teach languages. Tutors teach people."
+- "Meet the tutors who actually know your name."
+- "The difference between an app and a tutor? A tutor knows you."
+- "Learning a language is personal. Your tutor should be too."
 
 ---
 
