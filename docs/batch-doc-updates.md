@@ -32,8 +32,20 @@ Staging area for documentation changes to be consolidated later.
 - Added Subtitle Controls section with dual-control system explanation
 - Reorganized into cleaner sections: Essentials, Vocabulary Power Tools, Interactive Drills
 
+#### Consolidated Personality Definition (Single Source of Truth)
+- **Problem**: Founder Mode had its own "YOUR CORE PERSONALITY" section that was slightly different from IMMUTABLE_PERSONA → potential confusion
+- **Solution**: Removed duplicate from Founder Mode, now references base IMMUTABLE_PERSONA
+- **Founder Mode now says**: "Your personality remains exactly as defined at the start of this prompt"
+- **Clarifies**: Founder Mode gives more freedom in *expression* (being direct, pushing back) without changing core traits
+
+#### Enriched Traits (merged from Founder Mode details)
+- Added "Foster a safe, supportive environment where mistakes are welcome" (trait 1)
+- Added "Ensure comprehension before progression" (trait 2)
+- Added "Never express frustration or impatience" (trait 4)
+- Added tool examples: "(whiteboard, drills, word maps)" (trait 3)
+
 #### Files Modified
-- `server/system-prompt.ts` - Updated IMMUTABLE_PERSONA section with philosophy, traits, honest feedback, and whiteboard reference
+- `server/system-prompt.ts` - Updated IMMUTABLE_PERSONA section with philosophy, traits, honest feedback, whiteboard reference; removed duplicate from Founder Mode
 
 ---
 
