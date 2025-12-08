@@ -6,6 +6,36 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 10: Password Authentication Security Hardening (Dec 8, 2025)
+
+#### Token Invalidation Security Fix
+- **Issue**: Single token consumption allowed replay attacks with other valid tokens
+- **Fix**: Added `invalidateAllUserTokens(userId, tokenType)` method
+- **Behavior**:
+  - Password reset: Invalidates ALL `password_reset` tokens for user (not just the one used)
+  - Registration completion: Invalidates ALL `invitation` tokens for user
+- **Implementation**: Marks all matching unconsumed tokens as consumed via `consumedAt` timestamp
+
+#### Brute-Force Lockout Mechanism
+- **Configuration**: 5 failed attempts = 15 minute lockout
+- **Enforcement**: `lockedUntil` checked at start of `validateLogin()`
+- **Counter Reset**: Only cleared after successful authentication
+- **Password Version**: Incremented on every password change (invalidates sessions)
+
+#### Frontend Error Handling Improvements
+- **Token Validation**: All auth pages check for missing tokens before API calls
+- **Error Parsing**: Properly parse API error responses to display meaningful messages
+- **User Feedback**: Missing token scenarios show clear messages directing users to request new links
+
+#### Files Modified
+- `server/services/password-auth-service.ts` - Added `invalidateAllUserTokens()`, updated `resetPassword()` and `completeRegistration()`
+- `client/src/pages/auth/Login.tsx` - Added response error parsing
+- `client/src/pages/auth/ForgotPassword.tsx` - Added response error parsing
+- `client/src/pages/auth/ResetPassword.tsx` - Added token validation and error parsing
+- `client/src/pages/auth/CompleteRegistration.tsx` - Added token validation and error parsing
+
+---
+
 ### Session 9: TEXT_INPUT Tool & Memory System Completion (Dec 8, 2025)
 
 #### Organic Connection Discovery - Warm Introductions System
