@@ -103,65 +103,73 @@ We're preparing to take our AI-powered language tutoring platform from developme
 
 ### Our Unique Angle
 
-**Daniela is our differentiator.** No major player has a named AI tutor as the brand. This is interesting territory - personal, human, memorable.
+**Multiple AI tutors with distinct personalities.** The platform hosts various tutors (Daniela and others), each with their own teaching style. This means the brand needs to be the *platform*, not a single tutor name.
+
+**What makes us different:**
+- Voice-first, conversational learning
+- AI tutors that remember you and adapt
+- Multiple tutor personalities to choose from
+- ACTFL-aligned progression
 
 ### Refined Naming Directions
 
-**Direction A: Daniela-Forward** ⭐ *Unique in market*
-The tutor IS the brand. Personal, memorable, human.
+**Direction A: Voice/Conversation Focus** ⭐ *Matches methodology*
+Emphasizes the conversational, voice-first approach - the platform where you *talk* to learn.
 | Name | Pros | Cons |
 |------|------|------|
-| **HolaDaniela** | Spanish greeting + name, 5 syllables, warm | Might seem Spanish-only |
-| **TalkToDaniela** | Clear action, friendly | Long (5 syllables) |
-| **Daniela.ai** | Clean, modern | Might be taken |
-| **AskDaniela** | Active verb, curious | 4 syllables |
-| **ConDaniela** | "With Daniela" in Spanish, short | Might not resonate globally |
-
-**Direction B: Voice/Conversation Focus**
-Emphasizes the conversational, voice-first approach.
-| Name | Pros | Cons |
-|------|------|------|
-| **Parla** | Italian for "speak", 2 syllables, elegant | Might need explanation |
-| **Habla** | Spanish for "speak", 2 syllables | Might seem Spanish-only |
+| **Parla** | Italian for "speak", 2 syllables, elegant, international | Might need explanation |
+| **Habla** | Spanish for "speak", 2 syllables, direct | Might seem Spanish-only |
 | **VoxTutor** | "Voice tutor", clear | Sounds technical |
-| **SpeakPath** | Journey + speaking | Might be generic |
+| **TalkPath** | Journey + speaking | Might be generic |
+| **SpeakFlow** | Voice + natural progression | Similar to LinguaFlow |
 
-**Direction C: Made-Up/Brandable**
-Unique, ownable, no existing meaning.
+**Direction B: Made-Up/Brandable** ⭐ *Fully ownable*
+Unique, ownable, no existing meaning - can become whatever you define.
 | Name | Pros | Cons |
 |------|------|------|
-| **Lingora** | "Lingua" + euphonic ending, 3 syllables | No meaning |
-| **Fluencia** | Spanish feel, "fluency" + elegance | 4 syllables |
-| **Voxly** | "Vox" (voice) + tech suffix | Might feel corporate |
-| **Parlai** | "Parla" + AI, clever | Pronunciation unclear |
+| **Lingora** | "Lingua" + euphonic ending, 3 syllables | No inherent meaning |
+| **Fluencia** | Romance feel, evokes "fluency", elegant | 4 syllables |
+| **Voxly** | "Vox" (voice) + tech suffix, modern | Might feel corporate |
+| **Parlai** | "Parla" + AI, clever fusion | Pronunciation unclear (par-LYE?) |
+| **Tutera** | "Tutor" + feminine/friendly ending | Could work well |
+| **Speakara** | "Speak" + euphonic ending | 3 syllables, flows |
 
-**Direction D: Emotional/Aspirational**
-Captures the feeling of breakthrough.
+**Direction C: Emotional/Aspirational**
+Captures the feeling of breakthrough - fear→confidence.
 | Name | Pros | Cons |
 |------|------|------|
-| **FreeToSpeak** | Emotional, captures fear→confidence | 3 words |
+| **FreeToSpeak** | Emotional, captures the journey | 3 words, long |
 | **SpeakFree** | Shorter, same emotion | Domain likely taken |
-| **VoiceUnlocked** | Journey metaphor | 4 syllables |
+| **VoiceUnlocked** | Journey metaphor, powerful | 4 syllables |
+| **Fearless** | Bold, emotional | Too generic, not language-specific |
 
-### My Recommendation
+**Direction D: Tutor Collective Concept**
+Emphasizes the "team of tutors" waiting to help you.
+| Name | Pros | Cons |
+|------|------|------|
+| **TutorCircle** | Community feel, multiple tutors | Might sound like tutoring marketplace |
+| **MyTutors** | Personal, implies choice | Generic |
+| **TutorVerse** | Modern, expansive | Might sound like metaverse |
+| **PolyTutor** | "Many tutors" or "many languages" | Clinical feel |
+
+### My Revised Recommendation
+
+Since you have **multiple tutors** (Daniela and others), the brand is the *platform*, not a single personality.
 
 **Top 3 to check domain availability:**
 
-1. **AskDaniela** (.com, .ai) - Personal, action-oriented, unique in market. "Just ask Daniela" marketing writes itself.
+1. **Parla** (.com, .ai, .io) - Italian for "speak". Elegant, 2 syllables, international feel. Works for a platform with tutors from any language tradition. "Parla" can be the house, tutors like Daniela live inside.
 
-2. **Parla** (.com, .ai, .io) - Elegant, international (Italian "speak"), 2 syllables, sophisticated feel. Works because we teach 9 languages, not just Spanish.
+2. **Fluencia** (.com, .ai) - Romance language feel, evokes "fluency", sophisticated. Tagline: "Where fluency flows." Tutors are "your Fluencia guides."
 
-3. **Fluencia** (.com, .ai) - Romance language feel, evokes "fluency", 4 syllables but flows well. Could work with tagline "Where fluency flows."
+3. **Lingora** (.com, .ai) - Completely made up, fully ownable. "Lingua" root signals language, "-ora" ending feels warm/feminine. "Meet your Lingora tutors."
 
-**Honorable mentions:** HolaDaniela (if Spanish-forward is okay), Lingora (completely ownable)
+**Platform + Personality Model:**
+- **Brand**: Parla / Fluencia / Lingora
+- **Tutors**: "Meet Daniela, Marco, Yuki, and more..."
+- **Marketing**: "Choose your tutor. Start speaking."
 
-### Why Daniela-Forward Could Win
-
-- **Trust**: People trust people, not apps
-- **Word of mouth**: "Have you tried talking to Daniela?" 
-- **Differentiation**: Nobody else has this
-- **Story**: "Meet Daniela, your AI tutor who actually remembers you"
-- **Future-proof**: As AI tutors become common, having a named personality stands out
+This gives you room to grow the tutor roster without being locked to one name.
 
 ---
 
