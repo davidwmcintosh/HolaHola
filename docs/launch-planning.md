@@ -103,13 +103,16 @@ We're preparing to take our AI-powered language tutoring platform from developme
 
 ### Our Unique Angle
 
-**Multiple AI tutors with distinct personalities.** The platform hosts various tutors (Daniela and others), each with their own teaching style. This means the brand needs to be the *platform*, not a single tutor name.
+**The tutors ARE the product.** Not a platform with tutors - the tutors themselves are the experience. Each has their own personality, teaching style, and relationship with the student. The technology enables this, but the tutors are what you're really buying.
 
 **What makes us different:**
 - Voice-first, conversational learning
 - AI tutors that remember you and adapt
 - Multiple tutor personalities to choose from
 - ACTFL-aligned progression
+- The relationship with YOUR tutor
+
+**Naming implication:** The brand should feel like a *collective of experts*, a *team of tutors*, or a *place where great tutors live*.
 
 ### Refined Naming Directions
 
@@ -143,33 +146,66 @@ Captures the feeling of breakthrough - fear→confidence.
 | **VoiceUnlocked** | Journey metaphor, powerful | 4 syllables |
 | **Fearless** | Bold, emotional | Too generic, not language-specific |
 
-**Direction D: Tutor Collective Concept**
-Emphasizes the "team of tutors" waiting to help you.
+**Direction D: Tutor Collective Concept** ⭐⭐ *Tutors ARE the product*
+The brand IS the tutors. A collective, a studio, a roster of experts.
 | Name | Pros | Cons |
 |------|------|------|
-| **TutorCircle** | Community feel, multiple tutors | Might sound like tutoring marketplace |
-| **MyTutors** | Personal, implies choice | Generic |
-| **TutorVerse** | Modern, expansive | Might sound like metaverse |
-| **PolyTutor** | "Many tutors" or "many languages" | Clinical feel |
+| **Tutora** | "Tutor" + warm/feminine ending, feels like a name itself | Simple, elegant |
+| **TheTutors** | Direct, bold, confident | Might be too generic |
+| **TutorHouse** | "Studio" feel, place where tutors live | 3 syllables |
+| **VoiceTutors** | Method + product in one | Descriptive but clear |
+| **TutorStudio** | Creative collective feel | Might sound like marketplace |
+| **Maestros** | "Teachers/masters" in Romance languages | Strong, might feel pretentious |
+| **LosTutores** | Spanish "The Tutors", personality | Might feel Spanish-only |
 
-### My Revised Recommendation
+**Direction E: Relationship-Forward**
+Emphasizes the bond between student and tutor.
+| Name | Pros | Cons |
+|------|------|------|
+| **MyTutor** | Personal possession, "this is MY tutor" | Likely taken |
+| **TutorMe** | Action-oriented, request feel | Similar products exist |
+| **YourTutor** | Direct relationship | Generic |
+| **MeetYourTutor** | Action + relationship | Long |
 
-Since you have **multiple tutors** (Daniela and others), the brand is the *platform*, not a single personality.
+**Direction F: The "Studio/House" Model**
+Like a record label or creative studio - the brand is where great tutors come from.
+| Name | Pros | Cons |
+|------|------|------|
+| **SpeakHouse** | "House" implies roster, speaking implies method | 2 syllables each word |
+| **VoxHouse** | Latin "voice" + house | Modern, clean |
+| **LinguaHouse** | Language + house | Clear, 4 syllables |
+| **TutorLab** | Experimental, modern | Might feel tech-heavy |
 
-**Top 3 to check domain availability:**
+---
 
-1. **Parla** (.com, .ai, .io) - Italian for "speak". Elegant, 2 syllables, international feel. Works for a platform with tutors from any language tradition. "Parla" can be the house, tutors like Daniela live inside.
+### My Current Thinking
 
-2. **Fluencia** (.com, .ai) - Romance language feel, evokes "fluency", sophisticated. Tagline: "Where fluency flows." Tutors are "your Fluencia guides."
+**The tutors ARE the product.** So the brand should either:
 
-3. **Lingora** (.com, .ai) - Completely made up, fully ownable. "Lingua" root signals language, "-ora" ending feels warm/feminine. "Meet your Lingora tutors."
+**Option A: BE the tutors (collective noun)**
+- *Tutora* - Simple, elegant, sounds like a name itself
+- *Maestros* - Bold, "masters" in Romance languages
 
-**Platform + Personality Model:**
-- **Brand**: Parla / Fluencia / Lingora
-- **Tutors**: "Meet Daniela, Marco, Yuki, and more..."
-- **Marketing**: "Choose your tutor. Start speaking."
+**Option B: BE the house where great tutors live**
+- *SpeakHouse* - Voice method + roster feel
+- *VoxHouse* - Latin "voice" + studio vibe
 
-This gives you room to grow the tutor roster without being locked to one name.
+**Option C: Made-up but tutor-feeling**
+- *Lingora* - Language root, warm ending
+- *Fluencia* - Fluency evoked, elegant
+
+---
+
+### Top 3 Revised (Tutors = Product)
+
+1. **Tutora** (.com, .ai) - Simple, warm, sounds like a person's name. "Learn with Tutora" works. Individual tutors (Daniela, Marco) are "Tutora tutors." Short, memorable, the brand IS the tutors.
+
+2. **Lingora** (.com, .ai) - Completely ownable. "Lingua" signals language, "-ora" ending matches Tutora's warmth. "Meet your Lingora tutor."
+
+3. **SpeakHouse** (.com, .ai) - Voice-first method baked in. "House" implies a roster of talent. "Daniela is a SpeakHouse tutor."
+
+**The pitch:**
+> "At [Brand], you don't just get an app. You get a tutor who knows you."
 
 ---
 
