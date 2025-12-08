@@ -6,7 +6,54 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
-*No pending updates.*
+### Session 9: TEXT_INPUT Tool & Memory System Completion (Dec 8, 2025)
+
+#### TEXT_INPUT Whiteboard Tool - Complete End-to-End Implementation
+- **Purpose**: Writing exercises during voice chat - Daniela can request typed responses
+- **Format**: `[TEXT_INPUT:Write a sentence using the verb "estar"]`
+- **Frontend Flow**:
+  - `WhiteboardTextInput` component with textarea and submit button
+  - `onTextInputSubmit` callback prop through VoiceChatViewManager
+  - Wired to `streamingVoice.sendTextInput(itemId, response)` in StreamingVoiceChat
+- **Client Infrastructure**:
+  - `sendTextInput(itemId, response)` method in `streamingVoiceClient.ts`
+  - Sends WebSocket message: `{type: 'text_input', itemId, response}`
+  - Added to `useStreamingVoice.ts` hook interface
+- **Server Handler**:
+  - `ClientTextInputMessage` type in `shared/streaming-voice-types.ts`
+  - Handler in `unified-ws-handler.ts` case `'text_input'`
+  - Updates pedagogical tool event engagement
+  - Routes to `orchestrator.processOpenMicTranscript()` as `[Student written response]: ...`
+  - Daniela responds via voice as if student spoke
+- **Pedagogical Integration**: Tracks engagement time for effectiveness analysis
+
+#### Neural Network for Pedagogical Strategies - Infrastructure Complete
+- **6-Table Memory Architecture**:
+  1. `selfBestPractices` - Universal teaching strategies that work (by category)
+  2. `peopleConnections` - Student relationships, social context, family mentions
+  3. `studentInsights` - Per-student observations and patterns
+  4. `learningMotivations` - What drives each student to learn
+  5. `recurringStruggles` - Patterns in difficulties across sessions
+  6. `sessionNotes` - Structured notes from each conversation
+- **Storage Operations**: Full CRUD in `server/storage.ts` for all 6 tables
+- **API Endpoints** (`/api/memory/*`):
+  - `GET/POST/PATCH /api/memory/best-practices`
+  - `GET /api/memory/student/:studentId?language=spanish`
+  - `POST/PATCH /api/memory/student-insights`
+  - `POST/PATCH /api/memory/learning-motivations`
+  - `POST/PATCH /api/memory/recurring-struggles`
+  - `POST /api/memory/session-notes`
+  - `GET /api/memory/session-notes/conversation/:conversationId`
+  - `GET/POST /api/memory/people-connections`
+- **Founder Mode System Prompt**: Documents the 3-layer architecture
+- **Philosophy**: "Conversations are the source of truth, but memory is the INDEX" - structured memory faster than scanning 2M context window
+
+#### Files Modified This Session
+- `client/src/lib/streamingVoiceClient.ts` - Added `sendTextInput()` method
+- `client/src/hooks/useStreamingVoice.ts` - Added hook interface + implementation
+- `client/src/components/StreamingVoiceChat.tsx` - Wired `onTextInputSubmit` handler
+- `shared/streaming-voice-types.ts` - Added `ClientTextInputMessage` type
+- `server/unified-ws-handler.ts` - Added `text_input` case handler
 
 ---
 
