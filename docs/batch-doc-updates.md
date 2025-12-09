@@ -6,6 +6,54 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 14: Open Mic Fixes & Email Provider (Dec 9, 2025)
+
+#### Open Mic Mode - Critical Bug Fixes
+- **TTS Feedback Loop Fixed**: Microphone was picking up Daniela's voice and submitting it as user speech, causing duplicate responses
+  - **Root Cause**: `onaudioprocess` callback was streaming audio to server even while `isAwaitingResponseRef.current` was true
+  - **Fix**: Added guard in ScriptProcessor to stop sending audio when awaiting AI response
+  - **File**: `client/src/components/StreamingVoiceChat.tsx`
+
+- **Session Restart Fixed**: After first turn, open mic would freeze and not restart for next utterance
+  - **Root Cause**: Callbacks couldn't access local `startOpenMicRecording` function
+  - **Fix**: Added `startOpenMicRecordingRef` and `stopOpenMicRecordingRef` refs to bridge function access
+  - **Auto-restart**: `onResponseComplete` now automatically restarts open mic recording after AI finishes speaking
+
+- **Mode Switch Cleanup**: Switching from open-mic to push-to-talk now properly cleans up:
+  - Stops WebSocket streaming
+  - Disconnects ScriptProcessor
+  - Closes AudioContext
+  - Stops MediaStream tracks
+  - Resets all recording states
+
+#### VAD Sensitivity Tuning
+- **Issue**: Users were being cut off after very brief pauses (< 0.5 seconds)
+- **Root Cause 1**: `utterance_end_ms` was set to 1000ms - increased to 1400ms
+- **Root Cause 2**: Deepgram's `speech_final` flag was triggering submission before the timeout elapsed
+- **Fix**: Removed auto-submit on `speech_final` - now relies solely on `UtteranceEnd` event which respects the 1400ms timeout
+- **Result**: Users can pause up to ~1.4 seconds to think without being cut off
+- **File**: `server/services/deepgram-live-stt.ts`
+
+#### Recording Indicator UX
+- **Change**: Big red "Recording" indicator now only shows in push-to-talk mode
+- **Reason**: In open-mic mode, the mic button already shows state clearly (green pulsing = listening)
+- **File**: `client/src/components/ImmersiveTutor.tsx`
+
+#### Email Provider: Mailjet Integration
+- **Added**: Full Mailjet support in email service (in addition to existing Resend/SendGrid)
+- **Configuration**: Uses `MAILJET_API_KEY` and `MAILJET_SECRET_KEY` secrets
+- **Authentication**: Basic auth with API key:secret base64 encoded
+- **API**: Mailjet v3.1 Send API
+- **From Address**: `noreply@getholahola.com`
+- **Provider Priority**: Mailjet → Resend → SendGrid → Console fallback
+- **File**: `server/services/email-service.ts`
+
+#### Environment Configuration
+- **Secrets Added**: `MAILJET_API_KEY`, `MAILJET_SECRET_KEY`
+- **FROM_EMAIL Updated**: Now defaults to `noreply@getholahola.com`
+
+---
+
 ### Session 13: User Invitation System & Email Integration (Dec 9, 2025)
 
 #### Command Center User Management Enhancements
