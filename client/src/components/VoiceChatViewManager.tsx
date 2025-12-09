@@ -130,7 +130,7 @@ export function VoiceChatViewManager({
 
   return (
     <div 
-      className="h-full relative"
+      className="h-full flex flex-col relative"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -162,7 +162,7 @@ export function VoiceChatViewManager({
       </div>
 
       {/* View Content */}
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col flex-1 min-h-0">
         {view === "live" ? (
           conversationId ? (
             <div className="flex-1 min-h-0 overflow-y-auto">
