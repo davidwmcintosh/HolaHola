@@ -247,8 +247,8 @@ export default function ReviewHub() {
     <div className="container mx-auto p-4 max-w-4xl space-y-4">
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-2 md:gap-3">
-        <div className="flex items-center gap-3">
-          <img src={holaholaLogo} alt="HolaHola" className="h-[7.5rem] w-[7.5rem]" />
+        <div className="flex items-center gap-1">
+          <img src={holaholaLogo} alt="HolaHola" className="h-[7.5rem] w-[7.5rem] -mr-2" />
           <div>
             <h1 className="text-2xl font-bold" data-testid="text-review-hub-title">
               Language Hub
