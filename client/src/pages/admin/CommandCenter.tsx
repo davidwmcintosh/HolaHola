@@ -429,6 +429,8 @@ function UsersTab() {
   const [grantCreditsUser, setGrantCreditsUser] = useState<any | null>(null);
   const [creditAmount, setCreditAmount] = useState<number>(1);
   const [creditDescription, setCreditDescription] = useState<string>("");
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [createForm, setCreateForm] = useState({ email: "", firstName: "", lastName: "", role: "student" });
 
   const queryUrl = roleFilter === "all" 
     ? "/api/admin/users" 
@@ -508,6 +510,31 @@ function UsersTab() {
       toast({ title: "Error", description: error.message || "Failed to reset learning data", variant: "destructive" });
     },
   });
+
+  const createUserMutation = useMutation({
+    mutationFn: async (userData: { email: string; firstName: string; lastName: string; role: string }) => {
+      return apiRequest("POST", "/api/admin/users", userData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ predicate: (query) => 
+        typeof query.queryKey[0] === 'string' && query.queryKey[0].startsWith('/api/admin/users')
+      });
+      toast({ title: "User created successfully", description: "The new user has been created with pending authentication." });
+      setShowCreateDialog(false);
+      setCreateForm({ email: "", firstName: "", lastName: "", role: "student" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to create user", variant: "destructive" });
+    },
+  });
+
+  const handleCreateUser = () => {
+    if (!createForm.email) {
+      toast({ title: "Error", description: "Email is required", variant: "destructive" });
+      return;
+    }
+    createUserMutation.mutate(createForm);
+  };
 
   const filteredUsers = data?.users.filter((user) =>
     searchQuery
@@ -593,6 +620,10 @@ function UsersTab() {
                 <SelectItem value="admin">Admins</SelectItem>
               </SelectContent>
             </Select>
+            <Button onClick={() => setShowCreateDialog(true)} data-testid="button-create-user">
+              <Plus className="h-4 w-4 mr-2" />
+              Create User
+            </Button>
           </div>
 
           {isLoading ? (
@@ -769,6 +800,18 @@ function UsersTab() {
           </AlertDialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
+              <label className="text-sm font-medium">User ID</label>
+              <Input
+                value={editingUser?.id || ""}
+                disabled
+                className="bg-muted font-mono text-xs"
+                data-testid="input-edit-userId"
+              />
+              <p className="text-xs text-muted-foreground">
+                Unique system identifier (read-only)
+              </p>
+            </div>
+            <div className="space-y-2">
               <label className="text-sm font-medium">First Name</label>
               <Input
                 value={editForm.firstName}
@@ -859,6 +902,77 @@ function UsersTab() {
                 <Plus className="h-4 w-4 mr-2" />
               )}
               Grant {creditAmount} Hour{creditAmount !== 1 ? 's' : ''}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Create New User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Create a new user account. They will receive an invitation to set their password.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Email *</label>
+              <Input
+                value={createForm.email}
+                onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                placeholder="user@example.com"
+                type="email"
+                data-testid="input-create-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">First Name</label>
+              <Input
+                value={createForm.firstName}
+                onChange={(e) => setCreateForm({ ...createForm, firstName: e.target.value })}
+                placeholder="First Name"
+                data-testid="input-create-firstName"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Last Name</label>
+              <Input
+                value={createForm.lastName}
+                onChange={(e) => setCreateForm({ ...createForm, lastName: e.target.value })}
+                placeholder="Last Name"
+                data-testid="input-create-lastName"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Role</label>
+              <Select value={createForm.role} onValueChange={(value) => setCreateForm({ ...createForm, role: value })}>
+                <SelectTrigger data-testid="select-create-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="student">Student</SelectItem>
+                  <SelectItem value="teacher">Teacher</SelectItem>
+                  <SelectItem value="developer">Developer</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setCreateForm({ email: "", firstName: "", lastName: "", role: "student" })}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCreateUser}
+              disabled={createUserMutation.isPending || !createForm.email}
+            >
+              {createUserMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
+              )}
+              Create User
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

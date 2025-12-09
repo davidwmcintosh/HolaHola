@@ -8362,6 +8362,56 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // Create new user (admin only) - for password-based auth
+  app.post("/api/admin/users", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const adminId = req.user.claims.sub;
+      const { email, firstName, lastName, role } = req.body;
+      
+      // Validate required fields
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+      
+      // Check for valid role
+      const validRoles = ['student', 'teacher', 'developer', 'admin'];
+      if (role && !validRoles.includes(role)) {
+        return res.status(400).json({ error: "Invalid role" });
+      }
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email.toLowerCase());
+      if (existingUser) {
+        return res.status(400).json({ error: "A user with this email already exists" });
+      }
+      
+      // Create user with pending auth (they'll need to set password via invitation)
+      const newUser = await storage.createUser({
+        email: email.toLowerCase(),
+        firstName: firstName || null,
+        lastName: lastName || null,
+        role: role || 'student',
+        authProvider: 'pending',
+      });
+      
+      // Log the action
+      await storage.logAdminAction({
+        actorId: adminId,
+        action: 'create_user',
+        targetType: 'user',
+        targetId: newUser.id,
+        metadata: { email, firstName, lastName, role: role || 'student' },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      res.status(201).json(newUser);
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Update user role (admin only)
   app.patch("/api/admin/users/:userId/role", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {

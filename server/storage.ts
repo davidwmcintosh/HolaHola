@@ -139,6 +139,8 @@ export interface IStorage {
   // User operations (Replit Auth Integration)
   // (IMPORTANT) these user operations are mandatory for Replit Auth.
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: { email: string; firstName?: string | null; lastName?: string | null; role?: string; authProvider?: string }): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserPreferences(userId: string, preferences: {
     targetLanguage?: string;
@@ -986,6 +988,22 @@ export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.id, id));
     return result[0];
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
+    return result[0];
+  }
+
+  async createUser(userData: { email: string; firstName?: string | null; lastName?: string | null; role?: string; authProvider?: string }): Promise<User> {
+    const [created] = await db.insert(users).values({
+      email: userData.email.toLowerCase(),
+      firstName: userData.firstName || null,
+      lastName: userData.lastName || null,
+      role: (userData.role as any) || 'student',
+      authProvider: (userData.authProvider as any) || 'pending',
+    }).returning();
+    return created;
   }
 
   async upsertUser(user: UpsertUser): Promise<User> {
