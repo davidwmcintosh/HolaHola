@@ -161,6 +161,46 @@ export function ImmersiveTutor({
           </div>
         )}
         
+        {/* Open Mic Status Indicators - show in open-mic mode when not processing/playing */}
+        {/* GREEN = "Your turn to speak" (ready) or "I hear you" (listening) */}
+        {/* BLUE = "Thinking..." (processing) */}
+        {inputMode === 'open-mic' && !isProcessing && !isPlaying && isRecording && (
+          <>
+            {/* Ready State - Solid green light invitation */}
+            {openMicState === 'ready' && (
+              <div 
+                className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-green-500/90 text-white rounded-full shadow-lg"
+                data-testid="indicator-ready"
+              >
+                <div className="w-3 h-3 bg-white rounded-full" />
+                <span className="text-sm font-medium">Your turn</span>
+              </div>
+            )}
+            
+            {/* Listening State - Pulsing green when user speaks */}
+            {openMicState === 'listening' && (
+              <div 
+                className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-green-500/90 text-white rounded-full shadow-lg animate-pulse"
+                data-testid="indicator-listening"
+              >
+                <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
+                <span className="text-sm font-medium">Listening...</span>
+              </div>
+            )}
+          </>
+        )}
+        
+        {/* Open Mic Processing State - Blue indicator */}
+        {inputMode === 'open-mic' && openMicState === 'processing' && !isPlaying && (
+          <div 
+            className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-blue-500/90 text-white rounded-full shadow-lg animate-pulse"
+            data-testid="indicator-thinking"
+          >
+            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm font-medium">Thinking...</span>
+          </div>
+        )}
+        
         
         {/* Whiteboard Overlay - Tutor-controlled visual teaching aids */}
         {/* The tutor now controls all visual display via whiteboard tools (WRITE, PHONETIC, PLAY, etc.) */}
@@ -220,13 +260,15 @@ export function ImmersiveTutor({
           {isConnecting 
             ? `Calling ${tutorGender === 'male' ? maleVoiceName : femaleVoiceName}...` 
             : inputMode === 'open-mic'
-              ? openMicState === 'listening' 
-                ? "Listening..." 
-                : openMicState === 'processing' 
-                  ? "Processing..." 
-                  : isRecording 
-                    ? "Speak naturally" 
-                    : "Tap to start"
+              ? openMicState === 'ready'
+                ? "Your turn - speak now"  // Green light invitation
+                : openMicState === 'listening' 
+                  ? "I hear you..."  // User is speaking
+                  : openMicState === 'processing' 
+                    ? "Let me think..." 
+                    : isRecording 
+                      ? "Speak naturally" 
+                      : "Tap to start"
               : isRecording 
                 ? "Release to send" 
                 : isMicPreparing 
@@ -275,9 +317,13 @@ export function ImmersiveTutor({
               disabled={isProcessing || isConnecting}
               className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none ${
                 isRecording 
-                  ? openMicState === 'listening' 
-                    ? 'animate-pulse bg-green-500 hover:bg-green-600' 
-                    : ''
+                  ? openMicState === 'ready'
+                    ? 'bg-green-500 hover:bg-green-600'  // Solid green: invitation to speak
+                    : openMicState === 'listening' 
+                      ? 'animate-pulse bg-green-500 hover:bg-green-600'  // Pulsing green: user is speaking
+                      : openMicState === 'processing'
+                        ? 'bg-blue-500 hover:bg-blue-600'  // Blue: waiting for AI
+                        : ''
                   : ''
               }`}
               data-testid={isRecording ? "button-open-mic-active" : "button-open-mic-idle"}

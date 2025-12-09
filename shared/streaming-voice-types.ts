@@ -26,11 +26,12 @@ export type VoiceInputMode = 'push-to-talk' | 'open-mic';
 
 /**
  * Open mic state for visual feedback
- * - idle: Mic is open but no speech detected
- * - listening: Speech detected, actively capturing
- * - processing: Audio submitted, waiting for response
+ * - idle: No session active, microphone closed
+ * - ready: Session active, waiting for user to speak (GREEN LIGHT INVITATION)
+ * - listening: Speech detected, actively capturing (user is speaking)
+ * - processing: Audio submitted, waiting for AI response (BLUE/waiting indicator)
  */
-export type OpenMicState = 'idle' | 'listening' | 'processing';
+export type OpenMicState = 'idle' | 'ready' | 'listening' | 'processing';
 
 /**
  * Streaming performance metrics

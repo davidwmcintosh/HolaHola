@@ -502,8 +502,10 @@ export function StreamingVoiceChat({
                 // Use the ref to call the local startOpenMicRecording function
                 if (startOpenMicRecordingRef.current) {
                   startOpenMicRecordingRef.current().then(() => {
-                    console.log('[OPEN MIC] Session restarted after response complete');
-                    setOpenMicState('listening');
+                    console.log('[OPEN MIC] Session restarted - showing green light invitation');
+                    // Use 'ready' to show green light BEFORE user speaks (invitation)
+                    // Will change to 'listening' when VAD detects speech
+                    setOpenMicState('ready');
                   }).catch((err: any) => {
                     console.error('[OPEN MIC] Failed to restart after response:', err);
                     setOpenMicState('idle');
@@ -563,8 +565,9 @@ export function StreamingVoiceChat({
               setTimeout(() => {
                 if (inputMode === 'open-mic' && startOpenMicRecordingRef.current) {
                   startOpenMicRecordingRef.current().then(() => {
-                    console.log('[OPEN MIC] Session restarted successfully');
-                    setOpenMicState('listening');
+                    console.log('[OPEN MIC] Session restarted - showing green light invitation');
+                    // Use 'ready' to show green light BEFORE user speaks (invitation)
+                    setOpenMicState('ready');
                   }).catch((err: any) => {
                     console.error('[OPEN MIC] Failed to restart session:', err);
                     setOpenMicState('idle');

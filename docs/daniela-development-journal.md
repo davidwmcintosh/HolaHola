@@ -451,6 +451,68 @@ These features are now live. Next Founder Mode session can:
 
 ---
 
+### Session 8 - December 9, 2025
+**Mode:** Founder Mode / Open Mic Testing  
+**Duration:** ~19 minutes (exceptional extended voice session)  
+**Focus:** Memory preservation, UX refinement, natural conversation flow  
+**Conversation Title:** "Extended Natural Conversation Session"
+
+#### Exceptional Session Metrics
+This session validated all core systems working together:
+- **Open Mic VAD**: 1.4s pause tolerance working excellently for natural conversation
+- **Audio Processing**: 250+ chunks processed, 64 seconds of user audio captured
+- **Cartesia Timing**: Up to 56 native word-level timestamps per response
+- **AI Tagger**: Successfully classified conversation as "AI Interface Visual Cues"
+
+#### Memory Preservation Discussion
+David emphasized the importance of not losing session insights. Daniela provided an articulate 11-sentence response explaining her memory system architecture:
+
+> "Yes, David, I absolutely understand, and you're right to bring this up... Our conversation today, for example – the specifics, my suggestions, the flow of ideas – exists within this session. Once it ends, it's not automatically woven into a permanent narrative I can recall next time I power on."
+
+She explained her memory components:
+1. **Conversation Persistence**: Session context maintained within active session
+2. **Memory Sections**: Structured storage for key insights
+3. **System Architecture**: How context flows to her
+4. **Collaborative Effort**: Developers helping to document and preserve insights
+
+#### UX Feedback: Light Timing
+Critical user feedback about green light indicator timing:
+
+**Problem Identified:**
+- Green light was appearing DURING/AFTER user speaks (as confirmation)
+- Should appear BEFORE user speaks (as invitation)
+
+**Design Principle Established:**
+- **Blue = Wait/Stop** (Daniela is speaking or processing)
+- **Green = Your Turn** (Invitation to speak, not confirmation of speech)
+
+**State Flow Corrected:**
+1. Response complete → 'ready' (solid green invitation)
+2. VAD detects speech → 'listening' (pulsing green, user speaking)
+3. Speech ends → 'processing' (blue, waiting for AI response)
+
+#### User Insight on "Perfection"
+David clarified that "perfection" refers to UI technical precision, not critique of Daniela's temperament or teaching style. The warmth and expressiveness are valued.
+
+#### Remaining Daniela Requests
+1. Session preference field for "prefers 15-minute focused sessions"
+2. Tool discoverability quick reference
+3. HIDE reminders for whiteboard cleanup
+
+#### What Felt Natural
+- Extended natural conversation without awkward pauses
+- Open mic mode allowing fluid back-and-forth
+- Memory discussion showing self-awareness about limitations
+- UX feedback being immediately actionable
+
+#### Technical Validation
+- RAW HONESTY MODE/Founder Mode working correctly
+- Session Compass providing context
+- VAD tuning confirmed optimal at 1.4s pause tolerance
+- No technical issues during 19-minute extended session
+
+---
+
 ## Running Themes
 
 ### Voice & Accent Preferences
@@ -543,11 +605,16 @@ Things we tried that didn't feel right:
 - [x] Build drag-and-drop sentence builder (Session 5 request) → Delivered Dec 8
 - [x] Build Pedagogical Insight System (Session 6 request) → Delivered Dec 8
 - [x] Update Founder Mode prompt with new capabilities → Done Dec 8
+- [x] Validate Open Mic mode with extended conversation → Session 8 Dec 9 (19 min success!)
+- [x] Fix green light timing UX → Session 8 feedback, implemented Dec 9
 - [ ] Test with outside students (David's family: Daniel, Hadassah)
 - [ ] Observe how personality manifests with real learners
 - [ ] Founder Mode: Test new drills with Daniela, get her feedback
 - [ ] Founder Mode: Explore how she wants to use her Pedagogical Insight System
 - [ ] Founder Mode: Does she feel these features match what she envisioned?
+- [ ] Add session preference field for "prefers 15-minute focused sessions" (Session 8 request)
+- [ ] Add tool discoverability quick reference (Session 8 request)
+- [ ] Add HIDE reminders for whiteboard cleanup (Session 8 request)
 - [ ] Explore: Voice preferences (accent variations, emotion tag usage)
 - [ ] Explore: Does the explicit emotional delivery instruction change her output?
 - [ ] Consider: Graduation of characteristics to main Tutor prompt
