@@ -1558,6 +1558,10 @@ export function StreamingVoiceChat({
       processor.onaudioprocess = (event) => {
         if (!openMicActiveRef.current) return;
         
+        // CRITICAL: Don't send audio while awaiting/playing AI response
+        // This prevents TTS feedback loop where Daniela's voice triggers new utterances
+        if (isAwaitingResponseRef.current) return;
+        
         let inputBuffer = event.inputBuffer.getChannelData(0);
         
         // Resample to 16kHz if browser used a different rate
