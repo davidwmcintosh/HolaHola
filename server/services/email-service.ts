@@ -16,17 +16,28 @@ const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@getholahola.com';
 
 export class EmailService {
   private apiKey: string | null;
-  private provider: 'resend' | 'sendgrid' | 'console';
+  private apiSecret: string | null;
+  private provider: 'resend' | 'sendgrid' | 'mailjet' | 'console';
   
   constructor() {
-    this.apiKey = process.env.RESEND_API_KEY || process.env.SENDGRID_API_KEY || null;
-    
-    if (process.env.RESEND_API_KEY) {
+    // Check providers in order of preference
+    if (process.env.MAILJET_API_KEY && process.env.MAILJET_SECRET_KEY) {
+      this.provider = 'mailjet';
+      this.apiKey = process.env.MAILJET_API_KEY;
+      this.apiSecret = process.env.MAILJET_SECRET_KEY;
+      console.log('[Email] Using Mailjet provider');
+    } else if (process.env.RESEND_API_KEY) {
       this.provider = 'resend';
+      this.apiKey = process.env.RESEND_API_KEY;
+      this.apiSecret = null;
     } else if (process.env.SENDGRID_API_KEY) {
       this.provider = 'sendgrid';
+      this.apiKey = process.env.SENDGRID_API_KEY;
+      this.apiSecret = null;
     } else {
       this.provider = 'console';
+      this.apiKey = null;
+      this.apiSecret = null;
       console.log('[Email] No email provider configured. Emails will be logged to console.');
     }
   }
@@ -93,6 +104,52 @@ export class EmailService {
     }
   }
   
+  private async sendViaMailjet(options: SendEmailOptions): Promise<boolean> {
+    try {
+      // Mailjet uses Basic auth with API key and secret
+      const auth = Buffer.from(`${this.apiKey}:${this.apiSecret}`).toString('base64');
+      
+      const response = await fetch('https://api.mailjet.com/v3.1/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          Messages: [
+            {
+              From: {
+                Email: FROM_EMAIL,
+                Name: APP_NAME,
+              },
+              To: [
+                {
+                  Email: options.to,
+                },
+              ],
+              Subject: options.subject,
+              HTMLPart: options.html,
+              TextPart: options.text || '',
+            },
+          ],
+        }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        console.error('[Email] Mailjet error:', error);
+        return false;
+      }
+      
+      const result = await response.json();
+      console.log('[Email] Mailjet sent successfully:', result.Messages?.[0]?.Status);
+      return true;
+    } catch (error) {
+      console.error('[Email] Mailjet error:', error);
+      return false;
+    }
+  }
+  
   private logToConsole(options: SendEmailOptions): boolean {
     console.log('\n========== EMAIL (Console Mode) ==========');
     console.log(`To: ${options.to}`);
@@ -105,6 +162,8 @@ export class EmailService {
   
   async send(options: SendEmailOptions): Promise<boolean> {
     switch (this.provider) {
+      case 'mailjet':
+        return this.sendViaMailjet(options);
       case 'resend':
         return this.sendViaResend(options);
       case 'sendgrid':
