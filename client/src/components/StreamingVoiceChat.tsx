@@ -235,6 +235,8 @@ export function StreamingVoiceChat({
   const [openMicState, setOpenMicState] = useState<OpenMicState>('idle');
   // Track if we're awaiting/playing a response (to ignore VAD events)
   const isAwaitingResponseRef = useRef(false);
+  // Track previous input mode to detect mode changes
+  const prevInputModeRef = useRef<VoiceInputMode>(inputMode);
   
   // Store last audio for replay functionality
   const [lastAudioBlob, setLastAudioBlob] = useState<Blob | null>(null);
@@ -289,6 +291,36 @@ export function StreamingVoiceChat({
     isRecordingRef.current = isRecording;
     isProcessingRef.current = isProcessing;
   }, [conversationId, isRecording, isProcessing]);
+  
+  // Handle input mode changes - cleanup when switching modes
+  // Note: Uses a ref-based approach since stopOpenMicRecording is defined later in the file
+  const handleModeChangeCleanupRef = useRef<(() => void) | null>(null);
+  
+  useEffect(() => {
+    const prevMode = prevInputModeRef.current;
+    
+    // If switching FROM open-mic to push-to-talk, cleanup open mic state
+    if (prevMode === 'open-mic' && inputMode === 'push-to-talk') {
+      console.log('[MODE SWITCH] Switching from open-mic to push-to-talk - cleaning up');
+      
+      // Use ref-based cleanup function if available
+      if (handleModeChangeCleanupRef.current) {
+        handleModeChangeCleanupRef.current();
+      }
+      
+      // Stop WebSocket streaming
+      streamingVoice.stopStreaming();
+      
+      // Reset all recording states
+      setIsRecording(false);
+      isRecordingRef.current = false;
+      setOpenMicState('idle');
+      isAwaitingResponseRef.current = false;
+    }
+    
+    // Update prev mode ref
+    prevInputModeRef.current = inputMode;
+  }, [inputMode, streamingVoice]);
   
   // Pre-warm microphone on component mount for instant recording
   // This requests mic permission early and caches the stream
@@ -462,6 +494,24 @@ export function StreamingVoiceChat({
             isAwaitingResponseRef.current = false;
             setOpenMicState('idle');
             
+            // CRITICAL: Restart open mic session if we're in open-mic mode
+            // The server closes the session after each utterance, so we need to restart it
+            if (inputMode === 'open-mic') {
+              console.log('[OPEN MIC] Response complete - restarting session for next utterance');
+              setTimeout(() => {
+                // Use the ref to call the local startOpenMicRecording function
+                if (startOpenMicRecordingRef.current) {
+                  startOpenMicRecordingRef.current().then(() => {
+                    console.log('[OPEN MIC] Session restarted after response complete');
+                    setOpenMicState('listening');
+                  }).catch((err: any) => {
+                    console.error('[OPEN MIC] Failed to restart after response:', err);
+                    setOpenMicState('idle');
+                  });
+                }
+              }, 200); // Small delay to let audio finish playing
+            }
+            
             // Store combined audio blob for replay functionality
             const combinedBlob = streamingVoice.getCombinedAudioBlob();
             if (combinedBlob) {
@@ -511,11 +561,11 @@ export function StreamingVoiceChat({
               setOpenMicState('idle');
               // Use a small delay to allow any cleanup to complete
               setTimeout(() => {
-                if (inputMode === 'open-mic') {
-                  streamingVoice.startOpenMicRecording().then(() => {
+                if (inputMode === 'open-mic' && startOpenMicRecordingRef.current) {
+                  startOpenMicRecordingRef.current().then(() => {
                     console.log('[OPEN MIC] Session restarted successfully');
                     setOpenMicState('listening');
-                  }).catch((err) => {
+                  }).catch((err: any) => {
                     console.error('[OPEN MIC] Failed to restart session:', err);
                     setOpenMicState('idle');
                   });
@@ -1432,6 +1482,10 @@ export function StreamingVoiceChat({
   const openMicProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const openMicActiveRef = useRef(false);
   
+  // Refs for open mic functions - used by callbacks that can't access the functions directly
+  const startOpenMicRecordingRef = useRef<(() => Promise<void>) | null>(null);
+  const stopOpenMicRecordingRef = useRef<(() => void) | null>(null);
+  
   /**
    * Resample Float32 audio from source rate to target rate using linear interpolation
    */
@@ -1589,6 +1643,35 @@ export function StreamingVoiceChat({
       stopOpenMicRecording();
     } else {
       startOpenMicRecording();
+    }
+  };
+  
+  // Assign functions to refs so callbacks can access them
+  startOpenMicRecordingRef.current = startOpenMicRecording;
+  stopOpenMicRecordingRef.current = stopOpenMicRecording;
+  
+  // Wire up the mode change cleanup ref
+  handleModeChangeCleanupRef.current = () => {
+    // Stop any active open mic recording when switching modes
+    if (openMicActiveRef.current) {
+      openMicActiveRef.current = false;
+      
+      if (openMicProcessorRef.current) {
+        openMicProcessorRef.current.disconnect();
+        openMicProcessorRef.current = null;
+      }
+      
+      if (openMicAudioContextRef.current) {
+        openMicAudioContextRef.current.close().catch(console.error);
+        openMicAudioContextRef.current = null;
+      }
+      
+      if (openMicStreamRef.current) {
+        openMicStreamRef.current.getTracks().forEach(track => track.stop());
+        openMicStreamRef.current = null;
+      }
+      
+      openMicSequenceIdRef.current = 0;
     }
   };
 
