@@ -12,7 +12,7 @@ import {
   ChevronRight, Languages, CheckCircle2, Award, Briefcase, Zap, 
   Plane, Star, Mic, Target, TrendingUp
 } from "lucide-react";
-import holaholaLogo from "@assets/holaholamainlogoBackgroundRemoved_1765308837223.png";
+import holaholaIcon from "@assets/holaholajustbubblesBackgroundRemoved_1765309702014.png";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -236,7 +236,7 @@ export default function StudentJoinClass() {
         </div>
         <div className="absolute right-4 top-1/2 -translate-y-1/2 w-48 md:w-64 lg:w-80 opacity-15">
           <img 
-            src={holaholaLogo} 
+            src={holaholaIcon} 
             alt="HolaHola" 
             className="w-full h-auto object-contain"
           />
