@@ -192,20 +192,20 @@ export function ImmersiveTutor({
         {setInputMode && (
           <div className="flex items-center gap-2 mb-1">
             <Button
-              variant={inputMode === 'push-to-talk' ? 'default' : 'ghost'}
+              variant="outline"
               size="sm"
               onClick={() => setInputMode('push-to-talk')}
-              className="h-7 px-2 text-xs"
+              className={`h-7 px-2 text-xs ${inputMode === 'push-to-talk' ? 'bg-muted' : ''}`}
               data-testid="button-mode-push-to-talk"
             >
               <Mic className="h-3 w-3 mr-1" />
-              Hold
+              Tap & Hold
             </Button>
             <Button
-              variant={inputMode === 'open-mic' ? 'default' : 'ghost'}
+              variant="outline"
               size="sm"
               onClick={() => setInputMode('open-mic')}
-              className="h-7 px-2 text-xs"
+              className={`h-7 px-2 text-xs ${inputMode === 'open-mic' ? 'bg-muted' : ''}`}
               data-testid="button-mode-open-mic"
             >
               <Radio className="h-3 w-3 mr-1" />
@@ -261,7 +261,7 @@ export function ImmersiveTutor({
           {inputMode === 'open-mic' ? (
             // Open Mic Mode: Toggle button
             <Button
-              variant={isRecording ? "default" : "secondary"}
+              variant="default"
               size="icon"
               onClick={() => {
                 console.log('[MIC BUTTON] Open mic toggle click, isRecording:', isRecording);
@@ -276,7 +276,7 @@ export function ImmersiveTutor({
                 isRecording 
                   ? openMicState === 'listening' 
                     ? 'animate-pulse bg-green-500 hover:bg-green-600' 
-                    : 'bg-primary'
+                    : ''
                   : ''
               }`}
               data-testid={isRecording ? "button-open-mic-active" : "button-open-mic-idle"}
