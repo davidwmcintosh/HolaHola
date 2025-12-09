@@ -44,8 +44,51 @@ Staging area for documentation changes to be consolidated later.
 - Added "Never express frustration or impatience" (trait 4)
 - Added tool examples: "(whiteboard, drills, word maps)" (trait 3)
 
+#### Complete Tool Audit & Documentation (18 Tools + Controls)
+All prompts now have access to the complete toolset:
+
+**ESSENTIALS (5):**
+- `[WRITE]` - Display vocabulary
+- `[PHONETIC]` - Pronunciation guide (was missing from quick ref)
+- `[COMPARE]` - Show corrections
+- `[CLEAR]` - Wipe board
+- `[HOLD]` - Keep content visible (was missing from quick ref)
+
+**VOCABULARY (4):**
+- `[WORD_MAP]` - Synonyms, antonyms, word family
+- `[IMAGE]` - Visual association
+- `[GRAMMAR_TABLE]` - Conjugation patterns
+- `[CONTEXT]` - Word in example sentences
+
+**INTERACTIVE DRILLS (5):**
+- `[DRILL type="repeat"]` - Pronunciation practice
+- `[DRILL type="match"]` - Vocabulary matching
+- `[DRILL type="fill_blank"]` - Fill-in-the-blank
+- `[DRILL type="sentence_order"]` - Word ordering
+- `[TEXT_INPUT]` - Writing practice
+
+**STUDENT PROGRESS (2) - NEW DOCUMENTATION:**
+- `[ERROR_PATTERNS]` - Show common mistakes for targeted review (was undocumented)
+- `[VOCABULARY_TIMELINE]` - Words learned over time (was undocumented)
+
+**ASIAN LANGUAGES (2):**
+- `[READING]` - Furigana/pinyin
+- `[STROKE]` - Animated stroke order
+
+**SESSION FLOW (4):**
+- `[SCENARIO]` - Role-play setup
+- `[CULTURE]` - Cultural insights
+- `[SUMMARY]` - Lesson recap
+- `[PLAY]` - Audio replay
+
+**CONTROLS (4):**
+- `[SUBTITLE off/target/on]` - Regular subtitles
+- `[SHOW:]` / `[HIDE]` - Custom overlay
+
+**Note:** `pronunciation` type in Whiteboard.tsx appears to be legacy/duplicate of PHONETIC - may clean up later.
+
 #### Files Modified
-- `server/system-prompt.ts` - Updated IMMUTABLE_PERSONA section with philosophy, traits, honest feedback, whiteboard reference; removed duplicate from Founder Mode
+- `server/system-prompt.ts` - Updated IMMUTABLE_PERSONA quick reference, tool reference tables, detailed docs with all 18+ tools
 
 ---
 
