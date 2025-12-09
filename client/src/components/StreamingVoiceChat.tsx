@@ -942,6 +942,11 @@ export function StreamingVoiceChat({
   const MIN_RECORDING_DURATION_MS = 500; // Minimum 500ms to avoid empty recordings
   
   useEffect(() => {
+    // Only enable ENTER key shortcut in push-to-talk mode
+    if (inputMode !== 'push-to-talk') {
+      return;
+    }
+    
     const handleKeyDown = (event: KeyboardEvent) => {
       // Only trigger if Enter is pressed
       if (event.code !== 'Enter') return;
@@ -1017,7 +1022,7 @@ export function StreamingVoiceChat({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [conversationId, isRecording, isProcessing]);
+  }, [conversationId, isRecording, isProcessing, inputMode]);
 
   const cleanupRecording = () => {
     console.log('[CLEANUP] Cleaning up recording resources...');
