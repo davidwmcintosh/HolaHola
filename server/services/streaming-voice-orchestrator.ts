@@ -164,6 +164,7 @@ export interface StreamingSession {
   currentTurnId: number;            // Monotonic counter for subtitle packet ordering (prevents phantom subtitles)
   warmupPromise?: Promise<void>;    // Gemini + Cartesia warmup promise to await before greeting
   isInterrupted: boolean;           // Set to true when user barges in (for open mic mode)
+  isGenerating: boolean;            // True while AI response is being generated (for barge-in detection)
 }
 
 /**
@@ -322,6 +323,7 @@ export class StreamingVoiceOrchestrator {
       lastActivityTime: Date.now(),
       currentTurnId: 0,  // Start at 0, incremented on each new response
       isInterrupted: false,  // Reset on each new request
+      isGenerating: false,   // Track when AI response is being generated
     };
     
     // PARALLEL WARMUP: Pre-warm both Cartesia and Gemini connections concurrently
@@ -379,6 +381,16 @@ export class StreamingVoiceOrchestrator {
     if (!session || !session.isActive) {
       throw new Error(`Session not found or inactive: ${sessionId}`);
     }
+    
+    // BARGE-IN DETECTION: If AI is currently generating a response, interrupt it
+    // This prevents overlapping responses when user speaks while Daniela is talking
+    if (session.isGenerating) {
+      console.log(`[Streaming Orchestrator] BARGE-IN: User spoke while AI generating - interrupting previous response`);
+      this.handleInterrupt(sessionId);
+    }
+    
+    // Mark that we're now generating a response
+    session.isGenerating = true;
     
     // Student activity detected - reset idle timeout
     this.resetIdleTimeout(session);
@@ -512,6 +524,12 @@ export class StreamingVoiceOrchestrator {
         conversationHistory: session.conversationHistory,
         userMessage: userMessageWithNote,
         onSentence: async (chunk: SentenceChunk) => {
+          // BARGE-IN CHECK: Stop processing if user interrupted
+          if (session.isInterrupted) {
+            console.log(`[Streaming Orchestrator] Skipping sentence ${chunk.index} - user barged in`);
+            return;
+          }
+          
           if (!firstTokenReceived) {
             metrics.aiFirstTokenMs = Date.now() - aiStart;
             firstTokenReceived = true;
@@ -682,6 +700,9 @@ export class StreamingVoiceOrchestrator {
       // Send completion message
       metrics.totalLatencyMs = Date.now() - startTime;
       
+      // Clear generating flag - response complete
+      session.isGenerating = false;
+      
       this.sendMessage(session.ws, {
         type: 'response_complete',
         timestamp: Date.now(),
@@ -720,6 +741,8 @@ export class StreamingVoiceOrchestrator {
       return metrics;
       
     } catch (error: any) {
+      // Clear generating flag on error
+      session.isGenerating = false;
       console.error(`[Streaming Orchestrator] Error:`, error.message);
       this.sendError(session.ws, 'UNKNOWN', error.message, true);
       throw error;
@@ -739,6 +762,15 @@ export class StreamingVoiceOrchestrator {
     if (!session || !session.isActive) {
       throw new Error(`Session not found or inactive: ${sessionId}`);
     }
+    
+    // BARGE-IN DETECTION: If AI is currently generating a response, interrupt it
+    if (session.isGenerating) {
+      console.log(`[Streaming Orchestrator] BARGE-IN (open mic): User spoke while AI generating - interrupting`);
+      this.handleInterrupt(sessionId);
+    }
+    
+    // Mark that we're now generating a response
+    session.isGenerating = true;
     
     // Student activity detected - reset idle timeout
     this.resetIdleTimeout(session);
@@ -811,6 +843,12 @@ export class StreamingVoiceOrchestrator {
         conversationHistory: session.conversationHistory,
         userMessage: userMessageWithNote,
         onSentence: async (chunk: SentenceChunk) => {
+          // BARGE-IN CHECK: Stop processing if user interrupted
+          if (session.isInterrupted) {
+            console.log(`[Streaming Orchestrator] Skipping sentence ${chunk.index} - user barged in (open mic)`);
+            return;
+          }
+          
           if (!firstTokenReceived) {
             metrics.aiFirstTokenMs = Date.now() - aiStart;
             firstTokenReceived = true;
@@ -880,6 +918,9 @@ export class StreamingVoiceOrchestrator {
         session.conversationHistory.push({ role: 'model', content: fullText.trim() });
       }
       
+      // Clear generating flag - response complete
+      session.isGenerating = false;
+      
       // Response complete
       this.sendMessage(session.ws, {
         type: 'response_complete',
@@ -897,6 +938,8 @@ export class StreamingVoiceOrchestrator {
       return metrics;
       
     } catch (error: any) {
+      // Clear generating flag on error
+      session.isGenerating = false;
       console.error(`[Streaming Orchestrator] Open mic error:`, error.message);
       this.sendError(session.ws, 'UNKNOWN', error.message, true);
       throw error;
@@ -2329,7 +2372,7 @@ Using this context, speak first to the student with a natural opening message. O
   
   /**
    * Handle client interrupt (user started speaking while AI is responding)
-   * Used for barge-in support in open mic mode
+   * Used for barge-in support in both push-to-talk and open mic modes
    */
   handleInterrupt(sessionId: string): void {
     const session = this.sessions.get(sessionId);
@@ -2338,6 +2381,9 @@ Using this context, speak first to the student with a natural opening message. O
       
       // Set interrupted flag to stop ongoing TTS streaming
       session.isInterrupted = true;
+      
+      // Clear generating flag since we're aborting
+      session.isGenerating = false;
       
       // Send response_complete to signal client to stop playback
       this.sendMessage(session.ws, {
@@ -2348,7 +2394,7 @@ Using this context, speak first to the student with a natural opening message. O
         wasInterrupted: true,
       } as StreamingResponseCompleteMessage);
       
-      console.log(`[Streaming Orchestrator] Interrupt processed - TTS stopped`);
+      console.log(`[Streaming Orchestrator] Interrupt processed - TTS stopped, generation aborted`);
     }
   }
   

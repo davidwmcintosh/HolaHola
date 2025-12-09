@@ -556,9 +556,22 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    */
   const handleResponseComplete = useCallback((msg: StreamingResponseCompleteMessage) => {
     if (isVerboseLoggingEnabled()) {
-      console.log(`[StreamingVoice] Server signaled response complete: ${msg.totalSentences} sentences`);
+      console.log(`[StreamingVoice] Server signaled response complete: ${msg.totalSentences} sentences${msg.wasInterrupted ? ' (INTERRUPTED)' : ''}`);
     }
     setMetrics(msg.metrics || null);
+    
+    // BARGE-IN: If response was interrupted, immediately stop audio playback
+    // This prevents overlapping audio when user speaks while AI is responding
+    if (msg.wasInterrupted) {
+      console.log('[StreamingVoice] Response interrupted by user - stopping audio immediately');
+      playerRef.current?.stop();
+      subtitlesRef.current.stopPlayback();
+      subtitlesRef.current.reset();
+      responseCompleteRef.current = true;
+      pendingAudioCountRef.current = 0;
+      setIsProcessing(false);
+      return; // Don't do normal completion handling
+    }
     
     // CRITICAL: Tell the audio player how many sentences this turn has
     // This prevents premature loop termination when early sentences finish
