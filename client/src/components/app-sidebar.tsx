@@ -1,5 +1,5 @@
 import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles } from "lucide-react";
-import linguaflowLogo from "@assets/LF_no_words_no_background_1764099068542.png";
+import holaholaLogo from "@assets/holaholamainlogoBackgroundRemoved_1765308837223.png";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -82,7 +82,7 @@ export function AppSidebar() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1">
             <img 
-              src={linguaflowLogo} 
+              src={holaholaLogo} 
               alt="HolaHola" 
               className="h-20 w-20 object-contain -ml-3 -my-2"
               data-testid="img-logo"

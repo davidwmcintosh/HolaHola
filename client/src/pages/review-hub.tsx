@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import linguaflowLogo from "@assets/LF_no_words_no_background_1764099068542.png";
+import holaholaLogo from "@assets/holaholamainlogoBackgroundRemoved_1765308837223.png";
 import {
   BookOpen,
   MessageSquare,
@@ -248,7 +248,7 @@ export default function ReviewHub() {
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-2 md:gap-3">
         <div className="flex items-center gap-3">
-          <img src={linguaflowLogo} alt="HolaHola" className="h-24 w-24" />
+          <img src={holaholaLogo} alt="HolaHola" className="h-24 w-24" />
           <div>
             <h1 className="text-2xl font-bold" data-testid="text-review-hub-title">
               Language Hub
