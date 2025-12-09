@@ -227,7 +227,7 @@ export class OpenMicSession {
           punctuate: true,
           smart_format: true,
           vad_events: true,
-          utterance_end_ms: 1000,
+          utterance_end_ms: 1400, // Allow ~1.4s pause for natural thinking without cutting off
           interim_results: true,
           encoding: 'linear16',
           sample_rate: 16000,
