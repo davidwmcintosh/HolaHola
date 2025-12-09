@@ -6,6 +6,53 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 13: User Invitation System & Email Integration (Dec 9, 2025)
+
+#### Command Center User Management Enhancements
+- **Create User**: POST `/api/admin/users` endpoint and "Create User" button/dialog in Users tab
+  - Fields: email (required), firstName, lastName, role (student/teacher/developer/admin)
+  - Creates users with `authProvider: 'pending'` status
+- **User ID Visibility**: Edit dialog now shows user ID (unique system identifier) as read-only field
+- **Pending Badge**: Amber "Pending" badge displayed for users with `authProvider === 'pending'`
+
+#### Send Invitation Feature
+- **Purpose**: Email-based user registration flow for password auth
+- **Endpoint**: POST `/api/admin/users/:userId/send-invitation`
+- **Workflow**:
+  1. Admin creates user in Command Center (status: pending)
+  2. Admin clicks "Send Invitation" button
+  3. System generates secure token, sends HTML email with registration link
+  4. User clicks link, sets password, account activated
+- **UI**: "Send Invitation" button appears for all pending users in Command Center
+- **Token Expiry**: 24 hours
+
+#### Email Service (SendGrid Integration)
+- **Configuration**: Uses `SENDGRID_API_KEY` secret for production email delivery
+- **Environment Variables** (now set):
+  - `APP_NAME`: "LinguaFlow" (used in email branding)
+  - `APP_URL`: "https://linguaflow.replit.app" (used in email links)
+  - `FROM_EMAIL`: "davidwmcintosh@gmail.com" (sender address - must be verified in SendGrid)
+- **Fallback**: Console logging when no email provider configured
+- **SendGrid Setup Required**:
+  - Single Sender Verification (quick): Verify FROM_EMAIL address
+  - Domain Authentication (production): Add DNS records, any address auto-verified
+
+#### Storage Interface Extensions
+- `getUserByEmail(email)`: Find user by email address
+- `createUser(userData)`: Create new user with specified fields
+
+#### Files Modified
+- `server/routes.ts` - Added POST `/api/admin/users`, POST `/api/admin/users/:userId/send-invitation`
+- `server/storage.ts` - Added `getUserByEmail()`, `createUser()` methods
+- `client/src/pages/admin/CommandCenter.tsx` - Create User dialog, Pending badge, Send Invitation button
+
+#### Production Checklist Notes
+- Name change needed: "LinguaFlow" was taken, new name TBD
+- Domain authentication will be configured after new name/domain chosen
+- Currently using Gmail address for sender verification testing
+
+---
+
 ### Session 12: Founder Mode Prompt Extraction (Dec 8, 2025)
 
 #### IMMUTABLE_PERSONA Enhancements
