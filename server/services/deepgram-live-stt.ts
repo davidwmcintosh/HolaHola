@@ -299,23 +299,12 @@ export class OpenMicSession {
             }
           }
           
-          // When speech_final=true, trigger auto-submit with whatever we have
+          // NOTE: We do NOT auto-submit on speech_final anymore
+          // speech_final fires too quickly and cuts users off mid-sentence
+          // Instead, we rely solely on UtteranceEnd which respects utterance_end_ms (1400ms)
+          // This gives users more time to pause and think without being cut off
           if (data.speech_final) {
-            const finalText = this.currentTranscript.trim() || this.lastInterimTranscript?.trim() || '';
-            const finalConf = this.currentConfidence || this.lastInterimConfidence || 0;
-            
-            if (finalText) {
-              console.log(`[OpenMic] Speech final - submitting: "${finalText}"`);
-              this.events.onUtteranceEnd?.(finalText, finalConf);
-            } else {
-              console.log(`[OpenMic] Speech final but no transcript to submit`);
-            }
-            
-            // Reset for next utterance
-            this.currentTranscript = '';
-            this.currentConfidence = 0;
-            this.lastInterimTranscript = '';
-            this.lastInterimConfidence = 0;
+            console.log(`[OpenMic] Speech final detected (NOT auto-submitting - waiting for UtteranceEnd)`);
           }
         });
         
