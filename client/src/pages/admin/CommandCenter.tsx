@@ -66,7 +66,8 @@ import {
   Bell,
   Check,
   CheckCircle,
-  Undo2
+  Undo2,
+  Mail
 } from "lucide-react";
 import {
   AlertDialog,
@@ -528,6 +529,18 @@ function UsersTab() {
     },
   });
 
+  const sendInvitationMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return apiRequest("POST", `/api/admin/users/${userId}/send-invitation`, {});
+    },
+    onSuccess: () => {
+      toast({ title: "Invitation sent", description: "The user will receive an email with registration instructions." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to send invitation", variant: "destructive" });
+    },
+  });
+
   const handleCreateUser = () => {
     if (!createForm.email) {
       toast({ title: "Error", description: "Email is required", variant: "destructive" });
@@ -662,6 +675,12 @@ function UsersTab() {
                               Beta
                             </Badge>
                           )}
+                          {user.authProvider === 'pending' && (
+                            <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">
+                              <Mail className="h-3 w-3 mr-1" />
+                              Pending
+                            </Badge>
+                          )}
                         </div>
                         <div className="text-sm text-muted-foreground">{user.email}</div>
                       </div>
@@ -729,6 +748,23 @@ function UsersTab() {
                         <Pencil className="h-3 w-3 mr-1" />
                         Edit
                       </Button>
+
+                      {user.authProvider === 'pending' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => sendInvitationMutation.mutate(user.id)}
+                          disabled={sendInvitationMutation.isPending}
+                          data-testid={`button-send-invitation-${user.id}`}
+                        >
+                          {sendInvitationMutation.isPending ? (
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          ) : (
+                            <Mail className="h-3 w-3 mr-1" />
+                          )}
+                          Send Invitation
+                        </Button>
+                      )}
 
                       {user.role !== 'admin' && (
                         <Button

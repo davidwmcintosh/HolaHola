@@ -8362,6 +8362,69 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // Send/resend invitation to existing pending user (admin only)
+  app.post("/api/admin/users/:userId/send-invitation", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const adminId = req.user.claims.sub;
+      const { userId } = req.params;
+      
+      // Get the target user
+      const targetUser = await storage.getUser(userId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Check if user is pending
+      if (targetUser.authProvider !== 'pending') {
+        return res.status(400).json({ error: "User has already completed registration" });
+      }
+      
+      if (!targetUser.email) {
+        return res.status(400).json({ error: "User has no email address" });
+      }
+      
+      // Get admin info for inviter name
+      const adminUser = await storage.getUser(adminId);
+      
+      // Create invitation token using the password auth service
+      const result = await passwordAuthService.createInvitation({
+        email: targetUser.email,
+        firstName: targetUser.firstName || undefined,
+        lastName: targetUser.lastName || undefined,
+        role: (targetUser.role as 'student' | 'teacher') || 'student',
+      }, adminId);
+      
+      if (!result.success || !result.token) {
+        return res.status(500).json({ error: result.error || "Failed to create invitation token" });
+      }
+      
+      // Send invitation email
+      await emailService.sendInvitation({
+        to: targetUser.email,
+        firstName: targetUser.firstName || undefined,
+        inviterName: adminUser ? `${adminUser.firstName || ''} ${adminUser.lastName || ''}`.trim() || undefined : undefined,
+        role: targetUser.role || 'student',
+        token: result.token,
+      });
+      
+      // Log the action
+      await storage.logAdminAction({
+        actorId: adminId,
+        action: 'send_invitation',
+        targetType: 'user',
+        targetId: userId,
+        metadata: { email: targetUser.email },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      res.json({ success: true, message: "Invitation sent successfully" });
+    } catch (error: any) {
+      console.error('Error sending invitation:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Create new user (admin only) - for password-based auth
   app.post("/api/admin/users", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
