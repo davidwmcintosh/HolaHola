@@ -89,6 +89,34 @@ All prompts now have access to the complete toolset:
 - `[PHONETIC]` = Teaching tool showing HOW to pronounce (markup from Daniela)
 - `pronunciation` = Feedback display showing student's score/issues AFTER speaking (created programmatically by voice analysis via `createPronunciationItem()`)
 
+#### Whiteboard Architecture Reference
+Key files for the whiteboard/teaching tool system:
+
+| File | Purpose |
+|------|---------|
+| `shared/whiteboard-types.ts` | Type definitions, parsing logic (`parseWhiteboardMarkup`), item creators |
+| `client/src/components/Whiteboard.tsx` | All tool renderers (18 display components) |
+| `client/src/hooks/useWhiteboard.ts` | State management, item lifecycle, pronunciation feedback |
+| `server/system-prompt.ts` | Daniela's tool documentation (3 reference levels) |
+
+**3 Prompt Reference Levels** (all should stay in sync):
+1. **Quick Reference** (IMMUTABLE_PERSONA) - One-liner syntax for fast lookup
+2. **Tool Reference Table** - Organized by category with brief descriptions
+3. **Detailed Documentation** - Full usage guidance with examples
+
+**Tool Creation Flow:**
+1. Daniela writes markup in response (e.g., `[WRITE]Hola[/WRITE]`)
+2. `parseWhiteboardMarkup()` extracts and creates typed items
+3. `Whiteboard.tsx` renders appropriate display component
+4. Some tools are system-generated (not from Daniela):
+   - `pronunciation` - Created by voice analysis feedback system
+   - Drill states - Updated by user interaction handlers
+
+**Dual Subtitle System:**
+- `[SUBTITLE off/target/on]` - Controls what parts of Daniela's speech show as subtitles
+- `[SHOW:]` / `[HIDE]` - Independent custom overlay for teaching moments
+- These operate independently and can be active simultaneously
+
 #### Files Modified
 - `server/system-prompt.ts` - Updated IMMUTABLE_PERSONA quick reference, tool reference tables, detailed docs with all 18+ tools
 
