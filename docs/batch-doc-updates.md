@@ -85,7 +85,9 @@ All prompts now have access to the complete toolset:
 - `[SUBTITLE off/target/on]` - Regular subtitles
 - `[SHOW:]` / `[HIDE]` - Custom overlay
 
-**Note:** `pronunciation` type in Whiteboard.tsx appears to be legacy/duplicate of PHONETIC - may clean up later.
+**Note:** `pronunciation` type in Whiteboard.tsx is NOT a duplicate of PHONETIC - they serve different purposes:
+- `[PHONETIC]` = Teaching tool showing HOW to pronounce (markup from Daniela)
+- `pronunciation` = Feedback display showing student's score/issues AFTER speaking (created programmatically by voice analysis via `createPronunciationItem()`)
 
 #### Files Modified
 - `server/system-prompt.ts` - Updated IMMUTABLE_PERSONA quick reference, tool reference tables, detailed docs with all 18+ tools
