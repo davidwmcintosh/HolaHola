@@ -2,7 +2,7 @@ import { db } from "./db";
 import { curriculumPaths, curriculumUnits, curriculumLessons } from "@shared/schema";
 
 /**
- * Pre-Built Curriculum Content for LinguaFlow
+ * Pre-Built Curriculum Content for HolaHola
  * 
  * Comprehensive, standards-aligned curriculum paths for:
  * - Spanish 1-4 (Novice Low → Intermediate High)

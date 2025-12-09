@@ -26,7 +26,7 @@ function getUserFullName(user: any): string {
 }
 
 /**
- * Reporting Service for LinguaFlow
+ * Reporting Service for HolaHola
  * Generates student progress reports, class summaries, and parent/guardian reports
  */
 

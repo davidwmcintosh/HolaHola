@@ -123,14 +123,14 @@ async function main() {
   console.log('╚════════════════════════════════════════════════════════════╝\n');
 
   // First, check for existing dictionaries
-  console.log('Step 1: Checking for existing LinguaFlow dictionaries...\n');
+  console.log('Step 1: Checking for existing HolaHola dictionaries...\n');
   
   try {
     const existingDicts = await listDictionaries();
     const linguaflowDicts = existingDicts.filter(d => d.name.startsWith('linguaflow-'));
     
     if (linguaflowDicts.length > 0) {
-      console.log(`Found ${linguaflowDicts.length} existing LinguaFlow dictionaries:`);
+      console.log(`Found ${linguaflowDicts.length} existing HolaHola dictionaries:`);
       for (const dict of linguaflowDicts) {
         console.log(`  - ${dict.name} (ID: ${dict.id}, ${dict.items.length} items)`);
       }
@@ -142,7 +142,7 @@ async function main() {
       }
       console.log('');
     } else {
-      console.log('No existing LinguaFlow dictionaries found.\n');
+      console.log('No existing HolaHola dictionaries found.\n');
     }
   } catch (error) {
     console.log('Could not check existing dictionaries, proceeding with creation...\n');

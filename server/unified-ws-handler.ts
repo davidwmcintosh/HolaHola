@@ -415,7 +415,7 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           // Note: derivedDifficulty comes from class expectedActflMin or user's ACTFL assessment
           // NOT from user's self-selected difficultyLevel preference
           // Founder Mode: Developer/admin users in non-class conversations get open collaboration mode
-          // This gives Daniela full freedom to discuss LinguaFlow itself, teaching tools, etc.
+          // This gives Daniela full freedom to discuss HolaHola itself, teaching tools, etc.
           const isFounderMode = isDeveloper && !conversation.classId;
           
           // Raw Honesty Mode: Minimal prompting for authentic self-discovery conversations
