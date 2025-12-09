@@ -138,8 +138,9 @@ export function ImmersiveTutor({
           data-testid={`avatar-state-${getAvatarState()}`}
         />
         
-        {/* Recording Indicator */}
-        {isRecording && (
+        {/* Recording Indicator - only show in push-to-talk mode */}
+        {/* In open-mic mode, the mic button already shows state clearly */}
+        {isRecording && inputMode === 'push-to-talk' && (
           <div 
             className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-destructive/90 text-destructive-foreground rounded-full shadow-lg"
             data-testid="indicator-recording"
