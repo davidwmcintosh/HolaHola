@@ -161,10 +161,12 @@ export function ImmersiveTutor({
           </div>
         )}
         
-        {/* Open Mic Status Indicators - show in open-mic mode when not processing/playing */}
+        {/* Open Mic Status Indicators - driven purely by openMicState */}
+        {/* Indicators show based on openMicState alone, not isPlaying or isRecording */}
+        {/* This ensures proper state display during ALL phases of the turn-taking cycle */}
         {/* GREEN = "Your turn to speak" (ready) or "I hear you" (listening) */}
         {/* BLUE = "Thinking..." (processing) */}
-        {inputMode === 'open-mic' && !isProcessing && !isPlaying && isRecording && (
+        {inputMode === 'open-mic' && (openMicState === 'ready' || openMicState === 'listening' || openMicState === 'processing') && (
           <>
             {/* Ready State - Solid green light invitation */}
             {openMicState === 'ready' && (
@@ -187,18 +189,18 @@ export function ImmersiveTutor({
                 <span className="text-sm font-medium">Listening...</span>
               </div>
             )}
+            
+            {/* Processing State - Blue indicator */}
+            {openMicState === 'processing' && (
+              <div 
+                className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-blue-500/90 text-white rounded-full shadow-lg animate-pulse"
+                data-testid="indicator-thinking"
+              >
+                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm font-medium">Thinking...</span>
+              </div>
+            )}
           </>
-        )}
-        
-        {/* Open Mic Processing State - Blue indicator */}
-        {inputMode === 'open-mic' && openMicState === 'processing' && !isPlaying && (
-          <div 
-            className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-blue-500/90 text-white rounded-full shadow-lg animate-pulse"
-            data-testid="indicator-thinking"
-          >
-            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm font-medium">Thinking...</span>
-          </div>
         )}
         
         

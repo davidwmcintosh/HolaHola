@@ -41,12 +41,14 @@ export function InstructorAvatar({ state, openMicState, className = "" }: Instru
     }
   }, [state, currentImage]);
   
-  // Determine if we should show the green "ready to listen" indicator
-  // Green light shows when: (1) not speaking AND (2) openMicState is 'ready' or 'listening'
+  // Determine which indicator to show based on openMicState
+  // The indicator is driven directly by openMicState, not avatar pose, so it can
+  // appear even while audio playback is winding down (isPlaying still true)
+  // Green light shows when: openMicState is 'ready' (invitation) or 'listening' (user speaking)
   // Blue/processing shows when: openMicState is 'processing'
-  // No indicator shows when: speaking OR idle/no session
-  const showGreenLight = state !== 'speaking' && (openMicState === 'ready' || openMicState === 'listening');
-  const showBlueProcessing = state !== 'speaking' && openMicState === 'processing';
+  // No indicator shows when: idle or no open mic session
+  const showGreenLight = openMicState === 'ready' || openMicState === 'listening';
+  const showBlueProcessing = openMicState === 'processing';
   const isActivelyListening = openMicState === 'listening';  // User is speaking
 
   // Get animation classes based on state
@@ -129,20 +131,19 @@ export function InstructorAvatar({ state, openMicState, className = "" }: Instru
         </div>
       </div>
 
-      {/* State label - shows different text based on open mic state if provided */}
+      {/* State label - driven purely by openMicState when provided */}
+      {/* This ensures the text matches the indicator even during state transitions */}
       <div className="mt-2 text-center">
         <p className="text-sm text-muted-foreground font-medium">
-          {/* When openMicState is provided, use more specific labels */}
-          {openMicState && state !== 'speaking' && openMicState === 'ready' && "Go ahead, I'm listening"}
-          {openMicState && state !== 'speaking' && openMicState === 'listening' && "I hear you..."}
-          {openMicState && state !== 'speaking' && openMicState === 'processing' && "Let me think..."}
-          {openMicState && state === 'speaking' && "Teaching"}
+          {/* When openMicState is provided, use specific labels based on openMicState alone */}
+          {openMicState === 'ready' && "Go ahead, I'm listening"}
+          {openMicState === 'listening' && "I hear you..."}
+          {openMicState === 'processing' && "Let me think..."}
+          {openMicState === 'idle' && "Ready to help"}
           {/* Legacy behavior when openMicState is not provided */}
           {!openMicState && state === "idle" && "Ready to help"}
           {!openMicState && state === "listening" && "Listening carefully..."}
           {!openMicState && state === "speaking" && "Teaching"}
-          {/* Idle state with no openMicState */}
-          {openMicState === 'idle' && state !== 'speaking' && "Ready to help"}
         </p>
       </div>
     </div>

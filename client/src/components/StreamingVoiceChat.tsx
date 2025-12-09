@@ -506,6 +506,8 @@ export function StreamingVoiceChat({
                     // Use 'ready' to show green light BEFORE user speaks (invitation)
                     // Will change to 'listening' when VAD detects speech
                     setOpenMicState('ready');
+                    // CRITICAL: Also set avatar to listening so visuals sync immediately
+                    setAvatarState('listening');
                   }).catch((err: any) => {
                     console.error('[OPEN MIC] Failed to restart after response:', err);
                     setOpenMicState('idle');
@@ -568,6 +570,8 @@ export function StreamingVoiceChat({
                     console.log('[OPEN MIC] Session restarted - showing green light invitation');
                     // Use 'ready' to show green light BEFORE user speaks (invitation)
                     setOpenMicState('ready');
+                    // CRITICAL: Also set avatar to listening so visuals sync immediately
+                    setAvatarState('listening');
                   }).catch((err: any) => {
                     console.error('[OPEN MIC] Failed to restart session:', err);
                     setOpenMicState('idle');
