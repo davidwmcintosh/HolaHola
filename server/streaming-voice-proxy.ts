@@ -22,6 +22,7 @@ import {
   ClientRequestGreetingMessage,
   StreamingErrorMessage,
 } from '@shared/streaming-voice-types';
+import { sessionCompassService, COMPASS_ENABLED } from './services/session-compass-service';
 
 /**
  * Extract userId from authenticated session cookie
@@ -210,6 +211,26 @@ export function setupStreamingVoiceProxy(server: Server) {
                 content: m.content,
               }));
 
+            // Initialize Daniela's Compass for time-aware tutoring
+            let compassContext = null;
+            if (COMPASS_ENABLED) {
+              try {
+                const classId = (conversation as any).classId || null;
+                await sessionCompassService.initializeSession({
+                  conversationId: conversationId!,
+                  userId: userId!,
+                  classId,
+                  scheduledDurationMinutes: 30, // Default session length
+                });
+                compassContext = await sessionCompassService.getCompassContext(conversationId!);
+                if (compassContext) {
+                  console.log('[Streaming Voice] ✓ Compass initialized with time tracking');
+                }
+              } catch (err: any) {
+                console.warn('[Streaming Voice] Compass init error:', err.message);
+              }
+            }
+
             const systemPrompt = createSystemPrompt(
               config.targetLanguage,
               config.difficultyLevel,
@@ -225,6 +246,11 @@ export function setupStreamingVoiceProxy(server: Server) {
               messages.length,
               (user.tutorPersonality || 'warm') as any,
               user.tutorExpressiveness || 3,
+              true, // isStreamingVoiceMode
+              null, // curriculumContext
+              'flexible_goals', // tutorFreedomLevel
+              null, // targetActflLevel
+              compassContext, // Pass Compass context!
             );
 
             // Get voice configuration
