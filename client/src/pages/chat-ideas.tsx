@@ -5,6 +5,7 @@ import { Lightbulb, Loader2, AlertCircle } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Redirect } from "wouter";
+import holaholaIcon from "@assets/holaholajustbubblesBackgroundRemoved_1765309702014.png";
 
 interface Topic {
   id: string;
@@ -49,7 +50,7 @@ export default function ChatIdeas() {
       <div className="max-w-6xl mx-auto space-y-8">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <Lightbulb className="h-8 w-8 text-primary" />
+            <img src={holaholaIcon} alt="" className="h-10 w-10 object-contain" />
             <h1 className="text-3xl font-bold" data-testid="heading-chat-ideas">Chat Ideas</h1>
           </div>
           <p className="text-muted-foreground text-lg">

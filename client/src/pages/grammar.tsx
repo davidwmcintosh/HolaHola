@@ -21,6 +21,7 @@ import {
   RotateCcw,
   Award
 } from "lucide-react";
+import holaholaIcon from "@assets/holaholajustbubblesBackgroundRemoved_1765309702014.png";
 import type { GrammarCompetency, GrammarExercise as GrammarExerciseType } from "@shared/schema";
 
 const ACTFL_LEVELS = [
@@ -442,9 +443,12 @@ export default function Grammar() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold mb-2">Grammar Hub</h1>
-          <p className="text-muted-foreground">Master grammar with ACTFL-aligned topics and interactive practice</p>
+        <div className="flex items-center gap-2">
+          <img src={holaholaIcon} alt="" className="h-10 w-10 object-contain" />
+          <div>
+            <h1 className="text-3xl font-semibold mb-2">Grammar Hub</h1>
+            <p className="text-muted-foreground">Master grammar with ACTFL-aligned topics and interactive practice</p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <LearningContextFilter />

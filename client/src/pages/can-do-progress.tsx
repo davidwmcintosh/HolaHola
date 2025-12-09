@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle2, Circle, Award, Brain, User } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import holaholaIcon from "@assets/holaholajustbubblesBackgroundRemoved_1765309702014.png";
 
 interface CanDoStatement {
   id: string; // Database UUID
@@ -122,11 +123,14 @@ export default function CanDoProgress() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold" data-testid="heading-can-do-progress">ACTFL Can-Do Statements</h1>
-        <p className="text-muted-foreground mt-2">
-          Track your language proficiency progress across all ACTFL levels
-        </p>
+      <div className="flex items-center gap-2">
+        <img src={holaholaIcon} alt="" className="h-10 w-10 object-contain" />
+        <div>
+          <h1 className="text-3xl font-bold" data-testid="heading-can-do-progress">ACTFL Can-Do Statements</h1>
+          <p className="text-muted-foreground mt-2">
+            Track your language proficiency progress across all ACTFL levels
+          </p>
+        </div>
       </div>
 
       {/* Filters */}

@@ -5,6 +5,7 @@ import { Globe, Loader2 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect } from "react";
+import holaholaIcon from "@assets/holaholajustbubblesBackgroundRemoved_1765309702014.png";
 
 interface CulturalTip {
   id: string;
@@ -63,7 +64,7 @@ export default function CulturalTips() {
       <div className="max-w-6xl mx-auto space-y-8">
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <Globe className="h-8 w-8 text-primary" />
+            <img src={holaholaIcon} alt="" className="h-10 w-10 object-contain" />
             <h1 className="text-3xl font-bold" data-testid="heading-cultural-tips">Cultural Tips</h1>
           </div>
           <p className="text-muted-foreground text-lg">

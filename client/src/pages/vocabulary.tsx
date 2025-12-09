@@ -5,6 +5,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Filter, Download, FileSpreadsheet, FileText, Loader2 } from "lucide-react";
+import holaholaIcon from "@assets/holaholajustbubblesBackgroundRemoved_1765309702014.png";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,9 +75,12 @@ export default function Vocabulary() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold mb-2">Vocabulary Practice</h1>
-          <p className="text-muted-foreground">Build your vocabulary with interactive flashcards</p>
+        <div className="flex items-center gap-2">
+          <img src={holaholaIcon} alt="" className="h-10 w-10 object-contain" />
+          <div>
+            <h1 className="text-3xl font-semibold mb-2">Vocabulary Practice</h1>
+            <p className="text-muted-foreground">Build your vocabulary with interactive flashcards</p>
+          </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <LearningContextFilter />

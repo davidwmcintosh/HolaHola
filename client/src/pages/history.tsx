@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { ConversationHistory } from "@/components/ConversationHistory";
 import { LearningContextFilter } from "@/components/LearningContextFilter";
+import holaholaIcon from "@assets/holaholajustbubblesBackgroundRemoved_1765309702014.png";
 
 export default function History() {
   const search = useSearch();
@@ -29,9 +30,12 @@ export default function History() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold mb-2">Conversation History</h1>
-          <p className="text-muted-foreground">Review your past practice sessions</p>
+        <div className="flex items-center gap-2">
+          <img src={holaholaIcon} alt="" className="h-10 w-10 object-contain" />
+          <div>
+            <h1 className="text-3xl font-semibold mb-2">Conversation History</h1>
+            <p className="text-muted-foreground">Review your past practice sessions</p>
+          </div>
         </div>
         <LearningContextFilter />
       </div>
