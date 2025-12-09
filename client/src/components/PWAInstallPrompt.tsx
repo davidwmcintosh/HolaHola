@@ -77,7 +77,7 @@ export function PWAInstallPrompt() {
             <Smartphone className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-sm mb-1">Install LinguaFlow</h3>
+            <h3 className="font-semibold text-sm mb-1">Install HolaHola</h3>
             <p className="text-xs text-muted-foreground mb-3">
               Add to your home screen for a native app experience with offline access
             </p>

@@ -237,7 +237,7 @@ export default function StudentJoinClass() {
         <div className="absolute right-4 top-1/2 -translate-y-1/2 w-48 md:w-64 lg:w-80 opacity-15">
           <img 
             src={linguaflowLogo} 
-            alt="LinguaFlow" 
+            alt="HolaHola" 
             className="w-full h-auto object-contain"
           />
         </div>

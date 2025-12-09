@@ -47,9 +47,26 @@ Staging area for documentation changes to be consolidated later.
 - `client/src/pages/admin/CommandCenter.tsx` - Create User dialog, Pending badge, Send Invitation button
 
 #### Production Checklist Notes
-- Name change needed: "LinguaFlow" was taken, new name TBD
-- Domain authentication will be configured after new name/domain chosen
+- ✅ Name change completed: LinguaFlow → **HolaHola**
+- Domain: getholahola.com
+- Domain authentication to be configured in SendGrid
 - Currently using Gmail address for sender verification testing
+
+#### Branding Update (Dec 9, 2025)
+- **App Name**: LinguaFlow → HolaHola
+- **Domain**: getholahola.com
+- **Capacitor App ID**: com.holahola.app
+- **Updated Files**:
+  - Environment variables (APP_NAME, APP_URL, FROM_EMAIL)
+  - PWA manifests (public/manifest.json, client/public/manifest.json)
+  - HTML title and meta tags (client/index.html)
+  - Capacitor config (capacitor.config.ts)
+  - Sidebar branding (app-sidebar.tsx)
+  - PWA install prompt (PWAInstallPrompt.tsx)
+  - Onboarding page, auth pages, review hub
+  - System prompt for Daniela (Founder Mode references)
+  - Email service defaults
+  - replit.md documentation
 
 ---
 

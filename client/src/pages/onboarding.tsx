@@ -147,7 +147,7 @@ export default function Onboarding() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
-            Welcome to LinguaFlow!
+            Welcome to HolaHola!
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">

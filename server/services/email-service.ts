@@ -10,8 +10,8 @@ interface SendEmailOptions {
   text?: string;
 }
 
-const APP_NAME = process.env.APP_NAME || 'LinguaFlow';
-const APP_URL = process.env.APP_URL || 'https://linguaflow.replit.app';
+const APP_NAME = process.env.APP_NAME || 'HolaHola';
+const APP_URL = process.env.APP_URL || 'https://getholahola.com';
 const FROM_EMAIL = process.env.FROM_EMAIL || `noreply@${APP_NAME.toLowerCase()}.app`;
 
 export class EmailService {

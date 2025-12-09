@@ -77,7 +77,7 @@ export default function CompleteRegistration() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
       toast({
-        title: 'Welcome to LinguaFlow!',
+        title: 'Welcome to HolaHola!',
         description: 'Your account has been created successfully.',
       });
       navigate('/');

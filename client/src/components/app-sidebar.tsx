@@ -83,12 +83,12 @@ export function AppSidebar() {
           <div className="flex items-center gap-1">
             <img 
               src={linguaflowLogo} 
-              alt="LinguaFlow" 
+              alt="HolaHola" 
               className="h-20 w-20 object-contain -ml-3 -my-2"
               data-testid="img-logo"
             />
             <div>
-              <h1 className="text-xl font-semibold">LinguaFlow</h1>
+              <h1 className="text-xl font-semibold">HolaHola</h1>
               <p className="text-sm text-muted-foreground">Learn & Practice</p>
             </div>
           </div>
