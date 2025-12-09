@@ -208,7 +208,7 @@ export function VoiceChatViewManager({
             </div>
           )
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 custom-scrollbar pt-16">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 custom-scrollbar pt-16 pb-20">
             <div className="space-y-3 md:space-y-4 max-w-4xl mx-auto">
               {/* Resume conversation indicator - Week 1 Feature */}
               {conversationData?.resumeMetadata?.isResuming && (
