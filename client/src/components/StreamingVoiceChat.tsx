@@ -660,7 +660,8 @@ export function StreamingVoiceChat({
             const { targetGender, targetLanguage, tutorName, isLanguageSwitch } = handoff;
             if (isLanguageSwitch && targetLanguage) {
               console.log(`[TUTOR HANDOFF] Cross-language switch to ${tutorName} (${targetGender}) in ${targetLanguage}`);
-              // TODO: UI would need to refresh language context for full cross-language support
+              // Update language context - this triggers tutorVoices refetch for new language
+              setLanguage(targetLanguage);
             } else {
               console.log(`[TUTOR HANDOFF] Switching to ${tutorName || targetGender} tutor`);
             }
@@ -2017,7 +2018,8 @@ export function StreamingVoiceChat({
                 const { targetGender, targetLanguage, tutorName, isLanguageSwitch } = handoff;
                 if (isLanguageSwitch && targetLanguage) {
                   console.log(`[TUTOR HANDOFF] Cross-language switch to ${tutorName} (${targetGender}) in ${targetLanguage} (reconnect context)`);
-                  // TODO: UI would need to refresh language context for full cross-language support
+                  // Update language context - this triggers tutorVoices refetch for new language
+                  setLanguage(targetLanguage);
                 } else {
                   console.log(`[TUTOR HANDOFF] Switching to ${tutorName || targetGender} tutor (reconnect context)`);
                 }

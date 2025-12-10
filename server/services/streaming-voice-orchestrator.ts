@@ -175,6 +175,8 @@ export interface StreamingSession {
     targetLanguage?: string;        // Optional: for cross-language handoffs (e.g., "japanese")
   };
   previousTutorName?: string;       // Stored during handoff for natural intro by new tutor
+  isLanguageSwitchHandoff?: boolean; // True when current handoff is a cross-language switch
+  previousLanguage?: string;        // Previous language before cross-language switch
 }
 
 /**
@@ -783,7 +785,15 @@ export class StreamingVoiceOrchestrator {
             
             // If cross-language switch, update target language and regenerate system prompt
             if (isLanguageSwitch) {
+              // Store previous language for context in handoff intro
+              session.previousLanguage = session.targetLanguage;
+              session.isLanguageSwitchHandoff = true;
               session.targetLanguage = effectiveLanguage;
+              
+              // Clear conversation history for cross-language switch
+              // New language = fresh start, but the handoff intro will reference conversation name
+              console.log(`[Tutor Switch] Clearing conversation history for cross-language switch (${session.previousLanguage} -> ${effectiveLanguage})`);
+              session.conversationHistory = [];
               
               // Regenerate system prompt for new language context
               // Uses session's existing settings + new language/tutor
@@ -2625,47 +2635,71 @@ Using this context, speak first to the student with a natural opening message. O
     session.tutorGender = tutorGender;
     session.tutorName = tutorName;
     
-    console.log(`[Voice Switch] New tutor ${tutorName} (${tutorGender}) introducing themselves via LLM`);
+    // Check if this is a cross-language switch
+    const isLanguageSwitch = session.isLanguageSwitchHandoff || false;
+    const previousLanguage = session.previousLanguage;
     
-    // Build context summary from recent conversation for seamless handoff
-    // Take last 4 exchanges (up to 8 messages) to provide context without overwhelming
-    const recentHistory = session.conversationHistory.slice(-8);
+    console.log(`[Voice Switch] New tutor ${tutorName} (${tutorGender}) introducing themselves via LLM${isLanguageSwitch ? ` (cross-language from ${previousLanguage})` : ''}`);
+    
     let contextSummary = '';
     
-    // Only build context if we have at least 2 messages with alternating roles
-    const userMessages = recentHistory.filter(m => m.role === 'user');
-    const tutorMessages = recentHistory.filter(m => m.role === 'model');
-    const hasSubstantialContext = userMessages.length >= 1 && tutorMessages.length >= 1;
-    
-    if (hasSubstantialContext) {
-      const lastUserMessage = userMessages[userMessages.length - 1];
-      const lastTutorMessage = tutorMessages[tutorMessages.length - 1];
-      
-      contextSummary = `\n\nCONVERSATION CONTEXT (for seamless handoff):`;
-      
-      // Strip whiteboard markup and clean the context snippets
-      // This prevents tags like [WRITE], [DRILL], [SWITCH_TUTOR] from appearing in the handoff prompt
-      const cleanContext = (text: string, maxLen: number): string => {
-        let cleaned = stripWhiteboardMarkup(text)
-          .replace(/\*\*/g, '')
-          .replace(/\*/g, '')
-          .replace(/\n+/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-        return cleaned.length > maxLen ? cleaned.substring(0, maxLen) + '...' : cleaned;
-      };
-      
-      const tutorContext = cleanContext(lastTutorMessage.content, 200);
-      if (tutorContext) {
-        contextSummary += `\n- The previous tutor was just saying: "${tutorContext}"`;
+    if (isLanguageSwitch) {
+      // Cross-language switch: Only use conversation name for context (history was cleared)
+      try {
+        const conversation = await storage.getConversation(session.conversationId, String(session.userId));
+        const conversationTitle = conversation?.title || conversation?.topic;
+        if (conversationTitle) {
+          contextSummary = `\n\nCONVERSATION CONTEXT:`;
+          contextSummary += `\n- Conversation topic: "${conversationTitle}"`;
+          contextSummary += `\n- Student was previously learning ${previousLanguage} and is now switching to ${session.targetLanguage}`;
+          contextSummary += `\n- This is a fresh start in a new language - be welcoming and excited to teach them!`;
+        }
+      } catch (err) {
+        console.warn('[Voice Switch] Could not fetch conversation name:', err);
       }
       
-      const userContext = cleanContext(lastUserMessage.content, 150);
-      if (userContext) {
-        contextSummary += `\n- The student just said: "${userContext}"`;
+      // Clear the cross-language switch flag now that we've used it
+      session.isLanguageSwitchHandoff = false;
+      session.previousLanguage = undefined;
+    } else {
+      // Same-language switch: Build context summary from recent conversation for seamless handoff
+      // Take last 4 exchanges (up to 8 messages) to provide context without overwhelming
+      const recentHistory = session.conversationHistory.slice(-8);
+      
+      // Only build context if we have at least 2 messages with alternating roles
+      const userMessages = recentHistory.filter(m => m.role === 'user');
+      const tutorMessages = recentHistory.filter(m => m.role === 'model');
+      const hasSubstantialContext = userMessages.length >= 1 && tutorMessages.length >= 1;
+      
+      if (hasSubstantialContext) {
+        const lastUserMessage = userMessages[userMessages.length - 1];
+        const lastTutorMessage = tutorMessages[tutorMessages.length - 1];
+        
+        contextSummary = `\n\nCONVERSATION CONTEXT (for seamless handoff):`;
+        
+        // Strip whiteboard markup and clean the context snippets
+        // This prevents tags like [WRITE], [DRILL], [SWITCH_TUTOR] from appearing in the handoff prompt
+        const cleanContext = (text: string, maxLen: number): string => {
+          let cleaned = stripWhiteboardMarkup(text)
+            .replace(/\*\*/g, '')
+            .replace(/\*/g, '')
+            .replace(/\n+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          return cleaned.length > maxLen ? cleaned.substring(0, maxLen) + '...' : cleaned;
+        };
+        
+        const tutorContext = cleanContext(lastTutorMessage.content, 200);
+        if (tutorContext) {
+          contextSummary += `\n- The previous tutor was just saying: "${tutorContext}"`;
+        }
+        
+        const userContext = cleanContext(lastUserMessage.content, 150);
+        if (userContext) {
+          contextSummary += `\n- The student just said: "${userContext}"`;
+        }
       }
     }
-    // If no substantial context, we fall back to a generic greeting (no contextSummary)
     
     // Get previous tutor name from session (stored before switch in handoff execution)
     // For cross-language switches, this will be the tutor from the previous language

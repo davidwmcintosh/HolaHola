@@ -82,28 +82,23 @@ spanish, french, german, italian, portuguese, japanese, mandarin chinese, korean
 #### STT Language Handling
 The Deepgram STT already uses `'multi'` language detection (line 1104 of streaming-voice-orchestrator.ts), which automatically detects the spoken language. This means cross-language switches work seamlessly for speech recognition - no reconfiguration needed.
 
-#### UI Enhancements Needed (Future Work)
-The voice chat backend fully supports cross-language switching, but the UI needs updates to reflect the new language:
+#### UI Updates (Implemented)
+1. **Language Context Display** - When `onTutorHandoff` fires with `isLanguageSwitch=true`, `setLanguage(targetLanguage)` is called. This updates the global language context via `useLanguage()` hook, which triggers:
+   - Tutor names refetch (query key includes language)
+   - UI components that display language automatically update
 
-1. **Language Context Display** - Update the "Learning X" label in voice chat header
-   - File: `client/src/components/StreamingVoiceChat.tsx`
-   - Currently displays initial targetLanguage, doesn't track changes
-   - Need to add state for currentLanguage that updates on `onTutorHandoff` when `isLanguageSwitch=true`
+2. **Tutor Name Indicators** - The `tutorVoices` query is already keyed by language `['/api/tutor-voices', language?.toLowerCase()]`, so when `setLanguage()` is called, React Query automatically refetches tutor names for the new language.
 
-2. **Tutor Name Indicators** - Reload both male/female tutor names for new language
-   - Currently only tracks tutors for initial language
-   - Need API call to fetch tutor_voices for new language
-   - Update `femaleTutorName` and `maleTutorName` state
-
-3. **Deepgram STT Language Hint** - Already uses 'multi' detection (no change needed)
-
-4. **Conversation Context** - Consider whether to:
-   - Start fresh conversation in new language, or
-   - Carry over history (current behavior)
+3. **Conversation History Handling**:
+   - Same-language switch: Full conversation history preserved
+   - Cross-language switch: Conversation history cleared; only conversation title/topic passed for context
    
-5. **ACTFL Level Reset** - Student may have different proficiency in new language
-   - Fetch/update proficiency for new language
-   - Display appropriate level indicator
+4. **New Session State Fields**:
+   - `isLanguageSwitchHandoff`: Flag indicating current handoff is cross-language
+   - `previousLanguage`: Stores previous language for context in handoff intro
+
+#### Remaining Future Work
+- **ACTFL Level**: Student may have different proficiency in new language - need to fetch/display correct level
 
 ---
 
