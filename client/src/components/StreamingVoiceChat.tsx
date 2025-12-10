@@ -237,6 +237,9 @@ export function StreamingVoiceChat({
   const isAwaitingResponseRef = useRef(false);
   // Track previous input mode to detect mode changes
   const prevInputModeRef = useRef<VoiceInputMode>(inputMode);
+  // CRITICAL: Track current inputMode for use in callbacks (avoids stale closure)
+  const inputModeRef = useRef<VoiceInputMode>(inputMode);
+  inputModeRef.current = inputMode; // Always keep in sync
   
   // Store last audio for replay functionality
   const [lastAudioBlob, setLastAudioBlob] = useState<Blob | null>(null);
@@ -496,7 +499,8 @@ export function StreamingVoiceChat({
             
             // CRITICAL: Restart open mic session if we're in open-mic mode
             // The server closes the session after each utterance, so we need to restart it
-            if (inputMode === 'open-mic') {
+            // Use inputModeRef.current to get current value (avoids stale closure)
+            if (inputModeRef.current === 'open-mic') {
               console.log('[OPEN MIC] Response complete - restarting session for next utterance');
               setTimeout(() => {
                 // Use the ref to call the local startOpenMicRecording function
@@ -560,12 +564,13 @@ export function StreamingVoiceChat({
           onOpenMicSessionClosed: () => {
             console.log('[OPEN MIC] Server session closed');
             // If still in open mic mode and not awaiting response, restart the session
-            if (inputMode === 'open-mic' && !isAwaitingResponseRef.current) {
+            // Use inputModeRef.current to get current value (avoids stale closure)
+            if (inputModeRef.current === 'open-mic' && !isAwaitingResponseRef.current) {
               console.log('[OPEN MIC] Restarting open mic session after server close');
               setOpenMicState('idle');
               // Use a small delay to allow any cleanup to complete
               setTimeout(() => {
-                if (inputMode === 'open-mic' && startOpenMicRecordingRef.current) {
+                if (inputModeRef.current === 'open-mic' && startOpenMicRecordingRef.current) {
                   startOpenMicRecordingRef.current().then(() => {
                     console.log('[OPEN MIC] Session restarted - showing green light invitation');
                     // Use 'ready' to show green light BEFORE user speaks (invitation)
