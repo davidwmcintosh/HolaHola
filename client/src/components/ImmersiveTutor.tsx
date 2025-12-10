@@ -286,7 +286,7 @@ export function ImmersiveTutor({
               variant="outline"
               size="sm"
               onClick={() => setInputMode('push-to-talk')}
-              className={`h-7 px-2 text-xs ${inputMode === 'push-to-talk' ? 'bg-muted' : ''}`}
+              className={`h-7 px-2 text-xs ${inputMode === 'push-to-talk' ? 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600' : ''}`}
               data-testid="button-mode-push-to-talk"
             >
               <Mic className="h-3 w-3 mr-1" />
@@ -296,7 +296,7 @@ export function ImmersiveTutor({
               variant="outline"
               size="sm"
               onClick={() => setInputMode('open-mic')}
-              className={`h-7 px-2 text-xs ${inputMode === 'open-mic' ? 'bg-muted' : ''}`}
+              className={`h-7 px-2 text-xs ${inputMode === 'open-mic' ? 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600' : ''}`}
               data-testid="button-mode-open-mic"
             >
               <Radio className="h-3 w-3 mr-1" />
