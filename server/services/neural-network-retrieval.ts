@@ -128,7 +128,7 @@ export function formatNeuralNetworkForPrompt(context: NeuralNetworkContext): str
   // Format linguistic bridges
   if (context.bridges.length > 0) {
     const bridgeLines = context.bridges.map(b => {
-      const type = b.bridgeType === 'false_friend' ? '⚠️ FALSE FRIEND' : b.bridgeType;
+      const type = b.bridgeType === 'false_friend' ? '[FALSE FRIEND]' : b.bridgeType.toUpperCase();
       return `- ${type}: "${b.sourceWord}" ↔ "${b.targetWord}" - ${b.teachingNote || b.explanation}`;
     }).join('\n');
     sections.push(`**Language Bridges (${context.bridges[0]?.sourceLanguage}→${context.bridges[0]?.targetLanguage}):**\n${bridgeLines}`);

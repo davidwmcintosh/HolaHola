@@ -6,6 +6,79 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 19i: Neural Network Expansion for Language-Specific Pedagogical Knowledge (Dec 10, 2025)
+
+#### Overview
+Implemented Daniela's Neural Network Expansion system - language-specific pedagogical knowledge that allows her to truly embody different language modalities beyond just voice/accent changes.
+
+#### New Database Tables (5 total)
+1. **languageIdioms** - Common expressions with meanings and cultural context
+2. **culturalNuances** - Region-specific etiquette, formality levels, taboos
+3. **learnerErrorPatterns** - Common mistakes by source language speakers
+4. **dialectVariations** - Regional pronunciation/vocabulary differences
+5. **linguisticBridges** - Cross-language connections (cognates, false friends)
+
+#### Knowledge Retrieval Service (`server/services/neural-network-retrieval.ts`)
+- Fetches random samples from each table (4 items per category)
+- Formats knowledge into structured prompt sections
+- Injects into Daniela's system prompt after founder memory context
+- Handles language pair matching (e.g., English→Spanish error patterns)
+
+#### Initial Data Seeded (Spanish)
+- 8 idioms (e.g., "estar en las nubes", "costar un ojo de la cara")
+- 6 cultural nuances (cheek kisses, punctuality, family formality)
+- 6 learner error patterns (ser/estar, gender agreement, false friends)
+- 5 dialect variations (Spain vs. Latin America differences)
+- 7 English-Spanish linguistic bridges (cognates and false friends)
+
+#### TONE Whiteboard Command (New)
+For tonal language visualization (Mandarin, Vietnamese, Thai):
+- **Syntax**: `[TONE]妈|mā|1|mother[/TONE]`
+- **Format**: `word|pinyin|tones|meaning`
+- **Visualization**: SVG pitch contours for tones 1-5
+  - T1: High level (flat line)
+  - T2: Rising curve
+  - T3: Low dipping contour
+  - T4: Straight falling
+  - T5: Neutral (short mid-level)
+- **Colors**: Red (T1), Green (T2), Blue (T3), Purple (T4), Gray (T5)
+
+#### Prompt Section Format
+```
+### Your Pedagogical Knowledge for This Language
+**Idioms You Know:**
+- "estar en las nubes" = to be daydreaming (commonly used for distracted moments)
+
+**Cultural Knowledge:**
+- greetings/formality: Cheek kisses vary by region...
+
+**Common Learner Struggles (english→spanish):**
+- Ser/estar confusion: English has one "to be"... [Strategies: Use location vs. essence rule]
+
+**Dialect Variations:**
+- Spain: "vosotros" → "ustedes" (pronouns)
+
+**Language Bridges (english→spanish):**
+- COGNATE: "family" ↔ "familia" - Nearly identical in meaning and sound
+- [FALSE FRIEND]: "embarazada" ↔ "embarrassed" - Means "pregnant" not embarrassed!
+```
+
+#### Files Created/Modified
+- `shared/schema.ts` - Added 5 new tables with proper indexes
+- `server/seed-neural-network.ts` - Initial Spanish data seed script
+- `server/services/neural-network-retrieval.ts` - Context retrieval and formatting
+- `server/unified-ws-handler.ts` - Integration point for voice sessions
+- `server/index.ts` - Seed script execution on startup
+- `shared/whiteboard-types.ts` - TONE type definitions and parsing
+- `client/src/components/Whiteboard.tsx` - ToneItemDisplay component
+
+#### Future Expansion
+- Seed data for other 8 languages
+- Non-Latin script support (Japanese kanji, Korean hangul, Mandarin hanzi)
+- STROKE command already implemented for character stroke order visualization
+
+---
+
 ### Session 19h: AI-Generated Session Summaries for Compass Memory (Dec 10, 2025)
 
 #### Problem

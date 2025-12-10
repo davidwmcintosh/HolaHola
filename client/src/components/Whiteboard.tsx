@@ -81,7 +81,8 @@ import type {
   DrillState,
   MatchPair,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, getDrillInstructions } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, getDrillInstructions } from "@shared/whiteboard-types";
+import type { ToneItem } from "@shared/whiteboard-types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -119,6 +120,8 @@ const getItemIcon = (type: WhiteboardItemType) => {
       return <Languages className="h-4 w-4" />;
     case "stroke":
       return <PenTool className="h-4 w-4" />;
+    case "tone":
+      return <TrendingUp className="h-4 w-4" />;
     case "word_map":
       return <Network className="h-4 w-4" />;
     case "culture":
@@ -162,6 +165,8 @@ const getItemStyle = (type: WhiteboardItemType): string => {
       return "bg-pink-500/10 border-pink-500/30 text-pink-700 dark:text-pink-300";
     case "stroke":
       return "bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300";
+    case "tone":
+      return "bg-fuchsia-500/10 border-fuchsia-500/30 text-fuchsia-700 dark:text-fuchsia-300";
     case "word_map":
       return "bg-teal-500/10 border-teal-500/30 text-teal-700 dark:text-teal-300";
     case "culture":
@@ -1418,6 +1423,144 @@ const StrokeItemDisplay = ({ item, index }: StrokeItemDisplayProps) => {
   );
 };
 
+interface ToneItemDisplayProps {
+  item: ToneItem;
+  index: number;
+}
+
+/**
+ * Tone visualization display - shows pitch contours for tonal languages
+ * Visualizes Mandarin tones 1-4 (plus neutral tone 5) with animated curves
+ * Helps learners understand tone shapes visually
+ */
+const ToneItemDisplay = ({ item, index }: ToneItemDisplayProps) => {
+  const { data } = item;
+  
+  const getToneLabel = (tone: number) => {
+    switch (tone) {
+      case 1: return { name: 'High', color: 'text-red-500', shape: '━━━' };
+      case 2: return { name: 'Rising', color: 'text-green-500', shape: '╱' };
+      case 3: return { name: 'Dip', color: 'text-blue-500', shape: '╲╱' };
+      case 4: return { name: 'Falling', color: 'text-purple-500', shape: '╲' };
+      case 5: return { name: 'Neutral', color: 'text-gray-400', shape: '・' };
+      default: return { name: 'Unknown', color: 'text-gray-400', shape: '?' };
+    }
+  };
+
+  const getToneSVG = (tone: number, size: number = 60) => {
+    const h = size;
+    const w = size;
+    // Accurate Mandarin tone contours:
+    // T1: High level (flat line at top)
+    // T2: Rising (mid-low to high)
+    // T3: Low dipping (mid-low, dip down, rise slightly)
+    // T4: Falling (high to low, straight)
+    // T5: Neutral (short, mid-level)
+    const paths: Record<number, string> = {
+      1: `M 10,12 L ${w-10},12`,                                    // High flat
+      2: `M 10,${h-18} Q ${w*0.7},${h/2-5} ${w-10},12`,             // Rising curve
+      3: `M 10,${h/2-5} Q ${w*0.35},${h-8} ${w*0.5},${h-12} Q ${w*0.65},${h-8} ${w-10},${h/2+5}`, // Low dip
+      4: `M 10,12 L ${w-10},${h-18}`,                               // Straight falling
+      5: `M ${w*0.3},${h/2} L ${w*0.7},${h/2}`,                     // Short neutral
+    };
+    const colors: Record<number, string> = {
+      1: '#ef4444',
+      2: '#22c55e',
+      3: '#3b82f6',
+      4: '#a855f7',
+      5: '#9ca3af',
+    };
+    return (
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="overflow-visible">
+        <path
+          d={paths[tone] || paths[5]}
+          fill="none"
+          stroke={colors[tone] || colors[5]}
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {tone === 5 && (
+          <circle cx={w/2} cy={h/2} r="4" fill={colors[5]} />
+        )}
+        <text x={w/2} y={h+15} textAnchor="middle" className="fill-current text-xs font-medium">
+          T{tone}
+        </text>
+      </svg>
+    );
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-fuchsia-500/10 border-fuchsia-500/30"
+      data-testid={`whiteboard-item-tone-${index}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-fuchsia-600 dark:text-fuchsia-400 opacity-60" />
+          <span className="text-sm text-muted-foreground">Tone Visualization</span>
+        </div>
+        {data.language && (
+          <span className="text-xs bg-fuchsia-500/20 text-fuchsia-700 dark:text-fuchsia-300 px-2 py-0.5 rounded-full capitalize">
+            {data.language}
+          </span>
+        )}
+      </div>
+      
+      <div className="flex flex-col items-center gap-2 py-2">
+        <motion.span
+          initial={{ scale: 0.9 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", stiffness: 200, damping: 10 }}
+          className="text-3xl font-bold text-fuchsia-700 dark:text-fuchsia-300"
+        >
+          {data.word}
+        </motion.span>
+        {data.pinyin && (
+          <span className="text-lg font-mono text-fuchsia-600 dark:text-fuchsia-400">
+            {data.pinyin}
+          </span>
+        )}
+        {data.meaning && (
+          <span className="text-sm text-muted-foreground">
+            "{data.meaning}"
+          </span>
+        )}
+      </div>
+      
+      <div className="flex justify-center gap-4 py-2">
+        {data.tones.map((tone: number, i: number) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 + i * 0.1 }}
+            className="flex flex-col items-center"
+          >
+            {getToneSVG(tone)}
+            <span className={`text-xs mt-1 ${getToneLabel(tone).color}`}>
+              {getToneLabel(tone).name}
+            </span>
+          </motion.div>
+        ))}
+      </div>
+      
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+        className="text-center text-xs text-muted-foreground"
+      >
+        Practice matching the pitch contour when speaking
+      </motion.p>
+    </motion.div>
+  );
+};
+
 interface WordMapItemDisplayProps {
   item: WordMapItem;
   index: number;
@@ -2314,6 +2457,10 @@ const WhiteboardItemDisplay = ({
   
   if (isStrokeItem(item)) {
     return <StrokeItemDisplay item={item} index={index} />;
+  }
+  
+  if (isToneItem(item)) {
+    return <ToneItemDisplay item={item} index={index} />;
   }
   
   if (isWordMapItem(item)) {

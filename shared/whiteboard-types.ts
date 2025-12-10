@@ -43,6 +43,7 @@ export const WHITEBOARD_TAGS = {
   GRAMMAR_TABLE: 'GRAMMAR_TABLE',
   READING: 'READING',
   STROKE: 'STROKE',
+  TONE: 'TONE',
   WORD_MAP: 'WORD_MAP',
   CULTURE: 'CULTURE',
   PLAY: 'PLAY',
@@ -62,7 +63,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor';
 
 /**
  * Drill types for inline micro-exercises
@@ -188,6 +189,19 @@ export interface StrokeItemData {
   character: string;      // Single character to show strokes for
   language?: string;      // Optional: japanese, mandarin, korean
   strokes?: string[];     // Optional: stroke descriptions if available
+}
+
+/**
+ * Tone visualization item data
+ * Shows tone contours for tonal languages (Mandarin, Vietnamese, Thai)
+ * Visual representation of pitch patterns helps learners understand tone shapes
+ */
+export interface ToneItemData {
+  word: string;           // The word/character being analyzed (e.g., 妈, mā)
+  pinyin?: string;        // Romanized pronunciation with tone marks (e.g., mā)
+  tones: number[];        // Array of tone numbers [1,2,3,4] for each syllable
+  language?: string;      // mandarin, vietnamese, thai, cantonese
+  meaning?: string;       // English meaning for context
 }
 
 /**
@@ -379,6 +393,12 @@ export interface StrokeItem extends WhiteboardItemBase {
   data: StrokeItemData;
 }
 
+export interface ToneItem extends WhiteboardItemBase {
+  type: 'tone';
+  content: string;
+  data: ToneItemData;
+}
+
 export interface WordMapItem extends WhiteboardItemBase {
   type: 'word_map';
   content: string;
@@ -474,6 +494,7 @@ export type WhiteboardItem =
   | GrammarTableItem
   | ReadingItem
   | StrokeItem
+  | ToneItem
   | WordMapItem
   | CultureItem
   | PlayItem
@@ -542,6 +563,7 @@ export const WHITEBOARD_PATTERNS = {
   GRAMMAR_TABLE: /\[GRAMMAR_TABLE\]([\s\S]*?)\[\/GRAMMAR_TABLE\]/gi,
   READING: /\[READING\]([\s\S]*?)\[\/READING\]/gi,
   STROKE: /\[STROKE\]([\s\S]*?)\[\/STROKE\]/gi,
+  TONE: /\[TONE\]([\s\S]*?)\[\/TONE\]/gi,
   WORD_MAP: /\[WORD_MAP\]([\s\S]*?)\[\/WORD_MAP\]/gi,
   CULTURE: /\[CULTURE\]([\s\S]*?)\[\/CULTURE\]/gi,
   PLAY: /\[PLAY(?:\s+speed="([^"]*)")?\]([\s\S]*?)\[\/PLAY\]/gi,
@@ -571,7 +593,7 @@ export const WHITEBOARD_PATTERNS = {
  * Also includes subtitle controls: SUBTITLE, SHOW, HIDE, SUBTITLE_TEXT (legacy)
  */
 export const ALL_WHITEBOARD_MARKUP_PATTERN = 
-  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[SWITCH_TUTOR\s+target="(?:male|female)"(?:\s+language="[^"]+")?\]|\[(CLEAR|HOLD)\]/gi;
+  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|TONE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[SWITCH_TUTOR\s+target="(?:male|female)"(?:\s+language="[^"]+")?\]|\[(CLEAR|HOLD)\]/gi;
 
 /**
  * Generate unique ID for whiteboard items
@@ -852,6 +874,45 @@ function parseStrokeContent(content: string): StrokeItemData {
   return {
     character,
     language,
+  };
+}
+
+/**
+ * Parse TONE content: "word|pinyin|tones|meaning" format for tonal language visualization
+ * Examples:
+ * - [TONE]妈|mā|1|mother[/TONE] → Single character with tone 1
+ * - [TONE]你好|nǐ hǎo|3,3|hello[/TONE] → Two syllables with tones 3,3
+ * - [TONE]谢谢|xiè xie|4,5|thank you[/TONE] → Tone 5 = neutral tone
+ * 
+ * Validation: word is required, tones default to [1] if not provided
+ */
+function parseToneContent(content: string): ToneItemData {
+  const parts = content.split('|').map(p => p.trim());
+  const word = parts[0]?.trim();
+  const pinyin = parts[1]?.trim() || undefined;
+  const tonesStr = parts[2]?.trim() || '1';
+  const meaning = parts[3]?.trim() || undefined;
+  
+  const tones = tonesStr.split(',').map(t => {
+    const num = parseInt(t.trim());
+    return isNaN(num) ? 1 : Math.min(5, Math.max(1, num));
+  });
+  
+  if (!word) {
+    console.warn('[Whiteboard] TONE tag with empty word, using raw content');
+    return {
+      word: content.trim() || '?',
+      tones: [1],
+      language: 'mandarin',
+    };
+  }
+  
+  return {
+    word,
+    pinyin,
+    tones,
+    meaning,
+    language: 'mandarin',
   };
 }
 
@@ -1157,6 +1218,19 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
     });
   }
 
+  // Parse TONE tags (tonal language visualization)
+  WHITEBOARD_PATTERNS.TONE.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.TONE.exec(text)) !== null) {
+    const content = match[1].trim();
+    items.push({
+      type: 'tone',
+      content,
+      timestamp: now,
+      id: generateItemId(),
+      data: parseToneContent(content),
+    });
+  }
+
   // Parse WORD_MAP tags (Phase 4 - word relationships)
   WHITEBOARD_PATTERNS.WORD_MAP.lastIndex = 0;
   while ((match = WHITEBOARD_PATTERNS.WORD_MAP.exec(text)) !== null) {
@@ -1394,6 +1468,8 @@ export const whiteboardExamples = {
     `[READING]${character}|${reading}${language ? `|${language}` : ''}[/READING]`,
   stroke: (character: string, language?: string) => 
     `[STROKE]${character}${language ? `|${language}` : ''}[/STROKE]`,
+  tone: (word: string, pinyin: string, tones: number[], meaning?: string) => 
+    `[TONE]${word}|${pinyin}|${tones.join(',')}${meaning ? `|${meaning}` : ''}[/TONE]`,
   wordMap: (targetWord: string) => 
     `[WORD_MAP]${targetWord}[/WORD_MAP]`,
   culture: (topic: string, context: string, category?: string) => 
@@ -1466,6 +1542,13 @@ export function isReadingItem(item: WhiteboardItem): item is ReadingItem {
  */
 export function isStrokeItem(item: WhiteboardItem): item is StrokeItem {
   return item.type === 'stroke';
+}
+
+/**
+ * Type guard for checking if an item is a tone visualization item
+ */
+export function isToneItem(item: WhiteboardItem): item is ToneItem {
+  return item.type === 'tone';
 }
 
 /**
