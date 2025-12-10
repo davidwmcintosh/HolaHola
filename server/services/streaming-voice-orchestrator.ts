@@ -8,7 +8,7 @@
  */
 
 import { createClient } from "@deepgram/sdk";
-import { transcribeWithLiveAPI, getDeepgramLanguageCode } from "./deepgram-live-stt";
+import { getDeepgramLanguageCode } from "./deepgram-live-stt";
 import { getGeminiStreamingService, SentenceChunk } from "./gemini-streaming";
 import { getCartesiaStreamingService } from "./cartesia-streaming";
 import { WebSocket as WS } from "ws";
@@ -1147,98 +1147,6 @@ export class StreamingVoiceOrchestrator {
     }
     
     return { transcript: result.transcript, confidence: result.confidence };
-  }
-  
-  /**
-   * Race two STT promises for the first VALID (non-empty) result
-   * Uses true racing - returns IMMEDIATELY when first valid result arrives
-   * If first result is empty, waits for second. If both empty, returns empty.
-   */
-  private async raceForValidTranscript(
-    livePromise: Promise<{ transcript: string; confidence: number; source: string }>,
-    prerecordedPromise: Promise<{ transcript: string; confidence: number; source: string }>
-  ): Promise<{ transcript: string; confidence: number }> {
-    
-    // Wrap promises to handle errors gracefully and track completion
-    const safeLive = livePromise.catch(err => {
-      console.error('[Deepgram Live] Error:', err.message);
-      return { transcript: '', confidence: 0, source: 'live-error' };
-    });
-    
-    const safePrerecorded = prerecordedPromise.catch(err => {
-      console.error('[Deepgram Prerecorded] Error:', err.message);
-      return { transcript: '', confidence: 0, source: 'prerecorded-error' };
-    });
-    
-    // TRUE RACE: Return first valid result immediately
-    // Create a promise that resolves when first VALID result arrives
-    return new Promise(async (resolve) => {
-      let firstResult: { transcript: string; confidence: number; source: string } | null = null;
-      let secondResult: { transcript: string; confidence: number; source: string } | null = null;
-      let resolved = false;
-      
-      const handleResult = (result: { transcript: string; confidence: number; source: string }) => {
-        if (resolved) return;
-        
-        if (!firstResult) {
-          firstResult = result;
-          console.log(`[Deepgram Parallel] First result (${result.source}): "${result.transcript}" (${(result.confidence * 100).toFixed(0)}%)`);
-          
-          // If first result has valid transcript, return immediately!
-          if (result.transcript) {
-            resolved = true;
-            console.log(`[Deepgram Parallel] Winner: ${result.source} (first valid result)`);
-            resolve({ transcript: result.transcript, confidence: result.confidence });
-          }
-          // If empty, wait for second result
-        } else {
-          secondResult = result;
-          console.log(`[Deepgram Parallel] Second result (${result.source}): "${result.transcript}" (${(result.confidence * 100).toFixed(0)}%)`);
-          
-          // First was empty, check if second is valid
-          if (result.transcript) {
-            resolved = true;
-            console.log(`[Deepgram Parallel] Winner: ${result.source} (second result, first was empty)`);
-            resolve({ transcript: result.transcript, confidence: result.confidence });
-          } else {
-            // Both empty
-            resolved = true;
-            console.log(`[Deepgram Parallel] Both results empty`);
-            resolve({ transcript: '', confidence: 0 });
-          }
-        }
-      };
-      
-      // Race both promises
-      safeLive.then(handleResult);
-      safePrerecorded.then(handleResult);
-    });
-  }
-  
-  /**
-   * Transcribe with Live Streaming API
-   * @param audioData - Audio buffer to transcribe
-   * @param languageCode - Language code (or 'multi' for multi-language detection)
-   * @param isFounderMode - If true, enables multi-language detection
-   */
-  private async transcribeWithLive(audioData: Buffer, languageCode: string, isFounderMode: boolean = false): Promise<{ transcript: string; confidence: number; source: string }> {
-    const startTime = Date.now();
-    
-    const result = await transcribeWithLiveAPI(audioData, {
-      language: languageCode,
-      model: 'nova-2',
-      // Multi-language detection for Founder Mode
-      ...(isFounderMode && { detect_language: true }),
-    });
-    
-    const durationMs = Date.now() - startTime;
-    console.log(`[Deepgram Live] Result: "${result.transcript}" (${(result.confidence * 100).toFixed(0)}%, ${durationMs}ms)`);
-    
-    return {
-      transcript: result.transcript,
-      confidence: result.confidence,
-      source: 'live',
-    };
   }
   
   /**
