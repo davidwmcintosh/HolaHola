@@ -32,6 +32,41 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+### Session 19b: Tutor Persona Initialization Consistency (Dec 10, 2025)
+
+#### Problem
+Tutors weren't embodying their expected persona from session start. The system prompt used a static `IMMUTABLE_PERSONA` constant that always referred to "Daniela", causing Agustin sessions to incorrectly identify as female.
+
+#### Solution
+Converted static persona to dynamic function:
+- `IMMUTABLE_PERSONA` constant → `buildImmutablePersona(tutorName, tutorGender)` function
+- Added `tutorName` and `tutorGender` parameters to `createSystemPrompt()`
+- Updated all 6 key call sites to pass tutor identity
+
+#### Call Sites Updated
+1. `server/unified-ws-handler.ts` - Streaming voice sessions (main WS handler)
+2. `server/ws-gateway.ts` - WebSocket gateway
+3. `server/streaming-voice-proxy.ts` - Streaming voice proxy
+4. `server/routes.ts` - Voice fast-path endpoint
+5. `server/routes.ts` - Text mode chat endpoint
+
+#### Call Sites Unchanged (intentionally)
+- `server/routes.ts` - Enrichment endpoint (background processing, no persona needed)
+- `server/realtime-proxy.ts` - OpenAI Realtime API (uses OpenAI voices, not our tutors)
+
+#### Tutor Persona Mapping
+- `tutorGender: 'female'` → `tutorName: 'Daniela'`
+- `tutorGender: 'male'` → `tutorName: 'Agustin'`
+
+#### Files Modified
+- `server/system-prompt.ts` - New `buildImmutablePersona()` function, updated `createSystemPrompt()` signature
+- `server/unified-ws-handler.ts` - Pass tutorName/tutorGender
+- `server/ws-gateway.ts` - Pass tutorName/tutorGender
+- `server/streaming-voice-proxy.ts` - Pass tutorName/tutorGender
+- `server/routes.ts` - Pass tutorName/tutorGender at 2 call sites
+
+---
+
 ### Session 19: Tutor Switch UX Improvements (Dec 10, 2025)
 
 #### Audio Fix (Earlier This Session)
