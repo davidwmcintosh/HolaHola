@@ -36,6 +36,7 @@ export interface StreamingVoiceState {
   isConnecting: boolean;
   isProcessing: boolean;
   isPlaying: boolean;
+  isSwitchingTutor: boolean;  // True during tutor handoff - mic should stay locked
   currentText: string;
   currentWordIndex: number;
   visibleWordCount: number;
@@ -117,8 +118,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const [connectionState, setConnectionState] = useState<StreamingClientState>('disconnected');
   const [playbackState, setPlaybackState] = useState<StreamingPlaybackState>('idle');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSwitchingTutor, setIsSwitchingTutor] = useState(false);  // Mic lockout during tutor handoff
   const [error, setError] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<StreamingMetrics | null>(null);
+  
+  // Ref for tutor switch timeout (error recovery)
+  const tutorSwitchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Refs
   const clientRef = useRef<StreamingVoiceClient | null>(null);
@@ -479,6 +484,14 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       console.error(`[SENTENCE_READY HANDLER] sentence=${sentenceIndex}, turn=${turnId}, timings=${firstWordTimings.length} words`);
     }
     
+    // TUTOR SWITCH: If we were switching tutors, clear the flag now that audio is ready
+    // This unlocks the mic after the new tutor starts speaking
+    setIsSwitchingTutor(false);
+    if (tutorSwitchTimeoutRef.current) {
+      clearTimeout(tutorSwitchTimeoutRef.current);
+      tutorSwitchTimeoutRef.current = null;
+    }
+    
     // SAFETY CHECK: Verify we have timing data before starting playback
     // This should never happen if server is correctly buffering, but belt-and-suspenders
     if (!firstWordTimings || firstWordTimings.length === 0) {
@@ -672,6 +685,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * Handle tutor handoff - triggered after current tutor says goodbye
    * Automatically switches voice to new tutor and triggers their introduction
    * Supports both intra-language (gender only) and cross-language (gender + language) handoffs
+   * 
+   * MIC LOCKOUT: During handoff, mic stays locked until new tutor starts speaking
+   * to prevent user from accidentally interrupting the transition
    */
   const handleTutorHandoff = useCallback((message: { 
     type: string; 
@@ -688,6 +704,21 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     } else {
       console.log(`[StreamingVoice] Tutor handoff to ${tutorName || targetGender} tutor`);
     }
+    
+    // MIC LOCKOUT: Lock mic during tutor switch
+    // This prevents user from speaking during the transition
+    console.log('[StreamingVoice] Tutor switching - locking mic');
+    setIsSwitchingTutor(true);
+    
+    // Error recovery: If something goes wrong, unlock mic after 15 seconds
+    // This ensures user isn't permanently locked out if the switch fails
+    if (tutorSwitchTimeoutRef.current) {
+      clearTimeout(tutorSwitchTimeoutRef.current);
+    }
+    tutorSwitchTimeoutRef.current = setTimeout(() => {
+      console.log('[StreamingVoice] Tutor switch timeout - unlocking mic (error recovery)');
+      setIsSwitchingTutor(false);
+    }, 15000);  // 15 second timeout for error recovery
     
     // Notify parent component to update UI state (avatar, buttons)
     // Pass full handoff info for cross-language support
@@ -808,6 +839,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     pendingAudioCountRef.current = 0;
     setConnectionState('disconnected');
     setIsProcessing(false);
+    
+    // Clear tutor switch state and timeout
+    if (tutorSwitchTimeoutRef.current) {
+      clearTimeout(tutorSwitchTimeoutRef.current);
+      tutorSwitchTimeoutRef.current = null;
+    }
+    setIsSwitchingTutor(false);
   }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, subtitles]);
   
   /**
@@ -990,6 +1028,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       isConnecting: connectionState === 'connecting',
       isProcessing,
       isPlaying: playbackState === 'playing',
+      isSwitchingTutor,  // Mic lockout during tutor handoff
       currentText: subtitles.state.fullText,
       currentWordIndex: subtitles.state.currentWordIndex,
       visibleWordCount: subtitles.state.visibleWordCount,

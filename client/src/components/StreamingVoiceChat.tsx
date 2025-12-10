@@ -2387,10 +2387,12 @@ export function StreamingVoiceChat({
             // 2. Not processing (not waiting for AI response)
             // 3. Not playing/speaking (AI not talking)
             // 4. Not connecting/reconnecting
+            // 5. NOT switching tutors (mic stays locked during handoff)
             // 
             // ALSO unlock if there's an error but connection is ready (recoverable state)
             // This handles cases like empty transcript where user should try again
             streamingVoice.state.connectionState === 'ready' &&
+            !streamingVoice.state.isSwitchingTutor &&  // Mic locked during tutor handoff
             (
               // Normal case: not processing and not speaking
               (!isProcessing && !streamingVoice.state.isProcessing && avatarState !== 'speaking') ||
