@@ -399,7 +399,7 @@ export function ImmersiveTutor({
                 }
               }}
               disabled={isProcessing || isConnecting || isPlaying}
-              className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none ${isMicPreparing ? 'animate-pulse' : ''} ${isPlaying ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none focus-visible:ring-0 focus-visible:ring-offset-0 ${isMicPreparing ? 'animate-pulse' : ''} ${isPlaying ? 'opacity-50 cursor-not-allowed' : ''}`}
               style={{ touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
               data-testid={isRecording ? "button-stop-recording" : isMicPreparing ? "button-preparing" : "button-start-recording"}
               aria-pressed={isRecording || isMicPreparing}

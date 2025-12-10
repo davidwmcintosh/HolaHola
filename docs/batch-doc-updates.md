@@ -13,8 +13,14 @@ Staging area for documentation changes to be consolidated later.
 - **Implementation**: Added `isPlaying` to disabled condition on PTT button
 - **Visual Feedback**: 
   - Button shows 50% opacity when locked out
-  - Instruction text changes to "Wait your turn..."
+  - Instruction text changes to "Please wait..."
 - **Philosophy**: "So nobody can be rude and interrupt her" - clear turn boundaries
+- **File**: `client/src/components/ImmersiveTutor.tsx`
+
+#### PTT Button Focus Ring Fix
+- **Issue**: Black square/outline appearing when pressing mic button after unlock
+- **Cause**: Browser focus ring from Button component's `focus-visible:ring-1`
+- **Fix**: Added `focus-visible:ring-0 focus-visible:ring-offset-0` to PTT button
 - **File**: `client/src/components/ImmersiveTutor.tsx`
 
 #### Open Mic Toggle - Developer-Only (For Now)
