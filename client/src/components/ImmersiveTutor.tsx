@@ -231,8 +231,11 @@ export function ImmersiveTutor({
 
       {/* Floating Microphone Button - compact layout with safe bottom padding */}
       <div className="flex-shrink-0 pt-2 pb-16 flex flex-col items-center gap-2">
-        {/* Input Mode Toggle */}
-        {setInputMode && (
+        {/* Input Mode Toggle - HIDDEN per user request */}
+        {/* Push-to-talk works better for clear turn-taking */}
+        {/* Open mic leads to interruptions and overlapping speech */}
+        {/* Keeping code commented for potential future use */}
+        {/* {setInputMode && (
           <div className="flex items-center gap-2 mb-1">
             <Button
               variant="outline"
@@ -255,7 +258,7 @@ export function ImmersiveTutor({
               Open Mic
             </Button>
           </div>
-        )}
+        )} */}
         
         {/* Instruction text */}
         <p className="text-xs text-muted-foreground" data-testid="text-mic-instruction">
@@ -279,7 +282,9 @@ export function ImmersiveTutor({
                   ? "Preparing mic..." 
                   : isProcessing 
                     ? "Processing..." 
-                    : "Hold to speak"
+                    : isPlaying
+                      ? "Wait your turn..."  // Locked out while Daniela speaks
+                      : "Hold to speak"
           }
         </p>
         
@@ -394,8 +399,8 @@ export function ImmersiveTutor({
                   onRecordingStop();
                 }
               }}
-              disabled={isProcessing || isConnecting}
-              className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none ${isMicPreparing ? 'animate-pulse' : ''}`}
+              disabled={isProcessing || isConnecting || isPlaying}
+              className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none ${isMicPreparing ? 'animate-pulse' : ''} ${isPlaying ? 'opacity-50 cursor-not-allowed' : ''}`}
               style={{ touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
               data-testid={isRecording ? "button-stop-recording" : isMicPreparing ? "button-preparing" : "button-start-recording"}
               aria-pressed={isRecording || isMicPreparing}
@@ -411,7 +416,7 @@ export function ImmersiveTutor({
             </Button>
           )}
           <span className="text-[10px] text-muted-foreground">
-            {inputMode === 'open-mic' ? 'Tap to toggle' : 'Hold or ENTER'}
+            Hold to speak
           </span>
         </div>
 
