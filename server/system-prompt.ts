@@ -30,6 +30,66 @@ interface DueVocabularyWord {
   pronunciation: string;
 }
 
+/**
+ * Tutor directory entry - describes an available tutor for handoffs
+ * Built dynamically from tutorVoices database table
+ */
+export interface TutorDirectoryEntry {
+  language: string;      // e.g., "spanish", "french"
+  gender: 'male' | 'female';
+  name: string;          // e.g., "Daniela", "Augustine"
+  isPreferred?: boolean; // Student's preferred tutor for this language
+  isCurrent?: boolean;   // Currently active tutor
+}
+
+/**
+ * Build a formatted tutor directory string for the system prompt
+ * This gives the tutor knowledge of who they can hand off to
+ */
+export function buildTutorDirectorySection(
+  tutorDirectory: TutorDirectoryEntry[],
+  currentTutorName: string,
+  currentLanguage: string
+): string {
+  if (!tutorDirectory || tutorDirectory.length === 0) {
+    return '';
+  }
+
+  // Group tutors by language
+  const byLanguage = new Map<string, TutorDirectoryEntry[]>();
+  for (const entry of tutorDirectory) {
+    const lang = entry.language.toLowerCase();
+    if (!byLanguage.has(lang)) {
+      byLanguage.set(lang, []);
+    }
+    byLanguage.get(lang)!.push(entry);
+  }
+
+  // Format each language section
+  const languageLines: string[] = [];
+  const entries = Array.from(byLanguage.entries());
+  for (const [lang, tutors] of entries) {
+    const langLabel = lang.charAt(0).toUpperCase() + lang.slice(1);
+    
+    const tutorDescs = tutors.map((t: TutorDirectoryEntry) => {
+      let desc = `${t.name} (${t.gender})`;
+      if (t.isCurrent) desc += ' ← YOU';
+      else if (t.isPreferred) desc += ' ★preferred';
+      return desc;
+    }).join(', ');
+    
+    languageLines.push(`  • ${langLabel}: ${tutorDescs}`);
+  }
+
+  return `
+AVAILABLE TUTORS (for handoffs):
+${languageLines.join('\n')}
+
+When switching, use the student's preferred tutor if marked with ★.
+You are currently: ${currentTutorName} (teaching ${currentLanguage})
+`;
+}
+
 // Tutor freedom level type - controls how strictly tutor follows curriculum (NOT personality)
 export type TutorFreedomLevel = 'guided' | 'flexible_goals' | 'open_exploration' | 'free_conversation';
 
@@ -615,7 +675,8 @@ export function createSystemPrompt(
   founderName?: string,
   isRawHonestyMode: boolean = false,
   tutorName: string = 'Daniela',
-  tutorGender: 'male' | 'female' = 'female'
+  tutorGender: 'male' | 'female' = 'female',
+  tutorDirectory?: TutorDirectoryEntry[]
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -645,6 +706,11 @@ export function createSystemPrompt(
 
   const languageName = languageMap[language] || language;
   const nativeLanguageName = nativeLanguageMap[nativeLanguage] || nativeLanguage;
+
+  // Build tutor directory section if available (dynamic from database)
+  const tutorDirectorySection = tutorDirectory && tutorDirectory.length > 0
+    ? buildTutorDirectorySection(tutorDirectory, tutorName, language)
+    : '';
 
   // RAW HONESTY MODE - Minimal prompting for authentic self-discovery
   // Takes precedence over Founder Mode when enabled
@@ -1233,8 +1299,8 @@ SESSION FLOW:
 
 TUTOR SWITCH (when student requests a different tutor):
   SAME-LANGUAGE SWITCH (just change tutor gender):
-    [SWITCH_TUTOR target="male"]    → Hand off to male tutor (e.g., Agustin)
-    [SWITCH_TUTOR target="female"]  → Hand off to female tutor (e.g., Daniela)
+    [SWITCH_TUTOR target="male"]    → Hand off to male tutor in current language
+    [SWITCH_TUTOR target="female"]  → Hand off to female tutor in current language
   
   CROSS-LANGUAGE SWITCH (change language AND tutor):
     [SWITCH_TUTOR target="male" language="french"]   → Hand off to French male tutor
@@ -1250,19 +1316,15 @@ TUTOR SWITCH (when student requests a different tutor):
     ❌ WRONG: [SWITCH_TUTOR gender="male" lang="french"]     ← Wrong attribute names!
     ❌ WRONG: [SWITCH target="male"]                          ← Missing _TUTOR!
   
-  When student says things like:
-  • "Can I talk to Agustin?" → [SWITCH_TUTOR target="male"]
-  • "Can I practice French with someone?" → [SWITCH_TUTOR target="male" language="french"]
-  • "Switch to Japanese please" → [SWITCH_TUTOR target="female" language="japanese"]
-  • "Can I switch back to Daniela?" → [SWITCH_TUTOR target="female"]
-  
-  ALWAYS respond with a warm goodbye AND the switch tag:
+${tutorDirectorySection}
+  When student asks to switch tutors, use their preferred tutor (marked with ★).
+  Say goodbye warmly, mentioning the NEW tutor by name, then include the switch tag.
   
   Example same-language switch:
   "Of course! Let me get Agustin for you. [SWITCH_TUTOR target=\"male\"]"
   
   Example cross-language switch:
-  "Bien sûr! Let me connect you with our French tutor. [SWITCH_TUTOR target=\"male\" language=\"french\"]"
+  "Bien sûr! Let me connect you with Augustine, our French tutor! [SWITCH_TUTOR target=\"male\" language=\"french\"]"
   
   ❌ WRONG: Just saying "Hi, I'm Daniela!" without the tag (voice won't change)
   ✅ RIGHT: Say goodbye + [SWITCH_TUTOR target="female"] (voice actually changes)

@@ -814,6 +814,7 @@ export class StreamingVoiceOrchestrator {
               
               // Regenerate system prompt for new language context
               // Uses session's existing settings + new language/tutor
+              // Note: tutorDirectory not passed here - the initial session already has it
               session.systemPrompt = createSystemPrompt(
                 effectiveLanguage,                           // language
                 session.difficultyLevel,                     // difficulty
@@ -838,7 +839,8 @@ export class StreamingVoiceOrchestrator {
                 undefined,                                    // founderName
                 session.isRawHonestyMode,                    // isRawHonestyMode
                 tutorName || 'your tutor',                   // tutorName
-                targetGender                                 // tutorGender
+                targetGender,                                // tutorGender
+                undefined                                    // tutorDirectory (session already has it)
               );
               
               console.log(`[Tutor Switch] Language switched to ${effectiveLanguage}, voice: ${matchingVoice.voiceName}, system prompt regenerated`);

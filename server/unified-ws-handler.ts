@@ -14,7 +14,7 @@ import { Server } from 'http';
 import type { IncomingMessage } from 'http';
 import { Duplex } from 'stream';
 import { storage } from './storage';
-import { createSystemPrompt, createStreamingVoicePrompt } from './system-prompt';
+import { createSystemPrompt, createStreamingVoicePrompt, TutorDirectoryEntry } from './system-prompt';
 import { parse as parseCookie } from 'cookie';
 import signature from 'cookie-signature';
 import {
@@ -484,6 +484,7 @@ Reference past discussions when relevant, but don't force it.
           const effectiveLanguage = config.targetLanguage?.toLowerCase() || 'spanish';
           let voiceId: string | undefined;
           let tutorNameForPrompt = tutorGenderForPrompt === 'male' ? 'Agustin' : 'Daniela'; // Default fallback
+          let tutorDirectory: TutorDirectoryEntry[] = [];
           
           try {
             const allVoices = await storage.getAllTutorVoices();
@@ -502,6 +503,33 @@ Reference past discussions when relevant, but don't force it.
                 console.log(`[Streaming Voice] Using language-specific tutor: ${tutorNameForPrompt} (${effectiveLanguage})`);
               }
             }
+            
+            // Build dynamic tutor directory from all active voices
+            // This gives Daniela knowledge of who she can hand off to by name
+            tutorDirectory = allVoices
+              .filter((v: any) => v.isActive && v.voiceName)
+              .map((v: any) => {
+                const voiceNameParts = v.voiceName?.split(/\s*[-–]\s*/) || [];
+                const tutorName = voiceNameParts[0]?.trim() || 'Tutor';
+                const lang = v.language?.toLowerCase() || 'spanish';
+                const gender = (v.gender?.toLowerCase() || 'female') as 'male' | 'female';
+                
+                // Mark current tutor and student's preferred tutor per language
+                const isCurrent = lang === effectiveLanguage && gender === tutorGenderForPrompt;
+                // Student's preference: use their selected gender for their target language
+                const isPreferred = lang === (user?.targetLanguage?.toLowerCase() || effectiveLanguage) &&
+                                   gender === (user?.tutorGender || 'female');
+                
+                return {
+                  language: lang,
+                  gender,
+                  name: tutorName,
+                  isCurrent,
+                  isPreferred: !isCurrent && isPreferred,
+                };
+              });
+              
+            console.log(`[Streaming Voice] Built tutor directory with ${tutorDirectory.length} tutors`);
           } catch (err: any) {
             console.warn(`[Streaming Voice] Voice config error: ${err.message}`);
           }
@@ -530,7 +558,8 @@ Reference past discussions when relevant, but don't force it.
             user.firstName || undefined, // Founder name for personalization
             isRawHonestyMode, // Raw Honesty Mode - minimal prompting
             tutorNameForPrompt, // Tutor name (Daniela or Agustin)
-            tutorGenderForPrompt // Tutor gender for grammatical agreement
+            tutorGenderForPrompt, // Tutor gender for grammatical agreement
+            tutorDirectory // Dynamic tutor directory for handoffs
           );
 
           // Add founder memory context if in Founder Mode
