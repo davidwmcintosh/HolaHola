@@ -37,6 +37,23 @@ When Open Mic is production-ready, change:
 {setInputMode && (
 ```
 
+#### Voice Session Reports (Command Center)
+- **New Tab**: "Reports" tab in Command Center for admin/developer users
+- **API Endpoint**: `GET /api/admin/reports/voice-sessions`
+- **Features**:
+  - Session-by-session breakdown with user, duration, character counts
+  - Aggregate statistics (total sessions, duration, TTS chars, STT seconds, exchanges)
+  - Estimated API cost breakdown (TTS/Cartesia, STT/Deepgram, LLM/Gemini)
+  - Date range filters, result limit, exclude test sessions toggle
+- **Data Sources**: `voiceSessions` table with user join
+- **Cost Estimates** (approximate):
+  - TTS: $0.015 per 1000 characters
+  - STT: $0.0043 per minute
+  - LLM: ~$0.0005 per exchange
+- **Files**:
+  - `server/routes.ts` - Added `/api/admin/reports/voice-sessions` endpoint
+  - `client/src/pages/admin/CommandCenter.tsx` - Added ReportsTab component
+
 ---
 
 ### Session 14: Open Mic Fixes & Email Provider (Dec 9, 2025)

@@ -8641,6 +8641,168 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // ===== Voice Session Reports (Admin/Developer) =====
+  
+  // Get voice session reports with cost estimates
+  app.get("/api/admin/reports/voice-sessions", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { startDate, endDate, userId, classId, limit = '100', offset = '0', excludeTest = 'true' } = req.query;
+      
+      // Build query conditions
+      const conditions: any[] = [];
+      
+      // Exclude test sessions by default
+      if (excludeTest === 'true') {
+        conditions.push(eq(voiceSessions.isTestSession, false));
+      }
+      
+      // Date range filter
+      if (startDate) {
+        conditions.push(gte(voiceSessions.startedAt, new Date(startDate as string)));
+      }
+      if (endDate) {
+        const endDateObj = new Date(endDate as string);
+        endDateObj.setHours(23, 59, 59, 999);
+        conditions.push(sql`${voiceSessions.startedAt} <= ${endDateObj}`);
+      }
+      
+      // User filter
+      if (userId) {
+        conditions.push(eq(voiceSessions.userId, userId as string));
+      }
+      
+      // Class filter
+      if (classId) {
+        conditions.push(eq(voiceSessions.classId, classId as string));
+      }
+      
+      // Get sessions with user info
+      const sessionsQuery = db.select({
+        id: voiceSessions.id,
+        userId: voiceSessions.userId,
+        startedAt: voiceSessions.startedAt,
+        endedAt: voiceSessions.endedAt,
+        durationSeconds: voiceSessions.durationSeconds,
+        exchangeCount: voiceSessions.exchangeCount,
+        studentSpeakingSeconds: voiceSessions.studentSpeakingSeconds,
+        tutorSpeakingSeconds: voiceSessions.tutorSpeakingSeconds,
+        ttsCharacters: voiceSessions.ttsCharacters,
+        sttSeconds: voiceSessions.sttSeconds,
+        language: voiceSessions.language,
+        status: voiceSessions.status,
+        classId: voiceSessions.classId,
+        isTestSession: voiceSessions.isTestSession,
+        userName: users.firstName,
+        userEmail: users.email,
+      })
+        .from(voiceSessions)
+        .leftJoin(users, eq(voiceSessions.userId, users.id))
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(voiceSessions.startedAt))
+        .limit(parseInt(limit as string))
+        .offset(parseInt(offset as string));
+      
+      const sessions = await sessionsQuery;
+      
+      // Get aggregate statistics
+      const aggregateQuery = db.select({
+        totalSessions: sql<number>`COUNT(*)`,
+        totalDurationSeconds: sql<number>`COALESCE(SUM(${voiceSessions.durationSeconds}), 0)`,
+        totalTtsCharacters: sql<number>`COALESCE(SUM(${voiceSessions.ttsCharacters}), 0)`,
+        totalSttSeconds: sql<number>`COALESCE(SUM(${voiceSessions.sttSeconds}), 0)`,
+        totalExchanges: sql<number>`COALESCE(SUM(${voiceSessions.exchangeCount}), 0)`,
+        totalStudentSpeakingSeconds: sql<number>`COALESCE(SUM(${voiceSessions.studentSpeakingSeconds}), 0)`,
+        totalTutorSpeakingSeconds: sql<number>`COALESCE(SUM(${voiceSessions.tutorSpeakingSeconds}), 0)`,
+        avgDurationSeconds: sql<number>`COALESCE(AVG(${voiceSessions.durationSeconds}), 0)`,
+        avgTtsCharacters: sql<number>`COALESCE(AVG(${voiceSessions.ttsCharacters}), 0)`,
+        avgSttSeconds: sql<number>`COALESCE(AVG(${voiceSessions.sttSeconds}), 0)`,
+        avgExchanges: sql<number>`COALESCE(AVG(${voiceSessions.exchangeCount}), 0)`,
+      })
+        .from(voiceSessions)
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
+      
+      const [aggregates] = await aggregateQuery;
+      
+      // Cost estimates (approximate pricing)
+      // Cartesia TTS: ~$0.015 per 1000 characters
+      // Deepgram STT: ~$0.0043 per minute
+      // Gemini Flash: ~$0.075 per 1M input tokens, ~$0.30 per 1M output tokens
+      const TTS_COST_PER_CHAR = 0.000015; // $0.015 / 1000
+      const STT_COST_PER_SECOND = 0.0043 / 60; // $0.0043 per minute
+      const GEMINI_COST_ESTIMATE_PER_EXCHANGE = 0.0005; // ~500 tokens avg per exchange
+      
+      const totalTtsChars = Number(aggregates.totalTtsCharacters) || 0;
+      const totalSttSecs = Number(aggregates.totalSttSeconds) || 0;
+      const totalExchanges = Number(aggregates.totalExchanges) || 0;
+      
+      const estimatedCosts = {
+        tts: totalTtsChars * TTS_COST_PER_CHAR,
+        stt: totalSttSecs * STT_COST_PER_SECOND,
+        llm: totalExchanges * GEMINI_COST_ESTIMATE_PER_EXCHANGE,
+        total: (totalTtsChars * TTS_COST_PER_CHAR) + 
+               (totalSttSecs * STT_COST_PER_SECOND) + 
+               (totalExchanges * GEMINI_COST_ESTIMATE_PER_EXCHANGE),
+      };
+      
+      // Format sessions with cost estimates per session
+      const formattedSessions = sessions.map(s => {
+        const ttsChars = s.ttsCharacters || 0;
+        const sttSecs = s.sttSeconds || 0;
+        const exchanges = s.exchangeCount || 0;
+        
+        return {
+          ...s,
+          estimatedCost: {
+            tts: ttsChars * TTS_COST_PER_CHAR,
+            stt: sttSecs * STT_COST_PER_SECOND,
+            llm: exchanges * GEMINI_COST_ESTIMATE_PER_EXCHANGE,
+            total: (ttsChars * TTS_COST_PER_CHAR) + 
+                   (sttSecs * STT_COST_PER_SECOND) + 
+                   (exchanges * GEMINI_COST_ESTIMATE_PER_EXCHANGE),
+          }
+        };
+      });
+      
+      res.json({
+        sessions: formattedSessions,
+        aggregates: {
+          totalSessions: Number(aggregates.totalSessions) || 0,
+          totalDurationSeconds: Number(aggregates.totalDurationSeconds) || 0,
+          totalDurationMinutes: Math.round((Number(aggregates.totalDurationSeconds) || 0) / 60),
+          totalDurationHours: Math.round((Number(aggregates.totalDurationSeconds) || 0) / 3600 * 10) / 10,
+          totalTtsCharacters: totalTtsChars,
+          totalSttSeconds: totalSttSecs,
+          totalSttMinutes: Math.round(totalSttSecs / 60 * 10) / 10,
+          totalExchanges: totalExchanges,
+          totalStudentSpeakingSeconds: Number(aggregates.totalStudentSpeakingSeconds) || 0,
+          totalTutorSpeakingSeconds: Number(aggregates.totalTutorSpeakingSeconds) || 0,
+          avgDurationSeconds: Math.round(Number(aggregates.avgDurationSeconds) || 0),
+          avgTtsCharacters: Math.round(Number(aggregates.avgTtsCharacters) || 0),
+          avgSttSeconds: Math.round(Number(aggregates.avgSttSeconds) || 0),
+          avgExchanges: Math.round((Number(aggregates.avgExchanges) || 0) * 10) / 10,
+        },
+        estimatedCosts: {
+          tts: Math.round(estimatedCosts.tts * 100) / 100,
+          stt: Math.round(estimatedCosts.stt * 100) / 100,
+          llm: Math.round(estimatedCosts.llm * 100) / 100,
+          total: Math.round(estimatedCosts.total * 100) / 100,
+        },
+        filters: {
+          startDate: startDate || null,
+          endDate: endDate || null,
+          userId: userId || null,
+          classId: classId || null,
+          excludeTest: excludeTest === 'true',
+          limit: parseInt(limit as string),
+          offset: parseInt(offset as string),
+        }
+      });
+    } catch (error: any) {
+      console.error('Error fetching voice session reports:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // ===== Class Management (Platform-wide) =====
   
   // Get all classes (admin/developer only)

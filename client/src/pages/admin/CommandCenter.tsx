@@ -128,6 +128,7 @@ export default function CommandCenter() {
     { id: "users", label: "Users", icon: Users, roles: ['admin'] },
     { id: "classes", label: "Classes", icon: GraduationCap, roles: ['admin', 'developer'] },
     { id: "analytics", label: "Analytics", icon: BarChart3, roles: ['admin', 'developer'] },
+    { id: "reports", label: "Reports", icon: DollarSign, roles: ['admin', 'developer'] },
     { id: "images", label: "Images", icon: Image, roles: ['admin', 'developer'] },
     { id: "voice-lab", label: "Voice Lab", icon: Volume2, roles: ['admin', 'developer'] },
     { id: "neural-network", label: "Neural Network", icon: Zap, roles: ['developer', 'admin'] },
@@ -200,6 +201,10 @@ export default function CommandCenter() {
 
           <TabsContent value="analytics" className="space-y-4">
             <AnalyticsTab />
+          </TabsContent>
+
+          <TabsContent value="reports" className="space-y-4">
+            <ReportsTab />
           </TabsContent>
 
           <TabsContent value="images" className="space-y-4">
@@ -3007,6 +3012,371 @@ function AuditTab() {
           </div>
         )}
       </CollapsibleSection>
+    </div>
+  );
+}
+
+// ===== Reports Tab =====
+interface VoiceSessionReport {
+  id: string;
+  userId: string;
+  startedAt: string;
+  endedAt: string | null;
+  durationSeconds: number | null;
+  exchangeCount: number | null;
+  studentSpeakingSeconds: number | null;
+  tutorSpeakingSeconds: number | null;
+  ttsCharacters: number | null;
+  sttSeconds: number | null;
+  language: string | null;
+  status: string | null;
+  classId: string | null;
+  isTestSession: boolean | null;
+  userName: string | null;
+  userEmail: string | null;
+  estimatedCost: {
+    tts: number;
+    stt: number;
+    llm: number;
+    total: number;
+  };
+}
+
+interface ReportsData {
+  sessions: VoiceSessionReport[];
+  aggregates: {
+    totalSessions: number;
+    totalDurationSeconds: number;
+    totalDurationMinutes: number;
+    totalDurationHours: number;
+    totalTtsCharacters: number;
+    totalSttSeconds: number;
+    totalSttMinutes: number;
+    totalExchanges: number;
+    totalStudentSpeakingSeconds: number;
+    totalTutorSpeakingSeconds: number;
+    avgDurationSeconds: number;
+    avgTtsCharacters: number;
+    avgSttSeconds: number;
+    avgExchanges: number;
+  };
+  estimatedCosts: {
+    tts: number;
+    stt: number;
+    llm: number;
+    total: number;
+  };
+  filters: {
+    startDate: string | null;
+    endDate: string | null;
+    userId: string | null;
+    classId: string | null;
+    excludeTest: boolean;
+    limit: number;
+    offset: number;
+  };
+}
+
+function ReportsTab() {
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [excludeTest, setExcludeTest] = useState(true);
+  const [limit, setLimit] = useState(50);
+  
+  // Build query URL with params
+  const buildQueryUrl = () => {
+    const params = new URLSearchParams();
+    if (startDate) params.set("startDate", startDate);
+    if (endDate) params.set("endDate", endDate);
+    params.set("excludeTest", excludeTest.toString());
+    params.set("limit", limit.toString());
+    return `/api/admin/reports/voice-sessions?${params.toString()}`;
+  };
+  
+  const queryUrl = buildQueryUrl();
+  
+  const { data: reports, isLoading, refetch } = useQuery<ReportsData>({
+    queryKey: [queryUrl],
+  });
+  
+  const formatDuration = (seconds: number | null) => {
+    if (!seconds) return "0s";
+    if (seconds < 60) return `${seconds}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins < 60) return `${mins}m ${secs}s`;
+    const hrs = Math.floor(mins / 60);
+    const remainMins = mins % 60;
+    return `${hrs}h ${remainMins}m`;
+  };
+  
+  const formatCurrency = (amount: number) => {
+    return `$${amount.toFixed(2)}`;
+  };
+  
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toString();
+  };
+  
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <DollarSign className="h-6 w-6" />
+            Voice Session Reports
+          </h2>
+          <p className="text-muted-foreground">
+            Timing, character counts, and cost estimates for voice tutoring sessions
+          </p>
+        </div>
+        <Button onClick={() => refetch()} variant="outline" size="sm" data-testid="button-refresh-reports">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
+      </div>
+      
+      {/* Filters */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Search className="h-4 w-4" />
+            Filters
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-4 items-end">
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Start Date</label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-40"
+                data-testid="input-start-date"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">End Date</label>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-40"
+                data-testid="input-end-date"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Results</label>
+              <Select value={limit.toString()} onValueChange={(v) => setLimit(parseInt(v))}>
+                <SelectTrigger className="w-24" data-testid="select-limit">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                  <SelectItem value="250">250</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={excludeTest}
+                onCheckedChange={setExcludeTest}
+                data-testid="switch-exclude-test"
+              />
+              <label className="text-sm">Exclude test sessions</label>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setStartDate("");
+                setEndDate("");
+                setExcludeTest(true);
+                setLimit(50);
+              }}
+              data-testid="button-clear-filters"
+            >
+              <RotateCcw className="h-4 w-4 mr-1" />
+              Clear
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {isLoading ? (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-24" />)}
+          </div>
+          <Skeleton className="h-96" />
+        </div>
+      ) : reports ? (
+        <>
+          {/* Aggregate Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="pt-4">
+                <div className="text-2xl font-bold">{reports.aggregates.totalSessions}</div>
+                <div className="text-sm text-muted-foreground">Total Sessions</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <div className="text-2xl font-bold">{reports.aggregates.totalDurationHours}h</div>
+                <div className="text-sm text-muted-foreground">Total Duration</div>
+                <div className="text-xs text-muted-foreground">{reports.aggregates.totalDurationMinutes} minutes</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <div className="text-2xl font-bold">{formatNumber(reports.aggregates.totalTtsCharacters)}</div>
+                <div className="text-sm text-muted-foreground">TTS Characters</div>
+                <div className="text-xs text-muted-foreground">avg: {formatNumber(reports.aggregates.avgTtsCharacters)}/session</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <div className="text-2xl font-bold">{reports.aggregates.totalSttMinutes}m</div>
+                <div className="text-sm text-muted-foreground">STT Processing</div>
+                <div className="text-xs text-muted-foreground">{reports.aggregates.totalSttSeconds} seconds</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <div className="text-2xl font-bold">{reports.aggregates.totalExchanges}</div>
+                <div className="text-sm text-muted-foreground">Total Exchanges</div>
+                <div className="text-xs text-muted-foreground">avg: {reports.aggregates.avgExchanges}/session</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <div className="text-2xl font-bold">{formatDuration(reports.aggregates.avgDurationSeconds)}</div>
+                <div className="text-sm text-muted-foreground">Avg Session</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <div className="text-2xl font-bold">{formatDuration(reports.aggregates.totalStudentSpeakingSeconds)}</div>
+                <div className="text-sm text-muted-foreground">Student Speaking</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <div className="text-2xl font-bold">{formatDuration(reports.aggregates.totalTutorSpeakingSeconds)}</div>
+                <div className="text-sm text-muted-foreground">Tutor Speaking</div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* Estimated Costs Card */}
+          <Card className="border-primary/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-primary" />
+                Estimated API Costs
+              </CardTitle>
+              <CardDescription>
+                Based on approximate pricing: TTS $0.015/1K chars, STT $0.0043/min, LLM ~$0.0005/exchange
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <div className="text-lg font-semibold text-primary">{formatCurrency(reports.estimatedCosts.tts)}</div>
+                  <div className="text-sm text-muted-foreground">TTS (Cartesia)</div>
+                </div>
+                <div>
+                  <div className="text-lg font-semibold text-primary">{formatCurrency(reports.estimatedCosts.stt)}</div>
+                  <div className="text-sm text-muted-foreground">STT (Deepgram)</div>
+                </div>
+                <div>
+                  <div className="text-lg font-semibold text-primary">{formatCurrency(reports.estimatedCosts.llm)}</div>
+                  <div className="text-sm text-muted-foreground">LLM (Gemini)</div>
+                </div>
+                <div>
+                  <div className="text-xl font-bold text-primary">{formatCurrency(reports.estimatedCosts.total)}</div>
+                  <div className="text-sm font-medium">Total Estimated</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* Sessions Table */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Session Details</CardTitle>
+              <CardDescription>
+                Showing {reports.sessions.length} of {reports.aggregates.totalSessions} sessions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-2 font-medium">User</th>
+                      <th className="text-left py-2 px-2 font-medium">Date</th>
+                      <th className="text-left py-2 px-2 font-medium">Duration</th>
+                      <th className="text-right py-2 px-2 font-medium">Exchanges</th>
+                      <th className="text-right py-2 px-2 font-medium">TTS Chars</th>
+                      <th className="text-right py-2 px-2 font-medium">STT Secs</th>
+                      <th className="text-right py-2 px-2 font-medium">Est. Cost</th>
+                      <th className="text-left py-2 px-2 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reports.sessions.map((session) => (
+                      <tr key={session.id} className="border-b hover:bg-muted/50" data-testid={`row-session-${session.id}`}>
+                        <td className="py-2 px-2">
+                          <div className="font-medium">{session.userName || "Unknown"}</div>
+                          <div className="text-xs text-muted-foreground">{session.userEmail}</div>
+                        </td>
+                        <td className="py-2 px-2 text-muted-foreground">
+                          {new Date(session.startedAt).toLocaleDateString()}{" "}
+                          <span className="text-xs">{new Date(session.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </td>
+                        <td className="py-2 px-2">{formatDuration(session.durationSeconds)}</td>
+                        <td className="py-2 px-2 text-right">{session.exchangeCount || 0}</td>
+                        <td className="py-2 px-2 text-right">{formatNumber(session.ttsCharacters || 0)}</td>
+                        <td className="py-2 px-2 text-right">{session.sttSeconds || 0}</td>
+                        <td className="py-2 px-2 text-right font-medium text-primary">
+                          {formatCurrency(session.estimatedCost.total)}
+                        </td>
+                        <td className="py-2 px-2">
+                          <Badge variant={session.status === 'completed' ? 'default' : session.status === 'error' ? 'destructive' : 'secondary'}>
+                            {session.status || 'unknown'}
+                          </Badge>
+                          {session.isTestSession && (
+                            <Badge variant="outline" className="ml-1">test</Badge>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {reports.sessions.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  No sessions found matching the filters
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            Failed to load reports data
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
