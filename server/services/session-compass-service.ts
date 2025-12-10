@@ -20,6 +20,7 @@ import {
   users,
   classEnrollments,
   teacherClasses,
+  messages,
   type TutorSession,
   type TutorSessionTopic,
   type TutorParkingItem,
@@ -31,6 +32,12 @@ import {
   type TutorFreedomLevel,
 } from "@shared/schema";
 import { usageService } from "./usage-service";
+import { GoogleGenAI } from "@google/genai";
+
+// Initialize Gemini for summary generation
+const gemini = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY || "",
+});
 
 // Feature flag for gradual rollout
 export const COMPASS_ENABLED = process.env.COMPASS_ENABLED === 'true';
@@ -553,6 +560,71 @@ export class SessionCompassService {
       }
     } catch (error) {
       console.error('[Compass] Failed to resolve parking item:', error);
+    }
+  }
+
+  /**
+   * Generate a session summary using Gemini
+   * Creates a brief, memorable summary for the next session's context
+   */
+  async generateSessionSummary(conversationId: string): Promise<string | null> {
+    try {
+      // Get conversation messages
+      const conversationMessages = await db
+        .select()
+        .from(messages)
+        .where(eq(messages.conversationId, conversationId))
+        .orderBy(messages.createdAt);
+      
+      if (conversationMessages.length < 2) {
+        return null; // Too short to summarize
+      }
+      
+      // Get conversation details for context
+      const [conversation] = await db
+        .select()
+        .from(conversations)
+        .where(eq(conversations.id, conversationId))
+        .limit(1);
+      
+      // Build conversation transcript (last 20 messages max)
+      const recentMessages = conversationMessages.slice(-20);
+      const transcript = recentMessages
+        .map(m => `${m.role === 'user' ? 'Student' : 'Tutor'}: ${m.content}`)
+        .join('\n');
+      
+      const prompt = `You are summarizing a language tutoring session for the tutor's memory.
+Create a brief, personal summary (2-3 sentences) that captures:
+- What topics or vocabulary were practiced
+- Any notable moments, struggles, or breakthroughs
+- The emotional tone of the session
+- Any interests or goals the student mentioned
+
+Write in second person as if reminding the tutor: "You worked on..." or "The student..."
+Keep it warm and conversational, not clinical.
+
+Language being learned: ${conversation?.language || 'Spanish'}
+
+Session transcript:
+${transcript}
+
+Summary (2-3 sentences):`;
+
+      const response = await gemini.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: prompt,
+      });
+      
+      const summary = response.text?.trim();
+      if (summary && summary.length > 10) {
+        console.log(`[Compass] Generated session summary: ${summary.substring(0, 80)}...`);
+        return summary;
+      }
+      
+      return null;
+    } catch (error: any) {
+      console.error('[Compass] Failed to generate session summary:', error.message);
+      return null;
     }
   }
 

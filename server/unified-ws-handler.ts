@@ -1054,7 +1054,10 @@ Reference past discussions when relevant, but don't force it.
                 ? Math.round((Date.now() - sessionStartTime) / 1000) 
                 : 0;
               await sessionCompassService.updateElapsedTime(conversationId, elapsedSeconds);
-              await sessionCompassService.endSession(conversationId);
+              
+              // Generate session summary for Daniela's memory
+              const sessionSummary = await sessionCompassService.generateSessionSummary(conversationId);
+              await sessionCompassService.endSession(conversationId, sessionSummary || undefined);
               console.log(`[Streaming Voice] Compass session ended: ${Math.round(elapsedSeconds / 60)}min`);
             } catch (compassErr: any) {
               console.warn('[Streaming Voice] Could not end Compass session:', compassErr.message);
@@ -1120,7 +1123,10 @@ Reference past discussions when relevant, but don't force it.
           ? Math.round((Date.now() - sessionStartTime) / 1000) 
           : 0;
         await sessionCompassService.updateElapsedTime(conversationId, elapsedSeconds);
-        await sessionCompassService.endSession(conversationId);
+        
+        // Generate session summary for Daniela's memory
+        const sessionSummary = await sessionCompassService.generateSessionSummary(conversationId);
+        await sessionCompassService.endSession(conversationId, sessionSummary || undefined);
         console.log(`[Streaming Voice] Compass session ended on disconnect: ${Math.round(elapsedSeconds / 60)}min`);
       } catch (compassErr: any) {
         console.warn('[Streaming Voice] Could not end Compass session on disconnect:', compassErr.message);
