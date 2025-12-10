@@ -1134,14 +1134,25 @@ export function StreamingVoiceChat({
       // Ignore key repeat events (holding Enter)
       if (event.repeat) return;
       
-      // Don't trigger if user is typing in an input/textarea/contenteditable
+      // Don't trigger if user is typing in any text input element
       const target = event.target as HTMLElement;
-      if (
-        target.tagName === 'INPUT' || 
-        target.tagName === 'TEXTAREA' || 
-        target.isContentEditable ||
-        target.closest('[contenteditable="true"]')
-      ) return;
+      const activeElement = document.activeElement as HTMLElement;
+      
+      // Check both target and activeElement for text input contexts
+      const isTextInput = (el: HTMLElement | null) => {
+        if (!el) return false;
+        const tagName = el.tagName?.toUpperCase();
+        return (
+          tagName === 'INPUT' || 
+          tagName === 'TEXTAREA' || 
+          el.isContentEditable ||
+          el.getAttribute('role') === 'textbox' ||
+          el.closest('[contenteditable="true"]') !== null ||
+          el.closest('input, textarea, [role="textbox"]') !== null
+        );
+      };
+      
+      if (isTextInput(target) || isTextInput(activeElement)) return;
       
       // Don't trigger if no conversation or processing
       if (!conversationId || isProcessing) return;
@@ -1161,14 +1172,25 @@ export function StreamingVoiceChat({
       // Only trigger if Enter is released
       if (event.code !== 'Enter') return;
       
-      // Don't trigger if user is typing in an input/textarea/contenteditable
+      // Don't trigger if user is typing in any text input element
       const target = event.target as HTMLElement;
-      if (
-        target.tagName === 'INPUT' || 
-        target.tagName === 'TEXTAREA' || 
-        target.isContentEditable ||
-        target.closest('[contenteditable="true"]')
-      ) return;
+      const activeElement = document.activeElement as HTMLElement;
+      
+      // Reuse the same text input check
+      const isTextInput = (el: HTMLElement | null) => {
+        if (!el) return false;
+        const tagName = el.tagName?.toUpperCase();
+        return (
+          tagName === 'INPUT' || 
+          tagName === 'TEXTAREA' || 
+          el.isContentEditable ||
+          el.getAttribute('role') === 'textbox' ||
+          el.closest('[contenteditable="true"]') !== null ||
+          el.closest('input, textarea, [role="textbox"]') !== null
+        );
+      };
+      
+      if (isTextInput(target) || isTextInput(activeElement)) return;
       
       // Stop recording on keyup (if recording)
       if (isRecording) {
