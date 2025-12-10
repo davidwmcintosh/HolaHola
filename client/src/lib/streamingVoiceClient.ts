@@ -125,6 +125,7 @@ type StreamingEventType =
   | 'feedback'
   | 'voiceUpdated'
   | 'whiteboardUpdate'   // Visual teaching aids from tutor
+  | 'tutorHandoff'       // Voice-initiated tutor switch
   | 'error';
 
 /**

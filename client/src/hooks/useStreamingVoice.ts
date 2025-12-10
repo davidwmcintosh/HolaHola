@@ -68,6 +68,8 @@ export interface StreamingSessionConfig {
   onInterimTranscript?: (transcript: string) => void;
   /** Called when open mic session closes (e.g., Deepgram timeout) */
   onOpenMicSessionClosed?: () => void;
+  /** Called when voice-initiated tutor handoff occurs (student asked to switch tutors) */
+  onTutorHandoff?: (targetGender: 'male' | 'female') => void;
 }
 
 /**
@@ -659,6 +661,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    */
   const handleTutorHandoff = useCallback((message: { type: string; targetGender: 'male' | 'female'; timestamp: number }) => {
     console.log(`[StreamingVoice] Tutor handoff received - switching to ${message.targetGender} tutor`);
+    
+    // Notify parent component to update UI state (avatar, buttons)
+    sessionConfigRef.current?.onTutorHandoff?.(message.targetGender);
     
     // Call updateVoice to complete the switch - this triggers the new tutor's intro
     if (clientRef.current?.isReady()) {

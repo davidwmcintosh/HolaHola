@@ -654,6 +654,11 @@ export function StreamingVoiceChat({
               console.log('[OPEN MIC] Server closed during Daniela speaking - will restart when done');
             }
           },
+          // Voice-initiated tutor switch - update UI state when student asks to switch tutors
+          onTutorHandoff: (targetGender) => {
+            console.log('[TUTOR HANDOFF] Switching to', targetGender, 'tutor');
+            setTutorGender(targetGender);
+          },
         });
         streamingConnectedRef.current = true;
         console.log('[STREAMING] Connected successfully');
@@ -1998,6 +2003,11 @@ export function StreamingVoiceChat({
                 if (!isAwaitingResponseRef.current) {
                   setOpenMicState('idle');
                 }
+              },
+              // Voice-initiated tutor switch - update UI state when student asks to switch tutors
+              onTutorHandoff: (targetGender) => {
+                console.log('[TUTOR HANDOFF] Switching to', targetGender, 'tutor (reconnect context)');
+                setTutorGender(targetGender);
               },
             });
             streamingConnectedRef.current = true;
