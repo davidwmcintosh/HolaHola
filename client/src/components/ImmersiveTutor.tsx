@@ -137,9 +137,9 @@ export function ImmersiveTutor({
       {setTutorGender && (
         <div className="absolute top-4 left-4 z-20 flex items-center gap-1 bg-background/80 backdrop-blur-sm rounded-full p-1 shadow-lg border">
           <Button
-            variant={tutorGender === "female" ? "default" : "ghost"}
+            variant="ghost"
             size="sm"
-            className="rounded-full px-3"
+            className={`rounded-full px-3 ${tutorGender === "female" ? "bg-blue-500 text-white hover:bg-blue-600" : ""}`}
             disabled={tutorGender === "female" || isPlaying || isProcessing}
             onClick={() => {
               if (voiceSwitchInProgressRef.current) return;
@@ -153,9 +153,9 @@ export function ImmersiveTutor({
             {femaleVoiceName || "Female"}
           </Button>
           <Button
-            variant={tutorGender === "male" ? "default" : "ghost"}
+            variant="ghost"
             size="sm"
-            className="rounded-full px-3"
+            className={`rounded-full px-3 ${tutorGender === "male" ? "bg-blue-500 text-white hover:bg-blue-600" : ""}`}
             disabled={tutorGender === "male" || isPlaying || isProcessing}
             onClick={() => {
               if (voiceSwitchInProgressRef.current) return;
