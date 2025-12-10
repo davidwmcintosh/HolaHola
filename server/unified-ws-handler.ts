@@ -330,7 +330,10 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             // Self-directed learning: derive difficulty from ACTFL assessment, not user self-selection
             // Also use per-language flexibility preferences
             try {
-              const conversationLanguage = config.targetLanguage?.toLowerCase() || conversation.language?.toLowerCase() || 'spanish';
+              // IMPORTANT: Trust conversation.language over client's config.targetLanguage
+              // This prevents stale localStorage on client from overriding the conversation's actual language
+              // (e.g., after tutor handoff + page reload, client may send wrong language)
+              const conversationLanguage = conversation.language?.toLowerCase() || config.targetLanguage?.toLowerCase() || 'spanish';
               const langPrefs = await storage.getLanguagePreferences(userId!, conversationLanguage);
               
               // Get ACTFL progress to derive difficulty organically
@@ -482,7 +485,16 @@ Reference past discussions when relevant, but don't force it.
           
           // Look up voice configuration FIRST to get language-specific tutor name
           const tutorGenderForPrompt = (config.tutorGender || user?.tutorGender || 'female') as 'male' | 'female';
-          const effectiveLanguage = config.targetLanguage?.toLowerCase() || 'spanish';
+          // IMPORTANT: Trust conversation.language over client's config.targetLanguage
+          // This prevents stale localStorage on client from overriding the conversation's actual language
+          // (e.g., after tutor handoff + page reload, client may send wrong language)
+          const effectiveLanguage = conversation.language?.toLowerCase() || config.targetLanguage?.toLowerCase() || 'spanish';
+          
+          // Log a warning if client and conversation languages differ (helps debug sync issues)
+          if (config.targetLanguage && conversation.language && 
+              config.targetLanguage.toLowerCase() !== conversation.language.toLowerCase()) {
+            console.warn(`[Streaming Voice] Language mismatch: client sent "${config.targetLanguage}" but conversation is "${conversation.language}" - using conversation language`);
+          }
           let voiceId: string | undefined;
           let tutorNameForPrompt = tutorGenderForPrompt === 'male' ? 'Agustin' : 'Daniela'; // Default fallback
           let tutorDirectory: TutorDirectoryEntry[] = [];
