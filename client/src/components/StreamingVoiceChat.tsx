@@ -708,12 +708,32 @@ export function StreamingVoiceChat({
         setProcessingStage(null);
       }
       
-      // OPEN MIC: Show green light NOW that Daniela finished speaking
+      // OPEN MIC: Restart session and show green light when Daniela finishes speaking
       // This is the reliable place to know audio playback is complete
-      if (inputModeRef.current === 'open-mic' && isRecordingRef.current && !isAwaitingResponseRef.current) {
-        console.log('[OPEN MIC] Daniela finished speaking - showing green light NOW');
-        setOpenMicState('ready');
-        setAvatarState('listening');
+      if (inputModeRef.current === 'open-mic') {
+        console.log('[OPEN MIC] Playback finished - checking if restart needed');
+        // Clear awaiting flag when playback completes
+        isAwaitingResponseRef.current = false;
+        
+        // If session is active, just show green light
+        if (isRecordingRef.current && openMicActiveRef.current) {
+          console.log('[OPEN MIC] Session active - showing green light NOW');
+          setOpenMicState('ready');
+          setAvatarState('listening');
+        } else {
+          // Session was closed (e.g., during greeting) - restart it
+          console.log('[OPEN MIC] Session inactive (greeting ended) - restarting');
+          if (startOpenMicRecordingRef.current) {
+            startOpenMicRecordingRef.current().then(() => {
+              console.log('[OPEN MIC] Restarted after playback - showing green light');
+              setOpenMicState('ready');
+              setAvatarState('listening');
+            }).catch((err: any) => {
+              console.error('[OPEN MIC] Failed to restart after playback:', err);
+              setOpenMicState('idle');
+            });
+          }
+        }
       }
     }
     // Note: When streamProcessing is true but not playing yet, 
@@ -1736,14 +1756,17 @@ export function StreamingVoiceChat({
   };
   
   /**
-   * Toggle open mic recording on/off (for click behavior)
+   * Handle open mic button tap - only starts if not already active
+   * Once Open Mic is running, tapping does nothing (continuous listening)
    */
-  const toggleOpenMicRecording = () => {
+  const handleOpenMicTap = () => {
     if (openMicActiveRef.current) {
-      stopOpenMicRecording();
-    } else {
-      startOpenMicRecording();
+      // Already listening - ignore tap (no toggle behavior)
+      console.log('[OPEN MIC] Already active, ignoring tap (no toggle)');
+      return;
     }
+    // Not active - start recording
+    startOpenMicRecording();
   };
   
   // Assign functions to refs so callbacks can access them
@@ -2314,8 +2337,8 @@ export function StreamingVoiceChat({
         <VoiceChatViewManager
           conversationId={conversationId}
           messages={messages}
-          onRecordingStart={inputMode === 'open-mic' ? toggleOpenMicRecording : startPushToTalkRecording}
-          onRecordingStop={inputMode === 'open-mic' ? toggleOpenMicRecording : stopPushToTalkRecording}
+          onRecordingStart={inputMode === 'open-mic' ? handleOpenMicTap : startPushToTalkRecording}
+          onRecordingStop={inputMode === 'open-mic' ? () => {} : stopPushToTalkRecording}
           isRecording={isRecording}
           isMicPreparing={isMicPreparing}
           isProcessing={isProcessing}
