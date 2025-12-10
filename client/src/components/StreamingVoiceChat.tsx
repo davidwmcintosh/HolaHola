@@ -332,37 +332,38 @@ export function StreamingVoiceChat({
       // Show preparing state while we start
       setOpenMicState('idle');
       
-      // Poll until session is ready (connectionState === 'ready')
+      // Poll until session is ready (connectionState === 'ready' or 'processing')
       // This ensures we don't start Open Mic before the greeting is processed
+      let retryCount = 0;
+      const maxRetries = 25; // 5 seconds max wait
+      
       const checkAndStart = () => {
         const currentState = streamingVoice.state.connectionState;
-        console.log('[MODE SWITCH] Checking session state:', currentState);
+        console.log('[MODE SWITCH] Checking session state:', currentState, 'retry:', retryCount);
         
-        if (currentState === 'ready' && inputModeRef.current === 'open-mic') {
-          // Session is ready - now we can start Open Mic
+        // Session is ready or processing - good to start
+        if ((currentState === 'ready' || currentState === 'processing') && inputModeRef.current === 'open-mic') {
           console.log('[MODE SWITCH] Session ready - AUTO-STARTING open mic');
           if (startOpenMicRecordingRef.current) {
             startOpenMicRecordingRef.current().then(() => {
               console.log('[MODE SWITCH] Open mic auto-started successfully');
               // DON'T immediately show green light!
-              // The green light will appear when Daniela finishes speaking.
-              // This is handled by the onAudioComplete callback which sets:
-              // - avatarState to 'listening'
-              // - openMicState to 'ready' (if in open-mic mode and recording)
-              // For now, just leave openMicState as 'idle' - the audio complete handler will set it
-              console.log('[MODE SWITCH] Mic ready, waiting for Daniela to finish speaking before showing green');
+              // The playback state effect will show it when Daniela finishes speaking
+              console.log('[MODE SWITCH] Mic ready, green light controlled by playback state');
             }).catch((err: any) => {
               console.error('[MODE SWITCH] Failed to auto-start open mic:', err);
               setOpenMicState('idle');
             });
           }
-        } else if (currentState === 'connected' || currentState === 'connecting') {
-          // Not ready yet - wait a bit and try again
-          console.log('[MODE SWITCH] Session not ready yet, waiting...');
+        } else if (currentState === 'error' || currentState === 'disconnected') {
+          // Session failed - don't auto-start
+          console.log('[MODE SWITCH] Session failed, not auto-starting:', currentState);
+        } else if (retryCount < maxRetries && inputModeRef.current === 'open-mic') {
+          // Still waiting - retry
+          retryCount++;
           setTimeout(checkAndStart, 200);
         } else {
-          // Session failed or disconnected - don't auto-start
-          console.log('[MODE SWITCH] Session in unexpected state, not auto-starting:', currentState);
+          console.log('[MODE SWITCH] Gave up waiting for session, retries:', retryCount);
         }
       };
       
