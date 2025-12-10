@@ -6,6 +6,55 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 19h: AI-Generated Session Summaries for Compass Memory (Dec 10, 2025)
+
+#### Problem
+Daniela's Compass was initialized but contained empty data - no session summaries were being captured. This meant she couldn't reference previous sessions when greeting returning students ("Last time we worked on...").
+
+#### Solution
+Implemented automatic session summary generation using Gemini:
+
+1. **Summary Generation** (`session-compass-service.ts`):
+   - New `generateSessionSummary(conversationId)` method
+   - Uses Gemini 2.0 Flash to analyze the last 20 messages
+   - Creates 2-3 sentence summaries capturing:
+     - Topics/vocabulary practiced
+     - Notable moments, struggles, or breakthroughs
+     - Emotional tone of the session
+     - Student interests or goals mentioned
+
+2. **Automatic Capture** (`unified-ws-handler.ts`):
+   - Summary generated before `endSession()` is called
+   - Works for both explicit session end and disconnect scenarios
+   - No manual input required from student or tutor
+
+3. **Memory Retrieval** (already existed):
+   - `buildCompassContext()` loads `lastSessionSummary` from previous session
+   - `buildSystemPrompt()` displays it as "Last Session: {summary}"
+   - First-time sessions show "First session together!"
+
+#### Summary Prompt
+```
+Create a brief, personal summary (2-3 sentences) that captures:
+- What topics or vocabulary were practiced
+- Any notable moments, struggles, or breakthroughs
+- The emotional tone of the session
+- Any interests or goals the student mentioned
+
+Write in second person as if reminding the tutor: "You worked on..." or "The student..."
+Keep it warm and conversational, not clinical.
+```
+
+#### Result
+Daniela can now greet returning students with context like:
+> "Welcome back! Last time we worked on restaurant vocabulary and you were really getting the hang of ordering food. Ready to continue?"
+
+#### Files Modified
+- `server/services/session-compass-service.ts` - Added `generateSessionSummary()` method with Gemini integration
+- `server/unified-ws-handler.ts` - Call summary generation before ending sessions (both end_session and disconnect handlers)
+
+---
+
 ### Session 19g: Student Timezone for Time-Aware Greetings (Dec 10, 2025)
 
 #### Problem
