@@ -437,6 +437,17 @@ function UsersTab() {
   const [creditDescription, setCreditDescription] = useState<string>("");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [createForm, setCreateForm] = useState({ email: "", firstName: "", lastName: "", role: "student" });
+  
+  // Quick Enroll state
+  const [showQuickEnroll, setShowQuickEnroll] = useState(false);
+  const [quickEnrollForm, setQuickEnrollForm] = useState({
+    email: "",
+    firstName: "",
+    lastName: "",
+    classId: "",
+    creditHours: 0,
+    sendEmail: true,
+  });
 
   const queryUrl = roleFilter === "all" 
     ? "/api/admin/users" 
@@ -546,6 +557,50 @@ function UsersTab() {
     },
   });
 
+  // Quick Enroll: fetch classes for picker
+  const { data: classesData } = useQuery<{ classes: Array<{ id: string; name: string; language: string }> }>({
+    queryKey: ["/api/admin/classes"],
+  });
+
+  const quickEnrollMutation = useMutation({
+    mutationFn: async (data: { email: string; firstName: string; lastName: string; classId?: string; creditHours?: number; sendEmail?: boolean }) => {
+      return apiRequest("POST", "/api/admin/quick-enroll", {
+        ...data,
+        classId: data.classId || undefined,
+        creditHours: data.creditHours || undefined,
+      });
+    },
+    onSuccess: (result: any) => {
+      queryClient.invalidateQueries({ predicate: (query) => 
+        typeof query.queryKey[0] === 'string' && query.queryKey[0].startsWith('/api/admin/users')
+      });
+      toast({ 
+        title: "Test User Created", 
+        description: result.message || "Quick enroll completed successfully" 
+      });
+      setShowQuickEnroll(false);
+      setQuickEnrollForm({ email: "", firstName: "", lastName: "", classId: "", creditHours: 0, sendEmail: true });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to quick enroll", variant: "destructive" });
+    },
+  });
+
+  const handleQuickEnroll = () => {
+    if (!quickEnrollForm.email) {
+      toast({ title: "Error", description: "Email is required", variant: "destructive" });
+      return;
+    }
+    quickEnrollMutation.mutate({
+      email: quickEnrollForm.email,
+      firstName: quickEnrollForm.firstName,
+      lastName: quickEnrollForm.lastName,
+      classId: quickEnrollForm.classId || undefined,
+      creditHours: quickEnrollForm.creditHours || undefined,
+      sendEmail: quickEnrollForm.sendEmail,
+    });
+  };
+
   const handleCreateUser = () => {
     if (!createForm.email) {
       toast({ title: "Error", description: "Email is required", variant: "destructive" });
@@ -638,7 +693,11 @@ function UsersTab() {
                 <SelectItem value="admin">Admins</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={() => setShowCreateDialog(true)} data-testid="button-create-user">
+            <Button onClick={() => setShowQuickEnroll(true)} variant="default" data-testid="button-quick-enroll">
+              <Zap className="h-4 w-4 mr-2" />
+              Quick Enroll
+            </Button>
+            <Button onClick={() => setShowCreateDialog(true)} variant="outline" data-testid="button-create-user">
               <Plus className="h-4 w-4 mr-2" />
               Create User
             </Button>
@@ -1014,6 +1073,113 @@ function UsersTab() {
                 <Plus className="h-4 w-4 mr-2" />
               )}
               Create User
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Quick Enroll Dialog */}
+      <AlertDialog open={showQuickEnroll} onOpenChange={setShowQuickEnroll}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-primary" />
+              Quick Enroll Test User
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Create a test user, optionally assign to a class, grant credits, and send setup email - all in one step.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Email *</label>
+              <Input
+                value={quickEnrollForm.email}
+                onChange={(e) => setQuickEnrollForm({ ...quickEnrollForm, email: e.target.value })}
+                placeholder="tester@example.com"
+                type="email"
+                data-testid="input-quick-enroll-email"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">First Name</label>
+                <Input
+                  value={quickEnrollForm.firstName}
+                  onChange={(e) => setQuickEnrollForm({ ...quickEnrollForm, firstName: e.target.value })}
+                  placeholder="First"
+                  data-testid="input-quick-enroll-firstName"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Last Name</label>
+                <Input
+                  value={quickEnrollForm.lastName}
+                  onChange={(e) => setQuickEnrollForm({ ...quickEnrollForm, lastName: e.target.value })}
+                  placeholder="Last"
+                  data-testid="input-quick-enroll-lastName"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Enroll in Class (optional)</label>
+              <Select 
+                value={quickEnrollForm.classId} 
+                onValueChange={(value) => setQuickEnrollForm({ ...quickEnrollForm, classId: value })}
+              >
+                <SelectTrigger data-testid="select-quick-enroll-class">
+                  <SelectValue placeholder="Self-directed (no class)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Self-directed (no class)</SelectItem>
+                  {classesData?.classes?.map((cls) => (
+                    <SelectItem key={cls.id} value={cls.id}>
+                      {cls.name} ({cls.language})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Without a class, credits allow self-directed learning in any language
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Grant Credits (hours)</label>
+              <Input
+                type="number"
+                min="0"
+                value={quickEnrollForm.creditHours}
+                onChange={(e) => setQuickEnrollForm({ ...quickEnrollForm, creditHours: parseInt(e.target.value) || 0 })}
+                placeholder="0"
+                data-testid="input-quick-enroll-credits"
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave at 0 if you don't want to grant any credits yet
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={quickEnrollForm.sendEmail}
+                onCheckedChange={(checked) => setQuickEnrollForm({ ...quickEnrollForm, sendEmail: checked })}
+                data-testid="switch-quick-enroll-sendEmail"
+              />
+              <label className="text-sm">Send invitation email to complete setup</label>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setQuickEnrollForm({ email: "", firstName: "", lastName: "", classId: "", creditHours: 0, sendEmail: true })}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleQuickEnroll}
+              disabled={quickEnrollMutation.isPending || !quickEnrollForm.email}
+            >
+              {quickEnrollMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Zap className="h-4 w-4 mr-2" />
+              )}
+              Quick Enroll
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

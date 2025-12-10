@@ -8475,6 +8475,135 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Quick Enroll - streamlined test user setup (admin/developer only)
+  app.post("/api/admin/quick-enroll", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
+    try {
+      const adminId = req.user.claims.sub;
+      
+      // Check admin or developer role
+      const adminUser = await storage.getUser(adminId);
+      if (!adminUser || !hasAdminAccess(adminUser.role)) {
+        return res.status(403).json({ error: "Admin or developer access required" });
+      }
+      
+      const { email, firstName, lastName, classId, creditHours, sendEmail = true } = req.body;
+      
+      // Validate required fields
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email.toLowerCase());
+      if (existingUser) {
+        return res.status(400).json({ error: "A user with this email already exists" });
+      }
+      
+      // Validate classId if provided
+      let teacherClass = null;
+      if (classId) {
+        teacherClass = await storage.getClass(classId);
+        if (!teacherClass) {
+          return res.status(400).json({ error: "Class not found" });
+        }
+      }
+      
+      // 1. Create user as test account with pending auth
+      const newUser = await storage.createUser({
+        email: email.toLowerCase(),
+        firstName: firstName || null,
+        lastName: lastName || null,
+        role: 'student',
+        authProvider: 'pending',
+        isTestAccount: true,
+      });
+      
+      let enrollmentResult = null;
+      let creditsGranted = false;
+      let emailSent = false;
+      let emailError = null;
+      
+      // 2. Optionally enroll in class (already validated above)
+      if (teacherClass) {
+        enrollmentResult = await storage.enrollStudent(classId, newUser.id);
+        console.log(`[Quick Enroll] Enrolled ${email} in class ${teacherClass.name}`);
+      }
+      
+      // 3. Optionally grant credits
+      if (creditHours && creditHours > 0) {
+        await storage.grantCredits(
+          newUser.id,
+          creditHours,
+          `Quick Enroll: ${creditHours} hours for testing`
+        );
+        creditsGranted = true;
+        console.log(`[Quick Enroll] Granted ${creditHours} hours to ${email}`);
+      }
+      
+      // 4. Send invitation email
+      if (sendEmail) {
+        try {
+          const inviteResult = await passwordAuthService.createInvitation({
+            email: email.toLowerCase(),
+            firstName: firstName || undefined,
+            lastName: lastName || undefined,
+            role: 'student',
+          }, adminId);
+          
+          if (inviteResult.success && inviteResult.token) {
+            await emailService.sendInvitation({
+              to: email.toLowerCase(),
+              firstName: firstName || undefined,
+              inviterName: adminUser ? `${adminUser.firstName || ''} ${adminUser.lastName || ''}`.trim() || undefined : undefined,
+              role: 'student',
+              token: inviteResult.token,
+            });
+            emailSent = true;
+            console.log(`[Quick Enroll] Sent invitation email to ${email}`);
+          } else {
+            emailError = inviteResult.error || "Failed to create invitation token";
+            console.error('[Quick Enroll] Invitation creation failed:', emailError);
+          }
+        } catch (err: any) {
+          emailError = err.message || "Email sending failed";
+          console.error('[Quick Enroll] Error sending email:', err);
+        }
+      }
+      
+      // Log the action
+      await storage.logAdminAction({
+        actorId: adminId,
+        action: 'quick_enroll',
+        targetType: 'user',
+        targetId: newUser.id,
+        metadata: { 
+          email, 
+          firstName, 
+          lastName, 
+          classId, 
+          creditHours,
+          emailSent,
+          enrolled: !!enrollmentResult,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      res.status(201).json({
+        success: true,
+        user: newUser,
+        enrollment: enrollmentResult,
+        creditsGranted,
+        emailSent,
+        emailError,
+        message: `Created test user ${email}${enrollmentResult ? ' and enrolled in class' : ''}${creditsGranted ? ` with ${creditHours} hours` : ''}${emailSent ? ' - invitation sent' : emailError ? ` (email failed: ${emailError})` : ''}`,
+      });
+    } catch (error: any) {
+      console.error('Error in quick enroll:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Update user role (admin only)
   app.patch("/api/admin/users/:userId/role", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
