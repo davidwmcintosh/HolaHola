@@ -792,6 +792,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update user timezone (called automatically from browser)
+  // This enables time-aware greetings from Daniela
+  app.put('/api/user/timezone', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { timezone } = req.body;
+      
+      // Validate timezone is a non-empty string (IANA format)
+      if (!timezone || typeof timezone !== 'string') {
+        return res.status(400).json({ message: "Invalid timezone" });
+      }
+      
+      // Update user's timezone in database
+      await storage.updateUserTimezone(userId, timezone);
+      
+      res.json({ success: true, timezone });
+    } catch (error) {
+      console.error("Error updating timezone:", error);
+      res.status(500).json({ message: "Failed to update timezone" });
+    }
+  });
+
   // ===== Per-Language Self-Directed Preferences =====
   
   // Get all language-specific preferences for a user

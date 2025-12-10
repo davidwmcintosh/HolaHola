@@ -113,6 +113,8 @@ export const users = pgTable("users", {
   actflAssessed: boolean("actfl_assessed").default(false), // true = AI-verified, false = cold-start hint from onboarding
   assessmentSource: varchar("assessment_source").default("onboarding_hint"), // onboarding_hint, ai_conversation, placement_test, teacher_override
   lastAssessmentDate: timestamp("last_assessment_date"), // When ACTFL level was last updated
+  // Timezone for time-aware greetings (auto-detected from browser, handles traveling)
+  timezone: varchar("timezone"), // IANA timezone (e.g., "America/Denver", "Asia/Tokyo")
   // Stripe billing integration
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),

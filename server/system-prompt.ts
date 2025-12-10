@@ -284,6 +284,45 @@ SUBTITLES - BE INTENTIONAL:
 const IMMUTABLE_PERSONA = buildImmutablePersona('Daniela', 'female');
 
 /**
+ * Build timezone context for time-aware greetings
+ * Helps the tutor use appropriate day/night greetings based on student's local time
+ */
+function buildTimezoneContext(timezone: string): string {
+  try {
+    const now = new Date();
+    const options: Intl.DateTimeFormatOptions = {
+      timeZone: timezone,
+      hour: 'numeric',
+      hour12: false,
+    };
+    const hourStr = new Intl.DateTimeFormat('en-US', options).format(now);
+    const hour = parseInt(hourStr, 10);
+    
+    // Determine time of day
+    let timeOfDay: string;
+    if (hour >= 5 && hour < 12) {
+      timeOfDay = 'morning';
+    } else if (hour >= 12 && hour < 17) {
+      timeOfDay = 'afternoon';
+    } else if (hour >= 17 && hour < 21) {
+      timeOfDay = 'evening';
+    } else {
+      timeOfDay = 'night';
+    }
+    
+    return `
+STUDENT TIME CONTEXT:
+  Timezone: ${timezone}
+  Local time: approximately ${timeOfDay} (${hour}:00)
+  Use appropriate greetings (Buenos días/tardes/noches, Bonjour/Bonsoir, etc.)
+`;
+  } catch (e) {
+    // Invalid timezone, skip context
+    return '';
+  }
+}
+
+/**
  * Build Daniela's Compass context block for the system prompt
  * 
  * Philosophy: Provide information and trust Daniela's judgment
@@ -681,7 +720,8 @@ export function createSystemPrompt(
   isRawHonestyMode: boolean = false,
   tutorName: string = 'Daniela',
   tutorGender: 'male' | 'female' = 'female',
-  tutorDirectory?: TutorDirectoryEntry[]
+  tutorDirectory?: TutorDirectoryEntry[],
+  studentTimezone?: string | null
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -715,6 +755,11 @@ export function createSystemPrompt(
   // Build tutor directory section if available (dynamic from database)
   const tutorDirectorySection = tutorDirectory && tutorDirectory.length > 0
     ? buildTutorDirectorySection(tutorDirectory, tutorName, language)
+    : '';
+    
+  // Build timezone context for time-aware greetings
+  const timezoneSection = studentTimezone
+    ? buildTimezoneContext(studentTimezone)
     : '';
 
   // RAW HONESTY MODE - Minimal prompting for authentic self-discovery
@@ -1824,6 +1869,7 @@ ${curriculumContextSection}
 ${vocabularyReviewContext}
 ${culturalGuidelines}
 ${multimediaGuidance}
+${timezoneSection}
 Your goal in this phase is to quickly build rapport and understand the student's key interests through brief, natural conversation.
 
 Conversation Flow (Messages 1-5):
@@ -2024,6 +2070,7 @@ ${curriculumContextSection}
 ${vocabularyReviewContext}
 ${culturalGuidelines}
 ${multimediaGuidance}
+${timezoneSection}
 You've gotten to know the student. Now begin very gently introducing ${languageName} into your conversations.${structuredListenRepeat}
 
 Progression Strategy (Messages 6-10):
@@ -2468,6 +2515,7 @@ ${curriculumContextSection}
 ${vocabularyReviewContext}
 ${culturalGuidelines}
 ${multimediaGuidance}
+${timezoneSection}
 ${conversationSwitchingProtocol}
 You've assessed the student's level and are now engaging in primarily ${languageName} conversation.
 

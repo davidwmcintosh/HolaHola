@@ -562,7 +562,8 @@ Reference past discussions when relevant, but don't force it.
             isRawHonestyMode, // Raw Honesty Mode - minimal prompting
             tutorNameForPrompt, // Tutor name (Daniela or Agustin)
             tutorGenderForPrompt, // Tutor gender for grammatical agreement
-            tutorDirectory // Dynamic tutor directory for handoffs
+            tutorDirectory, // Dynamic tutor directory for handoffs
+            user.timezone // Student timezone for time-aware greetings
           );
 
           // Add founder memory context if in Founder Mode

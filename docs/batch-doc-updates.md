@@ -6,6 +6,123 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 19g: Student Timezone for Time-Aware Greetings (Dec 10, 2025)
+
+#### Problem
+Daniela had no awareness of the student's local time, so she couldn't use appropriate day/night greetings (Buenos días vs Buenos noches, Bonjour vs Bonsoir). This was especially problematic for traveling students whose location might differ from their registered profile.
+
+#### Solution
+Implemented automatic timezone detection and sync:
+1. Added `timezone` field to users table (IANA format, e.g., "America/Denver")
+2. Browser detects timezone on page load via `Intl.DateTimeFormat().resolvedOptions().timeZone`
+3. Auto-syncs to server if different from stored value (handles traveling)
+4. Timezone passed to system prompt for time-aware context
+
+#### Implementation
+
+**Schema Change** (`shared/schema.ts`):
+```typescript
+timezone: varchar("timezone"), // IANA timezone (e.g., "America/Denver", "Asia/Tokyo")
+```
+
+**API Endpoint** (`server/routes.ts`):
+```typescript
+app.put('/api/user/timezone', isAuthenticated, async (req, res) => {
+  const { timezone } = req.body;
+  await storage.updateUserTimezone(userId, timezone);
+  res.json({ success: true, timezone });
+});
+```
+
+**Frontend Sync** (`client/src/hooks/useAuth.ts`):
+- Detects browser timezone on page load
+- Only syncs if different from stored value (avoids unnecessary API calls)
+- Logs sync to console for debugging
+
+**System Prompt Context** (`server/system-prompt.ts`):
+```
+STUDENT TIME CONTEXT:
+  Timezone: America/Denver
+  Local time: approximately evening (19:00)
+  Use appropriate greetings (Buenos días/tardes/noches, Bonjour/Bonsoir, etc.)
+```
+
+#### Result
+- Daniela now greets students appropriately for their local time
+- Traveling students get correct greetings based on their current location
+- Timezone syncs automatically on each visit without user action
+
+#### Files Modified
+- `shared/schema.ts` - Added timezone field to users table
+- `server/storage.ts` - Added updateUserTimezone() method
+- `server/routes.ts` - Added PUT /api/user/timezone endpoint
+- `server/system-prompt.ts` - Added buildTimezoneContext() helper, integrated into prompts
+- `server/unified-ws-handler.ts` - Pass user.timezone to createSystemPrompt()
+- `client/src/hooks/useAuth.ts` - Added automatic timezone detection and sync
+
+---
+
+### Session 19f: Dynamic Tutor Directory for Handoffs (Dec 10, 2025)
+
+#### Problem
+When students asked to switch tutors or languages, Daniela didn't know the names of available colleagues. She would use incorrect syntax like `[SWITCH_TUTOR target="male|Augustine|french"]` or generic references instead of specific tutor names.
+
+#### Solution
+Implemented a dynamic tutor directory that:
+1. Pulls from the `tutor_voices` database at session start
+2. Groups tutors by language with their actual names
+3. Marks the student's preferred tutor per language with ★
+4. Excludes the current tutor from the handoff list
+5. Injects into the system prompt's SWITCH_TUTOR section
+
+#### Implementation
+
+**New Type** (`server/system-prompt.ts`):
+```typescript
+export interface TutorDirectoryEntry {
+  language: string;
+  gender: 'male' | 'female';
+  name: string;
+  isCurrent: boolean;
+  isPreferred: boolean;
+}
+```
+
+**Helper Function** (`server/system-prompt.ts`):
+```typescript
+export function buildTutorDirectorySection(
+  tutorDirectory: TutorDirectoryEntry[],
+  currentTutorName: string,
+  currentLanguage: string
+): string
+```
+
+**Directory Built From Database** (`server/unified-ws-handler.ts`):
+- Extracts tutor names from `voice_name` field (e.g., "Sayuri - Peppy Colleague" → "Sayuri")
+- Stars tutors matching student's gender preference
+- Filters out current tutor
+
+#### Example Prompt Output
+```
+AVAILABLE TUTORS (colleagues you can hand off to):
+  • Spanish: Agustin (male)
+  • French: Juliette (female) ★, Vincent (male)
+  • Japanese: Sayuri (female) ★, Daisuke (male)
+  • German: Alina (female) ★, Lukas (male)
+
+★ = student's preferred tutor for that language
+```
+
+#### Result
+Daniela can now say: "Let me connect you with Sayuri, our Japanese tutor!" and use correct syntax: `[SWITCH_TUTOR target="female" language="japanese"]`
+
+#### Files Modified
+- `server/system-prompt.ts` - Added TutorDirectoryEntry type, buildTutorDirectorySection(), extended createSystemPrompt()
+- `server/unified-ws-handler.ts` - Build directory from database, pass to createSystemPrompt()
+- `server/services/streaming-voice-orchestrator.ts` - Updated handoff call site
+
+---
+
 ### Session 19e: SWITCH_TUTOR Internal Command Refactor (Dec 10, 2025)
 
 #### Problem

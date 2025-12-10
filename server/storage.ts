@@ -163,6 +163,7 @@ export interface IStorage {
     assessmentSource?: string;
     lastAssessmentDate?: Date;
   }): Promise<User | undefined>;
+  updateUserTimezone(userId: string, timezone: string): Promise<void>;
 
   // Per-language self-directed preferences
   getLanguagePreferences(userId: string, language: string): Promise<UserLanguagePreferences | undefined>;
@@ -1100,6 +1101,12 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return updated;
+  }
+
+  async updateUserTimezone(userId: string, timezone: string): Promise<void> {
+    await db.update(users)
+      .set({ timezone, updatedAt: new Date() })
+      .where(eq(users.id, userId));
   }
 
   // Per-language self-directed preferences
