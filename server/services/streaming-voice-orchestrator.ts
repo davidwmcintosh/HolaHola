@@ -98,7 +98,10 @@ function cleanTextForDisplay(text: string): string {
     // Remove BARE emotion words at start of text (AI sometimes outputs "happy\n" or "friendly**text**")
     // Must be at the very start, optionally followed by punctuation, whitespace/newline, or ** (markdown)
     // Handles: "friendly\n", "friendly ", "friendly**Excelente**", "happyHola", "Happy! That was..."
-    .replace(/^(?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful|encouraging|patient)[!.,;:?]*(?:[\s\n\r]+|\*\*)?/gi, '');
+    .replace(/^(?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful|encouraging|patient)[!.,;:?]*(?:[\s\n\r]+|\*\*)?/gi, '')
+    // Remove BARE action phrases at start of text (AI sometimes outputs "laughs softly It's..." without asterisks)
+    // Catches: "laughs softly", "chuckles", "sighs contentedly", "smiles warmly", etc.
+    .replace(/^(?:laughs?|chuckles?|giggles?|sighs?|smiles?|grins?|nods?|pauses?|clears? throat|ahem|winks?|gasps?|whispers?|exclaims?|thinks?|considers?|reflects?|ponders?)(?:\s+\w+)*\s+/gi, '');
   
   // Remove ALL parenthetical content (English translations like (Hello!), (Excellent!), (Perfect!))
   // These are distracting and redundant - the user heard the Spanish and doesn't need English in subtitles
