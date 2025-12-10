@@ -620,8 +620,12 @@ ${transcript}
 Summary (2-3 sentences):`;
 
       const response = await getGeminiClient().models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: prompt,
+        model: 'gemini-2.5-flash',
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          temperature: 0.5,
+          maxOutputTokens: 256,
+        },
       });
       
       const summary = response.text?.trim();
