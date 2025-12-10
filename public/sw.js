@@ -1,6 +1,6 @@
-const CACHE_NAME = 'linguaflow-v2';
-const RUNTIME_CACHE = 'linguaflow-runtime-v2';
-const IMAGE_CACHE = 'linguaflow-images-v1';
+const CACHE_NAME = 'holahola-v3';
+const RUNTIME_CACHE = 'holahola-runtime-v3';
+const IMAGE_CACHE = 'holahola-images-v2';
 
 // Static assets to cache on install
 const STATIC_ASSETS = [
