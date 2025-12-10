@@ -503,6 +503,22 @@ export class CartesiaStreamingService extends EventEmitter {
           this.emit('timestamps', collectedTimestamps);
         }
         
+        // CRITICAL: Detect 0-byte WebSocket response (race condition with first request)
+        // This happens when Cartesia's socket accepts send() before fully primed
+        // Solution: Reset connection and fall back to bytes API
+        if (chunkCount === 0) {
+          console.warn(`[Cartesia Streaming] ⚠ WebSocket returned 0 bytes for: "${cleanedText.substring(0, 30)}..."`);
+          console.log('[Cartesia Streaming] Resetting connection and falling back to bytes API');
+          
+          // Force disconnect so next synthesis uses bytes fallback
+          this.connected = false;
+          this.websocket = null;
+          
+          // Recursive call will use bytes API since WebSocket is now disconnected
+          yield* this.streamSynthesize(request);
+          return;
+        }
+        
         // Signal completion
         yield {
           audio: Buffer.alloc(0),
