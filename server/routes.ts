@@ -37,6 +37,7 @@ import { setupAuth, isAuthenticated, getSession } from "./replitAuth";
 import { passwordAuthService } from "./services/password-auth-service";
 import { emailService } from "./services/email-service";
 import { neuralNetworkSync } from "./services/neural-network-sync";
+import { getLastSyncResult, getNextSyncTime } from "./services/sync-scheduler";
 import { passwordLoginSchema, passwordResetRequestSchema, setNewPasswordSchema, completeRegistrationSchema, createInvitationSchema } from "@shared/schema";
 import passport from "passport";
 import { generateConversationTitle, generateConversationContextSummary } from "./conversation-utils";
@@ -1749,6 +1750,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error getting sync history:", error);
       res.status(500).json({ message: "Failed to get sync history" });
+    }
+  });
+
+  // Get sync scheduler status (next sync time, last result)
+  app.get('/api/sync/scheduler-status', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'developer' && user?.role !== 'admin') {
+        return res.status(403).json({ message: "Developer or admin access required" });
+      }
+      
+      const lastResult = getLastSyncResult();
+      const nextSyncTime = getNextSyncTime();
+      
+      res.json({
+        nextSyncTime: nextSyncTime.toISOString(),
+        nextSyncTimeLocal: nextSyncTime.toLocaleString('en-US', { timeZone: 'America/Denver' }),
+        lastSync: lastResult ? {
+          timestamp: lastResult.timestamp.toISOString(),
+          success: lastResult.success,
+          syncedCount: lastResult.syncedCount,
+          error: lastResult.error,
+        } : null,
+        schedulerTimezone: 'MST (Mountain Standard Time)',
+        scheduledHour: '3:00 AM MST',
+      });
+    } catch (error: any) {
+      console.error("Error getting scheduler status:", error);
+      res.status(500).json({ message: "Failed to get scheduler status" });
+    }
+  });
+
+  // Manual sync trigger (developer/admin only)
+  app.post('/api/sync/trigger', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'developer' && user?.role !== 'admin') {
+        return res.status(403).json({ message: "Developer or admin access required" });
+      }
+      
+      console.log(`[SYNC] Manual sync triggered by ${user.email}`);
+      const result = await neuralNetworkSync.performAutoSync(userId);
+      
+      res.json({
+        success: result.success,
+        syncedCount: result.syncedCount,
+        error: result.error,
+        triggeredBy: user.email,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error("Error triggering manual sync:", error);
+      res.status(500).json({ message: "Failed to trigger sync" });
     }
   });
 

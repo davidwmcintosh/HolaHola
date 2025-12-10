@@ -66,6 +66,8 @@ import {
   Bell,
   Check,
   CheckCircle,
+  AlertCircle,
+  Play,
   Undo2,
   Mail
 } from "lucide-react";
@@ -2402,6 +2404,22 @@ function NeuralNetworkTab() {
     queryKey: ["/api/sync/auto-status"],
   });
   
+  const { data: schedulerStatus, isLoading: schedulerLoading, refetch: refetchScheduler } = useQuery<{
+    nextSyncTime: string;
+    nextSyncTimeLocal: string;
+    lastSync: {
+      timestamp: string;
+      success: boolean;
+      syncedCount?: number;
+      error?: string;
+    } | null;
+    schedulerTimezone: string;
+    scheduledHour: string;
+  }>({
+    queryKey: ["/api/sync/scheduler-status"],
+    refetchInterval: 60000, // Refresh every minute
+  });
+  
   const { data: pendingPromotions, isLoading: pendingLoading, refetch: refetchPending } = useQuery<Array<{
     id: string;
     bestPracticeId: string;
@@ -2490,6 +2508,34 @@ function NeuralNetworkTab() {
     },
   });
   
+  const manualTriggerMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/sync/trigger");
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sync/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sync/auto-status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sync/scheduler-status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sync/history"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sync/logs"] });
+      if (data.success) {
+        toast({ 
+          title: "Manual sync complete", 
+          description: `Synced ${data.syncedCount} best practices` 
+        });
+      } else {
+        toast({ 
+          title: "Sync completed with issues", 
+          description: data.error || "Check logs for details",
+          variant: "destructive"
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Sync failed", description: error.message, variant: "destructive" });
+    },
+  });
+  
   const retractMutation = useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason?: string }) => {
       return apiRequest("POST", `/api/sync/retract/${id}`, { reason });
@@ -2561,34 +2607,54 @@ function NeuralNetworkTab() {
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-primary" />
-            Auto-Sync Status
+            Nightly Sync Scheduler
           </CardTitle>
           <CardDescription>
-            Automatic nightly sync runs at 3 AM - syncs all pending best practices without manual review
+            Automatic sync runs daily at {schedulerStatus?.scheduledHour || "3:00 AM MST"} - syncs all pending best practices
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-6 flex-wrap">
               <div>
-                <p className="text-sm text-muted-foreground">Next Sync</p>
+                <p className="text-sm text-muted-foreground">Next Scheduled Sync</p>
                 <p className="font-medium">
-                  {autoStatusLoading ? (
-                    <Skeleton className="h-5 w-20" />
+                  {schedulerLoading ? (
+                    <Skeleton className="h-5 w-32" />
                   ) : (
-                    formatRelativeTime(autoSyncStatus?.nextSyncTime || "")
+                    <>
+                      {formatRelativeTime(schedulerStatus?.nextSyncTime || "")}
+                      <span className="text-xs text-muted-foreground ml-2">
+                        ({schedulerStatus?.nextSyncTimeLocal})
+                      </span>
+                    </>
                   )}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Last Auto-Sync</p>
-                <p className="font-medium">
-                  {autoStatusLoading ? (
-                    <Skeleton className="h-5 w-24" />
-                  ) : (
-                    formatDate(autoSyncStatus?.lastAutoSync || null)
-                  )}
-                </p>
+                <p className="text-sm text-muted-foreground">Last Sync Result</p>
+                {schedulerLoading ? (
+                  <Skeleton className="h-5 w-24" />
+                ) : schedulerStatus?.lastSync ? (
+                  <div className="flex items-center gap-2">
+                    {schedulerStatus.lastSync.success ? (
+                      <Badge variant="outline" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Success ({schedulerStatus.lastSync.syncedCount} synced)
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                        <AlertCircle className="h-3 w-3 mr-1" />
+                        Failed: {schedulerStatus.lastSync.error}
+                      </Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(schedulerStatus.lastSync.timestamp)}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-sm">No sync yet</p>
+                )}
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Pending Items</p>
@@ -2601,18 +2667,33 @@ function NeuralNetworkTab() {
                 </p>
               </div>
             </div>
-            <Button 
-              onClick={() => autoSyncMutation.mutate()}
-              disabled={autoSyncMutation.isPending || (autoSyncStatus?.pendingCount || 0) === 0}
-              data-testid="button-sync-now"
-            >
-              {autoSyncMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Zap className="h-4 w-4 mr-2" />
-              )}
-              Sync Now
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline"
+                onClick={() => manualTriggerMutation.mutate()}
+                disabled={manualTriggerMutation.isPending}
+                data-testid="button-trigger-sync"
+              >
+                {manualTriggerMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Play className="h-4 w-4 mr-2" />
+                )}
+                Trigger Now
+              </Button>
+              <Button 
+                onClick={() => autoSyncMutation.mutate()}
+                disabled={autoSyncMutation.isPending || (autoSyncStatus?.pendingCount || 0) === 0}
+                data-testid="button-sync-now"
+              >
+                {autoSyncMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Zap className="h-4 w-4 mr-2" />
+                )}
+                Sync Pending ({autoSyncStatus?.pendingCount || 0})
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
