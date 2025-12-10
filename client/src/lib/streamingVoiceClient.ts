@@ -603,6 +603,11 @@ export class StreamingVoiceClient {
           this.emit('voiceUpdated', message as { type: string; gender: string; voiceName: string; timestamp: number });
           break;
           
+        case 'tutor_handoff':
+          // Tutor handoff - current tutor said goodbye, switch to new tutor
+          this.emit('tutorHandoff', message as { type: string; targetGender: 'male' | 'female'; timestamp: number });
+          break;
+          
         case 'whiteboard_update':
           // Whiteboard content from tutor
           this.emit('whiteboardUpdate', message as StreamingWhiteboardMessage);

@@ -52,6 +52,7 @@ export const WHITEBOARD_TAGS = {
   VOCABULARY_TIMELINE: 'VOCABULARY_TIMELINE',
   SUBTITLE: 'SUBTITLE',
   TEXT_INPUT: 'TEXT_INPUT',
+  SWITCH_TUTOR: 'SWITCH_TUTOR',
   CLEAR: 'CLEAR',
   HOLD: 'HOLD',
 } as const;
@@ -61,7 +62,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor';
 
 /**
  * Drill types for inline micro-exercises
@@ -438,6 +439,21 @@ export interface TextInputItem extends WhiteboardItemBase {
   data: TextInputItemData;
 }
 
+/**
+ * Switch tutor item data
+ * Triggers a handoff to a different tutor voice mid-session
+ * Format: [SWITCH_TUTOR target="male|female"]
+ */
+export interface SwitchTutorItemData {
+  targetGender: 'male' | 'female';  // The tutor to switch to
+}
+
+export interface SwitchTutorItem extends WhiteboardItemBase {
+  type: 'switch_tutor';
+  content: string;
+  data: SwitchTutorItemData;
+}
+
 export type WhiteboardItem = 
   | WriteItem 
   | PhoneticItem 
@@ -456,7 +472,8 @@ export type WhiteboardItem =
   | SummaryItem
   | ErrorPatternsItem
   | VocabularyTimelineItem
-  | TextInputItem;
+  | TextInputItem
+  | SwitchTutorItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -532,6 +549,8 @@ export const WHITEBOARD_PATTERNS = {
   SUBTITLE_TEXT: /\[SUBTITLE_TEXT:\s*([\s\S]*?)\s*\]/gi,
   // Text input for writing practice during voice chat: [TEXT_INPUT:prompt]
   TEXT_INPUT: /\[TEXT_INPUT:([\s\S]*?)\]/gi,
+  // Switch tutor mid-session: [SWITCH_TUTOR target="male|female"]
+  SWITCH_TUTOR: /\[SWITCH_TUTOR\s+target="(male|female)"\]/gi,
   CLEAR: /\[CLEAR\]/gi,
   HOLD: /\[HOLD\]/gi,
 } as const;
@@ -542,7 +561,7 @@ export const WHITEBOARD_PATTERNS = {
  * Also includes subtitle controls: SUBTITLE, SHOW, HIDE, SUBTITLE_TEXT (legacy)
  */
 export const ALL_WHITEBOARD_MARKUP_PATTERN = 
-  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[(CLEAR|HOLD)\]/gi;
+  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[SWITCH_TUTOR\s+target="(?:male|female)"\]|\[(CLEAR|HOLD)\]/gi;
 
 /**
  * Generate unique ID for whiteboard items
@@ -1238,6 +1257,22 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
       data: {
         prompt,
         isSubmitted: false,
+      },
+    });
+  }
+
+  // Parse SWITCH_TUTOR tags (tutor handoff during voice session)
+  // Format: [SWITCH_TUTOR target="male|female"]
+  WHITEBOARD_PATTERNS.SWITCH_TUTOR.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.SWITCH_TUTOR.exec(text)) !== null) {
+    const targetGender = match[1] as 'male' | 'female';
+    items.push({
+      type: 'switch_tutor',
+      content: targetGender,
+      timestamp: now,
+      id: generateItemId(),
+      data: {
+        targetGender,
       },
     });
   }

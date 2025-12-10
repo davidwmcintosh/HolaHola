@@ -33,7 +33,7 @@ import {
   LATENCY_TARGETS,
   STREAMING_FEATURE_FLAGS,
 } from "@shared/streaming-voice-types";
-import { parseWhiteboardMarkup, WhiteboardItem, WordMapItem, isWordMapItem } from "@shared/whiteboard-types";
+import { parseWhiteboardMarkup, WhiteboardItem, WordMapItem, isWordMapItem, stripWhiteboardMarkup } from "@shared/whiteboard-types";
 
 /**
  * Lightweight metrics logger for performance monitoring
@@ -65,7 +65,9 @@ function cleanTextForDisplay(text: string): string {
     return ''; // Return empty to skip this sentence entirely
   }
   
-  let cleaned = text
+  // First strip all whiteboard markup (WRITE, DRILL, SWITCH_TUTOR, etc.)
+  // This must happen before other cleaning to ensure markup doesn't appear in TTS
+  let cleaned = stripWhiteboardMarkup(text)
     // Remove markdown bold/italic markers
     .replace(/\*\*/g, '')
     .replace(/\*/g, '')
@@ -165,6 +167,9 @@ export interface StreamingSession {
   warmupPromise?: Promise<void>;    // Gemini + Cartesia warmup promise to await before greeting
   isInterrupted: boolean;           // Set to true when user barges in (for open mic mode)
   isGenerating: boolean;            // True while AI response is being generated (for barge-in detection)
+  pendingTutorSwitch?: {            // Queued tutor switch to execute after response completes
+    targetGender: 'male' | 'female';
+  };
 }
 
 /**
@@ -618,6 +623,15 @@ export class StreamingVoiceOrchestrator {
             // WORD_MAP ENRICHMENT: Asynchronously generate related words
             // Don't await - let this run in background while audio streams
             this.enrichWordMapItems(session.ws, whiteboardParsed.whiteboardItems, session.targetLanguage, turnId);
+            
+            // SWITCH_TUTOR: Queue tutor handoff to execute after response completes
+            // This allows Daniela to finish her farewell before switching voices
+            const switchItem = whiteboardParsed.whiteboardItems.find(item => item.type === 'switch_tutor');
+            if (switchItem && 'data' in switchItem && switchItem.data) {
+              const data = switchItem.data as { targetGender: 'male' | 'female' };
+              session.pendingTutorSwitch = { targetGender: data.targetGender };
+              console.log(`[Tutor Switch] Queued handoff to ${data.targetGender} tutor after response completes`);
+            }
           } else if (whiteboardParsed.shouldClear) {
             // Send clear signal even if no items
             this.sendMessage(session.ws, {
@@ -714,6 +728,20 @@ export class StreamingVoiceOrchestrator {
       
       console.log(`[Streaming Orchestrator] Complete: ${metrics.sentenceCount} sentences in ${metrics.totalLatencyMs}ms (turnId: ${turnId})`);
       console.log(`[Streaming Orchestrator] Latencies: STT=${metrics.sttLatencyMs}ms, AI=${metrics.aiFirstTokenMs}ms, TTS=${metrics.ttsFirstByteMs}ms`);
+      
+      // TUTOR SWITCH: Execute pending handoff after farewell completes
+      if (session.pendingTutorSwitch) {
+        const { targetGender } = session.pendingTutorSwitch;
+        session.pendingTutorSwitch = undefined; // Clear the pending switch
+        console.log(`[Tutor Switch] Executing handoff to ${targetGender} tutor`);
+        
+        // Notify client to update voice preference and trigger new tutor intro
+        this.sendMessage(session.ws, {
+          type: 'tutor_handoff',
+          timestamp: Date.now(),
+          targetGender,
+        });
+      }
       
       // Log structured metrics for monitoring (non-blocking, just console.log)
       const timeToFirstAudio = metrics.sttLatencyMs + metrics.aiFirstTokenMs + metrics.ttsFirstByteMs;

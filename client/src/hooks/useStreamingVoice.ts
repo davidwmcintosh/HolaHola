@@ -654,6 +654,19 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   /**
+   * Handle tutor handoff - triggered after current tutor says goodbye
+   * Automatically switches voice to new tutor and triggers their introduction
+   */
+  const handleTutorHandoff = useCallback((message: { type: string; targetGender: 'male' | 'female'; timestamp: number }) => {
+    console.log(`[StreamingVoice] Tutor handoff received - switching to ${message.targetGender} tutor`);
+    
+    // Call updateVoice to complete the switch - this triggers the new tutor's intro
+    if (clientRef.current?.isReady()) {
+      clientRef.current.updateVoice(message.targetGender);
+    }
+  }, []);
+  
+  /**
    * Connect to streaming voice service and start a session
    */
   const connect = useCallback(async (config: StreamingSessionConfig) => {
@@ -687,6 +700,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('vadUtteranceEnd', handleVadUtteranceEnd);  // Open mic VAD
       clientRef.current.on('interimTranscript', handleInterimTranscript);  // Open mic interim
       clientRef.current.on('openMicSessionClosed', handleOpenMicSessionClosed);  // Open mic session ended
+      clientRef.current.on('tutorHandoff', handleTutorHandoff);  // Voice-initiated tutor switch
       
       // Connect WebSocket
       await clientRef.current.connect(config.conversationId);

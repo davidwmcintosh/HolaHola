@@ -63,6 +63,7 @@ export type StreamingVoiceMessageType =
   | 'feedback'            // Pedagogical feedback (non-blocking)
   | 'whiteboard_update'   // Visual teaching aids (vocabulary, drills, images)
   | 'voice_updated'       // Voice switch confirmation (tutor voice changed)
+  | 'tutor_handoff'       // Tutor handoff: Switch to different tutor voice after farewell
   | 'vad_speech_started'  // Open mic: User started speaking (VAD detected speech)
   | 'vad_utterance_end'   // Open mic: User stopped speaking (VAD detected silence)
   | 'interim_transcript'  // Open mic: Real-time interim transcript for feedback
@@ -302,6 +303,15 @@ export interface StreamingVADUtteranceEndMessage extends StreamingVoiceMessage {
 }
 
 /**
+ * Tutor handoff message - Switch to a different tutor voice
+ * Sent after current tutor says goodbye, triggers voice switch and new tutor intro
+ */
+export interface StreamingTutorHandoffMessage extends StreamingVoiceMessage {
+  type: 'tutor_handoff';
+  targetGender: 'male' | 'female';
+}
+
+/**
  * Error codes for streaming voice
  */
 export type StreamingErrorCode = 
@@ -335,7 +345,8 @@ export type StreamingMessage =
   | StreamingWhiteboardMessage
   | StreamingErrorMessage
   | StreamingVADSpeechStartedMessage
-  | StreamingVADUtteranceEndMessage;
+  | StreamingVADUtteranceEndMessage
+  | StreamingTutorHandoffMessage;
 
 /**
  * Client-to-server message types
