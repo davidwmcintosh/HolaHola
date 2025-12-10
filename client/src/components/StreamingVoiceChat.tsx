@@ -343,8 +343,9 @@ export function StreamingVoiceChat({
         
         // Session is ready or processing - good to start
         if ((currentState === 'ready' || currentState === 'processing') && inputModeRef.current === 'open-mic') {
-          console.log('[MODE SWITCH] Session ready - AUTO-STARTING open mic');
+          console.log('[MODE SWITCH] Session ready - AUTO-STARTING open mic, ref exists:', !!startOpenMicRecordingRef.current);
           if (startOpenMicRecordingRef.current) {
+            console.log('[MODE SWITCH] Calling startOpenMicRecordingRef.current()...');
             startOpenMicRecordingRef.current().then(() => {
               console.log('[MODE SWITCH] Open mic auto-started successfully');
               // DON'T immediately show green light!
@@ -1637,11 +1638,19 @@ export function StreamingVoiceChat({
       openMicActiveRef.current = true;
       
       processor.onaudioprocess = (event) => {
-        if (!openMicActiveRef.current) return;
+        if (!openMicActiveRef.current) {
+          // Only log occasionally to avoid spam
+          if (Math.random() < 0.01) console.log('[OPEN MIC] Audio blocked - openMicActiveRef is false');
+          return;
+        }
         
         // CRITICAL: Don't send audio while awaiting/playing AI response
         // This prevents TTS feedback loop where Daniela's voice triggers new utterances
-        if (isAwaitingResponseRef.current) return;
+        if (isAwaitingResponseRef.current) {
+          // Only log occasionally to avoid spam
+          if (Math.random() < 0.01) console.log('[OPEN MIC] Audio blocked - isAwaitingResponseRef is true');
+          return;
+        }
         
         let inputBuffer = event.inputBuffer.getChannelData(0);
         
