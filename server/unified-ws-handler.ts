@@ -962,15 +962,15 @@ Reference past discussions when relevant, but don't force it.
                 voiceName: matchingVoice.voiceName,
               }));
               
-              // Have the new tutor introduce themselves with a brief greeting
+              // Have the new tutor introduce themselves with an LLM-generated greeting
               // Extract first name from voice name (e.g., "Daniela - Relaxed Woman" -> "Daniela")
               // Voice names can be "Name - Description" or "Language Name" format
               const voiceNameParts = matchingVoice.voiceName?.split(/\s*[-–]\s*/) || [];
               const tutorFirstName = voiceNameParts[0]?.trim() || (newGender === 'male' ? 'your new tutor' : 'your new tutor');
-              console.log(`[Streaming Voice] New tutor introducing themselves: ${tutorFirstName}`);
+              console.log(`[Streaming Voice] New tutor introducing themselves: ${tutorFirstName} (${newGender})`);
               
-              // Trigger a voice switch introduction
-              await orchestrator.processVoiceSwitchIntro(session.id, tutorFirstName);
+              // Trigger a voice switch introduction with persona-aware LLM greeting
+              await orchestrator.processVoiceSwitchIntro(session.id, tutorFirstName, newGender);
             } else {
               console.warn(`[Streaming Voice] No matching voice found for ${effectiveLanguage}/${newGender}`);
             }

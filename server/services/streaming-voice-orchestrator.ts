@@ -154,6 +154,8 @@ export interface StreamingSession {
   tutorExpressiveness: number;
   voiceSpeed: VoiceSpeedOption;
   voiceId?: string;
+  tutorGender: 'male' | 'female';    // Current tutor gender for persona-aware responses
+  tutorName: string;                 // Current tutor's first name (e.g., "Daniela", "Agustin")
   systemPrompt: string;
   conversationHistory: Array<{ role: 'user' | 'model'; content: string }>;
   ws: WS;
@@ -306,6 +308,11 @@ export class StreamingVoiceOrchestrator {
   ): Promise<StreamingSession> {
     const sessionId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
+    // Determine initial tutor gender and name from voice info
+    // tutorName will be updated when we get voice info from the server
+    const initialGender = config.tutorGender || 'female';
+    const initialTutorName = initialGender === 'male' ? 'Agustin' : 'Daniela';
+    
     const session: StreamingSession = {
       id: sessionId,
       userId,
@@ -318,6 +325,8 @@ export class StreamingVoiceOrchestrator {
       tutorExpressiveness: config.tutorExpressiveness || 3,
       voiceSpeed: (config.voiceSpeed as VoiceSpeedOption) || 'normal',
       voiceId,
+      tutorGender: initialGender,
+      tutorName: initialTutorName,
       systemPrompt,
       conversationHistory,
       ws,
@@ -2508,79 +2517,101 @@ Using this context, speak first to the student with a natural opening message. O
   }
   
   /**
-   * Process a brief introduction when voice/tutor is switched
-   * The new tutor introduces themselves and continues the conversation
+   * Process a dynamic introduction when voice/tutor is switched via button
+   * The new tutor introduces themselves with an LLM-generated, persona-aware greeting
+   * 
+   * Uses streamSentenceAudioProgressive to properly stream audio chunks to the client
+   * following the exact same protocol as normal voice responses.
    */
-  async processVoiceSwitchIntro(sessionId: string, tutorName: string): Promise<void> {
+  async processVoiceSwitchIntro(sessionId: string, tutorName: string, tutorGender: 'male' | 'female'): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (!session || !session.isActive) {
       console.warn(`[Streaming Orchestrator] Cannot process voice switch - session not found: ${sessionId}`);
       return;
     }
     
-    console.log(`[Voice Switch] New tutor ${tutorName} introducing themselves`);
+    // Update session with new tutor info so LLM knows the persona
+    session.tutorGender = tutorGender;
+    session.tutorName = tutorName;
     
-    // Create a brief, friendly introduction message
-    const introText = `Hi! I'm ${tutorName}. Let's continue practicing together!`;
+    console.log(`[Voice Switch] New tutor ${tutorName} (${tutorGender}) introducing themselves via LLM`);
+    
+    // Generate a dynamic, persona-aware greeting using the LLM
+    // The prompt instructs the tutor to introduce themselves naturally
+    const switchPrompt = `[TUTOR SWITCH: You are now ${tutorName}, a ${tutorGender} language tutor. The student just switched to you using a button. Introduce yourself briefly and naturally in 1-2 short sentences. Be warm and friendly. Use appropriate grammatical gender in ${session.targetLanguage} (e.g., "profesora" for female, "profesor" for male). Don't mention the previous tutor or the switch - just greet them as if you're jumping into the conversation naturally.]`;
     
     // NEW TURN: Increment turnId for voice switch intro
     session.currentTurnId++;
     const turnId = session.currentTurnId;
+    let fullText = '';
+    let sentenceCount = 0;
+    
+    // Create metrics object for tracking (used by streamSentenceAudioProgressive)
+    const metrics: StreamingMetrics = {
+      startTime: Date.now(),
+      ttfb: 0,
+      audioBytes: 0,
+      transcriptionMs: 0,
+      llmMs: 0,
+      ttsMs: 0,
+      totalMs: 0,
+    };
     
     try {
-      // Send sentence start (no target language content in voice switch intro)
-      this.sendMessage(session.ws, {
-        type: 'sentence_start',
-        timestamp: Date.now(),
-        turnId,
-        sentenceIndex: 0,
-        text: introText,
-        hasTargetContent: false,
-        targetLanguageText: '',
-      } as StreamingSentenceStartMessage);
-      
-      // Synthesize with new voice using streaming
-      const speakingRate = voiceSpeedToRate(session.voiceSpeed);
-      
-      // Use streamSynthesize to get audio chunks
-      const chunks = await this.cartesiaService.streamSynthesize({
-        text: introText,
-        language: session.targetLanguage,
-        voiceId: session.voiceId,
-        emotion: 'friendly',
-        speakingRate,
+      // Use the streaming Gemini service to generate a natural greeting
+      await this.geminiService.streamWithSentenceChunking({
+        systemPrompt: session.systemPrompt,
+        conversationHistory: session.conversationHistory,
+        userMessage: switchPrompt,
+        onSentence: async (chunk: SentenceChunk) => {
+          // Clean text for display
+          const displayText = cleanTextForDisplay(chunk.text);
+          if (!displayText) return;
+          
+          fullText += (fullText ? ' ' : '') + displayText;
+          
+          // Send sentence_start first (required before streamSentenceAudioProgressive)
+          // Voice switch intros don't have target language content (all native L2 speech)
+          this.sendMessage(session.ws, {
+            type: 'sentence_start',
+            timestamp: Date.now(),
+            turnId,
+            sentenceIndex: chunk.index,
+            text: displayText,
+            hasTargetContent: true,  // Tutor greeting is in target language
+            targetLanguageText: displayText,
+          } as StreamingSentenceStartMessage);
+          
+          // Use the existing progressive streaming method for proper audio delivery
+          // This ensures we follow the exact same protocol as normal voice responses
+          await this.streamSentenceAudioProgressive(
+            session,
+            chunk,  // Use chunk directly (preserves correct index)
+            displayText,
+            metrics,
+            turnId
+          );
+          
+          sentenceCount++;
+        },
       });
       
-      let totalDurationMs = 0;
-      
-      // Send each audio chunk
-      for await (const chunk of chunks) {
-        if (session.ws.readyState === 1) { // WebSocket.OPEN
-          session.ws.send(chunk.audio);
-          totalDurationMs += chunk.durationMs;
-        }
-      }
-      
-      // Send sentence end
-      this.sendMessage(session.ws, {
-        type: 'sentence_end',
-        timestamp: Date.now(),
-        turnId,
-        sentenceIndex: 0,
-        totalDurationMs,
-      } as StreamingSentenceEndMessage);
+      // Add the greeting to conversation history so the tutor "remembers" they introduced themselves
+      session.conversationHistory.push({ role: 'model', content: fullText });
       
       // Send response complete
+      metrics.totalMs = Date.now() - metrics.startTime;
       this.sendMessage(session.ws, {
         type: 'response_complete',
         timestamp: Date.now(),
         turnId,
-        fullText: introText,
-        totalSentences: 1,
-        totalDurationMs,
+        fullText,
+        totalSentences: sentenceCount,
+        totalDurationMs: metrics.totalMs,
+        metrics,
       } as StreamingResponseCompleteMessage);
       
-      console.log(`[Voice Switch] Introduction complete: ${tutorName} (${totalDurationMs}ms)`);
+      console.log(`[Voice Switch] Introduction complete: ${tutorName} said "${fullText}"`);
       
     } catch (err: any) {
       console.error(`[Voice Switch] Failed to generate intro: ${err.message}`);
