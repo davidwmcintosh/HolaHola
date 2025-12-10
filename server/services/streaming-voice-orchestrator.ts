@@ -1104,20 +1104,21 @@ export class StreamingVoiceOrchestrator {
   }
   
   /**
-   * Transcribe audio using PARALLEL Deepgram APIs (Live + Prerecorded)
+   * Transcribe audio using Deepgram Prerecorded API
    * 
-   * PARALLEL STT STRATEGY: Run both APIs simultaneously, use first valid result
-   * This reduces latency by ~1-1.5 seconds compared to sequential fallback
+   * PUSH-TO-TALK STRATEGY: Use prerecorded API for complete audio blobs
+   * The Live API is designed for real-time streaming, not batch audio.
+   * Sending complete blobs to Live API causes "Endpointing not supported for batch requests" errors.
+   * 
+   * For Open Mic mode, use OpenMicSession class which streams audio chunks correctly.
    * 
    * Core values alignment:
-   * - <2 sec response: Parallel race gets fastest result
+   * - <2 sec response: Prerecorded API is fast for complete audio
    * - Word timestamps: Enabled for karaoke highlighting
-   * - Reliability: Two chances to get valid transcript
+   * - Reliability: Prerecorded handles WebM containers well
    * 
    * MULTI-LANGUAGE DETECTION: Always enabled for all users
    * Students naturally code-switch between native and target languages during lessons.
-   * A beginner asking "How do I say 'thank you' in Spanish?" needs English recognized.
-   * The ~7% accuracy tradeoff is acceptable vs. missing English speech entirely.
    * 
    * Returns transcript AND confidence for ACTFL tracking (no shared state)
    */
@@ -1129,29 +1130,23 @@ export class StreamingVoiceOrchestrator {
   ): Promise<{ transcript: string; confidence: number }> {
     // MULTI-LANGUAGE: Always use multi-language detection
     // Students naturally mix native + target language during lessons
-    // Better to get 85% accurate bilingual transcript than miss English entirely
     const languageCode = 'multi';
     
-    console.log(`[Deepgram Parallel] Transcribing ${audioData.length} bytes, language: ${languageCode} (bilingual: ${nativeLanguage}/${targetLanguage})`);
+    console.log(`[Deepgram] Transcribing ${audioData.length} bytes, language: ${languageCode} (bilingual: ${nativeLanguage}/${targetLanguage})`);
     
     // Log header to verify WebM format (0x1A 0x45 0xDF 0xA3)
     const header = audioData.slice(0, 16);
-    console.log(`[Deepgram Parallel] Audio header: ${header.toString('hex')}`);
+    console.log(`[Deepgram] Audio header: ${header.toString('hex')}`);
     
-    // PARALLEL RACE: Start both APIs simultaneously
-    // Always use multi-language detection for natural code-switching
-    const livePromise = this.transcribeWithLive(audioData, languageCode, true);
-    const prerecordedPromise = this.transcribeWithPrerecorded(audioData, languageCode, true);
-    
-    // Race for first VALID result (non-empty transcript)
-    // We use a custom race that waits for valid results, not just first completion
-    const result = await this.raceForValidTranscript(livePromise, prerecordedPromise);
+    // Use prerecorded API for push-to-talk (complete audio blobs)
+    // Live API is for streaming - it errors with "Endpointing not supported for batch requests"
+    const result = await this.transcribeWithPrerecorded(audioData, languageCode, true);
     
     if (!result.transcript) {
-      console.log('[Deepgram Parallel] Both APIs returned empty transcripts');
+      console.log('[Deepgram] Empty transcript returned');
     }
     
-    return result;
+    return { transcript: result.transcript, confidence: result.confidence };
   }
   
   /**

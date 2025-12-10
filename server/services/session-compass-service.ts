@@ -34,10 +34,19 @@ import {
 import { usageService } from "./usage-service";
 import { GoogleGenAI } from "@google/genai";
 
-// Initialize Gemini for summary generation
-const gemini = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY || "",
-});
+// Lazy-initialized Gemini client for summary generation
+// (ensures env vars are available at runtime, not module load time)
+let geminiClient: GoogleGenAI | null = null;
+function getGeminiClient(): GoogleGenAI {
+  if (!geminiClient) {
+    const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error('Gemini API key not configured (AI_INTEGRATIONS_GEMINI_API_KEY)');
+    }
+    geminiClient = new GoogleGenAI({ apiKey });
+  }
+  return geminiClient;
+}
 
 // Feature flag for gradual rollout
 export const COMPASS_ENABLED = process.env.COMPASS_ENABLED === 'true';
@@ -610,7 +619,7 @@ ${transcript}
 
 Summary (2-3 sentences):`;
 
-      const response = await gemini.models.generateContent({
+      const response = await getGeminiClient().models.generateContent({
         model: 'gemini-2.0-flash',
         contents: prompt,
       });
