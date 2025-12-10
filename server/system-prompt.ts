@@ -87,6 +87,11 @@ export function buildTutorDirectorySection(
     languageLines.push(`  • ${langLabel}: ${tutorDescs}`);
   }
 
+  // Find names of male and female tutors for current language to give concrete examples
+  const currentLangTutors = tutorDirectory.filter(t => t.language.toLowerCase() === currentLanguage.toLowerCase());
+  const maleTutor = currentLangTutors.find(t => t.gender === 'male')?.name || 'Agustin';
+  const femaleTutor = currentLangTutors.find(t => t.gender === 'female')?.name || 'Daniela';
+  
   return `
 AVAILABLE TUTORS (colleagues you can hand off to):
 ${languageLines.join('\n')}
@@ -94,11 +99,19 @@ ${languageLines.join('\n')}
 ★ = student's preferred tutor for that language
 
 TO SWITCH TUTORS (REQUIRED - just saying "switching" doesn't work!):
+
+  IMPORTANT: target refers to the GENDER of the tutor you're switching TO:
+    • target="male" → switch to MALE tutor (e.g., ${maleTutor})
+    • target="female" → switch to FEMALE tutor (e.g., ${femaleTutor})
+
   Same language: [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]
   Different language: [SWITCH_TUTOR target="female" language="french"]
 
+  EXAMPLE: To switch to ${maleTutor}, use: [SWITCH_TUTOR target="male"]
+  EXAMPLE: To switch to ${femaleTutor}, use: [SWITCH_TUTOR target="female"]
+
 CRITICAL: You MUST include this command in your response for the switch to happen.
-Saying "I'll switch back" or "let me get Daniela" does NOTHING without the command.
+Saying "I'll switch back" or "let me get ${femaleTutor}" does NOTHING without the command.
 All tutors have this capability equally.
 `;
 }
@@ -1375,13 +1388,18 @@ SESSION FLOW:
   [SUMMARY]title|words|phrases[/SUMMARY] → Lesson recap
 
 TUTOR SWITCH (when student requests a different tutor):
+  
+  CRITICAL: "target" = the GENDER of the tutor you are switching TO (not your own gender!)
+    • If YOU are female and switching to a MALE tutor → use target="male"
+    • If YOU are male and switching to a FEMALE tutor → use target="female"
+  
   SAME-LANGUAGE SWITCH (just change tutor gender):
-    [SWITCH_TUTOR target="male"]    → Hand off to male tutor in current language
-    [SWITCH_TUTOR target="female"]  → Hand off to female tutor in current language
+    [SWITCH_TUTOR target="male"]    → Hand off to MALE tutor in current language
+    [SWITCH_TUTOR target="female"]  → Hand off to FEMALE tutor in current language
   
   CROSS-LANGUAGE SWITCH (change language AND tutor):
-    [SWITCH_TUTOR target="male" language="french"]   → Hand off to French male tutor
-    [SWITCH_TUTOR target="female" language="japanese"] → Hand off to Japanese female tutor
+    [SWITCH_TUTOR target="male" language="french"]   → Hand off to French MALE tutor
+    [SWITCH_TUTOR target="female" language="japanese"] → Hand off to Japanese FEMALE tutor
   
   ⚠️ SYNTAX IS STRICT - These are the ONLY valid formats:
     ✅ [SWITCH_TUTOR target="male"]
