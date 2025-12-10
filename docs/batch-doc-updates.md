@@ -97,6 +97,13 @@ The Deepgram STT already uses `'multi'` language detection (line 1104 of streami
    - `isLanguageSwitchHandoff`: Flag indicating current handoff is cross-language
    - `previousLanguage`: Stores previous language for context in handoff intro
 
+#### Client Handoff Message
+The `tutor_handoff` WebSocket message includes:
+- `targetGender`: "male" or "female"
+- `targetLanguage`: New language (only for cross-language switches)
+- `tutorName`: New tutor's name (e.g., "Sayuri", "Kenji")
+- `isLanguageSwitch`: Boolean flag
+
 #### Remaining Future Work
 - **ACTFL Level**: Student may have different proficiency in new language - need to fetch/display correct level
 
