@@ -92,6 +92,10 @@ AVAILABLE TUTORS (colleagues you can hand off to):
 ${languageLines.join('\n')}
 
 ★ = student's preferred tutor for that language
+
+TO CALL A COLLEAGUE: Use [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]
+For a different language: [SWITCH_TUTOR target="male" language="french"]
+You can initiate handoffs just like Daniela can - you have the same capabilities as all tutors.
 `;
 }
 
