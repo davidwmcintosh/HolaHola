@@ -231,11 +231,10 @@ export function ImmersiveTutor({
 
       {/* Floating Microphone Button - compact layout with safe bottom padding */}
       <div className="flex-shrink-0 pt-2 pb-16 flex flex-col items-center gap-2">
-        {/* Input Mode Toggle - HIDDEN per user request */}
-        {/* Push-to-talk works better for clear turn-taking */}
-        {/* Open mic leads to interruptions and overlapping speech */}
-        {/* Keeping code commented for potential future use */}
-        {/* {setInputMode && (
+        {/* Input Mode Toggle - Developer only (Open Mic still in development) */}
+        {/* TODO: Unmask for all users when Open Mic is production-ready */}
+        {/* See docs/batch-doc-updates.md for tracking */}
+        {setInputMode && isDeveloper && (
           <div className="flex items-center gap-2 mb-1">
             <Button
               variant="outline"
@@ -258,7 +257,7 @@ export function ImmersiveTutor({
               Open Mic
             </Button>
           </div>
-        )} */}
+        )}
         
         {/* Instruction text */}
         <p className="text-xs text-muted-foreground" data-testid="text-mic-instruction">
@@ -416,7 +415,7 @@ export function ImmersiveTutor({
             </Button>
           )}
           <span className="text-[10px] text-muted-foreground">
-            Hold to speak
+            {inputMode === 'open-mic' ? 'Tap to toggle' : 'Hold to speak'}
           </span>
         </div>
 

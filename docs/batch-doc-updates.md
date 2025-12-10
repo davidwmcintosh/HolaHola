@@ -6,6 +6,39 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 15: PTT Button Lockout & Open Mic Developer-Only (Dec 10, 2025)
+
+#### PTT Button Lockout While Daniela Speaks
+- **Purpose**: Prevent users from interrupting Daniela - enforces polite turn-taking
+- **Implementation**: Added `isPlaying` to disabled condition on PTT button
+- **Visual Feedback**: 
+  - Button shows 50% opacity when locked out
+  - Instruction text changes to "Wait your turn..."
+- **Philosophy**: "So nobody can be rude and interrupt her" - clear turn boundaries
+- **File**: `client/src/components/ImmersiveTutor.tsx`
+
+#### Open Mic Toggle - Developer-Only (For Now)
+- **Change**: Open Mic mode toggle only visible when `isDeveloper === true`
+- **Reason**: Push-to-talk works better for clear turn-taking; Open Mic still has issues:
+  - Interruptions and overlapping speech
+  - Less natural conversational flow
+  - Greeting timing race conditions
+- **User Impact**: Regular users only see push-to-talk mode
+- **Developer Access**: Developers can still test/iterate on Open Mic
+- **File**: `client/src/components/ImmersiveTutor.tsx`
+
+#### TODO: Unmask Open Mic for All Users
+When Open Mic is production-ready, change:
+```tsx
+// FROM: Developer only
+{setInputMode && isDeveloper && (
+
+// TO: Everyone
+{setInputMode && (
+```
+
+---
+
 ### Session 14: Open Mic Fixes & Email Provider (Dec 9, 2025)
 
 #### Open Mic Mode - Critical Bug Fixes
