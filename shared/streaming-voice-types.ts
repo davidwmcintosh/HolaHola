@@ -305,10 +305,17 @@ export interface StreamingVADUtteranceEndMessage extends StreamingVoiceMessage {
 /**
  * Tutor handoff message - Switch to a different tutor voice
  * Sent after current tutor says goodbye, triggers voice switch and new tutor intro
+ * 
+ * Supports both intra-language and cross-language handoffs:
+ * - Intra-language: only targetGender changes (e.g., Daniela → Agustin, both Spanish)
+ * - Cross-language: targetLanguage also provided (e.g., Daniela → Sayuri, Spanish → Japanese)
  */
 export interface StreamingTutorHandoffMessage extends StreamingVoiceMessage {
   type: 'tutor_handoff';
   targetGender: 'male' | 'female';
+  targetLanguage?: string;         // Optional: for cross-language handoffs (e.g., "japanese")
+  tutorName?: string;              // The new tutor's name (e.g., "Sayuri")
+  isLanguageSwitch: boolean;       // True if this is a cross-language handoff
 }
 
 /**

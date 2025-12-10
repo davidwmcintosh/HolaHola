@@ -32,6 +32,64 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+### Session 19c: Unified Cross-Language Tutor Switching (Dec 10, 2025)
+
+#### Overview
+Unified the tutor switching system to support both intra-language (Daniela ↔ Agustin) and cross-language (Daniela → Sayuri) handoffs using a single `[SWITCH_TUTOR]` markup.
+
+#### New Format
+```
+[SWITCH_TUTOR target="female"]                        // Same language (Spanish Daniela → Spanish ... wait, that's switching TO female)
+[SWITCH_TUTOR target="male"]                          // Same language (Daniela → Agustin)
+[SWITCH_TUTOR target="female" language="japanese"]   // Cross-language (Daniela → Sayuri)
+[SWITCH_TUTOR target="male" language="mandarin chinese"] // Cross-language (Daniela → Tao)
+```
+
+#### Architecture
+1. **Whiteboard Parsing** (`shared/whiteboard-types.ts`)
+   - Extended `SWITCH_TUTOR` regex to accept optional `language` attribute
+   - Added `targetLanguage?: string` to `SwitchTutorItemData`
+   
+2. **Server-Side Handoff** (`server/services/streaming-voice-orchestrator.ts`)
+   - Extended `pendingTutorSwitch` to include `targetLanguage`
+   - Look up voice for new language + gender from `tutor_voices` table
+   - Update `session.targetLanguage` for cross-language switches
+   - Store `session.previousTutorName` for natural handoff intro
+   - Send enhanced `tutor_handoff` message with language info
+
+3. **Client-Side Handling**
+   - `shared/streaming-voice-types.ts`: Extended `StreamingTutorHandoffMessage` with `targetLanguage`, `tutorName`, `isLanguageSwitch`
+   - `client/src/lib/streamingVoiceClient.ts`: Updated emit to include new fields
+   - `client/src/hooks/useStreamingVoice.ts`: New `TutorHandoffInfo` interface, updated handler
+   - `client/src/components/StreamingVoiceChat.tsx`: Updated callbacks to receive handoff object
+
+4. **Context Transfer**
+   - Previous tutor name stored before switch for natural handoff greeting
+   - Conversation history preserved across language switches
+   - New tutor intro references the previous tutor by name
+
+#### Supported Languages
+spanish, french, german, italian, portuguese, japanese, mandarin chinese, korean, english
+
+#### Files Modified
+- `shared/whiteboard-types.ts` - Extended SWITCH_TUTOR parsing
+- `shared/streaming-voice-types.ts` - Enhanced handoff message type
+- `server/services/streaming-voice-orchestrator.ts` - Session interface + handoff logic
+- `client/src/lib/streamingVoiceClient.ts` - Enhanced emit
+- `client/src/hooks/useStreamingVoice.ts` - New TutorHandoffInfo type
+- `client/src/components/StreamingVoiceChat.tsx` - Updated handlers
+
+#### STT Language Handling
+The Deepgram STT already uses `'multi'` language detection (line 1104 of streaming-voice-orchestrator.ts), which automatically detects the spoken language. This means cross-language switches work seamlessly for speech recognition - no reconfiguration needed.
+
+#### UI Limitations (Future Work)
+The UI doesn't fully support cross-language switching yet:
+- Would need to update language display/context
+- Would need to reload tutor name indicators for both genders
+- TODO comments added in StreamingVoiceChat.tsx
+
+---
+
 ### Session 19b: Language-Specific Tutor Names (Dec 10, 2025)
 
 #### Problem

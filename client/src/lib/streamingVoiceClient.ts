@@ -606,7 +606,15 @@ export class StreamingVoiceClient {
           
         case 'tutor_handoff':
           // Tutor handoff - current tutor said goodbye, switch to new tutor
-          this.emit('tutorHandoff', message as { type: string; targetGender: 'male' | 'female'; timestamp: number });
+          // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
+          this.emit('tutorHandoff', message as { 
+            type: string; 
+            targetGender: 'male' | 'female'; 
+            targetLanguage?: string;  // For cross-language handoffs
+            tutorName?: string;       // New tutor's name (e.g., "Sayuri")
+            isLanguageSwitch: boolean;
+            timestamp: number;
+          });
           break;
           
         case 'whiteboard_update':

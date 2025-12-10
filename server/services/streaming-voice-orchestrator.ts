@@ -52,6 +52,7 @@ import { assessAdvancementReadiness, formatLevel } from "../actfl-advancement";
 import { tagConversation } from "./conversation-tagger";
 import { architectVoiceService } from "./architect-voice-service";
 import { trackToolEvent, mapWhiteboardTypeToToolType } from "./pedagogical-insights-service";
+import { createSystemPrompt } from "../system-prompt";
 
 /**
  * Clean text for display by removing markdown, emotion tags, and other formatting
@@ -171,7 +172,9 @@ export interface StreamingSession {
   isGenerating: boolean;            // True while AI response is being generated (for barge-in detection)
   pendingTutorSwitch?: {            // Queued tutor switch to execute after response completes
     targetGender: 'male' | 'female';
+    targetLanguage?: string;        // Optional: for cross-language handoffs (e.g., "japanese")
   };
+  previousTutorName?: string;       // Stored during handoff for natural intro by new tutor
 }
 
 /**
@@ -634,12 +637,17 @@ export class StreamingVoiceOrchestrator {
             this.enrichWordMapItems(session.ws, whiteboardParsed.whiteboardItems, session.targetLanguage, turnId);
             
             // SWITCH_TUTOR: Queue tutor handoff to execute after response completes
-            // This allows Daniela to finish her farewell before switching voices
+            // This allows the current tutor to finish their farewell before switching voices
+            // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
             const switchItem = whiteboardParsed.whiteboardItems.find(item => item.type === 'switch_tutor');
             if (switchItem && 'data' in switchItem && switchItem.data) {
-              const data = switchItem.data as { targetGender: 'male' | 'female' };
-              session.pendingTutorSwitch = { targetGender: data.targetGender };
-              console.log(`[Tutor Switch] Queued handoff to ${data.targetGender} tutor after response completes`);
+              const data = switchItem.data as { targetGender: 'male' | 'female'; targetLanguage?: string };
+              session.pendingTutorSwitch = { 
+                targetGender: data.targetGender,
+                targetLanguage: data.targetLanguage,
+              };
+              const languageInfo = data.targetLanguage ? ` in ${data.targetLanguage}` : '';
+              console.log(`[Tutor Switch] Queued handoff to ${data.targetGender} tutor${languageInfo} after response completes`);
             }
           } else if (whiteboardParsed.shouldClear) {
             // Send clear signal even if no items
@@ -739,17 +747,100 @@ export class StreamingVoiceOrchestrator {
       console.log(`[Streaming Orchestrator] Latencies: STT=${metrics.sttLatencyMs}ms, AI=${metrics.aiFirstTokenMs}ms, TTS=${metrics.ttsFirstByteMs}ms`);
       
       // TUTOR SWITCH: Execute pending handoff after farewell completes
+      // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
       if (session.pendingTutorSwitch) {
-        const { targetGender } = session.pendingTutorSwitch;
+        const { targetGender, targetLanguage } = session.pendingTutorSwitch;
         session.pendingTutorSwitch = undefined; // Clear the pending switch
-        console.log(`[Tutor Switch] Executing handoff to ${targetGender} tutor`);
         
-        // Notify client to update voice preference and trigger new tutor intro
-        this.sendMessage(session.ws, {
-          type: 'tutor_handoff',
-          timestamp: Date.now(),
-          targetGender,
-        });
+        const isLanguageSwitch = !!targetLanguage && targetLanguage.toLowerCase() !== session.targetLanguage.toLowerCase();
+        const effectiveLanguage = targetLanguage?.toLowerCase() || session.targetLanguage.toLowerCase();
+        
+        console.log(`[Tutor Switch] Executing handoff to ${targetGender} tutor${isLanguageSwitch ? ` in ${effectiveLanguage}` : ''}`);
+        
+        // Store previous tutor name for natural handoff intro by the new tutor
+        session.previousTutorName = session.tutorName;
+        
+        try {
+          // Look up the voice for the target language + gender
+          const allVoices = await storage.getAllTutorVoices();
+          const matchingVoice = allVoices.find(
+            (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
+                        v.gender?.toLowerCase() === targetGender &&
+                        v.isActive
+          );
+          
+          let tutorName: string | undefined;
+          
+          if (matchingVoice) {
+            // Extract tutor name from voice_name (e.g., "Sayuri - Peppy Colleague" → "Sayuri")
+            const voiceNameParts = matchingVoice.voiceName?.split(/\s*[-–]\s*/) || [];
+            tutorName = voiceNameParts[0]?.trim();
+            
+            // Update session voice
+            session.voiceId = matchingVoice.voiceId;
+            session.tutorGender = targetGender;
+            session.tutorName = tutorName;
+            
+            // If cross-language switch, update target language and regenerate system prompt
+            if (isLanguageSwitch) {
+              session.targetLanguage = effectiveLanguage;
+              
+              // Regenerate system prompt for new language context
+              // Uses session's existing settings + new language/tutor
+              session.systemPrompt = createSystemPrompt(
+                effectiveLanguage,                           // language
+                session.difficultyLevel,                     // difficulty
+                0,                                            // messageCount (fresh start for new language)
+                false,                                        // isVoiceMode
+                undefined,                                    // topic
+                undefined,                                    // previousConversations
+                session.nativeLanguage,                      // nativeLanguage
+                undefined,                                    // dueVocabulary
+                undefined,                                    // sessionVocabulary
+                undefined,                                    // actflLevel
+                false,                                        // isResuming
+                0,                                            // totalMessageCount
+                session.tutorPersonality,                    // tutorPersonality
+                session.tutorExpressiveness,                 // tutorExpressiveness
+                true,                                         // isStreamingVoiceMode
+                null,                                         // curriculumContext
+                'flexible_goals',                            // tutorFreedomLevel
+                undefined,                                    // targetActflLevel
+                null,                                         // compassContext
+                session.isFounderMode,                       // isFounderMode
+                undefined,                                    // founderName
+                session.isRawHonestyMode,                    // isRawHonestyMode
+                tutorName || 'your tutor',                   // tutorName
+                targetGender                                 // tutorGender
+              );
+              
+              console.log(`[Tutor Switch] Language switched to ${effectiveLanguage}, voice: ${matchingVoice.voiceName}, system prompt regenerated`);
+            } else {
+              console.log(`[Tutor Switch] Same-language switch, new voice: ${matchingVoice.voiceName}`);
+            }
+          } else {
+            console.warn(`[Tutor Switch] No matching voice found for ${targetGender} in ${effectiveLanguage}`);
+          }
+          
+          // Notify client to update voice preference and trigger new tutor intro
+          this.sendMessage(session.ws, {
+            type: 'tutor_handoff',
+            timestamp: Date.now(),
+            targetGender,
+            targetLanguage: isLanguageSwitch ? effectiveLanguage : undefined,
+            tutorName,
+            isLanguageSwitch,
+          });
+        } catch (err: any) {
+          console.error(`[Tutor Switch] Error during handoff:`, err.message);
+          // Still send handoff message so client can proceed
+          this.sendMessage(session.ws, {
+            type: 'tutor_handoff',
+            timestamp: Date.now(),
+            targetGender,
+            isLanguageSwitch: false,
+          });
+        }
       }
       
       // Log structured metrics for monitoring (non-blocking, just console.log)
@@ -2576,18 +2667,22 @@ Using this context, speak first to the student with a natural opening message. O
     }
     // If no substantial context, we fall back to a generic greeting (no contextSummary)
     
-    // Determine previous tutor name for natural handoff
-    const previousTutorName = tutorGender === 'male' ? 'Daniela' : 'Agustin';
+    // Get previous tutor name from session (stored before switch in handoff execution)
+    // For cross-language switches, this will be the tutor from the previous language
+    const previousTutorName = session.previousTutorName || 'your colleague';
+    
+    // Clear the previous tutor name now that we've used it
+    session.previousTutorName = undefined;
     
     // Generate a dynamic, persona-aware greeting using the LLM
     // The prompt provides conversation context for a seamless, natural handoff
-    const switchPrompt = `[TUTOR SWITCH: You are now ${tutorName}, a ${tutorGender} language tutor taking over from ${previousTutorName}.
+    const switchPrompt = `[TUTOR SWITCH: You are now ${tutorName}, a ${tutorGender} ${session.targetLanguage} language tutor taking over from ${previousTutorName}.
 
 INSTRUCTIONS:
 1. Greet the student warmly in 1-2 short sentences, acknowledging you're joining the conversation
 2. If there was an active topic being discussed, briefly reference it to show continuity (e.g., "I see you were working on..." or "Ah, the subjunctive!")
 3. Offer to continue where ${previousTutorName} left off, or ask how you can help
-4. Use appropriate grammatical gender in ${session.targetLanguage} (e.g., "profesora" for female, "profesor" for male)
+4. Use appropriate grammatical gender in ${session.targetLanguage} (e.g., "profesora" for female in Spanish, "sensei" in Japanese)
 5. Be warm, natural, and conversational - not robotic
 
 DO NOT: Start with a generic "Hello, I am [name]" - instead, flow naturally into the existing conversation.${contextSummary}]`;

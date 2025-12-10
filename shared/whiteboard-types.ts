@@ -442,10 +442,19 @@ export interface TextInputItem extends WhiteboardItemBase {
 /**
  * Switch tutor item data
  * Triggers a handoff to a different tutor voice mid-session
- * Format: [SWITCH_TUTOR target="male|female"]
+ * 
+ * Formats:
+ * - Same language: [SWITCH_TUTOR target="male|female"]
+ * - Cross-language: [SWITCH_TUTOR target="male|female" language="japanese"]
+ * 
+ * When language is omitted, switches to the other gender tutor in the current language.
+ * When language is provided, switches to that language's tutor with the specified gender.
+ * 
+ * Supported languages: spanish, french, german, italian, portuguese, japanese, mandarin chinese, korean, english
  */
 export interface SwitchTutorItemData {
-  targetGender: 'male' | 'female';  // The tutor to switch to
+  targetGender: 'male' | 'female';  // The tutor gender to switch to
+  targetLanguage?: string;          // Optional: switch to a different language (e.g., "japanese")
 }
 
 export interface SwitchTutorItem extends WhiteboardItemBase {
@@ -549,8 +558,9 @@ export const WHITEBOARD_PATTERNS = {
   SUBTITLE_TEXT: /\[SUBTITLE_TEXT:\s*([\s\S]*?)\s*\]/gi,
   // Text input for writing practice during voice chat: [TEXT_INPUT:prompt]
   TEXT_INPUT: /\[TEXT_INPUT:([\s\S]*?)\]/gi,
-  // Switch tutor mid-session: [SWITCH_TUTOR target="male|female"]
-  SWITCH_TUTOR: /\[SWITCH_TUTOR\s+target="(male|female)"\]/gi,
+  // Switch tutor mid-session: [SWITCH_TUTOR target="male|female" language="optional"]
+  // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
+  SWITCH_TUTOR: /\[SWITCH_TUTOR\s+target="(male|female)"(?:\s+language="([^"]+)")?\]/gi,
   CLEAR: /\[CLEAR\]/gi,
   HOLD: /\[HOLD\]/gi,
 } as const;
@@ -561,7 +571,7 @@ export const WHITEBOARD_PATTERNS = {
  * Also includes subtitle controls: SUBTITLE, SHOW, HIDE, SUBTITLE_TEXT (legacy)
  */
 export const ALL_WHITEBOARD_MARKUP_PATTERN = 
-  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[SWITCH_TUTOR\s+target="(?:male|female)"\]|\[(CLEAR|HOLD)\]/gi;
+  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[SWITCH_TUTOR\s+target="(?:male|female)"(?:\s+language="[^"]+")?\]|\[(CLEAR|HOLD)\]/gi;
 
 /**
  * Generate unique ID for whiteboard items
@@ -1262,17 +1272,20 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
   }
 
   // Parse SWITCH_TUTOR tags (tutor handoff during voice session)
-  // Format: [SWITCH_TUTOR target="male|female"]
+  // Format: [SWITCH_TUTOR target="male|female"] - same language
+  // Format: [SWITCH_TUTOR target="male|female" language="japanese"] - cross-language
   WHITEBOARD_PATTERNS.SWITCH_TUTOR.lastIndex = 0;
   while ((match = WHITEBOARD_PATTERNS.SWITCH_TUTOR.exec(text)) !== null) {
     const targetGender = match[1] as 'male' | 'female';
+    const targetLanguage = match[2] || undefined;  // Optional language for cross-language handoffs
     items.push({
       type: 'switch_tutor',
-      content: targetGender,
+      content: targetLanguage ? `${targetGender}:${targetLanguage}` : targetGender,
       timestamp: now,
       id: generateItemId(),
       data: {
         targetGender,
+        targetLanguage,
       },
     });
   }

@@ -68,8 +68,21 @@ export interface StreamingSessionConfig {
   onInterimTranscript?: (transcript: string) => void;
   /** Called when open mic session closes (e.g., Deepgram timeout) */
   onOpenMicSessionClosed?: () => void;
-  /** Called when voice-initiated tutor handoff occurs (student asked to switch tutors) */
-  onTutorHandoff?: (targetGender: 'male' | 'female') => void;
+  /** 
+   * Called when voice-initiated tutor handoff occurs (student asked to switch tutors)
+   * Supports both intra-language (gender only) and cross-language (gender + language) handoffs
+   */
+  onTutorHandoff?: (handoff: TutorHandoffInfo) => void;
+}
+
+/**
+ * Information about a tutor handoff (intra-language or cross-language)
+ */
+export interface TutorHandoffInfo {
+  targetGender: 'male' | 'female';
+  targetLanguage?: string;    // For cross-language handoffs (e.g., "japanese")
+  tutorName?: string;         // New tutor's name (e.g., "Sayuri")
+  isLanguageSwitch: boolean;  // True if this is a cross-language handoff
 }
 
 /**
@@ -658,16 +671,36 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   /**
    * Handle tutor handoff - triggered after current tutor says goodbye
    * Automatically switches voice to new tutor and triggers their introduction
+   * Supports both intra-language (gender only) and cross-language (gender + language) handoffs
    */
-  const handleTutorHandoff = useCallback((message: { type: string; targetGender: 'male' | 'female'; timestamp: number }) => {
-    console.log(`[StreamingVoice] Tutor handoff received - switching to ${message.targetGender} tutor`);
+  const handleTutorHandoff = useCallback((message: { 
+    type: string; 
+    targetGender: 'male' | 'female'; 
+    targetLanguage?: string;
+    tutorName?: string;
+    isLanguageSwitch: boolean;
+    timestamp: number;
+  }) => {
+    const { targetGender, targetLanguage, tutorName, isLanguageSwitch } = message;
+    
+    if (isLanguageSwitch && targetLanguage) {
+      console.log(`[StreamingVoice] Cross-language handoff to ${tutorName} (${targetGender}) in ${targetLanguage}`);
+    } else {
+      console.log(`[StreamingVoice] Tutor handoff to ${tutorName || targetGender} tutor`);
+    }
     
     // Notify parent component to update UI state (avatar, buttons)
-    sessionConfigRef.current?.onTutorHandoff?.(message.targetGender);
+    // Pass full handoff info for cross-language support
+    sessionConfigRef.current?.onTutorHandoff?.({
+      targetGender,
+      targetLanguage,
+      tutorName,
+      isLanguageSwitch,
+    });
     
     // Call updateVoice to complete the switch - this triggers the new tutor's intro
     if (clientRef.current?.isReady()) {
-      clientRef.current.updateVoice(message.targetGender);
+      clientRef.current.updateVoice(targetGender);
     }
   }, []);
   

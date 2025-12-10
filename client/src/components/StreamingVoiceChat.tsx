@@ -655,8 +655,15 @@ export function StreamingVoiceChat({
             }
           },
           // Voice-initiated tutor switch - update UI state when student asks to switch tutors
-          onTutorHandoff: (targetGender) => {
-            console.log('[TUTOR HANDOFF] Switching to', targetGender, 'tutor');
+          // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
+          onTutorHandoff: (handoff) => {
+            const { targetGender, targetLanguage, tutorName, isLanguageSwitch } = handoff;
+            if (isLanguageSwitch && targetLanguage) {
+              console.log(`[TUTOR HANDOFF] Cross-language switch to ${tutorName} (${targetGender}) in ${targetLanguage}`);
+              // TODO: UI would need to refresh language context for full cross-language support
+            } else {
+              console.log(`[TUTOR HANDOFF] Switching to ${tutorName || targetGender} tutor`);
+            }
             setTutorGender(targetGender);
           },
         });
@@ -2005,8 +2012,15 @@ export function StreamingVoiceChat({
                 }
               },
               // Voice-initiated tutor switch - update UI state when student asks to switch tutors
-              onTutorHandoff: (targetGender) => {
-                console.log('[TUTOR HANDOFF] Switching to', targetGender, 'tutor (reconnect context)');
+              // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
+              onTutorHandoff: (handoff) => {
+                const { targetGender, targetLanguage, tutorName, isLanguageSwitch } = handoff;
+                if (isLanguageSwitch && targetLanguage) {
+                  console.log(`[TUTOR HANDOFF] Cross-language switch to ${tutorName} (${targetGender}) in ${targetLanguage} (reconnect context)`);
+                  // TODO: UI would need to refresh language context for full cross-language support
+                } else {
+                  console.log(`[TUTOR HANDOFF] Switching to ${tutorName || targetGender} tutor (reconnect context)`);
+                }
                 setTutorGender(targetGender);
               },
             });
