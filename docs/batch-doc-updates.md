@@ -82,11 +82,28 @@ spanish, french, german, italian, portuguese, japanese, mandarin chinese, korean
 #### STT Language Handling
 The Deepgram STT already uses `'multi'` language detection (line 1104 of streaming-voice-orchestrator.ts), which automatically detects the spoken language. This means cross-language switches work seamlessly for speech recognition - no reconfiguration needed.
 
-#### UI Limitations (Future Work)
-The UI doesn't fully support cross-language switching yet:
-- Would need to update language display/context
-- Would need to reload tutor name indicators for both genders
-- TODO comments added in StreamingVoiceChat.tsx
+#### UI Enhancements Needed (Future Work)
+The voice chat backend fully supports cross-language switching, but the UI needs updates to reflect the new language:
+
+1. **Language Context Display** - Update the "Learning X" label in voice chat header
+   - File: `client/src/components/StreamingVoiceChat.tsx`
+   - Currently displays initial targetLanguage, doesn't track changes
+   - Need to add state for currentLanguage that updates on `onTutorHandoff` when `isLanguageSwitch=true`
+
+2. **Tutor Name Indicators** - Reload both male/female tutor names for new language
+   - Currently only tracks tutors for initial language
+   - Need API call to fetch tutor_voices for new language
+   - Update `femaleTutorName` and `maleTutorName` state
+
+3. **Deepgram STT Language Hint** - Already uses 'multi' detection (no change needed)
+
+4. **Conversation Context** - Consider whether to:
+   - Start fresh conversation in new language, or
+   - Carry over history (current behavior)
+   
+5. **ACTFL Level Reset** - Student may have different proficiency in new language
+   - Fetch/update proficiency for new language
+   - Display appropriate level indicator
 
 ---
 
