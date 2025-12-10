@@ -357,6 +357,7 @@ export class CartesiaStreamingService extends EventEmitter {
     // Clean standalone quotes but PRESERVE apostrophes in contractions (I'm, don't, etc.)
     // Remove: "text", 'text', standalone quotes at word boundaries
     // Keep: I'm, don't, it's, you're (apostrophes between letters)
+    // Also strip emojis which cause Cartesia 500 errors
     const cleanedText = processedText
       .replace(/^["'"]+|["'"]+$/g, '')  // Remove leading/trailing quotes
       .replace(/\s["'"]+/g, ' ')         // Quote after space → just space
@@ -364,7 +365,25 @@ export class CartesiaStreamingService extends EventEmitter {
       .replace(/["'"]{2,}/g, '')         // Multiple consecutive quotes → remove
       .replace(/(?<![a-zA-Z])["'"](?![a-zA-Z])/g, ''); // Standalone quotes not between letters
     
-    console.log(`[Cartesia Streaming] Synthesizing: "${cleanedText.substring(0, 50)}..." (${cleanedText.length} chars)`);
+    // Strip emojis which cause Cartesia 500 errors, then clean up whitespace
+    const emojiPattern = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu;
+    const finalText = cleanedText
+      .replace(emojiPattern, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    // Handle empty text (e.g., just emojis) - yield empty audio and return
+    if (!finalText || finalText.length === 0) {
+      console.log('[Cartesia Streaming] Skipping empty text (after emoji/cleanup stripping)');
+      yield {
+        audio: Buffer.alloc(0),
+        durationMs: 0,
+        isLast: true,
+      };
+      return;
+    }
+    
+    console.log(`[Cartesia Streaming] Synthesizing: "${finalText.substring(0, 50)}..." (${finalText.length} chars)`);
     const voiceName = voiceId ? `custom (${voiceId.substring(0, 8)}...)` : voiceConfig.name;
     console.log(`[Cartesia Streaming] Voice: ${voiceName}, Emotion: ${constrainedEmotion}, Speed: ${cartesiaSpeed}`);
     
@@ -388,7 +407,7 @@ export class CartesiaStreamingService extends EventEmitter {
         const contextId = `ctx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const response = await this.websocket.send({
           modelId: this.model,
-          transcript: cleanedText,
+          transcript: finalText,
           voice: {
             mode: 'id',
             id: effectiveVoiceId,
@@ -507,7 +526,7 @@ export class CartesiaStreamingService extends EventEmitter {
         // This happens when Cartesia's socket accepts send() before fully primed
         // Solution: Reset connection and fall back to bytes API
         if (chunkCount === 0) {
-          console.warn(`[Cartesia Streaming] ⚠ WebSocket returned 0 bytes for: "${cleanedText.substring(0, 30)}..."`);
+          console.warn(`[Cartesia Streaming] ⚠ WebSocket returned 0 bytes for: "${finalText.substring(0, 30)}..."`);
           console.log('[Cartesia Streaming] Resetting connection and falling back to bytes API');
           
           // Force disconnect so next synthesis uses bytes fallback
@@ -532,7 +551,7 @@ export class CartesiaStreamingService extends EventEmitter {
         
         const requestOptions: any = {
           modelId: this.model,
-          transcript: cleanedText,
+          transcript: finalText,
           voice: {
             mode: 'id',
             id: effectiveVoiceId,
