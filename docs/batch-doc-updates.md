@@ -6,6 +6,32 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### TODO: Documentation Branding Sweep (Dec 10, 2025)
+
+**Action Required**: Search and replace all instances of "LinguaFlow" with "HolaHola" across documentation files.
+
+**Files to update**:
+- CAPACITOR.md
+- future-features.md
+- test-both-models.ts
+- LLM-Migration-Analysis.md
+- DOCUMENTATION_INDEX.md
+- docs/ROADMAP.md
+- REST_VOICE_CHAT.md
+- docs/USER-MANUAL.md
+- ADMIN_GUIDE.md
+- docs/TECHNICAL-REFERENCE.md
+- TEACHER_GUIDE.md
+- docs/launch-planning.md
+- docs/archive/cost-analysis-2025.md
+- docs/archive/asian-language-learner-guide.md
+- docs/TEACHER-GUIDE.md
+- server/scripts/setup-cartesia-dictionaries.ts (dictionary names)
+
+**Note**: Some historical references in batch-doc-updates.md can remain as they document the transition.
+
+---
+
 ### Session 18: Voice-Initiated Tutor Switching (Dec 10, 2025)
 
 #### SWITCH_TUTOR Whiteboard Tool
