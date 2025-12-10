@@ -602,20 +602,7 @@ export class StreamingVoiceOrchestrator {
               }
             }
             
-            // Send whiteboard update to client (with isLoading: true for WORD_MAP)
-            this.sendMessage(session.ws, {
-              type: 'whiteboard_update',
-              timestamp: Date.now(),
-              turnId,
-              items: whiteboardParsed.whiteboardItems,
-              shouldClear: whiteboardParsed.shouldClear,
-            } as StreamingWhiteboardMessage);
-            
-            // WORD_MAP ENRICHMENT: Asynchronously generate related words
-            // Don't await - let this run in background while audio streams
-            this.enrichWordMapItems(session.ws, whiteboardParsed.whiteboardItems, session.targetLanguage, turnId);
-            
-            // SWITCH_TUTOR: Queue tutor handoff to execute after response completes
+            // SWITCH_TUTOR: Internal command - queue tutor handoff (don't send to whiteboard)
             // This allows the current tutor to finish their farewell before switching voices
             // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
             const switchItem = whiteboardParsed.whiteboardItems.find(item => item.type === 'switch_tutor');
@@ -628,15 +615,35 @@ export class StreamingVoiceOrchestrator {
               const languageInfo = data.targetLanguage ? ` in ${data.targetLanguage}` : '';
               console.log(`[Tutor Switch] Queued handoff to ${data.targetGender} tutor${languageInfo} after response completes`);
             }
-          } else if (whiteboardParsed.shouldClear) {
-            // Send clear signal even if no items
-            this.sendMessage(session.ws, {
-              type: 'whiteboard_update',
-              timestamp: Date.now(),
-              turnId,
-              items: [],
-              shouldClear: true,
-            } as StreamingWhiteboardMessage);
+            
+            // Filter out internal commands (switch_tutor) - only send visual items to whiteboard
+            const visualWhiteboardItems = whiteboardParsed.whiteboardItems.filter(
+              item => item.type !== 'switch_tutor'
+            );
+            
+            // Send whiteboard update to client (only visual teaching tools)
+            if (visualWhiteboardItems.length > 0) {
+              this.sendMessage(session.ws, {
+                type: 'whiteboard_update',
+                timestamp: Date.now(),
+                turnId,
+                items: visualWhiteboardItems,
+                shouldClear: whiteboardParsed.shouldClear,
+              } as StreamingWhiteboardMessage);
+              
+              // WORD_MAP ENRICHMENT: Asynchronously generate related words
+              // Don't await - let this run in background while audio streams
+              this.enrichWordMapItems(session.ws, visualWhiteboardItems, session.targetLanguage, turnId);
+            } else if (whiteboardParsed.shouldClear) {
+              // Send clear signal even if only internal commands (like SWITCH_TUTOR)
+              this.sendMessage(session.ws, {
+                type: 'whiteboard_update',
+                timestamp: Date.now(),
+                turnId,
+                items: [],
+                shouldClear: true,
+              } as StreamingWhiteboardMessage);
+            }
           }
           
           // Skip empty sentences AFTER whiteboard processing

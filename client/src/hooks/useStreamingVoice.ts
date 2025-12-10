@@ -622,12 +622,19 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, [checkAndClearProcessing]);
   
   /**
-   * Handle errors
+   * Handle errors - also clears tutor switch state to prevent mic lockout
    */
   const handleError = useCallback((err: Error) => {
     console.error('[StreamingVoice] Error:', err);
     setError(err.message);
     setIsProcessing(false);
+    
+    // Clear tutor switch state to prevent mic lockout on errors
+    if (tutorSwitchTimeoutRef.current) {
+      clearTimeout(tutorSwitchTimeoutRef.current);
+      tutorSwitchTimeoutRef.current = null;
+    }
+    setIsSwitchingTutor(false);
   }, []);
   
   /**
