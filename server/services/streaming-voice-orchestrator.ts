@@ -1268,6 +1268,13 @@ export class StreamingVoiceOrchestrator {
       const formatLabel = audioFormat === 'pcm_f32le' ? 'PCM' : 'MP3';
       console.log(`[Streaming] Sentence ${index}: ${completeAudio.length} bytes (${formatLabel}), ${Math.round(totalDurationMs)}ms`);
       
+      // Skip sending empty audio (e.g., from emoji-only sentences)
+      // Sending empty audio confuses the client's audio playback loop
+      if (completeAudio.length === 0) {
+        console.log(`[Streaming] Skipping empty sentence ${index} (no audio data)`);
+        return;
+      }
+      
       // Use current turn ID if not explicitly passed
       const effectiveTurnId = turnId ?? session.currentTurnId;
       
