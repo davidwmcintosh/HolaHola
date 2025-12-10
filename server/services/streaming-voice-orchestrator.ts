@@ -555,41 +555,18 @@ export class StreamingVoiceOrchestrator {
             console.log(`[Streaming Orchestrator] AI first token: ${metrics.aiFirstTokenMs}ms`);
           }
           
+          // WHITEBOARD: Parse markup from the raw chunk text FIRST (before display cleaning)
+          // This ensures SWITCH_TUTOR and other commands are processed even if no speakable text
+          const whiteboardParsed = parseWhiteboardMarkup(chunk.text);
+          
           // Clean text for display (remove markdown, emotion tags)
           const displayText = cleanTextForDisplay(chunk.text);
           
-          // Skip empty sentences after cleaning
-          if (!displayText) {
-            console.log(`[Streaming Orchestrator] Skipping empty sentence ${chunk.index} after cleaning`);
-            return;
-          }
-          
-          // DEDUPLICATION: Skip if we've already seen this sentence (LLM repetition loop)
-          const normalizedText = displayText.toLowerCase().trim();
-          if (seenSentences.has(normalizedText)) {
-            console.log(`[Streaming Orchestrator] DEDUP: Skipping duplicate sentence ${chunk.index}: "${displayText.substring(0, 40)}..."`);
-            return;
-          }
-          seenSentences.add(normalizedText);
-          
-          // MAX SENTENCE LIMIT: Prevent runaway responses
-          if (actualSentenceCount >= MAX_SENTENCES) {
-            console.log(`[Streaming Orchestrator] MAX LIMIT: Skipping sentence ${chunk.index} (already have ${actualSentenceCount})`);
-            return;
-          }
-          actualSentenceCount++;
-          
-          // AI CONTENT MODERATION: Check AI response before sending to client/TTS
-          // Only block severely inappropriate AI responses (rare edge case)
-          if (containsSeverelyInappropriateContent(displayText)) {
-            console.log(`[Streaming Orchestrator] AI response moderation: Skipping sentence ${chunk.index}`);
-            return; // Skip this sentence entirely
-          }
-          
-          // WHITEBOARD: Parse markup from the raw chunk text (before display cleaning)
-          // The tutor may include [WRITE], [IMAGE], [DRILL] tags for visual teaching aids
-          const whiteboardParsed = parseWhiteboardMarkup(chunk.text);
+          // Process whiteboard items even if displayText is empty
+          // This allows SWITCH_TUTOR to work as a standalone command
+          let hasWhiteboardContent = false;
           if (whiteboardParsed.whiteboardItems.length > 0) {
+            hasWhiteboardContent = true;
             console.log(`[Whiteboard] Parsed ${whiteboardParsed.whiteboardItems.length} items from sentence ${chunk.index}`);
             
             // PEDAGOGICAL TRACKING: Log each tool usage for effectiveness analysis
@@ -660,6 +637,39 @@ export class StreamingVoiceOrchestrator {
               items: [],
               shouldClear: true,
             } as StreamingWhiteboardMessage);
+          }
+          
+          // Skip empty sentences AFTER whiteboard processing
+          // This ensures SWITCH_TUTOR and other commands are processed even with no speakable text
+          if (!displayText) {
+            if (hasWhiteboardContent) {
+              console.log(`[Streaming Orchestrator] Sentence ${chunk.index} had whiteboard content only (no speakable text)`);
+            } else {
+              console.log(`[Streaming Orchestrator] Skipping empty sentence ${chunk.index} after cleaning`);
+            }
+            return; // Skip TTS but whiteboard items were already processed above
+          }
+          
+          // DEDUPLICATION: Skip if we've already seen this sentence (LLM repetition loop)
+          const normalizedText = displayText.toLowerCase().trim();
+          if (seenSentences.has(normalizedText)) {
+            console.log(`[Streaming Orchestrator] DEDUP: Skipping duplicate sentence ${chunk.index}: "${displayText.substring(0, 40)}..."`);
+            return;
+          }
+          seenSentences.add(normalizedText);
+          
+          // MAX SENTENCE LIMIT: Prevent runaway responses
+          if (actualSentenceCount >= MAX_SENTENCES) {
+            console.log(`[Streaming Orchestrator] MAX LIMIT: Skipping sentence ${chunk.index} (already have ${actualSentenceCount})`);
+            return;
+          }
+          actualSentenceCount++;
+          
+          // AI CONTENT MODERATION: Check AI response before sending to client/TTS
+          // Only block severely inappropriate AI responses (rare edge case)
+          if (containsSeverelyInappropriateContent(displayText)) {
+            console.log(`[Streaming Orchestrator] AI response moderation: Skipping sentence ${chunk.index}`);
+            return; // Skip this sentence entirely
           }
           
           // Extract target language with word mapping (needs raw text with bold markers)
