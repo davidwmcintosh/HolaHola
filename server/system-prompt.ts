@@ -55,9 +55,16 @@ export function buildTutorDirectorySection(
     return '';
   }
 
+  // Filter out the current tutor - the handoff list should only show colleagues
+  const handoffCandidates = tutorDirectory.filter((entry) => !entry.isCurrent);
+  
+  if (handoffCandidates.length === 0) {
+    return '';
+  }
+
   // Group tutors by language
   const byLanguage = new Map<string, TutorDirectoryEntry[]>();
-  for (const entry of tutorDirectory) {
+  for (const entry of handoffCandidates) {
     const lang = entry.language.toLowerCase();
     if (!byLanguage.has(lang)) {
       byLanguage.set(lang, []);
@@ -73,8 +80,7 @@ export function buildTutorDirectorySection(
     
     const tutorDescs = tutors.map((t: TutorDirectoryEntry) => {
       let desc = `${t.name} (${t.gender})`;
-      if (t.isCurrent) desc += ' ← YOU';
-      else if (t.isPreferred) desc += ' ★preferred';
+      if (t.isPreferred) desc += ' ★';
       return desc;
     }).join(', ');
     
@@ -82,11 +88,10 @@ export function buildTutorDirectorySection(
   }
 
   return `
-AVAILABLE TUTORS (for handoffs):
+AVAILABLE TUTORS (colleagues you can hand off to):
 ${languageLines.join('\n')}
 
-When switching, use the student's preferred tutor if marked with ★.
-You are currently: ${currentTutorName} (teaching ${currentLanguage})
+★ = student's preferred tutor for that language
 `;
 }
 

@@ -506,6 +506,8 @@ Reference past discussions when relevant, but don't force it.
             
             // Build dynamic tutor directory from all active voices
             // This gives Daniela knowledge of who she can hand off to by name
+            const studentPreferredGender = (user?.tutorGender || 'female') as 'male' | 'female';
+            
             tutorDirectory = allVoices
               .filter((v: any) => v.isActive && v.voiceName)
               .map((v: any) => {
@@ -514,18 +516,19 @@ Reference past discussions when relevant, but don't force it.
                 const lang = v.language?.toLowerCase() || 'spanish';
                 const gender = (v.gender?.toLowerCase() || 'female') as 'male' | 'female';
                 
-                // Mark current tutor and student's preferred tutor per language
+                // Mark current tutor (current language + current gender)
                 const isCurrent = lang === effectiveLanguage && gender === tutorGenderForPrompt;
-                // Student's preference: use their selected gender for their target language
-                const isPreferred = lang === (user?.targetLanguage?.toLowerCase() || effectiveLanguage) &&
-                                   gender === (user?.tutorGender || 'female');
+                
+                // Mark preferred: student's gender preference for EACH language
+                // This marks the voice they'd want if switching to that language
+                const isPreferred = gender === studentPreferredGender;
                 
                 return {
                   language: lang,
                   gender,
                   name: tutorName,
                   isCurrent,
-                  isPreferred: !isCurrent && isPreferred,
+                  isPreferred: !isCurrent && isPreferred, // Don't mark current as preferred
                 };
               });
               
