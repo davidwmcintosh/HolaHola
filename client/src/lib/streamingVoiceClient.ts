@@ -473,6 +473,21 @@ export class StreamingVoiceClient {
   }
   
   /**
+   * Request a voice handoff - current tutor says goodbye, then new tutor introduces themselves
+   * This provides a natural transition between tutors
+   */
+  requestVoiceHandoff(newTutorGender: 'male' | 'female', currentTutorName: string, newTutorName: string): void {
+    if (this.isReady()) {
+      this.ws!.send(JSON.stringify({ 
+        type: 'request_voice_handoff',
+        newTutorGender,
+        currentTutorName,
+        newTutorName,
+      }));
+    }
+  }
+  
+  /**
    * Disconnect and cleanup (user-initiated)
    */
   disconnect(): void {
