@@ -20,6 +20,8 @@ interface VoiceChatViewManagerProps {
   isProcessing?: boolean;
   isPlaying: boolean;
   isConnecting?: boolean;
+  // Explicit "user's turn" flag - mic is ONLY unlocked when this is true
+  isUsersTurn?: boolean;
   onEndCall?: () => void;
   tutorGender?: 'male' | 'female';
   voiceSpeed?: VoiceSpeed;
@@ -59,6 +61,7 @@ export function VoiceChatViewManager({
   isProcessing,
   isPlaying,
   isConnecting = false,
+  isUsersTurn = true,
   onEndCall,
   tutorGender = "female",
   voiceSpeed,
@@ -175,6 +178,7 @@ export function VoiceChatViewManager({
                 isProcessing={isProcessing}
                 isPlaying={isPlaying}
                 isConnecting={isConnecting}
+                isUsersTurn={isUsersTurn}
                 onToggleView={toggleView}
                 onEndCall={onEndCall}
                 tutorGender={tutorGender}

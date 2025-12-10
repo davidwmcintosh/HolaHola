@@ -2379,6 +2379,16 @@ export function StreamingVoiceChat({
           isProcessing={isProcessing}
           isPlaying={avatarState === 'speaking'}
           isConnecting={useStreamingMode && (streamingVoice.state.connectionState === 'connecting' || streamingVoice.state.connectionState === 'connected' || streamingVoice.state.connectionState === 'reconnecting')}
+          isUsersTurn={
+            // Mic is ONLY unlocked when ALL of these are true:
+            // 1. Connection is 'ready' (established and greeting complete)
+            // 2. Not processing (not waiting for AI response)
+            // 3. Not playing/speaking (AI not talking)
+            // 4. Not connecting/reconnecting
+            streamingVoice.state.connectionState === 'ready' &&
+            !isProcessing &&
+            avatarState !== 'speaking'
+          }
           onEndCall={handleEndCall}
           tutorGender={tutorGender}
           voiceSpeed={voiceSpeed}

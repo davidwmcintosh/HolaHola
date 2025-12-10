@@ -35,6 +35,9 @@ interface ImmersiveTutorProps {
   isProcessing?: boolean;
   isPlaying: boolean;
   isConnecting?: boolean;
+  // Explicit "user's turn" flag - mic is ONLY unlocked when this is true
+  // This is the inverse of mic lockout and covers ALL non-user-turn states
+  isUsersTurn?: boolean;
   onToggleView?: () => void;
   onEndCall?: () => void;
   tutorGender?: 'male' | 'female';
@@ -74,6 +77,7 @@ export function ImmersiveTutor({
   isProcessing = false,
   isPlaying,
   isConnecting = false,
+  isUsersTurn = true,
   onToggleView,
   onEndCall,
   tutorGender = "female",
@@ -364,7 +368,7 @@ export function ImmersiveTutor({
                   onRecordingStart();
                 }
               }}
-              disabled={isProcessing || isConnecting}
+              disabled={!isUsersTurn && !isRecording}
               className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none ${
                 isRecording 
                   ? openMicState === 'ready'
@@ -375,7 +379,7 @@ export function ImmersiveTutor({
                         ? 'bg-blue-500 hover:bg-blue-600'  // Blue: waiting for AI
                         : ''
                   : ''
-              }`}
+              } ${!isUsersTurn && !isRecording ? 'opacity-50 cursor-not-allowed' : ''}`}
               data-testid={isRecording ? "button-open-mic-active" : "button-open-mic-idle"}
               aria-pressed={isRecording}
               aria-label={isRecording ? "Listening - tap to stop" : "Tap to start listening"}
@@ -394,8 +398,8 @@ export function ImmersiveTutor({
               onTouchStart={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('[MIC BUTTON] Touch start');
-                if (!isRecording && !isMicPreparing && !isProcessing && !isPlaying && !isPointerRecordingRef.current) {
+                console.log('[MIC BUTTON] Touch start, isUsersTurn:', isUsersTurn);
+                if (isUsersTurn && !isRecording && !isMicPreparing && !isPointerRecordingRef.current) {
                   isPointerRecordingRef.current = true;
                   onRecordingStart();
                 }
@@ -419,8 +423,8 @@ export function ImmersiveTutor({
               }}
               onMouseDown={(e) => {
                 e.preventDefault();
-                console.log('[MIC BUTTON] Mouse down');
-                if (!isRecording && !isMicPreparing && !isProcessing && !isPlaying && !isPointerRecordingRef.current) {
+                console.log('[MIC BUTTON] Mouse down, isUsersTurn:', isUsersTurn);
+                if (isUsersTurn && !isRecording && !isMicPreparing && !isPointerRecordingRef.current) {
                   isPointerRecordingRef.current = true;
                   onRecordingStart();
                 }
@@ -440,8 +444,8 @@ export function ImmersiveTutor({
                   onRecordingStop();
                 }
               }}
-              disabled={isProcessing || isConnecting || isPlaying}
-              className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none focus-visible:ring-0 focus-visible:ring-offset-0 ${isMicPreparing ? 'animate-pulse' : ''} ${isPlaying ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={!isUsersTurn}
+              className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none focus-visible:ring-0 focus-visible:ring-offset-0 ${isMicPreparing ? 'animate-pulse' : ''} ${!isUsersTurn ? 'opacity-50 cursor-not-allowed' : ''}`}
               style={{ touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
               data-testid={isRecording ? "button-stop-recording" : isMicPreparing ? "button-preparing" : "button-start-recording"}
               aria-pressed={isRecording || isMicPreparing}

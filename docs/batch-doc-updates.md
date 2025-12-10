@@ -109,6 +109,38 @@ The `tutor_handoff` WebSocket message includes:
 
 ---
 
+### Session 19d: Enhanced Mic Lockout (Dec 10, 2025)
+
+#### Problem
+The mic lockout previously used "additive" logic - listing individual states where the mic should be locked (isProcessing, isConnecting, isPlaying). This could miss edge cases.
+
+#### Solution
+Implemented a single `isUsersTurn` prop that defines the ONE condition when the mic is UNLOCKED:
+
+```typescript
+isUsersTurn={
+  // Mic is ONLY unlocked when ALL of these are true:
+  // 1. Connection is 'ready' (established and greeting complete)
+  // 2. Not processing (not waiting for AI response)
+  // 3. Not playing/speaking (AI not talking)
+  streamingVoice.state.connectionState === 'ready' &&
+  !isProcessing &&
+  avatarState !== 'speaking'
+}
+```
+
+#### Files Changed
+- `client/src/components/ImmersiveTutor.tsx` - Added `isUsersTurn` prop, updated mic button disabled logic
+- `client/src/components/VoiceChatViewManager.tsx` - Added prop passthrough
+- `client/src/components/StreamingVoiceChat.tsx` - Computed `isUsersTurn` value
+
+#### Benefits
+- **Safer by default**: Mic is locked unless explicitly the user's turn
+- **Covers all states**: Processing, thinking, speaking, connecting, reconnecting, etc.
+- **Single source of truth**: One clear condition instead of multiple OR'd checks
+
+---
+
 ### Session 19b: Language-Specific Tutor Names (Dec 10, 2025)
 
 #### Problem
