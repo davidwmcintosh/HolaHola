@@ -32,34 +32,54 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
-### Session 19: Button-Press Tutor Switch Audio Fix (Dec 10, 2025)
+### Session 19: Tutor Switch UX Improvements (Dec 10, 2025)
 
-#### Problem
-Button-triggered tutor switches (clicking male/female avatar) resulted in silent handoffs - the new tutor's greeting audio wasn't playing despite the UI updating correctly.
+#### Audio Fix (Earlier This Session)
+Button-triggered tutor switches resulted in silent handoffs. Fixed by refactoring `processVoiceSwitchIntro` to use `streamSentenceAudioProgressive` with proper progressive streaming protocol.
 
-#### Root Cause
-`processVoiceSwitchIntro` was sending audio atomically instead of using the progressive streaming protocol the client expects:
-- Was: Collect all audio → send single `sentence_ready` with full buffer → `sentence_end`
-- Expected: `sentence_start` → `sentence_ready` → progressive `audio_chunk` messages → `word_timing_final` → `sentence_end`
+#### Daniela's Feedback Integration
+Based on conversation analysis with Daniela, implemented 4 key improvements:
 
-The client's audio player expected progressive chunks and never played the atomic buffer.
+**1. Seamless Context Transfer**
+- Switch prompt now includes last 4 exchanges (up to 8 messages) of conversation history
+- Context summary shows what previous tutor was discussing and student's last message
+- **Whiteboard markup stripped** from context (prevents `[WRITE]`, `[DRILL]` tags from appearing)
+- **Fallback logic** for short conversations (< 2 exchanges) - falls back to generic greeting
+- Enables new tutor to pick up the thread naturally
 
-#### Solution
-Refactored `processVoiceSwitchIntro` to reuse `streamSentenceAudioProgressive`:
-1. Added `sentence_start` message with proper `chunk.index` before calling progressive streamer
-2. Now uses `streamSentenceAudioProgressive` which handles:
-   - Buffering until first word timing arrives
-   - Atomic `sentence_ready` with first audio + timings
-   - Progressive `audio_chunk` messages from Cartesia callbacks
-   - `word_timing_final` for subtitle reconciliation
-   - Proper `sentence_end` with actual duration
+**2. Dynamic, Contextual Greetings**
+- Prompt explicitly instructs new tutor to reference ongoing topic (e.g., "I see you were working on the subjunctive!")
+- Acknowledges the transition from previous tutor by name
+- Offers to continue where previous tutor left off
+- DO NOT start with generic "Hello, I am [name]" - flow naturally into conversation
 
-#### Session State Updates
-- `session.tutorGender` and `session.tutorName` updated on switch for LLM persona awareness
-- Enables proper grammatical gender in greetings (e.g., "profesora" vs "profesor")
+**3. State Preservation (Verified)**
+- Whiteboard state already preserved during tutor switch
+- `whiteboard.clear()` only called on conversationId change or session end
+- Active drills/grammar tables persist across tutor switches
+
+**4. Synchronized Presentation**
+- Already fixed in earlier audio work (Session 19a)
+- Avatar/voice now consistently aligned with active tutor
+
+#### New Switch Prompt Structure
+```
+[TUTOR SWITCH: You are now {tutorName}, a {gender} tutor taking over from {previousTutor}.
+
+INSTRUCTIONS:
+1. Greet warmly, acknowledge joining the conversation
+2. Reference active topic for continuity
+3. Offer to continue where previous tutor left off
+4. Use appropriate grammatical gender
+5. Be warm, natural, conversational
+
+CONVERSATION CONTEXT:
+- Previous tutor was saying: "{last tutor message}"
+- Student just said: "{last student message}"]
+```
 
 #### Files Modified
-- `server/services/streaming-voice-orchestrator.ts` - Refactored `processVoiceSwitchIntro` to use progressive streaming
+- `server/services/streaming-voice-orchestrator.ts` - Enhanced `processVoiceSwitchIntro` with context-aware prompts
 
 ---
 

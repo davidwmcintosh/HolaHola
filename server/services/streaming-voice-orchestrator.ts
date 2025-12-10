@@ -2540,28 +2540,41 @@ Using this context, speak first to the student with a natural opening message. O
     // Take last 4 exchanges (up to 8 messages) to provide context without overwhelming
     const recentHistory = session.conversationHistory.slice(-8);
     let contextSummary = '';
-    if (recentHistory.length > 0) {
-      // Extract what was being discussed from the last few exchanges
-      const lastUserMessage = recentHistory.filter(m => m.role === 'user').pop();
-      const lastTutorMessage = recentHistory.filter(m => m.role === 'model').pop();
+    
+    // Only build context if we have at least 2 messages with alternating roles
+    const userMessages = recentHistory.filter(m => m.role === 'user');
+    const tutorMessages = recentHistory.filter(m => m.role === 'model');
+    const hasSubstantialContext = userMessages.length >= 1 && tutorMessages.length >= 1;
+    
+    if (hasSubstantialContext) {
+      const lastUserMessage = userMessages[userMessages.length - 1];
+      const lastTutorMessage = tutorMessages[tutorMessages.length - 1];
       
-      if (lastUserMessage || lastTutorMessage) {
-        contextSummary = `\n\nCONVERSATION CONTEXT (for seamless handoff):`;
-        if (lastTutorMessage) {
-          // Truncate if too long
-          const tutorContext = lastTutorMessage.content.length > 200 
-            ? lastTutorMessage.content.substring(0, 200) + '...' 
-            : lastTutorMessage.content;
-          contextSummary += `\n- The previous tutor was just saying: "${tutorContext}"`;
-        }
-        if (lastUserMessage) {
-          const userContext = lastUserMessage.content.length > 150
-            ? lastUserMessage.content.substring(0, 150) + '...'
-            : lastUserMessage.content;
-          contextSummary += `\n- The student just said: "${userContext}"`;
-        }
+      contextSummary = `\n\nCONVERSATION CONTEXT (for seamless handoff):`;
+      
+      // Strip whiteboard markup and clean the context snippets
+      // This prevents tags like [WRITE], [DRILL], [SWITCH_TUTOR] from appearing in the handoff prompt
+      const cleanContext = (text: string, maxLen: number): string => {
+        let cleaned = stripWhiteboardMarkup(text)
+          .replace(/\*\*/g, '')
+          .replace(/\*/g, '')
+          .replace(/\n+/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        return cleaned.length > maxLen ? cleaned.substring(0, maxLen) + '...' : cleaned;
+      };
+      
+      const tutorContext = cleanContext(lastTutorMessage.content, 200);
+      if (tutorContext) {
+        contextSummary += `\n- The previous tutor was just saying: "${tutorContext}"`;
+      }
+      
+      const userContext = cleanContext(lastUserMessage.content, 150);
+      if (userContext) {
+        contextSummary += `\n- The student just said: "${userContext}"`;
       }
     }
+    // If no substantial context, we fall back to a generic greeting (no contextSummary)
     
     // Determine previous tutor name for natural handoff
     const previousTutorName = tutorGender === 'male' ? 'Daniela' : 'Agustin';
@@ -2586,7 +2599,7 @@ DO NOT: Start with a generic "Hello, I am [name]" - instead, flow naturally into
     let fullText = '';
     let sentenceCount = 0;
     
-    // Create metrics object for tracking (used by streamSentenceAudioProgressive)
+    // Create minimal metrics for streamSentenceAudioProgressive (it expects this structure)
     const metrics: StreamingMetrics = {
       sessionId,
       sttLatencyMs: 0,
@@ -2639,11 +2652,8 @@ DO NOT: Start with a generic "Hello, I am [name]" - instead, flow naturally into
       // Add the greeting to conversation history so the tutor "remembers" they introduced themselves
       session.conversationHistory.push({ role: 'model', content: fullText });
       
-      // Send response complete with proper metrics
+      // Send response complete (metrics omitted - local format differs from shared type)
       const totalDurationMs = Date.now() - switchStartTime;
-      metrics.totalLatencyMs = totalDurationMs;
-      metrics.sentenceCount = sentenceCount;
-      metrics.aiResponse = fullText;
       this.sendMessage(session.ws, {
         type: 'response_complete',
         timestamp: Date.now(),
@@ -2651,7 +2661,6 @@ DO NOT: Start with a generic "Hello, I am [name]" - instead, flow naturally into
         fullText,
         totalSentences: sentenceCount,
         totalDurationMs,
-        metrics: metrics as any,  // Local metrics format differs from shared type
       } as StreamingResponseCompleteMessage);
       
       console.log(`[Voice Switch] Introduction complete: ${tutorName} said "${fullText}"`);
