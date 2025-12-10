@@ -240,6 +240,9 @@ export function StreamingVoiceChat({
   // CRITICAL: Track current inputMode for use in callbacks (avoids stale closure)
   const inputModeRef = useRef<VoiceInputMode>(inputMode);
   inputModeRef.current = inputMode; // Always keep in sync
+  // CRITICAL: Track current avatarState for use in callbacks (avoids stale closure)
+  const avatarStateRef = useRef<AvatarState>(avatarState);
+  avatarStateRef.current = avatarState; // Always keep in sync
   
   // Store last audio for replay functionality
   const [lastAudioBlob, setLastAudioBlob] = useState<Blob | null>(null);
@@ -506,12 +509,19 @@ export function StreamingVoiceChat({
                 // Use the ref to call the local startOpenMicRecording function
                 if (startOpenMicRecordingRef.current) {
                   startOpenMicRecordingRef.current().then(() => {
-                    console.log('[OPEN MIC] Session restarted - showing green light invitation');
-                    // Use 'ready' to show green light BEFORE user speaks (invitation)
-                    // Will change to 'listening' when VAD detects speech
-                    setOpenMicState('ready');
-                    // CRITICAL: Also set avatar to listening so visuals sync immediately
-                    setAvatarState('listening');
+                    // Only show green light if Daniela is NOT still speaking
+                    // Use avatarStateRef to get current value (avoids stale closure)
+                    if (avatarStateRef.current === 'speaking') {
+                      console.log('[OPEN MIC] Session restarted but Daniela still speaking - waiting to show green');
+                      // Green light will be shown when audio finishes (next response_complete)
+                    } else {
+                      console.log('[OPEN MIC] Session restarted - showing green light invitation');
+                      // Use 'ready' to show green light BEFORE user speaks (invitation)
+                      // Will change to 'listening' when VAD detects speech
+                      setOpenMicState('ready');
+                      // CRITICAL: Also set avatar to listening so visuals sync immediately
+                      setAvatarState('listening');
+                    }
                   }).catch((err: any) => {
                     console.error('[OPEN MIC] Failed to restart after response:', err);
                     setOpenMicState('idle');
@@ -563,26 +573,42 @@ export function StreamingVoiceChat({
           },
           onOpenMicSessionClosed: () => {
             console.log('[OPEN MIC] Server session closed');
+            // CRITICAL: Reset the active ref so restart can work
+            // This is needed because the server session closed unexpectedly
+            if (openMicActiveRef.current) {
+              console.log('[OPEN MIC] Resetting openMicActiveRef for restart');
+              openMicActiveRef.current = false;
+            }
+            
             // If still in open mic mode and not awaiting response, restart the session
             // Use inputModeRef.current to get current value (avoids stale closure)
-            if (inputModeRef.current === 'open-mic' && !isAwaitingResponseRef.current) {
+            // BUT only restart if audio has finished playing (not during greeting)
+            // Check avatarStateRef to ensure Daniela isn't speaking
+            if (inputModeRef.current === 'open-mic' && !isAwaitingResponseRef.current && avatarStateRef.current !== 'speaking') {
               console.log('[OPEN MIC] Restarting open mic session after server close');
               setOpenMicState('idle');
               // Use a small delay to allow any cleanup to complete
               setTimeout(() => {
                 if (inputModeRef.current === 'open-mic' && startOpenMicRecordingRef.current) {
                   startOpenMicRecordingRef.current().then(() => {
-                    console.log('[OPEN MIC] Session restarted - showing green light invitation');
-                    // Use 'ready' to show green light BEFORE user speaks (invitation)
-                    setOpenMicState('ready');
-                    // CRITICAL: Also set avatar to listening so visuals sync immediately
-                    setAvatarState('listening');
+                    // Double-check Daniela isn't speaking before showing green light
+                    if (avatarStateRef.current === 'speaking') {
+                      console.log('[OPEN MIC] Session restarted but Daniela still speaking - waiting');
+                    } else {
+                      console.log('[OPEN MIC] Session restarted - showing green light invitation');
+                      // Use 'ready' to show green light BEFORE user speaks (invitation)
+                      setOpenMicState('ready');
+                      // CRITICAL: Also set avatar to listening so visuals sync immediately
+                      setAvatarState('listening');
+                    }
                   }).catch((err: any) => {
                     console.error('[OPEN MIC] Failed to restart session:', err);
                     setOpenMicState('idle');
                   });
                 }
               }, 100);
+            } else if (inputModeRef.current === 'open-mic' && avatarStateRef.current === 'speaking') {
+              console.log('[OPEN MIC] Server closed during Daniela speaking - will restart when done');
             }
           },
         });
