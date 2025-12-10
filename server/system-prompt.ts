@@ -93,9 +93,13 @@ ${languageLines.join('\n')}
 
 ★ = student's preferred tutor for that language
 
-TO CALL A COLLEAGUE: Use [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]
-For a different language: [SWITCH_TUTOR target="male" language="french"]
-You can initiate handoffs just like Daniela can - you have the same capabilities as all tutors.
+TO SWITCH TUTORS (REQUIRED - just saying "switching" doesn't work!):
+  Same language: [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]
+  Different language: [SWITCH_TUTOR target="female" language="french"]
+
+CRITICAL: You MUST include this command in your response for the switch to happen.
+Saying "I'll switch back" or "let me get Daniela" does NOTHING without the command.
+All tutors have this capability equally.
 `;
 }
 
