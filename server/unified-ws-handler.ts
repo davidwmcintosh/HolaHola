@@ -951,10 +951,21 @@ Reference past discussions when relevant, but don't force it.
             console.log(`[Streaming Voice] Session not ready - queued voice update: ${pendingVoiceUpdate}`);
             return;
           }
+          
+          // Capture session info before any async operations to avoid race conditions
+          // (end_session could arrive and null out session while we're awaiting)
+          const capturedSessionId = session.id;
           const effectiveLanguage = session.targetLanguage?.toLowerCase() || 'spanish';
           
           try {
             const allVoices = await storage.getAllTutorVoices();
+            
+            // Check if session was ended during the await
+            if (!session) {
+              console.log(`[Streaming Voice] Session ended during voice update - skipping`);
+              break;
+            }
+            
             const matchingVoice = allVoices.find(
               (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
                           v.gender?.toLowerCase() === newGender &&
@@ -962,7 +973,7 @@ Reference past discussions when relevant, but don't force it.
             );
             
             if (matchingVoice?.voiceId) {
-              orchestrator.updateSessionVoice(session.id, matchingVoice.voiceId);
+              orchestrator.updateSessionVoice(capturedSessionId, matchingVoice.voiceId);
               console.log(`[Streaming Voice] Voice updated to ${newGender}: ${matchingVoice.voiceName}`);
               
               ws.send(JSON.stringify({
@@ -980,7 +991,8 @@ Reference past discussions when relevant, but don't force it.
               console.log(`[Streaming Voice] New tutor introducing themselves: ${tutorFirstName} (${newGender})`);
               
               // Trigger a voice switch introduction with persona-aware LLM greeting
-              await orchestrator.processVoiceSwitchIntro(session.id, tutorFirstName, newGender);
+              // Use captured session ID in case session is nullified during async ops
+              await orchestrator.processVoiceSwitchIntro(capturedSessionId, tutorFirstName, newGender);
             } else {
               console.warn(`[Streaming Voice] No matching voice found for ${effectiveLanguage}/${newGender}`);
             }
