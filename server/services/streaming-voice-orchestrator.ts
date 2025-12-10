@@ -69,6 +69,10 @@ function cleanTextForDisplay(text: string): string {
   // First strip all whiteboard markup (WRITE, DRILL, SWITCH_TUTOR, etc.)
   // This must happen before other cleaning to ensure markup doesn't appear in TTS
   let cleaned = stripWhiteboardMarkup(text)
+    // Remove action/emotion tags like *laughs softly*, *chuckles*, *sighs*, *smiles warmly*, etc.
+    // These should be emoted by the voice, not spoken aloud
+    // Must happen BEFORE stripping individual asterisks
+    .replace(/\*(?:laughs?|chuckles?|giggles?|sighs?|smiles?|grins?|nods?|pauses?|clears? throat|ahem|winks?|gasps?|whispers?|exclaims?|thinks?|considers?|reflects?|ponders?)(?:\s+\w+)*\*/gi, '')
     // Remove markdown bold/italic markers
     .replace(/\*\*/g, '')
     .replace(/\*/g, '')
