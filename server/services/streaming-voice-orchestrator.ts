@@ -817,13 +817,19 @@ export class StreamingVoiceOrchestrator {
               session.isLanguageSwitchHandoff = true;
               session.targetLanguage = effectiveLanguage;
               
-              // CRITICAL: Update the conversation's language in the database
-              // This ensures that if the client reconnects, it will use the correct language
+              // CRITICAL: Update BOTH the conversation language AND user preferences
+              // This ensures that if the client reconnects/refreshes, it will use the correct language
               try {
                 await storage.updateConversationLanguage(session.conversationId, effectiveLanguage);
                 console.log(`[Tutor Switch] Updated conversation language in database to ${effectiveLanguage}`);
+                
+                // Also update user preferences so they persist on refresh
+                await storage.updateUserPreferences(session.userId.toString(), {
+                  targetLanguage: effectiveLanguage,
+                });
+                console.log(`[Tutor Switch] Updated user preferences to ${effectiveLanguage}`);
               } catch (dbErr: any) {
-                console.error(`[Tutor Switch] Failed to update conversation language:`, dbErr.message);
+                console.error(`[Tutor Switch] Failed to update language:`, dbErr.message);
               }
               
               // Clear conversation history for cross-language switch
