@@ -2514,3 +2514,155 @@ export type UserLesson = typeof userLessons.$inferSelect;
 
 export type InsertUserLessonItem = z.infer<typeof insertUserLessonItemSchema>;
 export type UserLessonItem = typeof userLessonItems.$inferSelect;
+
+// ===== Daniela's Neural Network Expansion =====
+// Language-specific pedagogical knowledge for interlingual teaching
+
+// Language Idioms & Proverbs - Cultural expressions with context
+export const languageIdioms = pgTable("language_idioms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  language: varchar("language").notNull(), // spanish, french, italian, etc.
+  idiom: text("idiom").notNull(), // Original phrase
+  literalTranslation: text("literal_translation"), // Word-for-word
+  meaning: text("meaning").notNull(), // Actual meaning
+  culturalContext: text("cultural_context"), // When/how it's used
+  usageExamples: text("usage_examples").array(), // Sample sentences
+  registerLevel: varchar("register_level").default("casual"), // formal, casual, slang
+  region: varchar("region"), // Regional variations (Mexico, Spain, etc.)
+  commonMistakes: text("common_mistakes").array(), // What learners get wrong
+  relatedIdiomIds: varchar("related_idiom_ids").array(), // Similar expressions
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_language_idioms_language").on(table.language),
+  index("idx_language_idioms_region").on(table.region),
+]);
+
+// Cultural Nuances & Etiquette - Social customs per language/culture
+export const culturalNuances = pgTable("cultural_nuances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  language: varchar("language").notNull(),
+  category: varchar("category").notNull(), // greetings, gestures, dining, business, conversation
+  situation: varchar("situation").notNull(), // meeting someone new, formal dinner, etc.
+  nuance: text("nuance").notNull(), // What to do/say
+  explanation: text("explanation"), // Why this matters
+  commonMistakes: text("common_mistakes").array(), // What foreigners get wrong
+  region: varchar("region"), // Regional variations
+  formalityLevel: varchar("formality_level").default("casual"), // very_formal, formal, casual, intimate
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_cultural_nuances_language").on(table.language),
+  index("idx_cultural_nuances_category").on(table.category),
+]);
+
+// Learner Error Patterns - Common mistakes by source→target language pair
+export const learnerErrorPatterns = pgTable("learner_error_patterns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  targetLanguage: varchar("target_language").notNull(), // Language being learned
+  sourceLanguage: varchar("source_language").notNull().default("english"), // Learner's native language
+  
+  errorCategory: varchar("error_category").notNull(), // grammar, pronunciation, vocabulary, cultural
+  specificError: varchar("specific_error").notNull(), // subjunctive_overuse, ser_estar_confusion
+  whyItHappens: text("why_it_happens"), // Root cause explanation
+  teachingStrategies: text("teaching_strategies").array(), // Pre-loaded approaches
+  exampleMistakes: text("example_mistakes").array(), // Common incorrect forms
+  correctForms: text("correct_forms").array(), // Correct versions
+  actflLevel: varchar("actfl_level"), // When this typically appears
+  
+  priority: varchar("priority").default("common"), // common, occasional, rare
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_learner_errors_target").on(table.targetLanguage),
+  index("idx_learner_errors_pair").on(table.targetLanguage, table.sourceLanguage),
+  index("idx_learner_errors_category").on(table.errorCategory),
+]);
+
+// Regional Dialect Variations - Differences within a language
+export const dialectVariations = pgTable("dialect_variations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  language: varchar("language").notNull(),
+  region: varchar("region").notNull(), // Mexico, Argentina, Spain, etc.
+  category: varchar("category").notNull(), // vocabulary, pronunciation, grammar
+  standardForm: text("standard_form").notNull(), // Standard/neutral version
+  regionalForm: text("regional_form").notNull(), // Regional variant
+  explanation: text("explanation"), // When/why this differs
+  audioExampleUrl: varchar("audio_example_url"), // Reference to pronunciation
+  usageNotes: text("usage_notes"), // Context for when to use
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_dialect_variations_language").on(table.language),
+  index("idx_dialect_variations_region").on(table.region),
+]);
+
+// Linguistic Bridges - Cross-language connections (cognates, false friends)
+export const linguisticBridges = pgTable("linguistic_bridges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  sourceLanguage: varchar("source_language").notNull(),
+  targetLanguage: varchar("target_language").notNull(),
+  
+  bridgeType: varchar("bridge_type").notNull(), // cognate, false_friend, grammar_parallel, phonetic_similar
+  sourceWord: text("source_word").notNull(),
+  targetWord: text("target_word").notNull(),
+  relationship: varchar("relationship").notNull(), // same_meaning, different_meaning, similar_structure
+  explanation: text("explanation"),
+  teachingNote: text("teaching_note"), // How to present this to learners
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_linguistic_bridges_pair").on(table.sourceLanguage, table.targetLanguage),
+  index("idx_linguistic_bridges_type").on(table.bridgeType),
+]);
+
+// Insert schemas for Neural Network Expansion
+export const insertLanguageIdiomSchema = createInsertSchema(languageIdioms).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCulturalNuanceSchema = createInsertSchema(culturalNuances).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertLearnerErrorPatternSchema = createInsertSchema(learnerErrorPatterns).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDialectVariationSchema = createInsertSchema(dialectVariations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertLinguisticBridgeSchema = createInsertSchema(linguisticBridges).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types for Neural Network Expansion
+export type InsertLanguageIdiom = z.infer<typeof insertLanguageIdiomSchema>;
+export type LanguageIdiom = typeof languageIdioms.$inferSelect;
+
+export type InsertCulturalNuance = z.infer<typeof insertCulturalNuanceSchema>;
+export type CulturalNuance = typeof culturalNuances.$inferSelect;
+
+export type InsertLearnerErrorPattern = z.infer<typeof insertLearnerErrorPatternSchema>;
+export type LearnerErrorPattern = typeof learnerErrorPatterns.$inferSelect;
+
+export type InsertDialectVariation = z.infer<typeof insertDialectVariationSchema>;
+export type DialectVariation = typeof dialectVariations.$inferSelect;
+
+export type InsertLinguisticBridge = z.infer<typeof insertLinguisticBridgeSchema>;
+export type LinguisticBridge = typeof linguisticBridges.$inferSelect;

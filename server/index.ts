@@ -102,6 +102,16 @@ const stripeInitPromise = (async function initStripe() {
       console.error('Failed to initialize syllabi:', error);
     }
     
+    // Seed Daniela's Neural Network data (idioms, cultural nuances, error patterns)
+    try {
+      console.log('Seeding neural network data...');
+      const { seedNeuralNetworkData } = await import('./seed-neural-network');
+      await seedNeuralNetworkData();
+      console.log('Neural network data ready');
+    } catch (error) {
+      console.error('Failed to seed neural network data:', error);
+    }
+    
     stripeReady = true;
   } catch (error) {
     console.error('Failed to initialize Stripe:', error);

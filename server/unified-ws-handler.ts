@@ -38,6 +38,7 @@ import { shouldRunPlacementAfterSession, completePlacementAssessment } from './s
 import { sessionCompassService, COMPASS_ENABLED } from './services/session-compass-service';
 import { architectVoiceService } from './services/architect-voice-service';
 import { updateToolEventEngagement, mapWhiteboardTypeToToolType } from './services/pedagogical-insights-service';
+import { buildNeuralNetworkPromptSection } from './services/neural-network-retrieval';
 import type { VoiceSession as UsageVoiceSession, CompassContext, TutorSession } from '@shared/schema';
 
 const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
@@ -569,6 +570,20 @@ Reference past discussions when relevant, but don't force it.
           // Add founder memory context if in Founder Mode
           if (isFounderMode && founderMemoryContext) {
             systemPrompt += founderMemoryContext;
+          }
+          
+          // Add Neural Network pedagogical knowledge (idioms, cultural nuances, error patterns)
+          try {
+            const neuralNetworkContext = await buildNeuralNetworkPromptSection(
+              effectiveLanguage,
+              config.nativeLanguage || 'english'
+            );
+            if (neuralNetworkContext) {
+              systemPrompt += neuralNetworkContext;
+              console.log(`[Streaming Voice] Added neural network context for ${effectiveLanguage}`);
+            }
+          } catch (nnErr: any) {
+            console.warn('[Streaming Voice] Could not build neural network context:', nnErr.message);
           }
 
           // Add congratulatory messaging if student is ahead of syllabus
