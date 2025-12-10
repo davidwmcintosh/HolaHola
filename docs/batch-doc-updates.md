@@ -6,6 +6,43 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 19e: SWITCH_TUTOR Internal Command Refactor (Dec 10, 2025)
+
+#### Problem
+SWITCH_TUTOR was being processed as a whiteboard item, causing "male" or "female" to appear on the student's whiteboard during tutor switches. Additionally, quick mic clicks causing empty transcripts could leave the UI locked in a "switching tutor" state.
+
+#### Solution 1: SWITCH_TUTOR as Internal Command
+Changed SWITCH_TUTOR from a visual whiteboard tool to an internal session control command:
+- **Parsed** from text alongside other whiteboard markup
+- **Processed** to queue tutor handoff (`session.pendingTutorSwitch`)
+- **Filtered out** before sending to client whiteboard
+- **Never displayed** on student's screen
+
+```typescript
+// Filter out internal commands - only send visual items to whiteboard
+const visualWhiteboardItems = whiteboardParsed.whiteboardItems.filter(
+  item => item.type !== 'switch_tutor'
+);
+```
+
+#### Solution 2: Error Handling Clears Tutor Switch State
+When an error occurs (e.g., empty transcript from quick mic click), the `handleError` callback now clears:
+- `tutorSwitchTimeoutRef` (clear the timeout)
+- `isSwitchingTutor` state (unlock the mic)
+
+This prevents the mic from staying locked after failed recordings.
+
+#### Files Modified
+- `server/services/streaming-voice-orchestrator.ts` - Filter SWITCH_TUTOR from whiteboard updates
+- `client/src/hooks/useStreamingVoice.ts` - Clear tutor switch state on errors
+
+#### Result
+- No more "male"/"female" appearing on whiteboard during switches
+- Quick mic clicks no longer lock the UI
+- Cleaner separation between visual teaching tools and session control commands
+
+---
+
 ### TODO: Documentation Branding Sweep (Dec 10, 2025)
 
 **Action Required**: Search and replace all instances of "LinguaFlow" with "HolaHola" across documentation files.
