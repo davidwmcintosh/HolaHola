@@ -231,9 +231,31 @@ export function setupStreamingVoiceProxy(server: Server) {
               }
             }
 
-            // Determine tutor persona for system prompt
+            // Look up voice configuration FIRST to get language-specific tutor name
             const tutorGender = (user?.tutorGender || 'female') as 'male' | 'female';
-            const tutorName = tutorGender === 'male' ? 'Agustin' : 'Daniela';
+            const effectiveLanguage = config.targetLanguage?.toLowerCase() || 'spanish';
+            let voiceId: string | undefined;
+            let tutorName = tutorGender === 'male' ? 'Agustin' : 'Daniela'; // Default fallback
+            
+            try {
+              const allVoices = await storage.getAllTutorVoices();
+              const matchingVoice = allVoices.find(
+                (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
+                            v.gender?.toLowerCase() === tutorGender &&
+                            v.isActive
+              );
+              
+              if (matchingVoice?.voiceId) {
+                voiceId = matchingVoice.voiceId;
+                // Extract tutor name from voice name (e.g., "Sayuri - Peppy Colleague" -> "Sayuri")
+                const voiceNameParts = matchingVoice.voiceName?.split(/\s*[-–]\s*/) || [];
+                if (voiceNameParts[0]?.trim()) {
+                  tutorName = voiceNameParts[0].trim();
+                }
+              }
+            } catch (err: any) {
+              console.warn(`[Streaming Voice] Voice config error: ${err.message}`);
+            }
             
             const systemPrompt = createSystemPrompt(
               config.targetLanguage,
@@ -258,28 +280,9 @@ export function setupStreamingVoiceProxy(server: Server) {
               false, // isFounderMode
               undefined, // founderName
               false, // isRawHonestyMode
-              tutorName, // Tutor name (Daniela or Agustin)
+              tutorName, // Language-specific tutor name
               tutorGender // Tutor gender for grammatical agreement
             );
-
-            // Get voice configuration
-            let voiceId: string | undefined;
-            try {
-              const allVoices = await storage.getAllTutorVoices();
-              const effectiveLanguage = config.targetLanguage?.toLowerCase() || 'spanish';
-              
-              const matchingVoice = allVoices.find(
-                (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
-                            v.gender?.toLowerCase() === tutorGender &&
-                            v.isActive
-              );
-              
-              if (matchingVoice?.voiceId) {
-                voiceId = matchingVoice.voiceId;
-              }
-            } catch (err: any) {
-              console.warn(`[Streaming Voice] Voice config error: ${err.message}`);
-            }
 
             // Create session
             session = await orchestrator.createSession(

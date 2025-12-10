@@ -32,38 +32,51 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
-### Session 19b: Tutor Persona Initialization Consistency (Dec 10, 2025)
+### Session 19b: Language-Specific Tutor Names (Dec 10, 2025)
 
 #### Problem
-Tutors weren't embodying their expected persona from session start. The system prompt used a static `IMMUTABLE_PERSONA` constant that always referred to "Daniela", causing Agustin sessions to incorrectly identify as female.
+Tutors weren't embodying their language-specific persona from session start. The system prompt hardcoded "Daniela/Agustin" regardless of target language, so a Japanese learner would get "Daniela" instead of "Sayuri".
+
+#### Discovery
+The `tutor_voices` table already has language-specific names embedded in `voice_name`:
+- Spanish: "Daniela - Relaxed Woman", "Agustin - Clear Storyteller"
+- Japanese: "Sayuri - Peppy Colleague", "Daisuke - Businessman"
+- Mandarin: "Hua - Sunny Support", "Tao - Lecturer"
+- French: "Juliette", "Vincent"
+- German: "Alina - Engaging Assistant", "Lukas - Professional"
+- etc.
+
+There was already code to extract names during tutor switches, but not at session start.
 
 #### Solution
-Converted static persona to dynamic function:
-- `IMMUTABLE_PERSONA` constant → `buildImmutablePersona(tutorName, tutorGender)` function
-- Added `tutorName` and `tutorGender` parameters to `createSystemPrompt()`
-- Updated all 6 key call sites to pass tutor identity
+1. Converted `IMMUTABLE_PERSONA` constant → `buildImmutablePersona(tutorName, tutorGender)` function
+2. Added `tutorName` and `tutorGender` parameters to `createSystemPrompt()`
+3. **Key fix**: Moved voice lookup BEFORE system prompt creation
+4. Extract tutor name from `voiceName` (e.g., "Sayuri - Peppy Colleague" → "Sayuri")
+5. Pass language-specific name to system prompt
+
+#### Voice Name Extraction Pattern
+```typescript
+const voiceNameParts = matchingVoice.voiceName?.split(/\s*[-–]\s*/) || [];
+const tutorName = voiceNameParts[0]?.trim() || (gender === 'male' ? 'Agustin' : 'Daniela');
+```
 
 #### Call Sites Updated
-1. `server/unified-ws-handler.ts` - Streaming voice sessions (main WS handler)
+1. `server/unified-ws-handler.ts` - Streaming voice sessions
 2. `server/ws-gateway.ts` - WebSocket gateway
 3. `server/streaming-voice-proxy.ts` - Streaming voice proxy
 4. `server/routes.ts` - Voice fast-path endpoint
 5. `server/routes.ts` - Text mode chat endpoint
 
-#### Call Sites Unchanged (intentionally)
-- `server/routes.ts` - Enrichment endpoint (background processing, no persona needed)
-- `server/realtime-proxy.ts` - OpenAI Realtime API (uses OpenAI voices, not our tutors)
-
-#### Tutor Persona Mapping
-- `tutorGender: 'female'` → `tutorName: 'Daniela'`
-- `tutorGender: 'male'` → `tutorName: 'Agustin'`
+#### Result
+Now when a student starts a Japanese session, they get greeted by "Sayuri" (not Daniela), with proper persona embodiment from the first message.
 
 #### Files Modified
-- `server/system-prompt.ts` - New `buildImmutablePersona()` function, updated `createSystemPrompt()` signature
-- `server/unified-ws-handler.ts` - Pass tutorName/tutorGender
-- `server/ws-gateway.ts` - Pass tutorName/tutorGender
-- `server/streaming-voice-proxy.ts` - Pass tutorName/tutorGender
-- `server/routes.ts` - Pass tutorName/tutorGender at 2 call sites
+- `server/system-prompt.ts` - New `buildImmutablePersona()` function
+- `server/unified-ws-handler.ts` - Voice lookup before prompt, extract tutor name
+- `server/ws-gateway.ts` - Same pattern
+- `server/streaming-voice-proxy.ts` - Same pattern
+- `server/routes.ts` - Same pattern at 2 call sites
 
 ---
 

@@ -3446,9 +3446,27 @@ Return a JSON array of suggestions with this format:
         const tutorPersonality = (user?.tutorPersonality as 'warm' | 'calm' | 'energetic' | 'professional') || 'warm';
         const tutorExpressiveness = user?.tutorExpressiveness || 3;
 
-        // Determine tutor persona for system prompt
+        // Look up voice configuration to get language-specific tutor name
         const tutorGenderForPrompt = (user?.tutorGender || 'female') as 'male' | 'female';
-        const tutorNameForPrompt = tutorGenderForPrompt === 'male' ? 'Agustin' : 'Daniela';
+        const voiceLanguage = activeConversation.language?.toLowerCase() || 'spanish';
+        let tutorNameForPrompt = tutorGenderForPrompt === 'male' ? 'Agustin' : 'Daniela'; // Default fallback
+        
+        try {
+          const allVoices = await storage.getAllTutorVoices();
+          const matchingVoice = allVoices.find(
+            (v: any) => v.language?.toLowerCase() === voiceLanguage &&
+                        v.gender?.toLowerCase() === tutorGenderForPrompt &&
+                        v.isActive
+          );
+          if (matchingVoice?.voiceName) {
+            const voiceNameParts = matchingVoice.voiceName.split(/\s*[-–]\s*/);
+            if (voiceNameParts[0]?.trim()) {
+              tutorNameForPrompt = voiceNameParts[0].trim();
+            }
+          }
+        } catch (err: any) {
+          console.warn(`[VOICE FAST-PATH] Voice lookup error: ${err.message}`);
+        }
         
         // Create minimal system prompt (skip vocabulary/conversation queries for speed)
         const systemPrompt = createSystemPrompt(
@@ -4211,9 +4229,27 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
       const textTutorPersonality = (user?.tutorPersonality as 'warm' | 'calm' | 'energetic' | 'professional') || 'warm';
       const textTutorExpressiveness = user?.tutorExpressiveness || 3;
       
-      // Determine tutor persona for system prompt
+      // Look up voice configuration to get language-specific tutor name
       const textTutorGender = (user?.tutorGender || 'female') as 'male' | 'female';
-      const textTutorName = textTutorGender === 'male' ? 'Agustin' : 'Daniela';
+      const textVoiceLanguage = updatedConversation.language?.toLowerCase() || 'spanish';
+      let textTutorName = textTutorGender === 'male' ? 'Agustin' : 'Daniela'; // Default fallback
+      
+      try {
+        const allVoices = await storage.getAllTutorVoices();
+        const matchingVoice = allVoices.find(
+          (v: any) => v.language?.toLowerCase() === textVoiceLanguage &&
+                      v.gender?.toLowerCase() === textTutorGender &&
+                      v.isActive
+        );
+        if (matchingVoice?.voiceName) {
+          const voiceNameParts = matchingVoice.voiceName.split(/\s*[-–]\s*/);
+          if (voiceNameParts[0]?.trim()) {
+            textTutorName = voiceNameParts[0].trim();
+          }
+        }
+      } catch (err: any) {
+        console.warn(`[TEXT CHAT] Voice lookup error: ${err.message}`);
+      }
       
       // Create adaptive system prompt based on language, difficulty, and conversation progress
       // Use userMessageCount (already calculated above) instead of total message count
