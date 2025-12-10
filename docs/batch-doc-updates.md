@@ -6,6 +6,63 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 18: Voice-Initiated Tutor Switching (Dec 10, 2025)
+
+#### SWITCH_TUTOR Whiteboard Tool
+- **Purpose**: Allow students to request a different tutor voice via natural speech
+- **Syntax**: `[SWITCH_TUTOR target="male"]` or `[SWITCH_TUTOR target="female"]`
+- **Trigger Examples**: "Can I talk to Agustin?", "I'd like to practice with a male voice", "Switch to the other tutor"
+- **UX Flow**:
+  1. Student makes verbal request to switch tutors
+  2. Current tutor (Daniela) says natural goodbye with embedded `[SWITCH_TUTOR]` tag
+  3. Server queues handoff via `session.pendingTutorSwitch`
+  4. Markup stripped from TTS so goodbye sounds natural
+  5. After `response_complete`, server sends `tutor_handoff` message
+  6. Client updates voice preference and triggers new tutor greeting
+  7. New tutor (e.g., Agustin) introduces themselves with personalized greeting
+
+#### Technical Implementation
+- **Shared Types**:
+  - Added `switch_tutor` to `WhiteboardItemType` union
+  - Added `SwitchTutorItem` interface with `targetGender: 'male' | 'female'`
+  - Added `tutor_handoff` message type to `StreamingServerMessage`
+  - Added `StreamingTutorHandoffMessage` interface
+- **Whiteboard Parsing** (`shared/whiteboard-types.ts`):
+  - New pattern: `WHITEBOARD_PATTERNS.SWITCH_TUTOR`
+  - Parser creates `switch_tutor` items from markup
+  - Added to `ALL_WHITEBOARD_MARKUP_PATTERN` for stripping
+- **Server Orchestrator** (`streaming-voice-orchestrator.ts`):
+  - Added `pendingTutorSwitch` field to session state
+  - Detects `switch_tutor` items and queues handoff
+  - After `response_complete`, sends `tutor_handoff` message
+  - Clears pending switch after sending
+- **Client Handler** (`streamingVoiceClient.ts`, `useStreamingVoice.ts`):
+  - Added `handleTutorHandoff` event listener
+  - Calls `updateVoice(newGender)` on handoff
+  - Triggers personalized greeting from new tutor
+- **Markup Stripping**:
+  - `cleanTextForDisplay` now calls `stripWhiteboardMarkup` first
+  - Ensures `[SWITCH_TUTOR]` tags never appear in TTS audio
+
+#### Mode Availability
+- **Available In**: Regular voice chat, Class voice chat, Founder Mode
+- **NOT Available In**: Raw Honesty Mode (minimal prompting, no formal tools)
+
+#### Button-Based Switching (Existing)
+- 3-second cooldown between switches to prevent rapid toggling
+- Button disabled during Daniela's greeting speech
+- Visual feedback shows current tutor gender
+
+#### Files Modified
+- `shared/whiteboard-types.ts` - Type definitions, parsing, stripping patterns
+- `shared/streaming-voice-types.ts` - Message types
+- `server/services/streaming-voice-orchestrator.ts` - Handoff orchestration, markup stripping fix
+- `client/src/lib/streamingVoiceClient.ts` - Handoff event handler
+- `client/src/hooks/useStreamingVoice.ts` - Hook interface update
+- `server/system-prompt.ts` - Tool documentation for Daniela
+
+---
+
 ### Session 17: Neural Network Sync Scheduler Enhancements (Dec 10, 2025)
 
 #### Sync Scheduler Timezone Update
