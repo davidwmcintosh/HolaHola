@@ -365,7 +365,8 @@ export class CartesiaStreamingService extends EventEmitter {
       .replace(/(?<![a-zA-Z])["'"](?![a-zA-Z])/g, ''); // Standalone quotes not between letters
     
     console.log(`[Cartesia Streaming] Synthesizing: "${cleanedText.substring(0, 50)}..." (${cleanedText.length} chars)`);
-    console.log(`[Cartesia Streaming] Voice: ${voiceConfig.name}, Emotion: ${constrainedEmotion}, Speed: ${cartesiaSpeed}`);
+    const voiceName = voiceId ? `custom (${voiceId.substring(0, 8)}...)` : voiceConfig.name;
+    console.log(`[Cartesia Streaming] Voice: ${voiceName}, Emotion: ${constrainedEmotion}, Speed: ${cartesiaSpeed}`);
     
     const startTime = Date.now();
     let firstChunkTime: number | null = null;

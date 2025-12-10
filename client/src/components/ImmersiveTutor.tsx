@@ -103,6 +103,9 @@ export function ImmersiveTutor({
   // Local ref to track if WE started recording via pointer down
   // This ensures pointer up always stops recording regardless of React state timing
   const isPointerRecordingRef = useRef<boolean>(false);
+  
+  // Debounce voice switching to prevent rapid clicks
+  const voiceSwitchInProgressRef = useRef<boolean>(false);
 
   // Determine which tutor image to show based on state and gender preference
   const getTutorImage = () => {
@@ -133,7 +136,14 @@ export function ImmersiveTutor({
             variant={tutorGender === "female" ? "default" : "ghost"}
             size="sm"
             className="rounded-full px-3"
-            onClick={() => setTutorGender("female")}
+            disabled={tutorGender === "female" || isPlaying || isProcessing}
+            onClick={() => {
+              if (voiceSwitchInProgressRef.current) return;
+              voiceSwitchInProgressRef.current = true;
+              setTutorGender("female");
+              // Reset after animation/intro completes
+              setTimeout(() => { voiceSwitchInProgressRef.current = false; }, 3000);
+            }}
             data-testid="button-voice-female"
           >
             {femaleVoiceName || "Female"}
@@ -142,7 +152,14 @@ export function ImmersiveTutor({
             variant={tutorGender === "male" ? "default" : "ghost"}
             size="sm"
             className="rounded-full px-3"
-            onClick={() => setTutorGender("male")}
+            disabled={tutorGender === "male" || isPlaying || isProcessing}
+            onClick={() => {
+              if (voiceSwitchInProgressRef.current) return;
+              voiceSwitchInProgressRef.current = true;
+              setTutorGender("male");
+              // Reset after animation/intro completes
+              setTimeout(() => { voiceSwitchInProgressRef.current = false; }, 3000);
+            }}
             data-testid="button-voice-male"
           >
             {maleVoiceName || "Male"}
