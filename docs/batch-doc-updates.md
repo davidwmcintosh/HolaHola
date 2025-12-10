@@ -32,6 +32,37 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+### Session 19: Button-Press Tutor Switch Audio Fix (Dec 10, 2025)
+
+#### Problem
+Button-triggered tutor switches (clicking male/female avatar) resulted in silent handoffs - the new tutor's greeting audio wasn't playing despite the UI updating correctly.
+
+#### Root Cause
+`processVoiceSwitchIntro` was sending audio atomically instead of using the progressive streaming protocol the client expects:
+- Was: Collect all audio → send single `sentence_ready` with full buffer → `sentence_end`
+- Expected: `sentence_start` → `sentence_ready` → progressive `audio_chunk` messages → `word_timing_final` → `sentence_end`
+
+The client's audio player expected progressive chunks and never played the atomic buffer.
+
+#### Solution
+Refactored `processVoiceSwitchIntro` to reuse `streamSentenceAudioProgressive`:
+1. Added `sentence_start` message with proper `chunk.index` before calling progressive streamer
+2. Now uses `streamSentenceAudioProgressive` which handles:
+   - Buffering until first word timing arrives
+   - Atomic `sentence_ready` with first audio + timings
+   - Progressive `audio_chunk` messages from Cartesia callbacks
+   - `word_timing_final` for subtitle reconciliation
+   - Proper `sentence_end` with actual duration
+
+#### Session State Updates
+- `session.tutorGender` and `session.tutorName` updated on switch for LLM persona awareness
+- Enables proper grammatical gender in greetings (e.g., "profesora" vs "profesor")
+
+#### Files Modified
+- `server/services/streaming-voice-orchestrator.ts` - Refactored `processVoiceSwitchIntro` to use progressive streaming
+
+---
+
 ### Session 18: Voice-Initiated Tutor Switching (Dec 10, 2025)
 
 #### SWITCH_TUTOR Whiteboard Tool
