@@ -195,6 +195,7 @@ export interface IStorage {
   getConversationsByLanguage(language: string, userId: string): Promise<Conversation[]>;
   getConversationByLanguageAndDifficulty(language: string, difficulty: string, userId: string): Promise<Conversation | undefined>;
   updateConversation(id: string, userId: string, data: Partial<Conversation>): Promise<Conversation | undefined>;
+  updateConversationLanguage(conversationId: string, language: string): Promise<void>;
   deleteConversation(id: string, userId: string): Promise<boolean>;
 
   // Messages
@@ -1460,6 +1461,13 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return updated;
+  }
+
+  async updateConversationLanguage(conversationId: string, language: string): Promise<void> {
+    // Update conversation language - used during cross-language tutor handoffs
+    await db.update(conversations)
+      .set({ language: language.toLowerCase() })
+      .where(eq(conversations.id, conversationId));
   }
 
   async deleteConversation(id: string, userId: string): Promise<boolean> {
