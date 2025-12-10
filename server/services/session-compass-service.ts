@@ -43,7 +43,14 @@ function getGeminiClient(): GoogleGenAI {
     if (!apiKey) {
       throw new Error('Gemini API key not configured (AI_INTEGRATIONS_GEMINI_API_KEY)');
     }
-    geminiClient = new GoogleGenAI({ apiKey });
+    // Must include httpOptions to match streaming service configuration
+    geminiClient = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        apiVersion: "",
+        baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
+      },
+    });
   }
   return geminiClient;
 }
