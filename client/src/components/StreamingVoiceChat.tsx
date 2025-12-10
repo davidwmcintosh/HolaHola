@@ -1923,7 +1923,9 @@ export function StreamingVoiceChat({
         streamingVoice.subtitles.reset();
         
         setProcessingStage('Processing...');
-        setAvatarState('speaking');
+        // Keep avatar idle during processing - it will switch to 'speaking' 
+        // when audio actually starts playing (handled by useEffect watching playbackState)
+        setAvatarState('idle');
         setError(null); // Clear any previous errors
         
         // Clear previous audio for replay (new response will set these)
