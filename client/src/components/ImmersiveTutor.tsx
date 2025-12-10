@@ -282,7 +282,7 @@ export function ImmersiveTutor({
                   : isProcessing 
                     ? "Processing..." 
                     : isPlaying
-                      ? "Wait your turn..."  // Locked out while Daniela speaks
+                      ? "Please wait..."  // Locked out while Daniela speaks
                       : "Hold to speak"
           }
         </p>
