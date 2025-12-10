@@ -2536,25 +2536,65 @@ Using this context, speak first to the student with a natural opening message. O
     
     console.log(`[Voice Switch] New tutor ${tutorName} (${tutorGender}) introducing themselves via LLM`);
     
+    // Build context summary from recent conversation for seamless handoff
+    // Take last 4 exchanges (up to 8 messages) to provide context without overwhelming
+    const recentHistory = session.conversationHistory.slice(-8);
+    let contextSummary = '';
+    if (recentHistory.length > 0) {
+      // Extract what was being discussed from the last few exchanges
+      const lastUserMessage = recentHistory.filter(m => m.role === 'user').pop();
+      const lastTutorMessage = recentHistory.filter(m => m.role === 'model').pop();
+      
+      if (lastUserMessage || lastTutorMessage) {
+        contextSummary = `\n\nCONVERSATION CONTEXT (for seamless handoff):`;
+        if (lastTutorMessage) {
+          // Truncate if too long
+          const tutorContext = lastTutorMessage.content.length > 200 
+            ? lastTutorMessage.content.substring(0, 200) + '...' 
+            : lastTutorMessage.content;
+          contextSummary += `\n- The previous tutor was just saying: "${tutorContext}"`;
+        }
+        if (lastUserMessage) {
+          const userContext = lastUserMessage.content.length > 150
+            ? lastUserMessage.content.substring(0, 150) + '...'
+            : lastUserMessage.content;
+          contextSummary += `\n- The student just said: "${userContext}"`;
+        }
+      }
+    }
+    
+    // Determine previous tutor name for natural handoff
+    const previousTutorName = tutorGender === 'male' ? 'Daniela' : 'Agustin';
+    
     // Generate a dynamic, persona-aware greeting using the LLM
-    // The prompt instructs the tutor to introduce themselves naturally
-    const switchPrompt = `[TUTOR SWITCH: You are now ${tutorName}, a ${tutorGender} language tutor. The student just switched to you using a button. Introduce yourself briefly and naturally in 1-2 short sentences. Be warm and friendly. Use appropriate grammatical gender in ${session.targetLanguage} (e.g., "profesora" for female, "profesor" for male). Don't mention the previous tutor or the switch - just greet them as if you're jumping into the conversation naturally.]`;
+    // The prompt provides conversation context for a seamless, natural handoff
+    const switchPrompt = `[TUTOR SWITCH: You are now ${tutorName}, a ${tutorGender} language tutor taking over from ${previousTutorName}.
+
+INSTRUCTIONS:
+1. Greet the student warmly in 1-2 short sentences, acknowledging you're joining the conversation
+2. If there was an active topic being discussed, briefly reference it to show continuity (e.g., "I see you were working on..." or "Ah, the subjunctive!")
+3. Offer to continue where ${previousTutorName} left off, or ask how you can help
+4. Use appropriate grammatical gender in ${session.targetLanguage} (e.g., "profesora" for female, "profesor" for male)
+5. Be warm, natural, and conversational - not robotic
+
+DO NOT: Start with a generic "Hello, I am [name]" - instead, flow naturally into the existing conversation.${contextSummary}]`;
     
     // NEW TURN: Increment turnId for voice switch intro
     session.currentTurnId++;
     const turnId = session.currentTurnId;
+    const switchStartTime = Date.now();
     let fullText = '';
     let sentenceCount = 0;
     
     // Create metrics object for tracking (used by streamSentenceAudioProgressive)
     const metrics: StreamingMetrics = {
-      startTime: Date.now(),
-      ttfb: 0,
+      sessionId,
+      sttLatencyMs: 0,
+      aiFirstTokenMs: 0,
+      ttsFirstByteMs: 0,
+      totalLatencyMs: 0,
+      sentenceCount: 0,
       audioBytes: 0,
-      transcriptionMs: 0,
-      llmMs: 0,
-      ttsMs: 0,
-      totalMs: 0,
     };
     
     try {
@@ -2599,16 +2639,19 @@ Using this context, speak first to the student with a natural opening message. O
       // Add the greeting to conversation history so the tutor "remembers" they introduced themselves
       session.conversationHistory.push({ role: 'model', content: fullText });
       
-      // Send response complete
-      metrics.totalMs = Date.now() - metrics.startTime;
+      // Send response complete with proper metrics
+      const totalDurationMs = Date.now() - switchStartTime;
+      metrics.totalLatencyMs = totalDurationMs;
+      metrics.sentenceCount = sentenceCount;
+      metrics.aiResponse = fullText;
       this.sendMessage(session.ws, {
         type: 'response_complete',
         timestamp: Date.now(),
         turnId,
         fullText,
         totalSentences: sentenceCount,
-        totalDurationMs: metrics.totalMs,
-        metrics,
+        totalDurationMs,
+        metrics: metrics as any,  // Local metrics format differs from shared type
       } as StreamingResponseCompleteMessage);
       
       console.log(`[Voice Switch] Introduction complete: ${tutorName} said "${fullText}"`);
