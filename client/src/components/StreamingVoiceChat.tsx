@@ -243,6 +243,9 @@ export function StreamingVoiceChat({
   // CRITICAL: Track current avatarState for use in callbacks (avoids stale closure)
   const avatarStateRef = useRef<AvatarState>(avatarState);
   avatarStateRef.current = avatarState; // Always keep in sync
+  // CRITICAL: Track current connectionState for use in polling loops (avoids stale closure)
+  const connectionStateRef = useRef<string>('disconnected');
+  connectionStateRef.current = streamingVoice.state.connectionState; // Always keep in sync
   
   // Store last audio for replay functionality
   const [lastAudioBlob, setLastAudioBlob] = useState<Blob | null>(null);
@@ -338,7 +341,8 @@ export function StreamingVoiceChat({
       const maxRetries = 25; // 5 seconds max wait
       
       const checkAndStart = () => {
-        const currentState = streamingVoice.state.connectionState;
+        // CRITICAL: Use ref to get current state, not stale closure value
+        const currentState = connectionStateRef.current;
         console.log('[MODE SWITCH] Checking session state:', currentState, 'retry:', retryCount);
         
         // Session is ready or processing - good to start
