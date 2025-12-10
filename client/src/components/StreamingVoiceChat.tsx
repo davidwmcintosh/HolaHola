@@ -268,6 +268,7 @@ export function StreamingVoiceChat({
   const streamRef = useRef<MediaStream | null>(null);
   const currentConversationRef = useRef<string | null>(conversationId);
   const hasPlayedGreetingRef = useRef<string | null>(null); // Track which conversation's greeting was played
+  const hasDanielaSpokeOnceRef = useRef<boolean>(false); // Track if Daniela has spoken at least once this session
   const isRecordingRef = useRef<boolean>(false);
   const isProcessingRef = useRef<boolean>(false);
   const recordingRequestedRef = useRef<boolean>(false); // Track if recording was requested (for race condition prevention)
@@ -302,6 +303,11 @@ export function StreamingVoiceChat({
     isRecordingRef.current = isRecording;
     isProcessingRef.current = isProcessing;
   }, [conversationId, isRecording, isProcessing]);
+  
+  // Reset hasDanielaSpokeOnce when conversation changes (new session)
+  useEffect(() => {
+    hasDanielaSpokeOnceRef.current = false;
+  }, [conversationId]);
   
   // Handle input mode changes - cleanup when switching modes
   // Note: Uses a ref-based approach since stopOpenMicRecording is defined later in the file
@@ -694,6 +700,8 @@ export function StreamingVoiceChat({
     if (isStreamingPlaying) {
       // Audio is actually playing - show speaking state
       setAvatarState('speaking');
+      // Mark that Daniela has spoken at least once this session
+      hasDanielaSpokeOnceRef.current = true;
       // Ensure green light is OFF while Daniela speaks
       if (inputModeRef.current === 'open-mic' && openMicState === 'ready') {
         console.log('[OPEN MIC] Daniela speaking - hiding green light');
@@ -710,7 +718,8 @@ export function StreamingVoiceChat({
       
       // OPEN MIC: Restart session and show green light when Daniela finishes speaking
       // This is the reliable place to know audio playback is complete
-      if (inputModeRef.current === 'open-mic') {
+      // CRITICAL: Only do this if Daniela has actually spoken at least once (prevents premature green light)
+      if (inputModeRef.current === 'open-mic' && hasDanielaSpokeOnceRef.current) {
         console.log('[OPEN MIC] Playback finished - checking if restart needed');
         // Clear awaiting flag when playback completes
         isAwaitingResponseRef.current = false;
