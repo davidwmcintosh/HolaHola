@@ -244,8 +244,8 @@ export function StreamingVoiceChat({
   const avatarStateRef = useRef<AvatarState>(avatarState);
   avatarStateRef.current = avatarState; // Always keep in sync
   // CRITICAL: Track current connectionState for use in polling loops (avoids stale closure)
+  // Note: The actual sync happens AFTER streamingVoice is initialized below
   const connectionStateRef = useRef<string>('disconnected');
-  connectionStateRef.current = streamingVoice.state.connectionState; // Always keep in sync
   
   // Store last audio for replay functionality
   const [lastAudioBlob, setLastAudioBlob] = useState<Blob | null>(null);
@@ -281,6 +281,8 @@ export function StreamingVoiceChat({
   const streamingVoice = useStreamingVoice();
   const streamingConnectedRef = useRef(false);
   const useStreamingMode = ENABLE_STREAMING_MODE && streamingVoice.isSupported();
+  // Keep connectionStateRef in sync (must be after streamingVoice is defined)
+  connectionStateRef.current = streamingVoice.state.connectionState;
   
   // Telephone ringing sound during connection
   const ringingAudioRef = useRef<{ 
