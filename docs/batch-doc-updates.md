@@ -6,6 +6,42 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 17: Neural Network Sync Scheduler Enhancements (Dec 10, 2025)
+
+#### Sync Scheduler Timezone Update
+- **Change**: Nightly sync now runs at 3 AM Mountain Standard Time (10 AM UTC)
+- **Previous**: Server-local 3 AM
+- **Configuration**: `SYNC_HOUR_UTC = 10` in `sync-scheduler.ts`
+- **Logging**: Shows both MST and UTC times in scheduler logs
+
+#### Sync Status Visibility in Command Center
+- **Location**: Neural Network tab → "Nightly Sync Scheduler" card
+- **New API Endpoint**: `GET /api/sync/scheduler-status`
+- **Features**:
+  - Next scheduled sync time with countdown and local timestamp
+  - Last sync result with success/failure badge
+  - Synced count for successful syncs
+  - Error message display for failed syncs
+  - Pending items count
+  - Auto-refresh every 60 seconds
+- **Visual Indicators**:
+  - Green badge with checkmark for successful syncs
+  - Red badge with alert icon for failed syncs
+
+#### Manual Sync Trigger
+- **New Button**: "Trigger Now" button in Neural Network tab
+- **API Endpoint**: `POST /api/sync/trigger`
+- **Access**: Admin and Developer roles
+- **Behavior**: Runs full sync immediately, updates status display
+- **Toast Notifications**: Shows success count or error message
+
+#### Files Modified
+- `server/services/sync-scheduler.ts` - Timezone update, result tracking, exported getters
+- `server/routes.ts` - Added `/api/sync/scheduler-status` and `/api/sync/trigger` endpoints
+- `client/src/pages/admin/CommandCenter.tsx` - Updated NeuralNetworkTab UI with scheduler status and manual trigger
+
+---
+
 ### Session 16: Quick Enroll Feature (Dec 10, 2025)
 
 #### Quick Enroll - Streamlined Test User Setup
