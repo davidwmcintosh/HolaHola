@@ -2385,9 +2385,16 @@ export function StreamingVoiceChat({
             // 2. Not processing (not waiting for AI response)
             // 3. Not playing/speaking (AI not talking)
             // 4. Not connecting/reconnecting
+            // 
+            // ALSO unlock if there's an error but connection is ready (recoverable state)
+            // This handles cases like empty transcript where user should try again
             streamingVoice.state.connectionState === 'ready' &&
-            !isProcessing &&
-            avatarState !== 'speaking'
+            (
+              // Normal case: not processing and not speaking
+              (!isProcessing && !streamingVoice.state.isProcessing && avatarState !== 'speaking') ||
+              // Error recovery: server says not processing even if local state got stuck
+              (!!streamingVoice.state.error && !streamingVoice.state.isProcessing && streamingVoice.state.playbackState === 'idle')
+            )
           }
           onEndCall={handleEndCall}
           tutorGender={tutorGender}
