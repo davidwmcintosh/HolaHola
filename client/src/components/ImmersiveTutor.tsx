@@ -268,9 +268,11 @@ export function ImmersiveTutor({
                   ? "I hear you..."  // User is speaking
                   : openMicState === 'processing' 
                     ? "Let me think..." 
-                    : isRecording 
-                      ? "Speak naturally" 
-                      : "Tap to start"
+                    : isRecording && isPlaying
+                      ? "Listening soon..."  // Mic active but waiting for tutor to finish
+                      : isRecording 
+                        ? "Preparing..."  // Mic active, about to be ready
+                        : "Starting mic..."  // Auto-starting, no tap needed
               : isRecording 
                 ? "Release to send" 
                 : isMicPreparing 

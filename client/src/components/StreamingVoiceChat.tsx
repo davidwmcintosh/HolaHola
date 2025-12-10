@@ -324,6 +324,33 @@ export function StreamingVoiceChat({
       isAwaitingResponseRef.current = false;
     }
     
+    // If switching TO open-mic mode, AUTO-START the session
+    // This eliminates the confusing extra tap requirement
+    if (prevMode === 'push-to-talk' && inputMode === 'open-mic') {
+      console.log('[MODE SWITCH] Switching to open-mic - AUTO-STARTING session');
+      // Show preparing state while we start
+      setOpenMicState('idle');
+      
+      // Small delay to ensure the streaming connection is ready
+      setTimeout(() => {
+        if (startOpenMicRecordingRef.current && inputModeRef.current === 'open-mic') {
+          startOpenMicRecordingRef.current().then(() => {
+            console.log('[MODE SWITCH] Open mic auto-started successfully');
+            // Only show 'ready' state if Daniela isn't speaking
+            if (avatarStateRef.current !== 'speaking') {
+              setOpenMicState('ready');
+              setAvatarState('listening');
+            } else {
+              console.log('[MODE SWITCH] Daniela still speaking - waiting to show green');
+            }
+          }).catch((err: any) => {
+            console.error('[MODE SWITCH] Failed to auto-start open mic:', err);
+            setOpenMicState('idle');
+          });
+        }
+      }, 100);
+    }
+    
     // Update prev mode ref
     prevInputModeRef.current = inputMode;
   }, [inputMode, streamingVoice]);
