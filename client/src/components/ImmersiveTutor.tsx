@@ -369,7 +369,7 @@ export function ImmersiveTutor({
                 }
               }}
               disabled={!isUsersTurn && !isRecording}
-              className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none ${
+              className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ${
                 isRecording 
                   ? openMicState === 'ready'
                     ? 'bg-green-500 hover:bg-green-600'  // Solid green: invitation to speak
@@ -445,7 +445,7 @@ export function ImmersiveTutor({
                 }
               }}
               disabled={!isUsersTurn}
-              className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none focus-visible:ring-0 focus-visible:ring-offset-0 ${isMicPreparing ? 'animate-pulse' : ''} ${!isUsersTurn ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ${isMicPreparing ? 'animate-pulse' : ''} ${!isUsersTurn ? 'opacity-50 cursor-not-allowed' : ''}`}
               style={{ touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
               data-testid={isRecording ? "button-stop-recording" : isMicPreparing ? "button-preparing" : "button-start-recording"}
               aria-pressed={isRecording || isMicPreparing}
