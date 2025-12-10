@@ -487,18 +487,21 @@ export class StreamingVoiceOrchestrator {
       
       // ONE-WORD RULE: Validate user input for beginners
       // Non-blocking - we still process the request but provide feedback
-      const oneWordValidation = validateOneUnitRule(transcript, session.targetLanguage, session.difficultyLevel);
-      if (!oneWordValidation.isValid) {
-        console.log(`[Streaming Orchestrator] One-word rule: ${oneWordValidation.message}`);
-        // Send feedback to client about one-word rule (non-blocking - still process)
-        this.sendMessage(session.ws, {
-          type: 'feedback',
-          timestamp: Date.now(),
-          feedbackType: 'one_word_rule',
-          message: oneWordValidation.message || 'Try practicing one word or phrase at a time for better learning!',
-        } as StreamingFeedbackMessage);
-      } else if (oneWordValidation.matchedPhrase) {
-        console.log(`[Streaming Orchestrator] Matched phrase unit: "${oneWordValidation.matchedPhrase}"`);
+      // BYPASS: Skip in Founder Mode - these are collaborative conversations, not language lessons
+      if (!session.isFounderMode) {
+        const oneWordValidation = validateOneUnitRule(transcript, session.targetLanguage, session.difficultyLevel);
+        if (!oneWordValidation.isValid) {
+          console.log(`[Streaming Orchestrator] One-word rule: ${oneWordValidation.message}`);
+          // Send feedback to client about one-word rule (non-blocking - still process)
+          this.sendMessage(session.ws, {
+            type: 'feedback',
+            timestamp: Date.now(),
+            feedbackType: 'one_word_rule',
+            message: oneWordValidation.message || 'Try practicing one word or phrase at a time for better learning!',
+          } as StreamingFeedbackMessage);
+        } else if (oneWordValidation.matchedPhrase) {
+          console.log(`[Streaming Orchestrator] Matched phrase unit: "${oneWordValidation.matchedPhrase}"`);
+        }
       }
       
       // NEW TURN: Increment turnId for this response (for subtitle packet ordering)
