@@ -125,7 +125,31 @@ export function ImmersiveTutor({
   };
 
   return (
-    <div className="flex flex-col h-full bg-background overflow-y-auto items-center">
+    <div className="flex flex-col h-full bg-background overflow-y-auto items-center relative">
+      {/* Voice Switcher - Fixed at top-left for easy access */}
+      {setTutorGender && (
+        <div className="absolute top-4 left-4 z-20 flex items-center gap-1 bg-background/80 backdrop-blur-sm rounded-full p-1 shadow-lg border">
+          <Button
+            variant={tutorGender === "female" ? "default" : "ghost"}
+            size="sm"
+            className="rounded-full px-3"
+            onClick={() => setTutorGender("female")}
+            data-testid="button-voice-female"
+          >
+            {femaleVoiceName || "Female"}
+          </Button>
+          <Button
+            variant={tutorGender === "male" ? "default" : "ghost"}
+            size="sm"
+            className="rounded-full px-3"
+            onClick={() => setTutorGender("male")}
+            data-testid="button-voice-male"
+          >
+            {maleVoiceName || "Male"}
+          </Button>
+        </div>
+      )}
+      
       {/* Top spacer for vertical centering */}
       <div className="flex-1 min-h-4" />
       
@@ -484,27 +508,6 @@ export function ImmersiveTutor({
         )}
         </div>
         
-        {/* Tutor Voice Toggle */}
-        {setTutorGender && (
-          <div className="flex items-center justify-center gap-1 mt-2">
-            <Button
-              variant={tutorGender === "female" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setTutorGender("female")}
-              data-testid="button-voice-female"
-            >
-              {femaleVoiceName}
-            </Button>
-            <Button
-              variant={tutorGender === "male" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setTutorGender("male")}
-              data-testid="button-voice-male"
-            >
-              {maleVoiceName}
-            </Button>
-          </div>
-        )}
       </div>
       
       {/* Debug timing panel - disabled for production */}
