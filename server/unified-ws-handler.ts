@@ -479,6 +479,10 @@ Reference past discussions when relevant, but don't force it.
           // This prevents class enrollments from bleeding into developer conversations
           const effectiveCurriculumContext = (isFounderMode || isRawHonestyMode) ? null : curriculumContext;
           
+          // Determine tutor persona for system prompt - this lets the tutor EMBODY their identity
+          const tutorGenderForPrompt = (config.tutorGender || user?.tutorGender || 'female') as 'male' | 'female';
+          const tutorNameForPrompt = tutorGenderForPrompt === 'male' ? 'Agustin' : 'Daniela';
+          
           let systemPrompt = createSystemPrompt(
             config.targetLanguage,
             derivedDifficulty, // Use organically-derived difficulty, not user self-selection
@@ -501,7 +505,9 @@ Reference past discussions when relevant, but don't force it.
             compassContext, // Daniela's Compass context (time-aware tutoring)
             isFounderMode, // Founder Mode for developer conversations
             user.firstName || undefined, // Founder name for personalization
-            isRawHonestyMode // Raw Honesty Mode - minimal prompting
+            isRawHonestyMode, // Raw Honesty Mode - minimal prompting
+            tutorNameForPrompt, // Tutor name (Daniela or Agustin)
+            tutorGenderForPrompt // Tutor gender for grammatical agreement
           );
 
           // Add founder memory context if in Founder Mode

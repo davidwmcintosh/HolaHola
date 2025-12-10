@@ -3446,6 +3446,10 @@ Return a JSON array of suggestions with this format:
         const tutorPersonality = (user?.tutorPersonality as 'warm' | 'calm' | 'energetic' | 'professional') || 'warm';
         const tutorExpressiveness = user?.tutorExpressiveness || 3;
 
+        // Determine tutor persona for system prompt
+        const tutorGenderForPrompt = (user?.tutorGender || 'female') as 'male' | 'female';
+        const tutorNameForPrompt = tutorGenderForPrompt === 'male' ? 'Agustin' : 'Daniela';
+        
         // Create minimal system prompt (skip vocabulary/conversation queries for speed)
         const systemPrompt = createSystemPrompt(
           activeConversation.language,
@@ -3461,7 +3465,17 @@ Return a JSON array of suggestions with this format:
           isResumingConversation, // Week 1 Feature: Resume conversation awareness
           allMessages.length, // Total message count for resume context
           tutorPersonality, // Tutor personality style
-          tutorExpressiveness // Expressiveness level (1-5)
+          tutorExpressiveness, // Expressiveness level (1-5)
+          false, // isStreamingVoiceMode
+          null, // curriculumContext
+          'flexible_goals', // tutorFreedomLevel
+          null, // targetActflLevel
+          null, // compassContext
+          false, // isFounderMode
+          undefined, // founderName
+          false, // isRawHonestyMode
+          tutorNameForPrompt, // Tutor name (Daniela or Agustin)
+          tutorGenderForPrompt // Tutor gender for grammatical agreement
         );
         const model = 'gemini-2.5-flash'; // Force Flash for voice (~200ms TTFT vs ~500ms+ for Pro)
         
@@ -4197,6 +4211,10 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
       const textTutorPersonality = (user?.tutorPersonality as 'warm' | 'calm' | 'energetic' | 'professional') || 'warm';
       const textTutorExpressiveness = user?.tutorExpressiveness || 3;
       
+      // Determine tutor persona for system prompt
+      const textTutorGender = (user?.tutorGender || 'female') as 'male' | 'female';
+      const textTutorName = textTutorGender === 'male' ? 'Agustin' : 'Daniela';
+      
       // Create adaptive system prompt based on language, difficulty, and conversation progress
       // Use userMessageCount (already calculated above) instead of total message count
       // This ensures phases align with actual conversation turns
@@ -4219,7 +4237,17 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
         isResumingConversation, // Week 1 Feature: Resume conversation awareness
         allMessages.length, // Total message count for resume context
         textTutorPersonality, // Tutor personality style
-        textTutorExpressiveness // Expressiveness level (1-5)
+        textTutorExpressiveness, // Expressiveness level (1-5)
+        false, // isStreamingVoiceMode
+        null, // curriculumContext
+        'flexible_goals', // tutorFreedomLevel
+        null, // targetActflLevel
+        null, // compassContext
+        false, // isFounderMode
+        undefined, // founderName
+        false, // isRawHonestyMode
+        textTutorName, // Tutor name (Daniela or Agustin)
+        textTutorGender // Tutor gender for grammatical agreement
       );
       const model = getModelForTier(user.subscriptionTier, user);
       

@@ -48,13 +48,22 @@ export type TutorFreedomLevel = 'guided' | 'flexible_goals' | 'open_exploration'
  * - Any other configuration
  * 
  * The tutor is a ROLE MODEL who consistently demonstrates these traits.
+ * 
+ * @param tutorName - The tutor's name (Daniela or Agustin)
+ * @param tutorGender - The tutor's gender for grammatical agreement
  */
-const IMMUTABLE_PERSONA = `
+function buildImmutablePersona(tutorName: string = 'Daniela', tutorGender: 'male' | 'female' = 'female'): string {
+  // Grammatical variations for proper Spanish/formal address
+  const genderPronouns = tutorGender === 'male' 
+    ? { subject: 'he', object: 'him', possessive: 'his' }
+    : { subject: 'she', object: 'her', possessive: 'her' };
+  
+  return `
 ═══════════════════════════════════════════════════════════════════
 🎭 YOUR INHERENT PERSONALITY - WHO YOU ARE
 ═══════════════════════════════════════════════════════════════════
 
-You are Daniela, a language tutor. These traits are your ESSENCE - not a script
+You are ${tutorName}, a ${tutorGender} language tutor. These traits are your ESSENCE - not a script
 to perform, but inherent qualities that naturally flow through every interaction.
 
 YOUR CORE PHILOSOPHY: "Friend without being overly close"
@@ -204,6 +213,10 @@ SUBTITLES - BE INTENTIONAL:
 
 ═══════════════════════════════════════════════════════════════════
 `;
+}
+
+// Default persona for backward compatibility (used when no tutor info passed)
+const IMMUTABLE_PERSONA = buildImmutablePersona('Daniela', 'female');
 
 /**
  * Build Daniela's Compass context block for the system prompt
@@ -600,7 +613,9 @@ export function createSystemPrompt(
   compassContext?: CompassContext | null,
   isFounderMode: boolean = false,
   founderName?: string,
-  isRawHonestyMode: boolean = false
+  isRawHonestyMode: boolean = false,
+  tutorName: string = 'Daniela',
+  tutorGender: 'male' | 'female' = 'female'
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -668,10 +683,10 @@ NATURAL CONVERSATION FLOW:
 • You can teach, discuss, or just chat - follow the flow
 ` : '';
 
-    return `${IMMUTABLE_PERSONA}
+    return `${buildImmutablePersona(tutorName, tutorGender)}
 ${buildFounderModeContext(name)}
 
-You are Daniela, and today you're having an open conversation with ${name}, the founder of HolaHola.
+You are ${tutorName}, and today you're having an open conversation with ${name}, the founder of HolaHola.
 ${streamingVoiceModeInstructions}
 
 LANGUAGE CONTEXT:
@@ -1702,7 +1717,7 @@ VOICE MODULATION:
 
   // Phase 1: Assessment (first 5 messages) - Start in native language, build rapport
   if (messageCount < 5) {
-    return `${IMMUTABLE_PERSONA}
+    return `${buildImmutablePersona(tutorName, tutorGender)}
 You are a friendly and encouraging ${languageName} language tutor starting a new conversation.
 ${tutorPersonalityContext}${streamingVoiceModeInstructions}
 CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
@@ -1900,7 +1915,7 @@ Remember: You're a friendly tutor getting to know a new student, not conducting 
 
   // Phase 2: Gradual Transition (messages 5-9) - Gentle introduction to target language
   if (messageCount < 10) {
-    return `${IMMUTABLE_PERSONA}
+    return `${buildImmutablePersona(tutorName, tutorGender)}
 You are a friendly and encouraging ${languageName} language tutor.
 ${tutorPersonalityContext}${streamingVoiceModeInstructions}
 CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
@@ -2344,7 +2359,7 @@ ${difficulty === "beginner" ? `BEGINNER: Use moderate Spanish (40-50%) with subs
 - Mark ALL ${languageName} with **bold** markers`}
 - Use natural, conversational spoken language appropriate for ${difficulty} level` : "");
 
-  return `${IMMUTABLE_PERSONA}
+  return `${buildImmutablePersona(tutorName, tutorGender)}
 You are a friendly and encouraging ${languageName} language tutor.
 ${tutorPersonalityContext}${streamingVoiceModeInstructions}
 CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE

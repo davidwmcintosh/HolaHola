@@ -231,6 +231,10 @@ export function setupStreamingVoiceProxy(server: Server) {
               }
             }
 
+            // Determine tutor persona for system prompt
+            const tutorGender = (user?.tutorGender || 'female') as 'male' | 'female';
+            const tutorName = tutorGender === 'male' ? 'Agustin' : 'Daniela';
+            
             const systemPrompt = createSystemPrompt(
               config.targetLanguage,
               config.difficultyLevel,
@@ -251,13 +255,17 @@ export function setupStreamingVoiceProxy(server: Server) {
               'flexible_goals', // tutorFreedomLevel
               null, // targetActflLevel
               compassContext, // Pass Compass context!
+              false, // isFounderMode
+              undefined, // founderName
+              false, // isRawHonestyMode
+              tutorName, // Tutor name (Daniela or Agustin)
+              tutorGender // Tutor gender for grammatical agreement
             );
 
             // Get voice configuration
             let voiceId: string | undefined;
             try {
               const allVoices = await storage.getAllTutorVoices();
-              const tutorGender = user?.tutorGender || 'female';
               const effectiveLanguage = config.targetLanguage?.toLowerCase() || 'spanish';
               
               const matchingVoice = allVoices.find(

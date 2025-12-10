@@ -169,6 +169,10 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
               content: m.content,
             }));
 
+          // Determine tutor persona for system prompt
+          const tutorGender = (user?.tutorGender || 'female') as 'male' | 'female';
+          const tutorName = tutorGender === 'male' ? 'Agustin' : 'Daniela';
+          
           const systemPrompt = createSystemPrompt(
             config.targetLanguage,
             config.difficultyLevel,
@@ -184,12 +188,21 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             messages.length,
             (user.tutorPersonality || 'warm') as any,
             user.tutorExpressiveness || 3,
+            false, // isStreamingVoiceMode
+            null, // curriculumContext
+            'flexible_goals', // tutorFreedomLevel
+            null, // targetActflLevel
+            null, // compassContext
+            false, // isFounderMode
+            undefined, // founderName
+            false, // isRawHonestyMode
+            tutorName, // Tutor name (Daniela or Agustin)
+            tutorGender // Tutor gender for grammatical agreement
           );
 
           let voiceId: string | undefined;
           try {
             const allVoices = await storage.getAllTutorVoices();
-            const tutorGender = user?.tutorGender || 'female';
             const effectiveLanguage = config.targetLanguage?.toLowerCase() || 'spanish';
             
             const matchingVoice = allVoices.find(
