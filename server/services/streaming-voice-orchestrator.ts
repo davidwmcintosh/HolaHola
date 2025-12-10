@@ -532,7 +532,7 @@ export class StreamingVoiceOrchestrator {
       
       // DEDUPLICATION GUARD: Track seen sentences to prevent LLM repetition loops
       const seenSentences = new Set<string>();
-      const MAX_SENTENCES = 5; // Hard limit to prevent runaway responses
+      const MAX_SENTENCES = 15; // Increased for Founder Mode detailed explanations
       let actualSentenceCount = 0;
       
       // Process sentences as they arrive from Gemini
