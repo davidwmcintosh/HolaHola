@@ -6,6 +6,33 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 16: Quick Enroll Feature (Dec 10, 2025)
+
+#### Quick Enroll - Streamlined Test User Setup
+- **Purpose**: One-click test account creation with optional class enrollment, credits, and email invitation
+- **Access**: Admin and Developer roles (Command Center → Users tab → "Quick Enroll" button)
+- **API Endpoint**: `POST /api/admin/quick-enroll`
+- **Features**:
+  - Create test user account with pending authentication
+  - Optional class enrollment from dropdown of existing classes
+  - User-controlled credit allocation (0 by default)
+  - Optional invitation email via Mailjet
+  - Class validation with proper error messages
+  - Email error surfacing in response
+- **Fields**:
+  - Email (required)
+  - First Name / Last Name (optional)
+  - Class (optional dropdown - "Self-directed" when empty)
+  - Credit Hours (number, default 0)
+  - Send Email toggle (default on)
+- **Response**: Returns success message with details of actions taken (enrolled, credits granted, email sent/failed)
+- **Use Case**: Quickly onboard beta testers or demo accounts with appropriate class assignments and credits
+- **Files**:
+  - `server/routes.ts` - Added `/api/admin/quick-enroll` endpoint
+  - `client/src/pages/admin/CommandCenter.tsx` - Added Quick Enroll button and dialog
+
+---
+
 ### Session 15: PTT Button Lockout & Open Mic Developer-Only (Dec 10, 2025)
 
 #### PTT Button Lockout While Daniela Speaks
