@@ -150,14 +150,15 @@ export function ImmersiveTutor({
           </div>
         )}
         
-        {/* Processing Indicator */}
-        {isProcessing && (
+        {/* Thinking Indicator - Shows during AI response generation (push-to-talk only) */}
+        {/* Only show when processing AND not recording AND not already playing */}
+        {isProcessing && !isRecording && !isPlaying && inputMode === 'push-to-talk' && (
           <div 
-            className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-primary/90 text-primary-foreground rounded-full shadow-lg"
-            data-testid="indicator-processing"
+            className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-blue-500/90 text-white rounded-full shadow-lg animate-pulse"
+            data-testid="indicator-thinking"
           >
-            <div className="w-3 h-3 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm font-medium">Processing</span>
+            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm font-medium">Thinking...</span>
           </div>
         )}
         
@@ -353,7 +354,7 @@ export function ImmersiveTutor({
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('[MIC BUTTON] Touch start');
-                if (!isRecording && !isMicPreparing && !isProcessing && !isPointerRecordingRef.current) {
+                if (!isRecording && !isMicPreparing && !isProcessing && !isPlaying && !isPointerRecordingRef.current) {
                   isPointerRecordingRef.current = true;
                   onRecordingStart();
                 }
@@ -378,7 +379,7 @@ export function ImmersiveTutor({
               onMouseDown={(e) => {
                 e.preventDefault();
                 console.log('[MIC BUTTON] Mouse down');
-                if (!isRecording && !isMicPreparing && !isProcessing && !isPointerRecordingRef.current) {
+                if (!isRecording && !isMicPreparing && !isProcessing && !isPlaying && !isPointerRecordingRef.current) {
                   isPointerRecordingRef.current = true;
                   onRecordingStart();
                 }
