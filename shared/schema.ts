@@ -2994,6 +2994,131 @@ export const creativityTemplates = pgTable("creativity_templates", {
   index("idx_creativity_templates_origin").on(table.originId),
 ]);
 
+// ===== Daniela's Proactive Suggestion System =====
+// Real-time emergent intelligence where Daniela analyzes patterns and proactively
+// suggests improvements to herself, the product, and the HolaHola team
+
+// Suggestion status - lifecycle of a suggestion
+export const suggestionStatusEnum = pgEnum('suggestion_status', [
+  'emerging',    // Just detected, may need more evidence
+  'ready',       // Enough evidence, ready for review
+  'reviewed',    // Founder has seen it
+  'implemented', // Suggestion was acted upon
+  'deferred',    // Valid but not now
+  'rejected'     // Not applicable
+]);
+
+// Suggestion category - what kind of improvement
+export const suggestionCategoryEnum = pgEnum('suggestion_category', [
+  'self_improvement',    // Daniela improving her tutoring
+  'content_gap',         // Missing drills, topics, cultural content
+  'ux_observation',      // UI/UX issues noticed through student behavior
+  'teaching_insight',    // Pedagogical pattern that worked/didn't work
+  'product_feature',     // Feature idea for HolaHola
+  'technical_issue',     // Bug or technical problem observed
+  'student_pattern',     // Aggregate pattern across students (privacy-safe)
+  'tool_enhancement'     // Improvement to existing whiteboard/drill tools
+]);
+
+export const danielaSuggestions = pgTable("daniela_suggestions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Classification
+  category: suggestionCategoryEnum("category").notNull(),
+  status: suggestionStatusEnum("status").default("emerging").notNull(),
+  
+  // The suggestion itself
+  title: varchar("title").notNull(), // Short summary
+  description: text("description").notNull(), // Full explanation
+  reasoning: text("reasoning"), // Daniela's chain of thought
+  
+  // Evidence (privacy-safe - no student identifiers)
+  evidenceCount: integer("evidence_count").default(1), // How many times pattern observed
+  evidenceSummary: text("evidence_summary"), // Aggregated observations
+  exampleContext: text("example_context"), // Anonymized example
+  
+  // Priority scoring
+  priority: integer("priority").default(50), // 1-100, higher = more important
+  confidence: integer("confidence").default(50), // 1-100, how confident Daniela is
+  impact: varchar("impact"), // low, medium, high, critical
+  
+  // Compass context when generated
+  compassSnapshot: jsonb("compass_snapshot"), // { sessionPhase, timingContext, studentLevel, etc. }
+  triggerContext: jsonb("trigger_context"), // What triggered this insight
+  
+  // Mode context
+  generatedInMode: varchar("generated_in_mode"), // founder_mode, honesty_mode, normal_session
+  conversationId: varchar("conversation_id"), // Where it was generated (if applicable)
+  
+  // For actionable suggestions
+  suggestedAction: text("suggested_action"), // What Daniela recommends
+  implementationNotes: text("implementation_notes"), // Technical details if applicable
+  
+  // Tracking
+  firstObservedAt: timestamp("first_observed_at").notNull().defaultNow(),
+  lastObservedAt: timestamp("last_observed_at").notNull().defaultNow(),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewedBy: varchar("reviewed_by"), // User ID of reviewer
+  reviewNotes: text("review_notes"), // Founder's response
+  
+  // Linking to other suggestions (for clustering similar insights)
+  relatedSuggestionIds: varchar("related_suggestion_ids").array(),
+  
+  // Language/content context
+  targetLanguage: varchar("target_language"), // If language-specific
+  affectedTools: varchar("affected_tools").array(), // WRITE, PHONETIC, etc.
+  affectedFeatures: varchar("affected_features").array(), // drills, voice_chat, etc.
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  
+  // Two-way sync fields
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+}, (table) => [
+  index("idx_daniela_suggestions_category").on(table.category),
+  index("idx_daniela_suggestions_status").on(table.status),
+  index("idx_daniela_suggestions_priority").on(table.priority),
+  index("idx_daniela_suggestions_mode").on(table.generatedInMode),
+  index("idx_daniela_suggestions_origin").on(table.originId),
+]);
+
+// ===== Daniela's Reflection Triggers =====
+// Patterns that activate her proactive analysis during conversations
+
+export const reflectionTriggers = pgTable("reflection_triggers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Trigger identification
+  triggerName: varchar("trigger_name").notNull(),
+  triggerType: varchar("trigger_type").notNull(), // compass_based, pattern_based, mode_based, threshold_based
+  
+  // When to activate
+  compassConditions: jsonb("compass_conditions"), // { elapsedMinutes: '>5', sessionPhase: 'core' }
+  patternConditions: jsonb("pattern_conditions"), // { errorCount: '>3', toolUsage: 'none' }
+  modeConditions: jsonb("mode_conditions"), // { mode: ['founder_mode', 'honesty_mode'] }
+  
+  // What to analyze
+  analysisPrompt: text("analysis_prompt").notNull(), // What should Daniela think about?
+  suggestionCategories: varchar("suggestion_categories").array(), // Which categories might result
+  
+  // Output guidance
+  evidenceRequired: integer("evidence_required").default(1), // Min observations before suggesting
+  cooldownMinutes: integer("cooldown_minutes").default(10), // Don't re-trigger for X minutes
+  
+  priority: integer("priority").default(50),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  
+  // Two-way sync fields
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+}, (table) => [
+  index("idx_reflection_triggers_type").on(table.triggerType),
+  index("idx_reflection_triggers_origin").on(table.originId),
+]);
+
 // Insert schemas for Procedural Memory
 export const insertTutorProcedureSchema = createInsertSchema(tutorProcedures).omit({
   id: true,
@@ -3095,3 +3220,23 @@ export type EmotionalPattern = typeof emotionalPatterns.$inferSelect;
 
 export type InsertCreativityTemplate = z.infer<typeof insertCreativityTemplateSchema>;
 export type CreativityTemplate = typeof creativityTemplates.$inferSelect;
+
+// Insert schemas for Daniela's Proactive Suggestion System
+export const insertDanielaSuggestionSchema = createInsertSchema(danielaSuggestions).omit({
+  id: true,
+  createdAt: true,
+  firstObservedAt: true,
+  lastObservedAt: true,
+});
+
+export const insertReflectionTriggerSchema = createInsertSchema(reflectionTriggers).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types for Daniela's Proactive Suggestion System
+export type InsertDanielaSuggestion = z.infer<typeof insertDanielaSuggestionSchema>;
+export type DanielaSuggestion = typeof danielaSuggestions.$inferSelect;
+
+export type InsertReflectionTrigger = z.infer<typeof insertReflectionTriggerSchema>;
+export type ReflectionTrigger = typeof reflectionTriggers.$inferSelect;

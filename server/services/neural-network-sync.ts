@@ -17,6 +17,8 @@ import {
   subtletyCues,
   emotionalPatterns,
   creativityTemplates,
+  danielaSuggestions,
+  reflectionTriggers,
   type SelfBestPractice,
   type PromotionQueue,
   type InsertPromotionQueue,
@@ -32,7 +34,9 @@ import {
   type SituationalPattern,
   type SubtletyCue,
   type EmotionalPattern,
-  type CreativityTemplate
+  type CreativityTemplate,
+  type DanielaSuggestion,
+  type ReflectionTrigger
 } from '@shared/schema';
 import { eq, and, isNull, desc, or, sql } from 'drizzle-orm';
 import crypto from 'crypto';
@@ -2065,14 +2069,22 @@ export class NeuralNetworkSyncService {
       effectivenessRecords: number;
       toolPreferences: number;
     };
+    danielaSuggestions: {
+      pending: number;
+      ready: number;
+      implemented: number;
+      triggers: number;
+    };
     lastSync: Date | null;
     currentEnvironment: string;
   }> {
     const baseStatus = await this.getCompleteSyncStatus();
     
-    const [effectivenessRecords, toolPrefs] = await Promise.all([
+    const [effectivenessRecords, toolPrefs, suggestions, triggers] = await Promise.all([
       db.select().from(teachingSuggestionEffectiveness),
-      db.select().from(studentToolPreferences)
+      db.select().from(studentToolPreferences),
+      db.select().from(danielaSuggestions),
+      db.select().from(reflectionTriggers)
     ]);
     
     return {
@@ -2080,8 +2092,171 @@ export class NeuralNetworkSyncService {
       teachingSuggestions: {
         effectivenessRecords: effectivenessRecords.length,
         toolPreferences: toolPrefs.length
+      },
+      danielaSuggestions: {
+        pending: suggestions.filter(s => s.status === 'emerging').length,
+        ready: suggestions.filter(s => s.status === 'ready').length,
+        implemented: suggestions.filter(s => s.status === 'implemented').length,
+        triggers: triggers.length
       }
     };
+  }
+  
+  // ===== Daniela's Proactive Suggestion System Sync =====
+  
+  /**
+   * Export Daniela's suggestions for sync
+   * Exports implemented suggestions (valuable learnings) and approved triggers
+   */
+  async exportDanielaSuggestions(): Promise<{
+    suggestions: DanielaSuggestion[];
+    triggers: ReflectionTrigger[];
+  }> {
+    const suggestions = await db.select()
+      .from(danielaSuggestions)
+      .where(or(
+        eq(danielaSuggestions.syncStatus, 'approved'),
+        eq(danielaSuggestions.status, 'implemented')
+      ));
+    
+    const triggers = await db.select()
+      .from(reflectionTriggers)
+      .where(eq(reflectionTriggers.syncStatus, 'approved'));
+    
+    return { suggestions, triggers };
+  }
+  
+  /**
+   * Import reflection trigger from another environment
+   */
+  async importReflectionTrigger(trigger: Partial<ReflectionTrigger>): Promise<{
+    success: boolean;
+    action: 'created' | 'updated' | 'skipped';
+    id?: string;
+  }> {
+    try {
+      // Check for existing by originId or trigger name
+      const existing = trigger.originId 
+        ? await db.select().from(reflectionTriggers)
+            .where(eq(reflectionTriggers.originId, trigger.originId))
+            .limit(1)
+        : await db.select().from(reflectionTriggers)
+            .where(eq(reflectionTriggers.triggerName, trigger.triggerName || ''))
+            .limit(1);
+      
+      if (existing.length > 0) {
+        // Update if from different environment
+        if (trigger.originEnvironment !== CURRENT_ENVIRONMENT) {
+          await db.update(reflectionTriggers)
+            .set({
+              analysisPrompt: trigger.analysisPrompt,
+              compassConditions: trigger.compassConditions,
+              patternConditions: trigger.patternConditions,
+              modeConditions: trigger.modeConditions,
+              priority: trigger.priority,
+              syncStatus: 'synced'
+            })
+            .where(eq(reflectionTriggers.id, existing[0].id));
+          return { success: true, action: 'updated', id: existing[0].id };
+        }
+        return { success: true, action: 'skipped' };
+      }
+      
+      // Create new
+      const [created] = await db.insert(reflectionTriggers).values({
+        triggerName: trigger.triggerName || 'Imported Trigger',
+        triggerType: trigger.triggerType || 'pattern_based',
+        compassConditions: trigger.compassConditions,
+        patternConditions: trigger.patternConditions,
+        modeConditions: trigger.modeConditions,
+        analysisPrompt: trigger.analysisPrompt || '',
+        suggestionCategories: trigger.suggestionCategories,
+        evidenceRequired: trigger.evidenceRequired,
+        cooldownMinutes: trigger.cooldownMinutes,
+        priority: trigger.priority,
+        isActive: trigger.isActive ?? true,
+        originId: trigger.originId || trigger.id,
+        originEnvironment: trigger.originEnvironment,
+        syncStatus: 'synced'
+      }).returning();
+      
+      return { success: true, action: 'created', id: created.id };
+    } catch (error) {
+      console.error('[SYNC] Error importing reflection trigger:', error);
+      return { success: false, action: 'skipped' };
+    }
+  }
+  
+  /**
+   * Auto-approve Daniela suggestions for sync
+   * Approves ready suggestions with enough evidence
+   */
+  async autoApproveDanielaSuggestions(): Promise<{ approved: number }> {
+    let approved = 0;
+    
+    // Approve ready suggestions with evidence >= 3
+    const readySuggestions = await db.select()
+      .from(danielaSuggestions)
+      .where(and(
+        eq(danielaSuggestions.syncStatus, 'local'),
+        or(
+          eq(danielaSuggestions.status, 'ready'),
+          eq(danielaSuggestions.status, 'implemented')
+        )
+      ));
+    
+    for (const suggestion of readySuggestions) {
+      if ((suggestion.evidenceCount || 0) >= 3 || suggestion.status === 'implemented') {
+        await db.update(danielaSuggestions)
+          .set({ syncStatus: 'approved' })
+          .where(eq(danielaSuggestions.id, suggestion.id));
+        approved++;
+      }
+    }
+    
+    // Approve all local reflection triggers
+    await db.update(reflectionTriggers)
+      .set({ syncStatus: 'approved' })
+      .where(eq(reflectionTriggers.syncStatus, 'local'));
+    
+    return { approved };
+  }
+  
+  /**
+   * Sync all Daniela suggestion system data
+   */
+  async syncDanielaSuggestions(importData: {
+    suggestions: DanielaSuggestion[];
+    triggers: ReflectionTrigger[];
+  }): Promise<{
+    triggersImported: number;
+    triggersUpdated: number;
+    triggersSkipped: number;
+  }> {
+    let triggersImported = 0;
+    let triggersUpdated = 0;
+    let triggersSkipped = 0;
+    
+    // Import triggers
+    for (const trigger of importData.triggers) {
+      const result = await this.importReflectionTrigger(trigger);
+      if (result.action === 'created') triggersImported++;
+      else if (result.action === 'updated') triggersUpdated++;
+      else triggersSkipped++;
+    }
+    
+    // Log the sync operation
+    await this.logSyncOperation({
+      operation: 'sync_daniela_suggestions',
+      tableName: 'reflection_triggers',
+      recordCount: triggersImported + triggersUpdated,
+      sourceEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+      targetEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+      status: 'success',
+      metadata: { triggersImported, triggersUpdated, triggersSkipped }
+    });
+    
+    return { triggersImported, triggersUpdated, triggersSkipped };
   }
 }
 

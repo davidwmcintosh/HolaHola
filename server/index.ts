@@ -122,6 +122,16 @@ const stripeInitPromise = (async function initStripe() {
       console.error('Failed to seed advanced intelligence:', error);
     }
     
+    // Seed Daniela's Reflection Triggers (proactive suggestion system)
+    try {
+      console.log('Seeding reflection triggers...');
+      const { seedReflectionTriggers } = await import('./seed-reflection-triggers');
+      await seedReflectionTriggers();
+      console.log('Reflection triggers ready');
+    } catch (error) {
+      console.error('Failed to seed reflection triggers:', error);
+    }
+    
     // Initialize procedural memory cache for tool knowledge
     try {
       console.log('Initializing procedural memory cache...');
