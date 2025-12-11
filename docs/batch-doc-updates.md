@@ -6,6 +6,119 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 20g: Procedural Memory System - Daniela's Brain (Dec 11, 2025)
+
+#### Overview
+Implemented a Procedural Memory system that stores 120+ pieces of "how-to" knowledge in Daniela's brain through 4 database tables. This enables a shift from scripted prompts to emergent, context-aware tutoring behavior.
+
+#### Architectural Shift
+**Before**: Giant system prompt tells Daniela exactly what to do in every situation
+**After**: Minimal prompt defines WHO she is → Compass provides situation → Neural Network recalls relevant knowledge → Daniela acts
+
+#### New Database Tables (4 total)
+
+| Table | Count | Purpose |
+|-------|-------|---------|
+| `tool_knowledge` | 22 | HOW to use each whiteboard command and drill type |
+| `tutor_procedures` | 44 | HOW to handle teaching situations (greetings, corrections, scaffolding) |
+| `teaching_principles` | 35 | WHY she teaches the way she does (core pedagogical beliefs) |
+| `situational_patterns` | 19 | WHEN to activate procedures based on Compass state |
+
+#### Knowledge Categories Seeded
+
+**Tool Knowledge (22 entries)**
+- Whiteboard commands: WRITE, PHONETIC, COMPARE, IMAGE, CONTEXT, GRAMMAR_TABLE, STROKE, TONE, WORD_MAP, CULTURE, READING, SCENARIO, SUMMARY, PLAY
+- Drill types: repeat, translate, match, fill_blank, sentence_order
+- Interactions: TEXT_INPUT, SHOW, HIDE
+
+**Tutor Procedures (44 entries)**
+- Session phases: greeting, first_session, closing, time_warning
+- Teaching: new_vocabulary, grammar_explanation, cultural_moment
+- Error handling: pronunciation_error, grammar_error, vocabulary_error, meaning_error, repeated_error
+- Scaffolding: graduated_hints, sentence_building, task_decomposition
+- Student states: student_struggling, student_excelling, student_distracted
+- Voice-specific: audio_unclear, speed_request, slow_pronunciation
+- Energy management: student_tired, student_hyperactive
+- Emotional support: student_apologizing, student_comparing, breakthrough_moment
+- Language-specific: tonal_language, character_language, gendered_language, verb_heavy_language
+
+**Teaching Principles (35 entries)**
+- Pedagogy: learning by doing, i+1 input, errors as data, spaced repetition, context
+- Relationship: warmth first, patient friend, meet them where they are
+- Pacing: variety, end on high note, strategic silence
+- Correction: priority by type, sandwich technique, natural recast
+- Encouragement: celebrate effort, specific praise, normalize struggle
+- Psychology: affective filter, autonomy, visible progress, curiosity
+- Practical: 80/20 rule, contextualize vocabulary, reception before production, interleaving
+- Meta-learning: teach strategies, make patterns explicit
+- Communication: meaning over accuracy, maximize target language
+- Personalization: know their motivation, use their name
+- Voice-specific: speak slower, model before correcting, strategic silence
+
+**Situational Patterns (19 entries)**
+- Time-based: session_start, time_running_low, final_minute, behind_schedule, ahead_of_schedule
+- Activity-based: after_drill_success, after_drill_struggle, multiple_tools_used
+- Student states: long_silence, repeated_error, student_frustrated, student_on_a_roll
+- Content: new_vocabulary_intro, grammar_point, cultural_moment
+- Context: first_session, returning_after_break, student_asked_question, pronunciation_focus, grammar_confusion
+
+#### Retrieval Service (`server/services/procedural-memory-retrieval.ts`)
+
+```typescript
+// Main retrieval function
+getProceduralKnowledge(compassContext, sessionContext) → {
+  procedures: TutorProcedure[],
+  suggestedTools: ToolKnowledge[],
+  principles: TeachingPrinciple[],
+  activePatterns: SituationalPattern[],
+  guidance: string
+}
+
+// Helper functions
+getAllToolKnowledge() → ToolKnowledge[]
+getCoreTeachingPrinciples() → TeachingPrinciple[]
+
+// Formatting for prompts
+formatToolKnowledgeForPrompt(tools) → string
+formatPrinciplesForPrompt(principles) → string
+formatSituationalGuidance(knowledge) → string
+```
+
+#### Two-Way Sync Integration
+
+Added sync fields to all 4 tables:
+```typescript
+syncStatus: varchar("sync_status").default('local'),
+originId: varchar("origin_id"),
+originEnvironment: varchar("origin_environment"),
+```
+
+New sync functions in `neural-network-sync.ts`:
+- `exportProceduralMemory()` - Export all approved items
+- `importToolKnowledge()` - Dedupe by toolName
+- `importTutorProcedure()` - Dedupe by (category, trigger, title)
+- `importTeachingPrinciple()` - Dedupe by (category, principle)
+- `importSituationalPattern()` - Dedupe by patternName
+- `syncProceduralMemory()` - Full sync of all 4 tables
+- `getPendingProceduralMemory()` - Get items with 'local' status
+- `approveProceduralMemoryItem()` - Mark item as 'approved'
+- `autoApproveProceduralMemory()` - Batch approve all local items
+- `getCompleteSyncStatus()` - Combined status of all neural network + procedural memory
+
+#### Files Created/Modified
+- `shared/schema.ts` - Added 4 procedural memory tables with sync fields
+- `server/seed-procedural-memory.ts` - Comprehensive seed script (120 entries)
+- `server/services/procedural-memory-retrieval.ts` - Context-aware retrieval service
+- `server/services/neural-network-sync.ts` - Added 10 new sync methods for procedural memory
+- `replit.md` - Updated system design documentation
+
+#### Next Steps (Integration)
+- Wire retrieval service into `server/system-prompt.ts` to replace static tool documentation
+- Call `getProceduralKnowledge()` with Compass context before each response
+- Dynamically inject only relevant procedures/principles into prompt
+
+---
+
 ### Session 20f: Neural Network Expansion Two-Way Sync (Dec 11, 2025)
 
 #### Problem
