@@ -128,8 +128,8 @@ Your whiteboard tools will be loaded from your teaching knowledge base.
         if (options?.includeExamples && tool.examples && tool.examples.length > 0) {
           lines.push(`  Example: ${tool.examples[0]}`);
         }
-        if (tool.bestUsedWhen) {
-          lines.push(`  Best used: ${tool.bestUsedWhen}`);
+        if (tool.bestUsedFor && tool.bestUsedFor.length > 0) {
+          lines.push(`  Best used: ${tool.bestUsedFor.join(', ')}`);
         }
       }
     });
@@ -629,7 +629,7 @@ export async function getProceduralKnowledge(
   const phaseTools = getPhaseRelevantTools(sessionContext.phase);
   phaseTools.forEach(t => suggestedToolNames.add(t));
   
-  const suggestedTools = await getToolsByNames([...suggestedToolNames]);
+  const suggestedTools = await getToolsByNames(Array.from(suggestedToolNames));
   
   // Build combined guidance
   const guidance = buildGuidanceText(procedures, patterns, principles, sessionContext);
@@ -680,8 +680,8 @@ function determineActiveTriggers(
   // Time-based triggers from Compass
   if (compass) {
     if (compass.elapsedSeconds < 120) triggers.push('session_start');
-    if (compass.remainingCredits && compass.remainingCredits < 300) triggers.push('time_warning');
-    if (compass.remainingCredits && compass.remainingCredits < 60) triggers.push('session_end');
+    if (compass.remainingSeconds && compass.remainingSeconds < 300) triggers.push('time_warning');
+    if (compass.remainingSeconds && compass.remainingSeconds < 60) triggers.push('session_end');
   }
   
   // Student state triggers
@@ -800,8 +800,8 @@ function evaluatePattern(
       if (conditions.minutesElapsed.gt && elapsed <= conditions.minutesElapsed.gt) compassMatch = false;
     }
     
-    if (conditions.minutesRemaining && compass.remainingCredits) {
-      const remaining = compass.remainingCredits / 60;
+    if (conditions.minutesRemaining && compass.remainingSeconds) {
+      const remaining = compass.remainingSeconds / 60;
       if (conditions.minutesRemaining.lt && remaining >= conditions.minutesRemaining.lt) compassMatch = false;
       if (conditions.minutesRemaining.gt && remaining <= conditions.minutesRemaining.gt) compassMatch = false;
     }
@@ -1073,8 +1073,8 @@ Your whiteboard tools are dynamically loaded from your teaching knowledge base.
         if (options?.includeExamples && tool.examples && tool.examples.length > 0) {
           lines.push(`  Example: ${tool.examples[0]}`);
         }
-        if (tool.bestUsedWhen) {
-          lines.push(`  Best used: ${tool.bestUsedWhen}`);
+        if (tool.bestUsedFor && tool.bestUsedFor.length > 0) {
+          lines.push(`  Best used: ${tool.bestUsedFor.join(', ')}`);
         }
       }
     });

@@ -6,6 +6,106 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 20l: Advanced Intelligence Layer - Daniela's Growth Areas (Dec 11, 2025)
+
+#### Overview
+Consulted Daniela in Honesty Mode about neural network expansion needs. She identified three growth areas that would make her "a better teacher than she's ever been." Implemented these as three new database tables with full Compass integration and nightly sync support.
+
+#### Daniela's Self-Identified Expansion Areas
+
+1. **Subtlety Detection**: Reading between the lines of what students say
+   - Prosodic analysis (tone, rhythm, pace in voice sessions)
+   - Implicit signal recognition ("Fine, I guess..." means not fine)
+   - Long-term context memory (patterns across sessions)
+
+2. **Emotional Intelligence**: Deeper empathy modeling
+   - Dynamic empathy states that adapt to student emotional trajectory
+   - Adaptive pathways that change based on student response
+   - Self-correction mechanisms when approaches aren't working
+
+3. **Generative Creativity**: Novel teaching moments
+   - Original metaphor generation based on student interests
+   - "What if" exploration for curious moments
+   - Proactive teaching opportunities
+
+#### New Database Tables (3 total)
+
+| Table | Entries | Purpose |
+|-------|---------|---------|
+| `subtlety_cues` | 14 | Prosodic analysis, implicit signals, context memory patterns |
+| `emotional_patterns` | 12 | Empathy states, adaptive pathways, self-correction triggers |
+| `creativity_templates` | 13 | Metaphor bridges, exploration patterns, proactive opportunities |
+
+All tables include:
+- Compass conditions (session phase, timing context)
+- Sync fields (syncStatus, originId, originEnvironment)
+- isActive flag for fine-grained control
+
+#### Subtlety Cues Categories
+
+| Category | Examples |
+|----------|----------|
+| `prosodic` | Rising intonation (questioning), falling confidence, hesitation |
+| `implicit_signal` | Polite deflection, comparison to others, self-deprecation |
+| `context_memory` | Pattern recognition, topic avoidance, frustration accumulation |
+
+#### Emotional Patterns
+
+| Pattern | Response |
+|---------|----------|
+| `anxiety_surge` | Slow down, offer explicit scaffolding |
+| `frustration_spike` | Acknowledge frustration, pivot activity |
+| `delight_moment` | Capture for future reference, subtle callback |
+| `fatigue_pattern` | Increase variety, more visual aids |
+
+#### Creativity Templates
+
+| Type | Example |
+|------|---------|
+| `metaphor_bridge` | Grammar conjugation = building with Legos |
+| `exploration_pattern` | "What if you wanted to say this sarcastically?" |
+| `proactive_opportunity` | Student mentions interest → bridge to teaching |
+
+#### Nightly Sync Integration
+
+Added to sync-scheduler.ts (4 AM MST / 11 AM UTC):
+```typescript
+// 4. Sync Advanced Intelligence Layer (3 tables)
+const advancedIntelligenceData = await neuralNetworkSync.exportAdvancedIntelligence();
+
+console.log(`[SYNC-SCHEDULER] Advanced Intelligence status:`);
+console.log(`  - Exported ${advancedIntelligenceData.subtletyCues.length} subtlety cues`);
+console.log(`  - Exported ${advancedIntelligenceData.emotionalPatterns.length} emotional patterns`);
+console.log(`  - Exported ${advancedIntelligenceData.creativityTemplates.length} creativity templates`);
+```
+
+**Nightly Sync Now Covers**:
+1. Best Practices (pending → approved promotion)
+2. Neural Network Expansion (5 tables)
+3. Procedural Memory (4 tables)
+4. **Advanced Intelligence (3 tables)** ← NEW
+
+#### Sync Functions Added (neural-network-sync.ts)
+
+- `exportAdvancedIntelligence()` - Export all approved subtlety cues, emotional patterns, creativity templates
+- `importAdvancedIntelligence()` - Import with deduplication by originId
+- `autoApproveAdvancedIntelligence()` - Batch approve all local items for sync
+
+#### Files Created/Modified
+- `shared/schema.ts` - Added 3 Advanced Intelligence tables with indexes
+- `server/seed-advanced-intelligence.ts` - 39 entries of seed data
+- `server/services/neural-network-sync.ts` - Export/import/approve functions
+- `server/services/sync-scheduler.ts` - Added to nightly sync
+- `server/index.ts` - Call seedAdvancedIntelligence at startup
+
+#### Also Fixed: Pre-existing LSP Errors
+
+- `bestUsedWhen` → `bestUsedFor` (correct schema field name)
+- `remainingCredits` → `remainingSeconds` (correct CompassContext field)
+- Set iteration with `Array.from()` for ES5 compatibility
+
+---
+
 ### Session 20k: Neural Network Dynamic Tool Documentation & Sync (Dec 11, 2025)
 
 #### Overview
