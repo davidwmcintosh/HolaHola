@@ -6,6 +6,67 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 20: Cross-Language Handoff White Screen Fix (Dec 11, 2025)
+
+#### Problem
+Cross-language tutor switches (e.g., Daniela → Sayuri) caused a white screen crash. The language context update triggered a conversation reset in `chat.tsx` which unmounted `StreamingVoiceChat` while a WebSocket session was still active.
+
+#### Root Cause
+The language-change `useEffect` in `chat.tsx` wasn't aware of in-progress handoffs. When `setLanguage()` was called from the handoff handler, it immediately triggered conversation reset, destroying the component mid-handoff.
+
+#### Solution: Coordinated State Management
+
+**1. Handoff State Tracking** (`chat.tsx`):
+- `isLanguageHandoff` state flag prevents language-change effect from firing during handoff
+- `handoffPriorLanguageRef` / `handoffTargetLanguageRef` track both languages for proper cleanup
+- `previousLanguageRef` synced to prevent re-triggering after handoff completes
+
+**2. Handoff Lifecycle Callbacks**:
+- `onLanguageHandoff(tutorName, targetLanguage)` - Shows transition overlay, starts 10s safety timeout
+- `onLanguageHandoffComplete()` - Resets conversation, clears overlay, releases locks
+
+**3. Transition Overlay UI**:
+- "Switching to [TutorName]..." overlay prevents jarring unmount during handoff
+- Overlay shown immediately when server sends `tutor_handoff` message
+- Cleared only after new connection is confirmed stable
+
+**4. Safety Timeout (10 seconds)**:
+- If handoff fails, fully resets state after 10s
+- Clears overlay, releases session locks, resets conversation
+- Syncs `previousLanguageRef` to target language to prevent stale state
+
+**5. Disconnect/Error Handling** (`StreamingVoiceChat.tsx`):
+- `isLanguageHandoffRef` reset on connection errors or disconnects during handoff
+- Prevents premature `onLanguageHandoffComplete` calls from reconnect attempts
+- Parent's safety timeout handles all failure cleanup
+
+#### Handoff Flow (Success)
+1. Server sends `tutor_handoff` with `targetLanguage` and `tutorName`
+2. Client calls `onLanguageHandoff()` → shows overlay, stores prior/target languages
+3. `setLanguage()` updates context (gated effect doesn't fire due to `isLanguageHandoff`)
+4. Old WebSocket session disconnects
+5. New session connects with new language/voice
+6. `onLanguageHandoffComplete()` called → resets conversation, clears overlay
+
+#### Handoff Flow (Timeout/Failure)
+1. Server sends `tutor_handoff`, client starts handoff
+2. Something fails (connection error, timeout, etc.)
+3. 10s safety timeout fires
+4. Resets all state: overlay, locks, refs
+5. Resets conversation to ensure user gets fresh session in new language
+
+#### Edge Cases Handled
+- Partial handshake disconnects
+- Connection errors during handoff
+- User clicking elsewhere during switch
+- Multiple rapid switch attempts
+
+#### Files Modified
+- `client/src/pages/chat.tsx` - Handoff state management, lifecycle callbacks
+- `client/src/components/StreamingVoiceChat.tsx` - Handoff flag reset on disconnect/error
+
+---
+
 ### Session 19i: Neural Network Expansion for Language-Specific Pedagogical Knowledge (Dec 10, 2025)
 
 #### Overview
