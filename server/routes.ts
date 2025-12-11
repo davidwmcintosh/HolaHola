@@ -11364,6 +11364,84 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
       res.status(500).json({ error: error.message });
     }
   });
+  
+  // Get AI-powered feedback from Aris during drill
+  app.post("/api/aris/feedback", isAuthenticated, async (req: any, res) => {
+    try {
+      const { arisAIService } = await import('./services/aris-ai-service');
+      
+      const {
+        targetLanguage,
+        drillType,
+        focusArea,
+        currentItem,
+        sessionProgress,
+        recentHistory,
+        isCorrect,
+      } = req.body;
+      
+      if (!targetLanguage || !drillType || !currentItem) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      
+      const feedback = await arisAIService.generateFeedback({
+        targetLanguage,
+        drillType,
+        focusArea,
+        currentItem,
+        sessionProgress,
+        recentHistory,
+      }, isCorrect);
+      
+      res.json(feedback);
+    } catch (error: any) {
+      console.error('[API] Error generating Aris feedback:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get AI-powered session greeting from Aris
+  app.post("/api/aris/greeting", isAuthenticated, async (req: any, res) => {
+    try {
+      const { arisAIService } = await import('./services/aris-ai-service');
+      const { targetLanguage, drillType, focusArea, itemCount } = req.body;
+      
+      const userName = req.user?.firstName || undefined;
+      
+      const greeting = await arisAIService.generateSessionGreeting(
+        targetLanguage,
+        drillType,
+        focusArea,
+        itemCount,
+        userName
+      );
+      
+      res.json({ greeting });
+    } catch (error: any) {
+      console.error('[API] Error generating Aris greeting:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get AI-powered session summary from Aris
+  app.post("/api/aris/summary", isAuthenticated, async (req: any, res) => {
+    try {
+      const { arisAIService } = await import('./services/aris-ai-service');
+      const { correctCount, incorrectCount, struggledItems, targetLanguage } = req.body;
+      
+      const summary = await arisAIService.generateSessionSummary(
+        correctCount,
+        incorrectCount,
+        struggledItems || [],
+        targetLanguage
+      );
+      
+      res.json({ summary });
+    } catch (error: any) {
+      console.error('[API] Error generating Aris summary:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   const httpServer = createServer(app);
   

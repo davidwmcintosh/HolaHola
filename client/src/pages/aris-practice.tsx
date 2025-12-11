@@ -16,7 +16,8 @@ import {
   Sparkles,
   RefreshCw,
   MessageCircle,
-  Clock
+  Clock,
+  Lightbulb
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -57,10 +58,23 @@ interface DrillState {
   currentItemIndex: number;
   correctCount: number;
   incorrectCount: number;
+  consecutiveCorrect: number;
+  consecutiveIncorrect: number;
   startTime: number | null;
   responseTimes: number[];
   struggledItems: string[];
   attempts: Record<string, { correct: number; incorrect: number }>;
+  recentHistory: Array<{ prompt: string; wasCorrect: boolean; studentAnswer: string }>;
+}
+
+interface ArisFeedbackResult {
+  feedback: string;
+  hint?: string;
+  encouragement?: string;
+  patternInsight?: string;
+  suggestSimplify: boolean;
+  flagForDaniela: boolean;
+  flagReason?: string;
 }
 
 export default function ArisPractice() {
@@ -72,8 +86,10 @@ export default function ArisPractice() {
   const [userAnswer, setUserAnswer] = useState("");
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-  const [currentFeedback, setCurrentFeedback] = useState<string>("");
+  const [currentFeedback, setCurrentFeedback] = useState<ArisFeedbackResult | null>(null);
+  const [sessionGreeting, setSessionGreeting] = useState<string>("");
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoadingFeedback, setIsLoadingFeedback] = useState(false);
   
   const { data: pendingDrills, isLoading: loadingDrills } = useQuery<ArisDrillAssignment[]>({
     queryKey: ['/api/aris/drills/pending'],
@@ -124,18 +140,39 @@ export default function ArisPractice() {
     try {
       await startDrillMutation.mutateAsync(assignment.id);
       setSelectedAssignment(assignment);
+      
+      const content = assignment.drillContent as DrillContent | null;
+      const itemCount = content?.items?.length || 0;
+      
       setDrillState({
         currentItemIndex: 0,
         correctCount: 0,
         incorrectCount: 0,
+        consecutiveCorrect: 0,
+        consecutiveIncorrect: 0,
         startTime: Date.now(),
         responseTimes: [],
         struggledItems: [],
         attempts: {},
+        recentHistory: [],
       });
       setUserAnswer("");
       setShowResult(false);
       setIsCorrect(null);
+      setCurrentFeedback(null);
+      
+      // Fetch AI greeting
+      try {
+        const greetingData = await apiRequest("POST", "/api/aris/greeting", {
+          targetLanguage: assignment.targetLanguage,
+          drillType: assignment.drillType,
+          focusArea: content?.focusArea,
+          itemCount,
+        }) as { greeting?: string };
+        setSessionGreeting(greetingData?.greeting || "");
+      } catch {
+        setSessionGreeting("");
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -178,7 +215,7 @@ export default function ArisPractice() {
     }
   }, [isPlaying, selectedAssignment, language]);
   
-  const checkAnswer = useCallback(() => {
+  const checkAnswer = useCallback(async () => {
     if (!selectedAssignment || !drillState) return;
     
     const content = selectedAssignment.drillContent as DrillContent | null;
@@ -196,11 +233,42 @@ export default function ArisPractice() {
     
     setIsCorrect(correct);
     setShowResult(true);
+    setIsLoadingFeedback(true);
     
-    const feedback = correct 
-      ? getRandomFeedback('correct') 
-      : getRandomFeedback('incorrect');
-    setCurrentFeedback(feedback);
+    // Fetch AI-powered feedback
+    try {
+      const aiFeedback = await apiRequest("POST", "/api/aris/feedback", {
+        targetLanguage: selectedAssignment.targetLanguage,
+        drillType: selectedAssignment.drillType,
+        focusArea: content?.focusArea,
+        currentItem: {
+          prompt: currentItem.prompt,
+          expectedAnswer: targetText,
+          studentAnswer: userAnswer.trim(),
+        },
+        sessionProgress: {
+          correctCount: drillState.correctCount,
+          incorrectCount: drillState.incorrectCount,
+          currentIndex: drillState.currentItemIndex,
+          totalItems: drillItems.length,
+          struggledItems: drillState.struggledItems,
+          consecutiveCorrect: correct ? drillState.consecutiveCorrect + 1 : 0,
+          consecutiveIncorrect: correct ? 0 : drillState.consecutiveIncorrect + 1,
+        },
+        recentHistory: drillState.recentHistory.slice(-3),
+        isCorrect: correct,
+      }) as unknown as ArisFeedbackResult;
+      setCurrentFeedback(aiFeedback);
+    } catch {
+      // Fallback to static feedback if AI fails
+      setCurrentFeedback({
+        feedback: correct ? getRandomFeedback('correct') : getRandomFeedback('incorrect'),
+        suggestSimplify: false,
+        flagForDaniela: false,
+      });
+    } finally {
+      setIsLoadingFeedback(false);
+    }
     
     setDrillState(prev => {
       if (!prev) return prev;
@@ -224,9 +292,15 @@ export default function ArisPractice() {
         ...prev,
         correctCount: correct ? prev.correctCount + 1 : prev.correctCount,
         incorrectCount: correct ? prev.incorrectCount : prev.incorrectCount + 1,
+        consecutiveCorrect: correct ? prev.consecutiveCorrect + 1 : 0,
+        consecutiveIncorrect: correct ? 0 : prev.consecutiveIncorrect + 1,
         responseTimes: [...prev.responseTimes, responseTime],
         attempts: newAttempts,
         struggledItems: newStruggledItems,
+        recentHistory: [
+          ...prev.recentHistory,
+          { prompt: currentItem.prompt, wasCorrect: correct, studentAnswer: userAnswer.trim() }
+        ].slice(-5),
       };
     });
   }, [selectedAssignment, drillState, userAnswer, getRandomFeedback]);
@@ -268,7 +342,7 @@ export default function ArisPractice() {
       setUserAnswer("");
       setShowResult(false);
       setIsCorrect(null);
-      setCurrentFeedback("");
+      setCurrentFeedback(null);
     }
   }, [selectedAssignment, drillState, completeDrillMutation]);
   
@@ -310,6 +384,13 @@ export default function ArisPractice() {
           </CardHeader>
           
           <CardContent className="space-y-6">
+            {/* AI Session Greeting */}
+            {sessionGreeting && drillState.currentItemIndex === 0 && !showResult && (
+              <p className="text-center text-sm text-muted-foreground italic bg-violet-500/5 p-3 rounded-lg" data-testid="text-session-greeting">
+                "{sessionGreeting}"
+              </p>
+            )}
+            
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Progress</span>
@@ -381,26 +462,65 @@ export default function ArisPractice() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <div className={`p-4 rounded-lg ${isCorrect ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'} border`}>
-                        <div className="flex items-center justify-center gap-2 mb-2">
-                          {isCorrect ? (
-                            <CheckCircle2 className="h-6 w-6 text-green-500" />
-                          ) : (
-                            <XCircle className="h-6 w-6 text-red-500" />
-                          )}
-                          <span className="font-medium" data-testid="text-drill-feedback">
-                            {currentFeedback}
-                          </span>
+                      {isLoadingFeedback ? (
+                        <div className="flex items-center justify-center p-4">
+                          <Loader2 className="h-5 w-5 animate-spin text-violet-500" />
+                          <span className="ml-2 text-sm text-muted-foreground">Aris is thinking...</span>
                         </div>
-                        {!isCorrect && currentItem && (
-                          <p className="text-sm text-muted-foreground">
-                            Correct answer: <strong>{currentItem.expectedAnswer || currentItem.prompt}</strong>
-                          </p>
-                        )}
-                      </div>
+                      ) : (
+                        <div className={`p-4 rounded-lg ${isCorrect ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'} border`}>
+                          <div className="flex items-center justify-center gap-2 mb-2">
+                            {isCorrect ? (
+                              <CheckCircle2 className="h-6 w-6 text-green-500" />
+                            ) : (
+                              <XCircle className="h-6 w-6 text-red-500" />
+                            )}
+                            <span className="font-medium" data-testid="text-drill-feedback">
+                              {currentFeedback?.feedback || (isCorrect ? "Great job!" : "Not quite.")}
+                            </span>
+                          </div>
+                          
+                          {/* AI Hint */}
+                          {currentFeedback?.hint && (
+                            <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">
+                              <Lightbulb className="inline h-3 w-3 mr-1" />
+                              {currentFeedback.hint}
+                            </p>
+                          )}
+                          
+                          {/* Pattern Insight */}
+                          {currentFeedback?.patternInsight && (
+                            <p className="text-sm text-violet-600 dark:text-violet-400 mt-2 italic">
+                              {currentFeedback.patternInsight}
+                            </p>
+                          )}
+                          
+                          {/* Correct answer display */}
+                          {!isCorrect && currentItem && (
+                            <p className="text-sm text-muted-foreground mt-2">
+                              Correct answer: <strong>{currentItem.expectedAnswer || currentItem.prompt}</strong>
+                            </p>
+                          )}
+                          
+                          {/* Encouragement */}
+                          {currentFeedback?.encouragement && (
+                            <p className="text-sm text-green-600 dark:text-green-400 mt-2">
+                              {currentFeedback.encouragement}
+                            </p>
+                          )}
+                          
+                          {/* Suggest simplify notice */}
+                          {currentFeedback?.suggestSimplify && (
+                            <p className="text-xs text-muted-foreground mt-3 italic">
+                              Would you like me to simplify this exercise?
+                            </p>
+                          )}
+                        </div>
+                      )}
                       <Button 
                         onClick={nextItem} 
                         className="w-full gap-2"
+                        disabled={isLoadingFeedback}
                         data-testid="button-next-item"
                       >
                         {drillState.currentItemIndex + 1 >= drillItems.length ? (
