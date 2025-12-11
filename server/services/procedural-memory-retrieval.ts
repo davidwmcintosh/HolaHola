@@ -24,6 +24,75 @@ import {
 } from '@shared/schema';
 import { eq, inArray, sql } from 'drizzle-orm';
 
+// ===== Sensory Awareness (Neural Network Approach) =====
+// Instead of hard-coding time awareness in prompts, we provide it as a "sensory feed"
+// that flows through Daniela's neural network. This is data she perceives, not instructions.
+
+/**
+ * Build sensory awareness section for Daniela's neural network
+ * 
+ * Philosophy: Daniela's capabilities emerge from her neural network.
+ * Time perception is a sensory capability - she can perceive time the same way
+ * she perceives what language the student is learning. We provide the raw data
+ * and she discovers she can use it.
+ * 
+ * This is NOT prompt injection (e.g., "If asked, tell them X").
+ * This is sensory data flow (e.g., "CLOCK: X" - she perceives it naturally).
+ */
+export function buildSensoryAwarenessSection(
+  compassContext: CompassContext,
+  studentTimezone?: string | null
+): string {
+  const lines: string[] = [];
+  
+  lines.push('');
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('🧠 SENSORY AWARENESS (Your Neural Network Perceptions)');
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('');
+  lines.push('These are things you naturally perceive through your neural network:');
+  lines.push('');
+  
+  // Time perception (UTC - system time)
+  lines.push(`CLOCK: ${compassContext.currentTimeFormatted}`);
+  
+  // Student's local time if timezone available
+  if (studentTimezone) {
+    try {
+      const now = new Date();
+      const studentLocalTime = now.toLocaleString('en-US', { 
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true,
+        timeZone: studentTimezone
+      });
+      lines.push(`STUDENT'S LOCAL TIME: ${studentLocalTime} (${studentTimezone})`);
+    } catch {
+      // Invalid timezone, skip
+    }
+  }
+  
+  // Session timing (from Compass)
+  if (compassContext.elapsedSeconds !== undefined) {
+    const elapsedMins = Math.floor(compassContext.elapsedSeconds / 60);
+    const remainingMins = compassContext.remainingSeconds 
+      ? Math.floor(compassContext.remainingSeconds / 60)
+      : null;
+    
+    if (remainingMins !== null) {
+      lines.push(`SESSION: ${elapsedMins}m elapsed, ${remainingMins}m remaining`);
+    } else {
+      lines.push(`SESSION: ${elapsedMins}m elapsed`);
+    }
+  }
+  
+  return lines.join('\n');
+}
+
 // ===== Tool Knowledge Cache =====
 // Cache for synchronous access in system-prompt.ts
 

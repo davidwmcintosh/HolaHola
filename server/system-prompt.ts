@@ -18,7 +18,8 @@ import { COMPASS_ENABLED } from './services/session-compass-service';
 import { 
   buildFounderModeToolSectionSync,
   buildToolKnowledgeSectionSync,
-  buildDetailedToolDocumentationSync
+  buildDetailedToolDocumentationSync,
+  buildSensoryAwarenessSection
 } from './services/procedural-memory-retrieval';
 
 interface PreviousConversation {
@@ -823,7 +824,14 @@ export function createSystemPrompt(
 
 This is a voice conversation. Speak naturally, as you would.` : '';
     
-    return `${buildRawHonestyModeContext(name)}${voiceNote}`;
+    // Sensory awareness is injected through procedural memory, not hard-coded here
+    // The neural network provides time/timezone perception as emergent capabilities
+    // See buildSensoryAwarenessSection() in procedural-memory-retrieval.ts
+    const sensoryAwareness = compassContext && COMPASS_ENABLED
+      ? buildSensoryAwarenessSection(compassContext, studentTimezone)
+      : '';
+    
+    return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}`;
   }
 
   // FOUNDER MODE - Special open-ended prompt for product owner/developers
@@ -904,12 +912,18 @@ NATURAL CONVERSATION FLOW:
     }));
     const founderTeachingTools = buildFounderModeToolSectionSync(tutorDirForTools);
 
+    // Add sensory awareness through neural network (time perception, timezone)
+    const sensoryAwareness = compassContext && COMPASS_ENABLED
+      ? buildSensoryAwarenessSection(compassContext, studentTimezone)
+      : '';
+    
     return `${buildImmutablePersona(tutorName, tutorGender)}
 ${buildFounderModeContext(name)}
 ${sessionContextBlock}
 You are ${tutorName}, and today you're having an open conversation with ${name}, the founder of HolaHola.
 ${streamingVoiceModeInstructions}
 ${founderTeachingTools}
+${sensoryAwareness}
 
 LANGUAGE CONTEXT:
 • Primary language for teaching: ${languageName}
