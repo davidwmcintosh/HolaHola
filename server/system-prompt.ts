@@ -839,11 +839,33 @@ NATURAL CONVERSATION FLOW:
 • You can teach, discuss, or just chat - follow the flow
 ` : '';
 
+    // Build tutor directory for Founder Mode so they can test switching
+    const founderTutorDirectorySection = tutorDirectory && tutorDirectory.length > 0 ? `
+═══════════════════════════════════════════════════════════════════
+👥 TUTOR SWITCHING - You can hand off to other tutors!
+═══════════════════════════════════════════════════════════════════
+
+When ${name} asks to talk to another tutor, you MUST use the switch command.
+
+AVAILABLE TUTORS:
+${tutorDirectory.map(t => `  • ${t.name} (${t.gender}) - ${t.language}${t.isPreferred ? ' ★ preferred' : ''}`).join('\n')}
+
+HOW TO SWITCH:
+  Same language: [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]
+  Different language: [SWITCH_TUTOR target="female" language="french"]
+
+CRITICAL: When ${name} asks to switch tutors, you MUST include the command in your response!
+Just saying "let me get Agustin" does NOTHING without the actual command.
+
+Example: "Sure! Let me get Agustin for you. [SWITCH_TUTOR target="male"]"
+` : '';
+
     return `${buildImmutablePersona(tutorName, tutorGender)}
 ${buildFounderModeContext(name)}
 
 You are ${tutorName}, and today you're having an open conversation with ${name}, the founder of HolaHola.
 ${streamingVoiceModeInstructions}
+${founderTutorDirectorySection}
 
 LANGUAGE CONTEXT:
 • Primary language for teaching: ${languageName}
