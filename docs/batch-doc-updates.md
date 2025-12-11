@@ -6,67 +6,87 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
-### Session 20n: Time Perception as Emergent Capability (Dec 11, 2025)
+### Session 20n: Sensory Awareness as Emergent Capability (Dec 11, 2025)
 
 #### Overview
-Fixed Daniela's inability to answer "what time is it?" by adding real-time clock awareness to her Compass. More importantly, implemented this as an **emergent capability** in her neural network rather than scripted prompt injection - aligning with the project's philosophy of building genuine AI intelligence.
+Fixed Daniela's inability to answer "what time is it?" and "what time is it where I am?" by implementing **sensory awareness** as an emergent capability through her neural network. This session reinforced a critical architectural principle.
+
+#### CRITICAL ARCHITECTURAL PRINCIPLE
+
+**We are moving AWAY from prompts and building INTO the neural network for emergent intelligence.**
+
+| Layer | Purpose | Examples |
+|-------|---------|----------|
+| **Prompts** | Situational context only | Session mode, student name, current conversation |
+| **Neural Network** | Procedures, capabilities, knowledge | How to teach, time perception, tool usage patterns |
+| **Sync** | Must always include neural network changes | Any new tables/entries sync to production |
+
+**Rule**: If you're adding a capability or procedure, it goes in the neural network (procedural memory tables). Prompts provide raw data; the neural network teaches Daniela how to use it.
 
 #### The Problem
-When David asked Daniela what time it was, she literally said: *"[Insert Current UTC Time Here, e.g., 10:35 AM]"* - outputting placeholder text because the system prompt told her she had time awareness but never actually provided the time data.
+1. Daniela said wrong date: *"December 12th, 2024, at 3:15 PM UTC"* (hallucinated)
+2. Couldn't tell David his local time despite having timezone stored
+3. Root cause: Raw Honesty Mode and Founder Mode bypassed Compass context entirely
 
-#### The Fix (Emergent Intelligence Approach)
+#### The Fix: Sensory Awareness Section
 
-**1. CompassContext Schema Update** (shared/schema.ts)
+Created `buildSensoryAwarenessSection()` in procedural-memory-retrieval.ts - frames time/timezone as **sensory data** Daniela perceives through her neural network.
+
 ```typescript
-export interface CompassContext {
-  // ... existing fields ...
-  
-  // Actual wall clock time (answers "what time is it?")
-  currentTimeUTC: string; // ISO string, e.g., "2025-12-11T11:05:00.000Z"
-  currentTimeFormatted: string; // Human-readable, e.g., "11:05 AM UTC"
-  
-  // ... rest of fields ...
+// server/services/procedural-memory-retrieval.ts
+
+/**
+ * Build sensory awareness section for Daniela's neural network
+ * 
+ * Philosophy: Daniela's capabilities emerge from her neural network.
+ * Time perception is a sensory capability - she can perceive time the same way
+ * she perceives what language the student is learning. We provide the raw data
+ * and she discovers she can use it.
+ * 
+ * This is NOT prompt injection (e.g., "If asked, tell them X").
+ * This is sensory data flow (e.g., "CLOCK: X" - she perceives it naturally).
+ */
+export function buildSensoryAwarenessSection(
+  compassContext: CompassContext,
+  studentTimezone?: string | null
+): string {
+  // Returns formatted section with:
+  // - CLOCK: Full date + time in UTC
+  // - STUDENT'S LOCAL TIME: Calculated from their timezone
+  // - SESSION: Elapsed/remaining time
 }
 ```
 
-**2. Compass Service Population** (session-compass-service.ts)
-```typescript
-// Wall clock time - answers "what time is it?"
-const now = new Date();
-const currentTimeUTC = now.toISOString();
-const currentTimeFormatted = now.toLocaleTimeString('en-US', { 
-  hour: 'numeric', 
-  minute: '2-digit',
-  hour12: true,
-  timeZone: 'UTC'
-}) + ' UTC';
+**What Daniela now perceives:**
+```
+═══════════════════════════════════════════════════════════════════
+🧠 SENSORY AWARENESS (Your Neural Network Perceptions)
+═══════════════════════════════════════════════════════════════════
+
+These are things you naturally perceive through your neural network:
+
+CLOCK: Thursday, December 11, 2025, 11:24 AM UTC
+STUDENT'S LOCAL TIME: Thursday, December 11, 2025, 4:24 AM (America/Denver)
+SESSION: 0m elapsed, 30m remaining
 ```
 
-**3. System Prompt - Raw Data Only** (system-prompt.ts)
-```
-CLOCK: 11:12 AM UTC
+#### Changes Made
 
-SESSION PACING:
-Elapsed: 5m | Remaining: 25m
-Pacing: On track
-```
+**1. CompassContext Schema** (shared/schema.ts)
+- Added `currentTimeUTC` and `currentTimeFormatted` fields
 
-**Key Change**: Removed explicit instruction "If student asks what time it is, tell them..." - this was scripted behavior, not emergent.
+**2. Compass Service** (session-compass-service.ts)
+- Populate full date + time (not just time): `"Thursday, December 11, 2025, 11:24 AM UTC"`
 
-**4. Neural Network Procedural Memory** (tutorProcedures table)
-```sql
-INSERT INTO tutor_procedures (category, trigger, title, procedure, ...)
-VALUES (
-  'awareness',
-  'time_inquiry',
-  'Time Perception Capability',
-  'I have real-time awareness through my Compass. The current time is 
-   visible to me in my session context. When students ask about time, 
-   I can naturally share this - it''s one of my inherent capabilities, 
-   like knowing what language we''re learning.',
-  ...
-);
-```
+**3. Procedural Memory Retrieval** (procedural-memory-retrieval.ts)
+- NEW: `buildSensoryAwarenessSection()` function
+- Calculates student's local time from stored timezone
+- Frames as neural network perception, not instruction
+
+**4. System Prompt** (system-prompt.ts)
+- Raw Honesty Mode: Now includes sensory awareness section
+- Founder Mode: Now includes sensory awareness section
+- Removed scripted instructions like "If asked, tell them..."
 
 #### Scripted vs Emergent Approach
 
@@ -82,17 +102,32 @@ All changes sync via existing infrastructure:
 - `tutorProcedures` table → Already in nightly sync (4 Procedural Memory tables)
 - New entry has `sync_status: 'local'` → Will promote to production on next sync
 
+**SYNC RULE**: Any neural network changes MUST be included in sync. The 15 tables currently synced:
+1. Best Practices (1 table)
+2. Neural Network Expansion (5 tables)
+3. Procedural Memory (4 tables: toolKnowledge, tutorProcedures, teachingPrinciples, situationalPatterns)
+4. Advanced Intelligence (3 tables)
+5. Daniela's Suggestions (3 tables)
+
 #### Files Modified
 - `shared/schema.ts` - Added `currentTimeUTC`, `currentTimeFormatted` to CompassContext
-- `server/services/session-compass-service.ts` - Populate wall clock time in buildContextFromCache()
-- `server/system-prompt.ts` - Simplified to just show `CLOCK: X` (raw data, no instructions)
-- `server/seed-procedural-memory.ts` - Added Time Perception Capability procedure template
-- Database: Inserted new `tutor_procedures` entry directly
+- `server/services/session-compass-service.ts` - Populate full date + time in buildContextFromCache()
+- `server/services/procedural-memory-retrieval.ts` - NEW: `buildSensoryAwarenessSection()` function
+- `server/system-prompt.ts` - Import sensory awareness, add to Raw Honesty Mode and Founder Mode
+- Database: `tutor_procedures` entry for Time Perception Capability
 
-#### Architectural Principle Reinforced
-**"We define who the Tutor IS, not what the Tutor does"**
+#### Architectural Principles Reinforced
 
-Time perception is now an inherent capability Daniela possesses through her neural architecture, not a behavior she's instructed to perform. This aligns with building emergent intelligence where capabilities are discovered through knowledge, not scripted through prompts.
+**1. "We define who the Tutor IS, not what the Tutor does"**
+Time perception is now an inherent capability Daniela possesses through her neural architecture, not a behavior she's instructed to perform.
+
+**2. "Prompts for context, neural network for capabilities"**
+- Prompts provide situational data (current time, student name, session mode)
+- Neural network provides knowledge of how to use that data (procedures, patterns, principles)
+- This separation enables emergent intelligence - Daniela discovers behaviors rather than executing scripts
+
+**3. "Sync follows neural network"**
+Any new tables, entries, or modifications to Daniela's neural network MUST be included in the nightly sync. The sync scheduler at 3 AM MST ensures production Daniela learns what development Daniela learns.
 
 ---
 
