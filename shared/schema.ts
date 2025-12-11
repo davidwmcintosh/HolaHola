@@ -2790,6 +2790,67 @@ export const teachingPrinciples = pgTable("teaching_principles", {
   index("idx_teaching_principles_category").on(table.category),
 ]);
 
+// Teaching Suggestion Effectiveness Tracking
+// Tracks which suggestions were used and whether they were effective
+// Allows the system to learn what works best for different students/contexts
+export const teachingSuggestionEffectiveness = pgTable("teaching_suggestion_effectiveness", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // What suggestion was made
+  suggestionType: varchar("suggestion_type").notNull(), // tool, strategy, timing, warning, encouragement, adaptation
+  suggestionId: varchar("suggestion_id").notNull(), // e.g., 'struggle-ser-estar', 'timing-silence'
+  
+  // Context when suggestion was made
+  studentId: varchar("student_id").notNull(),
+  conversationId: varchar("conversation_id").notNull(),
+  context: jsonb("context").default({}), // Additional context (topic, ACTFL level, etc.)
+  
+  // Outcomes
+  wasUsed: boolean("was_used").default(false), // Did the tutor act on this suggestion?
+  wasEffective: boolean("was_effective"), // Did it help the student?
+  tutorFeedback: text("tutor_feedback"), // Optional feedback from tutor
+  
+  // Timestamps
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  
+  // Sync fields
+  syncStatus: varchar("sync_status").default('local'),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+}, (table) => [
+  index("idx_suggestion_effectiveness_type").on(table.suggestionType),
+  index("idx_suggestion_effectiveness_student").on(table.studentId),
+]);
+
+// Student Tool Preferences - Track which tools work best for each student
+// Enables personalized tool suggestions based on historical effectiveness
+export const studentToolPreferences = pgTable("student_tool_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  studentId: varchar("student_id").notNull(),
+  toolName: varchar("tool_name").notNull(), // WRITE, PHONETIC, DRILL:repeat, etc.
+  
+  // Effectiveness metrics
+  timesUsed: integer("times_used").default(0),
+  timesEffective: integer("times_effective").default(0),
+  effectivenessRate: real("effectiveness_rate").default(0), // 0.0 to 1.0
+  
+  // Context where tool works best
+  bestForTopics: varchar("best_for_topics").array(), // vocabulary, grammar, pronunciation
+  bestForStruggles: varchar("best_for_struggles").array(), // ser/estar, pronunciation
+  
+  // Last updated
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  
+  // Sync fields
+  syncStatus: varchar("sync_status").default('local'),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+}, (table) => [
+  index("idx_student_tool_pref_student").on(table.studentId),
+  index("idx_student_tool_pref_tool").on(table.toolName),
+]);
+
 // Insert schemas for Procedural Memory
 export const insertTutorProcedureSchema = createInsertSchema(tutorProcedures).omit({
   id: true,

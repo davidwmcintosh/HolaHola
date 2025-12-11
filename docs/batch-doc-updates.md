@@ -6,6 +6,146 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 20h: Teaching Suggestions System - Daniela's Internal Assistant (Dec 11, 2025)
+
+#### Overview
+Implemented Daniela's "Helpful Assistant" - a real-time suggestion system that whispers contextual teaching hints based on student struggles, learning preferences, session timing, and historical effectiveness data. As Daniela described it: "Like having an incredibly knowledgeable assistant whispering helpful hints in my ear, right when I need them most."
+
+#### Core Concept
+The system generates proactive, actionable suggestions at the intersection of:
+1. **Current teaching context** - What topic is being approached
+2. **Student's known struggles** - From `recurringStruggles` field
+3. **Student's learning preferences** - From `studentInsights` field
+4. **Session timing and pacing** - From Compass state
+5. **Historical effectiveness** - What tools/strategies worked before
+
+#### Suggestion Types
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `strategy` | Teaching approach based on known struggles | "Consider: Use DOCTOR/PLACE acronym for ser/estar" |
+| `adaptation` | Adjust to learning style | "This student responds well to visual learning. Prioritize IMAGE, WORD_MAP tools." |
+| `timing` | Pacing and session flow | "Student has been quiet 45 seconds. Consider a gentle check-in." |
+| `warning` | Pattern-based alerts | "⚠️ 5 corrections this session. Consider switching to encouragement mode." |
+| `encouragement` | Celebration opportunities | "Great progress on drills! Acknowledge their effort." |
+| `tool` | Suggest underused tools | "Consider adding visual variety with IMAGE or WORD_MAP." |
+
+#### Struggle-to-Tool Mapping
+
+```typescript
+const STRUGGLE_TO_TOOL_MAP = {
+  'ser/estar confusion': { tools: ['COMPARE', 'GRAMMAR_TABLE'], strategies: ['Use DOCTOR/PLACE acronym'] },
+  'gender agreement': { tools: ['WRITE', 'GRAMMAR_TABLE', 'DRILL:match'], strategies: ['Highlight endings with color coding'] },
+  'pronunciation': { tools: ['PHONETIC', 'DRILL:repeat', 'PLAY'], strategies: ['Model slowly first', 'Break into syllables'] },
+  'vocabulary retention': { tools: ['IMAGE', 'WORD_MAP', 'CONTEXT'], strategies: ['Create vivid associations'] },
+  'tonal difficulties': { tools: ['TONE', 'PHONETIC'], strategies: ['Visualize pitch contours'] },
+  // ... 10 more patterns
+};
+```
+
+#### Learning Style Preferences
+
+```typescript
+const LEARNING_STYLE_TOOLS = {
+  'visual': ['IMAGE', 'WRITE', 'WORD_MAP', 'GRAMMAR_TABLE'],
+  'auditory': ['PHONETIC', 'PLAY', 'DRILL:repeat'],
+  'kinesthetic': ['DRILL:sentence_order', 'DRILL:match', 'STROKE'],
+  'patterns': ['GRAMMAR_TABLE', 'COMPARE', 'WORD_MAP'],
+  // ... more styles
+};
+```
+
+#### New Database Tables
+
+**teachingSuggestionEffectiveness** - Tracks which suggestions were used and whether effective
+```typescript
+{
+  suggestionType: string,     // tool, strategy, timing, warning, etc.
+  suggestionId: string,       // e.g., 'struggle-ser-estar'
+  studentId: string,
+  conversationId: string,
+  wasUsed: boolean,
+  wasEffective: boolean,
+  tutorFeedback?: string,
+  context: jsonb              // Additional context
+}
+```
+
+**studentToolPreferences** - Per-student tool effectiveness tracking
+```typescript
+{
+  studentId: string,
+  toolName: string,           // WRITE, PHONETIC, DRILL:repeat, etc.
+  timesUsed: number,
+  timesEffective: number,
+  effectivenessRate: number,  // 0.0 to 1.0
+  bestForTopics: string[],    // vocabulary, grammar
+  bestForStruggles: string[]  // ser/estar, pronunciation
+}
+```
+
+#### Prompt Injection Format
+
+```
+### 💡 Teaching Suggestions (Your Internal Assistant)
+*These are private hints for you - not visible to the student.*
+
+**Active Alerts:**
+⚠️ 5 corrections this session. Consider switching to encouragement mode.
+
+**Contextual Hints:**
+🟡 Consider: Use DOCTOR/PLACE acronym for ser/estar → Try [COMPARE]
+🟢 This student responds well to visual learning. Prioritize IMAGE, WORD_MAP tools.
+
+**Session Notes:**
+• Early in session - focus on warm-up and building rapport.
+```
+
+#### Sync Functions Added
+
+- `exportSuggestionEffectiveness()` - Export aggregated patterns via SQL (PRIVACY: no student identifiers, requires minimum 3 samples)
+- `exportToolPreferences()` - Export universal tool patterns via SQL aggregation (PRIVACY: requires minimum 2 students per tool)
+- `enrichToolKnowledgeWithEffectiveness()` - Merge production effectiveness data into tool knowledge
+- `getFullSyncStatus()` - Complete status including teaching suggestions
+
+#### Service API
+
+```typescript
+// Main entry point
+teachingSuggestions.generateSuggestions(studentContext, sessionContext) → SuggestionBundle
+
+// Track what worked (with learning loop)
+teachingSuggestions.trackSuggestionUsed(suggestionId, wasHelpful, studentId, conversationId, toolUsed?, context?)
+
+// Learning loop - updates studentToolPreferences
+teachingSuggestions.updateStudentToolPreference(studentId, toolName, wasEffective, context?)
+
+// Get personalized recommendations
+teachingSuggestions.getStudentPreferredTools(studentId, limit) → string[]
+
+// Get effectiveness stats
+teachingSuggestions.getSuggestionEffectiveness(suggestionType) → { totalUsed, effectiveCount, effectivenessRate }
+```
+
+#### Learning Loop Architecture
+```
+Tool Used → trackSuggestionUsed() → updateStudentToolPreference() → studentToolPreferences table
+                                                                          ↓
+Future Session → generateSuggestions() ← getStudentPreferredTools() ← personalized hints
+```
+
+#### Files Created/Modified
+- `server/services/teaching-suggestions.ts` - Core suggestion generation service
+- `shared/schema.ts` - Added teachingSuggestionEffectiveness, studentToolPreferences tables
+- `server/services/neural-network-sync.ts` - Added 4 new sync methods for suggestions
+
+#### Integration Points (Pending)
+- Wire into `unified-ws-handler.ts` to generate suggestions before each response
+- Add to system prompt via `formatForPrompt()` method
+- Implement tool usage tracking to populate effectiveness data
+
+---
+
 ### Session 20g: Procedural Memory System - Daniela's Brain (Dec 11, 2025)
 
 #### Overview

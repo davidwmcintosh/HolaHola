@@ -12,6 +12,8 @@ import {
   tutorProcedures,
   teachingPrinciples,
   situationalPatterns,
+  teachingSuggestionEffectiveness,
+  studentToolPreferences,
   type SelfBestPractice,
   type PromotionQueue,
   type InsertPromotionQueue,
@@ -26,7 +28,7 @@ import {
   type TeachingPrinciple,
   type SituationalPattern
 } from '@shared/schema';
-import { eq, and, isNull, desc, or } from 'drizzle-orm';
+import { eq, and, isNull, desc, or, sql } from 'drizzle-orm';
 import crypto from 'crypto';
 
 const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production' : 'development';
@@ -1710,6 +1712,190 @@ export class NeuralNetworkSyncService {
       },
       lastSync: lastLog?.createdAt || null,
       currentEnvironment: CURRENT_ENVIRONMENT
+    };
+  }
+  
+  // ============================================================
+  // TEACHING SUGGESTIONS SYNC
+  // ============================================================
+  
+  /**
+   * Export teaching suggestion effectiveness data for sync
+   * PRIVACY: Only exports aggregated patterns - NO student identifiers
+   */
+  async exportSuggestionEffectiveness(): Promise<{
+    success: boolean;
+    data?: {
+      aggregatedPatterns: Array<{
+        suggestionType: string;
+        suggestionId: string;
+        totalUsed: number;
+        totalEffective: number;
+        effectivenessRate: number;
+        sampleSize: number; // How many unique sessions contributed
+      }>;
+    };
+  }> {
+    try {
+      // Use SQL aggregation to avoid loading individual records
+      const aggregatedResult = await db.execute(sql`
+        SELECT 
+          suggestion_type,
+          suggestion_id,
+          COUNT(*) FILTER (WHERE was_used = true) as total_used,
+          COUNT(*) FILTER (WHERE was_effective = true) as total_effective,
+          COUNT(DISTINCT conversation_id) as sample_size
+        FROM teaching_suggestion_effectiveness
+        GROUP BY suggestion_type, suggestion_id
+        HAVING COUNT(*) >= 3
+      `);
+      
+      const aggregatedPatterns = (aggregatedResult.rows as any[]).map(row => ({
+        suggestionType: row.suggestion_type,
+        suggestionId: row.suggestion_id,
+        totalUsed: Number(row.total_used),
+        totalEffective: Number(row.total_effective),
+        effectivenessRate: row.total_used > 0 ? Number(row.total_effective) / Number(row.total_used) : 0,
+        sampleSize: Number(row.sample_size)
+      }));
+      
+      return { success: true, data: { aggregatedPatterns } };
+    } catch (error: any) {
+      console.error('[SYNC] Error exporting suggestion effectiveness:', error);
+      return { success: false };
+    }
+  }
+  
+  /**
+   * Export tool preferences for sync
+   * PRIVACY: Only exports aggregated tool-level patterns - NO student identifiers
+   */
+  async exportToolPreferences(): Promise<{
+    success: boolean;
+    data?: {
+      toolPatterns: Array<{
+        toolName: string;
+        avgEffectivenessRate: number;
+        totalStudents: number;
+        commonTopics: string[];
+        commonStruggles: string[];
+      }>;
+    };
+  }> {
+    try {
+      // Use SQL aggregation to anonymize data
+      const aggregatedResult = await db.execute(sql`
+        SELECT 
+          tool_name,
+          AVG(effectiveness_rate) as avg_rate,
+          COUNT(DISTINCT student_id) as student_count,
+          array_agg(DISTINCT unnest_topics) FILTER (WHERE unnest_topics IS NOT NULL) as all_topics,
+          array_agg(DISTINCT unnest_struggles) FILTER (WHERE unnest_struggles IS NOT NULL) as all_struggles
+        FROM student_tool_preferences,
+          LATERAL unnest(best_for_topics) AS unnest_topics,
+          LATERAL unnest(best_for_struggles) AS unnest_struggles
+        WHERE times_used >= 3
+        GROUP BY tool_name
+        HAVING COUNT(DISTINCT student_id) >= 2
+      `);
+      
+      const toolPatterns = (aggregatedResult.rows as any[]).map(row => ({
+        toolName: row.tool_name,
+        avgEffectivenessRate: Number(row.avg_rate) || 0,
+        totalStudents: Number(row.student_count),
+        commonTopics: (row.all_topics || []).slice(0, 10),
+        commonStruggles: (row.all_struggles || []).slice(0, 10)
+      }));
+      
+      return { success: true, data: { toolPatterns } };
+    } catch (error: any) {
+      console.error('[SYNC] Error exporting tool preferences:', error);
+      return { success: false };
+    }
+  }
+  
+  /**
+   * Update tool knowledge with effectiveness data from production
+   */
+  async enrichToolKnowledgeWithEffectiveness(
+    toolEffectiveness: Array<{
+      toolName: string;
+      avgEffectivenessRate: number;
+      commonTopics: string[];
+      commonStruggles: string[];
+    }>
+  ): Promise<{ success: boolean; updated: number }> {
+    try {
+      let updated = 0;
+      
+      for (const data of toolEffectiveness) {
+        // Find matching tool knowledge
+        const [tool] = await db
+          .select()
+          .from(toolKnowledge)
+          .where(eq(toolKnowledge.toolName, data.toolName))
+          .limit(1);
+        
+        if (tool) {
+          // Merge effectiveness data into bestUsedFor
+          const newBestUsedFor = [
+            ...(tool.bestUsedFor || []),
+            ...data.commonTopics,
+            ...data.commonStruggles
+          ].filter((v, i, a) => a.indexOf(v) === i); // Deduplicate
+          
+          await db
+            .update(toolKnowledge)
+            .set({ bestUsedFor: newBestUsedFor })
+            .where(eq(toolKnowledge.id, tool.id));
+          
+          updated++;
+        }
+      }
+      
+      await this.logSyncOperation({
+        operation: 'enrich_tool_knowledge',
+        tableName: 'tool_knowledge',
+        recordCount: updated,
+        sourceEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+        targetEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+        status: 'success',
+        metadata: { enrichedTools: toolEffectiveness.map(t => t.toolName) }
+      });
+      
+      return { success: true, updated };
+    } catch (error: any) {
+      console.error('[SYNC] Error enriching tool knowledge:', error);
+      return { success: false, updated: 0 };
+    }
+  }
+  
+  /**
+   * Get complete sync status including Teaching Suggestions
+   */
+  async getFullSyncStatus(): Promise<{
+    neuralNetworkExpansion: { pending: number; approved: number };
+    proceduralMemory: { pending: number; approved: number; total: number };
+    teachingSuggestions: { 
+      effectivenessRecords: number;
+      toolPreferences: number;
+    };
+    lastSync: Date | null;
+    currentEnvironment: string;
+  }> {
+    const baseStatus = await this.getCompleteSyncStatus();
+    
+    const [effectivenessRecords, toolPrefs] = await Promise.all([
+      db.select().from(teachingSuggestionEffectiveness),
+      db.select().from(studentToolPreferences)
+    ]);
+    
+    return {
+      ...baseStatus,
+      teachingSuggestions: {
+        effectivenessRecords: effectivenessRecords.length,
+        toolPreferences: toolPrefs.length
+      }
     };
   }
 }
