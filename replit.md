@@ -8,6 +8,7 @@ Preferred communication style: Simple, everyday language.
 Terminology standard: Use "Syllabus" in all user-facing text (database tables remain "curriculum*" for safety).
 Batch doc updates: When user says "add to the batch" or "batch doc updates", add items to `docs/batch-doc-updates.md` for consolidated documentation updates later.
 Daniela development: Track personality/voice development in `docs/daniela-development-journal.md` using Honesty Mode → Founder Mode iteration cycle.
+Neural network work: **REQUIRED READING** - `docs/neural-network-architecture.md` before any neural network changes. Prompts for context ONLY; neural network for procedures/capabilities/knowledge.
 
 ## System Architecture
 
