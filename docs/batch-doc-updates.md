@@ -348,11 +348,136 @@ This enables "Aris mentioned you did great with..." moments for team continuity.
 
 ---
 
+### Session: December 11, 2025 - TutorOrchestrator "One Tutor, Many Voices"
+
+**Overview**: Implemented unified TutorOrchestrator architecture that routes all AI interactions through Daniela's single core intelligence. Language voices, gender voices, and drill modes are now presentation layers only - different instruments, same musician.
+
+#### Core Philosophy
+
+**CRITICAL**: Daniela is THE single core intelligence. All interaction modes (voice chat, text chat, drills, greetings, summaries) route through a unified pipeline. VoicePresentation is purely stylistic (avatar, voiceId, response length, formality). The INTELLIGENCE (persona, teaching principles, neural network knowledge) is always Daniela's brain.
+
+#### Type Contracts (`shared/tutor-orchestration-types.ts`)
+
+```typescript
+// Modes the orchestrator can operate in
+type OrchestratorMode = 'conversation' | 'drill' | 'greeting' | 'summary' | 'assessment' | 'feedback';
+
+// Response channels
+type ResponseChannel = 'stream' | 'batch_text' | 'batch_json';
+
+// Voice presentation - purely cosmetic layer
+interface VoicePresentation {
+  voiceId: string;
+  voiceName: string;
+  avatarUrl?: string;
+  styleDeltas?: {
+    formalityDelta?: number;      // -2 to +2
+    responseLengthPreference?: 'concise' | 'normal' | 'detailed';
+    encouragementLevel?: 'minimal' | 'moderate' | 'enthusiastic';
+  };
+}
+
+// Full context for orchestration
+interface OrchestratorContext {
+  userId: string;
+  targetLanguage: string;
+  proficiencyLevel: string;
+  conversationHistory?: Message[];
+  drillContext?: DrillContext;
+  sessionContext?: SessionContext;
+}
+
+// Request/Response contracts
+interface OrchestratorRequest {
+  mode: OrchestratorMode;
+  responseChannel: ResponseChannel;
+  context: OrchestratorContext;
+  voicePresentation?: VoicePresentation;
+  userInput?: string;
+  options?: OrchestratorOptions;
+}
+```
+
+#### TutorOrchestrator Implementation (`server/services/tutor-orchestrator.ts`)
+
+**Key Functions**:
+
+1. **`buildSystemPrompt(request)`** - Constructs Daniela's system prompt with:
+   - Core persona (immutable Daniela identity)
+   - Mode-specific instructions (drill vs conversation vs greeting)
+   - Voice style section (presentation-layer adjustments)
+   - Procedural memory injection from neural network
+
+2. **`orchestrate(request)`** - Main entry point:
+   - Builds system prompt
+   - Configures Gemini with `systemInstruction`
+   - Handles batch_json, batch_text, and stream channels
+   - Logs to neural network automatically
+
+3. **`generateDrillFeedback(context, drillType, userAnswer, expectedAnswer)`**
+   - Convenience wrapper for drill mode
+   - Returns structured JSON feedback
+   - Used by Aris drill service
+
+4. **`generateSessionGreeting(context)`** / **`generateSessionSummary(context, stats)`**
+   - Mode-specific helpers for common operations
+
+**Export Pattern**:
+```typescript
+export const tutorOrchestrator = {
+  orchestrate,
+  generateDrillFeedback,
+  generateSessionGreeting,
+  generateSessionSummary,
+};
+```
+
+#### Aris Migration (`server/services/aris-ai-service.ts`)
+
+Before: Aris had its own Gemini invocation with separate system prompt
+After: Aris now routes through `tutorOrchestrator.orchestrate()` with:
+- `mode: 'drill'`
+- `responseChannel: 'batch_json'`
+- `voicePresentation: ARIS_PERSONA` (concise style)
+
+Same Daniela brain, different presentation layer.
+
+#### Integration Status
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Aris drill flow | ✅ Migrated | Uses tutorOrchestrator.orchestrate() |
+| Session greetings | ✅ Ready | generateSessionGreeting() available |
+| Session summaries | ✅ Ready | generateSessionSummary() available |
+| Streaming voice chat | ⏳ Deferred | High complexity, existing system-prompt.ts works well |
+| Language voice refactoring | ⏳ Future | Voices as pure presentation metadata |
+
+#### Files Created/Modified
+
+- `shared/tutor-orchestration-types.ts` - NEW: Type contracts for orchestrator
+- `server/services/tutor-orchestrator.ts` - NEW: Unified intelligence pipeline
+- `server/services/aris-ai-service.ts` - MODIFIED: Routes through orchestrator
+- `replit.md` - UPDATED: Added TutorOrchestrator architecture section
+
+#### Key Architectural Decisions
+
+1. **VoicePresentation is cosmetic only** - Never affects intelligence or teaching principles
+2. **Procedural memory always injected** - Every mode gets relevant neural network knowledge
+3. **Automatic neural network logging** - All interactions logged for learning
+4. **Backward compatible** - Existing APIs unchanged, internal routing updated
+
+---
+
 ## Next Steps / Action Items
 
 ### Completed This Session
 - [x] Created `docs/neural-network-architecture.md` - single-source-of-truth for neural network work
 - [x] Archived sessions 9-20o to `docs/archive/`
+- [x] Implemented TutorOrchestrator "One Tutor, Many Voices" architecture
+- [x] Created `shared/tutor-orchestration-types.ts` with type contracts
+- [x] Created `server/services/tutor-orchestrator.ts` unified pipeline
+- [x] Migrated Aris drill service to route through TutorOrchestrator
+- [x] Updated replit.md with TutorOrchestrator architecture section
 - [x] Designed Tri-Lane Hive architecture (3 agents)
 - [x] Added collaboration metadata to `daniela_suggestions` and `agent_observations`
 - [x] Created `support_observations` table with full sync contract
