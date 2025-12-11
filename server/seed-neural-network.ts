@@ -410,6 +410,45 @@ async function seedSpanish(seededLanguages: Set<string>) {
   
   await db.insert(linguisticBridges).values(englishSpanishBridges);
   console.log(`[Neural Network Seed] Inserted ${englishSpanishBridges.length} English-Spanish linguistic bridges`);
-  
-  console.log("[Neural Network Seed] Complete!");
+}
+
+// Stub functions for other languages (to be implemented)
+async function seedFrench(seededLanguages: Set<string>) {
+  if (seededLanguages.has("french")) return;
+  console.log("[Neural Network Seed] French data to be added later");
+}
+
+async function seedGerman(seededLanguages: Set<string>) {
+  if (seededLanguages.has("german")) return;
+  console.log("[Neural Network Seed] German data to be added later");
+}
+
+async function seedItalian(seededLanguages: Set<string>) {
+  if (seededLanguages.has("italian")) return;
+  console.log("[Neural Network Seed] Italian data to be added later");
+}
+
+async function seedPortuguese(seededLanguages: Set<string>) {
+  if (seededLanguages.has("portuguese")) return;
+  console.log("[Neural Network Seed] Portuguese data to be added later");
+}
+
+async function seedJapanese(seededLanguages: Set<string>) {
+  if (seededLanguages.has("japanese")) return;
+  console.log("[Neural Network Seed] Japanese data to be added later");
+}
+
+async function seedMandarin(seededLanguages: Set<string>) {
+  if (seededLanguages.has("mandarin")) return;
+  console.log("[Neural Network Seed] Mandarin data to be added later");
+}
+
+async function seedKorean(seededLanguages: Set<string>) {
+  if (seededLanguages.has("korean")) return;
+  console.log("[Neural Network Seed] Korean data to be added later");
+}
+
+async function seedEnglish(seededLanguages: Set<string>) {
+  if (seededLanguages.has("english")) return;
+  console.log("[Neural Network Seed] English data to be added later");
 }
