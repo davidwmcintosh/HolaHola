@@ -97,6 +97,13 @@ async function getUserIdFromSession(req: IncomingMessage): Promise<string | null
 }
 
 /**
+ * Track pending handoff intros - when a cross-language switch happens,
+ * the old WebSocket closes before the intro can be delivered.
+ * The new session picks this up and delivers the intro on the fresh connection.
+ */
+const pendingHandoffIntros = new Map<string, { tutorName: string; gender: 'male' | 'female'; language: string; timestamp: number }>();
+
+/**
  * Send error message to WebSocket client
  */
 function sendError(ws: WS, code: string, message: string, recoverable: boolean) {
@@ -789,6 +796,36 @@ Reference past discussions when relevant, but don't force it.
           }
           
           const greetingRequest = message as { type: 'request_greeting'; userName?: string; isResumed?: boolean };
+          
+          // CHECK FOR PENDING HANDOFF INTRO - If a cross-language switch just happened,
+          // the new tutor needs to introduce themselves instead of giving a normal greeting
+          if (conversationId && pendingHandoffIntros.has(conversationId)) {
+            const pendingIntro = pendingHandoffIntros.get(conversationId)!;
+            const age = Date.now() - pendingIntro.timestamp;
+            
+            // Only use if less than 30 seconds old
+            if (age < 30000) {
+              console.log(`[Streaming Voice] Found pending handoff intro for ${pendingIntro.tutorName} (${age}ms old) - delivering now!`);
+              pendingHandoffIntros.delete(conversationId); // Clear it
+              
+              try {
+                // Deliver the handoff intro instead of normal greeting
+                await orchestrator.processVoiceSwitchIntro(
+                  session.id,
+                  pendingIntro.tutorName,
+                  pendingIntro.gender
+                );
+                break;
+              } catch (introError: any) {
+                console.error('[Streaming Voice] Handoff intro error:', introError.message);
+                // Fall through to normal greeting on error
+              }
+            } else {
+              console.log(`[Streaming Voice] Pending handoff intro expired (${age}ms) - using normal greeting`);
+              pendingHandoffIntros.delete(conversationId);
+            }
+          }
+          
           console.log(`[Streaming Voice] Generating AI greeting... (resumed: ${greetingRequest.isResumed || false})`);
           
           try {
@@ -1046,24 +1083,29 @@ Reference past discussions when relevant, but don't force it.
               orchestrator.updateSessionVoice(capturedSessionId, matchingVoice.voiceId);
               console.log(`[Streaming Voice] Voice updated to ${newGender}: ${matchingVoice.voiceName}`);
               
-              // For cross-language handoffs, the session is still active and ready
-              // System prompt was already regenerated with new tutor persona
-              // Voice was already updated - so we CAN call processVoiceSwitchIntro now!
-              if (capturedSession && (capturedSession as any).isLanguageSwitchHandoff) {
-                console.log(`[Streaming Voice] Cross-language handoff - new tutor will introduce themselves now`);
-                // Clear the flag since we're handling it
-                (capturedSession as any).isLanguageSwitchHandoff = false;
-              }
-              
-              // CRITICAL: Generate intro BEFORE sending voice_updated to client
-              // If we send voice_updated first, client disconnects before intro audio arrives!
-              // The new tutor must finish speaking before we tell the client the switch is complete.
+              // For cross-language handoffs, store pending intro for the NEW session to pick up
+              // The old WebSocket will close before we can deliver the intro, so we defer it
               const voiceNameParts = matchingVoice.voiceName?.split(/\s*[-–]\s*/) || [];
               const tutorFirstName = voiceNameParts[0]?.trim() || (newGender === 'male' ? 'your new tutor' : 'your new tutor');
-              console.log(`[Streaming Voice] New tutor introducing themselves: ${tutorFirstName} (${newGender})`);
               
-              // WAIT for intro to complete - this streams audio to client while connection is still open
-              await orchestrator.processVoiceSwitchIntro(capturedSessionId, tutorFirstName, newGender);
+              if (capturedSession && (capturedSession as any).isLanguageSwitchHandoff && conversationId) {
+                console.log(`[Streaming Voice] Cross-language handoff - storing pending intro for ${tutorFirstName} in NEW session`);
+                // Store for the new session to pick up (expires after 30 seconds)
+                pendingHandoffIntros.set(conversationId, {
+                  tutorName: tutorFirstName,
+                  gender: newGender,
+                  language: effectiveLanguage,
+                  timestamp: Date.now()
+                });
+                // Clear the flag
+                (capturedSession as any).isLanguageSwitchHandoff = false;
+                // Skip trying to deliver intro on old session - it will fail anyway
+                console.log(`[Streaming Voice] Pending handoff intro stored - will be delivered on new session`);
+              } else {
+                // Same-language switch - try to deliver intro on current session
+                console.log(`[Streaming Voice] Same-language switch - ${tutorFirstName} introducing themselves`);
+                await orchestrator.processVoiceSwitchIntro(capturedSessionId, tutorFirstName, newGender);
+              }
               
               // NOW send voice_updated - client can safely disconnect after hearing the intro
               ws.send(JSON.stringify({
