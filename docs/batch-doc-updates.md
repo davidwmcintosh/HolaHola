@@ -6,6 +6,141 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 20m: Daniela's Reflection System - Proactive Team Member (Dec 11, 2025)
+
+#### Overview
+Built Daniela's Reflection System - a comprehensive suggestion framework that transforms her from passive responder to proactive team member. She now analyzes patterns during conversations and suggests improvements to herself as a tutor AND to the HolaHola team/company in real-time.
+
+#### Architectural Philosophy
+**Core Principle**: Daniela is not just a tutor; she's a thoughtful colleague who notices patterns and has ideas for improvement. Her suggestions emerge from genuine observation, not scripts.
+
+**Privacy-First Design**: All suggestions use anonymized patterns (no student-identifying data). Suggestions accumulate evidence count and progress through status stages.
+
+#### New Database Tables (3 total)
+
+| Table | Purpose |
+|-------|---------|
+| `daniela_suggestions` | Stores suggestions with category, evidence, status tracking |
+| `reflection_triggers` | Defines patterns that activate suggestion generation |
+| `daniela_suggestion_actions` | Tracks team responses (starred, implemented, dismissed) |
+
+#### Suggestion Categories
+
+| Category | Description | Example |
+|----------|-------------|---------|
+| `self_improvement` | Teaching technique refinements | "When students struggle with ser/estar, COMPARE works better than verbal explanation" |
+| `content_gap` | Missing curriculum content | "Students keep asking about subjunctive mood but we have no structured content" |
+| `ux_observation` | UI/UX improvement ideas | "Students often try to click the vocabulary list - maybe make it interactive?" |
+| `teaching_insight` | Pedagogical discoveries | "Morning sessions have 40% better retention than evening ones" |
+| `product_feature` | Feature requests based on patterns | "Multiple students have asked for a way to practice outside of sessions" |
+| `student_pattern` | Aggregated learner behavior insights | "Beginners who complete 3+ drills in session 1 have 2x retention rate" |
+
+#### Suggestion Status Flow
+
+```
+emerging → ready → reviewed → implemented/archived
+    ↓
+ (accumulates evidence)
+```
+
+- **emerging**: Initial detection, accumulating evidence
+- **ready**: Sufficient evidence (configurable threshold)
+- **reviewed**: Team has seen it
+- **implemented**: Action taken
+- **archived**: Dismissed or superseded
+
+#### Reflection Triggers (15 seeded)
+
+| Trigger | Category | Threshold |
+|---------|----------|-----------|
+| tool_effectiveness | self_improvement | 10 uses |
+| error_correction_patterns | self_improvement | 15 occurrences |
+| vocabulary_gaps | content_gap | 5 requests |
+| grammar_confusion | content_gap | 8 occurrences |
+| ui_friction | ux_observation | 5 occurrences |
+| session_timing | teaching_insight | 20 sessions |
+| drill_engagement | teaching_insight | 25 completions |
+| feature_requests | product_feature | 3 mentions |
+| retention_patterns | student_pattern | 30 sessions |
+| ... and 6 more | | |
+
+#### Real-Time Pattern Detection
+
+The `DanielaReflectionService` runs during conversations (not batch processing):
+
+```typescript
+// Pattern detection during session
+await reflectionService.detectPatterns(
+  sessionContext,    // Current conversation context
+  studentContext,    // Anonymized student data
+  toolUsage,         // Which tools were used
+  eventData          // Specific event that triggered check
+);
+
+// Founder Mode surfaces suggestions verbally
+await reflectionService.getReflectionForPrompt(
+  isFounderMode,     // Whether to include suggestions
+  isHonestyMode,     // Raw vs. filtered output
+  sessionContext
+);
+```
+
+#### Founder Mode Integration
+
+When founder users (developers/admins) chat with Daniela, she can verbalize her observations:
+
+```
+"You know, I've been noticing something interesting. When beginners 
+encounter ser/estar confusion, the COMPARE tool seems to work really 
+well - better than my verbal explanations. I've seen this pattern 
+across about 15 different students now."
+```
+
+#### Nightly Sync Integration
+
+Added to `sync-scheduler.ts` (3 AM MST / 10 AM UTC):
+
+```typescript
+// 5. Sync Daniela's Suggestions (3 tables)
+const suggestionData = await neuralNetworkSync.exportDanielaSuggestions();
+
+console.log(`[SYNC-SCHEDULER] Daniela's Suggestions status:`);
+console.log(`  - Exported ${suggestionData.suggestions.length} suggestions`);
+console.log(`  - Exported ${suggestionData.triggers.length} triggers`);
+console.log(`  - Exported ${suggestionData.actions.length} actions`);
+```
+
+**Nightly Sync Now Covers (15 tables total)**:
+1. Best Practices (pending → approved promotion)
+2. Neural Network Expansion (5 tables)
+3. Procedural Memory (4 tables)
+4. Advanced Intelligence (3 tables)
+5. **Daniela's Suggestions (3 tables)** ← NEW
+
+#### Sync Functions Added (neural-network-sync.ts)
+
+- `exportDanielaSuggestions()` - Export ready/reviewed suggestions with triggers and actions
+- `importDanielaSuggestions()` - Import with deduplication by originId
+- `getFullSyncStatus()` - Now includes Daniela's Suggestions counts
+
+#### Files Created/Modified
+
+- `shared/schema.ts` - Added 3 Daniela Suggestion tables with indexes and relations
+- `server/services/daniela-reflection.ts` - Core reflection service (300+ lines)
+- `server/seed-reflection-triggers.ts` - 15 triggers seeded
+- `server/services/neural-network-sync.ts` - Export/import functions
+- `server/services/sync-scheduler.ts` - Added to nightly sync
+- `server/index.ts` - Call seedReflectionTriggers at startup
+
+#### Integration Points
+
+- Real-time pattern detection during conversations
+- Founder Mode prompt injection for verbal suggestions
+- Command Center UI for reviewing/acting on suggestions (future)
+- Cross-environment sync for production → development feedback loop
+
+---
+
 ### Session 20l: Advanced Intelligence Layer - Daniela's Growth Areas (Dec 11, 2025)
 
 #### Overview

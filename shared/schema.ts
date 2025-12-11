@@ -3033,7 +3033,7 @@ export const danielaSuggestions = pgTable("daniela_suggestions", {
   reasoning: text("reasoning"), // Daniela's chain of thought
   
   // Evidence (privacy-safe - no student identifiers)
-  evidenceCount: integer("evidence_count").default(1), // How many times pattern observed
+  evidenceCount: integer("evidence_count").default(0), // How many times pattern observed (starts at 0, increments on each observation)
   evidenceSummary: text("evidence_summary"), // Aggregated observations
   exampleContext: text("example_context"), // Anonymized example
   
@@ -3117,6 +3117,33 @@ export const reflectionTriggers = pgTable("reflection_triggers", {
 }, (table) => [
   index("idx_reflection_triggers_type").on(table.triggerType),
   index("idx_reflection_triggers_origin").on(table.originId),
+]);
+
+// Daniela's Suggestion Actions - tracks team responses to suggestions
+export const danielaSuggestionActions = pgTable("daniela_suggestion_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  suggestionId: varchar("suggestion_id").notNull().references(() => danielaSuggestions.id),
+  
+  // Action taken
+  actionType: varchar("action_type").notNull(), // starred, implemented, dismissed, archived, commented
+  actionBy: varchar("action_by"), // User ID who took action
+  comment: text("comment"), // Optional comment explaining the action
+  
+  // Implementation details
+  implementedIn: varchar("implemented_in"), // PR number, deployment version, etc.
+  implementationNotes: text("implementation_notes"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  
+  // Two-way sync fields
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+}, (table) => [
+  index("idx_suggestion_actions_suggestion").on(table.suggestionId),
+  index("idx_suggestion_actions_type").on(table.actionType),
+  index("idx_suggestion_actions_origin").on(table.originId),
 ]);
 
 // Insert schemas for Procedural Memory
@@ -3240,3 +3267,11 @@ export type DanielaSuggestion = typeof danielaSuggestions.$inferSelect;
 
 export type InsertReflectionTrigger = z.infer<typeof insertReflectionTriggerSchema>;
 export type ReflectionTrigger = typeof reflectionTriggers.$inferSelect;
+
+export const insertDanielaSuggestionActionSchema = createInsertSchema(danielaSuggestionActions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDanielaSuggestionAction = z.infer<typeof insertDanielaSuggestionActionSchema>;
+export type DanielaSuggestionAction = typeof danielaSuggestionActions.$inferSelect;

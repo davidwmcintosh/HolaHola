@@ -436,6 +436,22 @@ function buildVerbalizationHint(insights: ActiveInsight[]): string {
 
 // ===== Storage Functions =====
 
+// Default evidence thresholds by category (min observations before promoting to 'ready')
+const CATEGORY_EVIDENCE_THRESHOLDS: Record<string, number> = {
+  self_improvement: 5,    // Need 5+ observations before suggesting teaching changes
+  content_gap: 3,         // 3+ students asking = real gap
+  ux_observation: 3,      // 3+ friction points = worth investigating  
+  teaching_insight: 10,   // 10+ observations for statistical significance
+  product_feature: 3,     // 3+ mentions = real demand
+  student_pattern: 15,    // 15+ observations for behavior patterns
+};
+
+/**
+ * Store insights with PRIVACY-SAFE design:
+ * - NO student identifiers stored (conversationId stripped)
+ * - Evidence thresholds enforced per category
+ * - Only aggregated, anonymized patterns persist
+ */
 async function storeSignificantInsights(
   insights: ActiveInsight[],
   context: ReflectionContext
@@ -447,20 +463,30 @@ async function storeSignificantInsights(
     // Check if similar suggestion exists
     const existing = await findSimilarSuggestion(insight.title, insight.category);
     
+    // Get the evidence threshold for this category
+    const threshold = CATEGORY_EVIDENCE_THRESHOLDS[insight.category] || 5;
+    
     if (existing) {
-      // Increment evidence count
+      // Increment evidence count and calculate promotion in SQL to prevent race conditions
+      // Use CASE expression: promote to 'ready' only when evidence_count + 1 >= threshold
       await db.update(danielaSuggestions)
         .set({
           evidenceCount: sql`${danielaSuggestions.evidenceCount} + 1`,
           lastObservedAt: new Date(),
-          status: (existing.evidenceCount || 0) >= 3 ? 'ready' : 'emerging',
+          // Calculate promotion atomically in SQL to prevent race conditions
+          status: sql`CASE 
+            WHEN ${danielaSuggestions.evidenceCount} + 1 >= ${threshold} THEN 'ready' 
+            ELSE 'emerging' 
+          END`,
         })
         .where(eq(danielaSuggestions.id, existing.id));
     } else {
-      // Create new suggestion
+      // Create new suggestion - PRIVACY: No student/conversation identifiers stored
+      // evidenceCount starts at 1 (this is the first observation)
+      // Schema defaults to 0, so we explicitly set to 1 for proper threshold enforcement
       const suggestion: InsertDanielaSuggestion = {
         category: insight.category as any,
-        status: 'emerging',
+        status: 'emerging',  // Always starts as emerging, needs evidence
         title: insight.title,
         description: insight.description,
         reasoning: insight.reasoning,
@@ -468,8 +494,17 @@ async function storeSignificantInsights(
         confidence: insight.confidence,
         suggestedAction: insight.suggestedAction,
         generatedInMode: context.mode,
-        conversationId: context.conversationId,
-        compassSnapshot: context.compass as any,
+        evidenceCount: 1,  // First observation counts as 1
+        // PRIVACY: We do NOT store conversationId to protect student identity
+        // conversationId: context.conversationId, // REMOVED FOR PRIVACY
+        // Only store anonymized compass snapshot (timing info, no user data)
+        compassSnapshot: context.compass ? {
+          elapsedSeconds: context.compass.elapsedSeconds,
+          remainingSeconds: context.compass.remainingSeconds,
+          sessionPhase: context.compass.sessionPhase,
+          sessionMomentum: context.compass.sessionMomentum,
+          // Omit any student-identifying data from compass
+        } : null,
         syncStatus: 'local',
       };
       
