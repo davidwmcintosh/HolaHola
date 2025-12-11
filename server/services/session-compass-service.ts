@@ -67,6 +67,10 @@ interface CachedSession {
   // Credit balance cached separately with its own TTL
   creditBalance?: CompassContext['creditBalance'];
   creditBalanceUpdated?: Date;
+  // ACTFL proficiency from user profile (cached for fast access)
+  actflLevel: string | null;
+  actflAssessed: boolean;
+  actflSource: string | null;
 }
 
 const sessionCache = new Map<string, CachedSession>();
@@ -210,11 +214,15 @@ export class SessionCompassService {
         .limit(5);
 
       // Cache the session (extract items from joined query result)
+      // Include ACTFL proficiency from user profile for emergent neural network awareness
       sessionCache.set(conversationId, {
         session,
         topics: [],
         parkingItems: previousParkingItems.map(r => r.item),
         lastUpdated: new Date(),
+        actflLevel: student.actflLevel || null,
+        actflAssessed: student.actflAssessed || false,
+        actflSource: student.assessmentSource || null,
       });
 
       console.log(`[Compass] Initialized session for conversation ${conversationId}`);
@@ -277,12 +285,28 @@ export class SessionCompassService {
           )
         );
 
+      // Load user's ACTFL proficiency for emergent neural network awareness
+      const userResult = await db
+        .select({
+          actflLevel: users.actflLevel,
+          actflAssessed: users.actflAssessed,
+          assessmentSource: users.assessmentSource,
+        })
+        .from(users)
+        .where(eq(users.id, session.userId))
+        .limit(1);
+      
+      const userActfl = userResult[0];
+
       // Update cache
       const cacheEntry: CachedSession = {
         session,
         topics,
         parkingItems,
         lastUpdated: new Date(),
+        actflLevel: userActfl?.actflLevel || null,
+        actflAssessed: userActfl?.actflAssessed || false,
+        actflSource: userActfl?.assessmentSource || null,
       };
       sessionCache.set(conversationId, cacheEntry);
       cached = cacheEntry;
@@ -434,6 +458,11 @@ export class SessionCompassService {
       studentGoals: session.studentGoals,
       studentInterests: session.studentInterests,
       lastSessionSummary: session.lastSessionSummary,
+      
+      // ACTFL proficiency (emergent neural network awareness)
+      studentActflLevel: cached.actflLevel,
+      studentActflAssessed: cached.actflAssessed,
+      studentActflSource: cached.actflSource,
       
       sessionDurationMinutes: session.scheduledDurationMinutes || 30,
       warmthBufferMinutes: session.warmthBufferMinutes || 3,

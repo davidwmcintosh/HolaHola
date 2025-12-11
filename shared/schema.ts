@@ -2016,6 +2016,12 @@ export interface CompassContext {
   studentInterests: string | null;
   lastSessionSummary: string | null;
   
+  // ACTFL proficiency (emergent neural network awareness)
+  // This is sensory data Daniela perceives - her neural network teaches her how to use it
+  studentActflLevel: string | null; // e.g., "intermediate_low", "advanced_mid"
+  studentActflAssessed: boolean; // true = AI-verified, false = cold-start hint
+  studentActflSource: string | null; // "onboarding_hint", "ai_conversation", "placement_test", "teacher_override"
+  
   // Today's roadmap
   sessionDurationMinutes: number;
   warmthBufferMinutes: number;
