@@ -750,8 +750,79 @@ async function seedEnglish(seededLanguages: Set<string>) {
     { language: "english", region: "Australia", category: "vocabulary", standardForm: "afternoon", regionalForm: "arvo", explanation: "Australian English shortens many words with -o or -ie endings.", usageNotes: "Pattern: breakfast→brekkie, barbecue→barbie, afternoon→arvo" },
   ];
   
+  // ===== EFL LEARNER ERROR PATTERNS =====
+  // For non-native speakers learning English
+  const englishErrorPatterns = [
+    // Spanish speakers learning English
+    { targetLanguage: "english", sourceLanguage: "spanish", errorCategory: "grammar", specificError: "missing_subject_pronoun", whyItHappens: "Spanish is a pro-drop language - subjects can be omitted because verb conjugation shows who's acting. English requires explicit subjects.", teachingStrategies: ["Always ask: 'Who is doing this action?'", "Practice: 'Is raining' → 'It is raining'", "English verbs don't change enough to show the subject"], exampleMistakes: ["Is very cold today (wrong)", "Am hungry (wrong)", "Are going to school (wrong)"], correctForms: ["It is very cold today", "I am hungry", "They are going to school"], actflLevel: "novice_mid", priority: "common" },
+    { targetLanguage: "english", sourceLanguage: "spanish", errorCategory: "grammar", specificError: "adjective_placement", whyItHappens: "Spanish puts adjectives after nouns. English puts them before.", teachingStrategies: ["English pattern: ADJECTIVE + NOUN", "Memory: 'The red car' not 'the car red'", "Practice with colors and sizes first"], exampleMistakes: ["The house big (wrong)", "A car red (wrong)"], correctForms: ["The big house", "A red car"], actflLevel: "novice_low", priority: "common" },
+    { targetLanguage: "english", sourceLanguage: "spanish", errorCategory: "pronunciation", specificError: "initial_s_cluster", whyItHappens: "Spanish doesn't allow 's' + consonant at word start without a vowel. Speakers add 'e' before.", teachingStrategies: ["Practice: 'school' not 'eschool'", "Exaggerate the 's' sound before saying rest of word", "Common words: stop, speak, study, start"], exampleMistakes: ["eschool", "espeak", "estudy"], correctForms: ["school", "speak", "study"], actflLevel: "novice_low", priority: "common" },
+    
+    // Chinese/Mandarin speakers learning English
+    { targetLanguage: "english", sourceLanguage: "mandarin", errorCategory: "grammar", specificError: "missing_articles", whyItHappens: "Chinese has no articles (a, an, the). This concept doesn't exist in the language.", teachingStrategies: ["Ask: 'Which one? Any one? Or in general?'", "the = specific, a/an = any one, none = general concept", "Practice with 'I saw THE movie' vs 'I saw A movie'"], exampleMistakes: ["I bought car (wrong)", "She is teacher (wrong)", "Give me book (wrong)"], correctForms: ["I bought a car", "She is a teacher", "Give me the book"], actflLevel: "novice_mid", priority: "common" },
+    { targetLanguage: "english", sourceLanguage: "mandarin", errorCategory: "grammar", specificError: "tense_confusion", whyItHappens: "Chinese uses context/time words for tense, not verb changes. English requires verb conjugation for time.", teachingStrategies: ["English verbs MUST change for time", "Past: add -ed or use irregular form", "Practice timeline: 'Yesterday I walked' vs 'Today I walk'"], exampleMistakes: ["Yesterday I go store (wrong)", "Last week she eat pizza (wrong)"], correctForms: ["Yesterday I went to the store", "Last week she ate pizza"], actflLevel: "novice_mid", priority: "common" },
+    { targetLanguage: "english", sourceLanguage: "mandarin", errorCategory: "pronunciation", specificError: "l_r_confusion", whyItHappens: "Mandarin has different l/r sounds than English. The distinction is challenging.", teachingStrategies: ["L: tongue tip touches roof of mouth behind teeth", "R: tongue tip curls back, doesn't touch anything", "Practice pairs: light/right, led/red, long/wrong"], exampleMistakes: ["I love lice (meaning rice)", "Turn reft (meaning left)"], correctForms: ["rice (not lice)", "left (not reft)"], actflLevel: "novice_low", priority: "common" },
+    
+    // Japanese speakers learning English
+    { targetLanguage: "english", sourceLanguage: "japanese", errorCategory: "grammar", specificError: "plural_confusion", whyItHappens: "Japanese doesn't mark plurals on nouns. Quantity is shown by context or counters.", teachingStrategies: ["English REQUIRES -s for most plurals", "Countable nouns need marking: one book, two books", "Practice with common items: apples, cars, houses"], exampleMistakes: ["I have three book (wrong)", "Many apple (wrong)"], correctForms: ["I have three books", "Many apples"], actflLevel: "novice_low", priority: "common" },
+    { targetLanguage: "english", sourceLanguage: "japanese", errorCategory: "pronunciation", specificError: "consonant_clusters", whyItHappens: "Japanese syllable structure is CV (consonant-vowel). English allows consonant clusters that feel impossible.", teachingStrategies: ["Practice blending consonants: 'str-' 'spr-' 'thr-'", "Don't add vowels between: 'strength' not 'sutorenguthu'", "Start slow, speed up gradually"], exampleMistakes: ["sukuriin (screen)", "torain (train)"], correctForms: ["screen", "train"], actflLevel: "novice_mid", priority: "common" },
+    
+    // Korean speakers learning English
+    { targetLanguage: "english", sourceLanguage: "korean", errorCategory: "grammar", specificError: "preposition_confusion", whyItHappens: "Korean uses postpositions (after nouns) and particles. English preposition logic is different.", teachingStrategies: ["Learn prepositions as chunks: 'interested IN', 'good AT'", "Visualize: ON = touching surface, IN = inside, AT = point", "Practice common collocations"], exampleMistakes: ["I'm interested about music (wrong)", "Good in sports (wrong)"], correctForms: ["I'm interested in music", "Good at sports"], actflLevel: "intermediate_low", priority: "common" },
+    
+    // Arabic speakers learning English
+    { targetLanguage: "english", sourceLanguage: "arabic", errorCategory: "grammar", specificError: "missing_be_verb", whyItHappens: "Arabic doesn't use 'to be' in present tense. 'He tall' is grammatical in Arabic.", teachingStrategies: ["English ALWAYS needs 'is/am/are' for descriptions", "Practice: Subject + BE + adjective/noun", "He IS tall, She IS a doctor, They ARE happy"], exampleMistakes: ["He tall (wrong)", "She doctor (wrong)", "They happy (wrong)"], correctForms: ["He is tall", "She is a doctor", "They are happy"], actflLevel: "novice_mid", priority: "common" },
+    { targetLanguage: "english", sourceLanguage: "arabic", errorCategory: "pronunciation", specificError: "p_b_confusion", whyItHappens: "Arabic has /b/ but not /p/. The sounds feel identical to Arabic speakers.", teachingStrategies: ["P = lips together, burst of air (aspirated)", "B = lips together, voice vibrates (voiced)", "Hold paper in front - P moves it, B doesn't", "Practice: pin/bin, pat/bat, cup/cub"], exampleMistakes: ["I need a ben (meaning pen)", "That's a nice barty (meaning party)"], correctForms: ["pen (not ben)", "party (not barty)"], actflLevel: "novice_low", priority: "common" },
+    
+    // German speakers learning English
+    { targetLanguage: "english", sourceLanguage: "german", errorCategory: "grammar", specificError: "word_order_in_complex_sentences", whyItHappens: "German puts verbs at the end of subordinate clauses. English keeps SVO order.", teachingStrategies: ["English: Subject-Verb-Object even in subordinate clauses", "Not: 'I know that he the book reads'", "Keep verb right after subject"], exampleMistakes: ["I think that he tomorrow comes (wrong)", "She said that she the car bought (wrong)"], correctForms: ["I think that he is coming tomorrow", "She said that she bought the car"], actflLevel: "intermediate_low", priority: "common" },
+    
+    // Portuguese speakers learning English  
+    { targetLanguage: "english", sourceLanguage: "portuguese", errorCategory: "pronunciation", specificError: "word_final_sounds", whyItHappens: "Portuguese words typically end in vowels. Final consonants in English are challenging.", teachingStrategies: ["Don't add vowels to word endings", "Practice: 'cat' not 'cati', 'stop' not 'stopi'", "Hold the final consonant clearly"], exampleMistakes: ["I need helpi (help)", "The booki (book)"], correctForms: ["help", "book"], actflLevel: "novice_low", priority: "common" },
+    
+    // French speakers learning English
+    { targetLanguage: "english", sourceLanguage: "french", errorCategory: "pronunciation", specificError: "th_sound", whyItHappens: "French has no 'th' sounds. Speakers substitute /s/, /z/, /d/, or /t/.", teachingStrategies: ["Tongue between teeth, blow air gently", "Voiced th (this) vs voiceless th (think)", "Practice: the, this, that, think, thank, three"], exampleMistakes: ["I sink so (think)", "Ze book (the)"], correctForms: ["I think so", "The book"], actflLevel: "novice_low", priority: "common" },
+  ];
+  
+  // ===== LINGUISTIC BRIDGES FOR EFL =====
+  // Bridges from various languages TO English
+  const eflLinguisticBridges = [
+    // Spanish → English bridges
+    { sourceLanguage: "spanish", targetLanguage: "english", bridgeType: "cognate", sourceWord: "familia", targetWord: "family", relationship: "same_meaning", explanation: "Latin roots shared between Spanish and English.", teachingNote: "Pattern: -ia → -y (historia→history, memoria→memory)" },
+    { sourceLanguage: "spanish", targetLanguage: "english", bridgeType: "cognate", sourceWord: "importante", targetWord: "important", relationship: "same_meaning", explanation: "-ante/-ente → -ant/-ent pattern", teachingNote: "Very reliable: diferente→different, elegante→elegant" },
+    { sourceLanguage: "spanish", targetLanguage: "english", bridgeType: "false_friend", sourceWord: "actualmente", targetWord: "actually", relationship: "different_meaning", explanation: "Spanish 'actualmente' = currently. English 'actually' = in fact/really.", teachingNote: "For 'actualmente', use 'currently' or 'at present' in English" },
+    { sourceLanguage: "spanish", targetLanguage: "english", bridgeType: "false_friend", sourceWord: "embarazada", targetWord: "embarrassed", relationship: "different_meaning", explanation: "Spanish 'embarazada' = pregnant. English 'embarrassed' = ashamed.", teachingNote: "Classic false friend. 'Embarrassed' in Spanish is 'avergonzado'" },
+    
+    // Chinese → English bridges
+    { sourceLanguage: "mandarin", targetLanguage: "english", bridgeType: "concept_parallel", sourceWord: "电话 (diànhuà)", targetWord: "telephone", relationship: "similar_concept", explanation: "Chinese 电话 literally means 'electric speech' - logical compound like 'telephone' (distant speech)", teachingNote: "Both languages build words from meaningful parts" },
+    { sourceLanguage: "mandarin", targetLanguage: "english", bridgeType: "loanword", sourceWord: "沙发 (shāfā)", targetWord: "sofa", relationship: "borrowed", explanation: "Chinese borrowed this word from English - sounds similar!", teachingNote: "Other loanwords: 咖啡 (kāfēi/coffee), 巧克力 (qiǎokèlì/chocolate)" },
+    
+    // Japanese → English bridges
+    { sourceLanguage: "japanese", targetLanguage: "english", bridgeType: "loanword", sourceWord: "コンピューター", targetWord: "computer", relationship: "borrowed", explanation: "Japanese katakana words are often borrowed from English", teachingNote: "Many tech words: インターネット (internet), スマートフォン (smartphone)" },
+    { sourceLanguage: "japanese", targetLanguage: "english", bridgeType: "concept_parallel", sourceWord: "おはようございます", targetWord: "Good morning", relationship: "similar_function", explanation: "Both are formal morning greetings with set phrases", teachingNote: "Fixed expressions work similarly in both languages" },
+    
+    // Korean → English bridges  
+    { sourceLanguage: "korean", targetLanguage: "english", bridgeType: "loanword", sourceWord: "텔레비전", targetWord: "television", relationship: "borrowed", explanation: "Konglish (Korean-English) words are common", teachingNote: "Also: 컴퓨터 (computer), 버스 (bus), 택시 (taxi)" },
+    
+    // German → English bridges
+    { sourceLanguage: "german", targetLanguage: "english", bridgeType: "cognate", sourceWord: "Wasser", targetWord: "water", relationship: "same_meaning", explanation: "Germanic roots - many basic words are similar", teachingNote: "Pattern: Bruder→brother, Mutter→mother, Haus→house" },
+    { sourceLanguage: "german", targetLanguage: "english", bridgeType: "cognate", sourceWord: "Kindergarten", targetWord: "kindergarten", relationship: "identical", explanation: "English borrowed this German word directly", teachingNote: "Also: Zeitgeist, Schadenfreude, Wanderlust" },
+    
+    // French → English bridges
+    { sourceLanguage: "french", targetLanguage: "english", bridgeType: "cognate", sourceWord: "restaurant", targetWord: "restaurant", relationship: "identical", explanation: "English borrowed thousands of French words", teachingNote: "Also: menu, chef, cuisine, hotel, boutique" },
+    { sourceLanguage: "french", targetLanguage: "english", bridgeType: "cognate", sourceWord: "gouvernement", targetWord: "government", relationship: "same_meaning", explanation: "Norman French influence on English", teachingNote: "Pattern: -ment words often similar: développement→development" },
+    
+    // Portuguese → English bridges
+    { sourceLanguage: "portuguese", targetLanguage: "english", bridgeType: "cognate", sourceWord: "universidade", targetWord: "university", relationship: "same_meaning", explanation: "Latin roots shared", teachingNote: "Pattern: -dade → -ty (cidade→city, qualidade→quality)" },
+    
+    // Arabic → English bridges
+    { sourceLanguage: "arabic", targetLanguage: "english", bridgeType: "loanword", sourceWord: "قهوة (qahwa)", targetWord: "coffee", relationship: "borrowed", explanation: "English borrowed 'coffee' from Arabic through Turkish", teachingNote: "Other Arabic loanwords: algebra, algorithm, cotton, magazine" },
+  ];
+  
   await db.insert(languageIdioms).values(englishIdioms);
   await db.insert(culturalNuances).values(englishCulturalNuances);
   await db.insert(dialectVariations).values(englishDialects);
-  console.log("[Neural Network Seed] Inserted English data");
+  await db.insert(learnerErrorPatterns).values(englishErrorPatterns);
+  await db.insert(linguisticBridges).values(eflLinguisticBridges);
+  console.log("[Neural Network Seed] Inserted English/EFL data");
 }
