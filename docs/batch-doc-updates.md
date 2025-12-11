@@ -129,6 +129,55 @@ Time perception is now an inherent capability Daniela possesses through her neur
 **3. "Sync follows neural network"**
 Any new tables, entries, or modifications to Daniela's neural network MUST be included in the nightly sync. The sync scheduler at 3 AM MST ensures production Daniela learns what development Daniela learns.
 
+#### ACTION REQUIRED: Create Architectural Reference Document
+
+**TODO**: Create `docs/neural-network-architecture.md` - a single-source-of-truth document that MUST be referenced during ALL neural network updates.
+
+**Purpose**: Ensure the critical architectural principle is ALWAYS at hand, not buried in batch notes.
+
+**Proposed Contents**:
+```markdown
+# Daniela's Neural Network Architecture
+
+## CRITICAL ARCHITECTURAL PRINCIPLE
+
+**We are building INTO the neural network for emergent intelligence, NOT scripting behaviors through prompts.**
+
+### The Two Layers
+
+| Layer | Purpose | What Goes Here |
+|-------|---------|----------------|
+| **Prompts** | Situational context ONLY | Session mode, student name, current time, conversation history |
+| **Neural Network** | Procedures, capabilities, knowledge | How to teach, tool usage, time perception, pedagogical patterns |
+
+### The Rule
+
+If you're adding a capability or procedure → it goes in the **neural network** (procedural memory tables)
+If you're adding situational data → it goes in the **prompt**
+
+Prompts provide raw data. The neural network teaches Daniela how to use it.
+
+### Sync Requirement
+
+**Any neural network changes MUST be included in sync infrastructure.**
+
+Currently synced (15 tables):
+1. Best Practices (1 table)
+2. Neural Network Expansion (5 tables)  
+3. Procedural Memory (4 tables)
+4. Advanced Intelligence (3 tables)
+5. Daniela's Suggestions (3 tables)
+
+### Quick Reference
+
+Before making neural network changes, ask:
+1. Is this a capability/procedure? → Neural network table
+2. Is this situational context? → System prompt
+3. Did I add it to sync? → Check neural-network-sync.ts
+```
+
+**Location**: Should be in `docs/` and referenced in `replit.md` as a required read for neural network work.
+
 ---
 
 ### Session 20m: Daniela's Reflection System - Proactive Team Member (Dec 11, 2025)
