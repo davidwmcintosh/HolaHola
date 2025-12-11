@@ -129,6 +129,12 @@ import {
   type SessionNote,
   type InsertSessionNote,
   type BestPracticeCategory,
+  actflAssessmentEvents,
+  agentObservations,
+  type ActflAssessmentEvent,
+  type InsertActflAssessmentEvent,
+  type AgentObservation,
+  type InsertAgentObservation,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -642,6 +648,15 @@ export interface IStorage {
     recentNotes: SessionNote[];
     connections: PeopleConnection[];
   }>;
+  
+  // ACTFL Assessment Events (for analytics/effectiveness tracking)
+  createActflAssessmentEvent(data: InsertActflAssessmentEvent): Promise<ActflAssessmentEvent>;
+  getActflAssessmentEvents(options?: { userId?: string; language?: string; limit?: number }): Promise<ActflAssessmentEvent[]>;
+  
+  // Agent Observations (Development Agent's Neural Network)
+  createAgentObservation(data: InsertAgentObservation): Promise<AgentObservation>;
+  getAgentObservations(options?: { category?: string; status?: string; limit?: number }): Promise<AgentObservation[]>;
+  updateAgentObservation(id: string, data: Partial<AgentObservation>): Promise<AgentObservation | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4973,6 +4988,74 @@ export class DatabaseStorage implements IStorage {
       recentNotes,
       connections
     };
+  }
+  
+  // ACTFL Assessment Events (for analytics/effectiveness tracking)
+  async createActflAssessmentEvent(data: InsertActflAssessmentEvent): Promise<ActflAssessmentEvent> {
+    const [event] = await db.insert(actflAssessmentEvents).values(data).returning();
+    return event;
+  }
+  
+  async getActflAssessmentEvents(options?: { userId?: string; language?: string; limit?: number }): Promise<ActflAssessmentEvent[]> {
+    const conditions: any[] = [];
+    
+    if (options?.userId) {
+      conditions.push(eq(actflAssessmentEvents.userId, options.userId));
+    }
+    if (options?.language) {
+      conditions.push(eq(actflAssessmentEvents.language, options.language));
+    }
+    
+    const query = db.select().from(actflAssessmentEvents);
+    
+    if (conditions.length > 0) {
+      return query
+        .where(and(...conditions))
+        .orderBy(desc(actflAssessmentEvents.createdAt))
+        .limit(options?.limit || 100);
+    }
+    
+    return query
+      .orderBy(desc(actflAssessmentEvents.createdAt))
+      .limit(options?.limit || 100);
+  }
+  
+  // Agent Observations (Development Agent's Neural Network)
+  async createAgentObservation(data: InsertAgentObservation): Promise<AgentObservation> {
+    const [observation] = await db.insert(agentObservations).values(data).returning();
+    return observation;
+  }
+  
+  async getAgentObservations(options?: { category?: string; status?: string; limit?: number }): Promise<AgentObservation[]> {
+    const conditions: any[] = [];
+    
+    if (options?.category) {
+      conditions.push(eq(agentObservations.category, options.category as any));
+    }
+    if (options?.status) {
+      conditions.push(eq(agentObservations.status, options.status));
+    }
+    
+    const query = db.select().from(agentObservations);
+    
+    if (conditions.length > 0) {
+      return query
+        .where(and(...conditions))
+        .orderBy(desc(agentObservations.priority), desc(agentObservations.createdAt))
+        .limit(options?.limit || 50);
+    }
+    
+    return query
+      .orderBy(desc(agentObservations.priority), desc(agentObservations.createdAt))
+      .limit(options?.limit || 50);
+  }
+  
+  async updateAgentObservation(id: string, data: Partial<AgentObservation>): Promise<AgentObservation | undefined> {
+    const [updated] = await db.update(agentObservations)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(agentObservations.id, id))
+      .returning();
+    return updated;
   }
 }
 

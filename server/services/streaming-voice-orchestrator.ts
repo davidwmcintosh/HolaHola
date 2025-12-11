@@ -191,6 +191,8 @@ export interface StreamingSession {
   lastSessionSummary?: string;      // What happened in last session (from Compass)
   studentGoals?: string;            // Student's learning goals (from Compass)
   dbSessionId?: string;             // Database voice_sessions.id (UUID) for pedagogical tracking
+  classId?: string;                  // Class ID for syllabus tracking (if class session)
+  toolsUsedSession: string[];        // Tools used in this session for ACTFL analytics
 }
 
 /**
@@ -370,6 +372,7 @@ export class StreamingVoiceOrchestrator {
       lastSessionSummary: additionalContext?.lastSessionSummary,
       studentGoals: additionalContext?.studentGoals,
       dbSessionId,  // Database voice_sessions.id for pedagogical tracking
+      toolsUsedSession: [],  // Track tools for ACTFL analytics
     };
     
     // PARALLEL WARMUP: Pre-warm both Cartesia and Gemini connections concurrently
@@ -624,6 +627,9 @@ export class StreamingVoiceOrchestrator {
                   const data = item.data as unknown as Record<string, unknown>;
                   toolContent = (data.targetWord as string) || (data.word as string) || (data.text as string) || (data.prompt as string);
                 }
+                
+                // Track tool for session analytics (for ACTFL effectiveness tracking)
+                session.toolsUsedSession.push(toolType);
                 
                 trackToolEvent({
                   voiceSessionId: session.dbSessionId,  // Use database UUID, not orchestrator session ID
@@ -2052,6 +2058,9 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
    * ACTFL_UPDATE: Process emergent neural network command to update student proficiency
    * Daniela perceives student performance and decides when to update their level
    * This is a closed-loop system: perceive → assess → update → perceive new state
+   * 
+   * Also logs to actflAssessmentEvents for analytics/marketing:
+   * "Students who received COMPARE tool showed 40% faster mastery"
    */
   private async processActflUpdate(
     session: StreamingSession,
@@ -2065,31 +2074,56 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       }
       
       // Get current user progress to compare
-      const progress = await storage.getProgressByLanguage(session.userId, session.targetLanguage);
-      if (!progress) {
-        console.log(`[ACTFL Update] No progress record found for user ${session.userId} in ${session.targetLanguage}`);
-        return;
-      }
+      const progress = await storage.getOrCreateUserProgress(session.targetLanguage, String(session.userId));
+      
+      // IMPORTANT: Capture the true previous level BEFORE any updates
+      const previousLevel = progress.currentLevel?.toLowerCase().replace(/[\s-]/g, '_') || 'novice_low';
       
       // Map ACTFL level string to our internal format
       const normalizedLevel = data.level.toLowerCase().replace(/[\s-]/g, '_');
-      const currentLevel = progress.currentLevel?.toLowerCase().replace(/[\s-]/g, '_') || 'novice_low';
       
       // Only update if different from current (or direction confirms current)
-      if (normalizedLevel === currentLevel && data.direction !== 'confirm') {
+      if (normalizedLevel === previousLevel && data.direction !== 'confirm') {
         console.log(`[ACTFL Update] Level unchanged: ${normalizedLevel}`);
         return;
       }
       
       // Update the user's ACTFL level via database
-      await storage.updateProgress(progress.id, {
+      await storage.updateUserProgress(progress.id, {
         currentLevel: normalizedLevel,
         lastAssessmentDate: new Date(),
       });
       
+      // Log to analytics table with tool context for effectiveness tracking
+      const sessionDuration = session.startTime ? Math.floor((Date.now() - session.startTime) / 1000) : null;
+      
+      // Get unique tools used, limited to avoid unbounded arrays
+      const uniqueTools = [...new Set(session.toolsUsedSession || [])];
+      const toolsForAnalytics = uniqueTools.slice(0, 50); // Max 50 unique tools
+      const recentTools = toolsForAnalytics.slice(-5); // Last 5 for recent context
+      
+      await storage.createActflAssessmentEvent({
+        userId: String(session.userId),
+        language: session.targetLanguage,
+        previousLevel: previousLevel,  // Uses captured value BEFORE update
+        newLevel: normalizedLevel,
+        direction: data.direction || null,
+        confidence: Math.round(data.confidence * 100),
+        reason: data.reason,
+        toolsUsedBefore: recentTools,
+        toolsUsedSession: toolsForAnalytics,
+        messageCountBefore: session.conversationHistory?.length || 0,
+        voiceSessionId: session.dbSessionId || null,
+        conversationId: session.conversationId,
+        classId: session.classId || null,
+        sessionDurationSeconds: sessionDuration,
+        correctionCountSession: null, // Could track corrections later
+      });
+      
       // Log the update for neural network analysis
-      console.log(`[ACTFL Update] Updated ${session.userId}'s ${session.targetLanguage} level: ${currentLevel} → ${normalizedLevel}`);
+      console.log(`[ACTFL Update] Updated ${session.userId}'s ${session.targetLanguage} level: ${previousLevel} → ${normalizedLevel}`);
       console.log(`[ACTFL Update] Reason: ${data.reason} (confidence: ${data.confidence}, direction: ${data.direction || 'none'})`);
+      console.log(`[ACTFL Update] Tools context: ${uniqueTools.length} unique tools used this session`);
       
     } catch (error: any) {
       console.error(`[ACTFL Update] Failed:`, error.message);

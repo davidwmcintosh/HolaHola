@@ -33,7 +33,7 @@ Prompts provide raw data. The neural network teaches Daniela how to use it.
 
 ---
 
-## Neural Network Tables (15 Total)
+## Neural Network Tables (15 Core + 2 Analytics)
 
 ### 1. Best Practices (1 table)
 | Table | Purpose |
@@ -70,6 +70,12 @@ Prompts provide raw data. The neural network teaches Daniela how to use it.
 | `daniela_suggestions` | Self-generated improvement suggestions |
 | `reflection_triggers` | Patterns that activate suggestion generation |
 | `daniela_suggestion_actions` | Team responses to suggestions |
+
+### 6. Analytics & Effectiveness (2 tables)
+| Table | Purpose |
+|-------|---------|
+| `actfl_assessment_events` | ACTFL level changes with tool context (for marketing: "COMPARE tool → 40% faster mastery") |
+| `agent_observations` | Development agent's neural network for persistent observations across sessions |
 
 ---
 
@@ -193,6 +199,7 @@ These are filtered in `streaming-voice-orchestrator.ts` before sending to the wh
 | `server/services/procedural-memory-retrieval.ts` | Retrieves and formats neural network knowledge |
 | `server/services/neural-network-sync.ts` | Sync infrastructure |
 | `server/services/sync-scheduler.ts` | Nightly sync automation |
+| `server/services/streaming-voice-orchestrator.ts` | ACTFL tracking with tool context |
 | `server/system-prompt.ts` | Prompt construction (context only) |
 | `shared/schema.ts` | All table definitions |
 

@@ -3285,3 +3285,117 @@ export const insertDanielaSuggestionActionSchema = createInsertSchema(danielaSug
 
 export type InsertDanielaSuggestionAction = z.infer<typeof insertDanielaSuggestionActionSchema>;
 export type DanielaSuggestionAction = typeof danielaSuggestionActions.$inferSelect;
+
+// ===== ACTFL Assessment Events =====
+// Logs Daniela's ACTFL proficiency assessments with tool context for effectiveness tracking
+// Enables: "Students who received COMPARE tool showed 40% faster mastery"
+
+export const actflAssessmentEvents = pgTable("actfl_assessment_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Who was assessed
+  userId: varchar("user_id").references(() => users.id),
+  language: varchar("language").notNull(),
+  
+  // The assessment
+  previousLevel: varchar("previous_level"),
+  newLevel: varchar("new_level").notNull(),
+  direction: varchar("direction"), // up, down, confirm
+  confidence: integer("confidence"), // 0-100 based on Daniela's 0.0-1.0
+  reason: text("reason").notNull(), // Daniela's reasoning
+  
+  // Tool context (what tools were used in preceding messages)
+  toolsUsedBefore: text("tools_used_before").array(), // Last 5 messages worth
+  toolsUsedSession: text("tools_used_session").array(), // Entire session
+  messageCountBefore: integer("message_count_before"), // How many messages in session
+  
+  // Session context
+  voiceSessionId: varchar("voice_session_id").references(() => voiceSessions.id),
+  conversationId: varchar("conversation_id").references(() => conversations.id),
+  classId: varchar("class_id"),
+  
+  // Analytics
+  sessionDurationSeconds: integer("session_duration_seconds"),
+  correctionCountSession: integer("correction_count_session"), // Track errors before assessment
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_actfl_events_user").on(table.userId),
+  index("idx_actfl_events_language").on(table.language),
+  index("idx_actfl_events_level").on(table.newLevel),
+  index("idx_actfl_events_created").on(table.createdAt),
+]);
+
+export const insertActflAssessmentEventSchema = createInsertSchema(actflAssessmentEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertActflAssessmentEvent = z.infer<typeof insertActflAssessmentEventSchema>;
+export type ActflAssessmentEvent = typeof actflAssessmentEvents.$inferSelect;
+
+// ===== Agent Observations (Development Agent's Neural Network) =====
+// Persistent observations from the development agent about system improvements
+// Enables: Agent learns across sessions, proposes improvements that sync
+
+export const agentObservationCategoryEnum = pgEnum('agent_observation_category', [
+  'architecture',      // System design observations
+  'pattern',           // Recurring patterns noticed
+  'improvement',       // Proposed improvements
+  'bug_pattern',       // Error patterns observed
+  'user_behavior',     // Aggregated user behavior insights
+  'performance',       // Performance observations
+  'daniela_behavior',  // Observations about Daniela's teaching
+  'sync_issue',        // Issues with neural network sync
+  'next_step'          // Identified next development steps
+]);
+
+export const agentObservations = pgTable("agent_observations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Classification
+  category: agentObservationCategoryEnum("category").notNull(),
+  priority: integer("priority").default(50), // 1-100
+  
+  // The observation
+  title: varchar("title").notNull(),
+  observation: text("observation").notNull(),
+  reasoning: text("reasoning"), // Chain of thought
+  
+  // Evidence
+  evidenceCount: integer("evidence_count").default(1),
+  evidenceSummary: text("evidence_summary"),
+  relatedFiles: text("related_files").array(), // File paths involved
+  
+  // Proposed action
+  proposedAction: text("proposed_action"),
+  proposedCode: text("proposed_code"), // If suggesting code changes
+  targetTable: varchar("target_table"), // If proposing neural network entry
+  
+  // Status
+  status: varchar("status").default("active"), // active, implemented, deferred, rejected
+  implementedAt: timestamp("implemented_at"),
+  implementedBy: varchar("implemented_by"),
+  
+  // Two-way sync fields
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_agent_observations_category").on(table.category),
+  index("idx_agent_observations_status").on(table.status),
+  index("idx_agent_observations_priority").on(table.priority),
+  index("idx_agent_observations_origin").on(table.originId),
+]);
+
+export const insertAgentObservationSchema = createInsertSchema(agentObservations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAgentObservation = z.infer<typeof insertAgentObservationSchema>;
+export type AgentObservation = typeof agentObservations.$inferSelect;
