@@ -503,7 +503,7 @@ export function StreamingVoiceChat({
   };
   
   // Play ringing sound during voice connection
-  // Ringing should continue through 'connecting' → 'connected' → until 'ready' (session started)
+  // Ringing should continue through 'connecting' → 'connected' → 'reconnecting' → until 'ready' (session started)
   useEffect(() => {
     if (!useStreamingMode) return;
     
@@ -513,7 +513,7 @@ export function StreamingVoiceChat({
     if (connectionState === 'connecting') {
       startRinging();
     }
-    // Continue ringing during 'connected' state (WebSocket open, but session not yet started)
+    // Continue ringing during 'connected' and 'reconnecting' states
     // This is intentional - no action needed, ringing continues
     
     // Stop ringing when session is ready (tutor has "picked up") or connection ends
@@ -524,6 +524,73 @@ export function StreamingVoiceChat({
     // Note: We only cleanup on unmount, NOT on state changes
     // This allows ringing to continue through state transitions
   }, [streamingVoice.state.connectionState, useStreamingMode]);
+  
+  // Connection timeout: If stuck ringing/connecting for too long, redirect to language hub
+  // This prevents users from being stuck in a "calling" state forever
+  const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const CONNECTION_TIMEOUT_MS = 30000; // 30 seconds max to connect
+  
+  useEffect(() => {
+    if (!useStreamingMode) return;
+    
+    const { connectionState } = streamingVoice.state;
+    
+    // Start timeout when entering connecting/reconnecting states
+    if (connectionState === 'connecting' || connectionState === 'reconnecting') {
+      // Clear any existing timeout
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+      }
+      
+      connectionTimeoutRef.current = setTimeout(() => {
+        console.log('[STREAMING] Connection timeout - redirecting to language hub');
+        stopRinging();
+        toast({
+          title: "Connection timed out",
+          description: "Unable to reach Daniela. Please try again.",
+          variant: "destructive",
+        });
+        // Navigate back to language hub
+        navigate(`/chat`);
+      }, CONNECTION_TIMEOUT_MS);
+    }
+    
+    // Clear timeout when connected successfully or disconnected
+    if (connectionState === 'ready' || connectionState === 'disconnected') {
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
+    };
+  }, [streamingVoice.state.connectionState, useStreamingMode, navigate, toast]);
+  
+  // Handle unrecoverable connection errors - redirect to language hub
+  useEffect(() => {
+    const { error: streamError, connectionState } = streamingVoice.state;
+    
+    // Check for unrecoverable errors (after all reconnect attempts failed)
+    if (streamError && streamError.includes('Please restart') && connectionState === 'disconnected') {
+      console.log('[STREAMING] Unrecoverable error - redirecting to language hub');
+      stopRinging();
+      toast({
+        title: "Connection lost",
+        description: "Unable to reconnect. Please try again.",
+        variant: "destructive",
+      });
+      // Navigate back to language hub after short delay
+      setTimeout(() => {
+        navigate(`/chat`);
+      }, 1500);
+    }
+  }, [streamingVoice.state.error, streamingVoice.state.connectionState, navigate, toast]);
   
   // Separate cleanup effect for unmount only
   useEffect(() => {
