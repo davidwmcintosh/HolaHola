@@ -3085,12 +3085,20 @@ export const danielaSuggestions = pgTable("daniela_suggestions", {
   syncStatus: varchar("sync_status").default("local"),
   originId: varchar("origin_id"),
   originEnvironment: varchar("origin_environment"),
+  
+  // Tri-Lane Hive collaboration metadata
+  originRole: varchar("origin_role").default("tutor"), // tutor, partner (Daniela's two roles)
+  domainTags: text("domain_tags").array(), // pedagogy, architecture, tooling, student_experience
+  intentHash: varchar("intent_hash"), // For cross-agent deduplication
+  acknowledgedByEditor: boolean("acknowledged_by_editor").default(false), // Editor reviewed if architecture-affecting
+  acknowledgedAt: timestamp("acknowledged_at"),
 }, (table) => [
   index("idx_daniela_suggestions_category").on(table.category),
   index("idx_daniela_suggestions_status").on(table.status),
   index("idx_daniela_suggestions_priority").on(table.priority),
   index("idx_daniela_suggestions_mode").on(table.generatedInMode),
   index("idx_daniela_suggestions_origin").on(table.originId),
+  index("idx_daniela_suggestions_intent").on(table.intentHash),
 ]);
 
 // ===== Daniela's Reflection Triggers =====
@@ -3382,6 +3390,14 @@ export const agentObservations = pgTable("agent_observations", {
   originId: varchar("origin_id"),
   originEnvironment: varchar("origin_environment"),
   
+  // Tri-Lane Hive collaboration metadata
+  originRole: varchar("origin_role").default("editor"), // editor (development agent)
+  domainTags: text("domain_tags").array(), // architecture, performance, pedagogy, operations
+  intentHash: varchar("intent_hash"), // For cross-agent deduplication
+  acknowledgedByDaniela: boolean("acknowledged_by_daniela").default(false), // Daniela reviewed if pedagogy-affecting
+  acknowledgedBySupport: boolean("acknowledged_by_support").default(false), // Support reviewed if operations-affecting
+  acknowledgedAt: timestamp("acknowledged_at"),
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [
@@ -3389,6 +3405,7 @@ export const agentObservations = pgTable("agent_observations", {
   index("idx_agent_observations_status").on(table.status),
   index("idx_agent_observations_priority").on(table.priority),
   index("idx_agent_observations_origin").on(table.originId),
+  index("idx_agent_observations_intent").on(table.intentHash),
 ]);
 
 export const insertAgentObservationSchema = createInsertSchema(agentObservations).omit({
@@ -3399,3 +3416,160 @@ export const insertAgentObservationSchema = createInsertSchema(agentObservations
 
 export type InsertAgentObservation = z.infer<typeof insertAgentObservationSchema>;
 export type AgentObservation = typeof agentObservations.$inferSelect;
+
+// ===== Support Agent Observations (Operations Agent's Neural Network) =====
+// Persistent observations from the support agent about user experience, issues, and operations
+// Enables: Support learns from user interactions, proposes help resources, proactive alerts
+
+export const supportObservationCategoryEnum = pgEnum('support_observation_category', [
+  'user_friction',       // Points where users struggle
+  'common_question',     // Frequently asked questions
+  'system_issue',        // Platform problems observed
+  'feature_request',     // User-requested features (aggregated)
+  'success_pattern',     // What helps users succeed
+  'documentation_gap',   // Missing help content
+  'onboarding_insight',  // New user experience observations
+  'billing_pattern',     // Common billing/subscription issues
+  'troubleshoot_solution' // Successful troubleshooting patterns
+]);
+
+export const supportObservations = pgTable("support_observations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Classification
+  category: supportObservationCategoryEnum("category").notNull(),
+  priority: integer("priority").default(50), // 1-100
+  
+  // The observation
+  title: varchar("title").notNull(),
+  observation: text("observation").notNull(),
+  reasoning: text("reasoning"), // Support's analysis
+  
+  // Evidence
+  evidenceCount: integer("evidence_count").default(1), // How many times observed
+  evidenceSummary: text("evidence_summary"),
+  affectedUserCount: integer("affected_user_count"), // Anonymized impact count
+  
+  // Proposed action
+  proposedSolution: text("proposed_solution"), // Suggested fix or help content
+  proposedFaqEntry: text("proposed_faq_entry"), // If should become FAQ
+  escalationNeeded: boolean("escalation_needed").default(false), // Needs founder/dev attention
+  
+  // Status
+  status: varchar("status").default("active"), // active, resolved, escalated, archived
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: varchar("resolved_by"),
+  resolutionNotes: text("resolution_notes"),
+  
+  // Two-way sync fields
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+  
+  // Tri-Lane Hive collaboration metadata
+  originRole: varchar("origin_role").default("support"), // support (operations agent)
+  domainTags: text("domain_tags").array(), // operations, user_experience, billing, technical
+  intentHash: varchar("intent_hash"), // For cross-agent deduplication
+  acknowledgedByEditor: boolean("acknowledged_by_editor").default(false), // Editor reviewed if technical
+  acknowledgedByDaniela: boolean("acknowledged_by_daniela").default(false), // Daniela reviewed if pedagogy
+  acknowledgedAt: timestamp("acknowledged_at"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_support_observations_category").on(table.category),
+  index("idx_support_observations_status").on(table.status),
+  index("idx_support_observations_priority").on(table.priority),
+  index("idx_support_observations_escalation").on(table.escalationNeeded),
+  index("idx_support_observations_origin").on(table.originId),
+  index("idx_support_observations_intent").on(table.intentHash),
+]);
+
+export const insertSupportObservationSchema = createInsertSchema(supportObservations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSupportObservation = z.infer<typeof insertSupportObservationSchema>;
+export type SupportObservation = typeof supportObservations.$inferSelect;
+
+// ===== System Alerts (Proactive Support Communications) =====
+// Support agent's proactive announcements about system status, issues, and updates
+// Enables: Support can warn users before they hit problems, announce maintenance, etc.
+
+export const systemAlertSeverityEnum = pgEnum('system_alert_severity', [
+  'info',      // General announcements, tips
+  'notice',    // New features, minor changes
+  'warning',   // Degraded performance, known issues
+  'outage',    // Service disruption
+  'resolved'   // Issue resolved notification
+]);
+
+export const systemAlertTargetEnum = pgEnum('system_alert_target', [
+  'all',           // All users
+  'voice_users',   // Users in voice chat
+  'teachers',      // Teacher accounts
+  'students',      // Student accounts
+  'new_users',     // Recently joined (onboarding)
+  'premium'        // Paid subscribers
+]);
+
+export const systemAlerts = pgTable("system_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Alert content
+  severity: systemAlertSeverityEnum("severity").notNull(),
+  title: varchar("title").notNull(),
+  message: text("message").notNull(),
+  
+  // Targeting
+  target: systemAlertTargetEnum("target").default("all"),
+  affectedFeatures: text("affected_features").array(), // voice_chat, drills, etc.
+  
+  // Display behavior
+  isDismissible: boolean("is_dismissible").default(true), // User can close
+  showInChat: boolean("show_in_chat").default(true), // Appears in chat area
+  showAsBanner: boolean("show_as_banner").default(false), // Top of page banner
+  
+  // Timing
+  startsAt: timestamp("starts_at").notNull().defaultNow(), // When to start showing
+  expiresAt: timestamp("expires_at"), // When to stop (null = manual)
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  createdBy: varchar("created_by"), // support_agent, system_auto, manual
+  
+  // Tracking
+  viewCount: integer("view_count").default(0),
+  dismissCount: integer("dismiss_count").default(0),
+  
+  // Related issue tracking
+  relatedIncidentId: varchar("related_incident_id"), // If tracking an incident
+  resolvedByAlertId: varchar("resolved_by_alert_id"), // Links warning → resolution
+  
+  // Two-way sync fields
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_system_alerts_severity").on(table.severity),
+  index("idx_system_alerts_active").on(table.isActive),
+  index("idx_system_alerts_target").on(table.target),
+  index("idx_system_alerts_starts").on(table.startsAt),
+  index("idx_system_alerts_origin").on(table.originId),
+]);
+
+export const insertSystemAlertSchema = createInsertSchema(systemAlerts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  viewCount: true,
+  dismissCount: true,
+});
+
+export type InsertSystemAlert = z.infer<typeof insertSystemAlertSchema>;
+export type SystemAlert = typeof systemAlerts.$inferSelect;

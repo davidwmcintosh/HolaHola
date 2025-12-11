@@ -20,6 +20,9 @@ import {
   danielaSuggestions,
   reflectionTriggers,
   danielaSuggestionActions,
+  agentObservations,
+  supportObservations,
+  systemAlerts,
   type SelfBestPractice,
   type PromotionQueue,
   type InsertPromotionQueue,
@@ -38,7 +41,10 @@ import {
   type CreativityTemplate,
   type DanielaSuggestion,
   type ReflectionTrigger,
-  type DanielaSuggestionAction
+  type DanielaSuggestionAction,
+  type AgentObservation,
+  type SupportObservation,
+  type SystemAlert
 } from '@shared/schema';
 import { eq, and, isNull, desc, or, sql } from 'drizzle-orm';
 import crypto from 'crypto';
@@ -2310,6 +2316,399 @@ export class NeuralNetworkSyncService {
     });
     
     return { triggersImported, triggersUpdated, triggersSkipped, actionsImported };
+  }
+  
+  // ===== Tri-Lane Hive Sync Methods =====
+  
+  // Export all observations for sync to production (Tri-Lane Hive collaboration)
+  async exportTriLaneObservations(): Promise<{
+    agentObservations: AgentObservation[];
+    supportObservations: SupportObservation[];
+    systemAlerts: SystemAlert[];
+  }> {
+    const [agentObs, supportObs, alerts] = await Promise.all([
+      db.select().from(agentObservations)
+        .where(eq(agentObservations.status, 'active'))
+        .orderBy(desc(agentObservations.priority)),
+      db.select().from(supportObservations)
+        .where(eq(supportObservations.status, 'active'))
+        .orderBy(desc(supportObservations.priority)),
+      db.select().from(systemAlerts)
+        .where(eq(systemAlerts.isActive, true))
+        .orderBy(desc(systemAlerts.createdAt)),
+    ]);
+    
+    return {
+      agentObservations: agentObs,
+      supportObservations: supportObs,
+      systemAlerts: alerts,
+    };
+  }
+  
+  // Import agent observation with intentHash deduplication - performs TRUE UPSERT
+  async importAgentObservation(data: Partial<AgentObservation>): Promise<{
+    success: boolean;
+    action: 'created' | 'updated' | 'skipped';
+    id?: string;
+  }> {
+    try {
+      // Check for existing by intentHash or originId
+      let existing: AgentObservation | null = null;
+      
+      if (data.intentHash) {
+        const results = await db.select()
+          .from(agentObservations)
+          .where(eq(agentObservations.intentHash, data.intentHash))
+          .limit(1);
+        if (results.length > 0) existing = results[0];
+      }
+      
+      if (!existing && data.originId) {
+        const results = await db.select()
+          .from(agentObservations)
+          .where(eq(agentObservations.originId, data.originId))
+          .limit(1);
+        if (results.length > 0) existing = results[0];
+      }
+      
+      if (existing) {
+        // TRUE UPSERT with defensive merge: only overwrite when incoming explicitly provides data
+        const incomingTime = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
+        const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+        const incomingIsNewer = incomingTime > existingTime;
+        
+        // Helper: only use incoming value if explicitly provided AND newer
+        const mergeField = <T>(incoming: T | undefined, existing: T | null): T | null => {
+          if (incoming !== undefined && incomingIsNewer) return incoming;
+          return existing;
+        };
+        
+        await db.update(agentObservations)
+          .set({
+            // Priority/evidence: only update if explicitly provided in incoming payload
+            priority: data.priority !== undefined && incomingIsNewer ? data.priority : existing.priority,
+            evidenceCount: data.evidenceCount !== undefined && incomingIsNewer ? data.evidenceCount : existing.evidenceCount,
+            // Content fields: only overwrite if explicitly provided AND newer
+            observation: mergeField(data.observation, existing.observation),
+            reasoning: mergeField(data.reasoning, existing.reasoning),
+            evidenceSummary: mergeField(data.evidenceSummary, existing.evidenceSummary),
+            proposedAction: mergeField(data.proposedAction, existing.proposedAction),
+            status: mergeField(data.status, existing.status),
+            // Acknowledgment flags: OR'd (true if EITHER is true, never revoke)
+            acknowledgedByDaniela: data.acknowledgedByDaniela === true || existing.acknowledgedByDaniela === true,
+            acknowledgedBySupport: data.acknowledgedBySupport === true || existing.acknowledgedBySupport === true,
+            // Acknowledgment timestamp: take the latest non-null value
+            acknowledgedAt: (data.acknowledgedAt && existing.acknowledgedAt) 
+              ? (new Date(data.acknowledgedAt) > new Date(existing.acknowledgedAt) ? data.acknowledgedAt : existing.acknowledgedAt)
+              : (data.acknowledgedAt || existing.acknowledgedAt),
+            // Domain tags: union, filtering out undefined/null
+            domainTags: Array.from(new Set([
+              ...(existing.domainTags || []).filter(Boolean),
+              ...(data.domainTags || []).filter(Boolean)
+            ])),
+            // Preserve existing syncStatus if local, otherwise mark synced
+            syncStatus: existing.syncStatus === 'local' ? 'local' : 'synced',
+            updatedAt: new Date()
+          })
+          .where(eq(agentObservations.id, existing.id));
+        return { success: true, action: 'updated', id: existing.id };
+      }
+      
+      // Create new observation
+      const [created] = await db.insert(agentObservations).values({
+        category: data.category || 'improvement' as any,
+        priority: data.priority || 50,
+        title: data.title || 'Imported Observation',
+        observation: data.observation || '',
+        reasoning: data.reasoning,
+        evidenceCount: data.evidenceCount || 1,
+        evidenceSummary: data.evidenceSummary,
+        relatedFiles: data.relatedFiles,
+        proposedAction: data.proposedAction,
+        proposedCode: data.proposedCode,
+        targetTable: data.targetTable,
+        status: 'active',
+        syncStatus: 'synced',
+        originId: data.id || data.originId,
+        originEnvironment: data.originEnvironment || CURRENT_ENVIRONMENT,
+        originRole: data.originRole || 'editor',
+        domainTags: data.domainTags,
+        intentHash: data.intentHash,
+      }).returning();
+      
+      return { success: true, action: 'created', id: created.id };
+    } catch (error: any) {
+      console.error('[SYNC] Error importing agent observation:', error);
+      return { success: false, action: 'skipped' };
+    }
+  }
+  
+  // Import support observation with intentHash deduplication - performs TRUE UPSERT
+  async importSupportObservation(data: Partial<SupportObservation>): Promise<{
+    success: boolean;
+    action: 'created' | 'updated' | 'skipped';
+    id?: string;
+  }> {
+    try {
+      // Check for existing by intentHash or originId
+      let existing: SupportObservation | null = null;
+      
+      if (data.intentHash) {
+        const results = await db.select()
+          .from(supportObservations)
+          .where(eq(supportObservations.intentHash, data.intentHash))
+          .limit(1);
+        if (results.length > 0) existing = results[0];
+      }
+      
+      if (!existing && data.originId) {
+        const results = await db.select()
+          .from(supportObservations)
+          .where(eq(supportObservations.originId, data.originId))
+          .limit(1);
+        if (results.length > 0) existing = results[0];
+      }
+      
+      if (existing) {
+        // TRUE UPSERT with defensive merge: only overwrite when incoming explicitly provides data
+        const incomingTime = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
+        const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+        const incomingIsNewer = incomingTime > existingTime;
+        
+        // Helper: only use incoming value if explicitly provided AND newer
+        const mergeField = <T>(incoming: T | undefined, existing: T | null): T | null => {
+          if (incoming !== undefined && incomingIsNewer) return incoming;
+          return existing;
+        };
+        
+        await db.update(supportObservations)
+          .set({
+            // Priority/evidence: only update if explicitly provided in incoming payload
+            priority: data.priority !== undefined && incomingIsNewer ? data.priority : existing.priority,
+            evidenceCount: data.evidenceCount !== undefined && incomingIsNewer ? data.evidenceCount : existing.evidenceCount,
+            // Affected user count: take max when explicitly provided
+            affectedUserCount: data.affectedUserCount !== undefined 
+              ? Math.max(data.affectedUserCount, existing.affectedUserCount || 0) 
+              : existing.affectedUserCount,
+            // Content fields: only overwrite if explicitly provided AND newer
+            observation: mergeField(data.observation, existing.observation),
+            reasoning: mergeField(data.reasoning, existing.reasoning),
+            evidenceSummary: mergeField(data.evidenceSummary, existing.evidenceSummary),
+            proposedSolution: mergeField(data.proposedSolution, existing.proposedSolution),
+            proposedFaqEntry: mergeField(data.proposedFaqEntry, existing.proposedFaqEntry),
+            status: mergeField(data.status, existing.status),
+            // Escalation: OR'd (true if EITHER is true, never de-escalate)
+            escalationNeeded: data.escalationNeeded === true || existing.escalationNeeded === true,
+            // Acknowledgment flags: OR'd (true if EITHER is true, never revoke)
+            acknowledgedByEditor: data.acknowledgedByEditor === true || existing.acknowledgedByEditor === true,
+            acknowledgedByDaniela: data.acknowledgedByDaniela === true || existing.acknowledgedByDaniela === true,
+            // Acknowledgment timestamp: take the latest non-null value
+            acknowledgedAt: (data.acknowledgedAt && existing.acknowledgedAt) 
+              ? (new Date(data.acknowledgedAt) > new Date(existing.acknowledgedAt) ? data.acknowledgedAt : existing.acknowledgedAt)
+              : (data.acknowledgedAt || existing.acknowledgedAt),
+            // Resolution tracking: only overwrite if incoming has explicit resolution
+            resolvedAt: data.resolvedAt !== undefined ? data.resolvedAt : existing.resolvedAt,
+            resolvedBy: data.resolvedBy !== undefined ? data.resolvedBy : existing.resolvedBy,
+            resolutionNotes: mergeField(data.resolutionNotes, existing.resolutionNotes),
+            // Domain tags: union, filtering out undefined/null
+            domainTags: Array.from(new Set([
+              ...(existing.domainTags || []).filter(Boolean),
+              ...(data.domainTags || []).filter(Boolean)
+            ])),
+            // Preserve existing syncStatus if local, otherwise mark synced
+            syncStatus: existing.syncStatus === 'local' ? 'local' : 'synced',
+            updatedAt: new Date()
+          })
+          .where(eq(supportObservations.id, existing.id));
+        return { success: true, action: 'updated', id: existing.id };
+      }
+      
+      // Create new observation
+      const [created] = await db.insert(supportObservations).values({
+        category: data.category || 'user_friction' as any,
+        priority: data.priority || 50,
+        title: data.title || 'Imported Observation',
+        observation: data.observation || '',
+        reasoning: data.reasoning,
+        evidenceCount: data.evidenceCount || 1,
+        evidenceSummary: data.evidenceSummary,
+        affectedUserCount: data.affectedUserCount,
+        proposedSolution: data.proposedSolution,
+        proposedFaqEntry: data.proposedFaqEntry,
+        escalationNeeded: data.escalationNeeded || false,
+        status: 'active',
+        syncStatus: 'synced',
+        originId: data.id || data.originId,
+        originEnvironment: data.originEnvironment || CURRENT_ENVIRONMENT,
+        originRole: data.originRole || 'support',
+        domainTags: data.domainTags,
+        intentHash: data.intentHash,
+      }).returning();
+      
+      return { success: true, action: 'created', id: created.id };
+    } catch (error: any) {
+      console.error('[SYNC] Error importing support observation:', error);
+      return { success: false, action: 'skipped' };
+    }
+  }
+  
+  // Import system alert (for proactive support) - performs TRUE UPSERT
+  async importSystemAlert(data: Partial<SystemAlert>): Promise<{
+    success: boolean;
+    action: 'created' | 'updated' | 'skipped';
+    id?: string;
+  }> {
+    try {
+      // Check for existing by originId
+      let existing: SystemAlert | null = null;
+      
+      if (data.originId) {
+        const results = await db.select()
+          .from(systemAlerts)
+          .where(eq(systemAlerts.originId, data.originId))
+          .limit(1);
+        if (results.length > 0) existing = results[0];
+      }
+      
+      if (existing) {
+        // TRUE UPSERT with defensive merge: only overwrite when incoming explicitly provides data
+        const incomingTime = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
+        const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+        const incomingIsNewer = incomingTime > existingTime;
+        
+        // Helper: only use incoming value if explicitly provided AND newer
+        const mergeField = <T>(incoming: T | undefined, existing: T | null): T | null => {
+          if (incoming !== undefined && incomingIsNewer) return incoming;
+          return existing;
+        };
+        
+        await db.update(systemAlerts)
+          .set({
+            // Content fields: only overwrite if explicitly provided AND newer
+            severity: mergeField(data.severity, existing.severity),
+            title: mergeField(data.title, existing.title),
+            message: mergeField(data.message, existing.message),
+            target: mergeField(data.target, existing.target),
+            affectedFeatures: mergeField(data.affectedFeatures, existing.affectedFeatures),
+            // Boolean display settings: only update if explicitly provided AND newer
+            isDismissible: data.isDismissible !== undefined && incomingIsNewer ? data.isDismissible : existing.isDismissible,
+            showInChat: data.showInChat !== undefined && incomingIsNewer ? data.showInChat : existing.showInChat,
+            showAsBanner: data.showAsBanner !== undefined && incomingIsNewer ? data.showAsBanner : existing.showAsBanner,
+            expiresAt: mergeField(data.expiresAt, existing.expiresAt),
+            // isActive: only update if explicitly provided AND newer
+            isActive: data.isActive !== undefined && incomingIsNewer ? data.isActive : existing.isActive,
+            // View/dismiss counts: only update if newer (prevents inflation on repeated syncs)
+            viewCount: data.viewCount !== undefined && incomingIsNewer ? data.viewCount : existing.viewCount,
+            dismissCount: data.dismissCount !== undefined && incomingIsNewer ? data.dismissCount : existing.dismissCount,
+            // Resolution tracking: only update if incoming explicitly provides data
+            relatedIncidentId: data.relatedIncidentId !== undefined ? data.relatedIncidentId : existing.relatedIncidentId,
+            resolvedByAlertId: data.resolvedByAlertId !== undefined ? data.resolvedByAlertId : existing.resolvedByAlertId,
+            // Preserve existing syncStatus if local, otherwise mark synced
+            syncStatus: existing.syncStatus === 'local' ? 'local' : 'synced',
+            updatedAt: new Date()
+          })
+          .where(eq(systemAlerts.id, existing.id));
+        return { success: true, action: 'updated', id: existing.id };
+      }
+      
+      // Create new alert
+      const [created] = await db.insert(systemAlerts).values({
+        severity: data.severity || 'info' as any,
+        title: data.title || 'System Alert',
+        message: data.message || '',
+        target: data.target || 'all' as any,
+        affectedFeatures: data.affectedFeatures,
+        isDismissible: data.isDismissible ?? true,
+        showInChat: data.showInChat ?? true,
+        showAsBanner: data.showAsBanner ?? false,
+        startsAt: data.startsAt || new Date(),
+        expiresAt: data.expiresAt,
+        isActive: data.isActive ?? true,
+        createdBy: data.createdBy || 'support_agent',
+        relatedIncidentId: data.relatedIncidentId,
+        resolvedByAlertId: data.resolvedByAlertId,
+        syncStatus: 'synced',
+        originId: data.id || data.originId,
+        originEnvironment: data.originEnvironment || CURRENT_ENVIRONMENT,
+      }).returning();
+      
+      return { success: true, action: 'created', id: created.id };
+    } catch (error: any) {
+      console.error('[SYNC] Error importing system alert:', error);
+      return { success: false, action: 'skipped' };
+    }
+  }
+  
+  // Bulk sync all Tri-Lane observations
+  async syncTriLaneObservations(importData: {
+    agentObservations: Partial<AgentObservation>[];
+    supportObservations: Partial<SupportObservation>[];
+    systemAlerts: Partial<SystemAlert>[];
+  }): Promise<{
+    agentCreated: number;
+    agentUpdated: number;
+    agentSkipped: number;
+    supportCreated: number;
+    supportUpdated: number;
+    supportSkipped: number;
+    alertsCreated: number;
+    alertsUpdated: number;
+    alertsSkipped: number;
+  }> {
+    let agentCreated = 0, agentUpdated = 0, agentSkipped = 0;
+    let supportCreated = 0, supportUpdated = 0, supportSkipped = 0;
+    let alertsCreated = 0, alertsUpdated = 0, alertsSkipped = 0;
+    
+    // Import agent observations
+    for (const obs of importData.agentObservations) {
+      const result = await this.importAgentObservation(obs);
+      if (result.action === 'created') agentCreated++;
+      else if (result.action === 'updated') agentUpdated++;
+      else agentSkipped++;
+    }
+    
+    // Import support observations
+    for (const obs of importData.supportObservations) {
+      const result = await this.importSupportObservation(obs);
+      if (result.action === 'created') supportCreated++;
+      else if (result.action === 'updated') supportUpdated++;
+      else supportSkipped++;
+    }
+    
+    // Import system alerts
+    for (const alert of importData.systemAlerts) {
+      const result = await this.importSystemAlert(alert);
+      if (result.action === 'created') alertsCreated++;
+      else if (result.action === 'updated') alertsUpdated++;
+      else alertsSkipped++;
+    }
+    
+    // Log the sync operation
+    await this.logSyncOperation({
+      operation: 'sync_trilane_observations',
+      tableName: 'agent_observations,support_observations,system_alerts',
+      recordCount: agentCreated + supportCreated + alertsCreated,
+      sourceEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+      targetEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+      status: 'success',
+      metadata: {
+        agentCreated, agentUpdated, agentSkipped,
+        supportCreated, supportUpdated, supportSkipped,
+        alertsCreated, alertsUpdated, alertsSkipped
+      }
+    });
+    
+    return {
+      agentCreated, agentUpdated, agentSkipped,
+      supportCreated, supportUpdated, supportSkipped,
+      alertsCreated, alertsUpdated, alertsSkipped
+    };
+  }
+  
+  // Generate intentHash for cross-agent deduplication
+  generateIntentHash(content: { title: string; observation: string; category: string }): string {
+    const normalized = `${content.category}:${content.title.toLowerCase().trim()}:${content.observation.toLowerCase().trim().slice(0, 200)}`;
+    return crypto.createHash('sha256').update(normalized).digest('hex').slice(0, 16);
   }
 }
 

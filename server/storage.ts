@@ -131,10 +131,16 @@ import {
   type BestPracticeCategory,
   actflAssessmentEvents,
   agentObservations,
+  supportObservations,
+  systemAlerts,
   type ActflAssessmentEvent,
   type InsertActflAssessmentEvent,
   type AgentObservation,
   type InsertAgentObservation,
+  type SupportObservation,
+  type InsertSupportObservation,
+  type SystemAlert,
+  type InsertSystemAlert,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -657,6 +663,30 @@ export interface IStorage {
   createAgentObservation(data: InsertAgentObservation): Promise<AgentObservation>;
   getAgentObservations(options?: { category?: string; status?: string; limit?: number }): Promise<AgentObservation[]>;
   updateAgentObservation(id: string, data: Partial<AgentObservation>): Promise<AgentObservation | undefined>;
+  
+  // Support Observations (Support Agent's Neural Network)
+  createSupportObservation(data: InsertSupportObservation): Promise<SupportObservation>;
+  getSupportObservations(options?: { category?: string; status?: string; escalationNeeded?: boolean; limit?: number }): Promise<SupportObservation[]>;
+  updateSupportObservation(id: string, data: Partial<SupportObservation>): Promise<SupportObservation | undefined>;
+  
+  // System Alerts (Proactive Support Communications)
+  createSystemAlert(data: InsertSystemAlert): Promise<SystemAlert>;
+  getActiveSystemAlerts(options?: { target?: string; severity?: string }): Promise<SystemAlert[]>;
+  updateSystemAlert(id: string, data: Partial<SystemAlert>): Promise<SystemAlert | undefined>;
+  incrementAlertView(id: string): Promise<void>;
+  incrementAlertDismiss(id: string): Promise<void>;
+  
+  // Tri-Lane Hive Collaboration APIs
+  getCollaborationContext(options?: { domainTags?: string[]; originRole?: string; limit?: number }): Promise<{
+    danielaSuggestions: any[];
+    agentObservations: AgentObservation[];
+    supportObservations: SupportObservation[];
+  }>;
+  getPendingAcknowledgments(forRole: 'daniela' | 'editor' | 'support'): Promise<{
+    danielaSuggestions: any[];
+    agentObservations: AgentObservation[];
+    supportObservations: SupportObservation[];
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5056,6 +5086,182 @@ export class DatabaseStorage implements IStorage {
       .where(eq(agentObservations.id, id))
       .returning();
     return updated;
+  }
+  
+  // ===== Support Observations (Support Agent's Neural Network) =====
+  async createSupportObservation(data: InsertSupportObservation): Promise<SupportObservation> {
+    const [observation] = await db.insert(supportObservations).values(data).returning();
+    return observation;
+  }
+  
+  async getSupportObservations(options?: { category?: string; status?: string; escalationNeeded?: boolean; limit?: number }): Promise<SupportObservation[]> {
+    const conditions: any[] = [];
+    
+    if (options?.category) {
+      conditions.push(eq(supportObservations.category, options.category as any));
+    }
+    if (options?.status) {
+      conditions.push(eq(supportObservations.status, options.status));
+    }
+    if (options?.escalationNeeded !== undefined) {
+      conditions.push(eq(supportObservations.escalationNeeded, options.escalationNeeded));
+    }
+    
+    const query = db.select().from(supportObservations);
+    
+    if (conditions.length > 0) {
+      return query
+        .where(and(...conditions))
+        .orderBy(desc(supportObservations.priority), desc(supportObservations.createdAt))
+        .limit(options?.limit || 50);
+    }
+    
+    return query
+      .orderBy(desc(supportObservations.priority), desc(supportObservations.createdAt))
+      .limit(options?.limit || 50);
+  }
+  
+  async updateSupportObservation(id: string, data: Partial<SupportObservation>): Promise<SupportObservation | undefined> {
+    const [updated] = await db.update(supportObservations)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(supportObservations.id, id))
+      .returning();
+    return updated;
+  }
+  
+  // ===== System Alerts (Proactive Support Communications) =====
+  async createSystemAlert(data: InsertSystemAlert): Promise<SystemAlert> {
+    const [alert] = await db.insert(systemAlerts).values(data).returning();
+    return alert;
+  }
+  
+  async getActiveSystemAlerts(options?: { target?: string; severity?: string }): Promise<SystemAlert[]> {
+    const now = new Date();
+    const conditions: any[] = [
+      eq(systemAlerts.isActive, true),
+      lte(systemAlerts.startsAt, now),
+    ];
+    
+    if (options?.target) {
+      conditions.push(eq(systemAlerts.target, options.target as any));
+    }
+    if (options?.severity) {
+      conditions.push(eq(systemAlerts.severity, options.severity as any));
+    }
+    
+    return db.select().from(systemAlerts)
+      .where(and(...conditions))
+      .orderBy(desc(systemAlerts.startsAt))
+      .limit(20);
+  }
+  
+  async updateSystemAlert(id: string, data: Partial<SystemAlert>): Promise<SystemAlert | undefined> {
+    const [updated] = await db.update(systemAlerts)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(systemAlerts.id, id))
+      .returning();
+    return updated;
+  }
+  
+  async incrementAlertView(id: string): Promise<void> {
+    await db.update(systemAlerts)
+      .set({ viewCount: sql`${systemAlerts.viewCount} + 1` })
+      .where(eq(systemAlerts.id, id));
+  }
+  
+  async incrementAlertDismiss(id: string): Promise<void> {
+    await db.update(systemAlerts)
+      .set({ dismissCount: sql`${systemAlerts.dismissCount} + 1` })
+      .where(eq(systemAlerts.id, id));
+  }
+  
+  // ===== Tri-Lane Hive Collaboration APIs =====
+  async getCollaborationContext(options?: { domainTags?: string[]; originRole?: string; limit?: number }): Promise<{
+    danielaSuggestions: any[];
+    agentObservations: AgentObservation[];
+    supportObservations: SupportObservation[];
+  }> {
+    const limit = options?.limit || 20;
+    
+    // Get active entries from all three tables
+    const [agentObs, supportObs] = await Promise.all([
+      db.select().from(agentObservations)
+        .where(eq(agentObservations.status, 'active'))
+        .orderBy(desc(agentObservations.priority))
+        .limit(limit),
+      db.select().from(supportObservations)
+        .where(eq(supportObservations.status, 'active'))
+        .orderBy(desc(supportObservations.priority))
+        .limit(limit),
+    ]);
+    
+    // Filter by domain tags if specified
+    const filterByDomain = (items: any[]) => {
+      if (!options?.domainTags?.length) return items;
+      return items.filter(item => 
+        item.domainTags?.some((tag: string) => options.domainTags!.includes(tag))
+      );
+    };
+    
+    return {
+      danielaSuggestions: [], // TODO: Add when danielaSuggestions has domainTags
+      agentObservations: filterByDomain(agentObs),
+      supportObservations: filterByDomain(supportObs),
+    };
+  }
+  
+  async getPendingAcknowledgments(forRole: 'daniela' | 'editor' | 'support'): Promise<{
+    danielaSuggestions: any[];
+    agentObservations: AgentObservation[];
+    supportObservations: SupportObservation[];
+  }> {
+    // Get observations that need acknowledgment from this role
+    let agentObs: AgentObservation[] = [];
+    let supportObs: SupportObservation[] = [];
+    
+    if (forRole === 'daniela') {
+      // Daniela needs to acknowledge Editor and Support observations that affect pedagogy
+      agentObs = await db.select().from(agentObservations)
+        .where(and(
+          eq(agentObservations.status, 'active'),
+          eq(agentObservations.acknowledgedByDaniela, false)
+        ))
+        .orderBy(desc(agentObservations.priority))
+        .limit(20);
+      
+      supportObs = await db.select().from(supportObservations)
+        .where(and(
+          eq(supportObservations.status, 'active'),
+          eq(supportObservations.acknowledgedByDaniela, false)
+        ))
+        .orderBy(desc(supportObservations.priority))
+        .limit(20);
+    } else if (forRole === 'editor') {
+      // Editor needs to acknowledge Support observations that need technical attention
+      supportObs = await db.select().from(supportObservations)
+        .where(and(
+          eq(supportObservations.status, 'active'),
+          eq(supportObservations.acknowledgedByEditor, false),
+          eq(supportObservations.escalationNeeded, true)
+        ))
+        .orderBy(desc(supportObservations.priority))
+        .limit(20);
+    } else if (forRole === 'support') {
+      // Support needs to acknowledge Editor observations that affect operations
+      agentObs = await db.select().from(agentObservations)
+        .where(and(
+          eq(agentObservations.status, 'active'),
+          eq(agentObservations.acknowledgedBySupport, false)
+        ))
+        .orderBy(desc(agentObservations.priority))
+        .limit(20);
+    }
+    
+    return {
+      danielaSuggestions: [], // TODO: Add acknowledgment tracking for daniela_suggestions
+      agentObservations: agentObs,
+      supportObservations: supportObs,
+    };
   }
 }
 
