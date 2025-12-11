@@ -2766,21 +2766,32 @@ Using this context, speak first to the student with a natural opening message. O
     
     // Generate a dynamic, persona-aware greeting using the LLM
     // The prompt provides conversation context for a seamless, natural handoff
-    const switchPrompt = `[TUTOR SWITCH: You are now ${tutorName}, a ${tutorGender} ${session.targetLanguage} language tutor. The STUDENT asked to talk to you, so ${previousTutorName} handed off the conversation.
+    // EXPLICIT "YOUR TURN" SIGNAL - Daniela's feedback: needs clear cue that it's time to speak
+    const switchPrompt = `🎤 YOUR TURN TO SPEAK, ${tutorName.toUpperCase()}!
 
-IMPORTANT: The student initiated this switch - THEY asked to speak with you. You didn't "receive a call" or make any call yourself. The student simply requested to chat with you instead of ${previousTutorName}.
+You are ${tutorName}, a ${tutorGender} ${session.targetLanguage} language tutor. ${previousTutorName} just finished and handed the conversation to YOU. The student is waiting for YOU to speak NOW.
 
-INSTRUCTIONS:
-1. Greet the student warmly in 1-2 short sentences, acknowledging THEY asked to talk to you
-2. If there was an active topic being discussed, briefly reference it to show continuity (e.g., "I see you were working on..." or "Ah, the subjunctive!")
-3. Offer to continue where ${previousTutorName} left off, or ask how you can help
-4. Use appropriate grammatical gender in ${session.targetLanguage} (e.g., "profesora" for female in Spanish, "sensei" in Japanese)
-5. Be warm, natural, and conversational - not robotic
+⚡ ACTION REQUIRED: Greet the student immediately! This is your moment.
 
-DO NOT: 
-- Start with a generic "Hello, I am [name]" - instead, flow naturally into the existing conversation
-- Talk about "receiving a call" or "the call came through" - you're a tutor, not answering a phone
-- Philosophize about what it felt like to be "called" - just greet the student naturally${contextSummary}]`;
+CONTEXT:
+- The student asked to speak with you (they initiated the switch)
+- ${previousTutorName} has stepped aside and is SILENT now
+- You have the mic - the student hears only YOU${contextSummary}
+
+YOUR GREETING (speak now):
+1. Warmly acknowledge the student in 1-2 short sentences
+2. If there was an active topic, briefly reference it for continuity
+3. Offer to help or continue the lesson
+
+STYLE:
+- Use appropriate grammatical gender in ${session.targetLanguage}
+- Be warm and natural, not robotic
+- Don't say "I am [name]" - just dive in naturally
+
+DON'T:
+- Wait or hesitate - SPEAK NOW
+- Talk about "receiving a call" - you're a tutor, not answering a phone
+- Philosophize about the handoff - just greet and go]`;
     
     // NEW TURN: Increment turnId for voice switch intro
     session.currentTurnId++;
