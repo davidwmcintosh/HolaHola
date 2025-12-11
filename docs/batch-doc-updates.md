@@ -6,6 +6,56 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 20j: Push-to-Talk Idle Timeout Fix (Dec 11, 2025)
+
+#### Problem
+Sessions were timing out while users were actively recording with push-to-talk. The 120-second idle timeout only reset when audio was **received** by the server, but push-to-talk doesn't send audio until the button is **released**. So if a user held the button for >2 minutes while composing a long response, the session would timeout mid-recording.
+
+#### Solution: User Activity Signal
+Added a `user_activity` WebSocket message that the client sends when recording starts:
+
+**Client-side** (StreamingVoiceChat.tsx):
+```typescript
+mediaRecorder.start();
+// Notify server that user is actively recording (prevents idle timeout)
+streamingVoice.sendUserActivity();
+```
+
+**Server-side** (unified-ws-handler.ts):
+```typescript
+case 'user_activity': {
+  // User is actively engaged - reset idle timeout
+  if (session) {
+    orchestrator.resetIdleTimeoutForSession(session.id);
+  }
+  break;
+}
+```
+
+**Orchestrator** (streaming-voice-orchestrator.ts):
+```typescript
+resetIdleTimeoutForSession(sessionId: string): void {
+  const session = this.sessions.get(sessionId);
+  if (session && session.isActive) {
+    this.resetIdleTimeout(session);
+  }
+}
+```
+
+#### Result
+- Pressing the push-to-talk button now resets the idle timeout immediately
+- Users can hold the button as long as needed without timeout
+- The timeout still works correctly after tutor finishes speaking (waiting for student response)
+
+#### Files Modified
+- `server/unified-ws-handler.ts` - Added `user_activity` message handler
+- `server/services/streaming-voice-orchestrator.ts` - Added public `resetIdleTimeoutForSession()` method
+- `client/src/lib/streamingVoiceClient.ts` - Added `sendUserActivity()` method
+- `client/src/hooks/useStreamingVoice.ts` - Exposed `sendUserActivity` in hook interface
+- `client/src/components/StreamingVoiceChat.tsx` - Call `sendUserActivity()` when recording starts
+
+---
+
 ### Session 20i: Voice Session ID Mismatch & UI Lockout Fixes (Dec 11, 2025)
 
 #### Problem 1: Session ID Mismatch (FK Constraint Violations)

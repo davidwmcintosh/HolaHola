@@ -107,6 +107,7 @@ export interface UseStreamingVoiceReturn {
   stopStreaming: () => void;
   setInputMode: (mode: 'push-to-talk' | 'open-mic') => void;
   sendInterrupt: () => void;
+  sendUserActivity: () => void;
   sendDrillResult: (drillId: string, drillType: string, isCorrect: boolean, responseTimeMs: number, toolContent?: string) => void;
   sendTextInput: (itemId: string, response: string) => void;
 }
@@ -933,6 +934,15 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   /**
+   * Send user activity signal to prevent idle timeout
+   * Called when user starts recording (push-to-talk button pressed)
+   * This prevents session timeout while user is actively recording
+   */
+  const sendUserActivity = useCallback(() => {
+    clientRef.current?.sendUserActivity();
+  }, []);
+  
+  /**
    * Request AI-generated personalized greeting
    * Called when starting a new conversation or resuming a previous one
    * @param userName - Optional student name for personalization
@@ -1064,6 +1074,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     stopStreaming,
     setInputMode,
     sendInterrupt,
+    sendUserActivity,
     sendDrillResult,
     sendTextInput,
   };

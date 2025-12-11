@@ -386,6 +386,18 @@ export class StreamingVoiceClient {
   }
   
   /**
+   * Send user activity signal to prevent idle timeout
+   * Called when user is actively engaged (e.g., recording audio)
+   * This prevents the session from timing out while the user is holding
+   * the push-to-talk button but hasn't released it yet
+   */
+  sendUserActivity(): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'user_activity' }));
+    }
+  }
+  
+  /**
    * Convert ArrayBuffer to base64 string
    */
   private arrayBufferToBase64(buffer: ArrayBuffer): string {

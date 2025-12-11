@@ -2684,6 +2684,18 @@ Using this context, speak first to the student with a natural opening message. O
   }
   
   /**
+   * Public method to reset idle timeout for a session
+   * Called when user is actively engaged (e.g., holding push-to-talk button)
+   * This prevents timeout while user is recording but hasn't released the button yet
+   */
+  resetIdleTimeoutForSession(sessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (session && session.isActive) {
+      this.resetIdleTimeout(session);
+    }
+  }
+  
+  /**
    * Update the voice for an active session
    * Called when user changes tutor gender mid-session
    */

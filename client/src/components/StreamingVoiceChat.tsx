@@ -1636,6 +1636,10 @@ export function StreamingVoiceChat({
       mediaRecorderRef.current = mediaRecorder;
       mediaRecorder.start();
       
+      // Notify server that user is actively recording (prevents idle timeout)
+      // This is important because push-to-talk doesn't send audio until release
+      streamingVoice.sendUserActivity();
+      
       // PHASE 2: Mic is ready - transition to actual recording state
       // NOW the user can start speaking (they'll see "Release to send")
       setIsMicPreparing(false);

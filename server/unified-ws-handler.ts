@@ -905,6 +905,15 @@ Reference past discussions when relevant, but don't force it.
           if (session) orchestrator.handleInterrupt(session.id);
           break;
 
+        case 'user_activity': {
+          // User is actively engaged (e.g., recording audio) - reset idle timeout
+          // This prevents timeout while user is holding the push-to-talk button
+          if (session) {
+            orchestrator.resetIdleTimeoutForSession(session.id);
+          }
+          break;
+        }
+
         case 'set_input_mode': {
           const modeMessage = message as { type: 'set_input_mode'; inputMode: VoiceInputMode };
           currentInputMode = modeMessage.inputMode;
