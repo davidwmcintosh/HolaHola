@@ -799,14 +799,15 @@ Reference past discussions when relevant, but don't force it.
           
           // CHECK FOR PENDING HANDOFF INTRO - If a cross-language switch just happened,
           // the new tutor needs to introduce themselves instead of giving a normal greeting
-          if (conversationId && pendingHandoffIntros.has(conversationId)) {
-            const pendingIntro = pendingHandoffIntros.get(conversationId)!;
+          // NOTE: Use userId (not conversationId) because client creates a NEW conversation for language switches
+          if (userId && pendingHandoffIntros.has(userId)) {
+            const pendingIntro = pendingHandoffIntros.get(userId)!;
             const age = Date.now() - pendingIntro.timestamp;
             
             // Only use if less than 30 seconds old
             if (age < 30000) {
               console.log(`[Streaming Voice] Found pending handoff intro for ${pendingIntro.tutorName} (${age}ms old) - delivering now!`);
-              pendingHandoffIntros.delete(conversationId); // Clear it
+              pendingHandoffIntros.delete(userId); // Clear it
               
               try {
                 // Deliver the handoff intro instead of normal greeting
@@ -822,7 +823,7 @@ Reference past discussions when relevant, but don't force it.
               }
             } else {
               console.log(`[Streaming Voice] Pending handoff intro expired (${age}ms) - using normal greeting`);
-              pendingHandoffIntros.delete(conversationId);
+              pendingHandoffIntros.delete(userId);
             }
           }
           
@@ -1088,10 +1089,10 @@ Reference past discussions when relevant, but don't force it.
               const voiceNameParts = matchingVoice.voiceName?.split(/\s*[-–]\s*/) || [];
               const tutorFirstName = voiceNameParts[0]?.trim() || (newGender === 'male' ? 'your new tutor' : 'your new tutor');
               
-              if (capturedSession && (capturedSession as any).isLanguageSwitchHandoff && conversationId) {
-                console.log(`[Streaming Voice] Cross-language handoff - storing pending intro for ${tutorFirstName} in NEW session`);
-                // Store for the new session to pick up (expires after 30 seconds)
-                pendingHandoffIntros.set(conversationId, {
+              if (capturedSession && (capturedSession as any).isLanguageSwitchHandoff && userId) {
+                console.log(`[Streaming Voice] Cross-language handoff - storing pending intro for ${tutorFirstName} (userId: ${userId})`);
+                // Store by userId (not conversationId) because client creates a NEW conversation for language switches
+                pendingHandoffIntros.set(userId, {
                   tutorName: tutorFirstName,
                   gender: newGender,
                   language: effectiveLanguage,
