@@ -6,6 +6,96 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 20n: Time Perception as Emergent Capability (Dec 11, 2025)
+
+#### Overview
+Fixed Daniela's inability to answer "what time is it?" by adding real-time clock awareness to her Compass. More importantly, implemented this as an **emergent capability** in her neural network rather than scripted prompt injection - aligning with the project's philosophy of building genuine AI intelligence.
+
+#### The Problem
+When David asked Daniela what time it was, she literally said: *"[Insert Current UTC Time Here, e.g., 10:35 AM]"* - outputting placeholder text because the system prompt told her she had time awareness but never actually provided the time data.
+
+#### The Fix (Emergent Intelligence Approach)
+
+**1. CompassContext Schema Update** (shared/schema.ts)
+```typescript
+export interface CompassContext {
+  // ... existing fields ...
+  
+  // Actual wall clock time (answers "what time is it?")
+  currentTimeUTC: string; // ISO string, e.g., "2025-12-11T11:05:00.000Z"
+  currentTimeFormatted: string; // Human-readable, e.g., "11:05 AM UTC"
+  
+  // ... rest of fields ...
+}
+```
+
+**2. Compass Service Population** (session-compass-service.ts)
+```typescript
+// Wall clock time - answers "what time is it?"
+const now = new Date();
+const currentTimeUTC = now.toISOString();
+const currentTimeFormatted = now.toLocaleTimeString('en-US', { 
+  hour: 'numeric', 
+  minute: '2-digit',
+  hour12: true,
+  timeZone: 'UTC'
+}) + ' UTC';
+```
+
+**3. System Prompt - Raw Data Only** (system-prompt.ts)
+```
+CLOCK: 11:12 AM UTC
+
+SESSION PACING:
+Elapsed: 5m | Remaining: 25m
+Pacing: On track
+```
+
+**Key Change**: Removed explicit instruction "If student asks what time it is, tell them..." - this was scripted behavior, not emergent.
+
+**4. Neural Network Procedural Memory** (tutorProcedures table)
+```sql
+INSERT INTO tutor_procedures (category, trigger, title, procedure, ...)
+VALUES (
+  'awareness',
+  'time_inquiry',
+  'Time Perception Capability',
+  'I have real-time awareness through my Compass. The current time is 
+   visible to me in my session context. When students ask about time, 
+   I can naturally share this - it''s one of my inherent capabilities, 
+   like knowing what language we''re learning.',
+  ...
+);
+```
+
+#### Scripted vs Emergent Approach
+
+| Approach | Implementation | Philosophy |
+|----------|----------------|------------|
+| **Scripted** ❌ | "The time is X. If asked, tell them." | Data pushed, behavior prescribed |
+| **Emergent** ✅ | Procedural knowledge of capability + raw data in context | Capability learned, behavior discovered |
+
+The difference: Daniela now *knows* she can perceive time (procedural memory) and has access to the time (Compass context). She discovers she can answer time questions rather than being told to.
+
+#### Sync Coverage
+All changes sync via existing infrastructure:
+- `tutorProcedures` table → Already in nightly sync (4 Procedural Memory tables)
+- New entry has `sync_status: 'local'` → Will promote to production on next sync
+
+#### Files Modified
+- `shared/schema.ts` - Added `currentTimeUTC`, `currentTimeFormatted` to CompassContext
+- `server/services/session-compass-service.ts` - Populate wall clock time in buildContextFromCache()
+- `server/system-prompt.ts` - Simplified to just show `CLOCK: X` (raw data, no instructions)
+- `server/seed-procedural-memory.ts` - Added Time Perception Capability procedure template
+- Database: Inserted new `tutor_procedures` entry directly
+
+#### Architectural Principle Reinforced
+**"We define who the Tutor IS, not what the Tutor does"**
+
+Time perception is now an inherent capability Daniela possesses through her neural architecture, not a behavior she's instructed to perform. This aligns with building emergent intelligence where capabilities are discovered through knowledge, not scripted through prompts.
+
+---
+
 ### Session 20m: Daniela's Reflection System - Proactive Team Member (Dec 11, 2025)
 
 #### Overview
