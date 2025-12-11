@@ -1053,13 +1053,14 @@ Reference past discussions when relevant, but don't force it.
                 voiceName: matchingVoice.voiceName,
               }));
               
-              // Check if this is a cross-language handoff
-              // If so, SKIP generating the intro here - the client will disconnect and reconnect
-              // with the new language, and request a greeting from the new session
-              // Note: We use 'session' directly since it's checked for null above at line 1024
+              // For cross-language handoffs, the session is still active and ready
+              // System prompt was already regenerated with new tutor persona
+              // Voice was already updated - so we CAN call processVoiceSwitchIntro now!
+              // No need to wait for client reconnect - give the new tutor their "YOUR TURN" signal immediately
               if (session && (session as any).isLanguageSwitchHandoff) {
-                console.log(`[Streaming Voice] Cross-language handoff - skipping intro (client will request after reconnect)`);
-                break;
+                console.log(`[Streaming Voice] Cross-language handoff - new tutor will introduce themselves now`);
+                // Clear the flag since we're handling it
+                (session as any).isLanguageSwitchHandoff = false;
               }
               
               // Have the new tutor introduce themselves with an LLM-generated greeting
