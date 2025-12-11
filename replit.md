@@ -18,6 +18,21 @@ The frontend utilizes a mobile-first, responsive design with Shadcn/ui (Radix UI
 ### Technical Implementations
 The frontend is built with React and TypeScript (Vite), using Wouter for routing and React Context with TanStack Query for state management. The backend is an Express.js (Node.js) server with TypeScript, exposing a RESTful API. Data persistence is handled by Drizzle ORM for PostgreSQL. AI integration for text chat uses Gemini 2.5 Flash. Authentication is managed by Replit Auth (OIDC), and Stripe integration for subscriptions uses `stripe-replit-sync`.
 
+### Unified TutorOrchestrator Architecture ("One Tutor, Many Voices")
+**CRITICAL PHILOSOPHY**: Daniela is THE single core intelligence. All interaction modes (voice chat, text chat, drills, greetings, summaries) route through a unified pipeline. Language voices (Spanish Daniela, German Klaus, etc.), gender voices, and drill modes are PRESENTATION LAYERS only - different instruments, same musician.
+
+**Core Files**:
+- `shared/tutor-orchestration-types.ts`: Type contracts for orchestrator modes, voice presentations, and context
+- `server/services/tutor-orchestrator.ts`: Central intelligence pipeline with unified Gemini invocation
+- `server/services/aris-ai-service.ts`: Drill mode (Aris persona) - now routes through TutorOrchestrator
+
+**VoicePresentation** is purely stylistic: avatar, voiceId, response length preferences, formality deltas. The INTELLIGENCE (persona, teaching principles, neural network knowledge) is always Daniela's brain via TutorOrchestrator.
+
+**OrchestratorModes**: 'conversation', 'drill', 'greeting', 'summary', 'assessment', 'feedback'
+**ResponseChannels**: 'stream' (for real-time voice), 'batch_text', 'batch_json'
+
+**Integration Status**: Drill mode fully migrated. Streaming voice chat pending (high complexity, using existing working system-prompt.ts for now).
+
 ### Feature Specifications
 HolaHola provides conversational onboarding, an adaptive multi-phase conversation system, and AI-suggested topics. It employs a streaming-only voice pipeline (Deepgram Nova-3 STT → Gemini 2.5 Flash → Cartesia Sonic-3 TTS) with push-to-talk recording and smart language handling. Personalized learning includes scenario-based learning, slow pronunciation, automatic vocabulary extraction, spaced repetition, streak tracking, progress charts, and auto-difficulty adjustment. AI-generated educational images are displayed with caching. The application supports various subscription tiers, tracks atomic voice message usage, and tracks student proficiency using ACTFL World-Readiness Standards. Institutional features include teacher class management, student enrollment, syllabus systems, assignment workflows, and a unified Command Center with RBAC. A Syllabus Builder allows customization with drag-and-drop reordering, custom lesson creation, and ACTFL Standards Coverage analysis. Developer tools include test account isolation, floating dev controls, and usage analytics. Self-directed learners can customize their AI tutor's teaching style per language in Settings with four flexibility levels; class chats use the teacher's setting. Drill-based lessons support multiple modes (`repeat`, `translate`, `match`, `fill_blank`, `sentence_order`), utilizing Google Cloud TTS for batch audio synthesis. Fill-in-the-blank drills support both dropdown options and text input. Sentence order drills use drag-and-drop or button-based word reordering. Vocabulary can be exported in CSV and Anki-compatible formats. Conversation history includes full-text search. "Founder Mode" provides a collaboration mode for developer/admin users. Open Mic Mode offers continuous listening with Deepgram VAD for automatic speech detection, supporting barge-in and bilingual conversations. "Raw Honesty Mode" provides minimal prompting for founders to explore Daniela's authentic preferences.
 
