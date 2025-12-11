@@ -757,16 +757,16 @@ async function seedTutorProcedures() {
     {
       category: 'development',
       trigger: 'session_complete',
-      title: 'Batch Documentation Update',
-      procedure: '1. After completing significant implementation work, document in docs/batch-doc-updates.md\n2. Create session entry with date and overview\n3. Document schema changes, new files, API endpoints, frontend components\n4. Include code snippets for key patterns\n5. Note deferred items for future work\n6. Add to "Files Modified/Created" section',
+      title: 'Batch Documentation Update - MANDATORY',
+      procedure: '**ALWAYS update docs/batch-doc-updates.md after ANY implementation work - this is not optional.**\n\n1. IMMEDIATELY after completing work, add session entry to docs/batch-doc-updates.md\n2. Create session header with date and descriptive title\n3. Write overview paragraph explaining what was built\n4. Document: schema changes, new files, API endpoints, frontend components\n5. Include code snippets for key patterns (types, exports, usage)\n6. Add integration status table if multiple components involved\n7. List all files created/modified\n8. Note deferred items for future work\n9. Update "Completed This Session" checklist',
       examples: [
-        'After implementing Support Agent: Add session entry with schema tables, API routes, frontend components, neural network entries',
+        'After implementing TutorOrchestrator: Add session with philosophy, type contracts, implementation details, migration status',
         'After adding new whiteboard command: Document syntax, flow, and neural network entries',
-        'After refactoring: Document before/after patterns, migration notes'
+        'After refactoring: Document before/after patterns, files changed, architectural decisions'
       ],
       applicablePhases: ['any'],
       studentStates: ['any'],
-      priority: 90,
+      priority: 100,  // Highest priority - must always happen
     },
     {
       category: 'development',
