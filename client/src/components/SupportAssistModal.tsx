@@ -4,11 +4,16 @@
  * Part of Tri-Lane Hive architecture: This modal appears when Daniela hands off
  * to the Support Agent via CALL_SUPPORT command.
  * 
+ * DUAL PURPOSE:
+ * 1. Live support handoffs from Daniela (voice or text)
+ * 2. Offline drills/exercises voice prompts and feedback
+ * 
  * Behavior:
  * - Slides in from bottom as an overlay (doesn't replace voice chat)
- * - Shows support ticket context and allows text-based chat
+ * - Supports BOTH voice and text input modes
+ * - Student can toggle between voice/text
+ * - Uses Google Cloud TTS (Chirp HD) for voice responses
  * - Student can resolve issue and return to tutoring
- * - Supports real-time messaging via WebSocket
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -21,20 +26,28 @@ import {
   MessageCircle,
   CheckCircle2,
   ArrowLeft,
-  AlertCircle,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  Keyboard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+
+type InputMode = 'text' | 'voice';
 
 interface SupportMessage {
   id: string;
   role: 'user' | 'support';
   content: string;
   timestamp: Date;
+  audioUrl?: string;
 }
 
 interface SupportAssistModalProps {
@@ -45,6 +58,12 @@ interface SupportAssistModalProps {
   category: 'technical' | 'account' | 'billing' | 'content' | 'feedback' | 'other';
   reason: string;
   priority: 'low' | 'normal' | 'high' | 'critical';
+  mode?: 'support' | 'drill';
+  drillContext?: {
+    lessonId?: string;
+    exerciseType?: string;
+    prompt?: string;
+  };
 }
 
 const categoryLabels: Record<string, string> = {
@@ -80,25 +99,50 @@ export function SupportAssistModal({
   category,
   reason,
   priority,
+  mode = 'support',
+  drillContext,
 }: SupportAssistModalProps) {
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isResolved, setIsResolved] = useState(false);
+  const [inputMode, setInputMode] = useState<InputMode>('text');
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const { toast } = useToast();
+  
+  // IMPORTANT: Drill mode is currently disabled on the backend (returns 501)
+  // This modal should only be used for support mode until drill sessions are implemented
+  const isDrillModeDisabled = mode === 'drill';
 
   useEffect(() => {
     if (isOpen && reason) {
+      // Drill mode is disabled - show informational message instead
+      let initialMessage: string;
+      if (isDrillModeDisabled) {
+        initialMessage = "Drill mode voice/text chat is not yet available. Please use the standard drill exercises in the Lessons section. This feature is coming soon!";
+      } else {
+        initialMessage = `Hi! I'm the HolaHola Support Assistant. I understand you need help with: "${reason}"\n\nI'm here to help you resolve this. What can I do for you?`;
+      }
+      
       setMessages([{
         id: 'initial',
         role: 'support',
-        content: `Hi! I'm the HolaHola Support Assistant. I understand you need help with: "${reason}"\n\nI'm here to help you resolve this. What can I do for you?`,
+        content: initialMessage,
         timestamp: new Date(),
       }]);
       setIsResolved(false);
+      
+      if (audioEnabled && !isDrillModeDisabled) {
+        synthesizeAndPlay(initialMessage);
+      }
     }
-  }, [isOpen, reason]);
+  }, [isOpen, reason, isDrillModeDisabled]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -106,7 +150,181 @@ export function SupportAssistModal({
     }
   }, [messages]);
 
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, []);
+
+  const synthesizeAndPlay = useCallback(async (text: string) => {
+    if (!audioEnabled || isDrillModeDisabled) return;
+    
+    try {
+      setIsPlaying(true);
+      const response = await fetch('/api/support/synthesize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, language: 'english' }),
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        console.warn('[SupportAssist] TTS synthesis failed, continuing without audio');
+        return;
+      }
+      
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      
+      audioRef.current = new Audio(audioUrl);
+      audioRef.current.onended = () => {
+        setIsPlaying(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+      audioRef.current.onerror = () => {
+        setIsPlaying(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+      await audioRef.current.play();
+    } catch (error) {
+      console.error('[SupportAssist] TTS error:', error);
+      setIsPlaying(false);
+    }
+  }, [audioEnabled, isDrillModeDisabled]);
+
+  const startRecording = useCallback(async () => {
+    // Prevent recording in drill mode (backend returns 501)
+    if (isDrillModeDisabled) return;
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        stream.getTracks().forEach(track => track.stop());
+        
+        await transcribeAndSend(audioBlob);
+      };
+      
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error('[SupportAssist] Microphone error:', error);
+      toast({
+        variant: "destructive",
+        title: "Microphone Error",
+        description: "Couldn't access microphone. Please check permissions.",
+      });
+    }
+  }, [toast, isDrillModeDisabled]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  }, []);
+
+  const transcribeAndSend = useCallback(async (audioBlob: Blob) => {
+    // Prevent voice message in drill mode (backend returns 501)
+    if (isDrillModeDisabled) {
+      toast({
+        variant: "destructive",
+        title: "Feature Unavailable",
+        description: "Drill mode voice chat is not yet available.",
+      });
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'recording.webm');
+      formData.append('ticketId', ticketId || '');
+      formData.append('category', category);
+      formData.append('mode', mode);
+      if (drillContext) {
+        formData.append('drillContext', JSON.stringify(drillContext));
+      }
+      
+      const response = await fetch('/api/support/voice-message', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to process voice message');
+      }
+      
+      const data = await response.json();
+      
+      if (data.transcript) {
+        const userMessage: SupportMessage = {
+          id: `user-${Date.now()}`,
+          role: 'user',
+          content: data.transcript,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, userMessage]);
+      }
+      
+      if (data.reply) {
+        const supportMessage: SupportMessage = {
+          id: `support-${Date.now()}`,
+          role: 'support',
+          content: data.reply,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, supportMessage]);
+        
+        if (audioEnabled) {
+          await synthesizeAndPlay(data.reply);
+        }
+      }
+    } catch (error) {
+      console.error('[SupportAssist] Voice message error:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Couldn't process your voice message. Please try again.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [ticketId, category, mode, drillContext, isDrillModeDisabled, audioEnabled, synthesizeAndPlay, toast]);
+
   const handleSendMessage = useCallback(async () => {
+    // Prevent text message in drill mode (backend returns 501)
+    if (isDrillModeDisabled) {
+      toast({
+        variant: "destructive",
+        title: "Feature Unavailable",
+        description: "Drill mode text chat is not yet available.",
+      });
+      return;
+    }
+    
     if (!inputValue.trim() || isLoading) return;
 
     const userMessage: SupportMessage = {
@@ -125,6 +343,8 @@ export function SupportAssistModal({
         ticketId,
         message: userMessage.content,
         category,
+        mode,
+        drillContext,
       });
       
       const data = await response.json();
@@ -137,6 +357,10 @@ export function SupportAssistModal({
       };
 
       setMessages(prev => [...prev, supportMessage]);
+      
+      if (audioEnabled) {
+        await synthesizeAndPlay(supportMessage.content);
+      }
     } catch (error) {
       console.error('[SupportChat] Error sending message:', error);
       
@@ -150,7 +374,7 @@ export function SupportAssistModal({
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, isLoading, ticketId, category]);
+  }, [inputValue, isLoading, ticketId, category, mode, drillContext, isDrillModeDisabled, audioEnabled, synthesizeAndPlay, toast]);
 
   const handleResolve = useCallback(async () => {
     setIsLoading(true);
@@ -187,6 +411,14 @@ export function SupportAssistModal({
     }
   };
 
+  const toggleAudio = () => {
+    setAudioEnabled(!audioEnabled);
+    if (audioRef.current && audioEnabled) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -215,34 +447,59 @@ export function SupportAssistModal({
                   <Headphones className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h2 className="font-semibold text-foreground" data-testid="text-support-title">Support Assistant</h2>
+                  <h2 className="font-semibold text-foreground" data-testid="text-support-title">
+                    {mode === 'drill' ? 'Exercise Assistant' : 'Support Assistant'}
+                  </h2>
                   <div className="flex items-center gap-2">
-                    <Badge 
-                      variant="outline" 
-                      className={categoryColors[category]}
-                      data-testid={`badge-category-${category}`}
-                    >
-                      {categoryLabels[category]}
-                    </Badge>
-                    {priority !== 'normal' && (
-                      <Badge 
-                        className={priorityColors[priority]}
-                        data-testid={`badge-priority-${priority}`}
-                      >
-                        {priority}
+                    {mode === 'support' && (
+                      <>
+                        <Badge 
+                          variant="outline" 
+                          className={categoryColors[category]}
+                          data-testid={`badge-category-${category}`}
+                        >
+                          {categoryLabels[category]}
+                        </Badge>
+                        {priority !== 'normal' && (
+                          <Badge 
+                            className={priorityColors[priority]}
+                            data-testid={`badge-priority-${priority}`}
+                          >
+                            {priority}
+                          </Badge>
+                        )}
+                      </>
+                    )}
+                    {mode === 'drill' && drillContext?.exerciseType && (
+                      <Badge variant="outline" className="bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/30">
+                        {drillContext.exerciseType}
                       </Badge>
                     )}
                   </div>
                 </div>
               </div>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={onClose}
-                data-testid="button-close-support"
-              >
-                <X className="h-5 w-5" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleAudio}
+                  data-testid="button-toggle-audio"
+                >
+                  {audioEnabled ? (
+                    <Volume2 className="h-5 w-5" />
+                  ) : (
+                    <VolumeX className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={onClose}
+                  data-testid="button-close-support"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
             </div>
 
             {/* Messages */}
@@ -278,7 +535,20 @@ export function SupportAssistModal({
                     <div className="bg-muted rounded-2xl px-4 py-3 rounded-bl-md">
                       <div className="flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        <span className="text-sm text-muted-foreground">Thinking...</span>
+                        <span className="text-sm text-muted-foreground">
+                          {isRecording ? 'Processing...' : 'Thinking...'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {isPlaying && (
+                  <div className="flex justify-start" data-testid="playing-indicator">
+                    <div className="bg-primary/10 rounded-2xl px-4 py-2 rounded-bl-md">
+                      <div className="flex items-center gap-2">
+                        <Volume2 className="h-4 w-4 animate-pulse text-primary" />
+                        <span className="text-sm text-primary">Speaking...</span>
                       </div>
                     </div>
                   </div>
@@ -301,56 +571,119 @@ export function SupportAssistModal({
               </motion.div>
             )}
 
-            {/* Input Area */}
-            <div className="p-4 border-t space-y-3">
-              <div className="flex gap-2">
-                <Textarea
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Describe your issue..."
-                  className="min-h-[60px] resize-none"
-                  disabled={isLoading || isResolved}
-                  data-testid="input-message"
-                />
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!inputValue.trim() || isLoading || isResolved}
-                  size="icon"
-                  className="h-[60px] w-[60px]"
-                  data-testid="button-send"
-                >
-                  {isLoading ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Send className="h-5 w-5" />
-                  )}
-                </Button>
+            {/* Input Mode Toggle - Hidden for disabled drill mode */}
+            {!isDrillModeDisabled && (
+              <div className="px-4 pt-2">
+                <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as InputMode)} className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="text" data-testid="tab-text-mode">
+                      <Keyboard className="h-4 w-4 mr-2" />
+                      Text
+                    </TabsTrigger>
+                    <TabsTrigger value="voice" data-testid="tab-voice-mode">
+                      <Mic className="h-4 w-4 mr-2" />
+                      Voice
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </div>
+            )}
+
+            {/* Input Area - Disabled for drill mode */}
+            <div className="p-4 border-t space-y-3">
+              {isDrillModeDisabled ? (
+                <div className="text-center py-4">
+                  <Button
+                    variant="outline"
+                    onClick={onClose}
+                    data-testid="button-close-drill-disabled"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Return to Lessons
+                  </Button>
+                </div>
+              ) : inputMode === 'text' ? (
+                <div className="flex gap-2">
+                  <Textarea
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Describe your issue..."
+                    className="min-h-[60px] resize-none"
+                    disabled={isLoading || isResolved}
+                    data-testid="input-message"
+                  />
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={!inputValue.trim() || isLoading || isResolved}
+                    size="icon"
+                    className="h-[60px] w-[60px]"
+                    data-testid="button-send"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Send className="h-5 w-5" />
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex justify-center">
+                  <Button
+                    variant={isRecording ? "destructive" : "default"}
+                    size="lg"
+                    className={`h-16 w-16 rounded-full ${isRecording ? 'animate-pulse' : ''}`}
+                    onClick={isRecording ? stopRecording : startRecording}
+                    disabled={isLoading || isResolved}
+                    data-testid="button-voice-record"
+                  >
+                    {isRecording ? (
+                      <MicOff className="h-6 w-6" />
+                    ) : (
+                      <Mic className="h-6 w-6" />
+                    )}
+                  </Button>
+                </div>
+              )}
 
               {/* Action Buttons */}
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={onClose}
-                  disabled={isResolved}
-                  data-testid="button-back-to-lesson"
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Lesson
-                </Button>
-                <Button
-                  variant="default"
-                  className="flex-1 bg-green-600 hover:bg-green-700"
-                  onClick={handleResolve}
-                  disabled={isLoading || isResolved}
-                  data-testid="button-mark-resolved"
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Issue Resolved
-                </Button>
-              </div>
+              {mode === 'support' && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={onClose}
+                    disabled={isResolved}
+                    data-testid="button-back-to-lesson"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back to Lesson
+                  </Button>
+                  <Button
+                    variant="default"
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    onClick={handleResolve}
+                    disabled={isLoading || isResolved}
+                    data-testid="button-mark-resolved"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Issue Resolved
+                  </Button>
+                </div>
+              )}
+              
+              {mode === 'drill' && (
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    onClick={onClose}
+                    data-testid="button-close-drill"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Close
+                  </Button>
+                </div>
+              )}
             </div>
           </motion.div>
         </motion.div>

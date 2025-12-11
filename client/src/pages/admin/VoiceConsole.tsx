@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Play, Pause, Plus, Edit2, Trash2, Volume2, User, Languages, Loader2, Sparkles, Heart } from "lucide-react";
+import { Play, Pause, Plus, Edit2, Trash2, Volume2, User, Languages, Loader2, Sparkles, Heart, Headphones } from "lucide-react";
 
 // Personality preset types matching backend
 type PersonalityType = 'warm' | 'calm' | 'energetic' | 'professional';
@@ -816,8 +816,205 @@ export default function VoiceConsole() {
               })}
             </div>
           )}
+          
+          {/* Support Agent Voice Configuration */}
+          <SupportAgentVoiceCard />
         </div>
       </AdminLayout>
     </RoleGuard>
+  );
+}
+
+/**
+ * Support Agent Voice Configuration Card
+ * Uses Google Cloud TTS Chirp HD for cost-effective, professional support voice
+ */
+function SupportAgentVoiceCard() {
+  const { toast } = useToast();
+  const [selectedLanguage, setSelectedLanguage] = useState('english');
+  const [speakingRate, setSpeakingRate] = useState(1.0);
+  const [pitch, setPitch] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  
+  // Fetch support voice metadata
+  const { data: supportVoiceMeta, isLoading } = useQuery<{
+    provider: string;
+    model: string;
+    voices: Record<string, { name: string; languageCode: string }>;
+    audioConfig: {
+      speakingRateRange: { min: number; max: number; default: number };
+      pitchRange: { min: number; max: number; default: number };
+    };
+    description: string;
+  }>({
+    queryKey: ["/api/admin/support-voice-meta"],
+  });
+  
+  const handleAudition = async () => {
+    if (isPlaying && audioElement) {
+      audioElement.pause();
+      setIsPlaying(false);
+      return;
+    }
+    
+    setIsPlaying(true);
+    
+    try {
+      const response = await fetch('/api/admin/support-voice-audition', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          language: selectedLanguage,
+          speakingRate,
+          pitch,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate audio');
+      }
+      
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      const audio = new Audio(audioUrl);
+      setAudioElement(audio);
+      
+      audio.onended = () => {
+        setIsPlaying(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      audio.onerror = () => {
+        setIsPlaying(false);
+        URL.revokeObjectURL(audioUrl);
+        toast({ title: "Error", description: "Failed to play audio", variant: "destructive" });
+      };
+      
+      await audio.play();
+    } catch (error: any) {
+      console.error('[VoiceConsole] Support voice audition error:', error);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      setIsPlaying(false);
+    }
+  };
+  
+  return (
+    <Card className="mt-6" data-testid="card-support-agent-voice">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Headphones className="h-5 w-5" />
+              Support Agent Voice
+            </CardTitle>
+            <CardDescription>
+              {supportVoiceMeta?.description || 'Configure the Support Agent TTS voice settings'}
+            </CardDescription>
+          </div>
+          <Badge variant="outline" className="bg-green-500/10 text-green-700 dark:text-green-300 border-green-500/30">
+            Google Cloud Chirp HD
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Language</Label>
+                <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                  <SelectTrigger data-testid="select-support-language">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {supportVoiceMeta?.voices && Object.entries(supportVoiceMeta.voices).map(([lang, config]) => (
+                      <SelectItem key={lang} value={lang}>
+                        <div className="flex items-center gap-2">
+                          <span className="capitalize">{lang}</span>
+                          <span className="text-xs text-muted-foreground">({config.languageCode})</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Voice Name</Label>
+                <div className="px-3 py-2 border rounded-md bg-muted/30 text-sm">
+                  {supportVoiceMeta?.voices?.[selectedLanguage]?.name || 'N/A'}
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>Speaking Rate</Label>
+                  <span className="text-sm text-muted-foreground">{speakingRate.toFixed(1)}x</span>
+                </div>
+                <Slider
+                  value={[speakingRate]}
+                  min={0.5}
+                  max={2.0}
+                  step={0.1}
+                  onValueChange={([v]) => setSpeakingRate(v)}
+                  data-testid="slider-support-speaking-rate"
+                />
+              </div>
+              
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>Pitch</Label>
+                  <span className="text-sm text-muted-foreground">{pitch > 0 ? '+' : ''}{pitch.toFixed(0)}</span>
+                </div>
+                <Slider
+                  value={[pitch]}
+                  min={-10}
+                  max={10}
+                  step={1}
+                  onValueChange={([v]) => setPitch(v)}
+                  data-testid="slider-support-pitch"
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-center pt-2">
+              <Button
+                onClick={handleAudition}
+                variant={isPlaying ? "secondary" : "default"}
+                className="w-full max-w-xs"
+                data-testid="button-audition-support"
+              >
+                {isPlaying ? (
+                  <>
+                    <Pause className="h-4 w-4 mr-2" />
+                    Stop
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    Audition Support Voice
+                  </>
+                )}
+              </Button>
+            </div>
+            
+            <p className="text-xs text-muted-foreground text-center pt-2">
+              The Support Agent handles technical issues, billing questions, and offline exercises.
+              It uses Google Cloud TTS for cost-effective voice responses.
+            </p>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }

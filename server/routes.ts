@@ -10536,6 +10536,375 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ============================================================================
+  // SUPPORT AGENT API ROUTES (Tri-Lane Hive)
+  // Voice + Text based support for live handoffs and offline drills
+  // ============================================================================
+  
+  // Helper function for simple support replies (placeholder until AI integration)
+  function getSimpleSupportReply(message: string, category: string): string {
+    const lowerMessage = message.toLowerCase();
+    
+    if (lowerMessage.includes('audio') || lowerMessage.includes('sound') || lowerMessage.includes('mic')) {
+      return "I understand you're having audio issues. Let's troubleshoot: 1) Check your browser permissions for microphone access. 2) Make sure your device volume isn't muted. 3) Try refreshing the page. Would any of these help, or is the issue something else?";
+    }
+    
+    if (lowerMessage.includes('billing') || lowerMessage.includes('charge') || lowerMessage.includes('payment')) {
+      return "I see this is about billing. For security, billing changes need to go through our team. I've noted your concern. Can you tell me more about what you're seeing?";
+    }
+    
+    if (lowerMessage.includes('cancel') || lowerMessage.includes('subscription')) {
+      return "I understand you have questions about your subscription. I can help with general info, but changes need to be made in your account settings. Would you like me to explain how to access that?";
+    }
+    
+    if (lowerMessage.includes('slow') || lowerMessage.includes('loading') || lowerMessage.includes('freeze')) {
+      return "Performance issues can be frustrating. A few things that often help: 1) Clear your browser cache. 2) Try a different browser. 3) Check your internet connection. If the problem persists, I'll escalate this to our tech team.";
+    }
+    
+    if (lowerMessage.includes('thank')) {
+      return "You're welcome! Is there anything else I can help you with today?";
+    }
+    
+    return "I've received your message and I'm looking into it. To help you better, could you provide a bit more detail about what you're experiencing?";
+  }
+
+  // Send a text message to Support Agent
+  app.post("/api/support/message", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { ticketId, message, category, mode, drillContext } = req.body;
+      
+      if (!message || typeof message !== 'string') {
+        return res.status(400).json({ error: 'Message is required' });
+      }
+      
+      // TEMPORARY: Disable drill mode until proper drill session system is implemented
+      // This prevents unauthenticated message submissions via drill-mode path
+      if (mode === 'drill') {
+        return res.status(501).json({ 
+          error: 'Drill mode text is not yet available. Please use the standard drill exercises.',
+          code: 'DRILL_MODE_DISABLED'
+        });
+      }
+      
+      // Require ticketId for support mode
+      if (!ticketId) {
+        return res.status(400).json({ error: 'Ticket ID is required' });
+      }
+      
+      // Verify ticket ownership
+      const ticket = await storage.getSupportTicket(ticketId);
+      if (!ticket) {
+        return res.status(404).json({ error: 'Ticket not found' });
+      }
+      // Only the ticket owner, admin, or support_agent can add messages
+      if (ticket.userId !== userId) {
+        const user = await storage.getUser(userId);
+        if (!user || (user.role !== 'admin' && user.role !== 'super_admin' && user.role !== 'support_agent')) {
+          return res.status(403).json({ error: 'Not authorized to message this ticket' });
+        }
+      }
+      
+      // Store the user message
+      await storage.addSupportMessage({
+        ticketId,
+        senderType: 'user',
+        senderId: userId,
+        content: message,
+      });
+      
+      // Get support reply
+      const reply = getSimpleSupportReply(message, category || 'other');
+      
+      // Store the support response
+      await storage.addSupportMessage({
+        ticketId,
+        senderType: 'support',
+        content: reply,
+      });
+      
+      res.json({ reply });
+    } catch (error: any) {
+      console.error('[API] Error handling support message:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Synthesize TTS for Support Agent (Google Cloud Chirp HD)
+  app.post("/api/support/synthesize", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
+    try {
+      const { text, language = 'english' } = req.body;
+      
+      if (!text || typeof text !== 'string') {
+        return res.status(400).json({ error: 'Text is required' });
+      }
+      
+      // Import TTS service
+      const { TTSService } = await import('./services/tts-service');
+      const tts = new TTSService();
+      
+      // Use Google TTS for Support Agent (cheaper than Cartesia)
+      const result = await tts.synthesize({
+        text,
+        language,
+        provider: 'google',
+      });
+      
+      res.set('Content-Type', result.contentType);
+      res.send(result.audioBuffer);
+    } catch (error: any) {
+      console.error('[API] Error synthesizing support TTS:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Voice message to Support Agent (transcribe + respond)
+  // Zod schema for voice message validation
+  const voiceMessageSchema = z.object({
+    ticketId: z.string().min(1, 'Ticket ID is required'),
+    category: z.enum(['technical', 'account', 'billing', 'content', 'feedback', 'other']).optional().default('other'),
+    mode: z.enum(['support', 'drill']).optional().default('support'),
+    drillContext: z.string().optional(),
+  });
+  
+  app.post("/api/support/voice-message", isAuthenticated, loadAuthenticatedUser(storage), upload.single('audio'), async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const audioFile = req.file;
+      
+      if (!audioFile) {
+        return res.status(400).json({ error: 'Audio file is required' });
+      }
+      
+      // Validate request body with Zod
+      const parseResult = voiceMessageSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: parseResult.error.issues[0].message });
+      }
+      
+      const { ticketId, category, mode, drillContext: drillContextStr } = parseResult.data;
+      
+      // TEMPORARY: Disable drill mode until proper drill session system is implemented
+      // This prevents unauthenticated uploads via drill-mode path
+      if (mode === 'drill') {
+        return res.status(501).json({ 
+          error: 'Drill mode voice is not yet available. Please use the text-based drill exercises.',
+          code: 'DRILL_MODE_DISABLED'
+        });
+      }
+      
+      // Parse drillContext if sent as JSON string (guard against empty strings)
+      let drillContext: { lessonId?: string; exerciseType?: string; prompt?: string } | undefined;
+      if (drillContextStr && drillContextStr.trim().length > 0) {
+        try {
+          drillContext = JSON.parse(drillContextStr);
+        } catch (e) {
+          // Ignore parse errors - treat as no drill context
+        }
+      }
+      
+      // Verify ticket ownership (required for all modes)
+      const ticket = await storage.getSupportTicket(ticketId);
+      if (!ticket) {
+        return res.status(404).json({ error: 'Ticket not found' });
+      }
+      if (ticket.userId !== userId) {
+        const user = await storage.getUser(userId);
+        if (!user || (user.role !== 'admin' && user.role !== 'super_admin' && user.role !== 'support_agent')) {
+          return res.status(403).json({ error: 'Not authorized to message this ticket' });
+        }
+      }
+      
+      // Transcribe using Deepgram prerecorded API
+      let transcript = '';
+      try {
+        const { createClient } = await import('@deepgram/sdk');
+        const deepgram = createClient(process.env.DEEPGRAM_API_KEY || '');
+        
+        const response = await deepgram.listen.prerecorded.transcribeFile(
+          audioFile.buffer,
+          {
+            model: 'nova-2',
+            language: 'multi',
+            smart_format: true,
+            punctuate: true,
+            mimetype: 'audio/webm',
+            detect_language: true,
+          }
+        );
+        
+        transcript = response.result?.results?.channels?.[0]?.alternatives?.[0]?.transcript || '';
+      } catch (sttError) {
+        console.error('[API] STT error:', sttError);
+        return res.status(500).json({ error: 'Failed to transcribe audio' });
+      }
+      
+      if (!transcript || transcript.trim().length === 0) {
+        return res.json({ transcript: '', reply: "I couldn't hear what you said. Could you please try again?" });
+      }
+      
+      // Store the user message if we have a ticket
+      if (ticketId) {
+        await storage.addSupportMessage({
+          ticketId,
+          senderType: 'user',
+          senderId: userId,
+          content: transcript,
+        });
+      }
+      
+      // Get reply based on mode (support vs drill)
+      let reply: string;
+      if (mode === 'drill' && drillContext) {
+        reply = `Great job working on this ${drillContext.exerciseType || 'exercise'}! Keep practicing.`;
+      } else {
+        reply = getSimpleSupportReply(transcript, category || 'other');
+      }
+      
+      // Store the support response if we have a ticket
+      if (ticketId) {
+        await storage.addSupportMessage({
+          ticketId,
+          senderType: 'support',
+          content: reply,
+        });
+      }
+      
+      res.json({ transcript, reply });
+    } catch (error: any) {
+      console.error('[API] Error processing voice message:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Resolve a support ticket
+  app.post("/api/support/tickets/:ticketId/resolve", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
+    try {
+      const { ticketId } = req.params;
+      const userId = req.user?.id;
+      
+      const ticket = await storage.getSupportTicket(ticketId);
+      if (!ticket) {
+        return res.status(404).json({ error: 'Ticket not found' });
+      }
+      
+      // Only the ticket owner or admin can resolve
+      if (ticket.userId !== userId) {
+        const user = await storage.getUser(userId);
+        if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
+          return res.status(403).json({ error: 'Not authorized to resolve this ticket' });
+        }
+      }
+      
+      const updated = await storage.updateSupportTicket(ticketId, {
+        status: 'resolved',
+        resolvedAt: new Date(),
+      });
+      
+      res.json({ success: true, ticket: updated });
+    } catch (error: any) {
+      console.error('[API] Error resolving support ticket:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get user's support tickets
+  app.get("/api/support/tickets", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const tickets = await storage.getSupportTicketsByUser(userId);
+      res.json(tickets);
+    } catch (error: any) {
+      console.error('[API] Error getting support tickets:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get ticket details with messages
+  app.get("/api/support/tickets/:ticketId", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
+    try {
+      const { ticketId } = req.params;
+      const userId = req.user?.id;
+      
+      const ticket = await storage.getSupportTicket(ticketId);
+      if (!ticket) {
+        return res.status(404).json({ error: 'Ticket not found' });
+      }
+      
+      // Check authorization
+      if (ticket.userId !== userId) {
+        const user = await storage.getUser(userId);
+        if (!user || (user.role !== 'admin' && user.role !== 'super_admin' && user.role !== 'support_agent')) {
+          return res.status(403).json({ error: 'Not authorized to view this ticket' });
+        }
+      }
+      
+      const messages = await storage.getSupportMessages(ticketId);
+      res.json({ ticket, messages });
+    } catch (error: any) {
+      console.error('[API] Error getting support ticket:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Admin: Get Support Agent voice configuration metadata
+  app.get("/api/admin/support-voice-meta", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      // Return available Google Cloud TTS Chirp HD voices and settings
+      const supportVoiceMeta = {
+        provider: 'google',
+        model: 'chirp-hd',
+        voices: {
+          'english': { name: 'en-US-Chirp-HD-O', languageCode: 'en-US' },
+          'spanish': { name: 'es-US-Chirp-HD-O', languageCode: 'es-US' },
+          'french': { name: 'fr-FR-Chirp-HD-O', languageCode: 'fr-FR' },
+          'german': { name: 'de-DE-Chirp-HD-O', languageCode: 'de-DE' },
+          'italian': { name: 'it-IT-Chirp-HD-O', languageCode: 'it-IT' },
+          'portuguese': { name: 'pt-BR-Chirp-HD-O', languageCode: 'pt-BR' },
+          'japanese': { name: 'ja-JP-Chirp-HD-O', languageCode: 'ja-JP' },
+          'mandarin chinese': { name: 'cmn-CN-Chirp-HD-O', languageCode: 'cmn-CN' },
+          'korean': { name: 'ko-KR-Chirp-HD-O', languageCode: 'ko-KR' },
+        },
+        audioConfig: {
+          speakingRateRange: { min: 0.5, max: 2.0, default: 1.0 },
+          pitchRange: { min: -10, max: 10, default: 0 },
+        },
+        description: 'Support Agent uses Google Cloud Chirp HD for cost-effective, professional TTS',
+      };
+      
+      res.json(supportVoiceMeta);
+    } catch (error: any) {
+      console.error('[API] Error getting support voice meta:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Admin: Audition Support Agent voice
+  app.post("/api/admin/support-voice-audition", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { text, language = 'english', speakingRate = 1.0, pitch = 0 } = req.body;
+      
+      const sampleText = text || "Hello! I'm the HolaHola Support Assistant. I'm here to help you with any questions or issues you might have.";
+      
+      // Import TTS service
+      const { TTSService } = await import('./services/tts-service');
+      const tts = new TTSService();
+      
+      const result = await tts.synthesize({
+        text: sampleText,
+        language,
+        provider: 'google',
+        speakingRate,
+      });
+      
+      res.set('Content-Type', result.contentType);
+      res.send(result.audioBuffer);
+    } catch (error: any) {
+      console.error('[API] Error auditioning support voice:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up unified WebSocket handler for all paths
