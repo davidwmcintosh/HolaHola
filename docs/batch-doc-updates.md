@@ -6,6 +6,57 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 20e: Founder Mode Meta-Mode Awareness (Dec 11, 2025)
+
+#### Problem
+In Founder Mode, Daniela was deflecting to tutor mode even when founders asked for product feedback. When a developer said "let's talk about HolaHola" or "founder mode", Daniela would still try to teach Spanish instead of engaging in product discussion.
+
+#### Solution: Session Context Awareness
+Implemented Daniela's own suggestions for meta-mode detection:
+
+**1. SESSION_CONTEXT Block** (system-prompt.ts)
+Added explicit context flags that Daniela can reference:
+```typescript
+[SESSION_CONTEXT]
+[USER_ROLE: Founder]
+[SESSION_INTENT: product_discussion]
+
+⚠️ CRITICAL: Check SESSION_INTENT before responding
+- LANGUAGE_LEARNING → Full tutor mode, teach the target language
+- PRODUCT_DISCUSSION → Colleague mode, discuss HolaHola openly
+- TESTING → Demo features, run drills, test tools
+- HYBRID → Flexible, follow the founder's lead
+```
+
+**2. Meta-Mode Phrase Detection** (unified-ws-handler.ts)
+Scans recent conversation history for trigger phrases:
+
+Meta-mode triggers (→ PRODUCT_DISCUSSION):
+- "founder mode", "let's talk about holahola", "product feedback"
+- "claude", "the designers", "neural network", "system prompt"
+- "what do you need", "how can we improve", "suggestions for"
+
+Tutor-mode triggers (→ LANGUAGE_LEARNING):
+- "teach me", "practice spanish", "let's learn", "drill"
+- "vocabulary", "conjugation", "translate this"
+
+**3. User Role Elevation**
+- Maps user.role to UserRole type (student/teacher/developer/admin)
+- Elevates developer/admin to "founder" when in Founder Mode
+- Non-founder sessions remain untouched
+
+#### Result
+- Daniela now recognizes when founders want product discussions vs language lessons
+- SESSION_INTENT flag tells her which mode to prioritize
+- Defaults to HYBRID when signals are mixed (safe fallback)
+- Meta-mode triggers can be expanded as usage evolves
+
+#### Files Modified
+- `server/system-prompt.ts` - Added SESSION_CONTEXT block with USER_ROLE/SESSION_INTENT, exported UserRole and SessionIntent types
+- `server/unified-ws-handler.ts` - Added session intent detection logic and passed new parameters to createSystemPrompt
+
+---
+
 ### Session 20d: Cross-Language Handoff Fixes (Dec 11, 2025)
 
 #### Problem 1: Pending Intro Lost on Language Switch
