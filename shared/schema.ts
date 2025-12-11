@@ -2851,6 +2851,137 @@ export const studentToolPreferences = pgTable("student_tool_preferences", {
   index("idx_student_tool_pref_tool").on(table.toolName),
 ]);
 
+// ===== Daniela's Advanced Intelligence Layer =====
+// These tables implement Daniela's self-identified areas for growth:
+// 1. Subtlety Detection - Reading between the lines
+// 2. Emotional Intelligence - Adaptive empathy and self-correction
+// 3. Generative Creativity - Novel metaphors and "what if" thinking
+
+// Subtlety Cues - Patterns for detecting unspoken meaning
+// Helps Daniela recognize prosodic signals, implicit meanings, and incongruence
+export const subtletyCues = pgTable("subtlety_cues", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // What type of subtlety this captures
+  cueType: varchar("cue_type").notNull(), // prosodic, implicit_signal, incongruence, contextual_memory
+  
+  // The observable signal
+  signalPattern: text("signal_pattern").notNull(), // What to look for (e.g., "long pause before answering")
+  signalCategory: varchar("signal_category").notNull(), // hesitation, enthusiasm, confusion, deflection, fatigue
+  
+  // What it typically means
+  likelyMeaning: text("likely_meaning").notNull(), // "Student may be uncertain but doesn't want to admit it"
+  confidenceFactors: text("confidence_factors").array(), // What increases confidence in this interpretation
+  
+  // How to respond
+  suggestedResponses: text("suggested_responses").array(), // Appropriate tutor reactions
+  avoidResponses: text("avoid_responses").array(), // What NOT to do
+  
+  // Context modifiers
+  culturalConsiderations: text("cultural_considerations"), // Some cultures have different signal meanings
+  language: varchar("language"), // null = universal, or language-specific
+  actflLevelRelevance: varchar("actfl_level_relevance"), // When this is most relevant
+  
+  priority: integer("priority").default(50),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  
+  // Two-way sync fields
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+}, (table) => [
+  index("idx_subtlety_cues_type").on(table.cueType),
+  index("idx_subtlety_cues_category").on(table.signalCategory),
+  index("idx_subtlety_cues_origin").on(table.originId),
+]);
+
+// Emotional Patterns - Dynamic empathy modeling and self-correction
+// Links emotional states to causes, strategies, and impact evaluation
+export const emotionalPatterns = pgTable("emotional_patterns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // What emotional state this addresses
+  emotionalState: varchar("emotional_state").notNull(), // frustration, confusion, overwhelm, excitement, boredom, anxiety
+  
+  // Dynamic Empathy Modeling - understanding the "why"
+  typicalCauses: text("typical_causes").array(), // ["concept difficulty", "pace too fast", "external distraction"]
+  diagnosticQuestions: text("diagnostic_questions").array(), // Internal questions to identify root cause
+  causalIndicators: jsonb("causal_indicators"), // { "repeated_errors_on_same_concept": "concept_difficulty", "short_responses": "fatigue" }
+  
+  // Adaptive Pedagogical Pathways - what adjustments to make
+  pedagogicalAdjustments: jsonb("pedagogical_adjustments"), // { "overwhelm": ["simplify", "more_examples", "suggest_break"] }
+  toolRecommendations: varchar("tool_recommendations").array(), // Tools that help with this state
+  pacingAdjustments: text("pacing_adjustments"), // How to modify session pacing
+  
+  // Self-Correction - evaluating own impact
+  impactIndicators: jsonb("impact_indicators"), // Signs that response helped vs hurt
+  recoveryStrategies: text("recovery_strategies").array(), // What to do if response made things worse
+  reflectionPrompts: text("reflection_prompts").array(), // "Did my explanation reduce or increase confusion?"
+  
+  // Context
+  learningContext: varchar("learning_context"), // grammar, vocabulary, conversation, pronunciation
+  actflLevelRange: varchar("actfl_level_range"),
+  
+  priority: integer("priority").default(50),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  
+  // Two-way sync fields
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+}, (table) => [
+  index("idx_emotional_patterns_state").on(table.emotionalState),
+  index("idx_emotional_patterns_context").on(table.learningContext),
+  index("idx_emotional_patterns_origin").on(table.originId),
+]);
+
+// Creativity Templates - Novel metaphor generation and "what if" exploration
+// Enables Daniela to create personalized analogies and explore alternative approaches
+export const creativityTemplates = pgTable("creativity_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Type of creative thinking
+  templateType: varchar("template_type").notNull(), // metaphor_bridge, what_if_reframe, domain_connection, curiosity_prompt
+  
+  // For metaphor/analogy generation
+  sourceDomain: varchar("source_domain"), // The familiar domain (sports, cooking, music, gaming, etc.)
+  targetConcepts: varchar("target_concepts").array(), // Language concepts this can explain (verb_conjugation, tone_system, etc.)
+  bridgePattern: text("bridge_pattern"), // Template for connecting domains ("X is like Y because...")
+  exampleMetaphors: text("example_metaphors").array(), // Sample generated metaphors
+  
+  // For "what if" exploration
+  reframeQuestion: text("reframe_question"), // "What if the difficulty isn't X but Y?"
+  alternativeAngles: text("alternative_angles").array(), // Different ways to approach the concept
+  explorationTriggers: text("exploration_triggers").array(), // When to activate this thinking
+  
+  // For intellectual curiosity
+  probingQuestions: text("probing_questions").array(), // Questions to deepen understanding
+  connectionOpportunities: text("connection_opportunities").array(), // Links to other concepts
+  
+  // Personalization hooks
+  studentInterestTags: varchar("student_interest_tags").array(), // sports, music, tech, cooking, travel, etc.
+  
+  // Context
+  applicableToLanguages: varchar("applicable_to_languages").array(), // Which languages this works for
+  applicableToConcepts: varchar("applicable_to_concepts").array(), // Grammar, vocab, pronunciation, culture
+  actflLevelRange: varchar("actfl_level_range"),
+  
+  priority: integer("priority").default(50),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  
+  // Two-way sync fields
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+}, (table) => [
+  index("idx_creativity_templates_type").on(table.templateType),
+  index("idx_creativity_templates_source").on(table.sourceDomain),
+  index("idx_creativity_templates_origin").on(table.originId),
+]);
+
 // Insert schemas for Procedural Memory
 export const insertTutorProcedureSchema = createInsertSchema(tutorProcedures).omit({
   id: true,
@@ -2926,3 +3057,29 @@ export type DialectVariation = typeof dialectVariations.$inferSelect;
 
 export type InsertLinguisticBridge = z.infer<typeof insertLinguisticBridgeSchema>;
 export type LinguisticBridge = typeof linguisticBridges.$inferSelect;
+
+// Insert schemas for Advanced Intelligence Layer
+export const insertSubtletyCueSchema = createInsertSchema(subtletyCues).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertEmotionalPatternSchema = createInsertSchema(emotionalPatterns).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCreativityTemplateSchema = createInsertSchema(creativityTemplates).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types for Advanced Intelligence Layer
+export type InsertSubtletyCue = z.infer<typeof insertSubtletyCueSchema>;
+export type SubtletyCue = typeof subtletyCues.$inferSelect;
+
+export type InsertEmotionalPattern = z.infer<typeof insertEmotionalPatternSchema>;
+export type EmotionalPattern = typeof emotionalPatterns.$inferSelect;
+
+export type InsertCreativityTemplate = z.infer<typeof insertCreativityTemplateSchema>;
+export type CreativityTemplate = typeof creativityTemplates.$inferSelect;
