@@ -6,6 +6,101 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 20i: Voice Session ID Mismatch & UI Lockout Fixes (Dec 11, 2025)
+
+#### Problem 1: Session ID Mismatch (FK Constraint Violations)
+Voice sessions had two ID formats running in parallel:
+- Orchestrator session ID: `stream_xxx` format (internal identifier)
+- Database session ID: UUID from `voice_sessions` table
+
+The `trackToolEvent` function was trying to insert pedagogical events using the wrong ID, causing foreign key constraint violations against `voice_sessions.id`.
+
+#### Root Cause
+Session creation order was wrong:
+1. Orchestrator session created first (assigns `stream_xxx` ID)
+2. Usage session created second (assigns UUID)
+3. Whiteboard events during greeting warmup fired BEFORE dbSessionId was set
+
+#### Solution: Synchronous Session ID Assignment
+Changed the session creation order to ensure dbSessionId is available before any whiteboard events fire:
+
+1. **Create usage session FIRST** (unified-ws-handler.ts line 693-699):
+```typescript
+usageSession = await usageService.startSession(user.id, targetLanguage, conversationId);
+dbSessionId = usageSession.id;  // UUID captured immediately
+```
+
+2. **Pass dbSessionId as parameter** to orchestrator.createSession() (line 706-717)
+
+3. **Set dbSessionId on session object BEFORE warmup** (streaming-voice-orchestrator.ts line 375):
+```typescript
+session.dbSessionId = dbSessionId;  // Set before any events fire
+```
+
+4. **Removed dead code**: Obsolete `setDbSessionId()` helper method was removed
+
+#### Result
+- Whiteboard events during greeting warmup now have valid `voice_sessions.id` references
+- FK constraint violations eliminated
+- `trackToolEvent` gracefully handles undefined (sets null, allowed by schema)
+
+---
+
+#### Problem 2: UI Lockout After Session Timeout
+When a voice session timed out (120 seconds of inactivity), users couldn't start a new session. The microphone button remained locked because the client was stuck in a non-recoverable state.
+
+#### Root Cause
+The error handler wasn't properly cleaning up:
+- Reconnection timers kept running, causing race conditions
+- WebSocket wasn't closed cleanly
+- State never transitioned to 'disconnected' to allow fresh sessions
+
+#### Solution: Proper Non-Recoverable Error Handling
+Updated `handleError()` in `streamingVoiceClient.ts` to follow a clean recovery sequence:
+
+```typescript
+if (!message.recoverable) {
+  // 1. Emit error callback so UI can show error message
+  this.callbacks.onError?.(message.code, message.message, message.recoverable);
+  
+  // 2. Transition to 'error' state for UI observers
+  this.setState('error');
+  
+  // 3. Clear reconnection timers to prevent stale reconnects
+  if (this.reconnectTimer) {
+    clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+  }
+  this.reconnectAttempts = 0;
+  
+  // 4. Mark as intentional disconnect (skip auto-reconnect)
+  this.intentionalDisconnect = true;
+  
+  // 5. Close WebSocket cleanly
+  if (this.ws) {
+    this.ws.close();
+    this.ws = null;
+    this.sessionId = null;
+  }
+  
+  // 6. After 100ms (for UI to show error), transition to 'disconnected'
+  setTimeout(() => this.setState('disconnected'), 100);
+}
+```
+
+#### Result
+- Error message is displayed to user
+- Reconnection timers are cleared
+- After brief error display, UI transitions to allow starting fresh session
+- No more locked microphone buttons
+
+#### Files Modified
+- `server/services/streaming-voice-orchestrator.ts` - Removed dead setDbSessionId(), session.dbSessionId set before warmup
+- `server/unified-ws-handler.ts` - Usage session created BEFORE orchestrator session, dbSessionId passed as parameter
+- `client/src/lib/streamingVoiceClient.ts` - Complete non-recoverable error handling with timer cleanup and state transitions
+
+---
+
 ### Session 20h: Teaching Suggestions System - Daniela's Internal Assistant (Dec 11, 2025)
 
 #### Overview
