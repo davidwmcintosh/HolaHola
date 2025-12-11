@@ -901,7 +901,36 @@ export class StreamingVoiceOrchestrator {
               
               console.log(`[Tutor Switch] Language switched to ${effectiveLanguage}, voice: ${matchingVoice.voiceName}, system prompt regenerated`);
             } else {
-              console.log(`[Tutor Switch] Same-language switch, new voice: ${matchingVoice.voiceName}`);
+              // SAME-LANGUAGE SWITCH: Regenerate system prompt with new tutor persona
+              // This ensures the new tutor (e.g., Agustin) doesn't still have Daniela's Spanish persona
+              session.systemPrompt = createSystemPrompt(
+                session.targetLanguage,                        // language (unchanged)
+                session.difficultyLevel,                       // difficulty
+                session.conversationHistory.length,            // messageCount
+                false,                                          // isVoiceMode
+                undefined,                                      // topic
+                undefined,                                      // previousConversations
+                session.nativeLanguage,                        // nativeLanguage
+                undefined,                                      // dueVocabulary
+                undefined,                                      // sessionVocabulary
+                undefined,                                      // actflLevel
+                false,                                          // isResuming
+                0,                                              // totalMessageCount
+                session.tutorPersonality,                      // tutorPersonality
+                session.tutorExpressiveness,                   // tutorExpressiveness
+                true,                                           // isStreamingVoiceMode
+                null,                                           // curriculumContext
+                'flexible_goals',                              // tutorFreedomLevel
+                undefined,                                      // targetActflLevel
+                null,                                           // compassContext
+                session.isFounderMode,                         // isFounderMode
+                undefined,                                      // founderName
+                session.isRawHonestyMode,                      // isRawHonestyMode
+                tutorName || 'your tutor',                     // tutorName - NEW TUTOR!
+                targetGender,                                  // tutorGender - NEW GENDER!
+                undefined                                      // tutorDirectory (session already has it)
+              );
+              console.log(`[Tutor Switch] Same-language switch, new voice: ${matchingVoice.voiceName}, system prompt regenerated for ${tutorName}`);
             }
           } else {
             console.warn(`[Tutor Switch] No matching voice found for ${targetGender} in ${effectiveLanguage}`);
