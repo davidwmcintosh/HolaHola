@@ -557,8 +557,9 @@ export class NeuralNetworkSyncService {
   /**
    * Perform automatic sync of best practices
    * Auto-approves and syncs without manual review
+   * Use null for system operations to avoid FK constraint issues
    */
-  async performAutoSync(performedBy: string = 'system'): Promise<{
+  async performAutoSync(performedBy: string | null = null): Promise<{
     success: boolean;
     syncedCount: number;
     syncLogId?: string;
@@ -595,42 +596,53 @@ export class NeuralNetworkSyncService {
         syncedIds.push(practice.id);
       }
       
-      // Log the sync operation
-      const [logEntry] = await db.insert(syncLog).values({
-        operation: 'auto_sync',
-        tableName: 'self_best_practices',
-        recordCount: syncedIds.length,
-        sourceEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
-        targetEnvironment: CURRENT_ENVIRONMENT === 'production' ? 'development' : 'production',
-        performedBy,
-        status: 'success',
-        metadata: { 
-          syncType: 'automatic',
-          syncedIds,
-          timestamp: new Date().toISOString()
-        }
-      }).returning();
-      
-      console.log(`[AUTO-SYNC] Synced ${syncedIds.length} best practices`);
-      
-      return {
-        success: true,
-        syncedCount: syncedIds.length,
-        syncLogId: logEntry.id
-      };
+      // Log the sync operation (skip if no performedBy to avoid FK issues)
+      if (performedBy) {
+        const [logEntry] = await db.insert(syncLog).values({
+          operation: 'auto_sync',
+          tableName: 'self_best_practices',
+          recordCount: syncedIds.length,
+          sourceEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+          targetEnvironment: CURRENT_ENVIRONMENT === 'production' ? 'development' : 'production',
+          performedBy,
+          status: 'success',
+          metadata: { 
+            syncType: 'automatic',
+            syncedIds,
+            timestamp: new Date().toISOString()
+          }
+        }).returning();
+        
+        console.log(`[AUTO-SYNC] Synced ${syncedIds.length} best practices`);
+        
+        return {
+          success: true,
+          syncedCount: syncedIds.length,
+          syncLogId: logEntry.id
+        };
+      } else {
+        console.log(`[AUTO-SYNC] Synced ${syncedIds.length} best practices (system operation)`);
+        return {
+          success: true,
+          syncedCount: syncedIds.length
+        };
+      }
     } catch (error: any) {
       console.error('[AUTO-SYNC] Error:', error);
       
-      await this.logSyncOperation({
-        operation: 'auto_sync',
-        tableName: 'self_best_practices',
-        recordCount: 0,
-        sourceEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
-        targetEnvironment: CURRENT_ENVIRONMENT === 'production' ? 'development' : 'production',
-        performedBy,
-        status: 'error',
-        errorMessage: error.message
-      });
+      // Only log if we have a valid user
+      if (performedBy) {
+        await this.logSyncOperation({
+          operation: 'auto_sync',
+          tableName: 'self_best_practices',
+          recordCount: 0,
+          sourceEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+          targetEnvironment: CURRENT_ENVIRONMENT === 'production' ? 'development' : 'production',
+          performedBy,
+          status: 'error',
+          errorMessage: error.message
+        });
+      }
       
       return { success: false, syncedCount: 0, error: error.message };
     }

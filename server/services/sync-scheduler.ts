@@ -46,7 +46,8 @@ async function runNightlySync(): Promise<void> {
   
   try {
     // 1. Sync Best Practices (existing)
-    const bestPracticesResult = await neuralNetworkSync.performAutoSync('system-scheduler');
+    // Use null for system operations to avoid FK constraint issues
+    const bestPracticesResult = await neuralNetworkSync.performAutoSync(null);
     
     // 2. Sync Neural Network Expansion (5 tables)
     // Export approved data and prepare for cross-environment sync
