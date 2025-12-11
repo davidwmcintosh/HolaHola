@@ -681,21 +681,9 @@ Reference past discussions when relevant, but don't force it.
             studentGoals: compassContext?.studentGoals || undefined,
           };
 
-          session = await orchestrator.createSession(
-            ws,
-            parseInt(userId!),
-            config,
-            systemPrompt,
-            conversationHistory,
-            voiceId,
-            isFounderMode,  // Pass Founder Mode flag for multi-language STT
-            isRawHonestyMode,  // Pass Raw Honesty Mode flag for minimal prompting
-            additionalGreetingContext  // Additional context for personalized greetings
-          );
-
-          console.log(`[Streaming Voice] Session created: ${session.id}`);
-          
-          // Start usage tracking session (developers also tracked for testing/analytics)
+          // IMPORTANT: Start usage tracking session FIRST before orchestrator session
+          // This ensures dbSessionId is available BEFORE any whiteboard events can fire
+          let dbSessionId: string | undefined;
           try {
             // Get class ID from conversation if any
             const classId = conversation.classId || undefined;
@@ -705,10 +693,28 @@ Reference past discussions when relevant, but don't force it.
               config.targetLanguage,
               classId
             );
+            dbSessionId = usageSession.id;
             console.log(`[Streaming Voice] Usage session started: ${usageSession.id}${isDeveloper ? ' (developer)' : ''}`);
           } catch (usageErr: any) {
             console.warn('[Streaming Voice] Could not start usage session:', usageErr.message);
+            // Continue without usage session - dbSessionId will be undefined
           }
+
+          session = await orchestrator.createSession(
+            ws,
+            parseInt(userId!),
+            config,
+            systemPrompt,
+            conversationHistory,
+            voiceId,
+            isFounderMode,  // Pass Founder Mode flag for multi-language STT
+            isRawHonestyMode,  // Pass Raw Honesty Mode flag for minimal prompting
+            additionalGreetingContext,  // Additional context for personalized greetings
+            dbSessionId  // Database voice_sessions.id - set BEFORE session starts to avoid FK errors
+          );
+
+          console.log(`[Streaming Voice] Session created: ${session.id}${dbSessionId ? ` (db: ${dbSessionId.substring(0, 8)}...)` : ' (no db session)'}`);
+          
           
           if (ws.readyState === WS.OPEN) {
             ws.send(JSON.stringify({

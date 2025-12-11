@@ -744,10 +744,37 @@ export class StreamingVoiceClient {
   }
   
   private handleError(message: StreamingErrorMessage): void {
+    // Always emit error callback first so UI can show the error message
     this.callbacks.onError?.(message.code, message.message, message.recoverable);
     this.emit('error', new Error(message.message));
+    
     if (!message.recoverable) {
+      // 1. First transition to 'error' state so UI can show error message
       this.setState('error');
+      
+      // 2. Clear any pending reconnection timers to prevent stale reconnects
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+      }
+      this.reconnectAttempts = 0;  // Reset reconnect counter
+      
+      // 3. Mark as intentional disconnect to skip auto-reconnect in handleDisconnect
+      this.intentionalDisconnect = true;
+      
+      // 4. Close WebSocket cleanly
+      if (this.ws) {
+        this.ws.close();
+        this.ws = null;
+        this.sessionId = null;
+      }
+      
+      // 5. Allow a brief moment for UI to observe error state before transitioning
+      // This ensures error messages can be displayed before the "start new session" state
+      setTimeout(() => {
+        // Transition to 'disconnected' so user can start fresh
+        this.setState('disconnected');
+      }, 100);  // 100ms is enough for React to re-render with error message
     }
   }
   

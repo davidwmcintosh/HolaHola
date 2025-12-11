@@ -190,6 +190,7 @@ export interface StreamingSession {
   conversationTitle?: string;       // Thread name for context (from conversation.title)
   lastSessionSummary?: string;      // What happened in last session (from Compass)
   studentGoals?: string;            // Student's learning goals (from Compass)
+  dbSessionId?: string;             // Database voice_sessions.id (UUID) for pedagogical tracking
 }
 
 /**
@@ -328,7 +329,8 @@ export class StreamingVoiceOrchestrator {
       conversationTitle?: string;
       lastSessionSummary?: string;
       studentGoals?: string;
-    }
+    },
+    dbSessionId?: string  // Database voice_sessions.id - must be set BEFORE session starts
   ): Promise<StreamingSession> {
     const sessionId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
@@ -367,6 +369,7 @@ export class StreamingVoiceOrchestrator {
       conversationTitle: additionalContext?.conversationTitle,
       lastSessionSummary: additionalContext?.lastSessionSummary,
       studentGoals: additionalContext?.studentGoals,
+      dbSessionId,  // Database voice_sessions.id for pedagogical tracking
     };
     
     // PARALLEL WARMUP: Pre-warm both Cartesia and Gemini connections concurrently
@@ -620,7 +623,7 @@ export class StreamingVoiceOrchestrator {
                 }
                 
                 trackToolEvent({
-                  voiceSessionId: session.id,
+                  voiceSessionId: session.dbSessionId,  // Use database UUID, not orchestrator session ID
                   conversationId: session.conversationId,
                   userId: session.userId.toString(),
                   toolType,
