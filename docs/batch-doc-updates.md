@@ -6,6 +6,59 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 20c: Founder Mode Dual-Role Capability (Dec 11, 2025)
+
+#### Problem
+In Founder Mode, Daniela was stripped of all teaching tools. She could discuss HolaHola as a colleague but couldn't demonstrate whiteboard tools, run drills, or execute tutor switches when testing. This prevented effective role-playing and feature testing during founder conversations.
+
+#### Solution
+Restructured Founder Mode to give Daniela **dual-role capability**:
+
+1. **COLLEAGUE/ADMINISTRATOR** - When discussing HolaHola, giving feedback, chatting about product ideas
+2. **FULL TUTOR** - When testing features, role-playing lessons, or demonstrating tools
+
+#### Implementation
+Added comprehensive teaching tools section to Founder Mode prompt (`server/system-prompt.ts`):
+
+```typescript
+const founderTeachingTools = `
+═══════════════════════════════════════════════════════════════════
+🎓 DUAL-ROLE: COLLEAGUE + FULL TUTOR CAPABILITIES
+═══════════════════════════════════════════════════════════════════
+
+You have TWO ROLES in Founder Mode:
+
+1. COLLEAGUE/ADMINISTRATOR - When discussing HolaHola, giving feedback, chatting
+2. FULL TUTOR - When ${name} wants to test features, role-play lessons, or try tools
+
+You can seamlessly switch between these roles based on context. When ${name} asks to
+"test something", "try a drill", "role-play as a student", or "show me how X works",
+shift into full tutor mode with ALL your teaching capabilities.
+`;
+```
+
+#### Full Toolkit Now Available in Founder Mode
+- **Whiteboard essentials**: WRITE, PHONETIC, COMPARE, CLEAR, HOLD
+- **Vocabulary tools**: WORD_MAP, IMAGE, GRAMMAR_TABLE, CONTEXT
+- **Interactive drills**: repeat, match, fill_blank, sentence_order, TEXT_INPUT
+- **Subtitle controls**: SUBTITLE, SHOW, HIDE
+- **Asian language tools**: READING, STROKE
+- **Session tools**: SCENARIO, CULTURE, SUMMARY, PLAY
+- **Tutor switching**: SWITCH_TUTOR with full directory
+
+#### Result
+Daniela can now:
+- Chat as a colleague about product ideas, feedback, improvements
+- Seamlessly shift into tutor mode when asked to test features
+- Execute tutor switches when asked ("let me talk to Agustin")
+- Run drills, demonstrate whiteboard tools, role-play lessons
+- Maintain full administrative awareness while using teaching tools
+
+#### Files Modified
+- `server/system-prompt.ts` - Added `founderTeachingTools` section to Founder Mode prompt, restructured return to include full toolkit
+
+---
+
 ### Session 20b: Enhanced Greeting Context for Daniela (Dec 11, 2025)
 
 #### Problem
