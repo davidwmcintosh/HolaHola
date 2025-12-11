@@ -147,11 +147,14 @@ import {
   type InsertSupportMessage,
   supportTickets,
   supportMessages,
+  type AgentCollaborationEvent,
+  type InsertAgentCollaborationEvent,
+  agentCollaborationEvents,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
 import { db } from "./db";
-import { eq, and, desc, gte, lte, sql, isNull, inArray } from "drizzle-orm";
+import { eq, and, desc, asc, gte, lte, sql, isNull, inArray, or } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (Replit Auth Integration)
@@ -5416,6 +5419,117 @@ export class DatabaseStorage implements IStorage {
       agentObservations: agentObs,
       supportObservations: supportObs,
     };
+  }
+  
+  // ===== AGENT COLLABORATION METHODS =====
+  
+  async createCollaborationEvent(event: InsertAgentCollaborationEvent): Promise<AgentCollaborationEvent> {
+    const [created] = await db.insert(agentCollaborationEvents).values(event).returning();
+    return created;
+  }
+  
+  async getCollaborationEventsForAgent(
+    agentRole: 'daniela' | 'assistant' | 'support' | 'editor',
+    options?: {
+      status?: string;
+      eventType?: string;
+      since?: Date;
+      limit?: number;
+    }
+  ): Promise<AgentCollaborationEvent[]> {
+    const conditions = [
+      or(
+        eq(agentCollaborationEvents.toAgent, agentRole),
+        isNull(agentCollaborationEvents.toAgent) // Broadcast events
+      )
+    ];
+    
+    if (options?.status) {
+      conditions.push(eq(agentCollaborationEvents.status, options.status));
+    }
+    if (options?.eventType) {
+      conditions.push(eq(agentCollaborationEvents.eventType, options.eventType as any));
+    }
+    if (options?.since) {
+      conditions.push(gte(agentCollaborationEvents.createdAt, options.since));
+    }
+    
+    return db.select().from(agentCollaborationEvents)
+      .where(and(...conditions))
+      .orderBy(desc(agentCollaborationEvents.createdAt))
+      .limit(options?.limit || 50);
+  }
+  
+  async getCollaborationEventById(id: string): Promise<AgentCollaborationEvent | undefined> {
+    const [event] = await db.select().from(agentCollaborationEvents)
+      .where(eq(agentCollaborationEvents.id, id));
+    return event;
+  }
+  
+  async getCollaborationThread(threadId: string): Promise<AgentCollaborationEvent[]> {
+    // Get all events in a thread (original + responses)
+    return db.select().from(agentCollaborationEvents)
+      .where(or(
+        eq(agentCollaborationEvents.id, threadId),
+        eq(agentCollaborationEvents.relatedEventId, threadId)
+      ))
+      .orderBy(asc(agentCollaborationEvents.createdAt));
+  }
+  
+  async acknowledgeCollaborationEvent(
+    eventId: string,
+    byAgent: 'daniela' | 'assistant' | 'support' | 'editor'
+  ): Promise<AgentCollaborationEvent | undefined> {
+    const [updated] = await db.update(agentCollaborationEvents)
+      .set({
+        status: 'acknowledged',
+        acknowledgedBy: byAgent,
+        acknowledgedAt: new Date(),
+      })
+      .where(eq(agentCollaborationEvents.id, eventId))
+      .returning();
+    return updated;
+  }
+  
+  async getPendingCollaborationEventsForAgent(
+    agentRole: 'daniela' | 'assistant' | 'support' | 'editor'
+  ): Promise<AgentCollaborationEvent[]> {
+    return db.select().from(agentCollaborationEvents)
+      .where(and(
+        or(
+          eq(agentCollaborationEvents.toAgent, agentRole),
+          isNull(agentCollaborationEvents.toAgent)
+        ),
+        eq(agentCollaborationEvents.status, 'pending')
+      ))
+      .orderBy(desc(agentCollaborationEvents.createdAt))
+      .limit(50);
+  }
+  
+  async getRecentCollaborationContext(
+    forAgent: 'daniela' | 'assistant' | 'support' | 'editor',
+    options?: { userId?: string; hours?: number; limit?: number }
+  ): Promise<AgentCollaborationEvent[]> {
+    const since = new Date();
+    since.setHours(since.getHours() - (options?.hours || 24));
+    
+    const conditions = [
+      or(
+        eq(agentCollaborationEvents.toAgent, forAgent),
+        eq(agentCollaborationEvents.fromAgent, forAgent),
+        isNull(agentCollaborationEvents.toAgent) // Broadcasts
+      ),
+      gte(agentCollaborationEvents.createdAt, since)
+    ];
+    
+    if (options?.userId) {
+      conditions.push(eq(agentCollaborationEvents.userId, options.userId));
+    }
+    
+    return db.select().from(agentCollaborationEvents)
+      .where(and(...conditions))
+      .orderBy(desc(agentCollaborationEvents.createdAt))
+      .limit(options?.limit || 20);
   }
 }
 

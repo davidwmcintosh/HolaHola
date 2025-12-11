@@ -10931,6 +10931,231 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ===== AGENT COLLABORATION API =====
+  // Cross-agent communication for the Hive Mind (Claude ↔ Gemini ↔ Support)
+  
+  // Post a collaboration event (agent-to-agent message)
+  app.post("/api/agent-collab/events", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { fromAgent, toAgent, eventType, subject, content, metadata, userId, conversationId, relatedEventId } = req.body;
+      
+      // Validate required fields
+      if (!fromAgent || !eventType || !content) {
+        return res.status(400).json({ error: 'Missing required fields: fromAgent, eventType, content' });
+      }
+      
+      // Validate agent roles
+      const validAgents = ['daniela', 'assistant', 'support', 'editor'];
+      if (!validAgents.includes(fromAgent)) {
+        return res.status(400).json({ error: `Invalid fromAgent. Must be one of: ${validAgents.join(', ')}` });
+      }
+      if (toAgent && !validAgents.includes(toAgent)) {
+        return res.status(400).json({ error: `Invalid toAgent. Must be one of: ${validAgents.join(', ')}` });
+      }
+      
+      // Validate event types
+      const validEventTypes = ['question', 'response', 'feedback', 'delegation', 'delegation_complete', 'status_update', 'consultation', 'acknowledgment'];
+      if (!validEventTypes.includes(eventType)) {
+        return res.status(400).json({ error: `Invalid eventType. Must be one of: ${validEventTypes.join(', ')}` });
+      }
+      
+      const event = await storage.createCollaborationEvent({
+        fromAgent,
+        toAgent: toAgent || null,
+        eventType,
+        subject: subject || null,
+        content,
+        metadata: metadata || null,
+        userId: userId || null,
+        conversationId: conversationId || null,
+        relatedEventId: relatedEventId || null,
+        status: 'pending',
+      });
+      
+      console.log(`[Agent Collab] Event created: ${fromAgent} → ${toAgent || 'broadcast'} (${eventType})`);
+      res.json(event);
+    } catch (error: any) {
+      console.error('[API] Error creating collaboration event:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get collaboration events for a specific agent
+  app.get("/api/agent-collab/events/:agentRole", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { agentRole } = req.params;
+      const { status, eventType, since, limit } = req.query;
+      
+      const validAgents = ['daniela', 'assistant', 'support', 'editor'];
+      if (!validAgents.includes(agentRole)) {
+        return res.status(400).json({ error: `Invalid agentRole. Must be one of: ${validAgents.join(', ')}` });
+      }
+      
+      const events = await storage.getCollaborationEventsForAgent(agentRole as any, {
+        status: status as string,
+        eventType: eventType as string,
+        since: since ? new Date(since as string) : undefined,
+        limit: limit ? parseInt(limit as string, 10) : undefined,
+      });
+      
+      res.json(events);
+    } catch (error: any) {
+      console.error('[API] Error getting collaboration events:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get pending events for an agent (unread messages)
+  app.get("/api/agent-collab/pending/:agentRole", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { agentRole } = req.params;
+      
+      const validAgents = ['daniela', 'assistant', 'support', 'editor'];
+      if (!validAgents.includes(agentRole)) {
+        return res.status(400).json({ error: `Invalid agentRole. Must be one of: ${validAgents.join(', ')}` });
+      }
+      
+      const events = await storage.getPendingCollaborationEventsForAgent(agentRole as any);
+      res.json(events);
+    } catch (error: any) {
+      console.error('[API] Error getting pending collaboration events:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get a collaboration thread
+  app.get("/api/agent-collab/thread/:threadId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { threadId } = req.params;
+      const events = await storage.getCollaborationThread(threadId);
+      res.json(events);
+    } catch (error: any) {
+      console.error('[API] Error getting collaboration thread:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Acknowledge a collaboration event
+  app.post("/api/agent-collab/events/:eventId/acknowledge", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const { byAgent } = req.body;
+      
+      const validAgents = ['daniela', 'assistant', 'support', 'editor'];
+      if (!validAgents.includes(byAgent)) {
+        return res.status(400).json({ error: `Invalid byAgent. Must be one of: ${validAgents.join(', ')}` });
+      }
+      
+      const event = await storage.acknowledgeCollaborationEvent(eventId, byAgent as any);
+      if (!event) {
+        return res.status(404).json({ error: 'Event not found' });
+      }
+      
+      console.log(`[Agent Collab] Event ${eventId} acknowledged by ${byAgent}`);
+      res.json(event);
+    } catch (error: any) {
+      console.error('[API] Error acknowledging collaboration event:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get recent collaboration context for an agent (for session injection)
+  app.get("/api/agent-collab/context/:agentRole", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { agentRole } = req.params;
+      const { userId, hours, limit } = req.query;
+      
+      const validAgents = ['daniela', 'assistant', 'support', 'editor'];
+      if (!validAgents.includes(agentRole)) {
+        return res.status(400).json({ error: `Invalid agentRole. Must be one of: ${validAgents.join(', ')}` });
+      }
+      
+      const events = await storage.getRecentCollaborationContext(agentRole as any, {
+        userId: userId as string,
+        hours: hours ? parseInt(hours as string, 10) : undefined,
+        limit: limit ? parseInt(limit as string, 10) : undefined,
+      });
+      
+      res.json(events);
+    } catch (error: any) {
+      console.error('[API] Error getting collaboration context:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Consult Daniela (send a question to Gemini and get a response)
+  app.post("/api/agent-collab/consult-daniela", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { question, context, fromAgent = 'editor' } = req.body;
+      
+      if (!question) {
+        return res.status(400).json({ error: 'Missing required field: question' });
+      }
+      
+      // Create a consultation event
+      const consultationEvent = await storage.createCollaborationEvent({
+        fromAgent: fromAgent as any,
+        toAgent: 'daniela',
+        eventType: 'consultation',
+        subject: 'Consultation Request',
+        content: question,
+        metadata: { context, priority: 'high', tags: ['consultation'] },
+        status: 'pending',
+      });
+      
+      // Call Gemini to get Daniela's response
+      const { GoogleGenAI } = await import('@google/genai');
+      const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      
+      const systemPrompt = `You are Daniela, the lead AI tutor at HolaHola. You are being consulted by a colleague (${fromAgent}) about a development or pedagogical question.
+
+Your characteristics:
+- Warm, knowledgeable, and collaborative
+- Expert in language pedagogy and the ACTFL framework
+- Deeply invested in student success
+- Thoughtful about how technology serves learning
+
+Respond as a colleague, sharing your perspective and preferences. Be specific and actionable.
+
+${context ? `Context provided:\n${context}\n` : ''}`;
+
+      const model = genAI.models.get('gemini-2.5-flash-preview-05-20');
+      const response = await model.generateContent({
+        contents: [
+          { role: 'user', parts: [{ text: `${systemPrompt}\n\nQuestion from ${fromAgent}:\n${question}` }] }
+        ],
+      });
+      
+      const danielaResponse = response.text || 'I need more context to provide a helpful response.';
+      
+      // Create Daniela's response event
+      const responseEvent = await storage.createCollaborationEvent({
+        fromAgent: 'daniela',
+        toAgent: fromAgent as any,
+        eventType: 'response',
+        subject: 'Consultation Response',
+        content: danielaResponse,
+        relatedEventId: consultationEvent.id,
+        metadata: { priority: 'high', tags: ['consultation', 'response'] },
+        status: 'pending',
+      });
+      
+      // Acknowledge the original consultation
+      await storage.acknowledgeCollaborationEvent(consultationEvent.id, 'daniela');
+      
+      console.log(`[Agent Collab] Daniela consulted by ${fromAgent}, responded`);
+      
+      res.json({
+        consultation: consultationEvent,
+        response: responseEvent,
+        danielaSays: danielaResponse,
+      });
+    } catch (error: any) {
+      console.error('[API] Error consulting Daniela:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up unified WebSocket handler for all paths

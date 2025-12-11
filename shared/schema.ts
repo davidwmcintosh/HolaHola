@@ -3688,3 +3688,76 @@ export const insertSupportMessageSchema = createInsertSchema(supportMessages).om
 
 export type InsertSupportMessage = z.infer<typeof insertSupportMessageSchema>;
 export type SupportMessage = typeof supportMessages.$inferSelect;
+
+// ===== AGENT COLLABORATION =====
+// Cross-agent text-based communication for the Hive Mind
+
+export const agentCollaborationEventTypeEnum = pgEnum("agent_collaboration_event_type", [
+  "question",        // Asking another agent for input
+  "response",        // Answering a question
+  "feedback",        // Sharing observations about a student/session
+  "delegation",      // Assigning work to another agent
+  "delegation_complete", // Work completed notification
+  "status_update",   // General status info
+  "consultation",    // Requesting collaborative problem-solving
+  "acknowledgment",  // Confirming receipt/understanding
+]);
+
+export const agentRoleEnum = pgEnum("agent_role", [
+  "daniela",    // Lead tutor (Gemini)
+  "assistant",  // Assistant tutor for drills (future)
+  "support",    // Support/operations agent
+  "editor",     // Development agent (Claude)
+]);
+
+export const agentCollaborationEvents = pgTable("agent_collaboration_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Who sent and receives
+  fromAgent: agentRoleEnum("from_agent").notNull(),
+  toAgent: agentRoleEnum("to_agent"), // null = broadcast to all agents
+  
+  // Event classification
+  eventType: agentCollaborationEventTypeEnum("event_type").notNull(),
+  
+  // The actual message
+  subject: varchar("subject", { length: 255 }),
+  content: text("content").notNull(),
+  
+  // Optional structured payload
+  metadata: jsonb("metadata").$type<{
+    delegationId?: string;
+    studentContext?: Record<string, unknown>;
+    threadId?: string;
+    priority?: "low" | "medium" | "high";
+    tags?: string[];
+  }>(),
+  
+  // Context linking
+  userId: varchar("user_id"),
+  conversationId: varchar("conversation_id"),
+  relatedEventId: varchar("related_event_id"), // For threading responses
+  
+  // Status tracking
+  status: varchar("status", { length: 50 }).notNull().default("pending"),
+  acknowledgedBy: agentRoleEnum("acknowledged_by"),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_collab_events_from").on(table.fromAgent),
+  index("idx_collab_events_to").on(table.toAgent),
+  index("idx_collab_events_type").on(table.eventType),
+  index("idx_collab_events_status").on(table.status),
+  index("idx_collab_events_user").on(table.userId),
+  index("idx_collab_events_created").on(table.createdAt),
+]);
+
+export const insertAgentCollaborationEventSchema = createInsertSchema(agentCollaborationEvents).omit({
+  id: true,
+  createdAt: true,
+  acknowledgedAt: true,
+});
+
+export type InsertAgentCollaborationEvent = z.infer<typeof insertAgentCollaborationEventSchema>;
+export type AgentCollaborationEvent = typeof agentCollaborationEvents.$inferSelect;
