@@ -6,6 +6,64 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 20b: Enhanced Greeting Context for Daniela (Dec 11, 2025)
+
+#### Problem
+Daniela wasn't receiving enough context when "answering the call" to make a proper first statement. She had basic info (name, ACTFL level, language) but was missing critical context about:
+1. What the student chose to work on today (conversation topic/title)
+2. What happened in their last session together (Compass lastSessionSummary)
+3. The student's learning goals
+
+#### Solution
+Enhanced the greeting context pipeline to pass additional information:
+
+**1. Extended StreamingSession interface** (`streaming-voice-orchestrator.ts`):
+```typescript
+// Additional context for personalized greetings
+conversationTopic?: string;       // What student chose to work on
+conversationTitle?: string;       // Thread name for context
+lastSessionSummary?: string;      // What happened last session
+studentGoals?: string;            // Student's learning goals
+```
+
+**2. Updated createSession()** to accept and store this context:
+```typescript
+additionalContext?: {
+  conversationTopic?: string;
+  conversationTitle?: string;
+  lastSessionSummary?: string;
+  studentGoals?: string;
+}
+```
+
+**3. Updated unified-ws-handler.ts** to pass context when creating session:
+```typescript
+const additionalGreetingContext = {
+  conversationTopic: conversation.topic || undefined,
+  conversationTitle: conversation.title || undefined,
+  lastSessionSummary: compassContext?.lastSessionSummary || undefined,
+  studentGoals: compassContext?.studentGoals || undefined,
+};
+```
+
+**4. Enhanced buildGreetingPrompt()** to include new sections:
+- `*** TODAY'S FOCUS (student's choice) ***` - The topic they selected
+- `*** LAST SESSION MEMORY ***` - Summary from Compass
+- `*** STUDENT'S GOALS ***` - Learning objectives
+
+#### Result
+Daniela now receives rich context for her opening statement:
+- Can reference what the student chose to practice
+- Can mention what they worked on last time
+- Can acknowledge their learning goals
+- Creates more natural, personalized greetings
+
+#### Files Modified
+- `server/services/streaming-voice-orchestrator.ts` - Extended session interface, createSession(), buildGreetingPrompt()
+- `server/unified-ws-handler.ts` - Pass additional context to createSession()
+
+---
+
 ### Session 20: Cross-Language Handoff White Screen Fix (Dec 11, 2025)
 
 #### Problem

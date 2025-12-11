@@ -611,6 +611,15 @@ Reference past discussions when relevant, but don't force it.
             }
           }
 
+          // Build additional context for personalized greetings
+          // This gives Daniela critical information about what the student wants to work on
+          const additionalGreetingContext = {
+            conversationTopic: conversation.topic || undefined,
+            conversationTitle: conversation.title || undefined,
+            lastSessionSummary: compassContext?.lastSessionSummary || undefined,
+            studentGoals: compassContext?.studentGoals || undefined,
+          };
+
           session = await orchestrator.createSession(
             ws,
             parseInt(userId!),
@@ -619,7 +628,8 @@ Reference past discussions when relevant, but don't force it.
             conversationHistory,
             voiceId,
             isFounderMode,  // Pass Founder Mode flag for multi-language STT
-            isRawHonestyMode  // Pass Raw Honesty Mode flag for minimal prompting
+            isRawHonestyMode,  // Pass Raw Honesty Mode flag for minimal prompting
+            additionalGreetingContext  // Additional context for personalized greetings
           );
 
           console.log(`[Streaming Voice] Session created: ${session.id}`);

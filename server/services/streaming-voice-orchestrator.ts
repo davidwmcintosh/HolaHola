@@ -184,6 +184,11 @@ export interface StreamingSession {
   previousTutorName?: string;       // Stored during handoff for natural intro by new tutor
   isLanguageSwitchHandoff?: boolean; // True when current handoff is a cross-language switch
   previousLanguage?: string;        // Previous language before cross-language switch
+  // Additional context for personalized greetings
+  conversationTopic?: string;       // What student chose to work on (from conversation.topic)
+  conversationTitle?: string;       // Thread name for context (from conversation.title)
+  lastSessionSummary?: string;      // What happened in last session (from Compass)
+  studentGoals?: string;            // Student's learning goals (from Compass)
 }
 
 /**
@@ -316,7 +321,13 @@ export class StreamingVoiceOrchestrator {
     conversationHistory: Array<{ role: 'user' | 'model'; content: string }>,
     voiceId?: string,
     isFounderMode: boolean = false,
-    isRawHonestyMode: boolean = false
+    isRawHonestyMode: boolean = false,
+    additionalContext?: {
+      conversationTopic?: string;
+      conversationTitle?: string;
+      lastSessionSummary?: string;
+      studentGoals?: string;
+    }
   ): Promise<StreamingSession> {
     const sessionId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
@@ -350,6 +361,11 @@ export class StreamingVoiceOrchestrator {
       currentTurnId: 0,  // Start at 0, incremented on each new response
       isInterrupted: false,  // Reset on each new request
       isGenerating: false,   // Track when AI response is being generated
+      // Additional context for personalized greetings
+      conversationTopic: additionalContext?.conversationTopic,
+      conversationTitle: additionalContext?.conversationTitle,
+      lastSessionSummary: additionalContext?.lastSessionSummary,
+      studentGoals: additionalContext?.studentGoals,
     };
     
     // PARALLEL WARMUP: Pre-warm both Cartesia and Gemini connections concurrently
@@ -2389,13 +2405,36 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       contextParts.push(`Vocabulary learned: ${wordsLearned} words`);
     }
     
+    // WHAT THE STUDENT CHOSE TO WORK ON TODAY
+    // This is critical context - the student specifically selected this topic/title
+    if (session.conversationTopic) {
+      contextParts.push(`\n*** TODAY'S FOCUS (student's choice) ***`);
+      contextParts.push(`Topic they want to work on: "${session.conversationTopic}"`);
+    }
+    if (session.conversationTitle && session.conversationTitle !== session.conversationTopic) {
+      contextParts.push(`Conversation thread: "${session.conversationTitle}"`);
+    }
+    
+    // LAST SESSION SUMMARY - What you did together last time
+    // This enables continuity: "Last time we worked on ordering food..."
+    if (session.lastSessionSummary) {
+      contextParts.push(`\n*** LAST SESSION MEMORY ***`);
+      contextParts.push(`${session.lastSessionSummary}`);
+    }
+    
+    // STUDENT GOALS (from Compass or class context)
+    if (session.studentGoals) {
+      contextParts.push(`\n*** STUDENT'S GOALS ***`);
+      contextParts.push(`${session.studentGoals}`);
+    }
+    
     if (recentTopics.length > 0) {
-      contextParts.push(`Recently practiced: ${recentTopics.join(', ')}`);
+      contextParts.push(`\nRecently practiced topics: ${recentTopics.join(', ')}`);
     }
     
     // Class context
     if (classEnrollment) {
-      contextParts.push(`Enrolled in class: "${classEnrollment.className}"`);
+      contextParts.push(`\nEnrolled in class: "${classEnrollment.className}"`);
       if (classEnrollment.curriculumUnit) {
         contextParts.push(`Current unit: ${classEnrollment.curriculumUnit}`);
       }
@@ -2403,7 +2442,7 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         contextParts.push(`Current lesson: ${classEnrollment.curriculumLesson}`);
       }
     } else {
-      contextParts.push('Learning path: Self-directed (no class enrollment)');
+      contextParts.push('\nLearning path: Self-directed (no class enrollment)');
     }
     
     // WARM INTRODUCTION: If someone told Daniela about this student, include that context!
