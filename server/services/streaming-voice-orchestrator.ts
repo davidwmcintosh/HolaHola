@@ -597,10 +597,13 @@ export class StreamingVoiceOrchestrator {
           
           // Process whiteboard items even if displayText is empty
           // This allows SWITCH_TUTOR to work as a standalone command
+          // Also process shouldClear/shouldHold even without items (e.g., standalone [CLEAR])
           let hasWhiteboardContent = false;
-          if (whiteboardParsed.whiteboardItems.length > 0) {
+          if (whiteboardParsed.whiteboardItems.length > 0 || whiteboardParsed.shouldClear || whiteboardParsed.shouldHold) {
             hasWhiteboardContent = true;
-            console.log(`[Whiteboard] Parsed ${whiteboardParsed.whiteboardItems.length} items from sentence ${chunk.index}`);
+            const clearInfo = whiteboardParsed.shouldClear ? ', shouldClear=true' : '';
+            const holdInfo = whiteboardParsed.shouldHold ? ', shouldHold=true' : '';
+            console.log(`[Whiteboard] Parsed ${whiteboardParsed.whiteboardItems.length} items from sentence ${chunk.index}${clearInfo}${holdInfo}`);
             
             // PEDAGOGICAL TRACKING: Log each tool usage for effectiveness analysis
             // Don't await - runs in background, non-blocking
