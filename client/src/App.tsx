@@ -49,6 +49,7 @@ const CommandCenter = lazy(() => import("@/pages/admin/CommandCenter"));
 const AdminVoiceConsole = lazy(() => import("@/pages/admin/VoiceConsole"));
 const Lessons = lazy(() => import("@/pages/lessons"));
 const ReviewHub = lazy(() => import("@/pages/review-hub"));
+const ArisPractice = lazy(() => import("@/pages/aris-practice"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 // Auth pages
@@ -143,6 +144,8 @@ function Router() {
         <Route path="/history" component={History} />
         <Route path="/can-do-progress" component={CanDoProgress} />
         <Route path="/lessons" component={Lessons} />
+        <Route path="/practice" component={ArisPractice} />
+        <Route path="/aris" component={ArisPractice} />
         
         {/* Teacher Routes - Protected */}
         <Route path="/teacher/dashboard" component={TeacherDashboard} />

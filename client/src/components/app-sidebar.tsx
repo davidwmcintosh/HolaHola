@@ -1,4 +1,4 @@
-import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles } from "lucide-react";
+import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, Dumbbell } from "lucide-react";
 import holaholaLogo from "@assets/holaholamainlogoBackgroundRemoved_1765308837223.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -24,6 +24,7 @@ import { hasTeacherAccess, hasAdminAccess } from "@shared/permissions";
 const dashboardItem = { title: "Language Hub", url: "/", icon: Target };
 
 const libraryMenuItems = [
+  { title: "Practice with Aris", url: "/practice", icon: Dumbbell },
   { title: "Vocabulary", url: "/vocabulary", icon: BookOpen },
   { title: "Grammar", url: "/grammar", icon: Languages },
   { title: "Past Chats", url: "/history", icon: History },

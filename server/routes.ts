@@ -11156,6 +11156,215 @@ ${context ? `Context provided:\n${context}\n` : ''}`;
     }
   });
 
+  // ===== ARIS (ASSISTANT TUTOR) DRILL API =====
+  // These routes allow students to interact with Aris for focused drill practice
+  
+  // Get pending drill assignments for the current user
+  app.get("/api/aris/drills/pending", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const assignments = await storage.getPendingArisDrillAssignmentsForUser(userId);
+      res.json(assignments);
+    } catch (error: any) {
+      console.error('[API] Error fetching pending Aris drills:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get a specific drill assignment
+  app.get("/api/aris/drills/:assignmentId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { assignmentId } = req.params;
+      const assignment = await storage.getArisDrillAssignment(assignmentId);
+      
+      if (!assignment) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+      
+      if (assignment.userId !== userId) {
+        return res.status(403).json({ error: "Not authorized to access this assignment" });
+      }
+      
+      res.json(assignment);
+    } catch (error: any) {
+      console.error('[API] Error fetching Aris drill:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Start a drill assignment
+  app.post("/api/aris/drills/:assignmentId/start", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { assignmentId } = req.params;
+      const assignment = await storage.getArisDrillAssignment(assignmentId);
+      
+      if (!assignment) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+      
+      if (assignment.userId !== userId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      if (assignment.status !== 'pending') {
+        return res.status(400).json({ error: "Assignment already started or completed" });
+      }
+      
+      const updated = await storage.updateArisDrillAssignmentStatus(
+        assignmentId,
+        'in_progress',
+        { startedAt: new Date() }
+      );
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error('[API] Error starting Aris drill:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Complete a drill assignment with results
+  app.post("/api/aris/drills/:assignmentId/complete", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { assignmentId } = req.params;
+      const { 
+        correctCount, 
+        incorrectCount, 
+        accuracyPercent, 
+        averageResponseTimeMs,
+        struggledItems,
+        itemAttempts,
+        behavioralFlags,
+        arisNotes 
+      } = req.body;
+      
+      const assignment = await storage.getArisDrillAssignment(assignmentId);
+      
+      if (!assignment) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+      
+      if (assignment.userId !== userId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      if (assignment.status === 'completed') {
+        return res.status(400).json({ error: "Assignment already completed" });
+      }
+      
+      // Update assignment status
+      const updated = await storage.updateArisDrillAssignmentStatus(
+        assignmentId,
+        'completed',
+        { completedAt: new Date() }
+      );
+      
+      // Create drill result record
+      const result = await storage.createArisDrillResult({
+        assignmentId,
+        userId,
+        correctCount: correctCount || 0,
+        incorrectCount: incorrectCount || 0,
+        accuracyPercent: accuracyPercent || 0,
+        averageResponseTimeMs: averageResponseTimeMs || 0,
+        struggledItems: struggledItems || [],
+        itemAttempts: itemAttempts || {},
+        behavioralFlags: behavioralFlags || [],
+        arisNotes: arisNotes || '',
+      });
+      
+      // Send feedback to Daniela via collaboration channel
+      const totalItems = (correctCount || 0) + (incorrectCount || 0);
+      const feedbackContent = `Drill completed: ${assignment.drillType} - ${assignment.focusArea || 'general practice'}
+Accuracy: ${accuracyPercent || 0}% (${correctCount || 0}/${totalItems} correct)
+Average response time: ${averageResponseTimeMs ? Math.round(averageResponseTimeMs) + 'ms' : 'N/A'}
+${struggledItems && struggledItems.length > 0 ? `Struggled with: ${struggledItems.join(', ')}` : 'No significant struggles noted.'}
+${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behavioralFlags.join(', ')}` : ''}`;
+      
+      await storage.createCollaborationEvent({
+        fromAgent: 'assistant',
+        toAgent: 'daniela',
+        eventType: 'feedback',
+        subject: `Drill Complete: ${assignment.focusArea || assignment.drillType}`,
+        content: feedbackContent,
+        userId,
+        conversationId: assignment.conversationId || undefined,
+        metadata: {
+          assignmentId,
+          resultId: result.id,
+          accuracy: accuracyPercent,
+          drillType: assignment.drillType,
+        },
+        status: 'pending',
+      });
+      
+      console.log(`[Aris] Drill completed for user ${userId}, feedback sent to Daniela`);
+      
+      res.json({ assignment: updated, result });
+    } catch (error: any) {
+      console.error('[API] Error completing Aris drill:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get drill history for current user
+  app.get("/api/aris/history", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const limit = parseInt(req.query.limit as string) || 20;
+      const results = await storage.getArisDrillResultsForUser(userId, limit);
+      res.json(results);
+    } catch (error: any) {
+      console.error('[API] Error fetching Aris drill history:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get Aris persona info (for UI display)
+  app.get("/api/aris/persona", isAuthenticated, async (req: any, res) => {
+    try {
+      const { ARIS_PERSONA, ARIS_FEEDBACK } = await import('./services/assistant-tutor-config');
+      res.json({
+        name: ARIS_PERSONA.name,
+        role: ARIS_PERSONA.role,
+        personality: ARIS_PERSONA.personality.traits,
+        voiceTone: ARIS_PERSONA.voice.tone,
+        feedbackPhrases: {
+          correct: ARIS_FEEDBACK.correct,
+          almostCorrect: ARIS_FEEDBACK.almostCorrect,
+          incorrect: ARIS_FEEDBACK.incorrect,
+          encouragement: ARIS_FEEDBACK.encouragement,
+        },
+      });
+    } catch (error: any) {
+      console.error('[API] Error fetching Aris persona:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up unified WebSocket handler for all paths
