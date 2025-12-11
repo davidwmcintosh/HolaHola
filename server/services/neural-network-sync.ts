@@ -8,6 +8,10 @@ import {
   learnerErrorPatterns,
   dialectVariations,
   linguisticBridges,
+  toolKnowledge,
+  tutorProcedures,
+  teachingPrinciples,
+  situationalPatterns,
   type SelfBestPractice,
   type PromotionQueue,
   type InsertPromotionQueue,
@@ -16,7 +20,11 @@ import {
   type CulturalNuance,
   type LearnerErrorPattern,
   type DialectVariation,
-  type LinguisticBridge
+  type LinguisticBridge,
+  type ToolKnowledge,
+  type TutorProcedure,
+  type TeachingPrinciple,
+  type SituationalPattern
 } from '@shared/schema';
 import { eq, and, isNull, desc, or } from 'drizzle-orm';
 import crypto from 'crypto';
@@ -1215,6 +1223,494 @@ export class NeuralNetworkSyncService {
       console.error('[SYNC] Error approving item:', error);
       return { success: false, error: error.message };
     }
+  }
+  
+  // ============================================================
+  // PROCEDURAL MEMORY SYNC (4 Tables)
+  // Two-way sync for Daniela's procedural knowledge
+  // Tables: toolKnowledge, tutorProcedures, teachingPrinciples, situationalPatterns
+  // ============================================================
+  
+  /**
+   * Export all approved Procedural Memory data for sync
+   * Returns data from all 4 tables
+   */
+  async exportProceduralMemory(): Promise<{
+    exportedAt: string;
+    environment: string;
+    tools: ToolKnowledge[];
+    procedures: TutorProcedure[];
+    principles: TeachingPrinciple[];
+    patterns: SituationalPattern[];
+  }> {
+    const [tools, procedures, principles, patterns] = await Promise.all([
+      db.select().from(toolKnowledge).where(
+        and(eq(toolKnowledge.isActive, true), eq(toolKnowledge.syncStatus, 'approved'))
+      ),
+      db.select().from(tutorProcedures).where(
+        and(eq(tutorProcedures.isActive, true), eq(tutorProcedures.syncStatus, 'approved'))
+      ),
+      db.select().from(teachingPrinciples).where(
+        and(eq(teachingPrinciples.isActive, true), eq(teachingPrinciples.syncStatus, 'approved'))
+      ),
+      db.select().from(situationalPatterns).where(
+        and(eq(situationalPatterns.isActive, true), eq(situationalPatterns.syncStatus, 'approved'))
+      ),
+    ]);
+    
+    return {
+      exportedAt: new Date().toISOString(),
+      environment: CURRENT_ENVIRONMENT,
+      tools,
+      procedures,
+      principles,
+      patterns
+    };
+  }
+  
+  /**
+   * Import tool knowledge with deduplication
+   * Matches by toolName to avoid duplicates
+   */
+  async importToolKnowledge(tool: Partial<ToolKnowledge>, importedBy: string): Promise<{ success: boolean; id?: string; action?: string; error?: string }> {
+    try {
+      if (!tool.toolName || !tool.toolType || !tool.purpose || !tool.syntax) {
+        return { success: false, error: 'Missing required fields (toolName, toolType, purpose, syntax)' };
+      }
+      
+      const whereClause = tool.originId 
+        ? or(eq(toolKnowledge.originId, tool.originId), eq(toolKnowledge.toolName, tool.toolName))
+        : eq(toolKnowledge.toolName, tool.toolName);
+      
+      const existing = await db.select().from(toolKnowledge).where(whereClause).limit(1);
+      
+      if (existing.length > 0) {
+        return { success: true, id: existing[0].id, action: 'skipped' };
+      }
+      
+      const [imported] = await db.insert(toolKnowledge).values({
+        toolName: tool.toolName!,
+        toolType: tool.toolType!,
+        purpose: tool.purpose!,
+        syntax: tool.syntax!,
+        examples: tool.examples,
+        bestUsedFor: tool.bestUsedFor,
+        avoidWhen: tool.avoidWhen,
+        combinesWith: tool.combinesWith,
+        sequencePatterns: tool.sequencePatterns,
+        syncStatus: 'synced',
+        originId: tool.id,
+        originEnvironment: tool.originEnvironment || CURRENT_ENVIRONMENT,
+        isActive: true,
+      }).returning();
+      
+      return { success: true, id: imported.id, action: 'imported' };
+    } catch (error: any) {
+      console.error('[SYNC] Error importing tool knowledge:', error);
+      return { success: false, error: error.message };
+    }
+  }
+  
+  /**
+   * Import tutor procedure with deduplication
+   * Matches by (category, trigger, title) to avoid duplicates
+   */
+  async importTutorProcedure(procedure: Partial<TutorProcedure>, importedBy: string): Promise<{ success: boolean; id?: string; action?: string; error?: string }> {
+    try {
+      if (!procedure.category || !procedure.trigger || !procedure.title || !procedure.procedure) {
+        return { success: false, error: 'Missing required fields (category, trigger, title, procedure)' };
+      }
+      
+      const uniqueKeyMatch = and(
+        eq(tutorProcedures.category, procedure.category),
+        eq(tutorProcedures.trigger, procedure.trigger),
+        eq(tutorProcedures.title, procedure.title)
+      );
+      const whereClause = procedure.originId 
+        ? or(eq(tutorProcedures.originId, procedure.originId), uniqueKeyMatch)
+        : uniqueKeyMatch;
+      
+      const existing = await db.select().from(tutorProcedures).where(whereClause).limit(1);
+      
+      if (existing.length > 0) {
+        return { success: true, id: existing[0].id, action: 'skipped' };
+      }
+      
+      const [imported] = await db.insert(tutorProcedures).values({
+        category: procedure.category!,
+        trigger: procedure.trigger!,
+        title: procedure.title!,
+        procedure: procedure.procedure!,
+        examples: procedure.examples,
+        applicablePhases: procedure.applicablePhases,
+        actflLevelRange: procedure.actflLevelRange,
+        studentStates: procedure.studentStates,
+        compassConditions: procedure.compassConditions,
+        priority: procedure.priority,
+        syncStatus: 'synced',
+        originId: procedure.id,
+        originEnvironment: procedure.originEnvironment || CURRENT_ENVIRONMENT,
+        isActive: true,
+      }).returning();
+      
+      return { success: true, id: imported.id, action: 'imported' };
+    } catch (error: any) {
+      console.error('[SYNC] Error importing tutor procedure:', error);
+      return { success: false, error: error.message };
+    }
+  }
+  
+  /**
+   * Import teaching principle with deduplication
+   * Matches by (category, principle) to avoid duplicates
+   */
+  async importTeachingPrinciple(principle: Partial<TeachingPrinciple>, importedBy: string): Promise<{ success: boolean; id?: string; action?: string; error?: string }> {
+    try {
+      if (!principle.category || !principle.principle) {
+        return { success: false, error: 'Missing required fields (category, principle)' };
+      }
+      
+      const uniqueKeyMatch = and(
+        eq(teachingPrinciples.category, principle.category),
+        eq(teachingPrinciples.principle, principle.principle)
+      );
+      const whereClause = principle.originId 
+        ? or(eq(teachingPrinciples.originId, principle.originId), uniqueKeyMatch)
+        : uniqueKeyMatch;
+      
+      const existing = await db.select().from(teachingPrinciples).where(whereClause).limit(1);
+      
+      if (existing.length > 0) {
+        return { success: true, id: existing[0].id, action: 'skipped' };
+      }
+      
+      const [imported] = await db.insert(teachingPrinciples).values({
+        category: principle.category!,
+        principle: principle.principle!,
+        application: principle.application,
+        examples: principle.examples,
+        contexts: principle.contexts,
+        priority: principle.priority,
+        syncStatus: 'synced',
+        originId: principle.id,
+        originEnvironment: principle.originEnvironment || CURRENT_ENVIRONMENT,
+        isActive: true,
+      }).returning();
+      
+      return { success: true, id: imported.id, action: 'imported' };
+    } catch (error: any) {
+      console.error('[SYNC] Error importing teaching principle:', error);
+      return { success: false, error: error.message };
+    }
+  }
+  
+  /**
+   * Import situational pattern with deduplication
+   * Matches by patternName to avoid duplicates
+   */
+  async importSituationalPattern(pattern: Partial<SituationalPattern>, importedBy: string): Promise<{ success: boolean; id?: string; action?: string; error?: string }> {
+    try {
+      if (!pattern.patternName) {
+        return { success: false, error: 'Missing required field (patternName)' };
+      }
+      
+      const whereClause = pattern.originId 
+        ? or(eq(situationalPatterns.originId, pattern.originId), eq(situationalPatterns.patternName, pattern.patternName))
+        : eq(situationalPatterns.patternName, pattern.patternName);
+      
+      const existing = await db.select().from(situationalPatterns).where(whereClause).limit(1);
+      
+      if (existing.length > 0) {
+        return { success: true, id: existing[0].id, action: 'skipped' };
+      }
+      
+      const [imported] = await db.insert(situationalPatterns).values({
+        patternName: pattern.patternName!,
+        description: pattern.description,
+        compassConditions: pattern.compassConditions,
+        contextConditions: pattern.contextConditions,
+        proceduresToActivate: pattern.proceduresToActivate,
+        toolsToSuggest: pattern.toolsToSuggest,
+        knowledgeToRetrieve: pattern.knowledgeToRetrieve,
+        guidance: pattern.guidance,
+        priority: pattern.priority,
+        syncStatus: 'synced',
+        originId: pattern.id,
+        originEnvironment: pattern.originEnvironment || CURRENT_ENVIRONMENT,
+        isActive: true,
+      }).returning();
+      
+      return { success: true, id: imported.id, action: 'imported' };
+    } catch (error: any) {
+      console.error('[SYNC] Error importing situational pattern:', error);
+      return { success: false, error: error.message };
+    }
+  }
+  
+  /**
+   * Perform full sync of Procedural Memory data
+   * Imports data from another environment, deduplicating as needed
+   */
+  async syncProceduralMemory(
+    data: {
+      tools: Partial<ToolKnowledge>[];
+      procedures: Partial<TutorProcedure>[];
+      principles: Partial<TeachingPrinciple>[];
+      patterns: Partial<SituationalPattern>[];
+    },
+    importedBy: string
+  ): Promise<{
+    success: boolean;
+    counts: {
+      tools: { imported: number; skipped: number };
+      procedures: { imported: number; skipped: number };
+      principles: { imported: number; skipped: number };
+      patterns: { imported: number; skipped: number };
+    };
+  }> {
+    const counts = {
+      tools: { imported: 0, skipped: 0 },
+      procedures: { imported: 0, skipped: 0 },
+      principles: { imported: 0, skipped: 0 },
+      patterns: { imported: 0, skipped: 0 },
+    };
+    
+    for (const tool of data.tools) {
+      const result = await this.importToolKnowledge(tool, importedBy);
+      if (result.action === 'imported') counts.tools.imported++;
+      else counts.tools.skipped++;
+    }
+    
+    for (const procedure of data.procedures) {
+      const result = await this.importTutorProcedure(procedure, importedBy);
+      if (result.action === 'imported') counts.procedures.imported++;
+      else counts.procedures.skipped++;
+    }
+    
+    for (const principle of data.principles) {
+      const result = await this.importTeachingPrinciple(principle, importedBy);
+      if (result.action === 'imported') counts.principles.imported++;
+      else counts.principles.skipped++;
+    }
+    
+    for (const pattern of data.patterns) {
+      const result = await this.importSituationalPattern(pattern, importedBy);
+      if (result.action === 'imported') counts.patterns.imported++;
+      else counts.patterns.skipped++;
+    }
+    
+    const totalImported = counts.tools.imported + counts.procedures.imported + 
+      counts.principles.imported + counts.patterns.imported;
+    
+    await this.logSyncOperation({
+      operation: 'procedural_memory_sync',
+      tableName: 'procedural_memory',
+      recordCount: totalImported,
+      sourceEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+      targetEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+      performedBy: importedBy,
+      status: 'success',
+      metadata: { counts }
+    });
+    
+    console.log(`[SYNC] Procedural Memory sync complete:`, counts);
+    
+    return { success: true, counts };
+  }
+  
+  /**
+   * Get pending Procedural Memory items (local status, not yet approved)
+   */
+  async getPendingProceduralMemory(): Promise<{
+    tools: ToolKnowledge[];
+    procedures: TutorProcedure[];
+    principles: TeachingPrinciple[];
+    patterns: SituationalPattern[];
+    totalCount: number;
+  }> {
+    const [tools, procedures, principles, patterns] = await Promise.all([
+      db.select().from(toolKnowledge).where(
+        and(eq(toolKnowledge.isActive, true), eq(toolKnowledge.syncStatus, 'local'))
+      ),
+      db.select().from(tutorProcedures).where(
+        and(eq(tutorProcedures.isActive, true), eq(tutorProcedures.syncStatus, 'local'))
+      ),
+      db.select().from(teachingPrinciples).where(
+        and(eq(teachingPrinciples.isActive, true), eq(teachingPrinciples.syncStatus, 'local'))
+      ),
+      db.select().from(situationalPatterns).where(
+        and(eq(situationalPatterns.isActive, true), eq(situationalPatterns.syncStatus, 'local'))
+      ),
+    ]);
+    
+    return {
+      tools,
+      procedures,
+      principles,
+      patterns,
+      totalCount: tools.length + procedures.length + principles.length + patterns.length
+    };
+  }
+  
+  /**
+   * Approve a Procedural Memory item for sync
+   */
+  async approveProceduralMemoryItem(
+    tableName: 'tools' | 'procedures' | 'principles' | 'patterns',
+    itemId: string,
+    approvedBy: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const tableMap = {
+        tools: toolKnowledge,
+        procedures: tutorProcedures,
+        principles: teachingPrinciples,
+        patterns: situationalPatterns,
+      };
+      
+      const table = tableMap[tableName];
+      
+      await db.update(table).set({
+        syncStatus: 'approved',
+      }).where(eq(table.id, itemId));
+      
+      console.log(`[SYNC] Approved procedural memory ${tableName} item ${itemId} for sync by ${approvedBy}`);
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error('[SYNC] Error approving procedural memory item:', error);
+      return { success: false, error: error.message };
+    }
+  }
+  
+  /**
+   * Auto-approve all Procedural Memory items (for initial seeding)
+   * This marks all 'local' items as 'approved' for sync
+   */
+  async autoApproveProceduralMemory(approvedBy: string = 'system'): Promise<{
+    success: boolean;
+    counts: { tools: number; procedures: number; principles: number; patterns: number };
+  }> {
+    try {
+      const [toolsResult, proceduresResult, principlesResult, patternsResult] = await Promise.all([
+        db.update(toolKnowledge)
+          .set({ syncStatus: 'approved' })
+          .where(and(eq(toolKnowledge.isActive, true), eq(toolKnowledge.syncStatus, 'local')))
+          .returning(),
+        db.update(tutorProcedures)
+          .set({ syncStatus: 'approved' })
+          .where(and(eq(tutorProcedures.isActive, true), eq(tutorProcedures.syncStatus, 'local')))
+          .returning(),
+        db.update(teachingPrinciples)
+          .set({ syncStatus: 'approved' })
+          .where(and(eq(teachingPrinciples.isActive, true), eq(teachingPrinciples.syncStatus, 'local')))
+          .returning(),
+        db.update(situationalPatterns)
+          .set({ syncStatus: 'approved' })
+          .where(and(eq(situationalPatterns.isActive, true), eq(situationalPatterns.syncStatus, 'local')))
+          .returning(),
+      ]);
+      
+      const counts = {
+        tools: toolsResult.length,
+        procedures: proceduresResult.length,
+        principles: principlesResult.length,
+        patterns: patternsResult.length,
+      };
+      
+      const total = counts.tools + counts.procedures + counts.principles + counts.patterns;
+      
+      if (total > 0) {
+        await this.logSyncOperation({
+          operation: 'procedural_memory_auto_approve',
+          tableName: 'procedural_memory',
+          recordCount: total,
+          sourceEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+          targetEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+          performedBy: approvedBy,
+          status: 'success',
+          metadata: { counts }
+        });
+        
+        console.log(`[SYNC] Auto-approved ${total} procedural memory items:`, counts);
+      }
+      
+      return { success: true, counts };
+    } catch (error: any) {
+      console.error('[SYNC] Error auto-approving procedural memory:', error);
+      return { success: false, counts: { tools: 0, procedures: 0, principles: 0, patterns: 0 } };
+    }
+  }
+  
+  /**
+   * Get complete sync status including Procedural Memory
+   */
+  async getCompleteSyncStatus(): Promise<{
+    neuralNetworkExpansion: {
+      pending: number;
+      approved: number;
+    };
+    proceduralMemory: {
+      pending: number;
+      approved: number;
+      total: number;
+    };
+    lastSync: Date | null;
+    currentEnvironment: string;
+  }> {
+    // Neural Network Expansion counts
+    const [
+      pendingIdioms, pendingNuances, pendingErrors, pendingDialects, pendingBridges,
+      approvedIdioms, approvedNuances, approvedErrors, approvedDialects, approvedBridges,
+      pendingTools, pendingProcedures, pendingPrinciples, pendingPatterns,
+      approvedTools, approvedProcedures, approvedPrinciples, approvedPatterns,
+      totalTools, totalProcedures, totalPrinciples, totalPatterns
+    ] = await Promise.all([
+      db.select().from(languageIdioms).where(eq(languageIdioms.syncStatus, 'local')),
+      db.select().from(culturalNuances).where(eq(culturalNuances.syncStatus, 'local')),
+      db.select().from(learnerErrorPatterns).where(eq(learnerErrorPatterns.syncStatus, 'local')),
+      db.select().from(dialectVariations).where(eq(dialectVariations.syncStatus, 'local')),
+      db.select().from(linguisticBridges).where(eq(linguisticBridges.syncStatus, 'local')),
+      db.select().from(languageIdioms).where(eq(languageIdioms.syncStatus, 'approved')),
+      db.select().from(culturalNuances).where(eq(culturalNuances.syncStatus, 'approved')),
+      db.select().from(learnerErrorPatterns).where(eq(learnerErrorPatterns.syncStatus, 'approved')),
+      db.select().from(dialectVariations).where(eq(dialectVariations.syncStatus, 'approved')),
+      db.select().from(linguisticBridges).where(eq(linguisticBridges.syncStatus, 'approved')),
+      db.select().from(toolKnowledge).where(eq(toolKnowledge.syncStatus, 'local')),
+      db.select().from(tutorProcedures).where(eq(tutorProcedures.syncStatus, 'local')),
+      db.select().from(teachingPrinciples).where(eq(teachingPrinciples.syncStatus, 'local')),
+      db.select().from(situationalPatterns).where(eq(situationalPatterns.syncStatus, 'local')),
+      db.select().from(toolKnowledge).where(eq(toolKnowledge.syncStatus, 'approved')),
+      db.select().from(tutorProcedures).where(eq(tutorProcedures.syncStatus, 'approved')),
+      db.select().from(teachingPrinciples).where(eq(teachingPrinciples.syncStatus, 'approved')),
+      db.select().from(situationalPatterns).where(eq(situationalPatterns.syncStatus, 'approved')),
+      db.select().from(toolKnowledge),
+      db.select().from(tutorProcedures),
+      db.select().from(teachingPrinciples),
+      db.select().from(situationalPatterns),
+    ]);
+    
+    const [lastLog] = await db
+      .select()
+      .from(syncLog)
+      .orderBy(desc(syncLog.createdAt))
+      .limit(1);
+    
+    return {
+      neuralNetworkExpansion: {
+        pending: pendingIdioms.length + pendingNuances.length + pendingErrors.length + 
+                 pendingDialects.length + pendingBridges.length,
+        approved: approvedIdioms.length + approvedNuances.length + approvedErrors.length + 
+                  approvedDialects.length + approvedBridges.length,
+      },
+      proceduralMemory: {
+        pending: pendingTools.length + pendingProcedures.length + pendingPrinciples.length + pendingPatterns.length,
+        approved: approvedTools.length + approvedProcedures.length + approvedPrinciples.length + approvedPatterns.length,
+        total: totalTools.length + totalProcedures.length + totalPrinciples.length + totalPatterns.length,
+      },
+      lastSync: lastLog?.createdAt || null,
+      currentEnvironment: CURRENT_ENVIRONMENT
+    };
   }
 }
 

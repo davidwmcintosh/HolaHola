@@ -2686,6 +2686,11 @@ export const tutorProcedures = pgTable("tutor_procedures", {
   priority: integer("priority").default(50), // Higher = preferred when multiple match
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  
+  // Sync fields
+  syncStatus: varchar("sync_status").default('local'), // local, pending_review, approved, synced, rejected
+  originId: varchar("origin_id"), // ID in source environment
+  originEnvironment: varchar("origin_environment"), // 'development' or 'production'
 }, (table) => [
   index("idx_tutor_procedures_category").on(table.category),
   index("idx_tutor_procedures_trigger").on(table.trigger),
@@ -2714,6 +2719,11 @@ export const toolKnowledge = pgTable("tool_knowledge", {
   
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  
+  // Sync fields
+  syncStatus: varchar("sync_status").default('local'),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
 }, (table) => [
   index("idx_tool_knowledge_name").on(table.toolName),
   index("idx_tool_knowledge_type").on(table.toolType),
@@ -2741,11 +2751,16 @@ export const situationalPatterns = pgTable("situational_patterns", {
   knowledgeToRetrieve: varchar("knowledge_to_retrieve").array(), // Idioms, cultural notes, etc.
   
   // The guidance
-  guidance: text("guidance").notNull(), // What Daniela should consider doing
+  guidance: text("guidance"), // What Daniela should consider doing
   
   priority: integer("priority").default(50),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  
+  // Sync fields
+  syncStatus: varchar("sync_status").default('local'),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
 }, (table) => [
   index("idx_situational_patterns_name").on(table.patternName),
 ]);
@@ -2766,6 +2781,11 @@ export const teachingPrinciples = pgTable("teaching_principles", {
   priority: integer("priority").default(50),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  
+  // Sync fields
+  syncStatus: varchar("sync_status").default('local'),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
 }, (table) => [
   index("idx_teaching_principles_category").on(table.category),
 ]);
