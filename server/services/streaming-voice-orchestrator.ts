@@ -876,7 +876,9 @@ export class StreamingVoiceOrchestrator {
             console.warn(`[Tutor Switch] No matching voice found for ${targetGender} in ${effectiveLanguage}`);
           }
           
-          // Notify client to update voice preference and trigger new tutor intro
+          // Notify client to update voice preference
+          // For cross-language handoffs, tell client to request greeting after reconnecting
+          // (the greeting will be generated in the NEW session, not this one)
           this.sendMessage(session.ws, {
             type: 'tutor_handoff',
             timestamp: Date.now(),
@@ -884,6 +886,7 @@ export class StreamingVoiceOrchestrator {
             targetLanguage: isLanguageSwitch ? effectiveLanguage : undefined,
             tutorName,
             isLanguageSwitch,
+            requiresGreeting: isLanguageSwitch, // Client should request greeting after reconnecting
           });
         } catch (err: any) {
           console.error(`[Tutor Switch] Error during handoff:`, err.message);

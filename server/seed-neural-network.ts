@@ -10,10 +10,27 @@ import {
 export async function seedNeuralNetworkData() {
   console.log("[Neural Network Seed] Starting neural network data seeding...");
   
-  // Check if already seeded
-  const existingIdioms = await db.select().from(languageIdioms).limit(1);
-  if (existingIdioms.length > 0) {
-    console.log("[Neural Network Seed] Already seeded, skipping...");
+  // Check which languages need seeding
+  const existingLanguages = await db.select({ language: languageIdioms.language }).from(languageIdioms).groupBy(languageIdioms.language);
+  const seededLanguages = new Set(existingLanguages.map(r => r.language));
+  
+  // Seed each language that hasn't been seeded yet
+  await seedSpanish(seededLanguages);
+  await seedFrench(seededLanguages);
+  await seedGerman(seededLanguages);
+  await seedItalian(seededLanguages);
+  await seedPortuguese(seededLanguages);
+  await seedJapanese(seededLanguages);
+  await seedMandarin(seededLanguages);
+  await seedKorean(seededLanguages);
+  await seedEnglish(seededLanguages);
+  
+  console.log("[Neural Network Seed] Complete!");
+}
+
+async function seedSpanish(seededLanguages: Set<string>) {
+  if (seededLanguages.has("spanish")) {
+    console.log("[Neural Network Seed] Spanish already seeded, skipping...");
     return;
   }
   

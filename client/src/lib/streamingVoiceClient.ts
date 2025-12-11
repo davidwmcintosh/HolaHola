@@ -613,6 +613,7 @@ export class StreamingVoiceClient {
             targetLanguage?: string;  // For cross-language handoffs
             tutorName?: string;       // New tutor's name (e.g., "Sayuri")
             isLanguageSwitch: boolean;
+            requiresGreeting?: boolean; // True if client should request greeting after reconnecting
             timestamp: number;
           });
           break;

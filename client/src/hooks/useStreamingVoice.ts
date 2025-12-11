@@ -84,6 +84,7 @@ export interface TutorHandoffInfo {
   targetLanguage?: string;    // For cross-language handoffs (e.g., "japanese")
   tutorName?: string;         // New tutor's name (e.g., "Sayuri")
   isLanguageSwitch: boolean;  // True if this is a cross-language handoff
+  requiresGreeting?: boolean; // True if client should request greeting after reconnecting
 }
 
 /**
@@ -702,12 +703,15 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     targetLanguage?: string;
     tutorName?: string;
     isLanguageSwitch: boolean;
+    requiresGreeting?: boolean;
     timestamp: number;
   }) => {
-    const { targetGender, targetLanguage, tutorName, isLanguageSwitch } = message;
+    const { targetGender, targetLanguage, tutorName, isLanguageSwitch, requiresGreeting } = message;
     
     if (isLanguageSwitch && targetLanguage) {
       console.log(`[StreamingVoice] Cross-language handoff to ${tutorName} (${targetGender}) in ${targetLanguage}`);
+      // For cross-language handoffs, the server will skip intro generation
+      // and the client will request greeting after reconnecting with new language
     } else {
       console.log(`[StreamingVoice] Tutor handoff to ${tutorName || targetGender} tutor`);
     }
@@ -734,9 +738,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       targetLanguage,
       tutorName,
       isLanguageSwitch,
+      requiresGreeting,
     });
     
-    // Call updateVoice to complete the switch - this triggers the new tutor's intro
+    // Call updateVoice to complete the handoff workflow
+    // For cross-language switches, server will skip intro generation (isLanguageSwitchHandoff flag)
+    // but we still need to call this to complete the handoff gracefully
     if (clientRef.current?.isReady()) {
       clientRef.current.updateVoice(targetGender);
     }
