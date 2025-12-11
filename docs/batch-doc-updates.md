@@ -6,6 +6,54 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 20d: Cross-Language Handoff Fixes (Dec 11, 2025)
+
+#### Problem 1: Pending Intro Lost on Language Switch
+Cross-language handoffs (e.g., Daniela → Juliette) store a pending introduction for the new tutor to deliver. But the pending intro was stored by `conversationId`, and cross-language switches create a **new conversation**. The new session couldn't find the pending intro because it was looking up by the wrong conversation ID.
+
+#### Solution 1: userId-Based Lookup
+Changed pending handoff intro storage from `conversationId` to `userId`:
+
+```typescript
+// Before (broken for cross-language)
+pendingHandoffIntros.set(conversationId, { tutorName, tutorGender, timestamp });
+const pending = pendingHandoffIntros.get(conversationId);
+
+// After (works for cross-language)
+pendingHandoffIntros.set(userId, { tutorName, tutorGender, timestamp });
+const pending = pendingHandoffIntros.get(userId);
+```
+
+This ensures the pending intro persists even when the client creates a new conversation for the new language.
+
+#### Problem 2: Tutor Not Including Language Parameter
+When Juliette (French) tried to send back to Daniela (Spanish), she used `[SWITCH_TUTOR target="female"]` without `language="spanish"`. The system interpreted this as a same-language switch and looped back to Juliette.
+
+#### Solution 2: Explicit Cross-Language Instructions
+Updated `buildTutorDirectorySection()` in system prompt to:
+
+1. **Show current language**: "You are currently teaching: FRENCH"
+2. **Add explicit warning**: "⚠️ CROSS-LANGUAGE RULE: If the target tutor teaches a DIFFERENT language than yours, you MUST include language="..." or the switch will FAIL!"
+3. **Provide cross-language examples** with actual tutor names and languages:
+   ```
+   EXAMPLES:
+     • To switch to Fynn (french): [SWITCH_TUTOR target="male"]
+     • To switch to Juliette (french): [SWITCH_TUTOR target="female"]
+     • To switch to Daniela (spanish): [SWITCH_TUTOR target="female" language="spanish"]
+   ```
+
+#### Result
+- Cross-language handoffs now work reliably in both directions
+- Pending intros survive conversation resets during language switches
+- Tutors correctly include language parameter when switching to colleagues in other languages
+- Same-language handoffs continue to work (no language parameter needed)
+
+#### Files Modified
+- `server/unified-ws-handler.ts` - Changed pending intro storage from conversationId to userId
+- `server/system-prompt.ts` - Added current language display, cross-language warning, and dynamic examples
+
+---
+
 ### Session 20c: Founder Mode Dual-Role Capability (Dec 11, 2025)
 
 #### Problem
