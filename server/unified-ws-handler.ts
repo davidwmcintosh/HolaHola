@@ -143,6 +143,7 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
   
   let conversationId: string | null = null;
   let pendingVoiceUpdate: 'male' | 'female' | null = null; // Queue voice update if received before session ready
+  let voiceUpdateInProgress = false; // Lock to prevent end_session during voice switch intro
   try {
     const url = new URL(req.url!, `http://${req.headers.host}`);
     conversationId = url.searchParams.get('conversationId');
@@ -1022,19 +1023,17 @@ Reference past discussions when relevant, but don't force it.
             return;
           }
           
+          // LOCK: Prevent end_session from killing the session while intro is generating
+          voiceUpdateInProgress = true;
+          console.log(`[Streaming Voice] Voice update started - session protected from early termination`);
+          
           // Capture session info before any async operations to avoid race conditions
-          // (end_session could arrive and null out session while we're awaiting)
           const capturedSessionId = session.id;
+          const capturedSession = session; // Keep reference even if end_session tries to null it
           const effectiveLanguage = session.targetLanguage?.toLowerCase() || 'spanish';
           
           try {
             const allVoices = await storage.getAllTutorVoices();
-            
-            // Check if session was ended during the await
-            if (!session) {
-              console.log(`[Streaming Voice] Session ended during voice update - skipping`);
-              break;
-            }
             
             const matchingVoice = allVoices.find(
               (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
@@ -1050,10 +1049,10 @@ Reference past discussions when relevant, but don't force it.
               // For cross-language handoffs, the session is still active and ready
               // System prompt was already regenerated with new tutor persona
               // Voice was already updated - so we CAN call processVoiceSwitchIntro now!
-              if (session && (session as any).isLanguageSwitchHandoff) {
+              if (capturedSession && (capturedSession as any).isLanguageSwitchHandoff) {
                 console.log(`[Streaming Voice] Cross-language handoff - new tutor will introduce themselves now`);
                 // Clear the flag since we're handling it
-                (session as any).isLanguageSwitchHandoff = false;
+                (capturedSession as any).isLanguageSwitchHandoff = false;
               }
               
               // CRITICAL: Generate intro BEFORE sending voice_updated to client
@@ -1078,11 +1077,34 @@ Reference past discussions when relevant, but don't force it.
             }
           } catch (err: any) {
             console.error('[Streaming Voice] Failed to update voice:', err.message);
+          } finally {
+            // UNLOCK: Allow end_session to proceed now that intro is complete
+            voiceUpdateInProgress = false;
+            console.log(`[Streaming Voice] Voice update complete - session protection released`);
           }
           break;
         }
 
         case 'end_session':
+          // If voice update is in progress, wait for it to complete before ending session
+          // This prevents killing the session while the new tutor is introducing themselves
+          if (voiceUpdateInProgress) {
+            console.log(`[Streaming Voice] end_session received but voice update in progress - waiting...`);
+            // Wait up to 15 seconds for voice update to complete
+            const maxWait = 15000;
+            const checkInterval = 100;
+            let waited = 0;
+            while (voiceUpdateInProgress && waited < maxWait) {
+              await new Promise(resolve => setTimeout(resolve, checkInterval));
+              waited += checkInterval;
+            }
+            if (voiceUpdateInProgress) {
+              console.warn(`[Streaming Voice] Timeout waiting for voice update - proceeding with end_session`);
+            } else {
+              console.log(`[Streaming Voice] Voice update completed after ${waited}ms - proceeding with end_session`);
+            }
+          }
+          
           if (session) {
             orchestrator.endSession(session.id);
             session = null;
