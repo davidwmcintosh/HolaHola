@@ -121,6 +121,8 @@ interface StreamingVoiceChatProps {
   setCurrentConversationOnboarding: (isOnboarding: boolean | null) => void;
   isResumedConversation?: boolean;
   onResumeHandled?: () => void;
+  onLanguageHandoff?: (tutorName: string, targetLanguage: string) => void;
+  onLanguageHandoffComplete?: () => void;
 }
 
 export function StreamingVoiceChat({ 
@@ -128,7 +130,9 @@ export function StreamingVoiceChat({
   setConversationId, 
   setCurrentConversationOnboarding,
   isResumedConversation,
-  onResumeHandled
+  onResumeHandled,
+  onLanguageHandoff,
+  onLanguageHandoffComplete
 }: StreamingVoiceChatProps) {
   const [, navigate] = useLocation();
   const { language, difficulty, setLanguage, subtitleMode, tutorGender, voiceSpeed, setTutorGender, setVoiceSpeed } = useLanguage();
@@ -296,6 +300,10 @@ export function StreamingVoiceChat({
   // Mic warm-up: cache stream for instant recording start
   const cachedStreamRef = useRef<MediaStream | null>(null);
   const micWarmedUpRef = useRef(false);
+  
+  // Cross-language handoff tracking
+  // When true, we're reconnecting after a language switch
+  const isLanguageHandoffRef = useRef(false);
   
   // Keep refs updated with current state
   useEffect(() => {
@@ -660,7 +668,12 @@ export function StreamingVoiceChat({
             const { targetGender, targetLanguage, tutorName, isLanguageSwitch } = handoff;
             if (isLanguageSwitch && targetLanguage) {
               console.log(`[TUTOR HANDOFF] Cross-language switch to ${tutorName} (${targetGender}) in ${targetLanguage}`);
-              // Update language context - this triggers tutorVoices refetch for new language
+              // Mark that we're in a language handoff - used to complete handoff after reconnection
+              isLanguageHandoffRef.current = true;
+              // Notify parent to show transition overlay BEFORE language change
+              // This prevents the white screen crash during context update
+              onLanguageHandoff?.(tutorName || 'tutor', targetLanguage);
+              // Update language context - parent will manage conversation reset
               setLanguage(targetLanguage);
             } else {
               console.log(`[TUTOR HANDOFF] Switching to ${tutorName || targetGender} tutor`);
@@ -670,11 +683,26 @@ export function StreamingVoiceChat({
         });
         streamingConnectedRef.current = true;
         console.log('[STREAMING] Connected successfully');
+        
+        // Complete language handoff if we were in one
+        // The parent chat.tsx manages the handoff overlay and conversation reset
+        // We just signal that the new connection is ready
+        if (isLanguageHandoffRef.current) {
+          console.log('[STREAMING] Connection ready after language handoff - signaling completion');
+          isLanguageHandoffRef.current = false;
+          // Signal immediately - parent will handle the reset
+          // No timeout needed since the parent's safety timeout handles edge cases
+          onLanguageHandoffComplete?.();
+        }
       } catch (err: any) {
         console.error('[STREAMING] Failed to connect:', err.message);
         streamingConnectedRef.current = false;
         // Don't silently fail - show error to user
         setError('Voice streaming connection failed. Retrying...');
+        
+        // Keep handoff flag set so next retry can trigger completion
+        // The safety timeout in chat.tsx will handle cleanup if all retries fail
+        // DON'T clear isLanguageHandoffRef here - let it persist for retries
       }
     };
     
@@ -687,7 +715,7 @@ export function StreamingVoiceChat({
         streamingConnectedRef.current = false;
       }
     };
-  }, [conversationId, useStreamingMode, user, language, difficulty, subtitleMode]);
+  }, [conversationId, useStreamingMode, user, language, difficulty, subtitleMode, onLanguageHandoffComplete]);
   
   // Sync streaming voice state with component state
   useEffect(() => {
@@ -775,7 +803,18 @@ export function StreamingVoiceChat({
       
       if (connectionState === 'error') {
         streamingConnectedRef.current = false;
+        // Reset handoff flag on error so parent's safety timeout handles cleanup
+        if (isLanguageHandoffRef.current) {
+          console.log('[STREAMING] Error during language handoff - resetting flag');
+          isLanguageHandoffRef.current = false;
+        }
       }
+    }
+    
+    // Handle disconnects during handoff
+    if (connectionState === 'disconnected' && isLanguageHandoffRef.current) {
+      console.log('[STREAMING] Disconnected during language handoff - resetting flag');
+      isLanguageHandoffRef.current = false;
     }
     
     // Clear error when connection recovers

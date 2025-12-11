@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearch, useLocation } from "wouter";
 import { ChatInterface } from "@/components/ChatInterface";
 import { StreamingVoiceChat as VoiceChat } from "@/components/StreamingVoiceChat";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Mic, Plus, GraduationCap, User } from "lucide-react";
+import { MessageSquare, Mic, Plus, GraduationCap, User, Phone } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { apiRequest, queryClient, forceNewConversation as setForceNewFlag } from "@/lib/queryClient";
@@ -31,6 +31,14 @@ export default function Chat() {
   const [showInsufficientCreditsDialog, setShowInsufficientCreditsDialog] = useState(false);
   const { isExhausted, isLow, isCritical } = useCredits();
   const [className, setClassName] = useState<string | null>(null);
+  
+  // Cross-language handoff state - prevents white screen during tutor switch
+  const [isLanguageHandoff, setIsLanguageHandoff] = useState(false);
+  const [handoffTutorName, setHandoffTutorName] = useState<string | null>(null);
+  const languageHandoffTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track both prior and target languages during handoff for proper cleanup
+  const handoffPriorLanguageRef = useRef<string | null>(null);
+  const handoffTargetLanguageRef = useRef<string | null>(null);
   // Check localStorage to see if user clicked "New Chat" before page reload
   // Default to false so page reloads reuse existing conversations
   const [forceNewConversation, setForceNewConversation] = useState(() => {
@@ -101,16 +109,87 @@ export default function Chat() {
     }
   }, [search, setLocation]);
 
+  // Handle cross-language handoff - callback passed to VoiceChat
+  // This shows a transition screen and delays conversation reset
+  const handleLanguageHandoff = useCallback((tutorName: string, targetLanguage: string) => {
+    console.log('[SHARED CHAT] Cross-language handoff started:', tutorName, 'in', targetLanguage);
+    setIsLanguageHandoff(true);
+    setHandoffTutorName(tutorName);
+    // Track both prior and target languages for proper cleanup
+    handoffPriorLanguageRef.current = previousLanguageRef.current;
+    handoffTargetLanguageRef.current = targetLanguage;
+    
+    // Clear any existing timeout
+    if (languageHandoffTimeoutRef.current) {
+      clearTimeout(languageHandoffTimeoutRef.current);
+    }
+    
+    // Safety timeout: fully reset handoff state after 10 seconds if something goes wrong
+    // This includes releasing locks and resetting conversation to ensure proper cleanup
+    languageHandoffTimeoutRef.current = setTimeout(() => {
+      console.log('[SHARED CHAT] Handoff timeout - fully resetting state, releasing locks, and resetting conversation');
+      setIsLanguageHandoff(false);
+      setHandoffTutorName(null);
+      // Sync ref to the target language we're transitioning to
+      // The language context has already been updated, so set ref to target
+      // This ensures future language changes are detected correctly
+      if (handoffTargetLanguageRef.current) {
+        previousLanguageRef.current = handoffTargetLanguageRef.current;
+      }
+      handoffPriorLanguageRef.current = null;
+      handoffTargetLanguageRef.current = null;
+      // Release locks to prevent permanent lockout
+      releaseSessionLock();
+      creationInProgressRef.current = false;
+      // Reset conversation to create new one in the new language
+      // This ensures user isn't stuck in old conversation after failed handoff
+      setConversationId(null);
+    }, 10000);
+  }, []);
+  
+  // Complete the handoff by resetting conversation ID after transition
+  const completeLanguageHandoff = useCallback(() => {
+    console.log('[SHARED CHAT] Completing language handoff - resetting conversation');
+    
+    // Clear the timeout
+    if (languageHandoffTimeoutRef.current) {
+      clearTimeout(languageHandoffTimeoutRef.current);
+      languageHandoffTimeoutRef.current = null;
+    }
+    
+    // Update the ref FIRST to prevent the language-change effect from firing
+    // Use tracked target language if available, otherwise use current language state
+    previousLanguageRef.current = handoffTargetLanguageRef.current || language;
+    handoffPriorLanguageRef.current = null;
+    handoffTargetLanguageRef.current = null;
+    
+    // Release locks to allow new conversation creation
+    releaseSessionLock();
+    creationInProgressRef.current = false;
+    
+    // Reset conversation to trigger new creation in new language
+    setConversationId(null);
+    setIsLanguageHandoff(false);
+    setHandoffTutorName(null);
+  }, [language]);
+  
   // Reset conversationId when language changes to trigger new conversation creation
-  // BUT NOT if we're currently in onboarding (to prevent race condition)
+  // BUT NOT if we're currently in onboarding OR during a cross-language handoff
   useEffect(() => {
+    // Skip during handoff - the handoff flow manages conversation reset
+    if (isLanguageHandoff) {
+      console.log('[SHARED CHAT] Language changed during handoff - skipping reset (handoff manages it)');
+      previousLanguageRef.current = language;
+      return;
+    }
+    
     // Only reset if language actually changed AND we're not in onboarding
     if (language !== previousLanguageRef.current && currentConversationOnboarding !== true) {
       console.log('[SHARED CHAT] Language changed from', previousLanguageRef.current, 'to', language, '- resetting conversation');
       setConversationId(null);
       previousLanguageRef.current = language;
     }
-  }, [language, currentConversationOnboarding]);
+  }, [language, currentConversationOnboarding, isLanguageHandoff]);
   
   // Reset conversationId when mode changes to trigger new conversation creation with correct mode
   // Only reset if conversation is empty (no messages) to avoid losing user's conversation
@@ -274,6 +353,19 @@ export default function Chat() {
         </div>
       )}
       
+      {/* Cross-language handoff overlay - shows during tutor switch to new language */}
+      {isLanguageHandoff && (
+        <div className="absolute inset-0 bg-background/90 backdrop-blur-md z-50 flex items-center justify-center animate-in fade-in duration-300">
+          <div className="text-center space-y-4">
+            <Phone className="h-12 w-12 mx-auto text-primary animate-pulse" />
+            <div className="space-y-2">
+              <p className="text-xl font-semibold">Connecting to {handoffTutorName || 'new tutor'}...</p>
+              <p className="text-muted-foreground">Switching languages</p>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Header - Mode Toggle visible in both voice and text modes */}
       <div className="flex flex-wrap items-center justify-center md:justify-between gap-2 p-3 md:p-4 border-b">
         <div className="flex items-center gap-2">
@@ -370,6 +462,8 @@ export default function Chat() {
             setCurrentConversationOnboarding={setCurrentConversationOnboarding}
             isResumedConversation={isResumedConversation}
             onResumeHandled={() => setIsResumedConversation(false)}
+            onLanguageHandoff={handleLanguageHandoff}
+            onLanguageHandoffComplete={completeLanguageHandoff}
           />
         ) : (
           <ChatInterface 
