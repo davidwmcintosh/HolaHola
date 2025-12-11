@@ -2536,8 +2536,31 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
     }
     
     // Simple, non-prescriptive prompt with clear directive
+    // BUT with strong guidance to use memory and avoid defaulting to basics
+    const hasMemory = !!(session.lastSessionSummary || recentTopics.length > 0 || session.conversationTopic);
+    const isExperienced = wordsLearned > 50; // Student has meaningful vocabulary
+    
+    let continuityGuidance = '';
+    if (hasMemory) {
+      continuityGuidance = `
+
+IMPORTANT: You have memory of this student! Reference what you remember naturally:
+- If there's a LAST SESSION MEMORY, acknowledge it briefly ("Last time we..." or "I remember we...")
+- If they have a TODAY'S FOCUS, jump right into that topic
+- DON'T default to beginner basics like "saludos" or "let's start with greetings" unless they specifically ask`;
+    }
+    
+    if (isExperienced) {
+      continuityGuidance += `
+
+This student has learned ${wordsLearned} words - they're not a complete beginner. 
+DON'T suggest starting with basic vocabulary they likely already know.
+Instead, pick up where you left off or ask what they want to practice today.`;
+    }
+    
     return `Session context:
 ${contextParts.join('\n')}
+${continuityGuidance}
 
 Using this context, speak first to the student with a natural opening message. Open the conversation based on who they are and what you know about them - just like a real tutor would. Be warm, be brief (2 sentences max), and be yourself.`;
   }
