@@ -2022,7 +2022,11 @@ export interface CompassContext {
   mustHaveTopics: Array<{ id: string; title: string; targetMinutes: number; status: TopicCoverageStatus }>;
   niceToHaveTopics: Array<{ id: string; title: string; targetMinutes: number; status: TopicCoverageStatus }>;
   
-  // Live pacing (clock time)
+  // Actual wall clock time (answers "what time is it?")
+  currentTimeUTC: string; // ISO string, e.g., "2025-12-11T11:05:00.000Z"
+  currentTimeFormatted: string; // Human-readable, e.g., "11:05 AM UTC"
+  
+  // Live pacing (session time)
   elapsedSeconds: number;
   remainingSeconds: number;
   topicsCovered: string[];

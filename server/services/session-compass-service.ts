@@ -412,6 +412,16 @@ export class SessionCompassService {
     const expectedCoveredMinutes = (elapsedMinutes / (session.scheduledDurationMinutes || 30)) * totalMustHaveMinutes;
     const isOnTrack = coveredMustHaveMinutes >= expectedCoveredMinutes * 0.8; // 80% buffer
 
+    // Wall clock time - answers "what time is it?"
+    const now = new Date();
+    const currentTimeUTC = now.toISOString();
+    const currentTimeFormatted = now.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'UTC'
+    }) + ' UTC';
+
     return {
       studentName: session.studentName,
       studentGoals: session.studentGoals,
@@ -422,6 +432,9 @@ export class SessionCompassService {
       warmthBufferMinutes: session.warmthBufferMinutes || 3,
       mustHaveTopics,
       niceToHaveTopics,
+      
+      currentTimeUTC,
+      currentTimeFormatted,
       
       elapsedSeconds,
       remainingSeconds,

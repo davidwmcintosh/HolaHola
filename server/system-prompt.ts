@@ -383,7 +383,10 @@ ${mustHaveList}${niceToHaveList}`;
     : 'Pacing: May need to prioritize';
   
   const pacing = `
-LIVE PACING (Clock Time):
+CURRENT TIME: ${compass.currentTimeFormatted}
+(If student asks what time it is, you can tell them it's ${compass.currentTimeFormatted})
+
+LIVE PACING (Session Time):
 Elapsed: ${formatTime(compass.elapsedSeconds)} | Remaining: ${formatTime(compass.remainingSeconds)}
 ${pacingNote}`;
 
