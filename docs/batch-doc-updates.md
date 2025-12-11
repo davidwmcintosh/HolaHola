@@ -6,6 +6,71 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 20f: Neural Network Expansion Two-Way Sync (Dec 11, 2025)
+
+#### Problem
+The 5 Neural Network Expansion tables (languageIdioms, culturalNuances, learnerErrorPatterns, dialectVariations, linguisticBridges) were only seeded locally. They had no sync fields or export/import functions, meaning language-specific pedagogical knowledge couldn't be shared between dev/prod environments.
+
+#### Solution: Two-Way Sync Infrastructure
+
+**1. Added Sync Fields to All 5 Tables** (schema.ts)
+```typescript
+// Two-way sync fields
+syncStatus: varchar("sync_status").default("local"), // local, pending_review, approved, synced, rejected
+originId: varchar("origin_id"), // UUID from source environment (for deduplication)
+originEnvironment: varchar("origin_environment"), // development, production
+```
+
+Each table now has an `idx_*_origin` index for efficient deduplication lookups.
+
+**2. Export/Import Functions** (neural-network-sync.ts)
+
+- `exportNeuralNetworkExpansion()` - Returns all approved items from all 5 tables
+- `importLanguageIdiom()` - Deduplicates by (language, idiom)
+- `importCulturalNuance()` - Deduplicates by (language, category, situation)
+- `importLearnerErrorPattern()` - Deduplicates by (targetLanguage, sourceLanguage, specificError)
+- `importDialectVariation()` - Deduplicates by (language, region, standardForm)
+- `importLinguisticBridge()` - Deduplicates by (sourceLanguage, targetLanguage, sourceWord, targetWord)
+- `syncNeuralNetworkExpansion()` - Full sync with counts tracking
+- `getPendingNeuralNetworkExpansion()` - Get items with 'local' status
+- `approveNeuralNetworkExpansionItem()` - Mark items as 'approved' for sync
+
+**3. Nightly Scheduler Integration** (sync-scheduler.ts)
+
+The nightly sync (3 AM MST / 10 AM UTC) now includes:
+- Best practices sync (existing)
+- Neural Network Expansion export + status logging
+- Pending items count reporting
+
+Console output during sync:
+```
+[SYNC-SCHEDULER] Neural Network Expansion status:
+  - Exported 8 idioms, 6 nuances
+  - Exported 6 error patterns, 5 dialects
+  - Exported 7 linguistic bridges
+  - Pending (local): 0 items
+```
+
+**4. Deduplication Strategy**
+
+Each table has a unique key for matching:
+| Table | Unique Key |
+|-------|-----------|
+| languageIdioms | (language, idiom) |
+| culturalNuances | (language, category, situation) |
+| learnerErrorPatterns | (targetLanguage, sourceLanguage, specificError) |
+| dialectVariations | (language, region, standardForm) |
+| linguisticBridges | (sourceLanguage, targetLanguage, sourceWord, targetWord) |
+
+Import checks both `originId` and unique key to avoid duplicates.
+
+#### Files Modified
+- `shared/schema.ts` - Added syncStatus, originId, originEnvironment to all 5 tables + origin indexes
+- `server/services/neural-network-sync.ts` - Added 10 new methods for expansion sync
+- `server/services/sync-scheduler.ts` - Integrated expansion sync into nightly scheduler
+
+---
+
 ### Session 20e: Founder Mode Meta-Mode Awareness (Dec 11, 2025)
 
 #### Problem

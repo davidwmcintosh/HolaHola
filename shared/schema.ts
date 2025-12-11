@@ -2533,11 +2533,17 @@ export const languageIdioms = pgTable("language_idioms", {
   commonMistakes: text("common_mistakes").array(), // What learners get wrong
   relatedIdiomIds: varchar("related_idiom_ids").array(), // Similar expressions
   
+  // Two-way sync fields
+  syncStatus: varchar("sync_status").default("local"), // local, pending_review, approved, synced, rejected
+  originId: varchar("origin_id"), // UUID from source environment (for deduplication)
+  originEnvironment: varchar("origin_environment"), // development, production
+  
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_language_idioms_language").on(table.language),
   index("idx_language_idioms_region").on(table.region),
+  index("idx_language_idioms_origin").on(table.originId),
 ]);
 
 // Cultural Nuances & Etiquette - Social customs per language/culture
@@ -2553,11 +2559,17 @@ export const culturalNuances = pgTable("cultural_nuances", {
   region: varchar("region"), // Regional variations
   formalityLevel: varchar("formality_level").default("casual"), // very_formal, formal, casual, intimate
   
+  // Two-way sync fields
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+  
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_cultural_nuances_language").on(table.language),
   index("idx_cultural_nuances_category").on(table.category),
+  index("idx_cultural_nuances_origin").on(table.originId),
 ]);
 
 // Learner Error Patterns - Common mistakes by source→target language pair
@@ -2575,6 +2587,11 @@ export const learnerErrorPatterns = pgTable("learner_error_patterns", {
   correctForms: text("correct_forms").array(), // Correct versions
   actflLevel: varchar("actfl_level"), // When this typically appears
   
+  // Two-way sync fields
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+  
   priority: varchar("priority").default("common"), // common, occasional, rare
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -2582,6 +2599,7 @@ export const learnerErrorPatterns = pgTable("learner_error_patterns", {
   index("idx_learner_errors_target").on(table.targetLanguage),
   index("idx_learner_errors_pair").on(table.targetLanguage, table.sourceLanguage),
   index("idx_learner_errors_category").on(table.errorCategory),
+  index("idx_learner_errors_origin").on(table.originId),
 ]);
 
 // Regional Dialect Variations - Differences within a language
@@ -2597,11 +2615,17 @@ export const dialectVariations = pgTable("dialect_variations", {
   audioExampleUrl: varchar("audio_example_url"), // Reference to pronunciation
   usageNotes: text("usage_notes"), // Context for when to use
   
+  // Two-way sync fields
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+  
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_dialect_variations_language").on(table.language),
   index("idx_dialect_variations_region").on(table.region),
+  index("idx_dialect_variations_origin").on(table.originId),
 ]);
 
 // Linguistic Bridges - Cross-language connections (cognates, false friends)
@@ -2618,11 +2642,17 @@ export const linguisticBridges = pgTable("linguistic_bridges", {
   explanation: text("explanation"),
   teachingNote: text("teaching_note"), // How to present this to learners
   
+  // Two-way sync fields
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+  
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_linguistic_bridges_pair").on(table.sourceLanguage, table.targetLanguage),
   index("idx_linguistic_bridges_type").on(table.bridgeType),
+  index("idx_linguistic_bridges_origin").on(table.originId),
 ]);
 
 // Insert schemas for Neural Network Expansion
