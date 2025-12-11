@@ -670,6 +670,16 @@ export function StreamingVoiceChat({
               console.log(`[TUTOR HANDOFF] Cross-language switch to ${tutorName} (${targetGender}) in ${targetLanguage}`);
               // Mark that we're in a language handoff - used to complete handoff after reconnection
               isLanguageHandoffRef.current = true;
+              // CRITICAL: Clear greeting lock so new tutor can greet
+              // Without this, the lock from the old tutor's session prevents the new tutor's greeting
+              greetingRequestedRef.current = null;
+              clearGreetingLock();
+              try {
+                sessionStorage.removeItem(GREETING_MESSAGE_KEY);
+              } catch {
+                // Ignore storage errors
+              }
+              console.log('[TUTOR HANDOFF] Cleared greeting lock for new tutor');
               // Notify parent to show transition overlay BEFORE language change
               // This prevents the white screen crash during context update
               onLanguageHandoff?.(tutorName || 'tutor', targetLanguage);
@@ -2081,6 +2091,15 @@ export function StreamingVoiceChat({
                 const { targetGender, targetLanguage, tutorName, isLanguageSwitch } = handoff;
                 if (isLanguageSwitch && targetLanguage) {
                   console.log(`[TUTOR HANDOFF] Cross-language switch to ${tutorName} (${targetGender}) in ${targetLanguage} (reconnect context)`);
+                  // CRITICAL: Clear greeting lock so new tutor can greet
+                  greetingRequestedRef.current = null;
+                  clearGreetingLock();
+                  try {
+                    sessionStorage.removeItem(GREETING_MESSAGE_KEY);
+                  } catch {
+                    // Ignore storage errors
+                  }
+                  console.log('[TUTOR HANDOFF] Cleared greeting lock for new tutor (reconnect)');
                   // Update language context - this triggers tutorVoices refetch for new language
                   setLanguage(targetLanguage);
                 } else {
