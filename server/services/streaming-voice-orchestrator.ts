@@ -184,6 +184,7 @@ export interface StreamingSession {
   previousTutorName?: string;       // Stored during handoff for natural intro by new tutor
   isLanguageSwitchHandoff?: boolean; // True when current handoff is a cross-language switch
   previousLanguage?: string;        // Previous language before cross-language switch
+  switchTutorTriggered?: boolean;   // True when SWITCH_TUTOR detected - stops further sentence synthesis
   // Additional context for personalized greetings
   conversationTopic?: string;       // What student chose to work on (from conversation.topic)
   conversationTitle?: string;       // Thread name for context (from conversation.title)
@@ -434,6 +435,9 @@ export class StreamingVoiceOrchestrator {
     // Mark that we're now generating a response
     session.isGenerating = true;
     
+    // Reset tutor switch flag for new response
+    session.switchTutorTriggered = false;
+    
     // Student activity detected - reset idle timeout
     this.resetIdleTimeout(session);
     
@@ -629,7 +633,9 @@ export class StreamingVoiceOrchestrator {
             }
             
             // SWITCH_TUTOR: Internal command - queue tutor handoff (don't send to whiteboard)
-            // This allows the current tutor to finish their farewell before switching voices
+            // IMPORTANT: When SWITCH_TUTOR is detected, we must:
+            // 1. Queue the handoff
+            // 2. STOP synthesizing further sentences (don't let current tutor speak as new tutor)
             // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
             const switchItem = whiteboardParsed.whiteboardItems.find(item => item.type === 'switch_tutor');
             if (switchItem && 'data' in switchItem && switchItem.data) {
@@ -638,8 +644,10 @@ export class StreamingVoiceOrchestrator {
                 targetGender: data.targetGender,
                 targetLanguage: data.targetLanguage,
               };
+              // Set flag to stop processing further sentences - the NEW tutor will speak their intro
+              session.switchTutorTriggered = true;
               const languageInfo = data.targetLanguage ? ` in ${data.targetLanguage}` : '';
-              console.log(`[Tutor Switch] Queued handoff to ${data.targetGender} tutor${languageInfo} after response completes`);
+              console.log(`[Tutor Switch] Queued handoff to ${data.targetGender} tutor${languageInfo} - stopping current tutor's speech`);
             }
             
             // Filter out internal commands (switch_tutor) - only send visual items to whiteboard
@@ -670,6 +678,13 @@ export class StreamingVoiceOrchestrator {
                 shouldClear: true,
               } as StreamingWhiteboardMessage);
             }
+          }
+          
+          // EARLY EXIT: If SWITCH_TUTOR was triggered, stop synthesizing any more sentences
+          // The new tutor will speak their own intro after the handoff completes
+          if (session.switchTutorTriggered) {
+            console.log(`[Tutor Switch] Skipping sentence ${chunk.index} after SWITCH_TUTOR - new tutor will speak`);
+            return;
           }
           
           // Skip empty sentences AFTER whiteboard processing
@@ -893,8 +908,8 @@ export class StreamingVoiceOrchestrator {
           }
           
           // Notify client to update voice preference
-          // For cross-language handoffs, tell client to request greeting after reconnecting
-          // (the greeting will be generated in the NEW session, not this one)
+          // ALL handoffs should trigger a greeting from the new tutor
+          // The new tutor introduces themselves rather than the old tutor speaking for them
           this.sendMessage(session.ws, {
             type: 'tutor_handoff',
             timestamp: Date.now(),
@@ -902,7 +917,7 @@ export class StreamingVoiceOrchestrator {
             targetLanguage: isLanguageSwitch ? effectiveLanguage : undefined,
             tutorName,
             isLanguageSwitch,
-            requiresGreeting: isLanguageSwitch, // Client should request greeting after reconnecting
+            requiresGreeting: true, // New tutor always speaks their own intro
           });
         } catch (err: any) {
           console.error(`[Tutor Switch] Error during handoff:`, err.message);
