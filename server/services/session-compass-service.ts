@@ -11,7 +11,7 @@
  */
 
 import { db } from "../db";
-import { eq, and, isNull, desc } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, desc } from "drizzle-orm";
 import {
   tutorSessions,
   tutorSessionTopics,
@@ -124,15 +124,28 @@ export class SessionCompassService {
       if (!student) return null;
 
       // Get last session summary for continuity
+      // Query for sessions that actually have a summary (completed sessions)
+      // This prevents finding active sessions without summaries
       const lastSessions = await db
         .select()
         .from(tutorSessions)
-        .where(eq(tutorSessions.userId, userId))
+        .where(
+          and(
+            eq(tutorSessions.userId, userId),
+            isNotNull(tutorSessions.sessionSummary)
+          )
+        )
         .orderBy(desc(tutorSessions.createdAt))
         .limit(1);
       
       const lastSession = lastSessions[0];
       const lastSessionSummary = lastSession?.sessionSummary || null;
+      
+      if (lastSessionSummary) {
+        console.log(`[Compass] Found previous session summary: "${lastSessionSummary.substring(0, 50)}..."`);
+      } else {
+        console.log(`[Compass] No previous session summary found for user ${userId}`);
+      }
 
       // Build student goals from profile and class context
       let studentGoals: string | null = null;

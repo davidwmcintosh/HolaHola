@@ -316,6 +316,7 @@ export interface StreamingTutorHandoffMessage extends StreamingVoiceMessage {
   targetLanguage?: string;         // Optional: for cross-language handoffs (e.g., "japanese")
   tutorName?: string;              // The new tutor's name (e.g., "Sayuri")
   isLanguageSwitch: boolean;       // True if this is a cross-language handoff
+  requiresGreeting?: boolean;      // True if client should request greeting after reconnecting
 }
 
 /**

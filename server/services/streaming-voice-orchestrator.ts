@@ -2235,6 +2235,22 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       }
       
       // Build greeting prompt with full context
+      // DEBUG: Log context being passed to greeting prompt
+      console.log(`[Streaming Greeting] Context for prompt:`, {
+        userName,
+        actflLevel,
+        wordsLearned,
+        recentTopicsCount: recentTopics.length,
+        hasClassEnrollment: !!classEnrollment,
+        className: classEnrollment?.className,
+        conversationTopic: session.conversationTopic || '(none)',
+        conversationTitle: session.conversationTitle || '(none)',
+        lastSessionSummary: session.lastSessionSummary ? session.lastSessionSummary.substring(0, 100) + '...' : '(none)',
+        studentGoals: session.studentGoals || '(none)',
+        isResumed,
+        connectionsCount: connectionsAboutStudent.length,
+      });
+      
       const greetingPrompt = this.buildGreetingPrompt(
         session,
         userName,
