@@ -6,6 +6,68 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 20k: Neural Network Dynamic Tool Documentation & Sync (Dec 11, 2025)
+
+#### Overview
+Completed migration from hardcoded tool documentation to dynamic neural network system. Also fixed gap where procedural memory wasn't included in nightly sync.
+
+#### 1. Compass Integration Clarification
+
+Compass is NOT just integrated with `situational_patterns` - it's deeply woven throughout the entire neural network:
+
+| Integration Point | How Compass Is Used |
+|-------------------|---------------------|
+| `determineActiveTriggers()` | Uses `compass.elapsedSeconds` and `compass.remainingCredits` to set time-based triggers |
+| `getProceduralKnowledge()` | Takes `CompassContext` as first parameter, passes to all retrieval functions |
+| `getProceduresForTriggers()` | Receives triggers influenced by Compass state, filters procedures accordingly |
+| `getPrinciplesForContext()` | Session phase (derived from Compass timing) affects which principles are selected |
+| `getActivePatterns()` | `situational_patterns.compass_conditions` JSONB field enables pattern-specific time rules |
+
+**Flow**: Compass State → Active Triggers → Filtered Procedures/Principles/Patterns → Prompt Injection
+
+#### 2. Dynamic Tool Documentation Migration
+
+**Before**: ~400 lines of hardcoded tool documentation in `system-prompt.ts` (lines 1418-1837)
+**After**: Single function call `${buildDetailedToolDocumentationSync(tutorDirectorySection)}`
+
+The `buildDetailedToolDocumentationSync()` function in `procedural-memory-retrieval.ts`:
+- Queries all 26 tools from `tool_knowledge` table
+- Groups by type (whiteboard_command, drill, interaction, subtitle_control)
+- Formats with syntax, purpose, examples, and behavioral patterns
+- Includes SWITCH_TUTOR and SUBTITLE tools with tutor directory context
+
+**Benefits**:
+- Emergent intelligence: Daniela learns patterns from database, not scripts
+- Easy updates: Add/modify tools via database, no code changes
+- Reduced prompt size: Documentation built on-demand
+- Compass-aware: Tool suggestions influenced by session timing
+
+#### 3. Nightly Sync Now Includes Procedural Memory
+
+**Gap Found**: Sync scheduler exported Neural Network Expansion (5 tables) but NOT Procedural Memory (4 tables).
+
+**Fixed**: Added to `runNightlySync()` in `sync-scheduler.ts`:
+```typescript
+// 3. Sync Procedural Memory (4 tables: tools, procedures, principles, patterns)
+const proceduralData = await neuralNetworkSync.exportProceduralMemory();
+
+console.log(`[SYNC-SCHEDULER] Procedural Memory status:`);
+console.log(`  - Exported ${proceduralData.tools.length} tools, ${proceduralData.procedures.length} procedures`);
+console.log(`  - Exported ${proceduralData.principles.length} principles, ${proceduralData.patterns.length} patterns`);
+```
+
+**Nightly Sync Now Covers (3 AM MST)**:
+1. Best Practices (pending → approved promotion)
+2. Neural Network Expansion (5 tables: idioms, nuances, errorPatterns, dialects, bridges)
+3. Procedural Memory (4 tables: tool_knowledge, tutor_procedures, teaching_principles, situational_patterns)
+
+#### Files Modified
+- `server/system-prompt.ts` - Replaced hardcoded tool docs with dynamic function call
+- `server/services/sync-scheduler.ts` - Added procedural memory export to nightly sync
+- `server/services/procedural-memory-retrieval.ts` - Added `buildDetailedToolDocumentationSync()` function
+
+---
+
 ### Session 20j: Push-to-Talk Idle Timeout Fix (Dec 11, 2025)
 
 #### Problem

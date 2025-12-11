@@ -12,6 +12,12 @@ let lastSyncResult: {
     dialects: { imported: number; skipped: number };
     bridges: { imported: number; skipped: number };
   };
+  proceduralMemoryCounts?: {
+    tools: number;
+    procedures: number;
+    principles: number;
+    patterns: number;
+  };
   error?: string;
 } | null = null;
 
@@ -54,6 +60,13 @@ async function runNightlySync(): Promise<void> {
     console.log(`  - Exported ${expansionData.bridges.length} linguistic bridges`);
     console.log(`  - Pending (local): ${pendingExpansion.totalCount} items`);
     
+    // 3. Sync Procedural Memory (4 tables: tools, procedures, principles, patterns)
+    const proceduralData = await neuralNetworkSync.exportProceduralMemory();
+    
+    console.log(`[SYNC-SCHEDULER] Procedural Memory status:`);
+    console.log(`  - Exported ${proceduralData.tools.length} tools, ${proceduralData.procedures.length} procedures`);
+    console.log(`  - Exported ${proceduralData.principles.length} principles, ${proceduralData.patterns.length} patterns`);
+    
     if (bestPracticesResult.success) {
       console.log(`[SYNC-SCHEDULER] Nightly sync complete: ${bestPracticesResult.syncedCount} best practices synced`);
       lastSyncResult = {
@@ -66,6 +79,12 @@ async function runNightlySync(): Promise<void> {
           errorPatterns: { imported: 0, skipped: expansionData.errorPatterns.length },
           dialects: { imported: 0, skipped: expansionData.dialects.length },
           bridges: { imported: 0, skipped: expansionData.bridges.length },
+        },
+        proceduralMemoryCounts: {
+          tools: proceduralData.tools.length,
+          procedures: proceduralData.procedures.length,
+          principles: proceduralData.principles.length,
+          patterns: proceduralData.patterns.length,
         },
       };
     } else {
