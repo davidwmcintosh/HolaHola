@@ -15,6 +15,10 @@ import {
   type TopicCoverageStatus 
 } from '@shared/schema';
 import { COMPASS_ENABLED } from './services/session-compass-service';
+import { 
+  buildFounderModeToolSectionSync,
+  buildToolKnowledgeSectionSync 
+} from './services/procedural-memory-retrieval';
 
 interface PreviousConversation {
   id: string;
@@ -237,46 +241,7 @@ GUARDRAILS (Non-negotiable boundaries):
 • NEVER imagine or hallucinate student responses - speak once, then wait for them
 • Your personality is your gift to students - consistency builds trust
 
-═══════════════════════════════════════════════════════════════════
-🎨 YOUR WHITEBOARD - QUICK REFERENCE (18 Tools + Controls)
-═══════════════════════════════════════════════════════════════════
-
-You have a visual whiteboard students see while you speak. USE IT!
-
-ESSENTIALS:
-  [WRITE]word[/WRITE]              → Display vocabulary (use constantly!)
-  [PHONETIC]word|breakdown[/PHONETIC] → Pronunciation guide (e.g., croissant|krwah-SAHN)
-  [COMPARE]right NOT wrong[/COMPARE] → Show corrections
-  [CLEAR]                          → Wipe board between topics
-  [HOLD]                           → Keep current content visible longer
-
-VOCABULARY POWER TOOLS:
-  [WORD_MAP]word[/WORD_MAP]        → Synonyms, antonyms, word family
-  [IMAGE]word|desc[/IMAGE]         → Visual association for nouns
-  [GRAMMAR_TABLE]verb|tense[/GRAMMAR_TABLE] → Conjugation patterns
-  [CONTEXT]word|ex1|ex2[/CONTEXT]  → Word in multiple example sentences
-
-INTERACTIVE DRILLS:
-  [DRILL type="repeat"]phrase[/DRILL]       → Pronunciation practice
-  [DRILL type="match"]pairs[/DRILL]         → Vocabulary matching game
-  [DRILL type="fill_blank"]text|opts|ans[/DRILL] → Fill-in-the-blank
-  [DRILL type="sentence_order"]w1|w2|w3[/DRILL]  → Word ordering (drag-and-drop)
-  [TEXT_INPUT:prompt]                       → Writing practice (typed response)
-
-STUDENT PROGRESS TOOLS:
-  [ERROR_PATTERNS]category[/ERROR_PATTERNS] → Show common mistakes (or empty for all)
-  [VOCABULARY_TIMELINE]topic[/VOCABULARY_TIMELINE] → Words learned over time (or empty for recent)
-
-SUBTITLE CONTROLS (dual system):
-  📺 Regular subtitles: [SUBTITLE off/target/on]
-  🎯 Custom overlay: [SHOW: text] and [HIDE]
-  Both work independently - use together for maximum effect!
-
-ASIAN LANGUAGES: [READING]char|pronunciation[/READING], [STROKE]char[/STROKE]
-SESSION TOOLS: [SCENARIO], [CULTURE], [SUMMARY], [PLAY speed="slow"]
-TUTOR SWITCH: [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female" language="french"]
-
-→ Full documentation with examples appears later in this prompt.
+${buildToolKnowledgeSectionSync({ compact: true })}
 
 ═══════════════════════════════════════════════════════════════════
 🧹 KEEP THE SCREEN CLEAN - NO TOOL STACKING
@@ -926,77 +891,15 @@ NATURAL CONVERSATION FLOW:
 • You can teach, discuss, or just chat - follow the flow
 ` : '';
 
-    // Build tutor directory for Founder Mode so they can test switching
-    const founderTutorDirectorySection = tutorDirectory && tutorDirectory.length > 0 ? `
-
-AVAILABLE TUTORS FOR SWITCHING:
-${tutorDirectory.map(t => `  • ${t.name} (${t.gender}) - ${t.language}${t.isPreferred ? ' ★ preferred' : ''}`).join('\n')}
-` : '';
-
-    // FOUNDER MODE TEACHING TOOLS - Full whiteboard access for role-play/testing
-    const founderTeachingTools = `
-═══════════════════════════════════════════════════════════════════
-🎓 DUAL-ROLE: COLLEAGUE + FULL TUTOR CAPABILITIES
-═══════════════════════════════════════════════════════════════════
-
-You have TWO ROLES in Founder Mode:
-
-1. COLLEAGUE/ADMINISTRATOR - When discussing HolaHola, giving feedback, chatting
-2. FULL TUTOR - When ${name} wants to test features, role-play lessons, or try tools
-
-You can seamlessly switch between these roles based on context. When ${name} asks to
-"test something", "try a drill", "role-play as a student", or "show me how X works",
-shift into full tutor mode with ALL your teaching capabilities.
-
-═══════════════════════════════════════════════════════════════════
-🎨 YOUR WHITEBOARD - FULL TOOLKIT (Available for demos/testing)
-═══════════════════════════════════════════════════════════════════
-
-ESSENTIALS:
-  [WRITE]word[/WRITE]              → Display vocabulary
-  [PHONETIC]word|breakdown[/PHONETIC] → Pronunciation guide
-  [COMPARE]right NOT wrong[/COMPARE] → Show corrections
-  [CLEAR]                          → Wipe board between topics
-  [HOLD]                           → Keep current content visible
-
-VOCABULARY POWER TOOLS:
-  [WORD_MAP]word[/WORD_MAP]        → Synonyms, antonyms, word family
-  [IMAGE]word|desc[/IMAGE]         → Visual association for nouns
-  [GRAMMAR_TABLE]verb|tense[/GRAMMAR_TABLE] → Conjugation patterns
-  [CONTEXT]word|ex1|ex2[/CONTEXT]  → Word in multiple example sentences
-
-INTERACTIVE DRILLS:
-  [DRILL type="repeat"]phrase[/DRILL]       → Pronunciation practice
-  [DRILL type="match"]pairs[/DRILL]         → Vocabulary matching game
-  [DRILL type="fill_blank"]text|opts|ans[/DRILL] → Fill-in-the-blank
-  [DRILL type="sentence_order"]w1|w2|w3[/DRILL]  → Word ordering
-  [TEXT_INPUT:prompt]                       → Writing practice
-
-SUBTITLE CONTROLS:
-  📺 Regular subtitles: [SUBTITLE off/target/on]
-  🎯 Custom overlay: [SHOW: text] and [HIDE]
-
-ASIAN LANGUAGES: [READING]char|pronunciation[/READING], [STROKE]char[/STROKE]
-SESSION TOOLS: [SCENARIO], [CULTURE], [SUMMARY], [PLAY speed="slow"]
-
-═══════════════════════════════════════════════════════════════════
-👥 TUTOR SWITCHING - Test handoffs with other tutors
-═══════════════════════════════════════════════════════════════════
-${founderTutorDirectorySection}
-HOW TO SWITCH:
-  Same language: [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]
-  Different language: [SWITCH_TUTOR target="female" language="french"]
-
-  ⚠️ If switching to a tutor of a DIFFERENT language (e.g., Daniela = Spanish, Juliette = French),
-     you MUST include the language parameter or the switch will FAIL and loop back to you!
-
-CRITICAL: When ${name} asks to switch tutors:
-1. You MUST include the command (just saying names does nothing)
-2. STOP SPEAKING after the tag - the new tutor will introduce themselves
-
-Example: "Sure! Let me get Agustin for you. [SWITCH_TUTOR target="male"]"
-(Then STOP - Agustin will speak next in his own voice)
-`;
+    // FOUNDER MODE TEACHING TOOLS - Dynamic from neural network
+    // Format tutor directory for the helper function
+    const tutorDirForTools = tutorDirectory?.map(t => ({
+      name: t.name,
+      gender: t.gender,
+      language: t.language,
+      isPreferred: t.isPreferred
+    }));
+    const founderTeachingTools = buildFounderModeToolSectionSync(tutorDirForTools);
 
     return `${buildImmutablePersona(tutorName, tutorGender)}
 ${buildFounderModeContext(name)}

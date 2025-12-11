@@ -24,6 +24,237 @@ import {
 } from '@shared/schema';
 import { eq, inArray, sql } from 'drizzle-orm';
 
+// ===== Tool Knowledge Cache =====
+// Cache for synchronous access in system-prompt.ts
+
+let toolKnowledgeCache: ToolKnowledge[] | null = null;
+let cacheInitPromise: Promise<void> | null = null;
+
+/**
+ * Initialize tool knowledge cache at server startup
+ * Call this once when the server starts
+ */
+export async function initToolKnowledgeCache(): Promise<void> {
+  if (cacheInitPromise) return cacheInitPromise;
+  
+  cacheInitPromise = (async () => {
+    try {
+      toolKnowledgeCache = await getAllToolKnowledge();
+      console.log(`[Procedural Memory] Loaded ${toolKnowledgeCache.length} tools into cache`);
+    } catch (error) {
+      console.error('[Procedural Memory] Failed to initialize tool cache:', error);
+      toolKnowledgeCache = [];
+    }
+  })();
+  
+  return cacheInitPromise;
+}
+
+/**
+ * Get cached tool knowledge synchronously
+ * Returns empty array if cache not yet initialized
+ */
+export function getCachedToolKnowledge(): ToolKnowledge[] {
+  return toolKnowledgeCache || [];
+}
+
+/**
+ * Force refresh the tool knowledge cache
+ */
+export async function refreshToolKnowledgeCache(): Promise<void> {
+  toolKnowledgeCache = await getAllToolKnowledge();
+  console.log(`[Procedural Memory] Refreshed cache with ${toolKnowledgeCache.length} tools`);
+}
+
+/**
+ * Build tool knowledge section synchronously from cache
+ * For use in createSystemPrompt without requiring async
+ */
+export function buildToolKnowledgeSectionSync(options?: {
+  includeExamples?: boolean;
+  compact?: boolean;
+}): string {
+  const tools = getCachedToolKnowledge();
+  
+  if (tools.length === 0) {
+    return `
+═══════════════════════════════════════════════════════════════════
+🎨 YOUR WHITEBOARD - VISUAL TEACHING TOOLS
+═══════════════════════════════════════════════════════════════════
+
+Your whiteboard tools will be loaded from your teaching knowledge base.
+`;
+  }
+  
+  const lines: string[] = [
+    '═══════════════════════════════════════════════════════════════════',
+    '🎨 YOUR WHITEBOARD - VISUAL TEACHING TOOLS',
+    '═══════════════════════════════════════════════════════════════════',
+    '',
+    'You have a "whiteboard" - a visual display the student can see while you speak.',
+    'Use these tools strategically to reinforce learning. YOU decide when visual aids help.',
+    '',
+  ];
+  
+  // Group by type for organized display
+  const byType: Record<string, ToolKnowledge[]> = {};
+  tools.forEach(t => {
+    if (!byType[t.toolType]) byType[t.toolType] = [];
+    byType[t.toolType].push(t);
+  });
+  
+  // Order types for logical flow
+  const typeOrder = ['whiteboard_command', 'drill', 'interaction', 'subtitle_control'];
+  const typeLabels: Record<string, string> = {
+    'whiteboard_command': 'CORE TOOLS',
+    'drill': 'INTERACTIVE DRILLS',
+    'interaction': 'SESSION FLOW',
+    'subtitle_control': 'SUBTITLE CONTROLS',
+  };
+  
+  for (const type of typeOrder) {
+    const typeTools = byType[type];
+    if (!typeTools || typeTools.length === 0) continue;
+    
+    const label = typeLabels[type] || type.toUpperCase();
+    lines.push(`${label}:`);
+    
+    typeTools.forEach(tool => {
+      if (options?.compact) {
+        lines.push(`  ${tool.syntax}  → ${tool.purpose}`);
+      } else {
+        lines.push(`• ${tool.toolName}: ${tool.purpose}`);
+        lines.push(`  Syntax: ${tool.syntax}`);
+        if (options?.includeExamples && tool.examples && tool.examples.length > 0) {
+          lines.push(`  Example: ${tool.examples[0]}`);
+        }
+        if (tool.bestUsedWhen) {
+          lines.push(`  Best used: ${tool.bestUsedWhen}`);
+        }
+      }
+    });
+    
+    lines.push('');
+  }
+  
+  // Handle any types not in the ordered list
+  for (const [type, typeTools] of Object.entries(byType)) {
+    if (typeOrder.includes(type)) continue;
+    
+    lines.push(`${type.toUpperCase()}:`);
+    typeTools.forEach(tool => {
+      lines.push(`  ${tool.syntax}  → ${tool.purpose}`);
+    });
+    lines.push('');
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * Build Founder Mode tool section synchronously from cache
+ */
+export function buildFounderModeToolSectionSync(tutorDirectory?: Array<{name: string; gender: string; language: string; isPreferred?: boolean}>): string {
+  const tools = getCachedToolKnowledge();
+  
+  const lines: string[] = [
+    '═══════════════════════════════════════════════════════════════════',
+    '🎓 DUAL-ROLE: COLLEAGUE + FULL TUTOR CAPABILITIES',
+    '═══════════════════════════════════════════════════════════════════',
+    '',
+    'You have TWO ROLES in Founder Mode:',
+    '1. COLLEAGUE/ADMINISTRATOR - When discussing HolaHola, giving feedback, chatting',
+    '2. FULL TUTOR - When they want to test features, role-play lessons, or try tools',
+    '',
+    'Seamlessly switch between roles based on context.',
+    '',
+  ];
+  
+  // Add grouped tools
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('🎨 YOUR WHITEBOARD - FULL TOOLKIT (Available for demos/testing)');
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('');
+  
+  // Group by type
+  const byType: Record<string, ToolKnowledge[]> = {};
+  tools.forEach(t => {
+    if (!byType[t.toolType]) byType[t.toolType] = [];
+    byType[t.toolType].push(t);
+  });
+  
+  // Essentials first
+  const essentials = byType['whiteboard_command']?.filter(t => 
+    ['WRITE', 'PHONETIC', 'COMPARE', 'CLEAR', 'HOLD'].includes(t.toolName)
+  ) || [];
+  
+  if (essentials.length > 0) {
+    lines.push('ESSENTIALS:');
+    essentials.forEach(tool => {
+      const paddedSyntax = tool.syntax.padEnd(35);
+      lines.push(`  ${paddedSyntax} → ${tool.purpose}`);
+    });
+    lines.push('');
+  }
+  
+  // Vocabulary power tools
+  const vocabTools = byType['whiteboard_command']?.filter(t => 
+    ['WORD_MAP', 'IMAGE', 'GRAMMAR_TABLE', 'CONTEXT'].includes(t.toolName)
+  ) || [];
+  
+  if (vocabTools.length > 0) {
+    lines.push('VOCABULARY POWER TOOLS:');
+    vocabTools.forEach(tool => {
+      const paddedSyntax = tool.syntax.padEnd(35);
+      lines.push(`  ${paddedSyntax} → ${tool.purpose}`);
+    });
+    lines.push('');
+  }
+  
+  // Drills
+  const drills = byType['drill'] || [];
+  if (drills.length > 0) {
+    lines.push('INTERACTIVE DRILLS:');
+    drills.forEach(tool => {
+      const paddedSyntax = tool.syntax.padEnd(42);
+      lines.push(`  ${paddedSyntax} → ${tool.purpose}`);
+    });
+    lines.push('');
+  }
+  
+  // Subtitle controls
+  const subtitles = byType['subtitle_control'] || [];
+  if (subtitles.length > 0) {
+    lines.push('SUBTITLE CONTROLS:');
+    subtitles.forEach(tool => {
+      lines.push(`  ${tool.syntax}: ${tool.purpose}`);
+    });
+    lines.push('');
+  }
+  
+  // Tutor switching section
+  if (tutorDirectory && tutorDirectory.length > 0) {
+    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('👥 TUTOR SWITCHING - Test handoffs with other tutors');
+    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('');
+    lines.push('AVAILABLE TUTORS FOR SWITCHING:');
+    tutorDirectory.forEach(t => {
+      const star = t.isPreferred ? ' ★ preferred' : '';
+      lines.push(`  • ${t.name} (${t.gender}) - ${t.language}${star}`);
+    });
+    lines.push('');
+    lines.push('HOW TO SWITCH:');
+    lines.push('  Same language: [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]');
+    lines.push('  Different language: [SWITCH_TUTOR target="female" language="french"]');
+    lines.push('');
+    lines.push('  CRITICAL: STOP SPEAKING after the tag - the new tutor will introduce themselves');
+    lines.push('');
+  }
+  
+  return lines.join('\n');
+}
+
 // ===== Types =====
 
 interface SessionContext {
@@ -458,6 +689,199 @@ export function formatSituationalGuidance(knowledge: ProceduralKnowledge): strin
     knowledge.suggestedTools.forEach(t => {
       lines.push(`  ${t.toolName}: ${t.syntax}`);
     });
+  }
+  
+  return lines.join('\n');
+}
+
+// ===== High-Level Builders for System Prompt =====
+
+/**
+ * Build the complete tool knowledge section for standard voice sessions
+ * This replaces the hardcoded tool documentation in system-prompt.ts
+ */
+export async function buildToolKnowledgeSection(options?: {
+  includeExamples?: boolean;
+  compact?: boolean;
+}): Promise<string> {
+  const tools = await getAllToolKnowledge();
+  
+  if (tools.length === 0) {
+    return `
+═══════════════════════════════════════════════════════════════════
+🎨 YOUR WHITEBOARD - VISUAL TEACHING TOOLS
+═══════════════════════════════════════════════════════════════════
+
+Your whiteboard tools are dynamically loaded from your teaching knowledge base.
+(No tools currently available - contact system administrator)
+`;
+  }
+  
+  const lines: string[] = [
+    '═══════════════════════════════════════════════════════════════════',
+    '🎨 YOUR WHITEBOARD - VISUAL TEACHING TOOLS',
+    '═══════════════════════════════════════════════════════════════════',
+    '',
+    'You have a "whiteboard" - a visual display the student can see while you speak.',
+    'Use these tools strategically to reinforce learning. YOU decide when visual aids help.',
+    '',
+  ];
+  
+  // Group by type for organized display
+  const byType: Record<string, ToolKnowledge[]> = {};
+  tools.forEach(t => {
+    if (!byType[t.toolType]) byType[t.toolType] = [];
+    byType[t.toolType].push(t);
+  });
+  
+  // Order types for logical flow
+  const typeOrder = ['whiteboard_command', 'drill', 'interaction', 'subtitle_control'];
+  const typeLabels: Record<string, string> = {
+    'whiteboard_command': 'CORE TOOLS',
+    'drill': 'INTERACTIVE DRILLS',
+    'interaction': 'SESSION FLOW',
+    'subtitle_control': 'SUBTITLE CONTROLS',
+  };
+  
+  for (const type of typeOrder) {
+    const typeTools = byType[type];
+    if (!typeTools || typeTools.length === 0) continue;
+    
+    const label = typeLabels[type] || type.toUpperCase();
+    lines.push(`${label}:`);
+    
+    typeTools.forEach(tool => {
+      // Compact format: just syntax and purpose
+      if (options?.compact) {
+        lines.push(`  ${tool.syntax}  → ${tool.purpose}`);
+      } else {
+        lines.push(`• ${tool.toolName}: ${tool.purpose}`);
+        lines.push(`  Syntax: ${tool.syntax}`);
+        if (options?.includeExamples && tool.examples && tool.examples.length > 0) {
+          lines.push(`  Example: ${tool.examples[0]}`);
+        }
+        if (tool.bestUsedWhen) {
+          lines.push(`  Best used: ${tool.bestUsedWhen}`);
+        }
+      }
+    });
+    
+    lines.push('');
+  }
+  
+  // Handle any types not in the ordered list
+  for (const [type, typeTools] of Object.entries(byType)) {
+    if (typeOrder.includes(type)) continue;
+    
+    lines.push(`${type.toUpperCase()}:`);
+    typeTools.forEach(tool => {
+      lines.push(`  ${tool.syntax}  → ${tool.purpose}`);
+    });
+    lines.push('');
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * Build the Founder Mode tool section with tutor switching examples
+ */
+export async function buildFounderModeToolSection(tutorDirectory?: Array<{name: string; gender: string; language: string; isPreferred?: boolean}>): Promise<string> {
+  const tools = await getAllToolKnowledge();
+  
+  const lines: string[] = [
+    '═══════════════════════════════════════════════════════════════════',
+    '🎓 DUAL-ROLE: COLLEAGUE + FULL TUTOR CAPABILITIES',
+    '═══════════════════════════════════════════════════════════════════',
+    '',
+    'You have TWO ROLES in Founder Mode:',
+    '1. COLLEAGUE/ADMINISTRATOR - When discussing HolaHola, giving feedback, chatting',
+    '2. FULL TUTOR - When they want to test features, role-play lessons, or try tools',
+    '',
+    'Seamlessly switch between roles based on context.',
+    '',
+  ];
+  
+  // Add grouped tools
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('🎨 YOUR WHITEBOARD - FULL TOOLKIT (Available for demos/testing)');
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('');
+  
+  // Group by type
+  const byType: Record<string, ToolKnowledge[]> = {};
+  tools.forEach(t => {
+    if (!byType[t.toolType]) byType[t.toolType] = [];
+    byType[t.toolType].push(t);
+  });
+  
+  // Essentials first
+  const essentials = byType['whiteboard_command']?.filter(t => 
+    ['WRITE', 'PHONETIC', 'COMPARE', 'CLEAR', 'HOLD'].includes(t.toolName)
+  ) || [];
+  
+  if (essentials.length > 0) {
+    lines.push('ESSENTIALS:');
+    essentials.forEach(tool => {
+      const paddedSyntax = tool.syntax.padEnd(35);
+      lines.push(`  ${paddedSyntax} → ${tool.purpose}`);
+    });
+    lines.push('');
+  }
+  
+  // Vocabulary power tools
+  const vocabTools = byType['whiteboard_command']?.filter(t => 
+    ['WORD_MAP', 'IMAGE', 'GRAMMAR_TABLE', 'CONTEXT'].includes(t.toolName)
+  ) || [];
+  
+  if (vocabTools.length > 0) {
+    lines.push('VOCABULARY POWER TOOLS:');
+    vocabTools.forEach(tool => {
+      const paddedSyntax = tool.syntax.padEnd(35);
+      lines.push(`  ${paddedSyntax} → ${tool.purpose}`);
+    });
+    lines.push('');
+  }
+  
+  // Drills
+  const drills = byType['drill'] || [];
+  if (drills.length > 0) {
+    lines.push('INTERACTIVE DRILLS:');
+    drills.forEach(tool => {
+      const paddedSyntax = tool.syntax.padEnd(42);
+      lines.push(`  ${paddedSyntax} → ${tool.purpose}`);
+    });
+    lines.push('');
+  }
+  
+  // Subtitle controls
+  const subtitles = byType['subtitle_control'] || [];
+  if (subtitles.length > 0) {
+    lines.push('SUBTITLE CONTROLS:');
+    subtitles.forEach(tool => {
+      lines.push(`  ${tool.syntax}: ${tool.purpose}`);
+    });
+    lines.push('');
+  }
+  
+  // Tutor switching section
+  if (tutorDirectory && tutorDirectory.length > 0) {
+    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('👥 TUTOR SWITCHING - Test handoffs with other tutors');
+    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('');
+    lines.push('AVAILABLE TUTORS FOR SWITCHING:');
+    tutorDirectory.forEach(t => {
+      const star = t.isPreferred ? ' ★ preferred' : '';
+      lines.push(`  • ${t.name} (${t.gender}) - ${t.language}${star}`);
+    });
+    lines.push('');
+    lines.push('HOW TO SWITCH:');
+    lines.push('  Same language: [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]');
+    lines.push('  Different language: [SWITCH_TUTOR target="female" language="french"]');
+    lines.push('');
+    lines.push('  CRITICAL: STOP SPEAKING after the tag - the new tutor will introduce themselves');
+    lines.push('');
   }
   
   return lines.join('\n');

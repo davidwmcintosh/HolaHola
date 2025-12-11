@@ -112,6 +112,16 @@ const stripeInitPromise = (async function initStripe() {
       console.error('Failed to seed neural network data:', error);
     }
     
+    // Initialize procedural memory cache for tool knowledge
+    try {
+      console.log('Initializing procedural memory cache...');
+      const { initToolKnowledgeCache } = await import('./services/procedural-memory-retrieval');
+      await initToolKnowledgeCache();
+      console.log('Procedural memory cache ready');
+    } catch (error) {
+      console.error('Failed to initialize procedural memory cache:', error);
+    }
+    
     stripeReady = true;
   } catch (error) {
     console.error('Failed to initialize Stripe:', error);
