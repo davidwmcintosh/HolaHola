@@ -11292,8 +11292,66 @@ ${context ? `Context provided:\n${context}\n` : ''}`;
         arisNotes: arisNotes || '',
       });
       
-      // Send feedback to Daniela via collaboration channel
+      // === DANIELA'S NEURAL NETWORK INTEGRATION ===
+      // Since Aris IS Daniela in drill mode, all learning goes directly 
+      // into Daniela's neural network, not "reported" as separate agent feedback.
+      
       const totalItems = (correctCount || 0) + (incorrectCount || 0);
+      
+      // 1. Log drill event into teachingToolEvents (Daniela's learning loop)
+      try {
+        const { trackToolEvent, addInsight } = await import('./services/pedagogical-insights-service');
+        
+        // Map drill type to tool type for neural network
+        const drillToolType = assignment.drillType === 'translate' ? 'drill_translate' :
+                              assignment.drillType === 'repeat' ? 'drill_repeat' :
+                              assignment.drillType === 'match' ? 'drill_match' :
+                              assignment.drillType === 'fill_blank' ? 'drill_fill_blank' :
+                              assignment.drillType === 'sentence_order' ? 'drill_sentence_order' :
+                              'drill_translate';
+        
+        // Track the drill session as a tool event
+        await trackToolEvent({
+          conversationId: assignment.conversationId || undefined,
+          userId,
+          toolType: drillToolType as any,
+          toolContent: JSON.stringify({
+            focusArea: assignment.focusArea,
+            accuracy: accuracyPercent,
+            struggledItems: struggledItems || [],
+            totalItems,
+          }),
+          language: assignment.targetLanguage,
+          topic: assignment.focusArea || undefined,
+          difficulty: undefined,
+        });
+        
+        // 2. Add insight if there are notable patterns (struggles or high performance)
+        if ((struggledItems && struggledItems.length > 0) || accuracyPercent >= 90) {
+          const patternDescription = accuracyPercent >= 90
+            ? `Strong performance on ${assignment.drillType} drill (${accuracyPercent}% accuracy) - ${assignment.focusArea || 'general'}`
+            : `Struggles detected on ${assignment.drillType} drill: ${struggledItems?.join(', ')}`;
+          
+          await addInsight({
+            language: assignment.targetLanguage,
+            topic: assignment.focusArea || undefined,
+            patternDescription,
+            effectiveTools: accuracyPercent >= 90 ? [drillToolType] : [],
+            ineffectiveTools: accuracyPercent < 50 ? [drillToolType] : [],
+            sampleSize: totalItems,
+            successRate: accuracyPercent / 100,
+            sourceType: 'automated',
+            tutorReflection: arisNotes || undefined,
+          });
+        }
+        
+        console.log(`[Daniela/Drill Mode] Logged drill event to neural network`);
+      } catch (insightError) {
+        console.error('[Daniela/Drill Mode] Failed to log neural network event:', insightError);
+        // Don't fail the request - this is non-critical
+      }
+      
+      // 3. Also send to collaboration channel for visibility in Command Center
       const feedbackContent = `Drill completed: ${assignment.drillType} - ${assignment.focusArea || 'general practice'}
 Accuracy: ${accuracyPercent || 0}% (${correctCount || 0}/${totalItems} correct)
 Average response time: ${averageResponseTimeMs ? Math.round(averageResponseTimeMs) + 'ms' : 'N/A'}
@@ -11317,7 +11375,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
         status: 'pending',
       });
       
-      console.log(`[Aris] Drill completed for user ${userId}, feedback sent to Daniela`);
+      console.log(`[Daniela/Drill Mode] Drill completed, neural network updated`);
       
       res.json({ assignment: updated, result });
     } catch (error: any) {

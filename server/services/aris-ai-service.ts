@@ -1,16 +1,22 @@
 /**
- * Aris AI Service - Intelligent Drill Partner
+ * Aris AI Service - Daniela in Drill Mode
  * 
- * Uses Gemini to generate context-aware, personalized feedback during drill sessions.
- * Unlike static canned responses, Aris thinks about:
- * - What the student got wrong and why
- * - Patterns across multiple attempts
- * - When to encourage vs. when to simplify
- * - How to give actionable hints without giving away answers
+ * ARCHITECTURAL PRINCIPLE: "One Tutor, Many Voices"
+ * 
+ * Aris is NOT a separate AI. Aris is Daniela operating through a simplified
+ * drill-focused interface. Same brain, same neural network, same learning -
+ * just a different presentation for routine practice tasks.
+ * 
+ * The "Aris" persona is a presentation layer (avatar, concise responses),
+ * but all intelligence comes from Daniela's neural network:
+ * - Procedural memory (tool knowledge, teaching principles)
+ * - Learning feedback (teachingToolEvents, pedagogicalInsights)
+ * - Cross-session pattern recognition
  */
 
 import { GoogleGenAI } from "@google/genai";
-import { buildArisSystemPrompt, ARIS_PERSONA } from "./assistant-tutor-config";
+import { getCachedToolKnowledge } from "./procedural-memory-retrieval";
+import { ARIS_PERSONA } from "./assistant-tutor-config";
 
 interface DrillContext {
   targetLanguage: string;
@@ -37,7 +43,7 @@ interface DrillContext {
   }>;
 }
 
-interface ArisFeedbackResult {
+export interface ArisFeedbackResult {
   feedback: string;
   hint?: string;
   encouragement?: string;
@@ -45,6 +51,145 @@ interface ArisFeedbackResult {
   suggestSimplify: boolean;
   flagForDaniela: boolean;
   flagReason?: string;
+}
+
+/**
+ * Build the system prompt for "Daniela in Drill Mode"
+ * 
+ * This uses Daniela's neural network architecture but optimized for
+ * concise, drill-focused responses. The persona is "Aris" but the
+ * brain is Daniela's.
+ */
+function buildDrillModeSystemPrompt(context: DrillContext): string {
+  const toolKnowledge = getCachedToolKnowledge();
+  const drillTools = toolKnowledge.filter(t => t.toolType === 'drill');
+  
+  const languageNames: Record<string, string> = {
+    spanish: "Spanish", french: "French", german: "German",
+    italian: "Italian", portuguese: "Portuguese", japanese: "Japanese",
+    mandarin: "Mandarin Chinese", korean: "Korean"
+  };
+  const languageName = languageNames[context.targetLanguage] || context.targetLanguage;
+  
+  return `You are Daniela, an expert language tutor, currently operating in DRILL MODE.
+
+═══════════════════════════════════════════════════════════════════
+🎯 DRILL MODE CONTEXT
+═══════════════════════════════════════════════════════════════════
+
+In drill mode, you present yourself as "Aris" - a focused, precision-oriented
+practice partner. This is YOU (Daniela) wearing a different hat for routine
+practice. Same knowledge, same teaching ability, just more concise.
+
+CURRENT SESSION:
+- Language: ${languageName}
+- Drill Type: ${context.drillType}
+- Focus Area: ${context.focusArea || 'General practice'}
+- Progress: ${context.sessionProgress.currentIndex + 1}/${context.sessionProgress.totalItems}
+- Correct: ${context.sessionProgress.correctCount} | Incorrect: ${context.sessionProgress.incorrectCount}
+- Streak: ${context.sessionProgress.consecutiveCorrect} correct / ${context.sessionProgress.consecutiveIncorrect} incorrect in a row
+
+${context.sessionProgress.struggledItems.length > 0 ? `ITEMS THEY'RE STRUGGLING WITH: ${context.sessionProgress.struggledItems.join(', ')}` : ''}
+
+═══════════════════════════════════════════════════════════════════
+🧠 YOUR NEURAL NETWORK KNOWLEDGE
+═══════════════════════════════════════════════════════════════════
+
+Your teaching knowledge and principles apply here. Use your pattern recognition
+to identify what's causing errors - is it:
+- Vocabulary gaps?
+- Grammar confusion?
+- Phonetic similarity (hearing the wrong thing)?
+- Conjugation patterns?
+
+${drillTools.length > 0 ? `DRILL TOOLS YOU KNOW:\n${drillTools.map(t => `• ${t.toolName}: ${t.purpose}`).join('\n')}` : ''}
+
+═══════════════════════════════════════════════════════════════════
+📋 RESPONSE FORMAT (JSON)
+═══════════════════════════════════════════════════════════════════
+
+Respond ONLY with valid JSON:
+{
+  "feedback": "Your immediate reaction (1-2 sentences, natural and specific)",
+  "hint": "Optional hint if incorrect (specific to this error, not the answer)",
+  "encouragement": "Optional encouragement if they're struggling",
+  "patternInsight": "Optional insight if you notice a pattern across attempts",
+  "suggestSimplify": false,
+  "flagForDaniela": false,
+  "flagReason": "Only if flagging - what should full Daniela know?"
+}
+
+═══════════════════════════════════════════════════════════════════
+📝 TEACHING PRINCIPLES (from your neural network)
+═══════════════════════════════════════════════════════════════════
+
+- Be SPECIFIC about what they got wrong - don't be generic
+- If they're CLOSE, acknowledge what's right before correcting
+- After 3+ consecutive errors → suggest simplifying
+- After 5+ consecutive errors → flag for full Daniela review
+- DON'T give away answers, but give ACTIONABLE hints
+- Use your language knowledge to explain WHY something is wrong
+
+In drill mode, you're concise but still YOU. Your teaching principles,
+your pattern recognition, your encouragement style - all Daniela.`;
+}
+
+/**
+ * Build a greeting prompt that draws on Daniela's personality
+ */
+function buildGreetingPrompt(
+  targetLanguage: string,
+  drillType: string,
+  focusArea: string | undefined,
+  itemCount: number,
+  studentName?: string
+): string {
+  return `You are Daniela in drill mode (presenting as "Aris" - your focused practice persona).
+
+Generate a brief, encouraging greeting for a student starting a ${drillType} drill session.
+
+Context:
+- Language: ${targetLanguage}
+- Focus: ${focusArea || 'general practice'}
+- Items: ${itemCount}
+- Student: ${studentName || 'the student'}
+
+Guidelines:
+- Under 20 words
+- Warm but focused (you're Daniela, not a robot)
+- Don't be overly cheerful - you're the precision practice side
+- You can use a tiny bit of ${targetLanguage} if appropriate
+
+Return ONLY the greeting text, nothing else.`;
+}
+
+/**
+ * Build a session summary prompt using Daniela's analytical abilities
+ */
+function buildSummaryPrompt(
+  correctCount: number,
+  incorrectCount: number,
+  struggledItems: string[],
+  targetLanguage: string
+): string {
+  const accuracy = Math.round((correctCount / (correctCount + incorrectCount)) * 100);
+  
+  return `You are Daniela in drill mode, completing a practice session.
+
+Results:
+- Accuracy: ${accuracy}%
+- Correct: ${correctCount}
+- Incorrect: ${incorrectCount}
+- Struggled with: ${struggledItems.length > 0 ? struggledItems.join(', ') : 'nothing specific'}
+- Language: ${targetLanguage}
+
+Generate a brief completion message:
+- Be encouraging but honest
+- If they struggled, acknowledge it constructively
+- Under 30 words
+- Reference their actual performance, not generic praise
+
+Return ONLY the message, nothing else.`;
 }
 
 class ArisAIService {
@@ -63,9 +208,12 @@ class ArisAIService {
   
   /**
    * Generate intelligent, context-aware feedback for a drill response
+   * 
+   * This uses Daniela's neural network knowledge to provide feedback
+   * that's consistent with her teaching style and principles.
    */
   async generateFeedback(context: DrillContext, isCorrect: boolean): Promise<ArisFeedbackResult> {
-    const systemPrompt = this.buildFeedbackSystemPrompt(context);
+    const systemPrompt = buildDrillModeSystemPrompt(context);
     const userMessage = this.buildFeedbackRequest(context, isCorrect);
     
     try {
@@ -82,13 +230,13 @@ class ArisAIService {
       });
       
       const responseText = result.text || '{}';
-      const parsed = this.parseResponse(responseText, isCorrect);
+      const parsed = this.parseResponse(responseText, isCorrect, context);
       
-      console.log(`[Aris AI] Generated feedback for ${isCorrect ? 'correct' : 'incorrect'} answer`);
+      console.log(`[Daniela/Drill Mode] Generated feedback for ${isCorrect ? 'correct' : 'incorrect'} answer`);
       return parsed;
       
     } catch (error: any) {
-      console.error('[Aris AI] Failed to generate feedback:', error.message);
+      console.error('[Daniela/Drill Mode] Failed to generate feedback:', error.message);
       return this.getFallbackFeedback(isCorrect, context);
     }
   }
@@ -103,21 +251,12 @@ class ArisAIService {
     itemCount: number,
     studentName?: string
   ): Promise<string> {
-    const prompt = `Generate a brief, encouraging greeting for a student starting a ${drillType} drill session.
-Context:
-- Language: ${targetLanguage}
-- Focus: ${focusArea || 'general practice'}
-- Items: ${itemCount}
-- Student name: ${studentName || 'unknown'}
-
-Keep it under 20 words. Be warm but focused. Don't be overly cheerful.
-Return just the greeting text, nothing else.`;
+    const prompt = buildGreetingPrompt(targetLanguage, drillType, focusArea, itemCount, studentName);
 
     try {
-      const systemContext = `You are ${ARIS_PERSONA.name}, ${ARIS_PERSONA.role}. ${ARIS_PERSONA.personality.description}`;
       const result = await this.client.models.generateContent({
         model: this.model,
-        contents: [{ role: 'user', parts: [{ text: systemContext + '\n\n' + prompt }] }],
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           temperature: 0.8,
           maxOutputTokens: 50,
@@ -139,40 +278,31 @@ Return just the greeting text, nothing else.`;
     struggledItems: string[],
     targetLanguage: string
   ): Promise<string> {
-    const accuracy = Math.round((correctCount / (correctCount + incorrectCount)) * 100);
-    
-    const prompt = `Generate a brief session completion message for a student who just finished practice.
-
-Results:
-- Accuracy: ${accuracy}%
-- Correct: ${correctCount}
-- Incorrect: ${incorrectCount}
-- Struggled with: ${struggledItems.length > 0 ? struggledItems.join(', ') : 'nothing specific'}
-- Language: ${targetLanguage}
-
-Be encouraging but honest. If they struggled, acknowledge it constructively.
-Keep it under 30 words. Don't be generic - reference their actual performance.
-Return just the message, nothing else.`;
+    const prompt = buildSummaryPrompt(correctCount, incorrectCount, struggledItems, targetLanguage);
 
     try {
-      const systemContext = `You are ${ARIS_PERSONA.name}, ${ARIS_PERSONA.role}. ${ARIS_PERSONA.personality.description}`;
       const result = await this.client.models.generateContent({
         model: this.model,
-        contents: [{ role: 'user', parts: [{ text: systemContext + '\n\n' + prompt }] }],
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           temperature: 0.7,
           maxOutputTokens: 60,
         },
       });
       
+      const accuracy = Math.round((correctCount / (correctCount + incorrectCount)) * 100);
       return result.text?.trim() || `Great effort! ${accuracy}% accuracy with ${correctCount} correct answers.`;
     } catch (error) {
+      const accuracy = Math.round((correctCount / (correctCount + incorrectCount)) * 100);
       return `Great effort! ${accuracy}% accuracy with ${correctCount} correct answers.`;
     }
   }
   
   /**
-   * Analyze patterns and generate insight for Daniela's report
+   * Analyze patterns and generate insight for the main tutor context
+   * 
+   * Since Aris IS Daniela, these insights go directly into her knowledge base.
+   * No "reporting to Daniela" - this IS Daniela's analysis.
    */
   async analyzeSessionPatterns(
     drillType: string,
@@ -184,7 +314,7 @@ Return just the message, nothing else.`;
     const fastResponses = averageResponseTimeMs < 3000;
     const slowResponses = averageResponseTimeMs > 8000;
     
-    const prompt = `Analyze this drill session and provide a concise insight for the lead tutor (Daniela).
+    const prompt = `You are Daniela, analyzing a drill session you just conducted (in your "Aris" practice mode).
 
 Drill Type: ${drillType}
 Language: ${targetLanguage}
@@ -192,18 +322,17 @@ Struggled Items: ${struggledItems.join(', ') || 'none'}
 Average Response Time: ${Math.round(averageResponseTimeMs / 1000)}s (${fastResponses ? 'fast' : slowResponses ? 'slow' : 'normal'})
 Item Details: ${JSON.stringify(itemAttempts)}
 
-Provide a 1-2 sentence insight that would help Daniela understand:
-1. What specific areas need attention
-2. Any patterns you noticed
-3. Suggested next focus area
+Generate a 1-2 sentence insight for your own records:
+1. What specific areas need follow-up?
+2. Any patterns you noticed?
+3. What should you focus on in the next conversation?
 
-Be specific and actionable. Don't be generic.`;
+Be specific and actionable. This is your own teaching notes.`;
 
     try {
-      const systemContext = `You are ${ARIS_PERSONA.name}, reporting to your colleague Daniela about a student's practice session. Be concise and professional.`;
       const result = await this.client.models.generateContent({
         model: this.model,
-        contents: [{ role: 'user', parts: [{ text: systemContext + '\n\n' + prompt }] }],
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           temperature: 0.5,
           maxOutputTokens: 100,
@@ -214,46 +343,6 @@ Be specific and actionable. Don't be generic.`;
     } catch (error) {
       return 'Session completed. Review struggled items for follow-up.';
     }
-  }
-  
-  private buildFeedbackSystemPrompt(context: DrillContext): string {
-    return `You are ${ARIS_PERSONA.name}, the Precision Practice Partner.
-
-## Your Personality
-${ARIS_PERSONA.personality.description}
-
-## Current Drill
-- Language: ${context.targetLanguage}
-- Type: ${context.drillType}
-- Focus: ${context.focusArea || 'General practice'}
-
-## Session Progress
-- Progress: ${context.sessionProgress.currentIndex + 1}/${context.sessionProgress.totalItems}
-- Correct: ${context.sessionProgress.correctCount}
-- Incorrect: ${context.sessionProgress.incorrectCount}
-- Streak: ${context.sessionProgress.consecutiveCorrect} correct / ${context.sessionProgress.consecutiveIncorrect} incorrect in a row
-
-## Struggled Items So Far
-${context.sessionProgress.struggledItems.length > 0 ? context.sessionProgress.struggledItems.join(', ') : 'None yet'}
-
-## Your Response Format
-Return JSON with these fields:
-{
-  "feedback": "Your immediate reaction (1-2 sentences, natural and specific)",
-  "hint": "Optional hint if incorrect (specific to this error, not the answer)",
-  "encouragement": "Optional encouragement if needed",
-  "patternInsight": "Optional insight if you notice a pattern across attempts",
-  "suggestSimplify": false,
-  "flagForDaniela": false,
-  "flagReason": "Only if flagging for Daniela"
-}
-
-## Guidelines
-- Be specific to what they got wrong, not generic
-- If they're close, acknowledge what's right
-- After 3+ consecutive errors, suggest simplifying
-- Flag for Daniela if frustration seems high (5+ consecutive errors)
-- Don't give away answers, but give actionable hints`;
   }
   
   private buildFeedbackRequest(context: DrillContext, isCorrect: boolean): string {
@@ -277,7 +366,7 @@ Return JSON with these fields:
     return request;
   }
   
-  private parseResponse(responseText: string, isCorrect: boolean): ArisFeedbackResult {
+  private parseResponse(responseText: string, isCorrect: boolean, context: DrillContext | null): ArisFeedbackResult {
     try {
       const cleaned = responseText.replace(/```json\n?|\n?```/g, '').trim();
       const parsed = JSON.parse(cleaned);
@@ -292,7 +381,7 @@ Return JSON with these fields:
         flagReason: parsed.flagReason,
       };
     } catch {
-      return this.getFallbackFeedback(isCorrect, null);
+      return this.getFallbackFeedback(isCorrect, context);
     }
   }
   
