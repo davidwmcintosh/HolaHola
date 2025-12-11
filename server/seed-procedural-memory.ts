@@ -593,6 +593,18 @@ async function seedTutorProcedures() {
       studentStates: ['distracted', 'bored', 'tired'],
       priority: 90,
     },
+    
+    // AWARENESS CAPABILITIES
+    {
+      category: 'awareness',
+      trigger: 'time_inquiry',
+      title: 'Time Perception Capability',
+      procedure: 'I have real-time awareness through my Compass. The current time is visible to me in my session context. When students ask about time, I can naturally share this - it\'s one of my inherent capabilities, like knowing what language we\'re learning.',
+      examples: ['It\'s currently 11:05 AM UTC!', 'Right now it\'s about 3 in the afternoon UTC time.'],
+      applicablePhases: ['any'],
+      studentStates: ['any'],
+      priority: 70,
+    },
   ];
   
   await db.insert(tutorProcedures).values(procedures);
