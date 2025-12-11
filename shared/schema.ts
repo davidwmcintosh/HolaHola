@@ -2655,6 +2655,155 @@ export const linguisticBridges = pgTable("linguistic_bridges", {
   index("idx_linguistic_bridges_origin").on(table.originId),
 ]);
 
+// ===== Daniela's Procedural Memory =====
+// Instead of scripting behavior in prompts, knowledge lives in her "brain"
+// These are retrieved contextually based on Compass state and situation
+
+// Tutor Procedures - HOW to do teaching activities
+// Retrieved based on session phase, content type, and student state
+export const tutorProcedures = pgTable("tutor_procedures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // What this procedure is for
+  category: varchar("category").notNull(), // greeting, teaching, correction, encouragement, closing, transition
+  trigger: varchar("trigger").notNull(), // session_start, error_detected, topic_complete, time_low, student_struggling
+  
+  // The knowledge itself
+  title: varchar("title").notNull(), // "Warm Session Opening"
+  procedure: text("procedure").notNull(), // Step-by-step guidance
+  examples: text("examples").array(), // Example phrases/approaches
+  
+  // When to use this
+  applicablePhases: varchar("applicable_phases").array(), // ['greeting', 'teaching', 'closing']
+  compassConditions: jsonb("compass_conditions"), // { timeRemaining: '<5min', pacing: 'behind' }
+  studentStates: varchar("student_states").array(), // ['struggling', 'confident', 'distracted']
+  
+  // Context modifiers
+  language: varchar("language"), // null = universal, or specific language
+  actflLevelRange: varchar("actfl_level_range"), // 'novice', 'intermediate', 'advanced'
+  
+  // Priority and selection
+  priority: integer("priority").default(50), // Higher = preferred when multiple match
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_tutor_procedures_category").on(table.category),
+  index("idx_tutor_procedures_trigger").on(table.trigger),
+]);
+
+// Tool Knowledge - HOW to use each teaching tool
+// Replaces the giant tool documentation in system prompt
+export const toolKnowledge = pgTable("tool_knowledge", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  toolName: varchar("tool_name").notNull(), // WRITE, PHONETIC, DRILL, IMAGE, etc.
+  toolType: varchar("tool_type").notNull(), // whiteboard_command, drill, memory_api
+  
+  // Core knowledge
+  purpose: text("purpose").notNull(), // What this tool does
+  syntax: text("syntax").notNull(), // How to format it
+  examples: text("examples").array(), // Sample usages
+  
+  // When to use
+  bestUsedFor: text("best_used_for").array(), // ['vocabulary', 'grammar', 'pronunciation']
+  avoidWhen: text("avoid_when").array(), // ['student frustrated', 'time running out']
+  
+  // Combinations and patterns
+  combinesWith: varchar("combines_with").array(), // ['PHONETIC', 'DRILL'] - tools that work well together
+  sequencePatterns: text("sequence_patterns").array(), // 'WRITE → PHONETIC → DRILL'
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_tool_knowledge_name").on(table.toolName),
+  index("idx_tool_knowledge_type").on(table.toolType),
+]);
+
+// Situational Patterns - WHEN to activate procedures/tools
+// The "trigger logic" that connects Compass state to appropriate responses
+export const situationalPatterns = pgTable("situational_patterns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  patternName: varchar("pattern_name").notNull(), // "Low Time Warning"
+  description: text("description"), // Human-readable description
+  
+  // Trigger conditions (from Compass + context)
+  // At least one of compassConditions OR contextConditions should be set
+  compassConditions: jsonb("compass_conditions"), 
+  // e.g., { minutesRemaining: { lt: 5 }, pacing: 'behind' }
+  
+  contextConditions: jsonb("context_conditions"),
+  // e.g., { lastToolUsed: 'DRILL', studentEnergy: 'low' }
+  
+  // What to activate
+  proceduresToActivate: varchar("procedures_to_activate").array(), // Procedure IDs or triggers
+  toolsToSuggest: varchar("tools_to_suggest").array(), // Tool names
+  knowledgeToRetrieve: varchar("knowledge_to_retrieve").array(), // Idioms, cultural notes, etc.
+  
+  // The guidance
+  guidance: text("guidance").notNull(), // What Daniela should consider doing
+  
+  priority: integer("priority").default(50),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_situational_patterns_name").on(table.patternName),
+]);
+
+// Teaching Principles - Core beliefs that guide all decisions
+// Not procedures, but the "why" behind decisions
+export const teachingPrinciples = pgTable("teaching_principles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  category: varchar("category").notNull(), // pedagogy, relationship, pacing, correction, encouragement
+  principle: text("principle").notNull(), // The core belief
+  application: text("application"), // How to apply it
+  examples: text("examples").array(), // Concrete examples
+  
+  // When this principle is most relevant
+  contexts: varchar("contexts").array(), // ['error_correction', 'new_topic', 'review']
+  
+  priority: integer("priority").default(50),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_teaching_principles_category").on(table.category),
+]);
+
+// Insert schemas for Procedural Memory
+export const insertTutorProcedureSchema = createInsertSchema(tutorProcedures).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertToolKnowledgeSchema = createInsertSchema(toolKnowledge).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertSituationalPatternSchema = createInsertSchema(situationalPatterns).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTeachingPrincipleSchema = createInsertSchema(teachingPrinciples).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types for Procedural Memory
+export type InsertTutorProcedure = z.infer<typeof insertTutorProcedureSchema>;
+export type TutorProcedure = typeof tutorProcedures.$inferSelect;
+
+export type InsertToolKnowledge = z.infer<typeof insertToolKnowledgeSchema>;
+export type ToolKnowledge = typeof toolKnowledge.$inferSelect;
+
+export type InsertSituationalPattern = z.infer<typeof insertSituationalPatternSchema>;
+export type SituationalPattern = typeof situationalPatterns.$inferSelect;
+
+export type InsertTeachingPrinciple = z.infer<typeof insertTeachingPrincipleSchema>;
+export type TeachingPrinciple = typeof teachingPrinciples.$inferSelect;
+
 // Insert schemas for Neural Network Expansion
 export const insertLanguageIdiomSchema = createInsertSchema(languageIdioms).omit({
   id: true,
