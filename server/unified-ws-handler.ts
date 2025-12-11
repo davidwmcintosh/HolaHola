@@ -1043,36 +1043,36 @@ Reference past discussions when relevant, but don't force it.
             );
             
             if (matchingVoice?.voiceId) {
+              // Update the voice in orchestrator FIRST
               orchestrator.updateSessionVoice(capturedSessionId, matchingVoice.voiceId);
               console.log(`[Streaming Voice] Voice updated to ${newGender}: ${matchingVoice.voiceName}`);
-              
-              ws.send(JSON.stringify({
-                type: 'voice_updated',
-                timestamp: Date.now(),
-                gender: newGender,
-                voiceName: matchingVoice.voiceName,
-              }));
               
               // For cross-language handoffs, the session is still active and ready
               // System prompt was already regenerated with new tutor persona
               // Voice was already updated - so we CAN call processVoiceSwitchIntro now!
-              // No need to wait for client reconnect - give the new tutor their "YOUR TURN" signal immediately
               if (session && (session as any).isLanguageSwitchHandoff) {
                 console.log(`[Streaming Voice] Cross-language handoff - new tutor will introduce themselves now`);
                 // Clear the flag since we're handling it
                 (session as any).isLanguageSwitchHandoff = false;
               }
               
-              // Have the new tutor introduce themselves with an LLM-generated greeting
-              // Extract first name from voice name (e.g., "Daniela - Relaxed Woman" -> "Daniela")
-              // Voice names can be "Name - Description" or "Language Name" format
+              // CRITICAL: Generate intro BEFORE sending voice_updated to client
+              // If we send voice_updated first, client disconnects before intro audio arrives!
+              // The new tutor must finish speaking before we tell the client the switch is complete.
               const voiceNameParts = matchingVoice.voiceName?.split(/\s*[-–]\s*/) || [];
               const tutorFirstName = voiceNameParts[0]?.trim() || (newGender === 'male' ? 'your new tutor' : 'your new tutor');
               console.log(`[Streaming Voice] New tutor introducing themselves: ${tutorFirstName} (${newGender})`);
               
-              // Trigger a voice switch introduction with persona-aware LLM greeting
-              // Use captured session ID in case session is nullified during async ops
+              // WAIT for intro to complete - this streams audio to client while connection is still open
               await orchestrator.processVoiceSwitchIntro(capturedSessionId, tutorFirstName, newGender);
+              
+              // NOW send voice_updated - client can safely disconnect after hearing the intro
+              ws.send(JSON.stringify({
+                type: 'voice_updated',
+                timestamp: Date.now(),
+                gender: newGender,
+                voiceName: matchingVoice.voiceName,
+              }));
             } else {
               console.warn(`[Streaming Voice] No matching voice found for ${effectiveLanguage}/${newGender}`);
             }
