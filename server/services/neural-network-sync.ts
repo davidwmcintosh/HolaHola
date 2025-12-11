@@ -2394,9 +2394,9 @@ export class NeuralNetworkSyncService {
             evidenceSummary: mergeField(data.evidenceSummary, existing.evidenceSummary),
             proposedAction: mergeField(data.proposedAction, existing.proposedAction),
             status: mergeField(data.status, existing.status),
-            // Acknowledgment flags: OR'd (true if EITHER is true, never revoke)
-            acknowledgedByDaniela: data.acknowledgedByDaniela === true || existing.acknowledgedByDaniela === true,
-            acknowledgedBySupport: data.acknowledgedBySupport === true || existing.acknowledgedBySupport === true,
+            // Acknowledgment flags: preserve existing true, only apply incoming true if newer
+            acknowledgedByDaniela: existing.acknowledgedByDaniela === true || (incomingIsNewer && data.acknowledgedByDaniela === true),
+            acknowledgedBySupport: existing.acknowledgedBySupport === true || (incomingIsNewer && data.acknowledgedBySupport === true),
             // Acknowledgment timestamp: take the latest non-null value
             acknowledgedAt: (data.acknowledgedAt && existing.acknowledgedAt) 
               ? (new Date(data.acknowledgedAt) > new Date(existing.acknowledgedAt) ? data.acknowledgedAt : existing.acknowledgedAt)
@@ -2405,7 +2405,7 @@ export class NeuralNetworkSyncService {
             domainTags: Array.from(new Set([
               ...(existing.domainTags || []).filter(Boolean),
               ...(data.domainTags || []).filter(Boolean)
-            ])),
+            ])) as string[],
             // Preserve existing syncStatus if local, otherwise mark synced
             syncStatus: existing.syncStatus === 'local' ? 'local' : 'synced',
             updatedAt: new Date()
@@ -2432,7 +2432,8 @@ export class NeuralNetworkSyncService {
         originId: data.id || data.originId,
         originEnvironment: data.originEnvironment || CURRENT_ENVIRONMENT,
         originRole: data.originRole || 'editor',
-        domainTags: data.domainTags,
+        // Sanitize domain tags on insert to prevent undefined/null entries
+        domainTags: (data.domainTags || []).filter(Boolean) as string[],
         intentHash: data.intentHash,
       }).returning();
       
@@ -2497,11 +2498,11 @@ export class NeuralNetworkSyncService {
             proposedSolution: mergeField(data.proposedSolution, existing.proposedSolution),
             proposedFaqEntry: mergeField(data.proposedFaqEntry, existing.proposedFaqEntry),
             status: mergeField(data.status, existing.status),
-            // Escalation: OR'd (true if EITHER is true, never de-escalate)
-            escalationNeeded: data.escalationNeeded === true || existing.escalationNeeded === true,
-            // Acknowledgment flags: OR'd (true if EITHER is true, never revoke)
-            acknowledgedByEditor: data.acknowledgedByEditor === true || existing.acknowledgedByEditor === true,
-            acknowledgedByDaniela: data.acknowledgedByDaniela === true || existing.acknowledgedByDaniela === true,
+            // Escalation: preserve existing true, only apply incoming true if newer
+            escalationNeeded: existing.escalationNeeded === true || (incomingIsNewer && data.escalationNeeded === true),
+            // Acknowledgment flags: preserve existing true, only apply incoming true if newer
+            acknowledgedByEditor: existing.acknowledgedByEditor === true || (incomingIsNewer && data.acknowledgedByEditor === true),
+            acknowledgedByDaniela: existing.acknowledgedByDaniela === true || (incomingIsNewer && data.acknowledgedByDaniela === true),
             // Acknowledgment timestamp: take the latest non-null value
             acknowledgedAt: (data.acknowledgedAt && existing.acknowledgedAt) 
               ? (new Date(data.acknowledgedAt) > new Date(existing.acknowledgedAt) ? data.acknowledgedAt : existing.acknowledgedAt)
@@ -2514,7 +2515,7 @@ export class NeuralNetworkSyncService {
             domainTags: Array.from(new Set([
               ...(existing.domainTags || []).filter(Boolean),
               ...(data.domainTags || []).filter(Boolean)
-            ])),
+            ])) as string[],
             // Preserve existing syncStatus if local, otherwise mark synced
             syncStatus: existing.syncStatus === 'local' ? 'local' : 'synced',
             updatedAt: new Date()
@@ -2541,7 +2542,8 @@ export class NeuralNetworkSyncService {
         originId: data.id || data.originId,
         originEnvironment: data.originEnvironment || CURRENT_ENVIRONMENT,
         originRole: data.originRole || 'support',
-        domainTags: data.domainTags,
+        // Sanitize domain tags on insert to prevent undefined/null entries
+        domainTags: (data.domainTags || []).filter(Boolean) as string[],
         intentHash: data.intentHash,
       }).returning();
       

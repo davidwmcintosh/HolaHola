@@ -10355,6 +10355,113 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ============================================================================
+  // SYSTEM ALERTS - Proactive Support Notifications
+  // Display outages, maintenance notices, and known issues to users
+  // ============================================================================
+
+  // Get active system alerts for the current user
+  app.get("/api/system-alerts", async (req: any, res) => {
+    try {
+      // Get active alerts (optionally filter by target/severity)
+      const alerts = await storage.getActiveSystemAlerts({
+        target: req.query.target as 'all' | 'students' | 'teachers' | 'admins' | undefined,
+        severity: req.query.severity as 'info' | 'warning' | 'critical' | 'maintenance' | undefined,
+      });
+      
+      // Track view counts for analytics
+      for (const alert of alerts) {
+        await storage.incrementAlertViewCount(alert.id);
+      }
+      
+      res.json(alerts);
+    } catch (error: any) {
+      console.error('[API] Error getting system alerts:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Dismiss an alert (user preference - prevents showing again)
+  app.post("/api/system-alerts/:alertId/dismiss", isAuthenticated, async (req: any, res) => {
+    try {
+      const { alertId } = req.params;
+      
+      // Track dismiss count for analytics
+      await storage.incrementAlertDismissCount(alertId);
+      
+      res.json({ success: true, alertId });
+    } catch (error: any) {
+      console.error('[API] Error dismissing alert:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Create a new system alert
+  app.post("/api/system-alerts", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { severity, title, message, target, affectedFeatures, isDismissible, showInChat, showAsBanner, startsAt, expiresAt } = req.body;
+      
+      if (!title || !message) {
+        return res.status(400).json({ error: 'Title and message are required' });
+      }
+      
+      const alert = await storage.createSystemAlert({
+        severity: severity || 'info',
+        title,
+        message,
+        target: target || 'all',
+        affectedFeatures: affectedFeatures || [],
+        isDismissible: isDismissible ?? true,
+        showInChat: showInChat ?? true,
+        showAsBanner: showAsBanner ?? false,
+        startsAt: startsAt ? new Date(startsAt) : new Date(),
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        isActive: true,
+        createdBy: userId,
+      });
+      
+      res.json(alert);
+    } catch (error: any) {
+      console.error('[API] Error creating system alert:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Update/deactivate a system alert
+  app.patch("/api/system-alerts/:alertId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { alertId } = req.params;
+      const updates = req.body;
+      
+      const updatedAlert = await storage.updateSystemAlert(alertId, updates);
+      
+      if (!updatedAlert) {
+        return res.status(404).json({ error: 'Alert not found' });
+      }
+      
+      res.json(updatedAlert);
+    } catch (error: any) {
+      console.error('[API] Error updating system alert:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Get all system alerts (including inactive)
+  app.get("/api/admin/system-alerts", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      // Get all alerts for admin view
+      const alerts = await storage.getActiveSystemAlerts({
+        // Admin can see all - we'll modify storage to return all for admin
+      });
+      
+      res.json(alerts);
+    } catch (error: any) {
+      console.error('[API] Error getting admin system alerts:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up unified WebSocket handler for all paths

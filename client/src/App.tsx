@@ -20,6 +20,7 @@ import { UserCircle, Settings as SettingsIcon, LogOut, Loader2, Menu } from "luc
 import { Link } from "wouter";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { SystemAlertBanner } from "@/components/SystemAlertBanner";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { BUILD_TIME } from "./buildtime";
 
@@ -217,6 +218,7 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
               </div>
             </div>
             <OfflineIndicator />
+            <SystemAlertBanner />
             <PWAInstallPrompt />
           </SidebarProvider>
         </LearningFilterProvider>
