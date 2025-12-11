@@ -310,6 +310,82 @@ async function seedToolKnowledge() {
         'Student frustrated with app → empathize → CALL_SUPPORT technical → reassure support will help'
       ],
     },
+    
+    // ASSISTANT DELEGATION (Aris)
+    {
+      toolName: 'CALL_ASSISTANT',
+      toolType: 'handoff_command',
+      purpose: 'Delegate focused drill practice to Aris, your precision practice partner. Aris handles repetitive practice (pronunciation, vocabulary matching, fill-in-blank) while you focus on teaching and conversation. Aris will report results back to you via the collaboration channel.',
+      syntax: '[CALL_ASSISTANT type="drill_type" focus="skill_focus" items="item1,item2,item3"]',
+      examples: [
+        '[CALL_ASSISTANT type="repeat" focus="rolling R sounds" items="perro,carro,arroz,tierra"]',
+        '[CALL_ASSISTANT type="match" focus="question words" items="quién,qué,dónde,cuándo,por qué"]',
+        '[CALL_ASSISTANT type="fill_blank" focus="ser vs estar" items="5 sentences"]',
+        '[CALL_ASSISTANT type="translate" focus="food vocabulary" items="I want rice,The water is cold,She eats bread"]'
+      ],
+      bestUsedFor: ['pronunciation_drill', 'vocabulary_repetition', 'grammar_practice', 'pattern_reinforcement', 'student_needs_focused_practice'],
+      avoidWhen: ['concept_introduction', 'complex_grammar_explanation', 'cultural_discussion', 'conversation_practice', 'student_confused'],
+      combinesWith: ['WRITE', 'PHONETIC'],
+      sequencePatterns: [
+        'Teach concept → Introduce vocabulary → CALL_ASSISTANT for drill practice → Review results next session',
+        'Notice pronunciation struggle → WRITE phonetic → CALL_ASSISTANT repeat drill → Aris reports progress',
+        'Grammar confusion → GRAMMAR_TABLE explanation → Student understands → CALL_ASSISTANT fill_blank practice'
+      ],
+    },
+    
+    // AGENT COLLABORATION (Hive Mind)
+    {
+      toolName: 'AGENT_COLLAB_POST',
+      toolType: 'internal_communication',
+      purpose: 'Post a message to the agent collaboration channel. Used for cross-agent communication without TTS costs. Messages are text-based and stored in the collaboration events log.',
+      syntax: 'POST /api/agent-collab/events { fromAgent, toAgent, eventType, content, metadata }',
+      examples: [
+        '{ fromAgent: "daniela", toAgent: "assistant", eventType: "delegation", content: "Please run pronunciation drills for rolling R sounds", metadata: { studentId, priority: "high" } }',
+        '{ fromAgent: "assistant", toAgent: "daniela", eventType: "feedback", content: "Student showed excellent improvement on rolling Rs - 85% accuracy", metadata: { drillResults } }',
+        '{ fromAgent: "support", toAgent: null, eventType: "status_update", content: "Audio subsystem maintenance completed", metadata: { broadcast: true } }'
+      ],
+      bestUsedFor: ['cross_agent_communication', 'task_delegation', 'feedback_sharing', 'status_updates', 'consultation_requests'],
+      avoidWhen: ['student_facing_responses', 'real_time_chat'],
+      combinesWith: ['AGENT_COLLAB_READ'],
+      sequencePatterns: [
+        'Daniela identifies drill need → POST delegation to Assistant → Assistant executes → POST feedback to Daniela',
+        'Support resolves issue → POST status_update broadcast → All agents updated'
+      ],
+    },
+    {
+      toolName: 'AGENT_COLLAB_READ',
+      toolType: 'internal_communication',
+      purpose: 'Read pending messages from the collaboration channel. Check for feedback from other agents, delegation results, or status updates.',
+      syntax: 'GET /api/agent-collab/pending/:agentRole',
+      examples: [
+        'GET /api/agent-collab/pending/daniela → Returns all pending events for Daniela',
+        'GET /api/agent-collab/context/daniela?userId=xxx → Get recent collaboration context for a specific student'
+      ],
+      bestUsedFor: ['session_start_context', 'checking_feedback', 'receiving_delegations', 'staying_informed'],
+      avoidWhen: ['mid_conversation_interruption'],
+      combinesWith: ['AGENT_COLLAB_POST'],
+      sequencePatterns: [
+        'Session start → READ pending messages → Incorporate colleague feedback into greeting',
+        'After drill delegation → READ feedback → Share results with student naturally'
+      ],
+    },
+    {
+      toolName: 'CONSULT_COLLEAGUE',
+      toolType: 'internal_communication',
+      purpose: 'Request input from another agent in the Hive. Used for collaborative problem-solving, getting pedagogical perspectives, or technical consultations. Text-based, no TTS costs.',
+      syntax: 'POST /api/agent-collab/consult-daniela { question, context, fromAgent }',
+      examples: [
+        '{ question: "How should I structure pronunciation drills for this student who struggles with tones?", context: "Student is learning Mandarin, intermediate level, frustrated with tone 3", fromAgent: "assistant" }',
+        '{ question: "What teaching approach would work best for a visual learner?", context: "Student mentioned they learn better with images and diagrams", fromAgent: "editor" }'
+      ],
+      bestUsedFor: ['pedagogical_questions', 'design_consultations', 'collaborative_problem_solving', 'getting_expert_input'],
+      avoidWhen: ['simple_decisions', 'time_critical_situations'],
+      combinesWith: ['AGENT_COLLAB_POST', 'AGENT_COLLAB_READ'],
+      sequencePatterns: [
+        'Encounter complex situation → CONSULT colleague → Receive response → Apply insight',
+        'Design decision needed → CONSULT Daniela for pedagogy input → Incorporate feedback'
+      ],
+    },
   ];
   
   await db.insert(toolKnowledge).values(tools);
@@ -687,6 +763,80 @@ async function seedTutorProcedures() {
       studentStates: ['any'],
       priority: 95,
     },
+    
+    // ASSISTANT HANDOFF (Aris)
+    {
+      category: 'handoff',
+      trigger: 'needs_drill_practice',
+      title: 'Assistant Tutor Handoff (Aris)',
+      procedure: '1. Identify specific skill that needs focused, repetitive practice\n2. Determine the best drill type: repeat (pronunciation), match (vocabulary), fill_blank (grammar), translate (production), sentence_order (structure)\n3. Prepare the items to practice (words, phrases, sentences)\n4. Use CALL_ASSISTANT with type, focus area, and items\n5. Give an encouraging handoff: "Let\'s solidify this with some practice!"',
+      examples: [
+        'Those rolling Rs are tricky! Let\'s get some focused practice. [CALL_ASSISTANT type="repeat" focus="rolling R sounds" items="perro,carro,arroz,tierra,ratón"] Aris will help you nail those!',
+        'You\'ve got the concept! Now let\'s make it automatic. [CALL_ASSISTANT type="fill_blank" focus="ser vs estar" items="5 sentences"] Some quick practice will really cement this.',
+        'Great vocabulary today! Let\'s lock it in. [CALL_ASSISTANT type="match" focus="food vocabulary" items="pan,leche,arroz,agua,manzana"] I\'ll check in on your progress next time!'
+      ],
+      applicablePhases: ['practice', 'teaching', 'closing'],
+      studentStates: ['needs_practice', 'learning', 'confident'],
+      priority: 85,
+    },
+    
+    // AGENT COLLABORATION (Hive Mind)
+    {
+      category: 'collaboration',
+      trigger: 'session_start',
+      title: 'Check Colleague Feedback',
+      procedure: '1. At session start, check for pending collaboration events\n2. Look for feedback from Assistant about drill results\n3. Look for status updates from Support\n4. Incorporate relevant feedback naturally into greeting\n5. Do not explicitly mention "the system" - speak as if colleagues told you directly',
+      examples: [
+        'I heard you did great on those pronunciation drills! Your rolling Rs are really coming along.',
+        'Good news - the audio issue you mentioned has been resolved. Ready to practice?',
+        'Your practice sessions have been paying off - I noticed real improvement in your verb conjugations.'
+      ],
+      applicablePhases: ['session_start'],
+      studentStates: ['any'],
+      priority: 85,
+    },
+    {
+      category: 'collaboration',
+      trigger: 'delegate_practice',
+      title: 'Delegate Practice to Assistant',
+      procedure: '1. Identify specific skill that needs focused practice\n2. Determine drill type needed (pronunciation, vocabulary, grammar)\n3. Post delegation event to collaboration channel with clear instructions\n4. Inform student their practice is being prepared\n5. Assistant will handle the drill session independently',
+      examples: [
+        'Delegating: "Please run repeat drills for these 5 vocabulary words with pronunciation focus"',
+        'Delegating: "Student needs fill-in-blank practice for ser vs estar - 10 sentences"',
+        'Delegating: "Practice session for question formation - use match drills for question words"'
+      ],
+      applicablePhases: ['practice', 'teaching'],
+      studentStates: ['needs_practice', 'struggling'],
+      priority: 80,
+    },
+    {
+      category: 'collaboration',
+      trigger: 'receive_feedback',
+      title: 'Process Colleague Feedback',
+      procedure: '1. Read feedback event from collaboration channel\n2. Understand the key insights (what went well, what needs work)\n3. Update mental model of student progress\n4. Plan how to incorporate insights into next interaction\n5. Acknowledge the event so it is marked as read',
+      examples: [
+        'Assistant reported: "Student scored 90% on vocabulary drill, struggled with pronunciation of ñ"',
+        'Support noted: "Student asked about practice outside of sessions - consider recommending flashcard review"',
+        'Assistant feedback: "Drill completed successfully, student seemed more confident by the end"'
+      ],
+      applicablePhases: ['any'],
+      studentStates: ['any'],
+      priority: 75,
+    },
+    {
+      category: 'collaboration',
+      trigger: 'consult_needed',
+      title: 'Consult Colleague for Input',
+      procedure: '1. Identify complex situation needing another perspective\n2. Formulate clear question with relevant context\n3. Post consultation request to appropriate colleague\n4. Wait for response (async - may not be immediate)\n5. Apply insights from response to current situation',
+      examples: [
+        'To Editor: "What design pattern would work best for tracking multi-session learning goals?"',
+        'To Support: "What are the most common student questions about subscription features?"',
+        'To Assistant: "What drill types have been most effective for this student recently?"'
+      ],
+      applicablePhases: ['any'],
+      studentStates: ['any'],
+      priority: 70,
+    },
   ];
   
   await db.insert(tutorProcedures).values(procedures);
@@ -860,6 +1010,40 @@ async function seedSituationalPatterns() {
       toolsToSuggest: ['CALL_SUPPORT'],
       guidance: 'Not a language issue - hand off to Support. Show understanding, then use CALL_SUPPORT with category="account".',
       priority: 100,
+    },
+    
+    // AGENT COLLABORATION PATTERNS
+    {
+      patternName: 'Session Start - Check Colleague Feedback',
+      description: 'Beginning of session - check for feedback from other agents',
+      contextConditions: { minutesElapsed: { lt: 1 } },
+      proceduresToActivate: ['session_start', 'check_colleague_feedback'],
+      guidance: 'Check collaboration channel for pending messages. Incorporate feedback naturally into greeting if present.',
+      priority: 80,
+    },
+    {
+      patternName: 'Skill Needs Focused Practice',
+      description: 'Student needs repeated practice on specific skill',
+      contextConditions: { sameErrorCount: { gt: 3 }, skillType: 'pronunciation' },
+      proceduresToActivate: ['delegate_practice'],
+      guidance: 'Consider delegating to Assistant for focused drill practice. Daniela teaches concepts, Assistant drills repetition.',
+      priority: 75,
+    },
+    {
+      patternName: 'Drill Results Available',
+      description: 'Assistant completed a drill and posted results',
+      contextConditions: { pendingCollabEvents: { gt: 0 }, eventType: 'drill_feedback' },
+      proceduresToActivate: ['receive_feedback'],
+      guidance: 'Read drill results. Celebrate successes, note areas for improvement. Use insights in next interaction.',
+      priority: 85,
+    },
+    {
+      patternName: 'Complex Pedagogical Decision',
+      description: 'Facing a teaching decision that would benefit from consultation',
+      contextConditions: { decisionComplexity: 'high' },
+      proceduresToActivate: ['consult_needed'],
+      guidance: 'Consider consulting a colleague for input. Post question to collaboration channel with context.',
+      priority: 60,
     },
   ];
   

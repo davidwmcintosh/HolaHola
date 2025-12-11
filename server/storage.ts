@@ -150,6 +150,12 @@ import {
   type AgentCollaborationEvent,
   type InsertAgentCollaborationEvent,
   agentCollaborationEvents,
+  type ArisDrillAssignment,
+  type InsertArisDrillAssignment,
+  arisDrillAssignments,
+  type ArisDrillResult,
+  type InsertArisDrillResult,
+  arisDrillResults,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -5424,7 +5430,7 @@ export class DatabaseStorage implements IStorage {
   // ===== AGENT COLLABORATION METHODS =====
   
   async createCollaborationEvent(event: InsertAgentCollaborationEvent): Promise<AgentCollaborationEvent> {
-    const [created] = await db.insert(agentCollaborationEvents).values(event).returning();
+    const [created] = await db.insert(agentCollaborationEvents).values([event]).returning();
     return created;
   }
   
@@ -5506,6 +5512,25 @@ export class DatabaseStorage implements IStorage {
       .limit(50);
   }
   
+  async getCollaborationEventsToAgent(
+    toAgent: 'daniela' | 'assistant' | 'support' | 'editor',
+    userId?: string,
+    limit?: number
+  ): Promise<AgentCollaborationEvent[]> {
+    const conditions = [
+      eq(agentCollaborationEvents.toAgent, toAgent)
+    ];
+    
+    if (userId) {
+      conditions.push(eq(agentCollaborationEvents.userId, userId));
+    }
+    
+    return db.select().from(agentCollaborationEvents)
+      .where(and(...conditions))
+      .orderBy(desc(agentCollaborationEvents.createdAt))
+      .limit(limit || 10);
+  }
+  
   async getRecentCollaborationContext(
     forAgent: 'daniela' | 'assistant' | 'support' | 'editor',
     options?: { userId?: string; hours?: number; limit?: number }
@@ -5530,6 +5555,93 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions))
       .orderBy(desc(agentCollaborationEvents.createdAt))
       .limit(options?.limit || 20);
+  }
+  
+  // ===== ARIS (ASSISTANT TUTOR) STORAGE =====
+  
+  async createArisDrillAssignment(assignment: InsertArisDrillAssignment): Promise<ArisDrillAssignment> {
+    const [created] = await db.insert(arisDrillAssignments).values([assignment]).returning();
+    return created;
+  }
+  
+  async getArisDrillAssignment(id: string): Promise<ArisDrillAssignment | undefined> {
+    const [assignment] = await db.select().from(arisDrillAssignments)
+      .where(eq(arisDrillAssignments.id, id));
+    return assignment;
+  }
+  
+  async getPendingArisDrillAssignmentsForUser(userId: string): Promise<ArisDrillAssignment[]> {
+    return db.select().from(arisDrillAssignments)
+      .where(and(
+        eq(arisDrillAssignments.userId, userId),
+        eq(arisDrillAssignments.status, 'pending')
+      ))
+      .orderBy(desc(arisDrillAssignments.assignedAt));
+  }
+  
+  async updateArisDrillAssignmentStatus(
+    id: string,
+    status: 'pending' | 'in_progress' | 'completed' | 'expired' | 'cancelled',
+    timestamps?: { startedAt?: Date; completedAt?: Date }
+  ): Promise<ArisDrillAssignment | undefined> {
+    const updateData: Record<string, unknown> = { status };
+    if (timestamps?.startedAt) updateData.startedAt = timestamps.startedAt;
+    if (timestamps?.completedAt) updateData.completedAt = timestamps.completedAt;
+    
+    const [updated] = await db.update(arisDrillAssignments)
+      .set(updateData)
+      .where(eq(arisDrillAssignments.id, id))
+      .returning();
+    return updated;
+  }
+  
+  async createArisDrillResult(result: InsertArisDrillResult): Promise<ArisDrillResult> {
+    const [created] = await db.insert(arisDrillResults).values([result]).returning();
+    return created;
+  }
+  
+  async getArisDrillResultsForUser(userId: string, limit: number = 20): Promise<ArisDrillResult[]> {
+    return db.select().from(arisDrillResults)
+      .where(eq(arisDrillResults.userId, userId))
+      .orderBy(desc(arisDrillResults.createdAt))
+      .limit(limit);
+  }
+  
+  async getArisDrillResultForAssignment(assignmentId: string): Promise<ArisDrillResult | undefined> {
+    const [result] = await db.select().from(arisDrillResults)
+      .where(eq(arisDrillResults.assignmentId, assignmentId));
+    return result;
+  }
+  
+  async getRecentArisInsightsForDaniela(
+    userId: string,
+    options?: { hours?: number; limit?: number }
+  ): Promise<{ results: ArisDrillResult[]; feedbackEvents: AgentCollaborationEvent[] }> {
+    const since = new Date();
+    since.setHours(since.getHours() - (options?.hours || 48));
+    
+    // Get recent drill results
+    const results = await db.select().from(arisDrillResults)
+      .where(and(
+        eq(arisDrillResults.userId, userId),
+        gte(arisDrillResults.createdAt, since)
+      ))
+      .orderBy(desc(arisDrillResults.createdAt))
+      .limit(options?.limit || 10);
+    
+    // Get related feedback events from Aris to Daniela
+    const feedbackEvents = await db.select().from(agentCollaborationEvents)
+      .where(and(
+        eq(agentCollaborationEvents.fromAgent, 'assistant'),
+        eq(agentCollaborationEvents.toAgent, 'daniela'),
+        eq(agentCollaborationEvents.userId, userId),
+        eq(agentCollaborationEvents.eventType, 'feedback'),
+        gte(agentCollaborationEvents.createdAt, since)
+      ))
+      .orderBy(desc(agentCollaborationEvents.createdAt))
+      .limit(options?.limit || 10);
+    
+    return { results, feedbackEvents };
   }
 }
 

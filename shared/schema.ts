@@ -3761,3 +3761,137 @@ export const insertAgentCollaborationEventSchema = createInsertSchema(agentColla
 
 export type InsertAgentCollaborationEvent = z.infer<typeof insertAgentCollaborationEventSchema>;
 export type AgentCollaborationEvent = typeof agentCollaborationEvents.$inferSelect;
+
+// ===== ARIS (ASSISTANT TUTOR) =====
+// Drill assignments and results for Daniela's assistant
+
+export const arisDrillAssignmentStatusEnum = pgEnum("aris_drill_assignment_status", [
+  "pending",      // Assigned but not started
+  "in_progress",  // Student currently working on it
+  "completed",    // Finished, results posted
+  "expired",      // Not completed within time limit
+  "cancelled",    // Cancelled by Daniela or system
+]);
+
+export const arisDrillTypeEnum = pgEnum("aris_drill_type", [
+  "repeat",        // Pronunciation practice
+  "translate",     // Native to target language
+  "match",         // Vocabulary matching
+  "fill_blank",    // Grammar fill-in-the-blank
+  "sentence_order", // Word ordering
+]);
+
+// Assignments from Daniela to Aris
+export const arisDrillAssignments = pgTable("aris_drill_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Who is this for
+  userId: varchar("user_id").notNull(),
+  conversationId: varchar("conversation_id"), // Link to original tutoring session
+  
+  // Delegation context
+  delegatedBy: agentRoleEnum("delegated_by").notNull().default("daniela"),
+  delegationEventId: varchar("delegation_event_id"), // Link to collaboration event
+  
+  // Drill specification
+  drillType: arisDrillTypeEnum("drill_type").notNull(),
+  targetLanguage: varchar("target_language", { length: 50 }).notNull(),
+  
+  // Content for the drill
+  drillContent: jsonb("drill_content").$type<{
+    items: Array<{
+      prompt: string;           // What to show/say
+      expectedAnswer?: string;  // For translate/fill_blank
+      options?: string[];       // For match/fill_blank dropdowns
+      pronunciation?: string;   // Phonetic guide
+    }>;
+    instructions?: string;
+    focusArea?: string;        // e.g., "rolling R sounds", "ser vs estar"
+    difficulty?: "easy" | "medium" | "hard";
+  }>().notNull(),
+  
+  // Assignment parameters
+  priority: varchar("priority", { length: 20 }).notNull().default("medium"),
+  maxAttempts: integer("max_attempts").default(3),
+  expiresAt: timestamp("expires_at"), // Optional deadline
+  
+  // Status tracking
+  status: arisDrillAssignmentStatusEnum("status").notNull().default("pending"),
+  assignedAt: timestamp("assigned_at").notNull().defaultNow(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("idx_aris_assignments_user").on(table.userId),
+  index("idx_aris_assignments_status").on(table.status),
+  index("idx_aris_assignments_created").on(table.assignedAt),
+]);
+
+export const insertArisDrillAssignmentSchema = createInsertSchema(arisDrillAssignments).omit({
+  id: true,
+  assignedAt: true,
+});
+
+export type InsertArisDrillAssignment = z.infer<typeof insertArisDrillAssignmentSchema>;
+export type ArisDrillAssignment = typeof arisDrillAssignments.$inferSelect;
+
+// Results from Aris back to Daniela
+export const arisDrillResults = pgTable("aris_drill_results", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Link to assignment
+  assignmentId: varchar("assignment_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  
+  // Overall metrics
+  completionRate: real("completion_rate").notNull(), // 0.0 - 1.0
+  accuracyRate: real("accuracy_rate").notNull(),     // 0.0 - 1.0
+  totalItems: integer("total_items").notNull(),
+  correctItems: integer("correct_items").notNull(),
+  timeSpentSeconds: integer("time_spent_seconds"),
+  
+  // Detailed item-by-item results
+  itemResults: jsonb("item_results").$type<Array<{
+    itemIndex: number;
+    prompt: string;
+    studentAnswer: string;
+    expectedAnswer: string;
+    isCorrect: boolean;
+    attempts: number;
+    feedback?: string;
+    pronunciationScore?: number; // For repeat drills
+  }>>(),
+  
+  // Patterns and insights
+  strengths: text("strengths").array(), // What went well
+  struggles: text("struggles").array(), // What needs work
+  
+  // Behavioral observations
+  behavioralFlags: jsonb("behavioral_flags").$type<{
+    expressedFrustration?: boolean;
+    frustrationPoint?: string;
+    requestedHelp?: boolean;
+    highEngagement?: boolean;
+    disconnectedEarly?: boolean;
+    completedEarly?: boolean;
+  }>(),
+  
+  // Aris's recommendations for Daniela
+  recommendations: text("recommendations"),
+  
+  // Feedback posted to collaboration channel
+  feedbackEventId: varchar("feedback_event_id"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_aris_results_assignment").on(table.assignmentId),
+  index("idx_aris_results_user").on(table.userId),
+  index("idx_aris_results_created").on(table.createdAt),
+]);
+
+export const insertArisDrillResultSchema = createInsertSchema(arisDrillResults).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertArisDrillResult = z.infer<typeof insertArisDrillResultSchema>;
+export type ArisDrillResult = typeof arisDrillResults.$inferSelect;

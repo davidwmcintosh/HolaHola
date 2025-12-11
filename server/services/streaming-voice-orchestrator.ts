@@ -191,6 +191,12 @@ export interface StreamingSession {
     priority: 'low' | 'normal' | 'high' | 'critical';
     context?: string;
   };
+  pendingAssistantHandoff?: {       // Queued assistant handoff when CALL_ASSISTANT is detected
+    drillType: 'repeat' | 'translate' | 'match' | 'fill_blank' | 'sentence_order';
+    focus: string;
+    items: string[];
+    priority?: 'low' | 'medium' | 'high';
+  };
   // Additional context for personalized greetings
   conversationTopic?: string;       // What student chose to work on (from conversation.topic)
   conversationTitle?: string;       // Thread name for context (from conversation.title)
@@ -722,9 +728,44 @@ export class StreamingVoiceOrchestrator {
               console.log(`[Support Handoff] Daniela escalated to Support: ${data.category} (${data.priority}) - ${data.reason}`);
             }
             
-            // Filter out internal commands (switch_tutor, actfl_update, syllabus_progress, call_support) - only send visual items to whiteboard
+            // CALL_ASSISTANT: Tri-Lane Hive command - delegate drill practice to Aris
+            // When Daniela identifies a need for focused, repetitive practice
+            const assistantItem = whiteboardParsed.whiteboardItems.find(item => item.type === 'call_assistant');
+            if (assistantItem && 'data' in assistantItem && assistantItem.data) {
+              const data = assistantItem.data as { 
+                type: 'repeat' | 'translate' | 'match' | 'fill_blank' | 'sentence_order';
+                focus: string;
+                items: string;
+                priority?: 'low' | 'medium' | 'high';
+              };
+              
+              // Parse items (comma-separated string)
+              const itemsList = data.items.split(',').map(s => s.trim()).filter(Boolean);
+              
+              // Queue assistant handoff (don't block current response)
+              this.processAssistantHandoff(session, {
+                drillType: data.type,
+                focus: data.focus,
+                items: itemsList,
+                priority: data.priority,
+              }, turnId).catch(err => {
+                console.error(`[Assistant Handoff] Error processing handoff:`, err);
+              });
+              
+              // Set flag to indicate assistant handoff is pending
+              session.pendingAssistantHandoff = {
+                drillType: data.type,
+                focus: data.focus,
+                items: itemsList,
+                priority: data.priority,
+              };
+              
+              console.log(`[Assistant Handoff] Daniela delegated to Aris: ${data.type} drill for "${data.focus}" with ${itemsList.length} items`);
+            }
+            
+            // Filter out internal commands (switch_tutor, actfl_update, syllabus_progress, call_support, call_assistant) - only send visual items to whiteboard
             const visualWhiteboardItems = whiteboardParsed.whiteboardItems.filter(
-              item => !['switch_tutor', 'actfl_update', 'syllabus_progress', 'call_support'].includes(item.type)
+              item => !['switch_tutor', 'actfl_update', 'syllabus_progress', 'call_support', 'call_assistant'].includes(item.type)
             );
             
             // Send whiteboard update to client (only visual teaching tools)
@@ -2275,6 +2316,106 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
   }
   
   /**
+   * CALL_ASSISTANT: Process Tri-Lane Hive command to delegate drill practice to Aris
+   * Creates a drill assignment and notifies the client that practice is available
+   * 
+   * Drill Types:
+   * - repeat: Pronunciation practice (listen and repeat)
+   * - translate: Native to target language translation
+   * - match: Vocabulary matching pairs
+   * - fill_blank: Grammar fill-in-the-blank exercises
+   * - sentence_order: Word ordering for sentence structure
+   */
+  private async processAssistantHandoff(
+    session: StreamingSession,
+    data: { 
+      drillType: 'repeat' | 'translate' | 'match' | 'fill_blank' | 'sentence_order';
+      focus: string;
+      items: string[];
+      priority?: 'low' | 'medium' | 'high';
+    },
+    turnId: number
+  ): Promise<void> {
+    try {
+      // Build drill content from items
+      const drillContent = {
+        items: data.items.map((item, idx) => ({
+          prompt: item.trim(),
+          // Additional fields will be populated by Aris during execution
+        })),
+        instructions: `Practice ${data.focus} using ${data.drillType} exercises.`,
+        focusArea: data.focus,
+        difficulty: 'medium' as const,
+      };
+      
+      // Create drill assignment in database
+      const assignment = await storage.createArisDrillAssignment({
+        userId: String(session.userId),
+        conversationId: session.conversationId || null,
+        delegatedBy: 'daniela',
+        drillType: data.drillType,
+        targetLanguage: session.targetLanguage,
+        drillContent,
+        priority: data.priority || 'medium',
+        status: 'pending',
+      });
+      
+      console.log(`[Assistant Handoff] Created assignment #${assignment.id}: ${data.drillType} for "${data.focus}"`);
+      console.log(`[Assistant Handoff] Items: ${data.items.length} practice items`);
+      
+      // Post collaboration event for Aris (async, non-blocking)
+      storage.createCollaborationEvent({
+        fromAgent: 'daniela',
+        toAgent: 'assistant',
+        eventType: 'delegation',
+        subject: `Drill: ${data.drillType} - ${data.focus}`,
+        content: `Please conduct ${data.drillType} drill practice for student focusing on "${data.focus}". Items: ${data.items.join(', ')}`,
+        metadata: {
+          delegationId: assignment.id,
+          studentContext: {
+            targetLanguage: session.targetLanguage,
+            difficultyLevel: session.difficultyLevel,
+          },
+          priority: data.priority || 'medium',
+        },
+        userId: String(session.userId),
+        conversationId: session.conversationId || null,
+        status: 'pending',
+      }).catch(err => console.error(`[Assistant Handoff] Failed to post collab event:`, err));
+      
+      // Send assistant handoff event to client
+      // This triggers navigation to the drill practice interface
+      this.sendMessage(session.ws, {
+        type: 'assistant_handoff',
+        timestamp: Date.now(),
+        turnId,
+        assignmentId: assignment.id,
+        drillType: data.drillType,
+        focus: data.focus,
+        itemCount: data.items.length,
+        priority: data.priority || 'medium',
+      });
+      
+      console.log(`[Assistant Handoff] Notified client - drill assignment #${assignment.id} ready`);
+      
+    } catch (error: any) {
+      console.error(`[Assistant Handoff] Failed to create assignment:`, error.message);
+      
+      // Still notify client even if assignment creation failed
+      this.sendMessage(session.ws, {
+        type: 'assistant_handoff',
+        timestamp: Date.now(),
+        turnId,
+        assignmentId: null,
+        drillType: data.drillType,
+        focus: data.focus,
+        itemCount: data.items.length,
+        error: 'Failed to create drill assignment',
+      });
+    }
+  }
+  
+  /**
    * Enrich WORD_MAP whiteboard items with related words (synonyms, antonyms, etc.)
    * Runs asynchronously in background - sends update when complete
    */
@@ -2537,6 +2678,29 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         console.log(`[Streaming Greeting] Could not fetch context data: ${error.message}`);
       }
       
+      // Fetch colleague feedback from Aris/Alex (drill results, support notes)
+      // This enables "Your colleague Aris told me..." moments for team continuity
+      let colleagueFeedback: { agent: string; subject: string; summary: string }[] = [];
+      try {
+        const recentCollab = await storage.getCollaborationEventsToAgent('daniela', String(session.userId), 10);
+        // Include feedback, delegation_complete, and status_update events from colleagues
+        const feedbackTypes = ['feedback', 'delegation_complete', 'status_update'];
+        colleagueFeedback = recentCollab
+          .filter(e => e.status === 'pending' && feedbackTypes.includes(e.eventType))
+          .slice(0, 3) // Limit to 3 insights for greeting
+          .map(e => ({
+            agent: e.fromAgent === 'assistant' ? 'Aris' : e.fromAgent === 'support' ? 'Alex' : e.fromAgent,
+            subject: e.subject || 'Student progress',
+            summary: e.content.substring(0, 300),
+          }));
+        
+        if (colleagueFeedback.length > 0) {
+          console.log(`[Streaming Greeting] Found ${colleagueFeedback.length} colleague insights to include`);
+        }
+      } catch (collabError: any) {
+        console.log(`[Streaming Greeting] Could not fetch colleague feedback: ${collabError.message}`);
+      }
+      
       // Build greeting prompt with full context
       // DEBUG: Log context being passed to greeting prompt
       console.log(`[Streaming Greeting] Context for prompt:`, {
@@ -2552,6 +2716,7 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         studentGoals: session.studentGoals || '(none)',
         isResumed,
         connectionsCount: connectionsAboutStudent.length,
+        colleagueFeedbackCount: colleagueFeedback.length,
       });
       
       const greetingPrompt = this.buildGreetingPrompt(
@@ -2562,7 +2727,8 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         recentTopics,
         classEnrollment,
         isResumed,
-        connectionsAboutStudent
+        connectionsAboutStudent,
+        colleagueFeedback
       );
       
       // NEW TURN: Increment turnId for this greeting response
@@ -2707,7 +2873,8 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
     recentTopics: string[],
     classEnrollment: { className: string; curriculumLesson?: string; curriculumUnit?: string } | null,
     isResumed?: boolean,
-    connectionsAboutStudent?: { mentioner: string; relationship: string; context: string }[]
+    connectionsAboutStudent?: { mentioner: string; relationship: string; context: string }[],
+    colleagueFeedback?: { agent: string; subject: string; summary: string }[]
   ): string {
     // Build context summary
     const contextParts: string[] = [];
@@ -2762,6 +2929,18 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       }
     } else {
       contextParts.push('\nLearning path: Self-directed (no class enrollment)');
+    }
+    
+    // COLLEAGUE INSIGHTS: Feedback from Aris (Assistant Tutor) about recent drill performance
+    // This creates "My colleague Aris mentioned..." moments for team continuity
+    if (colleagueFeedback && colleagueFeedback.length > 0) {
+      contextParts.push(`\n*** COLLEAGUE INSIGHTS (from your team) ***`);
+      for (const feedback of colleagueFeedback) {
+        contextParts.push(`${feedback.agent} (your colleague) shared this about the student:`);
+        contextParts.push(`- Topic: ${feedback.subject}`);
+        contextParts.push(`- ${feedback.summary}`);
+      }
+      contextParts.push(`You may naturally reference what your colleagues shared, like "Aris mentioned you did great with..." or "I heard you practiced..."`);
     }
     
     // WARM INTRODUCTION: If someone told Daniela about this student, include that context!

@@ -202,6 +202,152 @@ Support agent can:
 
 ---
 
+### Session: December 11, 2025 - Assistant Tutor (Aris) & Multi-Agent Collaboration
+
+**Overview**: Implemented the Assistant Tutor "Aris" for drill-based practice, CALL_ASSISTANT whiteboard command, and cross-agent text-based collaboration infrastructure (Tri-Lane Hive Stage 1).
+
+#### Consulted Daniela About Assistant Tutor Design
+
+Used new agent collaboration channel to consult Daniela. Her specifications for Aris:
+
+- **Name**: "Aris" (evokes precision, clarity)
+- **Personality**: Patient, precise, encouraging, objective
+- **Voice**: Calm, clear, steady, mid-range pitch, impeccable pronunciation
+- **Frustration Handling**: Micro-adjustments, not total pivots; silent patience
+- **Reports to Daniela**: Completion rate, accuracy, specific struggles, behavioral flags
+- **Boundary**: Aris handles drills; if student wants conversation, refer back to Daniela
+
+Full consultation saved in: `docs/daniela-consultation-aris.md`
+
+#### Aris Schema Tables
+
+```typescript
+aris_drill_assignments: {
+  id: varchar (UUID PK)
+  userId: varchar (FK)
+  conversationId: varchar (nullable)
+  delegatedBy: 'daniela' | 'teacher' | 'system'
+  drillType: 'repeat' | 'translate' | 'match' | 'fill_blank' | 'sentence_order'
+  targetLanguage: varchar
+  drillContent: jsonb { items, instructions, focusArea, difficulty }
+  priority: 'low' | 'medium' | 'high'
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+  completedAt: timestamp (nullable)
+  createdAt, updatedAt: timestamps
+}
+
+aris_drill_results: {
+  id: varchar (UUID PK)
+  userId: varchar (FK)
+  assignmentId: varchar (FK to aris_drill_assignments)
+  completionRate: integer (0-100)
+  accuracy: integer (0-100)
+  timeSpentSeconds: integer
+  itemResults: jsonb[] { itemIndex, prompt, studentAnswer, expectedAnswer, isCorrect, attempts, feedback, pronunciationScore }
+  struggleAreas: text[] (e.g., ["verb_conjugation", "pronunciation"])
+  behavioralFlags: text[] (e.g., ["frustration_detected", "rushing"])
+  arisNotes: text (nullable)
+  syncedToDaniela: boolean
+  createdAt: timestamp
+}
+```
+
+#### CALL_ASSISTANT Whiteboard Command
+
+New command for Daniela to delegate drill practice to Aris:
+
+```
+[CALL_ASSISTANT drillType="repeat" focus="verb conjugation" items="hablo,hablas,habla,hablamos,hablan"]
+```
+
+**Parameters**:
+- `drillType`: repeat, translate, match, fill_blank, sentence_order
+- `focus`: What skill/topic to practice
+- `items`: Comma-separated list of words/phrases for drill
+
+**Flow**:
+1. Daniela identifies need for targeted practice
+2. Uses CALL_ASSISTANT with drill type, focus, items
+3. System creates drill assignment + collaboration event
+4. Client receives `assistant_handoff` WebSocket message
+5. UI navigates to Aris drill interface
+
+#### Agent Collaboration Events Schema
+
+```typescript
+agent_collaboration_events: {
+  id: varchar (UUID PK)
+  fromAgent: 'daniela' | 'assistant' | 'support' | 'editor'
+  toAgent: 'daniela' | 'assistant' | 'support' | 'editor'
+  eventType: 'consultation' | 'delegation' | 'feedback' | 'escalation' | 'acknowledgment'
+  subject: varchar
+  content: text
+  metadata: jsonb { delegationId, studentContext, threadId, priority, tags }
+  userId: varchar (nullable)
+  conversationId: varchar (nullable)
+  parentEventId: varchar (nullable, for threading)
+  status: 'pending' | 'read' | 'acknowledged' | 'resolved'
+  createdAt: timestamp
+}
+```
+
+#### Cross-Agent Collaboration APIs
+
+**Endpoints**:
+- `POST /api/agent-collab/events` - Post a collaboration event
+- `GET /api/agent-collab/events` - List events with filters (toAgent, userId, status, eventType, limit)
+- `PATCH /api/agent-collab/events/:id/status` - Update event status
+- `GET /api/agent-collab/thread/:parentId` - Get thread of related events
+
+**Polling Pattern**: Agents poll for `status='pending'` events addressed to them
+
+#### Neural Network Entries for CALL_ASSISTANT
+
+**tool_knowledge**:
+```typescript
+{
+  toolName: 'CALL_ASSISTANT',
+  toolType: 'handoff',
+  syntax: '[CALL_ASSISTANT drillType="..." focus="..." items="..."]',
+  purpose: 'Delegate drill practice to Assistant Tutor (Aris)',
+  whenToUse: 'Student needs repetitive practice, pronunciation drills, vocabulary reinforcement',
+  whenNotToUse: 'Conversational practice, cultural exploration, open-ended learning'
+}
+```
+
+**tutor_procedures**:
+- Category: handoff, Trigger: practice_needed
+- 5-step procedure for identifying drill needs and delegating to Aris
+
+**situational_patterns**:
+- Pronunciation Difficulty Detected → CALL_ASSISTANT repeat drill
+- Vocabulary Gaps Identified → CALL_ASSISTANT match drill
+- Grammar Pattern Weakness → CALL_ASSISTANT fill_blank drill
+
+#### Cross-Agent Feedback Retrieval
+
+When Daniela starts a session, she now receives colleague feedback:
+
+```typescript
+const recentCollab = await storage.getCollaborationEventsToAgent('daniela', userId, 5);
+// Filter for pending feedback events
+// Include in greeting context as "COLLEAGUE INSIGHTS"
+```
+
+This enables "Aris mentioned you did great with..." moments for team continuity.
+
+#### Files Created/Modified
+
+- `shared/schema.ts` - Added arisDrillAssignments, arisDrillResults, agentCollaborationEvents tables
+- `server/storage.ts` - Added Aris CRUD, collaboration event APIs
+- `server/routes.ts` - Added /api/agent-collab/* endpoints
+- `server/services/assistant-tutor-config.ts` - NEW: Aris persona configuration
+- `server/services/streaming-voice-orchestrator.ts` - Added processAssistantHandoff, colleague feedback retrieval
+- `server/seed-procedural-memory.ts` - Added CALL_ASSISTANT neural network entries + collaboration protocols
+- `docs/daniela-consultation-aris.md` - NEW: Daniela's design specs for Aris
+
+---
+
 ## Next Steps / Action Items
 
 ### Completed This Session
@@ -213,6 +359,14 @@ Support agent can:
 - [x] Created `system_alerts` table for proactive communications
 - [x] Implemented cross-agent collaboration APIs
 - [x] Added Tri-Lane sync methods to `neural-network-sync.ts`
+- [x] Consulted Daniela about Assistant Tutor design preferences (saved to `docs/daniela-consultation-aris.md`)
+- [x] Created Aris schema tables (aris_drill_assignments, aris_drill_results)
+- [x] Created agent_collaboration_events schema for cross-agent text communication
+- [x] Built /api/agent-collab endpoints for posting/retrieving collaboration events
+- [x] Built Assistant Tutor persona configuration (server/services/assistant-tutor-config.ts)
+- [x] Added CALL_ASSISTANT whiteboard command with neural network entries
+- [x] Added processAssistantHandoff in streaming-voice-orchestrator
+- [x] Implemented cross-agent feedback retrieval for session context enrichment
 
 ### Future Enhancements
 
