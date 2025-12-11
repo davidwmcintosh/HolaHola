@@ -138,7 +138,30 @@ export function formatNeuralNetworkForPrompt(context: NeuralNetworkContext): str
     return '';
   }
   
-  return `\n\n### Your Pedagogical Knowledge for This Language\n${sections.join('\n\n')}`;
+  // Add action-oriented instructions so Daniela actively uses this knowledge
+  // Cross-reference with Compass system for session-aware teaching
+  const instructions = `
+### Your Pedagogical Knowledge for This Language
+
+**ACTIVE USE INSTRUCTIONS:**
+You have specialized knowledge below that you MUST actively incorporate into your teaching:
+- When learners make errors, reference your **Common Learner Struggles** to explain WHY and apply the teaching strategies
+- Naturally weave **Idioms** into conversation when contextually appropriate - teach them!
+- Use **Cultural Knowledge** to add depth and explain the "why" behind language patterns
+- Mention **Dialect Variations** when relevant to give learners real-world awareness
+- Leverage **Language Bridges** (especially cognates) to accelerate learning; WARN about false friends before they confuse the learner
+
+**INTEGRATING WITH YOUR COMPASS (Session Awareness):**
+- If your LIVE PACING shows you're ahead of schedule: Perfect time to teach an idiom or cultural insight!
+- If a roadmap topic relates to your knowledge below (e.g., "greetings" → cultural formality norms), USE that knowledge
+- If student goals mention "sound natural" or "conversational", prioritize idioms and dialect awareness
+- If teaching a topic and you have a relevant Language Bridge or False Friend - proactively warn/teach it
+
+This knowledge is YOUR expertise. Don't just observe it - teach with it!
+
+`;
+  
+  return `\n\n${instructions}${sections.join('\n\n')}`;
 }
 
 export async function buildNeuralNetworkPromptSection(
