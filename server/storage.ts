@@ -141,6 +141,12 @@ import {
   type InsertSupportObservation,
   type SystemAlert,
   type InsertSystemAlert,
+  type SupportTicket,
+  type InsertSupportTicket,
+  type SupportMessage,
+  type InsertSupportMessage,
+  supportTickets,
+  supportMessages,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -675,6 +681,14 @@ export interface IStorage {
   updateSystemAlert(id: string, data: Partial<SystemAlert>): Promise<SystemAlert | undefined>;
   incrementAlertView(id: string): Promise<void>;
   incrementAlertDismiss(id: string): Promise<void>;
+  
+  // Support Tickets (Tri-Lane Hive - Support Agent escalations)
+  createSupportTicket(data: InsertSupportTicket): Promise<SupportTicket>;
+  getSupportTicket(id: string): Promise<SupportTicket | undefined>;
+  getSupportTickets(options?: { userId?: string; status?: string; category?: string; limit?: number }): Promise<SupportTicket[]>;
+  updateSupportTicket(id: string, data: Partial<SupportTicket>): Promise<SupportTicket | undefined>;
+  createSupportMessage(data: InsertSupportMessage): Promise<SupportMessage>;
+  getSupportMessages(ticketId: string): Promise<SupportMessage[]>;
   
   // Tri-Lane Hive Collaboration APIs
   getCollaborationContext(options?: { domainTags?: string[]; originRole?: string; limit?: number }): Promise<{
@@ -5173,6 +5187,70 @@ export class DatabaseStorage implements IStorage {
     await db.update(systemAlerts)
       .set({ dismissCount: sql`${systemAlerts.dismissCount} + 1` })
       .where(eq(systemAlerts.id, id));
+  }
+  
+  // ===== Support Tickets (Tri-Lane Hive - Support Agent escalations) =====
+  
+  async createSupportTicket(data: InsertSupportTicket): Promise<SupportTicket> {
+    const [ticket] = await db.insert(supportTickets).values(data).returning();
+    return ticket;
+  }
+  
+  async getSupportTicket(id: string): Promise<SupportTicket | undefined> {
+    const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, id));
+    return ticket;
+  }
+  
+  async getSupportTickets(options?: { userId?: string; status?: string; category?: string; limit?: number }): Promise<SupportTicket[]> {
+    const conditions: any[] = [];
+    
+    if (options?.userId) {
+      conditions.push(eq(supportTickets.userId, options.userId));
+    }
+    if (options?.status) {
+      conditions.push(eq(supportTickets.status, options.status as any));
+    }
+    if (options?.category) {
+      conditions.push(eq(supportTickets.category, options.category as any));
+    }
+    
+    const query = db.select().from(supportTickets);
+    
+    if (conditions.length > 0) {
+      return query.where(and(...conditions))
+        .orderBy(desc(supportTickets.createdAt))
+        .limit(options?.limit || 50);
+    }
+    
+    return query.orderBy(desc(supportTickets.createdAt)).limit(options?.limit || 50);
+  }
+  
+  async updateSupportTicket(id: string, data: Partial<SupportTicket>): Promise<SupportTicket | undefined> {
+    const [updated] = await db.update(supportTickets)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(supportTickets.id, id))
+      .returning();
+    return updated;
+  }
+  
+  async createSupportMessage(data: InsertSupportMessage): Promise<SupportMessage> {
+    const [message] = await db.insert(supportMessages).values(data).returning();
+    
+    // Increment message count on ticket
+    await db.update(supportTickets)
+      .set({ 
+        messageCount: sql`${supportTickets.messageCount} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(supportTickets.id, data.ticketId));
+    
+    return message;
+  }
+  
+  async getSupportMessages(ticketId: string): Promise<SupportMessage[]> {
+    return db.select().from(supportMessages)
+      .where(eq(supportMessages.ticketId, ticketId))
+      .orderBy(supportMessages.createdAt);
   }
   
   // ===== Tri-Lane Hive Collaboration APIs =====

@@ -64,6 +64,7 @@ export type StreamingVoiceMessageType =
   | 'whiteboard_update'   // Visual teaching aids (vocabulary, drills, images)
   | 'voice_updated'       // Voice switch confirmation (tutor voice changed)
   | 'tutor_handoff'       // Tutor handoff: Switch to different tutor voice after farewell
+  | 'support_handoff'     // Support handoff: Route student to Support Agent (Tri-Lane Hive)
   | 'vad_speech_started'  // Open mic: User started speaking (VAD detected speech)
   | 'vad_utterance_end'   // Open mic: User stopped speaking (VAD detected silence)
   | 'interim_transcript'  // Open mic: Real-time interim transcript for feedback
@@ -320,6 +321,23 @@ export interface StreamingTutorHandoffMessage extends StreamingVoiceMessage {
 }
 
 /**
+ * Support handoff message - Route student to Support Agent
+ * Sent when Daniela detects a support need (technical issue, billing question, etc.)
+ * This triggers the SupportAssistModal overlay on the client
+ * 
+ * Part of Tri-Lane Hive architecture: Daniela → Support Agent handoff
+ */
+export interface StreamingSupportHandoffMessage extends StreamingVoiceMessage {
+  type: 'support_handoff';
+  turnId: number;                  // Current turn ID for ordering
+  ticketId: string | null;         // Database ticket ID (null if creation failed)
+  category: 'technical' | 'account' | 'billing' | 'content' | 'feedback' | 'other';
+  reason: string;                  // Why Daniela is handing off
+  priority: 'low' | 'normal' | 'high' | 'critical';
+  error?: string;                  // Error message if ticket creation failed
+}
+
+/**
  * Error codes for streaming voice
  */
 export type StreamingErrorCode = 
@@ -354,7 +372,8 @@ export type StreamingMessage =
   | StreamingErrorMessage
   | StreamingVADSpeechStartedMessage
   | StreamingVADUtteranceEndMessage
-  | StreamingTutorHandoffMessage;
+  | StreamingTutorHandoffMessage
+  | StreamingSupportHandoffMessage;
 
 /**
  * Client-to-server message types

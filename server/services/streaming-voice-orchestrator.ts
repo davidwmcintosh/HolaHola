@@ -185,6 +185,12 @@ export interface StreamingSession {
   isLanguageSwitchHandoff?: boolean; // True when current handoff is a cross-language switch
   previousLanguage?: string;        // Previous language before cross-language switch
   switchTutorTriggered?: boolean;   // True when SWITCH_TUTOR detected - stops further sentence synthesis
+  pendingSupportHandoff?: {         // Queued support handoff when CALL_SUPPORT is detected
+    category: 'technical' | 'account' | 'billing' | 'content' | 'feedback' | 'other';
+    reason: string;
+    priority: 'low' | 'normal' | 'high' | 'critical';
+    context?: string;
+  };
   // Additional context for personalized greetings
   conversationTopic?: string;       // What student chose to work on (from conversation.topic)
   conversationTitle?: string;       // Thread name for context (from conversation.title)
@@ -689,9 +695,36 @@ export class StreamingVoiceOrchestrator {
               }
             }
             
-            // Filter out internal commands (switch_tutor, actfl_update, syllabus_progress) - only send visual items to whiteboard
+            // CALL_SUPPORT: Tri-Lane Hive command - hand off student to Support Agent
+            // When Daniela recognizes a support need (technical issue, billing question, etc.)
+            const supportItem = whiteboardParsed.whiteboardItems.find(item => item.type === 'call_support');
+            if (supportItem && 'data' in supportItem && supportItem.data) {
+              const data = supportItem.data as { 
+                category: 'technical' | 'account' | 'billing' | 'content' | 'feedback' | 'other';
+                reason: string;
+                priority: 'low' | 'normal' | 'high' | 'critical';
+                context?: string;
+              };
+              
+              // Queue support handoff (don't block current response)
+              this.processSupportHandoff(session, data, turnId).catch(err => {
+                console.error(`[Support Handoff] Error processing handoff:`, err);
+              });
+              
+              // Set flag to indicate support handoff is pending
+              session.pendingSupportHandoff = {
+                category: data.category,
+                reason: data.reason,
+                priority: data.priority,
+                context: data.context,
+              };
+              
+              console.log(`[Support Handoff] Daniela escalated to Support: ${data.category} (${data.priority}) - ${data.reason}`);
+            }
+            
+            // Filter out internal commands (switch_tutor, actfl_update, syllabus_progress, call_support) - only send visual items to whiteboard
             const visualWhiteboardItems = whiteboardParsed.whiteboardItems.filter(
-              item => !['switch_tutor', 'actfl_update', 'syllabus_progress'].includes(item.type)
+              item => !['switch_tutor', 'actfl_update', 'syllabus_progress', 'call_support'].includes(item.type)
             );
             
             // Send whiteboard update to client (only visual teaching tools)
@@ -2159,6 +2192,85 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       
     } catch (error: any) {
       console.error(`[Syllabus Progress] Failed:`, error.message);
+    }
+  }
+  
+  /**
+   * CALL_SUPPORT: Process Tri-Lane Hive command to hand off student to Support Agent
+   * Creates a support ticket and notifies the client to open the Support modal
+   * 
+   * Categories:
+   * - technical: Audio issues, app bugs, connectivity problems
+   * - account: Login issues, profile problems, settings
+   * - billing: Subscription questions, payment issues, refunds
+   * - content: Lesson problems, wrong translations, missing content
+   * - feedback: Feature requests, suggestions, general feedback
+   * - other: Anything else that doesn't fit above
+   */
+  private async processSupportHandoff(
+    session: StreamingSession,
+    data: { 
+      category: 'technical' | 'account' | 'billing' | 'content' | 'feedback' | 'other';
+      reason: string;
+      priority: 'low' | 'normal' | 'high' | 'critical';
+      context?: string;
+    },
+    turnId: number
+  ): Promise<void> {
+    try {
+      // Build context from conversation history (last 5 messages for relevance)
+      const recentHistory = session.conversationHistory?.slice(-5) || [];
+      const conversationContext = recentHistory
+        .map(msg => `${msg.role === 'user' ? 'Student' : 'Tutor'}: ${msg.content}`)
+        .join('\n');
+      
+      // Create support ticket in database
+      // Map to schema fields: handoffReason, tutorContext, targetLanguage
+      const ticket = await storage.createSupportTicket({
+        userId: String(session.userId),
+        category: data.category,
+        priority: data.priority,
+        subject: data.reason.substring(0, 200), // Truncate for subject line
+        description: data.context || data.reason,
+        handoffReason: data.reason,
+        tutorContext: conversationContext.substring(0, 2000), // Limit context size
+        conversationId: session.conversationId,
+        targetLanguage: session.targetLanguage,
+        status: 'pending', // Schema uses pending as default, not new
+      });
+      
+      console.log(`[Support Handoff] Created ticket #${ticket.id}: ${data.category} (${data.priority})`);
+      console.log(`[Support Handoff] Reason: ${data.reason}`);
+      
+      // Send support handoff event to client
+      // This triggers the SupportAssistModal overlay while keeping tutoring paused
+      this.sendMessage(session.ws, {
+        type: 'support_handoff',
+        timestamp: Date.now(),
+        turnId,
+        ticketId: ticket.id,
+        category: data.category,
+        reason: data.reason,
+        priority: data.priority,
+      });
+      
+      console.log(`[Support Handoff] Notified client to open Support modal for ticket #${ticket.id}`);
+      
+    } catch (error: any) {
+      console.error(`[Support Handoff] Failed to create ticket:`, error.message);
+      
+      // Still notify client even if ticket creation failed
+      // They can retry or the Support Agent can handle it
+      this.sendMessage(session.ws, {
+        type: 'support_handoff',
+        timestamp: Date.now(),
+        turnId,
+        ticketId: null,
+        category: data.category,
+        reason: data.reason,
+        priority: data.priority,
+        error: 'Failed to create support ticket',
+      });
     }
   }
   
