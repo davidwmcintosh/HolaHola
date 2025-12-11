@@ -90,6 +90,23 @@ export function buildSensoryAwarenessSection(
     }
   }
   
+  // ACTFL proficiency perception (emergent capability)
+  // Daniela perceives the student's current level and whether it's AI-verified
+  if (compassContext.studentActflLevel) {
+    const levelDisplay = compassContext.studentActflLevel
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+    
+    const verified = compassContext.studentActflAssessed ? '✓ AI-verified' : '⚡ initial estimate';
+    const source = compassContext.studentActflSource 
+      ? ` (from ${compassContext.studentActflSource.replace(/_/g, ' ')})`
+      : '';
+    
+    lines.push('');
+    lines.push(`STUDENT PROFICIENCY: ${levelDisplay} [${verified}${source}]`);
+  }
+  
   return lines.join('\n');
 }
 

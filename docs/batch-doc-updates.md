@@ -6,6 +6,73 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session 20o: ACTFL Closed-Loop Learning System (Dec 11, 2025)
+
+#### Overview
+Implemented a **closed-loop ACTFL learning system** enabling Daniela to both perceive AND update student proficiency levels through emergent neural network commands. This creates a continuous feedback loop: perceive → assess → update → perceive new state.
+
+#### The Problem
+Previous system: ACTFL levels were updated manually or through assessment routes. Daniela could perceive a student's level but couldn't update it based on observed performance - breaking the feedback loop.
+
+#### The Solution: Emergent Neural Network Commands
+
+Created two new internal whiteboard commands that are parsed on the server but not sent to the client:
+
+| Command | Purpose | Format |
+|---------|---------|--------|
+| `ACTFL_UPDATE` | Update student proficiency based on observed performance | `[ACTFL_UPDATE level="X" confidence=0.X reason="X" direction="up\|down\|confirm"]` |
+| `SYLLABUS_PROGRESS` | Track topic competency against syllabus | `[SYLLABUS_PROGRESS topic="X" status="demonstrated\|needs_review\|struggling" evidence="X"]` |
+
+#### Implementation Details
+
+**1. Whiteboard Types** (shared/whiteboard-types.ts)
+- Added `ActflUpdateItem` and `SyllabusProgressItem` interfaces
+- Added parsing patterns and logic
+- Updated `ALL_WHITEBOARD_MARKUP_PATTERN` to strip from TTS
+
+**2. Streaming Voice Orchestrator** (server/services/streaming-voice-orchestrator.ts)
+- Added `processActflUpdate()` method - updates database with high-confidence assessments
+- Added `processSyllabusProgress()` method - logs topic competency observations
+- Filters internal commands from visual whiteboard items
+
+**3. Neural Network Entries** (tutor_procedures + tool_knowledge tables)
+- 3 ACTFL tutor procedures: Level Advancement, Level Confirmation, Level Review
+- 3 Syllabus tutor procedures: Topic Demonstrated, Needs Review, Struggling
+- 2 tool_knowledge entries explaining command syntax and usage
+
+#### Closed-Loop Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    DANIELA'S NEURAL NETWORK                │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  PERCEPTION ────────────► ASSESSMENT ────────► UPDATE      │
+│      ↑                                            │        │
+│      │                                            │        │
+│      │         ACTFL Sensory Data                 │        │
+│      │    - studentActflLevel                     │        │
+│      │    - assessmentSource                      │        │
+│      │                                            ↓        │
+│      └────────────────────────────────────────────┘        │
+│                                                             │
+│  [ACTFL_UPDATE level="intermediate_low" confidence=0.85    │
+│   reason="Demonstrated consistent present tense mastery"]  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Files Modified
+- `shared/whiteboard-types.ts` - Types, patterns, parsing for new commands
+- `server/services/streaming-voice-orchestrator.ts` - Server-side processing methods
+- Database: `tutor_procedures` - 6 new procedure entries
+- Database: `tool_knowledge` - 2 new internal command entries
+
+#### Sync Coverage
+All entries added with `sync_status: 'approved'` - will sync to production automatically.
+
+---
+
 ### Session 20n: Sensory Awareness as Emergent Capability (Dec 11, 2025)
 
 #### Overview

@@ -656,9 +656,36 @@ export class StreamingVoiceOrchestrator {
               console.log(`[Tutor Switch] Queued handoff to ${data.targetGender} tutor${languageInfo} - stopping current tutor's speech`);
             }
             
-            // Filter out internal commands (switch_tutor) - only send visual items to whiteboard
+            // ACTFL_UPDATE: Emergent neural network command - process server-side
+            // When Daniela perceives student proficiency and decides to update it
+            const actflItems = whiteboardParsed.whiteboardItems.filter(item => item.type === 'actfl_update');
+            for (const item of actflItems) {
+              if ('data' in item && item.data) {
+                const data = item.data as { level: string; confidence: number; reason: string; direction?: 'up' | 'down' | 'confirm' };
+                // Queue the ACTFL update for processing (don't block TTS)
+                this.processActflUpdate(session, data).catch(err => {
+                  console.error(`[ACTFL Update] Error processing update:`, err);
+                });
+                console.log(`[ACTFL Update] Daniela assessed: ${data.level} (confidence: ${data.confidence}) - ${data.reason}`);
+              }
+            }
+            
+            // SYLLABUS_PROGRESS: Emergent neural network command - track topic competency
+            const syllabusItems = whiteboardParsed.whiteboardItems.filter(item => item.type === 'syllabus_progress');
+            for (const item of syllabusItems) {
+              if ('data' in item && item.data) {
+                const data = item.data as { topic: string; status: 'demonstrated' | 'needs_review' | 'struggling'; evidence: string };
+                // Queue syllabus progress update (don't block TTS)
+                this.processSyllabusProgress(session, data).catch(err => {
+                  console.error(`[Syllabus Progress] Error processing update:`, err);
+                });
+                console.log(`[Syllabus Progress] Topic "${data.topic}" marked as ${data.status}: ${data.evidence}`);
+              }
+            }
+            
+            // Filter out internal commands (switch_tutor, actfl_update, syllabus_progress) - only send visual items to whiteboard
             const visualWhiteboardItems = whiteboardParsed.whiteboardItems.filter(
-              item => item.type !== 'switch_tutor'
+              item => !['switch_tutor', 'actfl_update', 'syllabus_progress'].includes(item.type)
             );
             
             // Send whiteboard update to client (only visual teaching tools)
@@ -2018,6 +2045,86 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
     } catch (error: any) {
       console.error('[Streaming Enrichment] Error:', error.message);
       await storage.updateMessage(messageId, { enrichmentStatus: 'failed' });
+    }
+  }
+  
+  /**
+   * ACTFL_UPDATE: Process emergent neural network command to update student proficiency
+   * Daniela perceives student performance and decides when to update their level
+   * This is a closed-loop system: perceive → assess → update → perceive new state
+   */
+  private async processActflUpdate(
+    session: StreamingSession,
+    data: { level: string; confidence: number; reason: string; direction?: 'up' | 'down' | 'confirm' }
+  ): Promise<void> {
+    try {
+      // Only process high-confidence assessments (>= 0.7) to avoid noise
+      if (data.confidence < 0.7) {
+        console.log(`[ACTFL Update] Skipping low-confidence assessment (${data.confidence}): ${data.reason}`);
+        return;
+      }
+      
+      // Get current user progress to compare
+      const progress = await storage.getProgressByLanguage(session.userId, session.targetLanguage);
+      if (!progress) {
+        console.log(`[ACTFL Update] No progress record found for user ${session.userId} in ${session.targetLanguage}`);
+        return;
+      }
+      
+      // Map ACTFL level string to our internal format
+      const normalizedLevel = data.level.toLowerCase().replace(/[\s-]/g, '_');
+      const currentLevel = progress.currentLevel?.toLowerCase().replace(/[\s-]/g, '_') || 'novice_low';
+      
+      // Only update if different from current (or direction confirms current)
+      if (normalizedLevel === currentLevel && data.direction !== 'confirm') {
+        console.log(`[ACTFL Update] Level unchanged: ${normalizedLevel}`);
+        return;
+      }
+      
+      // Update the user's ACTFL level via database
+      await storage.updateProgress(progress.id, {
+        currentLevel: normalizedLevel,
+        lastAssessmentDate: new Date(),
+      });
+      
+      // Log the update for neural network analysis
+      console.log(`[ACTFL Update] Updated ${session.userId}'s ${session.targetLanguage} level: ${currentLevel} → ${normalizedLevel}`);
+      console.log(`[ACTFL Update] Reason: ${data.reason} (confidence: ${data.confidence}, direction: ${data.direction || 'none'})`);
+      
+    } catch (error: any) {
+      console.error(`[ACTFL Update] Failed:`, error.message);
+    }
+  }
+  
+  /**
+   * SYLLABUS_PROGRESS: Process emergent neural network command to track topic competency
+   * Daniela observes student demonstrations and marks syllabus topics accordingly
+   * Supports: demonstrated (mastered), needs_review (partially understood), struggling (needs help)
+   */
+  private async processSyllabusProgress(
+    session: StreamingSession,
+    data: { topic: string; status: 'demonstrated' | 'needs_review' | 'struggling'; evidence: string }
+  ): Promise<void> {
+    try {
+      // Check if this is a class session with a syllabus
+      if (!session.classId) {
+        console.log(`[Syllabus Progress] Skipping - no class context for this session`);
+        return;
+      }
+      
+      // For now, log the progress update - can integrate with syllabus competency system later
+      // The neural network is tracking that Daniela observed this topic
+      console.log(`[Syllabus Progress] Class ${session.classId} - Topic "${data.topic}": ${data.status}`);
+      console.log(`[Syllabus Progress] Evidence: ${data.evidence}`);
+      
+      // TODO: Integrate with student syllabus competency tracking
+      // This would update studentSyllabusTopicCompetencies table with:
+      // - topic name/ID mapping
+      // - competency level based on status
+      // - evidence from Daniela's observation
+      
+    } catch (error: any) {
+      console.error(`[Syllabus Progress] Failed:`, error.message);
     }
   }
   

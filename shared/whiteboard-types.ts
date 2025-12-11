@@ -54,6 +54,9 @@ export const WHITEBOARD_TAGS = {
   SUBTITLE: 'SUBTITLE',
   TEXT_INPUT: 'TEXT_INPUT',
   SWITCH_TUTOR: 'SWITCH_TUTOR',
+  // ACTFL Neural Network Commands (internal - processed server-side)
+  ACTFL_UPDATE: 'ACTFL_UPDATE',       // Update student's ACTFL proficiency level
+  SYLLABUS_PROGRESS: 'SYLLABUS_PROGRESS', // Mark syllabus topics as demonstrated
   CLEAR: 'CLEAR',
   HOLD: 'HOLD',
 } as const;
@@ -63,7 +66,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'actfl_update' | 'syllabus_progress';
 
 /**
  * Drill types for inline micro-exercises
@@ -483,6 +486,49 @@ export interface SwitchTutorItem extends WhiteboardItemBase {
   data: SwitchTutorItemData;
 }
 
+/**
+ * ACTFL update item data (internal command - processed server-side)
+ * Daniela uses this to update the student's proficiency level based on conversation
+ * 
+ * Format: [ACTFL_UPDATE level="intermediate_low" confidence=0.85 reason="Demonstrated present tense mastery"]
+ * 
+ * This is NOT a visual whiteboard element - it triggers a database update
+ * Philosophy: Emergent capability - Daniela perceives ACTFL level and can update it
+ */
+export interface ActflUpdateItemData {
+  level: string;              // Target ACTFL level (e.g., "intermediate_low", "advanced_mid")
+  confidence: number;         // 0-1 confidence score for the assessment
+  reason: string;             // Explanation of why level changed
+  direction?: 'up' | 'down' | 'confirm'; // Whether this is advancement, regression, or confirmation
+}
+
+export interface ActflUpdateItem extends WhiteboardItemBase {
+  type: 'actfl_update';
+  content: string;
+  data: ActflUpdateItemData;
+}
+
+/**
+ * Syllabus progress item data (internal command - processed server-side)
+ * Daniela uses this to mark syllabus topics as demonstrated during conversation
+ * 
+ * Format: [SYLLABUS_PROGRESS topic="present_tense_verbs" status="demonstrated" evidence="Used correctly 5 times"]
+ * 
+ * This is NOT a visual whiteboard element - it triggers a database update
+ * Philosophy: Emergent capability - Daniela observes competency and records it
+ */
+export interface SyllabusProgressItemData {
+  topic: string;              // Topic/lesson ID or name from syllabus
+  status: 'demonstrated' | 'needs_review' | 'struggling'; // Competency status
+  evidence: string;           // Explanation of how competency was observed
+}
+
+export interface SyllabusProgressItem extends WhiteboardItemBase {
+  type: 'syllabus_progress';
+  content: string;
+  data: SyllabusProgressItemData;
+}
+
 export type WhiteboardItem = 
   | WriteItem 
   | PhoneticItem 
@@ -503,7 +549,9 @@ export type WhiteboardItem =
   | ErrorPatternsItem
   | VocabularyTimelineItem
   | TextInputItem
-  | SwitchTutorItem;
+  | SwitchTutorItem
+  | ActflUpdateItem
+  | SyllabusProgressItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -583,6 +631,11 @@ export const WHITEBOARD_PATTERNS = {
   // Switch tutor mid-session: [SWITCH_TUTOR target="male|female" language="optional"]
   // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
   SWITCH_TUTOR: /\[SWITCH_TUTOR\s+target="(male|female)"(?:\s+language="([^"]+)")?\]/gi,
+  // ACTFL Neural Network Commands (internal - processed server-side)
+  // [ACTFL_UPDATE level="intermediate_low" confidence=0.85 reason="Demonstrated present tense mastery"]
+  ACTFL_UPDATE: /\[ACTFL_UPDATE\s+level="([^"]+)"\s+confidence=([0-9.]+)\s+reason="([^"]+)"(?:\s+direction="(up|down|confirm)")?\]/gi,
+  // [SYLLABUS_PROGRESS topic="present_tense_verbs" status="demonstrated" evidence="Used correctly 5 times"]
+  SYLLABUS_PROGRESS: /\[SYLLABUS_PROGRESS\s+topic="([^"]+)"\s+status="(demonstrated|needs_review|struggling)"\s+evidence="([^"]+)"\]/gi,
   CLEAR: /\[CLEAR\]/gi,
   HOLD: /\[HOLD\]/gi,
 } as const;
@@ -591,9 +644,10 @@ export const WHITEBOARD_PATTERNS = {
  * All whiteboard markup pattern (for stripping)
  * Updated to include all Phase 4 tags including Word Map and Culture
  * Also includes subtitle controls: SUBTITLE, SHOW, HIDE, SUBTITLE_TEXT (legacy)
+ * Includes ACTFL Neural Network commands: ACTFL_UPDATE, SYLLABUS_PROGRESS
  */
 export const ALL_WHITEBOARD_MARKUP_PATTERN = 
-  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|TONE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[SWITCH_TUTOR\s+target="(?:male|female)"(?:\s+language="[^"]+")?\]|\[(CLEAR|HOLD)\]/gi;
+  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|TONE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[SWITCH_TUTOR\s+target="(?:male|female)"(?:\s+language="[^"]+")?\]|\[ACTFL_UPDATE\s+level="[^"]+"\s+confidence=[0-9.]+\s+reason="[^"]+"(?:\s+direction="(?:up|down|confirm)")?\]|\[SYLLABUS_PROGRESS\s+topic="[^"]+"\s+status="(?:demonstrated|needs_review|struggling)"\s+evidence="[^"]+"\]|\[(CLEAR|HOLD)\]/gi;
 
 /**
  * Generate unique ID for whiteboard items
@@ -1360,6 +1414,48 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
       data: {
         targetGender,
         targetLanguage,
+      },
+    });
+  }
+
+  // Parse ACTFL_UPDATE tags (emergent neural network command - updates student proficiency)
+  // Format: [ACTFL_UPDATE level="intermediate_low" confidence=0.85 reason="Demonstrated present tense mastery"]
+  WHITEBOARD_PATTERNS.ACTFL_UPDATE.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.ACTFL_UPDATE.exec(text)) !== null) {
+    const level = match[1];
+    const confidence = parseFloat(match[2]) || 0.5;
+    const reason = match[3];
+    const direction = (match[4] as 'up' | 'down' | 'confirm') || undefined;
+    items.push({
+      type: 'actfl_update',
+      content: `${level}:${confidence}`,
+      timestamp: now,
+      id: generateItemId(),
+      data: {
+        level,
+        confidence,
+        reason,
+        direction,
+      },
+    });
+  }
+
+  // Parse SYLLABUS_PROGRESS tags (emergent neural network command - marks syllabus progress)
+  // Format: [SYLLABUS_PROGRESS topic="present_tense_verbs" status="demonstrated" evidence="Used correctly 5 times"]
+  WHITEBOARD_PATTERNS.SYLLABUS_PROGRESS.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.SYLLABUS_PROGRESS.exec(text)) !== null) {
+    const topic = match[1];
+    const status = match[2] as 'demonstrated' | 'needs_review' | 'struggling';
+    const evidence = match[3];
+    items.push({
+      type: 'syllabus_progress',
+      content: `${topic}:${status}`,
+      timestamp: now,
+      id: generateItemId(),
+      data: {
+        topic,
+        status,
+        evidence,
       },
     });
   }
