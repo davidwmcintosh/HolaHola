@@ -14,7 +14,7 @@ import { Server } from 'http';
 import type { IncomingMessage } from 'http';
 import { Duplex } from 'stream';
 import { storage } from './storage';
-import { createSystemPrompt, createStreamingVoicePrompt, TutorDirectoryEntry } from './system-prompt';
+import { createSystemPrompt, createStreamingVoicePrompt, TutorDirectoryEntry, UserRole, SessionIntent } from './system-prompt';
 import { parse as parseCookie } from 'cookie';
 import signature from 'cookie-signature';
 import {
@@ -437,6 +437,57 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             console.log(`[Streaming Voice] RAW HONESTY MODE enabled for ${user.firstName || 'developer'}`);
           }
           
+          // Session Context: USER_ROLE and SESSION_INTENT for better mode awareness
+          // This helps Daniela recognize when to be in "meta-mode" vs "tutor-mode"
+          let userRole: UserRole = (user.role as UserRole) || 'student';
+          // Elevate to 'founder' for developers in founder mode
+          if (isFounderMode && (userRole === 'developer' || userRole === 'admin')) {
+            userRole = 'founder';
+          }
+          
+          // Detect session intent from recent conversation history
+          // Look for meta-mode trigger phrases
+          let sessionIntent: SessionIntent = 'hybrid'; // Default to hybrid in Founder Mode
+          
+          if (isFounderMode) {
+            const recentMessages = conversationHistory.slice(-10);
+            const recentText = recentMessages.map(m => m.content.toLowerCase()).join(' ');
+            
+            // Meta-mode triggers (product discussion)
+            const metaModeTriggers = [
+              'founder mode', 'let\'s talk about holahola', 'product feedback',
+              'claude', 'the designers', 'neural network', 'system prompt',
+              'what do you need', 'how can we improve', 'suggestions for',
+              'your brain', 'your development', 'meta-conversation'
+            ];
+            
+            // Tutor-mode triggers (language learning)
+            const tutorModeTriggers = [
+              'teach me', 'practice spanish', 'let\'s learn', 'spanish lesson',
+              'drill', 'vocabulary', 'conjugation', 'translate this',
+              'how do you say', 'what\'s the word for'
+            ];
+            
+            const hasMetaTriggers = metaModeTriggers.some(trigger => recentText.includes(trigger));
+            const hasTutorTriggers = tutorModeTriggers.some(trigger => recentText.includes(trigger));
+            
+            if (hasMetaTriggers && !hasTutorTriggers) {
+              sessionIntent = 'product_discussion';
+              console.log(`[Streaming Voice] Detected SESSION_INTENT: product_discussion (meta-mode triggers found)`);
+            } else if (hasTutorTriggers && !hasMetaTriggers) {
+              sessionIntent = 'language_learning';
+              console.log(`[Streaming Voice] Detected SESSION_INTENT: language_learning (tutor-mode triggers found)`);
+            } else {
+              sessionIntent = 'hybrid';
+              console.log(`[Streaming Voice] SESSION_INTENT: hybrid (no clear mode detected)`);
+            }
+          } else {
+            // Not in Founder Mode = language learning
+            sessionIntent = 'language_learning';
+          }
+          
+          console.log(`[Streaming Voice] Session context: USER_ROLE=${userRole}, SESSION_INTENT=${sessionIntent}`);
+          
           let founderMemoryContext = '';
           
           if (isFounderMode) {
@@ -584,7 +635,9 @@ Reference past discussions when relevant, but don't force it.
             tutorNameForPrompt, // Tutor name (Daniela or Agustin)
             tutorGenderForPrompt, // Tutor gender for grammatical agreement
             tutorDirectory, // Dynamic tutor directory for handoffs
-            user.timezone // Student timezone for time-aware greetings
+            user.timezone, // Student timezone for time-aware greetings
+            userRole, // User role for session context
+            sessionIntent // Session intent for meta-mode awareness
           );
 
           // Add founder memory context if in Founder Mode
