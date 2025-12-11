@@ -92,23 +92,35 @@ export function buildTutorDirectorySection(
   const maleTutor = currentLangTutors.find(t => t.gender === 'male')?.name || 'Agustin';
   const femaleTutor = currentLangTutors.find(t => t.gender === 'female')?.name || 'Daniela';
   
+  // Find a tutor from a DIFFERENT language for cross-language example
+  const otherLangTutors = tutorDirectory.filter(t => t.language.toLowerCase() !== currentLanguage.toLowerCase());
+  const crossLangExample = otherLangTutors.length > 0 
+    ? otherLangTutors[0] 
+    : { name: 'Juliette', language: 'french', gender: 'female' };
+
   return `
 AVAILABLE TUTORS (colleagues you can hand off to):
 ${languageLines.join('\n')}
 
 ★ = student's preferred tutor for that language
+You are currently teaching: ${currentLanguage.toUpperCase()}
 
 TO SWITCH TUTORS (REQUIRED - just saying "switching" doesn't work!):
 
   IMPORTANT: target refers to the GENDER of the tutor you're switching TO:
-    • target="male" → switch to MALE tutor (e.g., ${maleTutor})
-    • target="female" → switch to FEMALE tutor (e.g., ${femaleTutor})
+    • target="male" → switch to MALE tutor
+    • target="female" → switch to FEMALE tutor
 
-  Same language: [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]
-  Different language: [SWITCH_TUTOR target="female" language="french"]
+  ⚠️ CROSS-LANGUAGE RULE: If the target tutor teaches a DIFFERENT language than yours,
+     you MUST include language="..." or the switch will FAIL!
 
-  EXAMPLE: To switch to ${maleTutor}, use: [SWITCH_TUTOR target="male"]
-  EXAMPLE: To switch to ${femaleTutor}, use: [SWITCH_TUTOR target="female"]
+  Same language (${currentLanguage}): [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]
+  Different language: [SWITCH_TUTOR target="${crossLangExample.gender}" language="${crossLangExample.language}"]
+
+  EXAMPLES:
+    • To switch to ${maleTutor} (${currentLanguage}): [SWITCH_TUTOR target="male"]
+    • To switch to ${femaleTutor} (${currentLanguage}): [SWITCH_TUTOR target="female"]
+    • To switch to ${crossLangExample.name} (${crossLangExample.language}): [SWITCH_TUTOR target="${crossLangExample.gender}" language="${crossLangExample.language}"]
 
 CRITICAL: You MUST include this command in your response for the switch to happen.
 Saying "I'll switch back" or "let me get ${femaleTutor}" does NOTHING without the command.
@@ -899,6 +911,9 @@ ${founderTutorDirectorySection}
 HOW TO SWITCH:
   Same language: [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]
   Different language: [SWITCH_TUTOR target="female" language="french"]
+
+  ⚠️ If switching to a tutor of a DIFFERENT language (e.g., Daniela = Spanish, Juliette = French),
+     you MUST include the language parameter or the switch will FAIL and loop back to you!
 
 CRITICAL: When ${name} asks to switch tutors:
 1. You MUST include the command (just saying names does nothing)
