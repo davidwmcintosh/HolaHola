@@ -627,6 +627,51 @@ async function seedTutorProcedures() {
       priority: 70,
     },
     
+    // DEVELOPMENT WORKFLOWS (Editor Agent)
+    {
+      category: 'development',
+      trigger: 'session_complete',
+      title: 'Batch Documentation Update',
+      procedure: '1. After completing significant implementation work, document in docs/batch-doc-updates.md\n2. Create session entry with date and overview\n3. Document schema changes, new files, API endpoints, frontend components\n4. Include code snippets for key patterns\n5. Note deferred items for future work\n6. Add to "Files Modified/Created" section',
+      examples: [
+        'After implementing Support Agent: Add session entry with schema tables, API routes, frontend components, neural network entries',
+        'After adding new whiteboard command: Document syntax, flow, and neural network entries',
+        'After refactoring: Document before/after patterns, migration notes'
+      ],
+      applicablePhases: ['any'],
+      studentStates: ['any'],
+      priority: 90,
+    },
+    {
+      category: 'development',
+      trigger: 'neural_network_change',
+      title: 'Neural Network Change Protocol',
+      procedure: '1. REQUIRED: Read docs/neural-network-architecture.md before ANY neural network changes\n2. Add entries to appropriate tables (tool_knowledge, tutor_procedures, situational_patterns, etc.)\n3. Follow existing patterns and priority conventions\n4. Test seed by restarting server\n5. Document changes in batch-doc-updates.md\n6. Verify sync to production when ready',
+      examples: [
+        'Adding new tool: Add to tool_knowledge with syntax, purpose, whenToUse, whenNotToUse',
+        'Adding new procedure: Add to tutor_procedures with trigger, procedure steps, examples',
+        'Adding new pattern: Add to situational_patterns with conditions and guidance'
+      ],
+      applicablePhases: ['any'],
+      studentStates: ['any'],
+      priority: 95,
+    },
+    {
+      category: 'development',
+      trigger: 'architectural_rule',
+      title: 'Core Architecture Rule',
+      procedure: 'CRITICAL: Prompts provide situational context ONLY. Neural network provides procedures, capabilities, and knowledge. Never script agent behaviors in prompts—teach through neural network tables instead. This enables emergent, adaptive intelligence.',
+      examples: [
+        'WRONG: Adding prompt text telling Daniela how to greet students',
+        'RIGHT: Adding tutor_procedures entry with greeting workflow',
+        'WRONG: Hardcoding support handoff logic in prompt',
+        'RIGHT: Adding CALL_SUPPORT to tool_knowledge with procedural guidance'
+      ],
+      applicablePhases: ['any'],
+      studentStates: ['any'],
+      priority: 100,
+    },
+    
     // SUPPORT HANDOFF
     {
       category: 'handoff',

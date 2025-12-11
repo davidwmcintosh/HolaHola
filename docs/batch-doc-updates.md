@@ -102,6 +102,11 @@ Added to `server/seed-procedural-memory.ts`:
 - Account Issue Detected (issueType: account)
 - All with priority 100 and CALL_SUPPORT tool suggestion
 
+**Development workflow procedures** (Editor Agent):
+- `Batch Documentation Update` - Procedure for updating docs/batch-doc-updates.md after completing work
+- `Neural Network Change Protocol` - Required steps before any neural network changes (read architecture doc first)
+- `Core Architecture Rule` - "Prompts for context ONLY, neural network for procedures/capabilities/knowledge"
+
 #### Support Agent Persona
 
 Located at `server/services/support-agent-config.ts`:
