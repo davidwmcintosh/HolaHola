@@ -10360,6 +10360,11 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Display outages, maintenance notices, and known issues to users
   // ============================================================================
 
+  // In-memory cache to prevent view count inflation from frequent polling
+  // Key: `${sessionId || 'anon'}-${alertId}`, Value: last view timestamp
+  const alertViewCache = new Map<string, number>();
+  const VIEW_DEDUPE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes - only count one view per session per alert
+
   // Get active system alerts for the current user
   app.get("/api/system-alerts", async (req: any, res) => {
     try {
@@ -10369,9 +10374,30 @@ Return ONLY the ${targetLanguage} phrase:`;
         severity: req.query.severity as 'info' | 'warning' | 'critical' | 'maintenance' | undefined,
       });
       
-      // Track view counts for analytics
+      // Track view counts for analytics with rate limiting
+      // Only count one view per session per alert within the dedupe window
+      const sessionId = req.session?.id || req.ip || 'anonymous';
+      const now = Date.now();
+      
       for (const alert of alerts) {
-        await storage.incrementAlertViewCount(alert.id);
+        const cacheKey = `${sessionId}-${alert.id}`;
+        const lastView = alertViewCache.get(cacheKey);
+        
+        // Only increment if this is a new view (not seen in dedupe window)
+        if (!lastView || (now - lastView) > VIEW_DEDUPE_WINDOW_MS) {
+          await storage.incrementAlertViewCount(alert.id);
+          alertViewCache.set(cacheKey, now);
+        }
+      }
+      
+      // Periodically clean up old entries (every 100 requests)
+      if (Math.random() < 0.01) {
+        const cutoff = now - VIEW_DEDUPE_WINDOW_MS;
+        for (const [key, timestamp] of alertViewCache.entries()) {
+          if (timestamp < cutoff) {
+            alertViewCache.delete(key);
+          }
+        }
       }
       
       res.json(alerts);
@@ -10396,21 +10422,55 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Zod schema for system alert validation
+  const createSystemAlertSchema = z.object({
+    severity: z.enum(['info', 'warning', 'critical', 'maintenance']).default('info'),
+    title: z.string().min(1, 'Title is required').max(200),
+    message: z.string().min(1, 'Message is required').max(2000),
+    target: z.enum(['all', 'students', 'teachers', 'admins']).default('all'),
+    affectedFeatures: z.array(z.string()).optional().default([]),
+    isDismissible: z.boolean().optional().default(true),
+    showInChat: z.boolean().optional().default(true),
+    showAsBanner: z.boolean().optional().default(false),
+    startsAt: z.string().datetime().optional(),
+    expiresAt: z.string().datetime().optional().nullable(),
+  });
+
+  const updateSystemAlertSchema = z.object({
+    severity: z.enum(['info', 'warning', 'critical', 'maintenance']).optional(),
+    title: z.string().min(1).max(200).optional(),
+    message: z.string().min(1).max(2000).optional(),
+    target: z.enum(['all', 'students', 'teachers', 'admins']).optional(),
+    affectedFeatures: z.array(z.string()).optional(),
+    isDismissible: z.boolean().optional(),
+    showInChat: z.boolean().optional(),
+    showAsBanner: z.boolean().optional(),
+    startsAt: z.string().datetime().optional(),
+    expiresAt: z.string().datetime().optional().nullable(),
+    isActive: z.boolean().optional(),
+  });
+
   // Admin: Create a new system alert
   app.post("/api/system-alerts", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const userId = req.user?.id;
-      const { severity, title, message, target, affectedFeatures, isDismissible, showInChat, showAsBanner, startsAt, expiresAt } = req.body;
       
-      if (!title || !message) {
-        return res.status(400).json({ error: 'Title and message are required' });
+      // Validate request body with Zod
+      const parseResult = createSystemAlertSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          error: 'Validation failed', 
+          details: parseResult.error.flatten().fieldErrors 
+        });
       }
       
+      const { severity, title, message, target, affectedFeatures, isDismissible, showInChat, showAsBanner, startsAt, expiresAt } = parseResult.data;
+      
       const alert = await storage.createSystemAlert({
-        severity: severity || 'info',
+        severity,
         title,
         message,
-        target: target || 'all',
+        target,
         affectedFeatures: affectedFeatures || [],
         isDismissible: isDismissible ?? true,
         showInChat: showInChat ?? true,
@@ -10432,9 +10492,23 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.patch("/api/system-alerts/:alertId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { alertId } = req.params;
-      const updates = req.body;
       
-      const updatedAlert = await storage.updateSystemAlert(alertId, updates);
+      // Validate request body with Zod
+      const parseResult = updateSystemAlertSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          error: 'Validation failed', 
+          details: parseResult.error.flatten().fieldErrors 
+        });
+      }
+      
+      const updates = parseResult.data;
+      
+      const updatedAlert = await storage.updateSystemAlert(alertId, {
+        ...updates,
+        startsAt: updates.startsAt ? new Date(updates.startsAt) : undefined,
+        expiresAt: updates.expiresAt ? new Date(updates.expiresAt) : updates.expiresAt === null ? null : undefined,
+      });
       
       if (!updatedAlert) {
         return res.status(404).json({ error: 'Alert not found' });

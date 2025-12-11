@@ -54,6 +54,7 @@ export const WHITEBOARD_TAGS = {
   SUBTITLE: 'SUBTITLE',
   TEXT_INPUT: 'TEXT_INPUT',
   SWITCH_TUTOR: 'SWITCH_TUTOR',
+  CALL_SUPPORT: 'CALL_SUPPORT',       // Hand off to Support Agent (internal - processed server-side)
   // ACTFL Neural Network Commands (internal - processed server-side)
   ACTFL_UPDATE: 'ACTFL_UPDATE',       // Update student's ACTFL proficiency level
   SYLLABUS_PROGRESS: 'SYLLABUS_PROGRESS', // Mark syllabus topics as demonstrated
@@ -66,7 +67,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'actfl_update' | 'syllabus_progress';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'actfl_update' | 'syllabus_progress';
 
 /**
  * Drill types for inline micro-exercises
@@ -487,6 +488,30 @@ export interface SwitchTutorItem extends WhiteboardItemBase {
 }
 
 /**
+ * CALL_SUPPORT item data (internal command - processed server-side)
+ * Daniela uses this to hand off a student to the Support Agent
+ * 
+ * Format: [CALL_SUPPORT category="technical" reason="Student is having trouble with audio"]
+ * 
+ * This is NOT a visual whiteboard element - it triggers a support ticket creation
+ * and routes the student to the Support interface
+ * 
+ * Philosophy: Daniela focuses on teaching, Support handles operations
+ */
+export interface CallSupportItemData {
+  category: 'technical' | 'account' | 'billing' | 'content' | 'feedback' | 'other';
+  reason: string;               // Why Daniela is referring to support
+  priority?: 'low' | 'normal' | 'high' | 'critical';
+  context?: string;             // Additional context for Support Agent
+}
+
+export interface CallSupportItem extends WhiteboardItemBase {
+  type: 'call_support';
+  content: string;
+  data: CallSupportItemData;
+}
+
+/**
  * ACTFL update item data (internal command - processed server-side)
  * Daniela uses this to update the student's proficiency level based on conversation
  * 
@@ -550,6 +575,7 @@ export type WhiteboardItem =
   | VocabularyTimelineItem
   | TextInputItem
   | SwitchTutorItem
+  | CallSupportItem
   | ActflUpdateItem
   | SyllabusProgressItem;
 
@@ -631,6 +657,8 @@ export const WHITEBOARD_PATTERNS = {
   // Switch tutor mid-session: [SWITCH_TUTOR target="male|female" language="optional"]
   // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
   SWITCH_TUTOR: /\[SWITCH_TUTOR\s+target="(male|female)"(?:\s+language="([^"]+)")?\]/gi,
+  // Call support - hand off to Support Agent: [CALL_SUPPORT category="technical" reason="description"]
+  CALL_SUPPORT: /\[CALL_SUPPORT\s+category="(technical|account|billing|content|feedback|other)"\s+reason="([^"]+)"(?:\s+priority="(low|normal|high|critical)")?(?:\s+context="([^"]+)")?\]/gi,
   // ACTFL Neural Network Commands (internal - processed server-side)
   // [ACTFL_UPDATE level="intermediate_low" confidence=0.85 reason="Demonstrated present tense mastery"]
   ACTFL_UPDATE: /\[ACTFL_UPDATE\s+level="([^"]+)"\s+confidence=([0-9.]+)\s+reason="([^"]+)"(?:\s+direction="(up|down|confirm)")?\]/gi,
@@ -647,7 +675,7 @@ export const WHITEBOARD_PATTERNS = {
  * Includes ACTFL Neural Network commands: ACTFL_UPDATE, SYLLABUS_PROGRESS
  */
 export const ALL_WHITEBOARD_MARKUP_PATTERN = 
-  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|TONE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[SWITCH_TUTOR\s+target="(?:male|female)"(?:\s+language="[^"]+")?\]|\[ACTFL_UPDATE\s+level="[^"]+"\s+confidence=[0-9.]+\s+reason="[^"]+"(?:\s+direction="(?:up|down|confirm)")?\]|\[SYLLABUS_PROGRESS\s+topic="[^"]+"\s+status="(?:demonstrated|needs_review|struggling)"\s+evidence="[^"]+"\]|\[(CLEAR|HOLD)\]/gi;
+  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|TONE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[SWITCH_TUTOR\s+target="(?:male|female)"(?:\s+language="[^"]+")?\]|\[CALL_SUPPORT\s+category="(?:technical|account|billing|content|feedback|other)"\s+reason="[^"]+"(?:\s+priority="(?:low|normal|high|critical)")?(?:\s+context="[^"]+")?\]|\[ACTFL_UPDATE\s+level="[^"]+"\s+confidence=[0-9.]+\s+reason="[^"]+"(?:\s+direction="(?:up|down|confirm)")?\]|\[SYLLABUS_PROGRESS\s+topic="[^"]+"\s+status="(?:demonstrated|needs_review|struggling)"\s+evidence="[^"]+"\]|\[(CLEAR|HOLD)\]/gi;
 
 /**
  * Generate unique ID for whiteboard items
@@ -1414,6 +1442,29 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
       data: {
         targetGender,
         targetLanguage,
+      },
+    });
+  }
+
+  // Parse CALL_SUPPORT tags (hand off to Support Agent)
+  // Format: [CALL_SUPPORT category="technical" reason="Student is having trouble with audio"]
+  // Optional: priority="high" context="Additional context for support"
+  WHITEBOARD_PATTERNS.CALL_SUPPORT.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.CALL_SUPPORT.exec(text)) !== null) {
+    const category = match[1] as 'technical' | 'account' | 'billing' | 'content' | 'feedback' | 'other';
+    const reason = match[2];
+    const priority = (match[3] as 'low' | 'normal' | 'high' | 'critical') || 'normal';
+    const context = match[4] || undefined;
+    items.push({
+      type: 'call_support',
+      content: `${category}:${reason}`,
+      timestamp: now,
+      id: generateItemId(),
+      data: {
+        category,
+        reason,
+        priority,
+        context,
       },
     });
   }

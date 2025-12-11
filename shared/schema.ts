@@ -3573,3 +3573,118 @@ export const insertSystemAlertSchema = createInsertSchema(systemAlerts).omit({
 
 export type InsertSystemAlert = z.infer<typeof insertSystemAlertSchema>;
 export type SystemAlert = typeof systemAlerts.$inferSelect;
+
+// ============================================================================
+// SUPPORT TICKETS - Daniela-to-Support handoff tracking
+// ============================================================================
+
+export const supportTicketStatusEnum = pgEnum("support_ticket_status", [
+  "pending",      // Just created, waiting for Support pickup
+  "active",       // Support Agent actively engaged
+  "resolved",     // Issue resolved
+  "escalated",    // Escalated to human support
+  "cancelled",    // Cancelled by user or timeout
+]);
+
+export const supportTicketPriorityEnum = pgEnum("support_ticket_priority", [
+  "low",          // General questions
+  "normal",       // Standard support request
+  "high",         // Urgent issue affecting learning
+  "critical",     // Blocking issue (payment, access)
+]);
+
+export const supportTicketCategoryEnum = pgEnum("support_ticket_category", [
+  "technical",    // App not working, bugs
+  "account",      // Login, subscription, settings
+  "billing",      // Payment, refunds, upgrades
+  "content",      // Course content, curriculum issues
+  "feedback",     // Suggestions, complaints
+  "other",        // Miscellaneous
+]);
+
+export const supportTickets = pgTable("support_tickets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User context
+  userId: varchar("user_id").notNull(),
+  conversationId: varchar("conversation_id"), // Original tutoring conversation
+  
+  // Ticket content
+  category: supportTicketCategoryEnum("category").notNull(),
+  priority: supportTicketPriorityEnum("priority").default("normal"),
+  status: supportTicketStatusEnum("status").default("pending"),
+  
+  // Issue details
+  subject: varchar("subject").notNull(),
+  description: text("description").notNull(),
+  
+  // Handoff context from Daniela
+  handoffReason: text("handoff_reason"), // Why Daniela referred to support
+  tutorContext: text("tutor_context"), // Recent conversation context
+  targetLanguage: varchar("target_language"), // Language being learned
+  
+  // Support session
+  supportSessionId: varchar("support_session_id"), // Active support chat session
+  assignedTo: varchar("assigned_to"), // Support agent or "ai_support"
+  
+  // Resolution
+  resolution: text("resolution"),
+  resolvedAt: timestamp("resolved_at"),
+  
+  // User satisfaction
+  satisfactionRating: integer("satisfaction_rating"), // 1-5 stars
+  satisfactionFeedback: text("satisfaction_feedback"),
+  
+  // Tracking
+  firstResponseAt: timestamp("first_response_at"),
+  messageCount: integer("message_count").default(0),
+  
+  // Two-way sync fields (for analytics)
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_support_tickets_user").on(table.userId),
+  index("idx_support_tickets_status").on(table.status),
+  index("idx_support_tickets_priority").on(table.priority),
+  index("idx_support_tickets_category").on(table.category),
+  index("idx_support_tickets_created").on(table.createdAt),
+]);
+
+export const insertSupportTicketSchema = createInsertSchema(supportTickets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  messageCount: true,
+});
+
+export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
+export type SupportTicket = typeof supportTickets.$inferSelect;
+
+// Support ticket messages (separate from tutoring messages)
+export const supportMessages = pgTable("support_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketId: varchar("ticket_id").notNull(),
+  
+  // Message content
+  role: varchar("role").notNull(), // "user", "support_agent", "system"
+  content: text("content").notNull(),
+  
+  // For voice support
+  audioUrl: varchar("audio_url"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_support_messages_ticket").on(table.ticketId),
+]);
+
+export const insertSupportMessageSchema = createInsertSchema(supportMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSupportMessage = z.infer<typeof insertSupportMessageSchema>;
+export type SupportMessage = typeof supportMessages.$inferSelect;
