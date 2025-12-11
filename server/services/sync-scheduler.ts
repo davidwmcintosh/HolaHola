@@ -76,12 +76,13 @@ async function runNightlySync(): Promise<void> {
     console.log(`  - Exported ${advancedIntelligenceData.emotionalPatterns.length} emotional patterns`);
     console.log(`  - Exported ${advancedIntelligenceData.creativityTemplates.length} creativity templates`);
     
-    // 5. Sync Daniela's Proactive Suggestion System (2 tables: suggestions, triggers)
+    // 5. Sync Daniela's Proactive Suggestion System (3 tables: suggestions, triggers, actions)
     const danielaSuggestionsData = await neuralNetworkSync.exportDanielaSuggestions();
     
     console.log(`[SYNC-SCHEDULER] Daniela Suggestions status:`);
     console.log(`  - Exported ${danielaSuggestionsData.suggestions.length} suggestions`);
     console.log(`  - Exported ${danielaSuggestionsData.triggers.length} reflection triggers`);
+    console.log(`  - Exported ${danielaSuggestionsData.actions.length} suggestion actions`);
     
     // Auto-approve Daniela suggestions for next sync cycle
     const approvedSuggestions = await neuralNetworkSync.autoApproveDanielaSuggestions();

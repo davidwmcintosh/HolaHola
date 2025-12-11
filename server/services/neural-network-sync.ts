@@ -19,6 +19,7 @@ import {
   creativityTemplates,
   danielaSuggestions,
   reflectionTriggers,
+  danielaSuggestionActions,
   type SelfBestPractice,
   type PromotionQueue,
   type InsertPromotionQueue,
@@ -36,7 +37,8 @@ import {
   type EmotionalPattern,
   type CreativityTemplate,
   type DanielaSuggestion,
-  type ReflectionTrigger
+  type ReflectionTrigger,
+  type DanielaSuggestionAction
 } from '@shared/schema';
 import { eq, and, isNull, desc, or, sql } from 'drizzle-orm';
 import crypto from 'crypto';
@@ -2074,17 +2076,19 @@ export class NeuralNetworkSyncService {
       ready: number;
       implemented: number;
       triggers: number;
+      actions: number;
     };
     lastSync: Date | null;
     currentEnvironment: string;
   }> {
     const baseStatus = await this.getCompleteSyncStatus();
     
-    const [effectivenessRecords, toolPrefs, suggestions, triggers] = await Promise.all([
+    const [effectivenessRecords, toolPrefs, suggestions, triggers, actions] = await Promise.all([
       db.select().from(teachingSuggestionEffectiveness),
       db.select().from(studentToolPreferences),
       db.select().from(danielaSuggestions),
-      db.select().from(reflectionTriggers)
+      db.select().from(reflectionTriggers),
+      db.select().from(danielaSuggestionActions)
     ]);
     
     return {
@@ -2097,7 +2101,8 @@ export class NeuralNetworkSyncService {
         pending: suggestions.filter(s => s.status === 'emerging').length,
         ready: suggestions.filter(s => s.status === 'ready').length,
         implemented: suggestions.filter(s => s.status === 'implemented').length,
-        triggers: triggers.length
+        triggers: triggers.length,
+        actions: actions.length
       }
     };
   }
@@ -2106,11 +2111,12 @@ export class NeuralNetworkSyncService {
   
   /**
    * Export Daniela's suggestions for sync
-   * Exports implemented suggestions (valuable learnings) and approved triggers
+   * Exports implemented suggestions (valuable learnings), approved triggers, and team actions
    */
   async exportDanielaSuggestions(): Promise<{
     suggestions: DanielaSuggestion[];
     triggers: ReflectionTrigger[];
+    actions: DanielaSuggestionAction[];
   }> {
     const suggestions = await db.select()
       .from(danielaSuggestions)
@@ -2123,7 +2129,11 @@ export class NeuralNetworkSyncService {
       .from(reflectionTriggers)
       .where(eq(reflectionTriggers.syncStatus, 'approved'));
     
-    return { suggestions, triggers };
+    // Export all actions (team responses to suggestions)
+    const actions = await db.select()
+      .from(danielaSuggestionActions);
+    
+    return { suggestions, triggers, actions };
   }
   
   /**
@@ -2228,14 +2238,17 @@ export class NeuralNetworkSyncService {
   async syncDanielaSuggestions(importData: {
     suggestions: DanielaSuggestion[];
     triggers: ReflectionTrigger[];
+    actions?: DanielaSuggestionAction[];
   }): Promise<{
     triggersImported: number;
     triggersUpdated: number;
     triggersSkipped: number;
+    actionsImported: number;
   }> {
     let triggersImported = 0;
     let triggersUpdated = 0;
     let triggersSkipped = 0;
+    let actionsImported = 0;
     
     // Import triggers
     for (const trigger of importData.triggers) {
@@ -2245,18 +2258,46 @@ export class NeuralNetworkSyncService {
       else triggersSkipped++;
     }
     
+    // Import actions (if provided)
+    if (importData.actions && importData.actions.length > 0) {
+      for (const action of importData.actions) {
+        // Check if action already exists
+        const existing = await db.select()
+          .from(danielaSuggestionActions)
+          .where(eq(danielaSuggestionActions.id, action.id))
+          .limit(1);
+        
+        if (existing.length === 0) {
+          try {
+            await db.insert(danielaSuggestionActions).values({
+              suggestionId: action.suggestionId,
+              actionType: action.actionType,
+              actionBy: action.actionBy,
+              comment: action.comment,
+              implementedIn: action.implementedIn,
+              implementationNotes: action.implementationNotes
+            });
+            actionsImported++;
+          } catch (error) {
+            // Skip if FK constraint fails (suggestion doesn't exist in target env)
+            console.warn('[SYNC] Skipped action import - suggestion not found');
+          }
+        }
+      }
+    }
+    
     // Log the sync operation
     await this.logSyncOperation({
       operation: 'sync_daniela_suggestions',
       tableName: 'reflection_triggers',
-      recordCount: triggersImported + triggersUpdated,
+      recordCount: triggersImported + triggersUpdated + actionsImported,
       sourceEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
       targetEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
       status: 'success',
-      metadata: { triggersImported, triggersUpdated, triggersSkipped }
+      metadata: { triggersImported, triggersUpdated, triggersSkipped, actionsImported }
     });
     
-    return { triggersImported, triggersUpdated, triggersSkipped };
+    return { triggersImported, triggersUpdated, triggersSkipped, actionsImported };
   }
 }
 
