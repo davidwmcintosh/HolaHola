@@ -69,7 +69,12 @@ import {
   AlertCircle,
   Play,
   Undo2,
-  Mail
+  Mail,
+  Headphones,
+  Phone,
+  CircleDot,
+  Circle,
+  CheckCircle2
 } from "lucide-react";
 import {
   AlertDialog,
@@ -136,6 +141,7 @@ export default function CommandCenter() {
     { id: "neural-network", label: "Neural Network", icon: Zap, roles: ['developer', 'admin'] },
     { id: "dev-tools", label: "Dev Tools", icon: Code, roles: ['developer', 'admin'] },
     { id: "audit", label: "Audit", icon: FileText, roles: ['admin'] },
+    { id: "support", label: "Support", icon: Headphones, roles: ['admin', 'developer'] },
   ].filter(tab => {
     if (user?.role === 'admin') return true;
     if (user?.role === 'developer') return tab.roles.includes('developer');
@@ -227,6 +233,10 @@ export default function CommandCenter() {
 
           <TabsContent value="audit" className="space-y-4">
             <AuditTab />
+          </TabsContent>
+
+          <TabsContent value="support" className="space-y-4">
+            <SupportTab />
           </TabsContent>
         </Tabs>
       </div>
@@ -3624,6 +3634,399 @@ function ReportsTab() {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+// Support Tab - Ticket queue and active sessions management
+function SupportTab() {
+  const { toast } = useToast();
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
+
+  // Fetch support tickets
+  const { data: ticketsData, isLoading: ticketsLoading, refetch: refetchTickets } = useQuery<{
+    tickets: any[];
+    total: number;
+    stats: {
+      pending: number;
+      active: number;
+      resolved: number;
+      escalated: number;
+    };
+  }>({
+    queryKey: ["/api/admin/support-tickets", { status: statusFilter, priority: priorityFilter, category: categoryFilter }],
+  });
+
+  // Update ticket status mutation
+  const updateTicketMutation = useMutation({
+    mutationFn: async ({ ticketId, updates }: { ticketId: string; updates: any }) => {
+      return apiRequest("PATCH", `/api/support/tickets/${ticketId}`, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/support-tickets"] });
+      toast({ title: "Ticket updated" });
+    },
+    onError: () => {
+      toast({ variant: "destructive", title: "Failed to update ticket" });
+    }
+  });
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400';
+      case 'active': return 'bg-blue-500/10 text-blue-600 dark:text-blue-400';
+      case 'resolved': return 'bg-green-500/10 text-green-600 dark:text-green-400';
+      case 'escalated': return 'bg-red-500/10 text-red-600 dark:text-red-400';
+      case 'closed': return 'bg-gray-500/10 text-gray-600 dark:text-gray-400';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  const getPriorityIcon = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return <AlertTriangle className="h-4 w-4 text-red-500" />;
+      case 'high': return <ArrowUp className="h-4 w-4 text-orange-500" />;
+      case 'normal': return <Circle className="h-4 w-4 text-blue-500" />;
+      case 'low': return <ArrowDown className="h-4 w-4 text-gray-400" />;
+      default: return <Circle className="h-4 w-4" />;
+    }
+  };
+
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'technical': return <Code className="h-4 w-4" />;
+      case 'billing': return <DollarSign className="h-4 w-4" />;
+      case 'account': return <User className="h-4 w-4" />;
+      case 'learning': return <BookOpen className="h-4 w-4" />;
+      case 'pronunciation': return <Volume2 className="h-4 w-4" />;
+      case 'content': return <FileText className="h-4 w-4" />;
+      case 'other': return <MessageSquare className="h-4 w-4" />;
+      default: return <MessageSquare className="h-4 w-4" />;
+    }
+  };
+
+  const tickets = ticketsData?.tickets || [];
+  const stats = ticketsData?.stats || { pending: 0, active: 0, resolved: 0, escalated: 0 };
+
+  return (
+    <div className="space-y-6">
+      {/* Stats Overview */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardContent className="flex items-center gap-3 pt-4">
+            <div className="p-2 rounded-lg bg-yellow-500/10">
+              <Clock className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold" data-testid="text-pending-count">{stats.pending}</div>
+              <div className="text-sm text-muted-foreground">Pending</div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="flex items-center gap-3 pt-4">
+            <div className="p-2 rounded-lg bg-blue-500/10">
+              <Headphones className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold" data-testid="text-active-count">{stats.active}</div>
+              <div className="text-sm text-muted-foreground">Active</div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="flex items-center gap-3 pt-4">
+            <div className="p-2 rounded-lg bg-green-500/10">
+              <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold" data-testid="text-resolved-count">{stats.resolved}</div>
+              <div className="text-sm text-muted-foreground">Resolved</div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="flex items-center gap-3 pt-4">
+            <div className="p-2 rounded-lg bg-red-500/10">
+              <Phone className="h-5 w-5 text-red-600 dark:text-red-400" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold" data-testid="text-escalated-count">{stats.escalated}</div>
+              <div className="text-sm text-muted-foreground">Escalated</div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Ticket Queue */}
+      <CollapsibleSection 
+        title="Support Ticket Queue" 
+        icon={<Headphones className="h-5 w-5 text-primary" />}
+        badge={ticketsData?.total?.toString()}
+        defaultOpen={true}
+      >
+        {/* Filters */}
+        <div className="flex flex-wrap gap-3 mb-4 mt-4">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[140px]" data-testid="select-status-filter">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="resolved">Resolved</SelectItem>
+              <SelectItem value="escalated">Escalated</SelectItem>
+              <SelectItem value="closed">Closed</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="w-[140px]" data-testid="select-priority-filter">
+              <SelectValue placeholder="Priority" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Priority</SelectItem>
+              <SelectItem value="urgent">Urgent</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="normal">Normal</SelectItem>
+              <SelectItem value="low">Low</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-[160px]" data-testid="select-category-filter">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              <SelectItem value="technical">Technical</SelectItem>
+              <SelectItem value="billing">Billing</SelectItem>
+              <SelectItem value="account">Account</SelectItem>
+              <SelectItem value="learning">Learning</SelectItem>
+              <SelectItem value="pronunciation">Pronunciation</SelectItem>
+              <SelectItem value="content">Content</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => refetchTickets()}
+            data-testid="button-refresh-tickets"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Ticket List */}
+        {ticketsLoading ? (
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24" />)}
+          </div>
+        ) : tickets.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              <Headphones className="h-12 w-12 mx-auto mb-4 opacity-30" />
+              <p className="font-medium">No support tickets</p>
+              <p className="text-sm mt-1">Tickets from user handoffs will appear here</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {tickets.map((ticket) => (
+              <Card 
+                key={ticket.id} 
+                className={`hover-elevate cursor-pointer transition-all ${selectedTicket === ticket.id ? 'ring-2 ring-primary' : ''}`}
+                onClick={() => setSelectedTicket(selectedTicket === ticket.id ? null : ticket.id)}
+                data-testid={`card-ticket-${ticket.id}`}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {getPriorityIcon(ticket.priority)}
+                        <span className="font-medium truncate" data-testid={`text-subject-${ticket.id}`}>
+                          {ticket.subject}
+                        </span>
+                        <Badge variant="outline" className={getStatusColor(ticket.status)}>
+                          {ticket.status}
+                        </Badge>
+                        <Badge variant="secondary" className="gap-1">
+                          {getCategoryIcon(ticket.category)}
+                          {ticket.category}
+                        </Badge>
+                      </div>
+                      
+                      <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                        {ticket.description}
+                      </p>
+                      
+                      <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          {ticket.userName || ticket.userId}
+                        </span>
+                        {ticket.targetLanguage && (
+                          <span className="flex items-center gap-1">
+                            <Globe className="h-3 w-3" />
+                            {ticket.targetLanguage}
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {new Date(ticket.createdAt).toLocaleString()}
+                        </span>
+                        {ticket.messageCount > 0 && (
+                          <span className="flex items-center gap-1">
+                            <MessageSquare className="h-3 w-3" />
+                            {ticket.messageCount} messages
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col gap-2">
+                      {ticket.status === 'pending' && (
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateTicketMutation.mutate({ ticketId: ticket.id, updates: { status: 'active' } });
+                          }}
+                          data-testid={`button-activate-${ticket.id}`}
+                        >
+                          <Play className="h-3 w-3 mr-1" />
+                          Take
+                        </Button>
+                      )}
+                      {ticket.status === 'active' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateTicketMutation.mutate({ ticketId: ticket.id, updates: { status: 'resolved' } });
+                          }}
+                          data-testid={`button-resolve-${ticket.id}`}
+                        >
+                          <Check className="h-3 w-3 mr-1" />
+                          Resolve
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Expanded Ticket Details */}
+                  {selectedTicket === ticket.id && (
+                    <div className="mt-4 pt-4 border-t space-y-4">
+                      {ticket.handoffReason && (
+                        <div>
+                          <div className="text-sm font-medium mb-1">Handoff Reason</div>
+                          <p className="text-sm text-muted-foreground bg-muted p-2 rounded">
+                            {ticket.handoffReason}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {ticket.tutorContext && (
+                        <div>
+                          <div className="text-sm font-medium mb-1">Tutor Context</div>
+                          <p className="text-sm text-muted-foreground bg-muted p-2 rounded max-h-32 overflow-y-auto">
+                            {ticket.tutorContext}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 flex-wrap">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateTicketMutation.mutate({ ticketId: ticket.id, updates: { priority: 'urgent' } });
+                          }}
+                          data-testid={`button-escalate-${ticket.id}`}
+                        >
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          Escalate
+                        </Button>
+                        
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Open conversation link
+                            if (ticket.conversationId) {
+                              window.open(`/chat/${ticket.conversationId}`, '_blank');
+                            }
+                          }}
+                          disabled={!ticket.conversationId}
+                          data-testid={`button-view-conversation-${ticket.id}`}
+                        >
+                          <ExternalLink className="h-3 w-3 mr-1" />
+                          View Conversation
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </CollapsibleSection>
+
+      {/* Support Agent Info */}
+      <CollapsibleSection 
+        title="Support Agent Configuration" 
+        icon={<Headphones className="h-5 w-5 text-primary" />}
+        defaultOpen={false}
+      >
+        <Card className="mt-4">
+          <CardContent className="pt-4">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium">AI Support Agent</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Powered by Google Cloud TTS Chirp HD for cost-effective voice support
+                  </p>
+                </div>
+                <Badge variant="default" className="bg-green-500/10 text-green-600">Active</Badge>
+              </div>
+              
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <div className="text-sm font-medium">Voice Provider</div>
+                  <div className="text-lg">Google Cloud TTS</div>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <div className="text-sm font-medium">Voice Model</div>
+                  <div className="text-lg">Chirp HD (Journey)</div>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <div className="text-sm font-medium">Transcription</div>
+                  <div className="text-lg">Deepgram Nova-3</div>
+                </div>
+              </div>
+              
+              <p className="text-sm text-muted-foreground">
+                Voice configuration can be auditioned in the Voice Lab tab. The Support Agent uses a calm, 
+                professional tone optimized for technical assistance and student support.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </CollapsibleSection>
     </div>
   );
 }

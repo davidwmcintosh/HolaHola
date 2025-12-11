@@ -466,6 +466,17 @@ export interface IStorage {
   }): Promise<void>;
   getAdminAuditLogs(options?: { limit?: number; offset?: number; actorId?: string }): Promise<{ logs: any[]; total: number }>;
   
+  // Support Tickets (Admin)
+  getAdminSupportTickets(options: {
+    filters?: { status?: string; priority?: string; category?: string };
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    tickets: any[];
+    total: number;
+    stats: { pending: number; active: number; resolved: number; escalated: number };
+  }>;
+  
   // Impersonation
   startImpersonation(adminId: string, targetUserId: string, durationMinutes: number): Promise<User | undefined>;
   endImpersonation(userId: string): Promise<User | undefined>;
@@ -3568,6 +3579,71 @@ export class DatabaseStorage implements IStorage {
     return {
       logs,
       total: Number((countResult[0] as any).count)
+    };
+  }
+  
+  // Support Tickets (Admin)
+  async getAdminSupportTickets(options: {
+    filters?: { status?: string; priority?: string; category?: string };
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    tickets: any[];
+    total: number;
+    stats: { pending: number; active: number; resolved: number; escalated: number };
+  }> {
+    const limit = options.limit || 50;
+    const offset = options.offset || 0;
+    const filters = options.filters || {};
+    
+    // Build conditions
+    const conditions: any[] = [];
+    if (filters.status) conditions.push(eq(supportTickets.status, filters.status as any));
+    if (filters.priority) conditions.push(eq(supportTickets.priority, filters.priority as any));
+    if (filters.category) conditions.push(eq(supportTickets.category, filters.category as any));
+    
+    // Get tickets with user info
+    const ticketsQuery = db
+      .select({
+        ticket: supportTickets,
+        userName: users.firstName,
+        userEmail: users.email
+      })
+      .from(supportTickets)
+      .leftJoin(users, eq(supportTickets.userId, users.id))
+      .orderBy(desc(supportTickets.createdAt))
+      .limit(limit)
+      .offset(offset);
+    
+    const tickets = conditions.length > 0
+      ? await ticketsQuery.where(and(...conditions))
+      : await ticketsQuery;
+    
+    // Get total count
+    const countQuery = conditions.length > 0
+      ? db.select({ count: sql<number>`count(*)` }).from(supportTickets).where(and(...conditions))
+      : db.select({ count: sql<number>`count(*)` }).from(supportTickets);
+    const countResult = await countQuery;
+    
+    // Get stats
+    const pendingCount = await db.select({ count: sql<number>`count(*)` }).from(supportTickets).where(eq(supportTickets.status, 'pending'));
+    const activeCount = await db.select({ count: sql<number>`count(*)` }).from(supportTickets).where(eq(supportTickets.status, 'active'));
+    const resolvedCount = await db.select({ count: sql<number>`count(*)` }).from(supportTickets).where(eq(supportTickets.status, 'resolved'));
+    const escalatedCount = await db.select({ count: sql<number>`count(*)` }).from(supportTickets).where(eq(supportTickets.status, 'escalated'));
+    
+    return {
+      tickets: tickets.map(t => ({
+        ...t.ticket,
+        userName: t.userName,
+        userEmail: t.userEmail
+      })),
+      total: Number((countResult[0] as any).count),
+      stats: {
+        pending: Number((pendingCount[0] as any).count),
+        active: Number((activeCount[0] as any).count),
+        resolved: Number((resolvedCount[0] as any).count),
+        escalated: Number((escalatedCount[0] as any).count)
+      }
     };
   }
   

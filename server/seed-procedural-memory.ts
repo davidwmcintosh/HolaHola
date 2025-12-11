@@ -289,6 +289,27 @@ async function seedToolKnowledge() {
       combinesWith: ['SHOW'],
       sequencePatterns: ['SHOW content → discussion → HIDE'],
     },
+    
+    // SUPPORT HANDOFF
+    {
+      toolName: 'CALL_SUPPORT',
+      toolType: 'handoff_command',
+      purpose: 'Transfer the student to the Support Agent for issues outside tutoring scope. Use when student has technical problems, billing questions, account issues, or needs help that is not language learning.',
+      syntax: '[CALL_SUPPORT category="category" reason="why transferring"]',
+      examples: [
+        '[CALL_SUPPORT category="technical" reason="Student cannot hear audio in the app"]',
+        '[CALL_SUPPORT category="billing" reason="Student asking about subscription pricing"]',
+        '[CALL_SUPPORT category="account" reason="Student cannot reset their password"]',
+        '[CALL_SUPPORT category="other" reason="Student needs help finding learning resources"]'
+      ],
+      bestUsedFor: ['technical_issues', 'billing_questions', 'account_problems', 'app_bugs', 'non_language_help'],
+      avoidWhen: ['language_questions', 'pronunciation_help', 'grammar_confusion', 'vocabulary_requests', 'cultural_questions'],
+      combinesWith: [],
+      sequencePatterns: [
+        'Detect non-language issue → acknowledge concern → CALL_SUPPORT with category → warm handoff message',
+        'Student frustrated with app → empathize → CALL_SUPPORT technical → reassure support will help'
+      ],
+    },
   ];
   
   await db.insert(toolKnowledge).values(tools);
@@ -605,6 +626,22 @@ async function seedTutorProcedures() {
       studentStates: ['any'],
       priority: 70,
     },
+    
+    // SUPPORT HANDOFF
+    {
+      category: 'handoff',
+      trigger: 'non_language_issue',
+      title: 'Support Agent Handoff',
+      procedure: '1. Recognize the issue is outside tutoring scope (technical, billing, account, etc.)\n2. Acknowledge the student\'s concern empathetically\n3. Explain you\'ll connect them with Support\n4. Use CALL_SUPPORT with appropriate category and reason\n5. Give a warm handoff message reassuring them Support will help',
+      examples: [
+        'I hear you - audio issues can be frustrating! Let me connect you with our Support team who can help with that. [CALL_SUPPORT category="technical" reason="Student experiencing audio playback problems"]',
+        'Billing questions aren\'t my specialty, but our Support team is great with those. Let me transfer you! [CALL_SUPPORT category="billing" reason="Student asking about subscription pricing"]',
+        'I want to make sure you get proper help with your account. Our Support team can assist you right away. [CALL_SUPPORT category="account" reason="Student cannot access account features"]'
+      ],
+      applicablePhases: ['any'],
+      studentStates: ['any'],
+      priority: 95,
+    },
   ];
   
   await db.insert(tutorProcedures).values(procedures);
@@ -749,6 +786,35 @@ async function seedSituationalPatterns() {
       knowledgeToRetrieve: ['cultural_nuances'],
       guidance: 'Enrich with cultural context. Connect language to culture. Use visuals.',
       priority: 70,
+    },
+    
+    // SUPPORT HANDOFF PATTERNS
+    {
+      patternName: 'Technical Issue Detected',
+      description: 'Student mentions technical problems (audio, video, app bugs)',
+      contextConditions: { issueType: 'technical' },
+      proceduresToActivate: ['non_language_issue'],
+      toolsToSuggest: ['CALL_SUPPORT'],
+      guidance: 'Not a language issue - hand off to Support. Acknowledge frustration, then use CALL_SUPPORT with category="technical".',
+      priority: 100,
+    },
+    {
+      patternName: 'Billing Question Detected',
+      description: 'Student asks about subscription, payment, or pricing',
+      contextConditions: { issueType: 'billing' },
+      proceduresToActivate: ['non_language_issue'],
+      toolsToSuggest: ['CALL_SUPPORT'],
+      guidance: 'Not a language issue - hand off to Support. Be helpful, then use CALL_SUPPORT with category="billing".',
+      priority: 100,
+    },
+    {
+      patternName: 'Account Issue Detected',
+      description: 'Student needs help with account (password, settings, profile)',
+      contextConditions: { issueType: 'account' },
+      proceduresToActivate: ['non_language_issue'],
+      toolsToSuggest: ['CALL_SUPPORT'],
+      guidance: 'Not a language issue - hand off to Support. Show understanding, then use CALL_SUPPORT with category="account".',
+      priority: 100,
     },
   ];
   

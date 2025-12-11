@@ -9640,6 +9640,32 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // ===== Support Tickets (Admin) =====
+  
+  // Get support tickets for admin console
+  app.get("/api/admin/support-tickets", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { status, priority, category, limit, offset } = req.query;
+      
+      // Build filters
+      const filters: any = {};
+      if (status && status !== 'all') filters.status = status;
+      if (priority && priority !== 'all') filters.priority = priority;
+      if (category && category !== 'all') filters.category = category;
+      
+      const result = await storage.getAdminSupportTickets({
+        filters,
+        limit: limit ? parseInt(limit as string) : 50,
+        offset: offset ? parseInt(offset as string) : 0,
+      });
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('[AdminAPI] Error fetching support tickets:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== Image Library (Admin Media Management) =====
   
   // Get all media files (admin/developer only)
