@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 const allLanguages = [
   { value: "all", label: "All Languages", flag: "🌍" },
   { value: "spanish", label: "Spanish", flag: "🇪🇸" },
+  { value: "english", label: "English", flag: "🇬🇧" },
   { value: "french", label: "French", flag: "🇫🇷" },
   { value: "german", label: "German", flag: "🇩🇪" },
   { value: "italian", label: "Italian", flag: "🇮🇹" },
