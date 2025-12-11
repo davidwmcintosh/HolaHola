@@ -112,6 +112,16 @@ const stripeInitPromise = (async function initStripe() {
       console.error('Failed to seed neural network data:', error);
     }
     
+    // Seed Daniela's Advanced Intelligence Layer (subtlety, emotions, creativity)
+    try {
+      console.log('Seeding advanced intelligence layer...');
+      const { seedAdvancedIntelligence } = await import('./seed-advanced-intelligence');
+      await seedAdvancedIntelligence();
+      console.log('Advanced intelligence layer ready');
+    } catch (error) {
+      console.error('Failed to seed advanced intelligence:', error);
+    }
+    
     // Initialize procedural memory cache for tool knowledge
     try {
       console.log('Initializing procedural memory cache...');

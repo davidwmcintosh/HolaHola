@@ -2877,6 +2877,10 @@ export const subtletyCues = pgTable("subtlety_cues", {
   suggestedResponses: text("suggested_responses").array(), // Appropriate tutor reactions
   avoidResponses: text("avoid_responses").array(), // What NOT to do
   
+  // Compass integration - when during session this cue matters more
+  compassConditions: jsonb("compass_conditions"), // { sessionPhase: 'early', timeRemaining: '>10min' }
+  sensitivityModifiers: jsonb("sensitivity_modifiers"), // { earlySession: 0.7, lateSession: 1.2 } - adjust detection weight
+  
   // Context modifiers
   culturalConsiderations: text("cultural_considerations"), // Some cultures have different signal meanings
   language: varchar("language"), // null = universal, or language-specific
@@ -2919,6 +2923,10 @@ export const emotionalPatterns = pgTable("emotional_patterns", {
   recoveryStrategies: text("recovery_strategies").array(), // What to do if response made things worse
   reflectionPrompts: text("reflection_prompts").array(), // "Did my explanation reduce or increase confusion?"
   
+  // Compass integration - time-aware emotional intelligence
+  compassConditions: jsonb("compass_conditions"), // { timeRemaining: '<5min', pacing: 'behind' }
+  timeAwareAdjustments: jsonb("time_aware_adjustments"), // How to handle emotion differently based on time context
+  
   // Context
   learningContext: varchar("learning_context"), // grammar, vocabulary, conversation, pronunciation
   actflLevelRange: varchar("actfl_level_range"),
@@ -2959,6 +2967,10 @@ export const creativityTemplates = pgTable("creativity_templates", {
   // For intellectual curiosity
   probingQuestions: text("probing_questions").array(), // Questions to deepen understanding
   connectionOpportunities: text("connection_opportunities").array(), // Links to other concepts
+  
+  // Compass integration - when to deploy creative approaches
+  compassConditions: jsonb("compass_conditions"), // { studentStruggleTime: '>2min', attempts: '>3' }
+  creativityTriggers: jsonb("creativity_triggers"), // When student is stuck, try new angle
   
   // Personalization hooks
   studentInterestTags: varchar("student_interest_tags").array(), // sports, music, tech, cooking, travel, etc.

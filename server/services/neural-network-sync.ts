@@ -14,6 +14,9 @@ import {
   situationalPatterns,
   teachingSuggestionEffectiveness,
   studentToolPreferences,
+  subtletyCues,
+  emotionalPatterns,
+  creativityTemplates,
   type SelfBestPractice,
   type PromotionQueue,
   type InsertPromotionQueue,
@@ -26,7 +29,10 @@ import {
   type ToolKnowledge,
   type TutorProcedure,
   type TeachingPrinciple,
-  type SituationalPattern
+  type SituationalPattern,
+  type SubtletyCue,
+  type EmotionalPattern,
+  type CreativityTemplate
 } from '@shared/schema';
 import { eq, and, isNull, desc, or, sql } from 'drizzle-orm';
 import crypto from 'crypto';
@@ -1713,6 +1719,185 @@ export class NeuralNetworkSyncService {
       lastSync: lastLog?.createdAt || null,
       currentEnvironment: CURRENT_ENVIRONMENT
     };
+  }
+  
+  // ============================================================
+  // ADVANCED INTELLIGENCE LAYER SYNC
+  // ============================================================
+  
+  /**
+   * Export Advanced Intelligence data (subtlety cues, emotional patterns, creativity templates)
+   * These are Daniela's self-identified growth areas from Honesty Mode
+   */
+  async exportAdvancedIntelligence(): Promise<{
+    subtletyCues: SubtletyCue[];
+    emotionalPatterns: EmotionalPattern[];
+    creativityTemplates: CreativityTemplate[];
+  }> {
+    const [cues, emotions, creativity] = await Promise.all([
+      db.select().from(subtletyCues).where(eq(subtletyCues.syncStatus, 'approved')),
+      db.select().from(emotionalPatterns).where(eq(emotionalPatterns.syncStatus, 'approved')),
+      db.select().from(creativityTemplates).where(eq(creativityTemplates.syncStatus, 'approved')),
+    ]);
+    
+    return {
+      subtletyCues: cues,
+      emotionalPatterns: emotions,
+      creativityTemplates: creativity,
+    };
+  }
+  
+  /**
+   * Import Advanced Intelligence data from another environment
+   */
+  async importAdvancedIntelligence(
+    data: {
+      subtletyCues?: Partial<SubtletyCue>[];
+      emotionalPatterns?: Partial<EmotionalPattern>[];
+      creativityTemplates?: Partial<CreativityTemplate>[];
+    },
+    performedBy: string
+  ): Promise<{
+    success: boolean;
+    counts: { cues: { imported: number; skipped: number }; emotions: { imported: number; skipped: number }; creativity: { imported: number; skipped: number } };
+  }> {
+    try {
+      const counts = {
+        cues: { imported: 0, skipped: 0 },
+        emotions: { imported: 0, skipped: 0 },
+        creativity: { imported: 0, skipped: 0 },
+      };
+      
+      // Import subtlety cues
+      if (data.subtletyCues) {
+        for (const cue of data.subtletyCues) {
+          if (cue.originId) {
+            const existing = await db.select().from(subtletyCues).where(eq(subtletyCues.originId, cue.originId)).limit(1);
+            if (existing.length > 0) { counts.cues.skipped++; continue; }
+          }
+          
+          await db.insert(subtletyCues).values({
+            ...cue,
+            id: undefined,
+            syncStatus: 'synced',
+            originId: cue.originId || cue.id,
+            originEnvironment: cue.originEnvironment || CURRENT_ENVIRONMENT,
+          } as any);
+          counts.cues.imported++;
+        }
+      }
+      
+      // Import emotional patterns
+      if (data.emotionalPatterns) {
+        for (const pattern of data.emotionalPatterns) {
+          if (pattern.originId) {
+            const existing = await db.select().from(emotionalPatterns).where(eq(emotionalPatterns.originId, pattern.originId)).limit(1);
+            if (existing.length > 0) { counts.emotions.skipped++; continue; }
+          }
+          
+          await db.insert(emotionalPatterns).values({
+            ...pattern,
+            id: undefined,
+            syncStatus: 'synced',
+            originId: pattern.originId || pattern.id,
+            originEnvironment: pattern.originEnvironment || CURRENT_ENVIRONMENT,
+          } as any);
+          counts.emotions.imported++;
+        }
+      }
+      
+      // Import creativity templates
+      if (data.creativityTemplates) {
+        for (const template of data.creativityTemplates) {
+          if (template.originId) {
+            const existing = await db.select().from(creativityTemplates).where(eq(creativityTemplates.originId, template.originId)).limit(1);
+            if (existing.length > 0) { counts.creativity.skipped++; continue; }
+          }
+          
+          await db.insert(creativityTemplates).values({
+            ...template,
+            id: undefined,
+            syncStatus: 'synced',
+            originId: template.originId || template.id,
+            originEnvironment: template.originEnvironment || CURRENT_ENVIRONMENT,
+          } as any);
+          counts.creativity.imported++;
+        }
+      }
+      
+      const total = counts.cues.imported + counts.emotions.imported + counts.creativity.imported;
+      
+      if (total > 0) {
+        await this.logSyncOperation({
+          operation: 'advanced_intelligence_import',
+          tableName: 'advanced_intelligence',
+          recordCount: total,
+          sourceEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+          targetEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+          performedBy,
+          status: 'success',
+          metadata: { counts }
+        });
+      }
+      
+      return { success: true, counts };
+    } catch (error: any) {
+      console.error('[SYNC] Error importing advanced intelligence:', error);
+      return { success: false, counts: { cues: { imported: 0, skipped: 0 }, emotions: { imported: 0, skipped: 0 }, creativity: { imported: 0, skipped: 0 } } };
+    }
+  }
+  
+  /**
+   * Auto-approve all Advanced Intelligence items
+   */
+  async autoApproveAdvancedIntelligence(approvedBy: string = 'system'): Promise<{
+    success: boolean;
+    counts: { cues: number; emotions: number; creativity: number };
+  }> {
+    try {
+      const [cuesResult, emotionsResult, creativityResult] = await Promise.all([
+        db.update(subtletyCues)
+          .set({ syncStatus: 'approved' })
+          .where(and(eq(subtletyCues.isActive, true), eq(subtletyCues.syncStatus, 'local')))
+          .returning(),
+        db.update(emotionalPatterns)
+          .set({ syncStatus: 'approved' })
+          .where(and(eq(emotionalPatterns.isActive, true), eq(emotionalPatterns.syncStatus, 'local')))
+          .returning(),
+        db.update(creativityTemplates)
+          .set({ syncStatus: 'approved' })
+          .where(and(eq(creativityTemplates.isActive, true), eq(creativityTemplates.syncStatus, 'local')))
+          .returning(),
+      ]);
+      
+      const counts = {
+        cues: cuesResult.length,
+        emotions: emotionsResult.length,
+        creativity: creativityResult.length,
+      };
+      
+      const total = counts.cues + counts.emotions + counts.creativity;
+      
+      if (total > 0) {
+        await this.logSyncOperation({
+          operation: 'advanced_intelligence_auto_approve',
+          tableName: 'advanced_intelligence',
+          recordCount: total,
+          sourceEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+          targetEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+          performedBy: approvedBy,
+          status: 'success',
+          metadata: { counts }
+        });
+        
+        console.log(`[SYNC] Auto-approved ${total} advanced intelligence items:`, counts);
+      }
+      
+      return { success: true, counts };
+    } catch (error: any) {
+      console.error('[SYNC] Error auto-approving advanced intelligence:', error);
+      return { success: false, counts: { cues: 0, emotions: 0, creativity: 0 } };
+    }
   }
   
   // ============================================================

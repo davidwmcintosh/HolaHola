@@ -21,8 +21,9 @@ let lastSyncResult: {
   error?: string;
 } | null = null;
 
-// 3 AM Mountain Standard Time = 10 AM UTC (MST is UTC-7)
-const SYNC_HOUR_UTC = 10;
+// 4 AM Mountain Standard Time = 11 AM UTC (MST is UTC-7)
+// Pushed from 3 AM to give more development time
+const SYNC_HOUR_UTC = 11;
 
 function getMillisecondsUntilSyncTime(): number {
   const now = new Date();
@@ -66,6 +67,14 @@ async function runNightlySync(): Promise<void> {
     console.log(`[SYNC-SCHEDULER] Procedural Memory status:`);
     console.log(`  - Exported ${proceduralData.tools.length} tools, ${proceduralData.procedures.length} procedures`);
     console.log(`  - Exported ${proceduralData.principles.length} principles, ${proceduralData.patterns.length} patterns`);
+    
+    // 4. Sync Advanced Intelligence Layer (3 tables: subtlety cues, emotional patterns, creativity templates)
+    const advancedIntelligenceData = await neuralNetworkSync.exportAdvancedIntelligence();
+    
+    console.log(`[SYNC-SCHEDULER] Advanced Intelligence status:`);
+    console.log(`  - Exported ${advancedIntelligenceData.subtletyCues.length} subtlety cues`);
+    console.log(`  - Exported ${advancedIntelligenceData.emotionalPatterns.length} emotional patterns`);
+    console.log(`  - Exported ${advancedIntelligenceData.creativityTemplates.length} creativity templates`);
     
     if (bestPracticesResult.success) {
       console.log(`[SYNC-SCHEDULER] Nightly sync complete: ${bestPracticesResult.syncedCount} best practices synced`);
