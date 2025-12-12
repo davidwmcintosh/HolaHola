@@ -436,7 +436,7 @@ function ACTFLMeter({ progress, level }: { progress: ActflProgress | null | unde
 
   return (
     <div 
-      className="absolute flex flex-col items-center justify-center pointer-events-none"
+      className="absolute flex flex-col items-center justify-center pointer-events-none z-30"
       style={{
         left: '50%',
         top: '50%',
@@ -636,8 +636,8 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
           <ellipse cx="90%" cy="80%" rx="55" ry="28" fill="white" opacity="0.5"/>
         </svg>
         
-        {/* Curved arrows from satellites to brain */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none z-5">
+        {/* Curved arrows from satellites to brain - above brain */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none z-20">
           <defs>
             <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
               <polygon points="0 0, 10 3.5, 0 7" fill="#374151"/>
@@ -688,9 +688,9 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
           />
         )}
         
-        {/* Brain image - floating with glow effect and per-lobe lighting */}
+        {/* Brain image - floating with glow effect and per-lobe lighting - at back */}
         <div 
-          className="absolute transition-all duration-500"
+          className="absolute transition-all duration-500 z-10"
           style={{
             left: centerX - 100,
             top: centerY - 100,
