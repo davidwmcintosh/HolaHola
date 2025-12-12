@@ -759,6 +759,7 @@ export default function ReviewHub() {
                 <SyllabusMindMap 
                   language={language} 
                   classId={isClassContext && syllabus ? syllabus.classId : undefined}
+                  syllabusOverview={isClassContext && syllabus ? syllabus : undefined}
                   mode={isSelfDirected ? 'emergent' : 'roadmap'}
                 />
               ) : (

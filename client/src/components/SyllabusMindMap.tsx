@@ -36,6 +36,32 @@ interface TopicNode {
   topicType?: string;
 }
 
+// Syllabus data types for class context
+interface SyllabusLesson {
+  id: string;
+  name: string;
+  orderIndex: number;
+  lessonType: string;
+  status: 'not_started' | 'in_progress' | 'completed';
+  estimatedMinutes: number | null;
+}
+
+interface SyllabusUnit {
+  id: string;
+  name: string;
+  orderIndex: number;
+  lessons: SyllabusLesson[];
+}
+
+interface SyllabusOverview {
+  classId: string;
+  className: string;
+  curriculumName: string;
+  totalLessons: number;
+  completedLessons: number;
+  units: SyllabusUnit[];
+}
+
 type BrainSegment = 'frontal' | 'temporal' | 'parietal' | 'occipital' | 'cerebellum';
 type LightingState = 'dim' | 'semi-lit' | 'lit';
 
@@ -408,9 +434,19 @@ function LobeSatellite({
   );
 }
 
-function ACTFLMeter({ progress, level }: { progress: ActflProgress | null | undefined; level: string }) {
-  // Use the same continuous score calculation as the Language Hub dial
-  const overallProgress = calculateContinuousScore(progress?.currentActflLevel, progress);
+function ACTFLMeter({ 
+  progress, 
+  level,
+  syllabusProgress 
+}: { 
+  progress: ActflProgress | null | undefined; 
+  level: string;
+  syllabusProgress?: { completed: number; total: number };
+}) {
+  // Use syllabus progress when available, otherwise ACTFL progress
+  const overallProgress = syllabusProgress 
+    ? (syllabusProgress.total > 0 ? (syllabusProgress.completed / syllabusProgress.total) * 100 : 0)
+    : calculateContinuousScore(progress?.currentActflLevel, progress);
 
   // Compact half-circle dial with needle
   const size = 80;
@@ -525,10 +561,63 @@ interface SyllabusMindMapProps {
   classId?: string;
   language?: string;
   className?: string;
+  syllabusOverview?: SyllabusOverview;
   mode?: 'emergent' | 'roadmap';
 }
 
-export function SyllabusMindMap({ classId, language: languageProp, className, mode = 'emergent' }: SyllabusMindMapProps) {
+// Helper to map lesson type to a brain segment category
+function getLessonTypeCategory(lessonType: string): string {
+  switch (lessonType) {
+    case 'conversation':
+      return 'Communication';
+    case 'vocabulary':
+      return 'Vocabulary';
+    case 'grammar':
+      return 'Grammar';
+    case 'cultural_exploration':
+      return 'Culture';
+    default:
+      return 'Daily Life';
+  }
+}
+
+// Convert syllabus lesson status to topic status
+function syllabusStatusToTopicStatus(status: SyllabusLesson['status']): TopicNode['status'] {
+  switch (status) {
+    case 'completed':
+      return 'mastered';
+    case 'in_progress':
+      return 'practiced';
+    case 'not_started':
+      return 'discovered';
+    default:
+      return 'discovered';
+  }
+}
+
+// Transform syllabus lessons into TopicNodes for the brain map
+function syllabusToTopics(syllabus: SyllabusOverview): TopicNode[] {
+  const topics: TopicNode[] = [];
+  
+  syllabus.units.forEach(unit => {
+    unit.lessons.forEach(lesson => {
+      topics.push({
+        id: lesson.id,
+        name: lesson.name,
+        status: syllabusStatusToTopicStatus(lesson.status),
+        practiceCount: lesson.status === 'completed' ? 1 : 0,
+        connections: [],
+        category: getLessonTypeCategory(lesson.lessonType),
+        topicType: lesson.lessonType === 'grammar' ? 'grammar' : 
+                   lesson.lessonType === 'conversation' ? 'function' : 'subject',
+      });
+    });
+  });
+  
+  return topics;
+}
+
+export function SyllabusMindMap({ classId, language: languageProp, className, syllabusOverview, mode = 'emergent' }: SyllabusMindMapProps) {
   const { language: globalLanguage, difficulty } = useLanguage();
   const language = languageProp ?? globalLanguage;
   const [expandedSegment, setExpandedSegment] = useState<BrainSegment | null>(null);
@@ -539,17 +628,28 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
   const centerX = containerWidth / 2;
   const centerY = containerHeight / 2 - 20; // Shift brain up slightly to make room below
   
+  // Determine if we're in class/syllabus context
+  const hasSyllabus = !!syllabusOverview && syllabusOverview.units.length > 0;
+  
+  // Only fetch ACTFL progress if NOT in syllabus mode (syllabus uses its own completion metric)
   const { data: progress, isLoading: progressLoading } = useQuery<ActflProgress | null>({
     queryKey: ['/api/actfl-progress', language],
-    enabled: !!language && language !== 'all',
+    enabled: !!language && language !== 'all' && !hasSyllabus,
   });
   
+  // Only fetch conversation topics if NOT in syllabus mode
   const { data: conversationTopics, isLoading: topicsLoading } = useQuery<{ topics: TopicNode[] }>({
     queryKey: ['/api/conversation-topics', language],
-    enabled: !!language && language !== 'all',
+    enabled: !!language && language !== 'all' && !hasSyllabus,
   });
   
-  const allTopics = conversationTopics?.topics || DEMO_TOPICS;
+  // Use syllabus topics when in class context, otherwise use conversation topics
+  const allTopics = useMemo(() => {
+    if (hasSyllabus && syllabusOverview) {
+      return syllabusToTopics(syllabusOverview);
+    }
+    return conversationTopics?.topics || DEMO_TOPICS;
+  }, [hasSyllabus, syllabusOverview, conversationTopics?.topics]);
   
   const visibleTopics = useMemo(() => {
     if (mode === 'emergent') {
@@ -594,7 +694,8 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
     setExpandedSegment(prev => prev === segment ? null : segment);
   };
   
-  const isLoading = progressLoading || topicsLoading;
+  // When we have syllabus data, we don't need to wait for ACTFL or conversation topics
+  const isLoading = !hasSyllabus && (progressLoading || topicsLoading);
   
   if (isLoading) {
     return (
@@ -791,8 +892,15 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
             />
           </svg>
           
-          {/* ACTFL Meter overlay */}
-          <ACTFLMeter progress={progress} level={difficulty} />
+          {/* ACTFL Meter overlay - shows syllabus completion when in class context */}
+          <ACTFLMeter 
+            progress={progress} 
+            level={difficulty}
+            syllabusProgress={hasSyllabus && syllabusOverview ? {
+              completed: syllabusOverview.completedLessons,
+              total: syllabusOverview.totalLessons
+            } : undefined}
+          />
         </div>
         
         {/* Orbital satellite lobes */}
