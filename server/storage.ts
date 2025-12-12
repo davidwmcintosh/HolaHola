@@ -3908,12 +3908,11 @@ export class DatabaseStorage implements IStorage {
     connections: string[];
     category: string | null;
   }>> {
-    // Get all topics for this language
-    const allTopics = await db.select().from(topicsTable)
-      .where(eq(topicsTable.language, language));
+    // Get all topics (topics are language-agnostic)
+    const allTopics = await db.select().from(topicsTable);
     
     // Get user's conversations for this language
-    const userConvs = await db.select({ id: conversations.id, updatedAt: conversations.updatedAt })
+    const userConvs = await db.select({ id: conversations.id, createdAt: conversations.createdAt })
       .from(conversations)
       .where(and(
         eq(conversations.userId, userId),

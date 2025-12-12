@@ -38,10 +38,17 @@ import {
   ListTree,
   PencilLine,
   Languages,
+  Brain,
+  List,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { SyllabusTimeProgress } from "@/components/SyllabusTimeProgress";
+import { SyllabusMindMap } from "@/components/SyllabusMindMap";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { VocabularyWord, Conversation, CulturalTip, UserLesson, Topic } from "@shared/schema";
+
+type SyllabusViewMode = 'mindmap' | 'linear';
 
 interface UpcomingAssignment {
   id: string;
@@ -174,10 +181,165 @@ function getLanguageDisplayName(code: string): string {
   return names[code] || code;
 }
 
+function LinearSyllabusView({ syllabus }: { syllabus: SyllabusOverview }) {
+  return (
+    <>
+      <div className="md:hidden">
+        <div className="flex flex-wrap gap-2 mb-3">
+          {syllabus.units.map((unit) => {
+            const completedInUnit = unit.lessons.filter(l => l.status === 'completed').length;
+            const isComplete = completedInUnit === unit.lessons.length;
+            const hasStarted = completedInUnit > 0;
+            
+            return (
+              <Badge 
+                key={unit.id}
+                className={`text-xs ${
+                  isComplete 
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                    : hasStarted 
+                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' 
+                      : 'bg-muted text-muted-foreground'
+                }`}
+                data-testid={`unit-pill-${unit.id}`}
+              >
+                {isComplete && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                {unit.name} ({completedInUnit}/{unit.lessons.length})
+              </Badge>
+            );
+          })}
+        </div>
+        {(() => {
+          const nextLesson = syllabus.units
+            .flatMap(u => u.lessons.map(l => ({ ...l, unitName: u.name })))
+            .find(l => l.status !== 'completed');
+          
+          if (!nextLesson) return null;
+          
+          return (
+            <Link href={`/chat?lesson=${nextLesson.id}&class=${syllabus.classId}`}>
+              <div className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-full bg-primary/10">
+                    <BookOpen className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-sm">Continue: {nextLesson.name}</p>
+                      <LessonTypeBadge lessonType={nextLesson.lessonType} size="xs" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">{nextLesson.unitName}</p>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </Link>
+          );
+        })()}
+      </div>
+      
+      <div className="hidden md:block space-y-2">
+        {syllabus.units.map((unit, unitIndex) => {
+          const completedInUnit = unit.lessons.filter(l => l.status === 'completed').length;
+          const unitProgress = unit.lessons.length > 0 
+            ? Math.round((completedInUnit / unit.lessons.length) * 100) 
+            : 0;
+          const isComplete = unitProgress === 100;
+          const hasStarted = completedInUnit > 0;
+          
+          return (
+            <Collapsible key={unit.id} defaultOpen={unitIndex === 0 || (!isComplete && hasStarted)} className="group">
+              <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg border hover-elevate" data-testid={`unit-${unit.id}`}>
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-full ${isComplete ? 'bg-green-100 dark:bg-green-900' : hasStarted ? 'bg-blue-100 dark:bg-blue-900' : 'bg-muted'}`}>
+                    {isComplete ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    ) : (
+                      <BookOpen className={`h-4 w-4 ${hasStarted ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`} />
+                    )}
+                  </div>
+                  <div className="text-left">
+                    <p className="font-medium">{unit.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {completedInUnit} of {unit.lessons.length} lessons completed
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isComplete && (
+                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                      Complete
+                    </Badge>
+                  )}
+                  <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="pl-12 pr-3 py-2 space-y-1">
+                  {unit.lessons.map((lesson) => {
+                    const LessonStatusIcon = lesson.status === 'completed' 
+                      ? CheckCircle2 
+                      : lesson.status === 'in_progress' 
+                        ? Clock 
+                        : Circle;
+                    const statusColor = lesson.status === 'completed' 
+                      ? 'text-green-600 dark:text-green-400' 
+                      : lesson.status === 'in_progress' 
+                        ? 'text-blue-600 dark:text-blue-400' 
+                        : 'text-muted-foreground';
+                    
+                    return (
+                      <Link 
+                        key={lesson.id} 
+                        href={`/chat?lesson=${lesson.id}&class=${syllabus.classId}`}
+                      >
+                        <div 
+                          className="flex items-center gap-3 p-2 rounded hover-elevate cursor-pointer" 
+                          data-testid={`lesson-${lesson.id}`}
+                        >
+                          <LessonStatusIcon className={`h-4 w-4 flex-shrink-0 ${statusColor}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm truncate ${lesson.status === 'completed' ? 'text-muted-foreground' : ''}`}>
+                              {lesson.name}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <LessonTypeBadge lessonType={lesson.lessonType} size="xs" />
+                            {lesson.estimatedMinutes && (
+                              <span className="text-xs text-muted-foreground">
+                                ~{lesson.estimatedMinutes}m
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
 export default function ReviewHub() {
   const { language, tutorGender } = useLanguage();
   const { learningContext } = useLearningFilter();
   const { setOpen, isMobile, setOpenMobile } = useSidebar();
+  
+  // Syllabus view preference - Mind Map is the HolaHola default
+  const [syllabusView, setSyllabusView] = useState<SyllabusViewMode>(() => {
+    const saved = localStorage.getItem('syllabusViewMode');
+    return (saved === 'linear' ? 'linear' : 'mindmap') as SyllabusViewMode;
+  });
+  
+  // Persist view preference
+  useEffect(() => {
+    localStorage.setItem('syllabusViewMode', syllabusView);
+  }, [syllabusView]);
 
   // Close sidebar when arriving at the Review Hub (dashboard)
   useEffect(() => {
@@ -528,49 +690,112 @@ export default function ReviewHub() {
         </CardContent>
       </Card>
 
-      {/* My Lessons Card - Only for self-directed learners with personal lessons */}
+      {/* Learning Journey - Mind Map or Linear View for all learners */}
       {(() => {
+        const isClassContext = learningContext && !learningContext.includes('self-directed') && learningContext !== 'all';
         const isSelfDirected = !learningContext || learningContext === "self-directed";
-        const hasPersonalLessons = isSelfDirected && (data?.activeLessons?.length ?? 0) > 0;
+        const syllabus = data?.syllabusOverview;
         
-        if (!hasPersonalLessons || !data) return null;
+        // Don't show if language is "all" 
+        if (!language || language === 'all') return null;
         
+        const progressPercent = syllabus && syllabus.totalLessons > 0 
+          ? Math.round((syllabus.completedLessons / syllabus.totalLessons) * 100) 
+          : 0;
+
         return (
-          <Card data-testid="section-my-lessons">
+          <Card data-testid="section-learning-journey">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <BookOpen className="h-5 w-5 text-primary" />
-                My Lessons
-              </CardTitle>
-              <CardDescription>Lessons created from your conversations</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {data.activeLessons?.slice(0, 3).map((lesson) => (
-                <Link key={lesson.id} href={`/lessons?expand=${lesson.id}`}>
-                  <div className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer" data-testid={`card-lesson-${lesson.id}`}>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-800">
-                        <BookOpen className="h-4 w-4 text-indigo-700 dark:text-indigo-300" />
-                      </div>
-                      <div>
-                        <p className="font-medium">{lesson.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {getLanguageDisplayName(lesson.language)}
-                        </p>
-                      </div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Brain className="h-5 w-5 text-primary" />
+                    {isClassContext ? 'Course Overview' : 'Learning Journey'}
+                  </CardTitle>
+                  <CardDescription>
+                    {isClassContext && syllabus ? syllabus.curriculumName : 'Your personalized path through the language'}
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-3">
+                  {isClassContext && syllabus && (
+                    <div className="text-right hidden md:block">
+                      <p className="text-xl font-bold text-primary">{progressPercent}%</p>
+                      <p className="text-xs text-muted-foreground">
+                        {syllabus.completedLessons}/{syllabus.totalLessons} lessons
+                      </p>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </Link>
-              ))}
-              {(data.activeLessons?.length ?? 0) > 3 && (
-                <div className="text-center pt-2">
-                  <Link href="/lessons">
-                    <Button variant="ghost" size="sm" className="gap-1">
-                      View all {data.activeLessons?.length ?? 0} lessons
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </Link>
+                  )}
+                  <ToggleGroup 
+                    type="single" 
+                    value={syllabusView} 
+                    onValueChange={(v) => v && setSyllabusView(v as SyllabusViewMode)} 
+                    size="sm"
+                    data-testid="toggle-syllabus-view"
+                  >
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <ToggleGroupItem value="mindmap" data-testid="toggle-mindmap">
+                          <Brain className="h-4 w-4" />
+                        </ToggleGroupItem>
+                      </TooltipTrigger>
+                      <TooltipContent>Mind Map View</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <ToggleGroupItem value="linear" data-testid="toggle-linear">
+                          <List className="h-4 w-4" />
+                        </ToggleGroupItem>
+                      </TooltipTrigger>
+                      <TooltipContent>Linear View</TooltipContent>
+                    </Tooltip>
+                  </ToggleGroup>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {syllabusView === 'mindmap' ? (
+                <SyllabusMindMap 
+                  language={language} 
+                  classId={isClassContext && syllabus ? syllabus.classId : undefined}
+                  mode={isSelfDirected ? 'emergent' : 'roadmap'}
+                />
+              ) : (
+                // Linear view - show self-directed lessons or class syllabus
+                <div className="space-y-2">
+                  {isSelfDirected ? (
+                    // Self-directed: Show personal lessons or empty state
+                    <>
+                      {(data?.activeLessons?.length ?? 0) > 0 && data?.activeLessons ? (
+                        data.activeLessons.slice(0, 5).map((lesson) => (
+                          <Link key={lesson.id} href={`/lessons?expand=${lesson.id}`}>
+                            <div className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer" data-testid={`card-lesson-${lesson.id}`}>
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-800">
+                                  <BookOpen className="h-4 w-4 text-indigo-700 dark:text-indigo-300" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{lesson.title}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {getLanguageDisplayName(lesson.language)}
+                                  </p>
+                                </div>
+                              </div>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          </Link>
+                        ))
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                          <p className="font-medium">No lessons yet</p>
+                          <p className="text-sm">Start a conversation to discover topics</p>
+                        </div>
+                      )}
+                    </>
+                  ) : syllabus ? (
+                    // Class context: Show syllabus units and lessons
+                    <LinearSyllabusView syllabus={syllabus} />
+                  ) : null}
                 </div>
               )}
             </CardContent>
@@ -578,189 +803,6 @@ export default function ReviewHub() {
         );
       })()}
 
-      {/* Course Overview - Only for class context */}
-      {(() => {
-        const isClassContext = learningContext && !learningContext.includes('self-directed') && learningContext !== 'all';
-        const syllabus = data?.syllabusOverview;
-        
-        if (!isClassContext || !syllabus) return null;
-        
-        const progressPercent = syllabus.totalLessons > 0 
-          ? Math.round((syllabus.completedLessons / syllabus.totalLessons) * 100) 
-          : 0;
-
-        return (
-          <Card data-testid="section-course-overview">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <ListTree className="h-5 w-5 text-primary" />
-                    Course Overview
-                  </CardTitle>
-                  <CardDescription>{syllabus.curriculumName}</CardDescription>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-primary">{progressPercent}%</p>
-                  <p className="text-xs text-muted-foreground">
-                    {syllabus.completedLessons} of {syllabus.totalLessons} lessons
-                  </p>
-                </div>
-              </div>
-              {/* Progress bar */}
-              <div className="mt-3 h-2 w-full bg-muted rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-primary transition-all duration-300" 
-                  style={{ width: `${progressPercent}%` }} 
-                />
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {/* Mobile: Compact unit pills */}
-              <div className="md:hidden">
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {syllabus.units.map((unit) => {
-                    const completedInUnit = unit.lessons.filter(l => l.status === 'completed').length;
-                    const isComplete = completedInUnit === unit.lessons.length;
-                    const hasStarted = completedInUnit > 0;
-                    
-                    return (
-                      <Badge 
-                        key={unit.id}
-                        className={`text-xs ${
-                          isComplete 
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                            : hasStarted 
-                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' 
-                              : 'bg-muted text-muted-foreground'
-                        }`}
-                        data-testid={`unit-pill-${unit.id}`}
-                      >
-                        {isComplete && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                        {unit.name} ({completedInUnit}/{unit.lessons.length})
-                      </Badge>
-                    );
-                  })}
-                </div>
-                {/* Show next uncompleted lesson on mobile */}
-                {(() => {
-                  const nextLesson = syllabus.units
-                    .flatMap(u => u.lessons.map(l => ({ ...l, unitName: u.name })))
-                    .find(l => l.status !== 'completed');
-                  
-                  if (!nextLesson) return null;
-                  
-                  return (
-                    <Link href={`/chat?lesson=${nextLesson.id}&class=${syllabus.classId}`}>
-                      <div className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-full bg-primary/10">
-                            <BookOpen className="h-4 w-4 text-primary" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium text-sm">Continue: {nextLesson.name}</p>
-                              <LessonTypeBadge lessonType={nextLesson.lessonType} size="xs" />
-                            </div>
-                            <p className="text-xs text-muted-foreground">{nextLesson.unitName}</p>
-                          </div>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    </Link>
-                  );
-                })()}
-              </div>
-              
-              {/* Desktop: Full expandable units */}
-              <div className="hidden md:block space-y-2">
-                {syllabus.units.map((unit, unitIndex) => {
-                  const completedInUnit = unit.lessons.filter(l => l.status === 'completed').length;
-                  const unitProgress = unit.lessons.length > 0 
-                    ? Math.round((completedInUnit / unit.lessons.length) * 100) 
-                    : 0;
-                  const isComplete = unitProgress === 100;
-                  const hasStarted = completedInUnit > 0;
-                  
-                  return (
-                    <Collapsible key={unit.id} defaultOpen={unitIndex === 0 || (!isComplete && hasStarted)} className="group">
-                      <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg border hover-elevate" data-testid={`unit-${unit.id}`}>
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-full ${isComplete ? 'bg-green-100 dark:bg-green-900' : hasStarted ? 'bg-blue-100 dark:bg-blue-900' : 'bg-muted'}`}>
-                            {isComplete ? (
-                              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                            ) : (
-                              <BookOpen className={`h-4 w-4 ${hasStarted ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`} />
-                            )}
-                          </div>
-                          <div className="text-left">
-                            <p className="font-medium">{unit.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {completedInUnit} of {unit.lessons.length} lessons completed
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {isComplete && (
-                            <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                              Complete
-                            </Badge>
-                          )}
-                          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                        </div>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <div className="pl-12 pr-3 py-2 space-y-1">
-                          {unit.lessons.map((lesson) => {
-                            const LessonStatusIcon = lesson.status === 'completed' 
-                              ? CheckCircle2 
-                              : lesson.status === 'in_progress' 
-                                ? Clock 
-                                : Circle;
-                            const statusColor = lesson.status === 'completed' 
-                              ? 'text-green-600 dark:text-green-400' 
-                              : lesson.status === 'in_progress' 
-                                ? 'text-blue-600 dark:text-blue-400' 
-                                : 'text-muted-foreground';
-                            
-                            return (
-                              <Link 
-                                key={lesson.id} 
-                                href={`/chat?lesson=${lesson.id}&class=${syllabus.classId}`}
-                              >
-                                <div 
-                                  className="flex items-center gap-3 p-2 rounded hover-elevate cursor-pointer" 
-                                  data-testid={`lesson-${lesson.id}`}
-                                >
-                                  <LessonStatusIcon className={`h-4 w-4 flex-shrink-0 ${statusColor}`} />
-                                  <div className="flex-1 min-w-0">
-                                    <p className={`text-sm truncate ${lesson.status === 'completed' ? 'text-muted-foreground' : ''}`}>
-                                      {lesson.name}
-                                    </p>
-                                  </div>
-                                  <div className="flex items-center gap-2 flex-shrink-0">
-                                    <LessonTypeBadge lessonType={lesson.lessonType} size="xs" />
-                                    {lesson.estimatedMinutes && (
-                                      <span className="text-xs text-muted-foreground">
-                                        ~{lesson.estimatedMinutes}m
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
-      
       {/* Syllabus Time Progress - Shows expected vs actual time per unit */}
       {(() => {
         const isClassContext = learningContext && !learningContext.includes('self-directed') && learningContext !== 'all';

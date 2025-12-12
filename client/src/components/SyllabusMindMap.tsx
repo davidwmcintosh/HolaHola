@@ -284,9 +284,10 @@ interface SyllabusMindMapProps {
   classId?: string;
   language?: string;
   className?: string;
+  mode?: 'emergent' | 'roadmap';
 }
 
-export function SyllabusMindMap({ classId, language: languageProp, className }: SyllabusMindMapProps) {
+export function SyllabusMindMap({ classId, language: languageProp, className, mode = 'emergent' }: SyllabusMindMapProps) {
   const { language: globalLanguage } = useLanguage();
   const language = languageProp ?? globalLanguage;
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
@@ -301,7 +302,15 @@ export function SyllabusMindMap({ classId, language: languageProp, className }: 
     enabled: !!language && language !== 'all',
   });
   
-  const topics = conversationTopics?.topics || DEMO_TOPICS;
+  const allTopics = conversationTopics?.topics || DEMO_TOPICS;
+  
+  const visibleTopics = useMemo(() => {
+    if (mode === 'emergent') {
+      return allTopics.filter(t => t.status !== 'locked');
+    }
+    return allTopics;
+  }, [allTopics, mode]);
+  
   const levelInfo = getLevelInfo(progress?.currentActflLevel);
   
   const containerWidth = 500;
@@ -310,107 +319,127 @@ export function SyllabusMindMap({ classId, language: languageProp, className }: 
   const centerY = containerHeight / 2;
   
   const nodes = useMemo(() => 
-    calculateNodePositions(topics, centerX, centerY),
-    [topics, centerX, centerY]
+    calculateNodePositions(visibleTopics, centerX, centerY),
+    [visibleTopics, centerX, centerY]
   );
   
   const isLoading = progressLoading || topicsLoading;
   
   if (isLoading) {
     return (
-      <Card className={className} data-testid="mind-map-loading">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5" />
-            Learning Mind Map
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center h-[400px]">
+      <div className={className} data-testid="mind-map-loading">
+        <div className="flex items-center justify-center h-[350px]">
           <div className="text-center">
-            <Skeleton className="h-[300px] w-[400px] rounded-lg mx-auto" />
+            <Skeleton className="h-[250px] w-[400px] rounded-lg mx-auto" />
             <p className="text-sm text-muted-foreground mt-4">Building your learning map...</p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
   
   const stats = {
-    mastered: topics.filter(t => t.status === 'mastered').length,
-    practiced: topics.filter(t => t.status === 'practiced').length,
-    discovered: topics.filter(t => t.status === 'discovered').length,
-    locked: topics.filter(t => t.status === 'locked').length,
+    mastered: allTopics.filter(t => t.status === 'mastered').length,
+    practiced: allTopics.filter(t => t.status === 'practiced').length,
+    discovered: allTopics.filter(t => t.status === 'discovered').length,
+    locked: allTopics.filter(t => t.status === 'locked').length,
   };
   
-  return (
-    <Card className={className} data-testid="syllabus-mind-map">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <CardTitle className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5" />
-            Learning Mind Map
-          </CardTitle>
-          <div className="flex gap-2">
-            <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-              {stats.mastered} Mastered
-            </Badge>
-            <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-              {stats.practiced} Practicing
-            </Badge>
-            <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-              {stats.discovered} Discovered
-            </Badge>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="relative overflow-hidden rounded-lg bg-muted/20 border">
-          <svg 
-            viewBox={`0 0 ${containerWidth} ${containerHeight}`}
-            className="w-full h-auto"
-            style={{ maxHeight: '400px' }}
-          >
-            <ConnectionLines nodes={nodes} />
-            
-            <ActflDialSvgGroup 
-              cx={centerX} 
-              cy={centerY} 
-              size={100}
-              score={calculateContinuousScore(progress?.currentActflLevel, progress)} 
-              levelInfo={levelInfo} 
-            />
-            
-            {nodes.map(node => (
-              <TopicNodeComponent
-                key={node.id}
-                node={node}
-                isHovered={hoveredNode === node.id}
-                onHover={() => setHoveredNode(node.id)}
-                onLeave={() => setHoveredNode(null)}
+  const hasNoDiscoveredTopics = mode === 'emergent' && visibleTopics.length === 0;
+  
+  if (hasNoDiscoveredTopics) {
+    return (
+      <div className={className} data-testid="mind-map-empty">
+        <div className="flex flex-col items-center justify-center h-[350px] text-center">
+          <div className="relative mb-6">
+            <div className="w-32 h-32 rounded-full bg-muted/30 flex items-center justify-center">
+              <ActflDialSvgGroup 
+                cx={50} 
+                cy={50} 
+                size={80}
+                score={0} 
+                levelInfo={levelInfo}
+                standalone
               />
-            ))}
-          </svg>
+            </div>
+          </div>
+          <h3 className="text-lg font-medium mb-2">Your Journey Begins</h3>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            Start a conversation to discover topics. Each topic you explore will appear here, 
+            forming your personal learning map.
+          </p>
         </div>
-        
-        <div className="mt-4 flex items-center justify-center gap-6 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-green-500" />
-            <span>Mastered</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-blue-500" />
-            <span>Practicing</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-purple-500" />
-            <span>Discovered</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-muted" />
+      </div>
+    );
+  }
+  
+  return (
+    <div className={className} data-testid="syllabus-mind-map">
+      <div className="flex flex-wrap gap-2 mb-3">
+        <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+          {stats.mastered} Mastered
+        </Badge>
+        <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+          {stats.practiced} Practicing
+        </Badge>
+        <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+          {stats.discovered} Discovered
+        </Badge>
+        {mode === 'roadmap' && stats.locked > 0 && (
+          <Badge variant="secondary" className="bg-muted text-muted-foreground">
+            {stats.locked} Unexplored
+          </Badge>
+        )}
+      </div>
+      
+      <div className="relative overflow-hidden rounded-lg bg-muted/20 border">
+        <svg 
+          viewBox={`0 0 ${containerWidth} ${containerHeight}`}
+          className="w-full h-auto"
+          style={{ maxHeight: '350px' }}
+        >
+          <ConnectionLines nodes={nodes} />
+          
+          <ActflDialSvgGroup 
+            cx={centerX} 
+            cy={centerY} 
+            size={100}
+            score={calculateContinuousScore(progress?.currentActflLevel, progress)} 
+            levelInfo={levelInfo} 
+          />
+          
+          {nodes.map(node => (
+            <TopicNodeComponent
+              key={node.id}
+              node={node}
+              isHovered={hoveredNode === node.id}
+              onHover={() => setHoveredNode(node.id)}
+              onLeave={() => setHoveredNode(null)}
+            />
+          ))}
+        </svg>
+      </div>
+      
+      <div className="mt-3 flex items-center justify-center gap-4 md:gap-6 text-xs md:text-sm text-muted-foreground flex-wrap">
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+          <span>Mastered</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+          <span>Practicing</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+          <span>Discovered</span>
+        </div>
+        {mode === 'roadmap' && (
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-muted border" />
             <span>Unexplored</span>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        )}
+      </div>
+    </div>
   );
 }

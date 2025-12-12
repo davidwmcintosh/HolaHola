@@ -150,6 +150,7 @@ interface ActflDialSvgGroupProps {
   score: number;
   levelInfo: ActflLevelInfo;
   showFluencyLabel?: boolean;
+  standalone?: boolean;
 }
 
 export function ActflDialSvgGroup({ 
@@ -159,15 +160,16 @@ export function ActflDialSvgGroup({
   strokeWidth = 8,
   score,
   levelInfo,
-  showFluencyLabel = true
+  showFluencyLabel = true,
+  standalone = false
 }: ActflDialSvgGroupProps) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const progressOffset = circumference - (score / 100) * circumference;
   const halfSize = size / 2;
   
-  return (
-    <g transform={`translate(${cx - halfSize}, ${cy - halfSize})`}>
+  const content = (
+    <g transform={standalone ? undefined : `translate(${cx - halfSize}, ${cy - halfSize})`}>
       <defs>
         <radialGradient id="actflCenterGlow" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stopColor={levelInfo.color} stopOpacity="0.2" />
@@ -226,4 +228,14 @@ export function ActflDialSvgGroup({
       )}
     </g>
   );
+  
+  if (standalone) {
+    return (
+      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}>
+        {content}
+      </svg>
+    );
+  }
+  
+  return content;
 }
