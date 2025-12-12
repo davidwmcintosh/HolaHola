@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import type { ActflProgress } from "@shared/schema";
-import brainImage from "@assets/generated_images/colorful_brain_on_dark_background.png";
+import brainImage from "@assets/generated_images/cartoon_brain_with_colored_lobes.png";
 
 interface TopicNode {
   id: string;
@@ -46,63 +46,70 @@ const SEGMENT_CONFIG: Record<BrainSegment, {
   categories: string[];
   // Orbital position (angle in degrees, distance from center)
   orbit: { angle: number; distance: number };
-  // SVG path for comic-book explosion/splat style shape (100x80 viewBox)
-  splatPath: string;
+  // Soft cloud-like SVG path (100x70 viewBox)
+  cloudPath: string;
+  // Arrow endpoint on brain (relative to brain center, percentage of brain size)
+  arrowTarget: { x: number; y: number };
 }> = {
   frontal: {
     name: 'Communication',
     shortName: 'TALK!',
-    color: '#3B82F6', // blue
-    glowColor: 'rgba(59, 130, 246, 0.6)',
+    color: '#60A5FA', // light blue matching brain
+    glowColor: 'rgba(96, 165, 250, 0.6)',
     icon: MessageSquare,
     categories: ['Social Situations', 'Communication', 'Conversations', 'Introductions'],
-    orbit: { angle: -55, distance: 155 },
-    // Comic explosion shape
-    splatPath: 'M50,2 L58,18 L78,12 L68,28 L95,32 L72,42 L88,58 L65,52 L58,75 L50,55 L42,75 L35,52 L12,58 L28,42 L5,32 L32,28 L22,12 L42,18 Z',
+    orbit: { angle: -55, distance: 150 },
+    // Soft cloud bubble
+    cloudPath: 'M25,35 C10,35 5,25 15,15 C20,5 35,5 45,10 C55,5 70,8 75,18 C85,20 90,32 80,42 C85,52 75,60 60,58 C50,65 30,62 25,52 C12,55 8,45 25,35 Z',
+    arrowTarget: { x: -35, y: -25 }, // Points to frontal lobe area
   },
   parietal: {
     name: 'Practical Skills',
     shortName: 'DO!',
-    color: '#22C55E', // green
-    glowColor: 'rgba(34, 197, 94, 0.6)',
+    color: '#4ADE80', // green matching brain
+    glowColor: 'rgba(74, 222, 128, 0.6)',
     icon: Compass,
     categories: ['Daily Life', 'Travel', 'Directions', 'Shopping', 'Work'],
-    orbit: { angle: -5, distance: 165 },
-    // Starburst shape
-    splatPath: 'M50,0 L55,22 L75,8 L62,28 L98,25 L70,40 L95,55 L65,50 L70,78 L50,58 L30,78 L35,50 L5,55 L30,40 L2,25 L38,28 L25,8 L45,22 Z',
+    orbit: { angle: -15, distance: 160 },
+    // Soft cloud bubble
+    cloudPath: 'M20,38 C8,35 5,22 18,12 C28,2 48,5 55,12 C65,5 82,10 85,25 C95,30 92,48 78,52 C80,62 65,68 50,60 C35,68 15,60 18,48 C5,48 8,40 20,38 Z',
+    arrowTarget: { x: 15, y: -35 }, // Points to parietal lobe area
   },
   temporal: {
     name: 'Vocabulary',
     shortName: 'WORDS!',
-    color: '#F59E0B', // amber/yellow
-    glowColor: 'rgba(245, 158, 11, 0.6)',
+    color: '#FBBF24', // yellow matching brain
+    glowColor: 'rgba(251, 191, 36, 0.6)',
     icon: BookOpen,
     categories: ['Vocabulary', 'Memory', 'Numbers', 'Colors', 'Time'],
-    orbit: { angle: 195, distance: 155 },
-    // Speech bubble explosion
-    splatPath: 'M50,5 L60,15 L82,10 L72,25 L95,30 L75,40 L90,55 L68,50 L55,72 L50,52 L45,72 L32,50 L10,55 L25,40 L5,30 L28,25 L18,10 L40,15 Z',
+    orbit: { angle: 200, distance: 150 },
+    // Soft cloud bubble
+    cloudPath: 'M22,32 C10,28 8,15 22,10 C32,2 52,5 58,15 C68,8 85,15 82,30 C92,38 85,55 70,55 C72,65 55,70 42,62 C28,70 10,60 15,48 C2,45 5,35 22,32 Z',
+    arrowTarget: { x: -30, y: 15 }, // Points to temporal lobe area
   },
   occipital: {
     name: 'Culture',
     shortName: 'FEEL!',
-    color: '#EF4444', // red
-    glowColor: 'rgba(239, 68, 68, 0.6)',
+    color: '#F87171', // red matching brain
+    glowColor: 'rgba(248, 113, 113, 0.6)',
     icon: Palette,
     categories: ['Culture', 'Customs', 'Traditions', 'Food', 'Music', 'Art'],
-    orbit: { angle: 35, distance: 160 },
-    // Burst shape
-    splatPath: 'M50,3 L56,20 L80,15 L65,30 L92,35 L70,45 L85,62 L60,52 L50,75 L40,52 L15,62 L30,45 L8,35 L35,30 L20,15 L44,20 Z',
+    orbit: { angle: 25, distance: 155 },
+    // Soft cloud bubble
+    cloudPath: 'M28,35 C15,32 10,20 25,12 C35,3 55,8 60,18 C72,10 88,18 85,32 C95,40 88,58 72,55 C75,65 58,72 45,62 C30,70 12,58 18,45 C5,42 10,35 28,35 Z',
+    arrowTarget: { x: 35, y: 0 }, // Points to occipital lobe area
   },
   cerebellum: {
     name: 'Grammar',
     shortName: 'BUILD!',
-    color: '#A855F7', // purple
-    glowColor: 'rgba(168, 85, 247, 0.6)',
+    color: '#C084FC', // purple matching brain
+    glowColor: 'rgba(192, 132, 252, 0.6)',
     icon: Settings2,
     categories: ['Grammar', 'Conjugation', 'Tenses', 'Sentence Structure'],
-    orbit: { angle: 155, distance: 165 },
-    // Pow-style explosion
-    splatPath: 'M50,2 L58,18 L78,8 L68,25 L98,28 L72,40 L92,58 L65,50 L60,75 L50,55 L40,75 L35,50 L8,58 L28,40 L2,28 L32,25 L22,8 L42,18 Z',
+    orbit: { angle: 160, distance: 155 },
+    // Soft cloud bubble
+    cloudPath: 'M25,30 C12,25 8,12 25,8 C38,0 58,5 62,18 C75,10 92,22 85,38 C95,48 82,62 65,58 C68,70 48,75 35,65 C20,72 5,58 15,45 C2,40 8,32 25,30 Z',
+    arrowTarget: { x: 20, y: 35 }, // Points to cerebellum area
   },
 };
 
@@ -262,12 +269,13 @@ function LobeSatellite({
                 <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000" floodOpacity="0.3"/>
               </filter>
             </defs>
-            {/* Comic splat shape */}
+            {/* Soft cloud shape */}
             <path
-              d={config.splatPath}
+              d={config.cloudPath}
               fill={`url(#grad-${segment})`}
               stroke="white"
-              strokeWidth="2"
+              strokeWidth="2.5"
+              strokeLinejoin="round"
               filter={`url(#shadow-${segment})`}
               className="transition-transform duration-200 hover:scale-105"
               style={{ transformOrigin: 'center' }}
@@ -585,15 +593,68 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
         )}
       </div>
       
-      {/* Brain visualization container */}
+      {/* Brain visualization container with soft blue cloud background */}
       <div 
-        className="relative mx-auto"
+        className="relative mx-auto rounded-3xl"
         style={{ 
           width: containerWidth, 
-          height: containerHeight + 80, // Extra space for expanded panels
+          height: containerHeight + 120, // Extra space for expanded panels
+          background: 'linear-gradient(135deg, #87CEEB 0%, #B0E0E6 30%, #E0F4FF 60%, #87CEEB 100%)',
         }}
         data-testid="brain-container"
       >
+        {/* Cloud decorations */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-50" preserveAspectRatio="none">
+          <ellipse cx="10%" cy="15%" rx="60" ry="30" fill="white" opacity="0.6"/>
+          <ellipse cx="85%" cy="20%" rx="50" ry="25" fill="white" opacity="0.5"/>
+          <ellipse cx="15%" cy="85%" rx="70" ry="35" fill="white" opacity="0.4"/>
+          <ellipse cx="90%" cy="80%" rx="55" ry="28" fill="white" opacity="0.5"/>
+        </svg>
+        
+        {/* Curved arrows from satellites to brain */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none z-5">
+          <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#374151"/>
+            </marker>
+          </defs>
+          {(['frontal', 'parietal', 'temporal', 'occipital', 'cerebellum'] as BrainSegment[]).map(segment => {
+            const config = SEGMENT_CONFIG[segment];
+            const angle = (config.orbit.angle * Math.PI) / 180;
+            const satelliteX = centerX + Math.cos(angle) * config.orbit.distance;
+            const satelliteY = centerY + Math.sin(angle) * config.orbit.distance;
+            const targetX = centerX + config.arrowTarget.x;
+            const targetY = centerY + config.arrowTarget.y;
+            
+            // Calculate control point for curved arrow
+            const midX = (satelliteX + targetX) / 2;
+            const midY = (satelliteY + targetY) / 2;
+            const curveOffset = 20;
+            const perpAngle = Math.atan2(targetY - satelliteY, targetX - satelliteX) + Math.PI / 2;
+            const ctrlX = midX + Math.cos(perpAngle) * curveOffset;
+            const ctrlY = midY + Math.sin(perpAngle) * curveOffset;
+            
+            // Start point offset from satellite edge
+            const startOffsetX = Math.cos(Math.atan2(targetY - satelliteY, targetX - satelliteX)) * 45;
+            const startOffsetY = Math.sin(Math.atan2(targetY - satelliteY, targetX - satelliteX)) * 35;
+            
+            return (
+              <path
+                key={`arrow-${segment}`}
+                d={`M ${satelliteX + startOffsetX} ${satelliteY + startOffsetY} Q ${ctrlX} ${ctrlY} ${targetX} ${targetY}`}
+                stroke={config.color}
+                strokeWidth="3"
+                fill="none"
+                strokeLinecap="round"
+                markerEnd="url(#arrowhead)"
+                opacity="0.8"
+                className="transition-opacity duration-300"
+                style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }}
+              />
+            );
+          })}
+        </svg>
+        
         {/* Click outside to close expanded panel */}
         {expandedSegment && (
           <div 
