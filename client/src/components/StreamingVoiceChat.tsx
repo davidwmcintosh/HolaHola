@@ -698,12 +698,15 @@ export function StreamingVoiceChat({
           },
           onOpenMicSessionClosed: () => {
             console.log('[OPEN MIC] Server session closed');
-            // CRITICAL: Reset the active ref so restart can work
+            // CRITICAL: Reset both the active ref AND isRecording state so restart can work
             // This is needed because the server session closed unexpectedly
             if (openMicActiveRef.current) {
               console.log('[OPEN MIC] Resetting openMicActiveRef for restart');
               openMicActiveRef.current = false;
             }
+            // Also reset isRecording state to allow restart
+            isRecordingRef.current = false;
+            setIsRecording(false);
             
             // If still in open mic mode and not awaiting response, restart the session
             // Use inputModeRef.current to get current value (avoids stale closure)
