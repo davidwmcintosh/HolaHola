@@ -591,6 +591,110 @@ Created shared module to eliminate duplicate ACTFL visualization code:
 
 ---
 
+### Session: December 12, 2025 - Mind Map as Default Syllabus View
+
+**Overview**: Integrated SyllabusMindMap as the default view in Language Hub's Learning Journey section, replacing the linear syllabus view. Supports both self-directed (emergent) and class-enrolled (roadmap) learning modes.
+
+#### Mind Map Integration Philosophy
+
+Mind map is HolaHola's default way of showing curriculum for everyone. Linear view is an accessibility fallback, not the primary experience. This aligns with our organic, interest-driven exploration approach where learners discover topics through conversation rather than following rigid progressions.
+
+#### Dual Mode System
+
+| Mode | Context | Behavior | Visual |
+|------|---------|----------|--------|
+| **Emergent** | Self-directed learners | Only show discovered topics; locked topics hidden | Map grows organically as topics are explored |
+| **Roadmap** | Class-enrolled students | Show all syllabus topics from start | Constellation "lights up" as topics mastered |
+
+#### SyllabusMindMap Component Updates
+
+**New Props**:
+```typescript
+interface SyllabusMindMapProps {
+  classId?: string;           // For class context
+  language?: string;          // Language filter
+  className?: string;         // Tailwind classes
+  mode?: 'emergent' | 'roadmap';  // NEW: Display mode
+}
+```
+
+**Key Changes**:
+- Made embeddable by removing Card wrapper (parent provides Card in Language Hub)
+- Added `mode` prop for emergent vs roadmap behavior
+- Fixed stats to use `allTopics` while filtering `visibleTopics` for display
+- Added mode-specific legend (shows "Unexplored" only in roadmap mode)
+- Added empty state UI for emergent mode when no topics discovered
+
+**Filtering Logic**:
+```typescript
+// Stats calculated from ALL topics (including locked)
+const stats = {
+  mastered: allTopics.filter(t => t.status === 'mastered').length,
+  practiced: allTopics.filter(t => t.status === 'practiced').length,
+  discovered: allTopics.filter(t => t.status === 'discovered').length,
+  locked: allTopics.filter(t => t.status === 'locked').length,
+};
+
+// But visible nodes filtered for emergent mode
+const visibleTopics = mode === 'emergent' 
+  ? allTopics.filter(t => t.status !== 'locked')
+  : allTopics;
+```
+
+#### ActflDialSvgGroup Standalone Mode
+
+Added `standalone` prop to ActflDialSvgGroup for rendering outside parent SVG context:
+
+```typescript
+interface ActflDialSvgGroupProps {
+  // ... existing props
+  standalone?: boolean;  // NEW: Wrap in SVG element when true
+}
+```
+
+When `standalone=true`, the component returns a wrapped SVG element instead of a `<g>` group. Used for the empty state ACTFL dial in the mind map.
+
+#### View Toggle in Language Hub
+
+**File**: `client/src/pages/review-hub.tsx`
+
+Added view toggle with localStorage persistence:
+- Mind Map view (default) - Brain icon
+- Linear view (fallback) - List icon
+- Stored as `syllabusViewMode` in localStorage
+
+```typescript
+const [syllabusView, setSyllabusView] = useState<'mindmap' | 'linear'>(() => {
+  const saved = localStorage.getItem('syllabusViewMode');
+  return (saved === 'linear' ? 'linear' : 'mindmap');
+});
+```
+
+#### SQL Fix for getUserTopicMastery
+
+**Problem**: Topics table doesn't have a `language` column - topics are language-agnostic.
+
+**Solution**: Removed language filter from topics query. Topics are now fetched globally, with language filtering done via conversation_topics through conversations.
+
+```typescript
+// Before (broken)
+const allTopics = await db.select().from(topicsTable)
+  .where(eq(topicsTable.language, language));
+
+// After (fixed)
+const allTopics = await db.select().from(topicsTable);
+// Language filtering happens via conversations table
+```
+
+#### Files Modified
+
+- `client/src/components/SyllabusMindMap.tsx` - Added mode prop, made embeddable, fixed stats
+- `client/src/components/actfl/actfl-gauge-core.tsx` - Added standalone prop
+- `client/src/pages/review-hub.tsx` - Integrated mind map with view toggle
+- `server/storage.ts` - Fixed getUserTopicMastery SQL (removed language column reference)
+
+---
+
 ## Next Steps / Action Items
 
 ### Completed This Session
