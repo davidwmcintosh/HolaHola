@@ -1792,8 +1792,10 @@ export function StreamingVoiceChat({
    * This avoids WebM header issues with continuous streaming.
    */
   const startOpenMicRecording = async () => {
-    if (openMicActiveRef.current || isRecording) {
-      console.log('[OPEN MIC] Already recording, ignoring');
+    // Only check the ref - the actual source of truth for audio processing
+    // isRecording state can be stale after cleanup
+    if (openMicActiveRef.current) {
+      console.log('[OPEN MIC] Already active (ref check), ignoring');
       return;
     }
     
