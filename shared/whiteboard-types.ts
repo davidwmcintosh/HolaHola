@@ -58,6 +58,8 @@ export const WHITEBOARD_TAGS = {
   // ACTFL Neural Network Commands (internal - processed server-side)
   ACTFL_UPDATE: 'ACTFL_UPDATE',       // Update student's ACTFL proficiency level
   SYLLABUS_PROGRESS: 'SYLLABUS_PROGRESS', // Mark syllabus topics as demonstrated
+  // Daniela's active contribution to the hive mind (internal - processed server-side)
+  HIVE: 'HIVE',                       // Post suggestions/ideas to daniela_suggestions table
   CLEAR: 'CLEAR',
   HOLD: 'HOLD',
 } as const;
@@ -67,7 +69,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'actfl_update' | 'syllabus_progress';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'actfl_update' | 'syllabus_progress' | 'hive';
 
 /**
  * Drill types for inline micro-exercises
@@ -554,6 +556,51 @@ export interface SyllabusProgressItem extends WhiteboardItemBase {
   data: SyllabusProgressItemData;
 }
 
+/**
+ * HIVE item data (internal command - processed server-side)
+ * Daniela uses this to actively contribute ideas, suggestions, and observations
+ * 
+ * Format: [HIVE category="product_feature" title="Mind Map Syllabus" description="Replace linear syllabus with dynamic word map..." priority=8]
+ * 
+ * This is NOT a visual whiteboard element - it writes to daniela_suggestions table
+ * Philosophy: Active contribution to the hive mind - Daniela's ideas reaching the founders
+ * 
+ * Categories:
+ * - self_improvement: Ideas to improve her own teaching/behavior
+ * - content_gap: Missing content she wishes existed
+ * - ux_observation: User experience observations
+ * - teaching_insight: Pedagogical discoveries
+ * - product_feature: New feature ideas for the product
+ * - technical_issue: Technical problems she notices
+ * - student_pattern: Patterns in student behavior/learning
+ * - tool_enhancement: Ideas to improve her existing tools
+ */
+export type HiveCategory = 
+  | 'self_improvement' 
+  | 'content_gap' 
+  | 'ux_observation' 
+  | 'teaching_insight' 
+  | 'product_feature' 
+  | 'technical_issue' 
+  | 'student_pattern' 
+  | 'tool_enhancement';
+
+export interface HiveItemData {
+  category: HiveCategory;           // Type of suggestion
+  title: string;                    // Brief title for the idea
+  description: string;              // Full description of the suggestion
+  reasoning?: string;               // Why Daniela thinks this is important
+  priority?: number;                // 1-10 importance scale (default 5)
+  targetLanguage?: string;          // If language-specific
+  affectedTools?: string[];         // Tools this relates to
+}
+
+export interface HiveItem extends WhiteboardItemBase {
+  type: 'hive';
+  content: string;
+  data: HiveItemData;
+}
+
 export type WhiteboardItem = 
   | WriteItem 
   | PhoneticItem 
@@ -577,7 +624,8 @@ export type WhiteboardItem =
   | SwitchTutorItem
   | CallSupportItem
   | ActflUpdateItem
-  | SyllabusProgressItem;
+  | SyllabusProgressItem
+  | HiveItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -664,6 +712,9 @@ export const WHITEBOARD_PATTERNS = {
   ACTFL_UPDATE: /\[ACTFL_UPDATE\s+level="([^"]+)"\s+confidence=([0-9.]+)\s+reason="([^"]+)"(?:\s+direction="(up|down|confirm)")?\]/gi,
   // [SYLLABUS_PROGRESS topic="present_tense_verbs" status="demonstrated" evidence="Used correctly 5 times"]
   SYLLABUS_PROGRESS: /\[SYLLABUS_PROGRESS\s+topic="([^"]+)"\s+status="(demonstrated|needs_review|struggling)"\s+evidence="([^"]+)"\]/gi,
+  // HIVE: Daniela's active contribution to the hive mind (internal - processed server-side)
+  // [HIVE category="product_feature" title="Mind Map Syllabus" description="Replace linear syllabus..." priority=8]
+  HIVE: /\[HIVE\s+category="(self_improvement|content_gap|ux_observation|teaching_insight|product_feature|technical_issue|student_pattern|tool_enhancement)"\s+title="([^"]+)"\s+description="([^"]+)"(?:\s+reasoning="([^"]+)")?(?:\s+priority=(\d+))?\]/gi,
   CLEAR: /\[CLEAR\]/gi,
   HOLD: /\[HOLD\]/gi,
 } as const;
@@ -675,7 +726,7 @@ export const WHITEBOARD_PATTERNS = {
  * Includes ACTFL Neural Network commands: ACTFL_UPDATE, SYLLABUS_PROGRESS
  */
 export const ALL_WHITEBOARD_MARKUP_PATTERN = 
-  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|TONE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[SWITCH_TUTOR\s+target="(?:male|female)"(?:\s+language="[^"]+")?\]|\[CALL_SUPPORT\s+category="(?:technical|account|billing|content|feedback|other)"\s+reason="[^"]+"(?:\s+priority="(?:low|normal|high|critical)")?(?:\s+context="[^"]+")?\]|\[ACTFL_UPDATE\s+level="[^"]+"\s+confidence=[0-9.]+\s+reason="[^"]+"(?:\s+direction="(?:up|down|confirm)")?\]|\[SYLLABUS_PROGRESS\s+topic="[^"]+"\s+status="(?:demonstrated|needs_review|struggling)"\s+evidence="[^"]+"\]|\[(CLEAR|HOLD)\]/gi;
+  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|TONE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[SWITCH_TUTOR\s+target="(?:male|female)"(?:\s+language="[^"]+")?\]|\[CALL_SUPPORT\s+category="(?:technical|account|billing|content|feedback|other)"\s+reason="[^"]+"(?:\s+priority="(?:low|normal|high|critical)")?(?:\s+context="[^"]+")?\]|\[ACTFL_UPDATE\s+level="[^"]+"\s+confidence=[0-9.]+\s+reason="[^"]+"(?:\s+direction="(?:up|down|confirm)")?\]|\[SYLLABUS_PROGRESS\s+topic="[^"]+"\s+status="(?:demonstrated|needs_review|struggling)"\s+evidence="[^"]+"\]|\[HIVE\s+category="(?:self_improvement|content_gap|ux_observation|teaching_insight|product_feature|technical_issue|student_pattern|tool_enhancement)"\s+title="[^"]+"\s+description="[^"]+"(?:\s+reasoning="[^"]+")?(?:\s+priority=\d+)?\]|\[(CLEAR|HOLD)\]/gi;
 
 /**
  * Generate unique ID for whiteboard items
@@ -1507,6 +1558,30 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
         topic,
         status,
         evidence,
+      },
+    });
+  }
+
+  // Parse HIVE tags (Daniela's active contribution to the hive mind)
+  // Format: [HIVE category="product_feature" title="Mind Map Syllabus" description="Replace linear syllabus..." priority=8]
+  WHITEBOARD_PATTERNS.HIVE.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.HIVE.exec(text)) !== null) {
+    const category = match[1] as HiveCategory;
+    const title = match[2];
+    const description = match[3];
+    const reasoning = match[4] || undefined;
+    const priority = match[5] ? parseInt(match[5], 10) : 5;
+    items.push({
+      type: 'hive',
+      content: `${category}:${title}`,
+      timestamp: now,
+      id: generateItemId(),
+      data: {
+        category,
+        title,
+        description,
+        reasoning,
+        priority,
       },
     });
   }

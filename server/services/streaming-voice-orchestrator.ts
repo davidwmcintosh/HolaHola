@@ -763,9 +763,31 @@ export class StreamingVoiceOrchestrator {
               console.log(`[Assistant Handoff] Daniela delegated to Aris: ${data.type} drill for "${data.focus}" with ${itemsList.length} items`);
             }
             
-            // Filter out internal commands (switch_tutor, actfl_update, syllabus_progress, call_support, call_assistant) - only send visual items to whiteboard
+            // HIVE: Daniela's active contribution to the hive mind
+            // When Daniela formulates an idea, suggestion, or observation to share with founders
+            const hiveItems = whiteboardParsed.whiteboardItems.filter(item => item.type === 'hive');
+            for (const item of hiveItems) {
+              if ('data' in item && item.data) {
+                const data = item.data as { 
+                  category: string;
+                  title: string;
+                  description: string;
+                  reasoning?: string;
+                  priority?: number;
+                  targetLanguage?: string;
+                  affectedTools?: string[];
+                };
+                // Queue hive suggestion (don't block TTS)
+                this.processHiveSuggestion(session, data).catch(err => {
+                  console.error(`[Hive] Error processing suggestion:`, err);
+                });
+                console.log(`[Hive] Daniela posted to hive: "${data.title}" (${data.category}, priority: ${data.priority || 5})`);
+              }
+            }
+            
+            // Filter out internal commands (switch_tutor, actfl_update, syllabus_progress, call_support, call_assistant, hive) - only send visual items to whiteboard
             const visualWhiteboardItems = whiteboardParsed.whiteboardItems.filter(
-              item => !['switch_tutor', 'actfl_update', 'syllabus_progress', 'call_support', 'call_assistant'].includes(item.type)
+              item => !['switch_tutor', 'actfl_update', 'syllabus_progress', 'call_support', 'call_assistant', 'hive'].includes(item.type)
             );
             
             // Send whiteboard update to client (only visual teaching tools)
@@ -2233,6 +2255,67 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       
     } catch (error: any) {
       console.error(`[Syllabus Progress] Failed:`, error.message);
+    }
+  }
+  
+  /**
+   * HIVE: Process Daniela's active contribution to the hive mind
+   * Writes suggestions/ideas to daniela_suggestions table for founder review
+   * 
+   * Valid categories (from suggestion_category enum):
+   * - self_improvement: Ideas to improve her own teaching/behavior
+   * - content_gap: Missing drills, topics, cultural content
+   * - ux_observation: UI/UX issues noticed through student behavior
+   * - teaching_insight: Pedagogical pattern that worked/didn't work
+   * - product_feature: Feature idea for HolaHola
+   */
+  private async processHiveSuggestion(
+    session: StreamingSession,
+    data: { 
+      category: string;
+      title: string;
+      description: string;
+      reasoning?: string;
+      priority?: number;
+    }
+  ): Promise<void> {
+    try {
+      // Validate category against allowed enum values
+      const validCategories = [
+        'self_improvement',
+        'content_gap',
+        'ux_observation',
+        'teaching_insight',
+        'product_feature',
+      ] as const;
+      
+      const category = validCategories.includes(data.category as any) 
+        ? data.category as typeof validCategories[number]
+        : 'self_improvement'; // Default fallback
+      
+      // Validate priority (1-100)
+      const priority = Math.max(1, Math.min(100, data.priority || 50));
+      
+      // Create suggestion in daniela_suggestions table
+      const suggestion = await storage.createDanielaSuggestion({
+        category,
+        status: 'emerging', // Use default status from schema
+        title: data.title.substring(0, 200), // Ensure title fits varchar
+        description: data.description,
+        reasoning: data.reasoning || null,
+        priority,
+        confidence: 80, // Default confidence for voice-generated suggestions
+        generatedInMode: session.isFounderMode ? 'founder_mode' : 'normal_session',
+        conversationId: session.conversationId,
+      });
+      
+      console.log(`[Hive] Suggestion saved #${suggestion.id}: "${data.title}" (${category})`);
+      console.log(`[Hive] Mode: ${session.isFounderMode ? 'founder' : 'normal'}, Priority: ${priority}`);
+      
+    } catch (error: any) {
+      console.error(`[Hive] Failed to save suggestion:`, error.message);
+      // Log the full error for debugging but don't throw - non-blocking operation
+      console.error(`[Hive] Full error:`, error);
     }
   }
   

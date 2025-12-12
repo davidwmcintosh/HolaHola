@@ -156,6 +156,9 @@ import {
   type ArisDrillResult,
   type InsertArisDrillResult,
   arisDrillResults,
+  danielaSuggestions,
+  type DanielaSuggestion,
+  type InsertDanielaSuggestion,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -709,6 +712,9 @@ export interface IStorage {
   updateSupportTicket(id: string, data: Partial<SupportTicket>): Promise<SupportTicket | undefined>;
   createSupportMessage(data: InsertSupportMessage): Promise<SupportMessage>;
   getSupportMessages(ticketId: string): Promise<SupportMessage[]>;
+  
+  // Daniela Suggestions (Hive Mind - Active contributions from Daniela)
+  createDanielaSuggestion(data: InsertDanielaSuggestion): Promise<DanielaSuggestion>;
   
   // Tri-Lane Hive Collaboration APIs
   getCollaborationContext(options?: { domainTags?: string[]; originRole?: string; limit?: number }): Promise<{
@@ -5336,6 +5342,13 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(supportMessages)
       .where(eq(supportMessages.ticketId, ticketId))
       .orderBy(supportMessages.createdAt);
+  }
+  
+  // ===== Daniela Suggestions (Hive Mind - Active contributions) =====
+  
+  async createDanielaSuggestion(data: InsertDanielaSuggestion): Promise<DanielaSuggestion> {
+    const [suggestion] = await db.insert(danielaSuggestions).values(data).returning();
+    return suggestion;
   }
   
   // ===== Tri-Lane Hive Collaboration APIs =====
