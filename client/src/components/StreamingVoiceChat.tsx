@@ -631,9 +631,15 @@ export function StreamingVoiceChat({
             console.log('[STREAMING] Response complete - refreshing messages for', convId);
             queryClient.invalidateQueries({ queryKey: ["/api/conversations", convId, "messages"] });
             
-            // Reset open mic state for next utterance
+            // Reset awaiting flag for next utterance
             isAwaitingResponseRef.current = false;
-            setOpenMicState('idle');
+            // TRUE DUPLEX: Keep green light ready if open mic is active
+            if (inputModeRef.current === 'open-mic' && openMicActiveRef.current) {
+              console.log('[OPEN MIC DUPLEX] Response complete - keeping green light ready');
+              setOpenMicState('ready');
+            } else {
+              setOpenMicState('idle');
+            }
             
             // CRITICAL: Restart open mic session if we're in open-mic mode
             // The server closes the session after each utterance, so we need to restart it
@@ -819,10 +825,11 @@ export function StreamingVoiceChat({
       setAvatarState('speaking');
       // Mark that Daniela has spoken at least once this session
       hasDanielaSpokeOnceRef.current = true;
-      // Ensure green light is OFF while Daniela speaks
-      if (inputModeRef.current === 'open-mic' && openMicState === 'ready') {
-        console.log('[OPEN MIC] Daniela speaking - hiding green light');
-        setOpenMicState('idle');
+      // TRUE DUPLEX: Keep green light ON while Daniela speaks
+      // This indicates the mic is still hot and user can barge-in anytime
+      if (inputModeRef.current === 'open-mic' && openMicState !== 'ready' && openMicActiveRef.current) {
+        console.log('[OPEN MIC DUPLEX] Daniela speaking - keeping green light ON (duplex mode)');
+        setOpenMicState('ready');
       }
     } else if (!streamProcessing) {
       // Not processing AND not playing - reset to idle
