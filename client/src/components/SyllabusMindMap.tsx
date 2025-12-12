@@ -607,36 +607,11 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
     );
   }
   
-  const stats = {
-    mastered: allTopics.filter(t => t.status === 'mastered').length,
-    practiced: allTopics.filter(t => t.status === 'practiced').length,
-    discovered: allTopics.filter(t => t.status === 'discovered').length,
-    locked: allTopics.filter(t => t.status === 'locked').length,
-  };
-  
   // Calculate overall brain glow based on average progress
   const avgProgress = Object.values(segmentProgress).reduce((a, b) => a + b, 0) / 5;
   
   return (
     <div className={className} data-testid="syllabus-mind-map">
-      {/* Stats bar */}
-      <div className="flex flex-wrap gap-2 mb-4 items-center justify-center">
-        <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-          {stats.mastered} Mastered
-        </Badge>
-        <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-          {stats.practiced} Practicing
-        </Badge>
-        <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-          {stats.discovered} Discovered
-        </Badge>
-        {mode === 'roadmap' && stats.locked > 0 && (
-          <Badge variant="secondary" className="bg-muted text-muted-foreground">
-            {stats.locked} Unexplored
-          </Badge>
-        )}
-      </div>
-      
       {/* Brain visualization container - floating without background for cleaner mobile experience */}
       <div 
         className="relative mx-auto"
