@@ -678,8 +678,15 @@ export function StreamingVoiceChat({
           },
           onVadSpeechStarted: () => {
             // TRUE DUPLEX: Always handle VAD speech events for barge-in support
-            console.log('[OPEN MIC] VAD speech started - setting listening state, avatarState=', avatarStateRef.current);
-            setOpenMicState('listening');
+            console.log('[OPEN MIC] VAD speech started - avatarState=', avatarStateRef.current, 'hasDanielaSpokeOnce=', hasDanielaSpokeOnceRef.current);
+            
+            // PHONE CALL MODEL: Only show green light if Daniela has "answered the call" (spoken at least once)
+            // This prevents the confusing premature green light before Daniela greets
+            if (hasDanielaSpokeOnceRef.current) {
+              setOpenMicState('listening');
+            } else {
+              console.log('[OPEN MIC] Daniela hasnt spoken yet - keeping mic blue (waiting for her to answer)');
+            }
             
             // Barge-in: Interrupt tutor if playing (use ref to avoid stale closure)
             if (avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) {
@@ -2136,8 +2143,14 @@ export function StreamingVoiceChat({
               },
               onVadSpeechStarted: () => {
                 // TRUE DUPLEX: Always handle VAD speech events for barge-in support
-                console.log('[OPEN MIC] VAD speech started - setting listening state (reconnect), avatarState=', avatarStateRef.current);
-                setOpenMicState('listening');
+                console.log('[OPEN MIC] VAD speech started (reconnect) - avatarState=', avatarStateRef.current, 'hasDanielaSpokeOnce=', hasDanielaSpokeOnceRef.current);
+                
+                // PHONE CALL MODEL: Only show green light if Daniela has "answered the call" (spoken at least once)
+                if (hasDanielaSpokeOnceRef.current) {
+                  setOpenMicState('listening');
+                } else {
+                  console.log('[OPEN MIC] Daniela hasnt spoken yet - keeping mic blue (reconnect)');
+                }
                 
                 // Barge-in: Interrupt tutor if playing (use ref to avoid stale closure)
                 if (avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) {
