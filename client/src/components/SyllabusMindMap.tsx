@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import type { ActflProgress } from "@shared/schema";
+import { calculateContinuousScore } from "@/components/actfl/actfl-gauge-core";
 import brainImage from "@assets/transparent_colorful_cartoon_brain_Background_Removed_1765564186963.png";
 
 interface TopicNode {
@@ -60,7 +61,7 @@ const SEGMENT_CONFIG: Record<BrainSegment, {
     categories: ['Social Situations', 'Communication', 'Conversations', 'Introductions'],
     orbit: { angle: -55, distance: 150 },
     cloudPath: 'M25,35 C10,35 5,25 15,15 C20,5 35,5 45,10 C55,5 70,8 75,18 C85,20 90,32 80,42 C85,52 75,60 60,58 C50,65 30,62 25,52 C12,55 8,45 25,35 Z',
-    arrowTarget: { x: -55, y: -20 }, // Blue frontal lobe (top-left)
+    arrowTarget: { x: -40, y: -40 }, // Blue frontal lobe (top-left)
   },
   parietal: {
     name: 'Practical Skills',
@@ -71,7 +72,7 @@ const SEGMENT_CONFIG: Record<BrainSegment, {
     categories: ['Daily Life', 'Travel', 'Directions', 'Shopping', 'Work'],
     orbit: { angle: -15, distance: 160 },
     cloudPath: 'M20,38 C8,35 5,22 18,12 C28,2 48,5 55,12 C65,5 82,10 85,25 C95,30 92,48 78,52 C80,62 65,68 50,60 C35,68 15,60 18,48 C5,48 8,40 20,38 Z',
-    arrowTarget: { x: 25, y: -35 }, // Green parietal lobe (top-right)
+    arrowTarget: { x: 10, y: -45 }, // Green parietal lobe (top-center-right)
   },
   temporal: {
     name: 'Vocabulary',
@@ -399,27 +400,8 @@ function LobeSatellite({
 }
 
 function ACTFLMeter({ progress, level }: { progress: ActflProgress | null | undefined; level: string }) {
-  // Parse ACTFL level from format like "novice_low", "intermediate_mid", etc.
-  const actflLevel = progress?.currentActflLevel || 'novice_low';
-  const [mainLevel, subLevel] = actflLevel.split('_');
-  
-  // Calculate overall ACTFL progress percentage based on level (0-100 scale)
-  const levelValues: Record<string, number> = {
-    'novice': 0,
-    'intermediate': 33,
-    'advanced': 66,
-    'superior': 100,
-  };
-  const subLevelValues: Record<string, number> = {
-    'low': 0,
-    'mid': 11,
-    'high': 22,
-  };
-  
-  const overallProgress = Math.min(
-    (levelValues[mainLevel] || 0) + (subLevelValues[subLevel] || 0),
-    100
-  );
+  // Use the same continuous score calculation as the Language Hub dial
+  const overallProgress = calculateContinuousScore(progress?.currentActflLevel, progress);
 
   // Compact half-circle dial with needle
   const size = 80;
@@ -460,11 +442,20 @@ function ACTFLMeter({ progress, level }: { progress: ActflProgress | null | unde
           </filter>
         </defs>
         
+        {/* Semi-transparent background for visibility */}
+        <ellipse
+          cx={center}
+          cy={center}
+          rx={radius + 4}
+          ry={radius / 2 + 8}
+          fill="rgba(0,0,0,0.5)"
+        />
+        
         {/* Background arc */}
         <path
           d={`M ${strokeWidth / 2} ${center} A ${radius} ${radius} 0 0 1 ${size - strokeWidth / 2} ${center}`}
           fill="none"
-          stroke="rgba(255,255,255,0.2)"
+          stroke="rgba(255,255,255,0.4)"
           strokeWidth={strokeWidth}
           strokeLinecap="round"
         />
