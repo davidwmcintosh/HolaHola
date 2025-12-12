@@ -308,19 +308,36 @@ function PhaseIndicator({
   );
 }
 
-function CelebrationOverlay({ onDismiss }: { onDismiss: () => void }) {
+function CelebrationOverlay({ onDismiss, isLastPhase }: { onDismiss: () => void; isLastPhase: boolean }) {
   return (
     <div 
-      className="absolute inset-0 bg-black/50 flex items-center justify-center z-50 rounded-lg"
-      onClick={onDismiss}
+      className="absolute inset-0 bg-black/60 flex items-center justify-center z-50 rounded-lg"
       data-testid="celebration-overlay"
     >
-      <div className="text-center space-y-4 animate-in zoom-in-50 duration-300">
-        <div className="text-6xl">🎉</div>
-        <h2 className="text-2xl font-bold text-white">Phase Complete!</h2>
-        <p className="text-white/80">Your brain has evolved to the next level!</p>
-        <Button onClick={onDismiss} data-testid="button-dismiss-celebration">
-          Continue Learning
+      <div className="text-center space-y-4 animate-in zoom-in-50 duration-300 p-6">
+        <div className="flex justify-center">
+          <div className="p-4 rounded-full bg-yellow-500/20">
+            <Trophy className="h-16 w-16 text-yellow-500" />
+          </div>
+        </div>
+        <h2 className="text-2xl font-bold text-white">
+          {isLastPhase ? 'Brain Mastery Complete!' : 'Phase Complete!'}
+        </h2>
+        <p className="text-white/80">
+          {isLastPhase 
+            ? 'Congratulations! You have mastered all phases!' 
+            : 'Your brain has evolved to the next level!'}
+        </p>
+        <Button 
+          onClick={(e) => {
+            e.stopPropagation();
+            onDismiss();
+          }} 
+          data-testid="button-dismiss-celebration"
+          className="gap-2"
+        >
+          <Star className="h-4 w-4" />
+          {isLastPhase ? 'View Your Mastery' : 'Continue to Next Phase'}
         </Button>
       </div>
     </div>
@@ -490,7 +507,10 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
       
       <div className="relative">
         {showCelebration && (
-          <CelebrationOverlay onDismiss={handleDismissCelebration} />
+          <CelebrationOverlay 
+            onDismiss={handleDismissCelebration} 
+            isLastPhase={currentPhase === 'advanced'}
+          />
         )}
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

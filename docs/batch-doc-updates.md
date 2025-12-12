@@ -6,55 +6,87 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
-### Session: December 12, 2025 - Brain Mind Map Visualization
+### Session: December 12, 2025 - Brain Mind Map with Satellite Cards
 
-**Overview**: Refactored SyllabusMindMap to feature a literal brain illustration at the center with 5 distinct segments (brain lobes) that light up as learners master different topic categories. Topics orbit around their corresponding brain segment, creating visual clustering by category.
+**Overview**: Complete redesign of SyllabusMindMap to feature a colorful brain illustration at center with 5 expandable satellite cards (one per brain lobe). Includes phase progression system (Beginner → Intermediate → Advanced) with celebration animations.
 
-#### Brain Segment Mapping
+#### Phase Progression System
 
-Each brain lobe corresponds to topic categories:
-- **Frontal lobe** (indigo) → Communication/Social (greetings, introductions, conversations)
-- **Temporal lobe** (purple) → Language/Memory (vocabulary, phrases, expressions, idioms)
-- **Parietal lobe** (cyan) → Practical/Spatial (directions, travel, shopping, numbers, time)
-- **Occipital lobe** (amber) → Cultural/Visual (culture, customs, holidays, food, media, art)
-- **Cerebellum** (green) → Grammar/Mechanics (verbs, conjugation, tenses, sentence structure)
+Three learning phases that reset the brain when completed:
+1. **Beginner Brain** → Complete all 5 satellites → 🎉 Celebration → Brain resets
+2. **Intermediate Brain** → Complete all 5 satellites → 🎉 Celebration → Brain resets
+3. **Advanced Brain** → Complete all 5 satellites → 🎉 Final Achievement
 
-#### Topic Shape Types
+Phase indicator at top shows:
+- 3 progress bars (one per phase)
+- Current phase name and description
+- Overall completion percentage
+- "Next Phase" button when 100% complete
 
-Different geometric shapes distinguish topic types:
-- **Triangle** → Grammar topics (verb tenses, conjugation)
-- **Hexagon** → Functional topics (ordering food, asking directions)
-- **Rounded Square** → Subject content (family, travel, food)
-- **Star** → Cultural insights (customs, holidays, idioms)
-- **Circle** → Default/mixed topics
+#### 5 Expandable Satellite Cards
 
-#### Progressive Glow Effects
+Instead of scattered topic nodes, each brain lobe has ONE satellite card:
 
-Brain segments illuminate based on category mastery percentage:
-- 0% → 15% opacity (dim)
-- 1-25% → 30% opacity (beginning glow)
-- 25-50% → 45% opacity (growing)
-- 50-75% → 65% opacity (strong)
-- 75-99% → 85% opacity (near mastery)
-- 100% → 100% opacity with glow effect (fully lit)
+| Lobe | Color | Category | Example Topics |
+|------|-------|----------|----------------|
+| **Frontal** | Blue | Communication/Social | Greetings, Introductions, Conversations |
+| **Parietal** | Green | Practical Skills | Shopping, Directions, Travel, Work |
+| **Temporal** | Yellow | Vocabulary/Memory | Numbers, Colors, Family, Weather |
+| **Occipital** | Red/Coral | Culture | Customs, Food, Music, Art |
+| **Cerebellum** | Purple | Grammar/Mechanics | Conjugation, Tenses, Sentence Structure |
 
-#### Status Visual Effects
+#### Satellite Card Features
 
-- **Discovered** → Gentle pulse animation
-- **Practicing** → Sparkle effect (rotating dots around shape)
-- **Mastered** → Aurora glow (expanding ring animation)
+Each expandable card shows:
+- Category icon + name
+- Progress bar (mastered / total)
+- Click to expand → reveals topic list with status icons
+- Star indicator when category is 100% complete
+
+Topic list items show:
+- Status icon (checkmark=mastered, sparkle=practiced, circle=discovered, lock=unexplored)
+- Topic name
+- Practice count badge
+
+#### Brain Image
+
+Generated colorful educational brain illustration:
+- Anatomically correct lobe positions
+- Bright, friendly colors matching each satellite
+- Subtle glow effect based on overall progress
+- Located: `attached_assets/generated_images/colorful_educational_brain_diagram.png`
+
+#### Celebration Animation
+
+When all 5 satellites reach 100%:
+1. Dark overlay appears
+2. "🎉 Phase Complete!" message
+3. "Your brain has evolved to the next level!" text
+4. "Continue Learning" button advances to next phase
 
 #### Component Architecture
 
-- `client/src/components/BrainSvg.tsx` - Interactive brain SVG with 5 clickable/hoverable segments
-- `client/src/components/TopicShapes.tsx` - Shape library (triangle, hexagon, square, star, circle) with effects
-- `client/src/components/SyllabusMindMap.tsx` - Orchestrates brain + topic clustering with dual mode (emergent/roadmap)
+- `client/src/components/SyllabusMindMap.tsx` - Main orchestrator with:
+  - `PhaseIndicator` - Phase progress and navigation
+  - `SatelliteCard` - Expandable category cards with Collapsible
+  - `TopicListItem` - Individual topic with status
+  - `CelebrationOverlay` - Phase completion animation
 
-#### Key Functions
+#### Key Types
 
-- `getCategorySegment(category)` - Maps topic category to brain segment
-- `getTopicShapeType(topicType, category)` - Determines shape based on topic type
-- `calculateClusteredPositions()` - Groups topics around their corresponding brain segment
+```typescript
+type LearningPhase = 'beginner' | 'intermediate' | 'advanced';
+type BrainSegment = 'frontal' | 'temporal' | 'parietal' | 'occipital' | 'cerebellum';
+```
+
+#### Layout
+
+3-column responsive grid:
+- **Left column**: Frontal + Temporal satellites
+- **Center**: Brain image with glow
+- **Right column**: Parietal + Occipital + Cerebellum satellites
+
+On mobile: Brain at top, satellites stack below
 
 ---
 
