@@ -1556,7 +1556,7 @@ This prevents the mic from staying locked after failed recordings.
 
 ### TODO: Documentation Branding Sweep (Dec 10, 2025)
 
-**Action Required**: Search and replace all instances of "LinguaFlow" with "HolaHola" across documentation files.
+**Action Required**: Search and replace all instances of "HolaHola" with "HolaHola" across documentation files.
 
 **Files to update**:
 - CAPACITOR.md
@@ -2035,7 +2035,7 @@ When Open Mic is production-ready, change:
 #### Email Service (SendGrid Integration)
 - **Configuration**: Uses `SENDGRID_API_KEY` secret for production email delivery
 - **Environment Variables** (now set):
-  - `APP_NAME`: "LinguaFlow" (used in email branding)
+  - `APP_NAME`: "HolaHola" (used in email branding)
   - `APP_URL`: "https://linguaflow.replit.app" (used in email links)
   - `FROM_EMAIL`: "davidwmcintosh@gmail.com" (sender address - must be verified in SendGrid)
 - **Fallback**: Console logging when no email provider configured
@@ -2053,13 +2053,13 @@ When Open Mic is production-ready, change:
 - `client/src/pages/admin/CommandCenter.tsx` - Create User dialog, Pending badge, Send Invitation button
 
 #### Production Checklist Notes
-- ✅ Name change completed: LinguaFlow → **HolaHola**
+- ✅ Name change completed: HolaHola → **HolaHola**
 - Domain: getholahola.com
 - Domain authentication to be configured in SendGrid
 - Currently using Gmail address for sender verification testing
 
 #### Branding Update (Dec 9, 2025)
-- **App Name**: LinguaFlow → HolaHola
+- **App Name**: HolaHola → HolaHola
 - **Domain**: getholahola.com
 - **Capacitor App ID**: com.holahola.app
 - **Updated Files**:

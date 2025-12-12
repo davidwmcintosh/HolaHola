@@ -1,6 +1,6 @@
-# LinguaFlow Admin Guide
+# HolaHola Admin Guide
 
-Guide for administrators using the Command Center and managing the LinguaFlow platform.
+Guide for administrators using the Command Center and managing the HolaHola platform.
 
 ---
 
@@ -291,7 +291,7 @@ Quickly toggle test/beta status for accounts during development.
 
 ## Demo & Test Accounts
 
-### Official LinguaFlow Classes
+### Official HolaHola Classes
 
 All demo students are pre-enrolled in 19 official classes:
 

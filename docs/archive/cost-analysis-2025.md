@@ -1,8 +1,8 @@
-# LinguaFlow Cost Analysis & Pricing (November 2025)
+# HolaHola Cost Analysis & Pricing (November 2025)
 
 ## Executive Summary
 
-This document provides the cost analysis for LinguaFlow's voice tutoring platform, establishing sustainable pricing for both institutional (class-based) and independent (hourly) customers.
+This document provides the cost analysis for HolaHola's voice tutoring platform, establishing sustainable pricing for both institutional (class-based) and independent (hourly) customers.
 
 **Key Finding:** Our cost is **$2.47/hour** of voice tutoring, enabling strong margins across both pricing models.
 
@@ -235,7 +235,7 @@ The **Full Year** package (120 hours/student) is designed for schools requiring 
 
 ### Market Context (2025)
 
-LinguaFlow competes in the language learning technology market against established players with different approaches. Our key differentiator is **live AI voice tutoring** - conversational practice that approximates human tutor interaction at a fraction of the cost.
+HolaHola competes in the language learning technology market against established players with different approaches. Our key differentiator is **live AI voice tutoring** - conversational practice that approximates human tutor interaction at a fraction of the cost.
 
 ### Rosetta Stone
 
@@ -273,9 +273,9 @@ LinguaFlow competes in the language learning technology market against establish
 - Passive learning style (doesn't adapt to individual pace conversationally)
 - Mixed reviews on speech recognition accuracy
 
-### LinguaFlow vs. Rosetta Stone
+### HolaHola vs. Rosetta Stone
 
-| Feature | LinguaFlow | Rosetta Stone |
+| Feature | HolaHola | Rosetta Stone |
 |---------|------------|---------------|
 | **Core Approach** | AI conversation-first | Visual immersion |
 | **Speaking Practice** | Live AI voice tutoring | Scripted pronunciation drills |
@@ -295,18 +295,18 @@ LinguaFlow competes in the language learning technology market against establish
 
 | Provider | Cost | What You Get |
 |----------|------|--------------|
-| **LinguaFlow 5 hrs** | $50 | 5 hours live AI voice tutoring |
+| **HolaHola 5 hrs** | $50 | 5 hours live AI voice tutoring |
 | **Rosetta Stone 12-mo** | $131 | Unlimited drills (no voice tutoring) |
 | **Human Tutor (5 hrs)** | $200-300 | 5 hours 1-on-1 tutoring |
 
-**Value Proposition:** LinguaFlow offers conversational AI tutoring at ~75% less than human tutors. Rosetta Stone offers passive learning with pronunciation feedback - no live conversation.
+**Value Proposition:** HolaHola offers conversational AI tutoring at ~75% less than human tutors. Rosetta Stone offers passive learning with pronunciation feedback - no live conversation.
 
 **For Schools (30 students, 1 year):**
 
 | Provider | Est. Cost | Voice Practice |
 |----------|-----------|----------------|
-| **LinguaFlow Standard** | $3,000 | 20 hrs/student AI tutoring |
-| **LinguaFlow Full Year** | $18,000 | 120 hrs/student AI tutoring |
+| **HolaHola Standard** | $3,000 | 20 hrs/student AI tutoring |
+| **HolaHola Full Year** | $18,000 | 120 hrs/student AI tutoring |
 | **Rosetta Stone Est.** | ~$3,750 | 0 hrs (drills only) |
 | **Human Tutors** | $30,000+ | Limited group sessions |
 
@@ -483,7 +483,7 @@ LinguaFlow competes in the language learning technology market against establish
 
 | App | Monthly | Annual | AI Voice | Languages | Institutional | ACTFL |
 |-----|---------|--------|----------|-----------|---------------|-------|
-| **LinguaFlow** | N/A (hourly) | $50-600 | ✅ Full | 9 | ✅ Full | ✅ Full |
+| **HolaHola** | N/A (hourly) | $50-600 | ✅ Full | 9 | ✅ Full | ✅ Full |
 | Rosetta Stone | $11-15 | $131 | ❌ Drills | 25 | ⚠️ Limited | ⚠️ Claims |
 | Duolingo Max | $14 | $168 | ❌ Text AI | 40+ | ❌ None | ❌ None |
 | Jumpspeak | ~$6.67 | $80 | ⚠️ Limited | 20 | ❌ None | ❌ None |
@@ -495,7 +495,7 @@ LinguaFlow competes in the language learning technology market against establish
 
 ### Competitive Positioning
 
-**LinguaFlow's Unique Value:**
+**HolaHola's Unique Value:**
 1. **True AI voice tutoring** - Real-time conversation with streaming audio, not scripted drills or text chat
 2. **ACTFL standards-aligned** - Only platform with full Can-Do statement tracking for institutions
 3. **Teacher tools** - Curriculum builder, assignments, student progress monitoring, grading
@@ -503,9 +503,9 @@ LinguaFlow competes in the language learning technology market against establish
 5. **Institutional-first design** - Built for schools, not retrofitted from consumer apps
 6. **Cost-effective** - 70-80% cheaper than human tutors, superior to passive apps
 
-**LinguaFlow vs. Key Competitors:**
+**HolaHola vs. Key Competitors:**
 
-| vs. | LinguaFlow Advantage |
+| vs. | HolaHola Advantage |
 |-----|---------------------|
 | **Rosetta Stone** | Live AI conversation vs. scripted drills; 75% cheaper for schools |
 | **Duolingo** | True voice tutoring vs. text AI; full teacher controls vs. none |

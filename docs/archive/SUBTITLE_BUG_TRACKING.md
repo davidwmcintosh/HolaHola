@@ -524,7 +524,7 @@ window._wsDebug         // WebSocket debug state object
    - Listeners registered in connect()
    - Messages may arrive before listeners attached?
 
-### PDF Insight (attached_assets/LinguaFlow_from_GPT_5_1764705612104.pdf):
+### PDF Insight (attached_assets/HolaHola_from_GPT_5_1764705612104.pdf):
 Standard TTS sync pattern from GPT-5 recommendations:
 ```javascript
 audio.ontimeupdate = () => {

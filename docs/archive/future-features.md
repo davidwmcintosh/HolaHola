@@ -1,6 +1,6 @@
-# LinguaFlow - Future Features Roadmap
+# HolaHola - Future Features Roadmap
 
-This document captures all planned and brainstormed features for LinguaFlow, organized by category with priority levels and implementation notes.
+This document captures all planned and brainstormed features for HolaHola, organized by category with priority levels and implementation notes.
 
 ## Priority Legend
 

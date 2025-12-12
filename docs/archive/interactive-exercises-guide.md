@@ -1,6 +1,6 @@
 # Interactive Exercises Guide
 
-How to use LinguaFlow's interactive drill exercises for effective language practice.
+How to use HolaHola's interactive drill exercises for effective language practice.
 
 ---
 

@@ -1,4 +1,4 @@
-# LinguaFlow Official Class Catalog
+# HolaHola Official Class Catalog
 
 **Last Updated:** November 30, 2025
 
@@ -6,7 +6,7 @@
 
 ## Overview
 
-LinguaFlow offers comprehensive language courses across 9 languages, designed for high school students following ACTFL World-Readiness Standards. All courses feature AI-powered voice tutoring with personalized conversation practice.
+HolaHola offers comprehensive language courses across 9 languages, designed for high school students following ACTFL World-Readiness Standards. All courses feature AI-powered voice tutoring with personalized conversation practice.
 
 **Total Curriculum:** 474 lessons across 116 units in 21 courses
 
@@ -125,7 +125,7 @@ Each lesson includes:
 
 ## Course Features
 
-All LinguaFlow courses include:
+All HolaHola courses include:
 
 - **AI Voice Tutoring:** Real-time conversation practice with Cartesia Sonic-3 TTS
 - **ACTFL Alignment:** Progress tracking against World-Readiness Standards
@@ -151,4 +151,4 @@ See `docs/cost-analysis-2025.md` for detailed pricing information.
 
 ---
 
-*Owned by: LinguaFlow Official (linguaflow-official)*
+*Owned by: HolaHola Official (linguaflow-official)*

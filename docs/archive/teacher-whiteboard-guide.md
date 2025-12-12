@@ -1,6 +1,6 @@
 # Teacher Guide: Using Whiteboard Tools
 
-A guide for teachers on leveraging LinguaFlow's whiteboard system to enhance classroom instruction.
+A guide for teachers on leveraging HolaHola's whiteboard system to enhance classroom instruction.
 
 ---
 
@@ -240,7 +240,7 @@ Whiteboard tools support ACTFL goals:
 
 ## Resources for Teachers
 
-### In LinguaFlow
+### In HolaHola
 
 - **Command Center:** View student progress and tool usage
 - **Class Analytics:** See which tools students engage with

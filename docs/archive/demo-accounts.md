@@ -1,4 +1,4 @@
-# LinguaFlow Demo Accounts
+# HolaHola Demo Accounts
 
 **CONFIDENTIAL - For Tester Distribution Only**
 
@@ -8,7 +8,7 @@ Last Updated: December 1, 2025
 
 ## Dual Testing System
 
-LinguaFlow implements a **two-tier testing architecture** to separate internal QA from external beta testing:
+HolaHola implements a **two-tier testing architecture** to separate internal QA from external beta testing:
 
 ### Internal Dev/QA Accounts (`isTestAccount`)
 - **Purpose**: Internal development and quality assurance testing
@@ -65,7 +65,7 @@ These accounts have full access to all teaching features including class managem
 ### Student Accounts Include:
 - Unlimited voice tutoring (no credit limits)
 - Access to all 8 languages (Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, Korean)
-- Pre-enrolled in all LinguaFlow official classes
+- Pre-enrolled in all HolaHola official classes
 - Full vocabulary and grammar access
 - ACTFL progress tracking
 - Review hub access
@@ -81,7 +81,7 @@ These accounts have full access to all teaching features including class managem
 
 ---
 
-## LinguaFlow Official Classes
+## HolaHola Official Classes
 
 All student demo accounts are pre-enrolled in these 19 classes:
 
@@ -146,13 +146,13 @@ For direct database testing or API access:
 | Teacher Demo 1 | demo-teacher-001 |
 | Teacher Demo 2 | demo-teacher-002 |
 | Teacher Demo 3 | demo-teacher-003 |
-| LinguaFlow Official (Class Owner) | linguaflow-official |
+| HolaHola Official (Class Owner) | linguaflow-official |
 
 ---
 
 ## Login Instructions
 
-**Important**: LinguaFlow uses Replit Auth (OIDC) for authentication. These demo accounts are pre-created in the database with the IDs listed above.
+**Important**: HolaHola uses Replit Auth (OIDC) for authentication. These demo accounts are pre-created in the database with the IDs listed above.
 
 **For Testers with Replit Accounts:**
 1. Log in with your Replit account
@@ -165,5 +165,5 @@ Use the database IDs above to test API endpoints directly.
 **For Session Testing:**
 The accounts have been configured with:
 - 100 million seconds of voice tutoring credits (~3 years)
-- Pre-enrollment in all 19 LinguaFlow official classes
+- Pre-enrollment in all 19 HolaHola official classes
 - No subscription restrictions

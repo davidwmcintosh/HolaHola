@@ -1,4 +1,4 @@
-# LinguaFlow Sales Guide
+# HolaHola Sales Guide
 
 Key features, differentiators, and talking points for marketing and sales conversations.
 
@@ -20,7 +20,7 @@ Key features, differentiators, and talking points for marketing and sales conver
 ## Elevator Pitch
 
 **30-Second Version:**
-> LinguaFlow is an AI-powered language tutor that gives every student unlimited 1-on-1 conversation practice. Unlike apps that drill vocabulary, LinguaFlow engages students in real conversations with an AI that adapts to their level, shows visual teaching aids in real-time, and tracks progress against ACTFL standards. It's like having a patient, always-available tutor for every student.
+> HolaHola is an AI-powered language tutor that gives every student unlimited 1-on-1 conversation practice. Unlike apps that drill vocabulary, HolaHola engages students in real conversations with an AI that adapts to their level, shows visual teaching aids in real-time, and tracks progress against ACTFL standards. It's like having a patient, always-available tutor for every student.
 
 **One-Liner:**
 > "The AI language tutor that actually talks with your students."
@@ -187,7 +187,7 @@ Key features, differentiators, and talking points for marketing and sales conver
 
 ### vs. Duolingo
 
-| Duolingo | LinguaFlow |
+| Duolingo | HolaHola |
 |----------|------------|
 | Gamified drills | Real conversations |
 | Limited speaking | Voice-first design |
@@ -195,13 +195,13 @@ Key features, differentiators, and talking points for marketing and sales conver
 | Generic progress | ACTFL standards |
 | No teacher tools | Full class management |
 
-**Positioning:** "Duolingo is great for vocabulary. LinguaFlow is for speaking."
+**Positioning:** "Duolingo is great for vocabulary. HolaHola is for speaking."
 
 ---
 
 ### vs. Private Tutors
 
-| Private Tutors | LinguaFlow |
+| Private Tutors | HolaHola |
 |----------------|------------|
 | $30-60/hour | ~$5/hour of tutoring |
 | Scheduling hassles | Available 24/7 |
@@ -215,7 +215,7 @@ Key features, differentiators, and talking points for marketing and sales conver
 
 ### vs. Language Labs
 
-| Traditional Labs | LinguaFlow |
+| Traditional Labs | HolaHola |
 |------------------|------------|
 | Fixed location | Practice anywhere |
 | Scheduled hours | 24/7 availability |
@@ -258,7 +258,7 @@ Key features, differentiators, and talking points for marketing and sales conver
 
 ### "AI can't replace human teachers."
 
-**Response:** Absolutely right—and we're not trying to. LinguaFlow supplements classroom instruction by giving students the speaking practice time they can't get in a 50-minute class with 25 kids. Teachers stay in control with syllabus customization and progress monitoring.
+**Response:** Absolutely right—and we're not trying to. HolaHola supplements classroom instruction by giving students the speaking practice time they can't get in a 50-minute class with 25 kids. Teachers stay in control with syllabus customization and progress monitoring.
 
 ---
 
@@ -270,7 +270,7 @@ Key features, differentiators, and talking points for marketing and sales conver
 
 ### "We already use [Competitor]."
 
-**Response:** Most apps focus on reading and vocabulary. We focus on speaking—the skill students need most but practice least. LinguaFlow can complement your existing tools or replace outdated language lab software.
+**Response:** Most apps focus on reading and vocabulary. We focus on speaking—the skill students need most but practice least. HolaHola can complement your existing tools or replace outdated language lab software.
 
 ---
 

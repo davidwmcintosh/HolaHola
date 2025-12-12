@@ -83,7 +83,7 @@ Your drill progress is tracked automatically:
 
 ## Pre-Built Drill Content
 
-LinguaFlow includes ready-to-use drill lessons across all 9 supported languages. This content is automatically available in curriculum templates and synced to class syllabi.
+HolaHola includes ready-to-use drill lessons across all 9 supported languages. This content is automatically available in curriculum templates and synced to class syllabi.
 
 ### Numbers 0-20 Drills
 

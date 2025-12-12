@@ -1,7 +1,7 @@
 # Voice Chat Enhancement Summary
 
 ## Overview
-Enhanced LinguaFlow's voice chat system with 4 major improvements focused on immersion, beginner flexibility, and standards-aligned proficiency tracking.
+Enhanced HolaHola's voice chat system with 4 major improvements focused on immersion, beginner flexibility, and standards-aligned proficiency tracking.
 
 ## Completed Phases
 

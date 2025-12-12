@@ -2,7 +2,7 @@
 
 ## Overview
 
-LinguaFlow's streaming voice mode now uses **native word-level timestamps** from Cartesia's WebSocket API for precise subtitle synchronization. This replaces the previous server-side bitrate estimation approach with accurate timing data generated during TTS synthesis.
+HolaHola's streaming voice mode now uses **native word-level timestamps** from Cartesia's WebSocket API for precise subtitle synchronization. This replaces the previous server-side bitrate estimation approach with accurate timing data generated during TTS synthesis.
 
 ## Latest Update: December 2, 2025
 
@@ -312,4 +312,4 @@ resetDebugTimingState();
 **Implementation Date**: December 1, 2025  
 **Last Updated**: December 2, 2025 (Progressive streaming, debug panel, race condition fix)  
 **Status**: Production-ready  
-**Author**: LinguaFlow Development Team
+**Author**: HolaHola Development Team

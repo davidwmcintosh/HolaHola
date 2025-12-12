@@ -6,7 +6,7 @@ Special tools and features for learning Japanese, Mandarin Chinese, and Korean.
 
 ## Overview
 
-LinguaFlow provides specialized support for Asian languages that use non-Latin writing systems:
+HolaHola provides specialized support for Asian languages that use non-Latin writing systems:
 
 - **Japanese:** Hiragana, Katakana, and Kanji with furigana reading guides
 - **Mandarin Chinese:** Simplified and Traditional characters with pinyin

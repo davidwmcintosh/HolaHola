@@ -1,4 +1,4 @@
-# LinguaFlow B2B Institutional Standards Integration Plan
+# HolaHola B2B Institutional Standards Integration Plan
 
 ## ✅ Implementation Status (Updated December 1, 2025)
 
@@ -102,7 +102,7 @@ See `replit.md` → Institutional Features Implementation and Production Polish 
 
 ## Executive Summary
 
-This document outlines how LinguaFlow integrates with state education standards to serve the B2B institutional market (schools, districts, universities). Our goal is to make LinguaFlow the first choice for language teachers by providing comprehensive standards alignment, progress tracking, and administrative features.
+This document outlines how HolaHola integrates with state education standards to serve the B2B institutional market (schools, districts, universities). Our goal is to make HolaHola the first choice for language teachers by providing comprehensive standards alignment, progress tracking, and administrative features.
 
 ## Market Context
 
@@ -143,7 +143,7 @@ This document outlines how LinguaFlow integrates with state education standards 
 
 ### 1.1 Proficiency Level Mapping
 
-**Implementation**: Map all LinguaFlow content to ACTFL proficiency levels
+**Implementation**: Map all HolaHola content to ACTFL proficiency levels
 
 ```
 Database Schema Addition:
@@ -181,10 +181,10 @@ New Database Tables:
 
 ### 1.3 Standards Alignment Documentation
 
-**Deliverable**: PDF "LinguaFlow ACTFL Standards Alignment Guide"
+**Deliverable**: PDF "HolaHola ACTFL Standards Alignment Guide"
 
 Contents:
-- Mapping of LinguaFlow features to 5 C's framework
+- Mapping of HolaHola features to 5 C's framework
 - Proficiency level progression chart (Novice → Advanced)
 - Sample lesson plans aligned to state standards
 - Can-Do statement coverage matrix
@@ -341,7 +341,7 @@ New Routes:
 
 **ACTFL IPA Model**: Combine all 3 communication modes around a common theme
 
-**Proposed LinguaFlow Implementation**:
+**Proposed HolaHola Implementation**:
 
 ```
 Example IPA: "Planning a Trip to Mexico"
@@ -376,7 +376,7 @@ Example IPA: "Planning a Trip to Mexico"
 **State Seals** (e.g., California):
 - Recognition for high school graduates with proficiency in English + 1+ other languages
 
-**LinguaFlow Support**:
+**HolaHola Support**:
 - Track progress toward Intermediate Mid proficiency (typical requirement)
 - Generate documentation for Seal applications
 - Provide ACTFL-aligned assessment data
@@ -442,7 +442,7 @@ Example IPA: "Planning a Trip to Mexico"
 
 | Competitor | Pricing | Voice Tutoring | ACTFL | Key Limitations |
 |------------|---------|----------------|-------|-----------------|
-| **LinguaFlow** | **$50-100/student/year** | ✅ Full AI voice | ✅ Full | - |
+| **HolaHola** | **$50-100/student/year** | ✅ Full AI voice | ✅ Full | - |
 | Rosetta Stone Schools | ~$125/student/year | ❌ Drills only | ⚠️ Claims | No conversational AI, TruAccent only |
 | Duolingo for Schools | Free | ❌ Text AI only | ❌ None | No real-time voice, no teacher controls |
 | Jumpspeak | $80/year (consumer) | ⚠️ Limited | ❌ None | Mobile-only, no institutional features |
@@ -450,9 +450,9 @@ Example IPA: "Planning a Trip to Mexico"
 | Pimsleur | $165/year (consumer) | ❌ Audio only | ❌ None | Pre-recorded content, no interactivity |
 | Talkpal | $60-72/year (consumer) | ✅ GPT text/voice | ❌ None | No curriculum integration, teams only |
 
-**LinguaFlow Competitive Advantages:**
+**HolaHola Competitive Advantages:**
 
-| vs. Competitor | LinguaFlow Advantage |
+| vs. Competitor | HolaHola Advantage |
 |----------------|---------------------|
 | **Rosetta Stone** | Live AI conversation vs. scripted drills; 75% cheaper for schools |
 | **Duolingo** | True voice tutoring vs. text AI; full teacher controls and curriculum |

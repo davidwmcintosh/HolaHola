@@ -370,4 +370,4 @@ Replace flexibility levels with time-aware tools:
 
 ---
 
-*This consultation was conducted to inform the redesign of LinguaFlow's tutor flexibility system.*
+*This consultation was conducted to inform the redesign of HolaHola's tutor flexibility system.*

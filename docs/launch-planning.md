@@ -368,7 +368,7 @@ The `voiceSessions` table captures:
 
 ### The Challenge
 
-**LinguaFlow** is not available as a domain. We need a new name that captures:
+**Note:** We chose "HolaHola" as our brand. Here was our original naming exploration:
 
 - AI-powered / conversational learning
 - Personal / adaptive experience  
@@ -415,7 +415,7 @@ Emphasizes the conversational, voice-first approach - the platform where you *ta
 | **Habla** | Spanish for "speak", 2 syllables, direct | Might seem Spanish-only |
 | **VoxTutor** | "Voice tutor", clear | Sounds technical |
 | **TalkPath** | Journey + speaking | Might be generic |
-| **SpeakFlow** | Voice + natural progression | Similar to LinguaFlow |
+| **SpeakFlow** | Voice + natural progression | Similar to HolaHola |
 
 **Direction B: Made-Up/Brandable** ⭐ *Fully ownable*
 Unique, ownable, no existing meaning - can become whatever you define.
@@ -545,7 +545,7 @@ Like a record label or creative studio - the brand is where great tutors come fr
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | Dec 8, 2025 | Stay on Replit for hosting | Good fit for growth stage, easy scaling, WebSocket support |
-| Dec 8, 2025 | Need new name | LinguaFlow domain unavailable |
+| Dec 8, 2025 | Need new name | HolaHola domain unavailable |
 | Dec 8, 2025 | Commit to Cartesia TTS | Only provider with word timestamps + WebSocket + emotions + laughter. Irreplaceable for Daniela's personality. Will negotiate enterprise pricing. |
 | Dec 8, 2025 | Upgraded to Cartesia Growth | $39/month for 1.25M chars. Enough for ~20 active students. Will use tracked metrics to refine cost model. |
 | | | |
