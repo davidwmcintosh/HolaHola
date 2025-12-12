@@ -6,6 +6,63 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 12, 2025 - Mind Map Visual Polish & Flow Visualization
+
+**Overview**: Major visual refinement of SyllabusMindMap with floating design, flow visualization showing learning activities feeding the brain, and improved color coordination.
+
+#### Floating Design (No Background)
+
+- Removed blue cloud background - brain now floats cleanly
+- Better for mobile users - less visual clutter
+- Transparent brain PNG from user (saved as `attached_assets/transparent_colorful_cartoon_brain_Background_Removed_1765564186963.png`)
+
+#### Satellite Improvements
+
+- **Text stays full brightness**: Labels (TALK!, WORDS!, etc.) always at full opacity
+- **Only fill dims**: Background cloud shape dims based on progress state (dim → semi-lit → lit)
+- **Hover scale effect**: Satellites scale to 110% on hover to indicate clickability
+- **Colored arrow pointers**: Each arrowhead matches its lobe color (blue, green, yellow, red, purple)
+- Removed status badges (Mastered, Practicing, etc.) from top - redundant with fill animation
+
+#### Activity Inputs with Flow Visualization
+
+6 learning activity pills at bottom that visually "feed" the brain:
+
+| Activity | Icon | Purpose |
+|----------|------|---------|
+| Drills | Target | Practice exercises |
+| Voice | Mic | Speaking practice |
+| Cards | Layers | Flashcards |
+| Lessons | GraduationCap | Guided learning |
+| Culture | Globe | Cultural content |
+| Chat | MessageSquare | Conversations |
+
+**Flow lines**: Animated SVG paths rising from each activity, converging toward brain center
+- Gradient color: Teal/Cyan (`rgb(20, 184, 166)`) - distinct from lobe/status colors
+- Animated particles traveling up each line
+- Glow filter for soft, organic feel
+
+**Color choice rationale**: Teal is unused by brain lobes (blue, green, yellow, red, purple) and status badges (green, blue, purple, grey), creating clear visual distinction for "inputs" vs "outputs"
+
+#### Visual Story
+
+```
+Activities (bottom, teal) → Flow lines → Brain (center) → Skill areas (satellite lobes) → ACTFL dial shows level
+```
+
+#### Scaled Up Layout
+
+- Container: 460×420 (was 400×400)
+- Brain image: 230px (was 200px)
+- Brain shifted up slightly to make room for activities below
+- Tight spacing: `-mt-52` pulls activities close to brain
+
+#### Files Modified
+
+- `client/src/components/SyllabusMindMap.tsx` - All visual changes
+
+---
+
 ### Session: December 12, 2025 - Brain Mind Map with Satellite Cards
 
 **Overview**: Complete redesign of SyllabusMindMap to feature a colorful brain illustration at center with 5 expandable satellite cards (one per brain lobe). Includes phase progression system (Beginner → Intermediate → Advanced) with celebration animations.
