@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import type { ActflProgress } from "@shared/schema";
-import brainImage from "@assets/generated_images/colorful_brain_lobes_transparent_background.png";
+import brainImage from "@assets/generated_images/colorful_brain_on_dark_background.png";
 
 interface TopicNode {
   id: string;
@@ -39,59 +39,70 @@ type LightingState = 'dim' | 'semi-lit' | 'lit';
 
 const SEGMENT_CONFIG: Record<BrainSegment, {
   name: string;
+  shortName: string;
   color: string;
   glowColor: string;
   icon: typeof MessageSquare;
   categories: string[];
   // Orbital position (angle in degrees, distance from center)
   orbit: { angle: number; distance: number };
-  // SVG path for lobe shape
-  lobePath: string;
+  // SVG path for comic-book explosion/splat style shape (100x80 viewBox)
+  splatPath: string;
 }> = {
   frontal: {
     name: 'Communication',
+    shortName: 'TALK!',
     color: '#3B82F6', // blue
     glowColor: 'rgba(59, 130, 246, 0.6)',
     icon: MessageSquare,
     categories: ['Social Situations', 'Communication', 'Conversations', 'Introductions'],
-    orbit: { angle: -60, distance: 140 },
-    lobePath: 'M25,5 Q45,0 55,15 Q65,35 55,55 Q45,70 25,65 Q5,60 5,40 Q5,15 25,5',
+    orbit: { angle: -55, distance: 155 },
+    // Comic explosion shape
+    splatPath: 'M50,2 L58,18 L78,12 L68,28 L95,32 L72,42 L88,58 L65,52 L58,75 L50,55 L42,75 L35,52 L12,58 L28,42 L5,32 L32,28 L22,12 L42,18 Z',
   },
   parietal: {
     name: 'Practical Skills',
+    shortName: 'DO!',
     color: '#22C55E', // green
     glowColor: 'rgba(34, 197, 94, 0.6)',
     icon: Compass,
     categories: ['Daily Life', 'Travel', 'Directions', 'Shopping', 'Work'],
-    orbit: { angle: -10, distance: 150 },
-    lobePath: 'M30,5 Q50,0 60,20 Q70,45 55,60 Q35,70 20,55 Q5,40 15,20 Q25,5 30,5',
+    orbit: { angle: -5, distance: 165 },
+    // Starburst shape
+    splatPath: 'M50,0 L55,22 L75,8 L62,28 L98,25 L70,40 L95,55 L65,50 L70,78 L50,58 L30,78 L35,50 L5,55 L30,40 L2,25 L38,28 L25,8 L45,22 Z',
   },
   temporal: {
     name: 'Vocabulary',
+    shortName: 'WORDS!',
     color: '#F59E0B', // amber/yellow
     glowColor: 'rgba(245, 158, 11, 0.6)',
     icon: BookOpen,
     categories: ['Vocabulary', 'Memory', 'Numbers', 'Colors', 'Time'],
-    orbit: { angle: 200, distance: 140 },
-    lobePath: 'M20,10 Q40,0 55,20 Q65,45 50,60 Q30,70 15,55 Q0,35 10,15 Q15,5 20,10',
+    orbit: { angle: 195, distance: 155 },
+    // Speech bubble explosion
+    splatPath: 'M50,5 L60,15 L82,10 L72,25 L95,30 L75,40 L90,55 L68,50 L55,72 L50,52 L45,72 L32,50 L10,55 L25,40 L5,30 L28,25 L18,10 L40,15 Z',
   },
   occipital: {
     name: 'Culture',
+    shortName: 'FEEL!',
     color: '#EF4444', // red
     glowColor: 'rgba(239, 68, 68, 0.6)',
     icon: Palette,
     categories: ['Culture', 'Customs', 'Traditions', 'Food', 'Music', 'Art'],
-    orbit: { angle: 40, distance: 145 },
-    lobePath: 'M30,5 Q50,5 55,25 Q60,50 45,60 Q25,65 15,50 Q5,30 20,15 Q28,5 30,5',
+    orbit: { angle: 35, distance: 160 },
+    // Burst shape
+    splatPath: 'M50,3 L56,20 L80,15 L65,30 L92,35 L70,45 L85,62 L60,52 L50,75 L40,52 L15,62 L30,45 L8,35 L35,30 L20,15 L44,20 Z',
   },
   cerebellum: {
     name: 'Grammar',
+    shortName: 'BUILD!',
     color: '#A855F7', // purple
     glowColor: 'rgba(168, 85, 247, 0.6)',
     icon: Settings2,
     categories: ['Grammar', 'Conjugation', 'Tenses', 'Sentence Structure'],
-    orbit: { angle: 160, distance: 150 },
-    lobePath: 'M25,10 Q45,0 55,20 Q60,45 45,60 Q25,65 15,50 Q5,30 15,15 Q22,8 25,10',
+    orbit: { angle: 155, distance: 165 },
+    // Pow-style explosion
+    splatPath: 'M50,2 L58,18 L78,8 L68,25 L98,28 L72,40 L92,58 L65,50 L60,75 L50,55 L40,75 L35,50 L8,58 L28,40 L2,28 L32,25 L22,8 L42,18 Z',
   },
 };
 
@@ -194,10 +205,11 @@ function LobeSatellite({
     lit: `0 0 25px ${config.glowColor}, 0 0 50px ${config.glowColor}`,
   };
 
-  // Expanded size for in-place expansion
-  const expandedWidth = 200;
-  const expandedHeight = 220;
-  const collapsedSize = 70;
+  // Expanded size for in-place expansion - bigger satellite size
+  const expandedWidth = 220;
+  const expandedHeight = 240;
+  const collapsedWidth = 100;
+  const collapsedHeight = 80;
 
   return (
     <div
@@ -205,20 +217,20 @@ function LobeSatellite({
         isExpanded ? 'z-40' : 'z-10'
       }`}
       style={{
-        left: isExpanded ? x - expandedWidth / 2 : x - collapsedSize / 2,
-        top: isExpanded ? y - collapsedSize / 2 : y - collapsedSize / 2,
-        width: isExpanded ? expandedWidth : collapsedSize,
-        height: isExpanded ? expandedHeight : collapsedSize,
+        left: isExpanded ? x - expandedWidth / 2 : x - collapsedWidth / 2,
+        top: isExpanded ? y - collapsedHeight / 2 : y - collapsedHeight / 2,
+        width: isExpanded ? expandedWidth : collapsedWidth,
+        height: isExpanded ? expandedHeight : collapsedHeight,
         opacity: opacityMap[lightingState],
       }}
       onClick={() => !isExpanded && onToggle()}
       data-testid={`satellite-${segment}`}
     >
-      {/* Background shape - morphs from lobe to rounded rect */}
+      {/* Background shape - morphs from comic splat to rounded rect */}
       <div 
-        className="absolute inset-0 transition-all duration-300 overflow-hidden"
+        className="absolute inset-0 transition-all duration-300 overflow-visible"
         style={{
-          borderRadius: isExpanded ? '16px' : '50%',
+          borderRadius: isExpanded ? '16px' : '0',
           backgroundColor: isExpanded ? 'var(--card)' : 'transparent',
           border: isExpanded ? '1px solid var(--border)' : 'none',
           boxShadow: isExpanded 
@@ -226,7 +238,7 @@ function LobeSatellite({
             : `${glowIntensity[lightingState]}`,
         }}
       >
-        {/* Collapsed: Show lobe SVG */}
+        {/* Collapsed: Show comic-book splat SVG with text */}
         <div 
           className="absolute inset-0 transition-all duration-300"
           style={{ 
@@ -235,61 +247,66 @@ function LobeSatellite({
           }}
         >
           <svg 
-            width="70" 
-            height="70" 
-            viewBox="0 0 70 70"
-            className="w-full h-full"
+            width={collapsedWidth} 
+            height={collapsedHeight} 
+            viewBox="0 0 100 80"
+            className="w-full h-full overflow-visible"
+            style={{ filter: `drop-shadow(${glowIntensity[lightingState]})` }}
           >
             <defs>
               <linearGradient id={`grad-${segment}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor={config.color} stopOpacity="0.9" />
-                <stop offset="100%" stopColor={config.color} stopOpacity="0.6" />
+                <stop offset="0%" stopColor={config.color} stopOpacity="1" />
+                <stop offset="100%" stopColor={config.color} stopOpacity="0.7" />
               </linearGradient>
+              <filter id={`shadow-${segment}`} x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000" floodOpacity="0.3"/>
+              </filter>
             </defs>
+            {/* Comic splat shape */}
             <path
-              d={config.lobePath}
+              d={config.splatPath}
               fill={`url(#grad-${segment})`}
-              stroke={config.color}
-              strokeWidth="2"
-            />
-          </svg>
-          
-          {/* Icon overlay for collapsed state */}
-          <div 
-            className="absolute inset-0 flex items-center justify-center"
-            style={{ color: 'white' }}
-          >
-            <Icon className="h-6 w-6 drop-shadow-md" />
-          </div>
-          
-          {/* Progress ring for collapsed state */}
-          <svg 
-            className="absolute -inset-1 pointer-events-none"
-            width="78" 
-            height="78" 
-            viewBox="0 0 78 78"
-          >
-            <circle
-              cx="39"
-              cy="39"
-              r="36"
-              fill="none"
-              stroke="rgba(255,255,255,0.2)"
-              strokeWidth="3"
-            />
-            <circle
-              cx="39"
-              cy="39"
-              r="36"
-              fill="none"
               stroke="white"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeDasharray={`${(progress / 100) * 226} 226`}
-              transform="rotate(-90 39 39)"
-              style={{ opacity: lightingState === 'dim' ? 0.3 : 0.8 }}
+              strokeWidth="2"
+              filter={`url(#shadow-${segment})`}
+              className="transition-transform duration-200 hover:scale-105"
+              style={{ transformOrigin: 'center' }}
             />
+            {/* Text label inside splat */}
+            <text
+              x="50"
+              y="42"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="white"
+              fontWeight="bold"
+              fontSize="14"
+              fontFamily="system-ui, sans-serif"
+              style={{ 
+                textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
+                letterSpacing: '-0.5px',
+              }}
+            >
+              {config.shortName}
+            </text>
           </svg>
+          
+          {/* Progress bar under the splat */}
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16">
+            <div className="h-1.5 rounded-full bg-black/20 overflow-hidden">
+              <div 
+                className="h-full rounded-full transition-all duration-500"
+                style={{ 
+                  width: `${progress}%`,
+                  backgroundColor: config.color,
+                  opacity: lightingState === 'dim' ? 0.5 : 1,
+                }}
+              />
+            </div>
+            <p className="text-[9px] text-center text-white/80 mt-0.5 font-medium drop-shadow">
+              {mastered}/{total}
+            </p>
+          </div>
         </div>
 
         {/* Expanded: Show content */}
