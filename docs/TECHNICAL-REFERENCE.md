@@ -1,6 +1,6 @@
-# LinguaFlow Technical Reference
+# HolaHola Technical Reference
 
-Developer documentation for the LinguaFlow platform architecture, APIs, and integrations.
+Developer documentation for the HolaHola platform architecture, APIs, and integrations.
 
 ---
 
@@ -593,12 +593,16 @@ async function resolveVocabularyImage(
 ```typescript
 {
   id: string,
-  username: string,
   email: string,
+  firstName: string,
+  lastName: string,
   role: 'student' | 'teacher' | 'admin' | 'developer',
   isTestAccount: boolean,
   isBetaTester: boolean,
-  // ... learning preferences
+  targetLanguage: string,
+  nativeLanguage: string,
+  actflLevel: string,
+  // ... learning preferences, billing fields
 }
 ```
 
@@ -622,7 +626,8 @@ async function resolveVocabularyImage(
   conversationId: string,
   role: 'user' | 'assistant',
   content: string,
-  audioUrl?: string,
+  targetLanguageText?: string,
+  wordTimingsJson?: string,
   actflLevel?: string,
 }
 ```
@@ -636,8 +641,11 @@ async function resolveVocabularyImage(
   translation: string,
   language: string,
   actflLevel: string,
-  mastery: number,
-  nextReviewAt: Date,
+  nextReviewDate: Date,
+  correctCount: number,
+  incorrectCount: number,
+  easeFactor: number,
+  interval: number,
 }
 ```
 
