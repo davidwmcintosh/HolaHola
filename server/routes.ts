@@ -6003,6 +6003,20 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Mind Map: User topic mastery for visualization
+  app.get("/api/conversation-topics/:language", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const language = req.params.language;
+      
+      const topics = await storage.getUserTopicMastery(userId, language);
+      res.json({ topics });
+    } catch (error: any) {
+      console.error('[Topic Mastery] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Cultural Tips
   app.get("/api/cultural-tips/:language", async (req, res) => {
     try {

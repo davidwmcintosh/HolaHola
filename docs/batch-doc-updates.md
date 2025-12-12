@@ -524,6 +524,71 @@ if (missedPongs > MAX_MISSED_PONGS) { ws.terminate(); }
 - `server/storage.ts` - Added `createDanielaSuggestion` method to interface and implementation
 - `server/unified-ws-handler.ts` - Fixed heartbeat to allow 2 missed pongs
 
+#### Mind Map Syllabus Component
+
+New visual component for self-directed learners: `SyllabusMindMap.tsx`
+
+**Concept**:
+- Fluency gauge (ACTFL dial) at center
+- Topic nodes radiate outward as interconnected bubbles
+- Nodes "light up" based on discovery/mastery through conversation
+- No rigid progression path - organic, interest-driven exploration
+- Connections show relationships between topics
+
+**Node States**:
+- `mastered` - Green glow, larger size, practiced 10+ times
+- `practiced` - Blue glow, normal size, active learning
+- `discovered` - Purple glow, smaller, recently encountered
+- `locked` - Muted, unexplored topics
+
+**Technical Details**:
+- SVG-based visualization with radial node positioning
+- Nodes sorted by mastery level (mastered closest to center)
+- Connection lines between related topics
+- Hover interactions with tooltips showing details
+- Legend showing node status meanings
+
+**Props**:
+```typescript
+interface SyllabusMindMapProps {
+  classId?: string;       // For class-enrolled students
+  language?: string;      // Language filter
+  className?: string;     // Tailwind classes
+}
+```
+
+**Backend Support**:
+- API endpoint: `GET /api/conversation-topics/:language`
+- Storage method: `getUserTopicMastery(userId, language)`
+- Aggregates topic usage from `conversation_topics` table
+- Returns topics with status based on practice count thresholds
+
+#### Shared ACTFL Gauge Module
+
+Created shared module to eliminate duplicate ACTFL visualization code:
+
+**File**: `client/src/components/actfl/actfl-gauge-core.tsx`
+
+**Exports**:
+- `ACTFL_LEVELS` - Level metadata array
+- `getLevelInfo(levelKey)` - Get level info from key
+- `getNextLevel(levelKey)` - Get next progression level
+- `estimateProgressWithinLevel(progress)` - Calculate within-level progress
+- `calculateContinuousScore(levelKey, progress)` - Calculate continuous 0-100 score
+- `ActflRingDial` - Standalone ring dial SVG component
+- `ActflDialSvgGroup` - Ring dial for embedding in SVG context
+
+**Consumers**:
+- `ActflFluencyDial.tsx` - Main ACTFL progress display
+- `SyllabusMindMap.tsx` - Center gauge visualization
+
+**Files Created/Modified**:
+- `client/src/components/actfl/actfl-gauge-core.tsx` - NEW: Shared ACTFL primitives
+- `client/src/components/ActflFluencyDial.tsx` - MODIFIED: Uses shared module
+- `client/src/components/SyllabusMindMap.tsx` - MODIFIED: Uses shared module
+- `server/storage.ts` - ADDED: `getUserTopicMastery` method
+- `server/routes.ts` - ADDED: `/api/conversation-topics/:language` endpoint
+
 ---
 
 ## Next Steps / Action Items

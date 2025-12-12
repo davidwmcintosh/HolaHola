@@ -515,6 +515,17 @@ export interface IStorage {
   addConversationTopic(conversationId: string, topicId: string, confidence?: number): Promise<ConversationTopic>;
   getConversationTopics(conversationId: string): Promise<Array<ConversationTopic & { topic: Topic }>>;
   removeConversationTopic(conversationId: string, topicId: string): Promise<boolean>;
+  
+  // Mind Map: Aggregated topic mastery for visualization
+  getUserTopicMastery(userId: string, language: string): Promise<Array<{
+    id: string;
+    name: string;
+    status: 'discovered' | 'practiced' | 'mastered' | 'locked';
+    practiceCount: number;
+    lastPracticed: Date | null;
+    connections: string[];
+    category: string | null;
+  }>>;
 
   // Phase 2: Vocabulary topic tagging
   addVocabularyWordTopic(vocabularyWordId: string, topicId: string): Promise<VocabularyWordTopic>;
@@ -3886,6 +3897,81 @@ export class DatabaseStorage implements IStorage {
         eq(conversationTopics.topicId, topicId)
       ));
     return true;
+  }
+  
+  async getUserTopicMastery(userId: string, language: string): Promise<Array<{
+    id: string;
+    name: string;
+    status: 'discovered' | 'practiced' | 'mastered' | 'locked';
+    practiceCount: number;
+    lastPracticed: Date | null;
+    connections: string[];
+    category: string | null;
+  }>> {
+    // Get all topics for this language
+    const allTopics = await db.select().from(topicsTable)
+      .where(eq(topicsTable.language, language));
+    
+    // Get user's conversations for this language
+    const userConvs = await db.select({ id: conversations.id, updatedAt: conversations.updatedAt })
+      .from(conversations)
+      .where(and(
+        eq(conversations.userId, userId),
+        eq(conversations.language, language)
+      ));
+    
+    const convIds = userConvs.map(c => c.id);
+    
+    // Get topic usage counts from conversation_topics
+    const topicUsage = convIds.length > 0 
+      ? await db.select({
+          topicId: conversationTopics.topicId,
+          count: sql<string>`count(*)::int`.as('count'),
+          lastUsed: sql<string>`max(${conversationTopics.createdAt})`.as('last_used'),
+        })
+        .from(conversationTopics)
+        .where(inArray(conversationTopics.conversationId, convIds))
+        .groupBy(conversationTopics.topicId)
+      : [];
+    
+    const usageMap = new Map(topicUsage.map(t => [
+      t.topicId, 
+      { 
+        count: parseInt(String(t.count)) || 0, 
+        lastUsed: t.lastUsed ? new Date(t.lastUsed) : null 
+      }
+    ]));
+    
+    // Build topic nodes with status
+    return allTopics.map(topic => {
+      const usage = usageMap.get(topic.id);
+      const practiceCount = usage?.count || 0;
+      
+      let status: 'discovered' | 'practiced' | 'mastered' | 'locked' = 'locked';
+      if (practiceCount >= 10) {
+        status = 'mastered';
+      } else if (practiceCount >= 3) {
+        status = 'practiced';
+      } else if (practiceCount >= 1) {
+        status = 'discovered';
+      }
+      
+      // Simple connection logic: connect to adjacent topics by category
+      const sameCategoryTopics = allTopics.filter(t => 
+        t.category === topic.category && t.id !== topic.id
+      );
+      const connections = sameCategoryTopics.slice(0, 2).map(t => t.id);
+      
+      return {
+        id: topic.id,
+        name: topic.name,
+        status,
+        practiceCount,
+        lastPracticed: usage?.lastUsed || null,
+        connections,
+        category: topic.category,
+      };
+    });
   }
 
   // Phase 2: Vocabulary topic tagging

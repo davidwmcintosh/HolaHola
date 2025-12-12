@@ -6,110 +6,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, Award, Target, Zap, HelpCircle, Globe } from "lucide-react";
 import type { ActflProgress } from "@shared/schema";
+import {
+  ACTFL_LEVELS,
+  getLevelInfo,
+  getNextLevel,
+  estimateProgressWithinLevel,
+  calculateContinuousScore,
+  ActflRingDial,
+} from "@/components/actfl/actfl-gauge-core";
 
-const ACTFL_LEVELS = [
-  { key: 'novice_low', label: 'Novice Low', shortLabel: 'NL', score: 0, color: '#ef4444' },
-  { key: 'novice_mid', label: 'Novice Mid', shortLabel: 'NM', score: 9, color: '#f97316' },
-  { key: 'novice_high', label: 'Novice High', shortLabel: 'NH', score: 18, color: '#f59e0b' },
-  { key: 'intermediate_low', label: 'Intermediate Low', shortLabel: 'IL', score: 27, color: '#eab308' },
-  { key: 'intermediate_mid', label: 'Intermediate Mid', shortLabel: 'IM', score: 36, color: '#84cc16' },
-  { key: 'intermediate_high', label: 'Intermediate High', shortLabel: 'IH', score: 45, color: '#22c55e' },
-  { key: 'advanced_low', label: 'Advanced Low', shortLabel: 'AL', score: 54, color: '#10b981' },
-  { key: 'advanced_mid', label: 'Advanced Mid', shortLabel: 'AM', score: 63, color: '#14b8a6' },
-  { key: 'advanced_high', label: 'Advanced High', shortLabel: 'AH', score: 72, color: '#06b6d4' },
-  { key: 'superior', label: 'Superior', shortLabel: 'S', score: 86, color: '#3b82f6' },
-  { key: 'distinguished', label: 'Distinguished', shortLabel: 'D', score: 100, color: '#8b5cf6' },
-];
-
-function getLevelInfo(levelKey: string | null | undefined) {
-  const level = ACTFL_LEVELS.find(l => l.key === levelKey);
-  return level || ACTFL_LEVELS[0];
-}
-
-function getNextLevel(levelKey: string | null | undefined) {
-  const currentIndex = ACTFL_LEVELS.findIndex(l => l.key === levelKey);
-  if (currentIndex === -1 || currentIndex >= ACTFL_LEVELS.length - 1) return null;
-  return ACTFL_LEVELS[currentIndex + 1];
-}
-
-function estimateProgressWithinLevel(progress: ActflProgress | null | undefined): number {
-  if (!progress) return 0;
-  
-  const messagesTarget = 50;
-  const daysTarget = 14;
-  const practiceHoursTarget = 5;
-  
-  const messagesProgress = Math.min(1, (progress.messagesAtCurrentLevel || 0) / messagesTarget);
-  const daysProgress = Math.min(1, (progress.daysAtCurrentLevel || 0) / daysTarget);
-  const practiceProgress = Math.min(1, (progress.practiceHours || 0) / practiceHoursTarget);
-  
-  const grammarScore = progress.grammarScore || 0;
-  const vocabScore = progress.vocabularyScore || 0;
-  const pronunciationScore = progress.avgPronunciationConfidence || 0;
-  const factAverage = (grammarScore + vocabScore + pronunciationScore) / 3;
-  
-  const weights = { messages: 0.3, days: 0.15, practice: 0.15, fact: 0.4 };
-  const weightedProgress = 
-    messagesProgress * weights.messages +
-    daysProgress * weights.days +
-    practiceProgress * weights.practice +
-    factAverage * weights.fact;
-  
-  return Math.min(0.95, weightedProgress);
-}
-
-function calculateContinuousScore(levelKey: string | null | undefined, progress: ActflProgress | null | undefined): number {
-  const levelInfo = getLevelInfo(levelKey);
-  const levelIndex = ACTFL_LEVELS.findIndex(l => l.key === levelKey);
-  const nextLevel = levelIndex < ACTFL_LEVELS.length - 1 ? ACTFL_LEVELS[levelIndex + 1] : null;
-  
-  if (!nextLevel) return levelInfo.score;
-  
-  const progressWithin = estimateProgressWithinLevel(progress);
-  const levelSpan = nextLevel.score - levelInfo.score;
-  
-  return Math.round(levelInfo.score + (progressWithin * levelSpan));
-}
-
-interface MiniRingProps {
-  score: number;
-  color: string;
-  size?: number;
-}
-
-function MiniRing({ score, color, size = 36 }: MiniRingProps) {
-  const strokeWidth = 3;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const progress = (score / 100) * circumference;
-  const center = size / 2;
-  
-  return (
-    <svg width={size} height={size} className="transform -rotate-90">
-      <circle
-        cx={center}
-        cy={center}
-        r={radius}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={strokeWidth}
-        className="text-muted/30"
-      />
-      <circle
-        cx={center}
-        cy={center}
-        r={radius}
-        fill="none"
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={circumference - progress}
-        style={{ transition: 'stroke-dashoffset 0.5s ease-out' }}
-      />
-    </svg>
-  );
-}
 
 interface GaugeDialProps {
   score: number;
@@ -321,7 +226,7 @@ export function ActflFluencyDial({ compact = false, stat = false, language: lang
           <Card className="p-3 cursor-help" data-testid="card-actfl-stat">
             <div className="flex items-center gap-2">
               <div className="relative flex items-center justify-center">
-                <MiniRing score={continuousScore} color={levelInfo.color} size={36} />
+                <ActflRingDial score={continuousScore} color={levelInfo.color} size={36} strokeWidth={3} showLabel={false} />
                 <span 
                   className="absolute text-[10px] font-bold" 
                   style={{ color: levelInfo.color }}
