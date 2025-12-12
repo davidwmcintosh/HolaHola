@@ -207,21 +207,19 @@ export function ImmersiveTutor({
           </div>
         )}
         
-        {/* Open Mic Status Indicators - driven purely by openMicState */}
-        {/* Indicators show based on openMicState alone, not isPlaying or isRecording */}
-        {/* This ensures proper state display during ALL phases of the turn-taking cycle */}
-        {/* GREEN = "Your turn to speak" (ready) or "I hear you" (listening) */}
-        {/* BLUE = "Thinking..." (processing) */}
-        {inputMode === 'open-mic' && (openMicState === 'ready' || openMicState === 'listening' || openMicState === 'processing') && (
+        {/* Open Mic Status Indicators - TRUE DUPLEX MODE */}
+        {/* GREEN indicator stays visible even during Daniela's playback to show mic is hot */}
+        {/* This enables phone-call-like experience where user can barge-in anytime */}
+        {inputMode === 'open-mic' && (openMicState === 'ready' || openMicState === 'listening' || openMicState === 'processing' || isPlaying) && (
           <>
-            {/* Ready State - Solid green light invitation */}
-            {openMicState === 'ready' && (
+            {/* DUPLEX Ready State - Green light during playback (mic is hot, can barge-in) */}
+            {(openMicState === 'ready' || (isPlaying && openMicState !== 'listening' && openMicState !== 'processing')) && (
               <div 
                 className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-green-500/90 text-white rounded-full shadow-lg"
                 data-testid="indicator-ready"
               >
                 <div className="w-3 h-3 bg-white rounded-full" />
-                <span className="text-sm font-medium">Your turn</span>
+                <span className="text-sm font-medium">{isPlaying ? "Mic hot" : "Your turn"}</span>
               </div>
             )}
             
@@ -237,7 +235,7 @@ export function ImmersiveTutor({
             )}
             
             {/* Processing State - Blue indicator */}
-            {openMicState === 'processing' && (
+            {openMicState === 'processing' && !isPlaying && (
               <div 
                 className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-blue-500/90 text-white rounded-full shadow-lg animate-pulse"
                 data-testid="indicator-thinking"
@@ -310,14 +308,14 @@ export function ImmersiveTutor({
           {isConnecting 
             ? `Calling ${tutorGender === 'male' ? maleVoiceName : femaleVoiceName}...` 
             : inputMode === 'open-mic'
-              ? openMicState === 'ready'
-                ? "Your turn - speak now"  // Green light invitation
-                : openMicState === 'listening' 
-                  ? "I hear you..."  // User is speaking
-                  : openMicState === 'processing' 
-                    ? "Let me think..." 
-                    : isPlaying
-                      ? ""  // Daniela speaking - no instruction needed, just listen
+              ? openMicState === 'listening' 
+                ? "I hear you..."  // User is speaking
+                : openMicState === 'processing' && !isPlaying
+                  ? "Let me think..." 
+                  : isPlaying
+                    ? "Interrupt anytime"  // DUPLEX: Mic is hot, can barge-in
+                    : openMicState === 'ready'
+                      ? "Speak anytime"  // Green light invitation
                       : isRecording 
                         ? "Preparing..."  // Mic active, about to be ready
                         : ""  // Auto-starting silently
