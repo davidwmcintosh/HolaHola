@@ -149,6 +149,7 @@ import {
   supportMessages,
   type AgentCollaborationEvent,
   type InsertAgentCollaborationEvent,
+  type SecureAgentMessage,
   agentCollaborationEvents,
   type ArisDrillAssignment,
   type InsertArisDrillAssignment,
@@ -163,7 +164,7 @@ import {
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
 import { db } from "./db";
-import { eq, and, desc, asc, gte, lte, sql, isNull, inArray, or } from "drizzle-orm";
+import { eq, and, desc, asc, gte, lte, gt, ne, sql, isNull, inArray, or } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (Replit Auth Integration)
@@ -5653,6 +5654,99 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions))
       .orderBy(desc(agentCollaborationEvents.createdAt))
       .limit(options?.limit || 20);
+  }
+  
+  // ===== SECURE INTER-AGENT MESSAGING =====
+  // Security-filtered messages for Daniela's context (protects code/architecture from Gemini)
+  
+  async getSecureMessagesForDaniela(options?: {
+    userId?: string;
+    hours?: number;
+    limit?: number;
+  }): Promise<SecureAgentMessage[]> {
+    const since = new Date();
+    since.setHours(since.getHours() - (options?.hours || 48));
+    
+    // Get all messages TO Daniela (or broadcasts)
+    const conditions = [
+      or(
+        eq(agentCollaborationEvents.toAgent, 'daniela'),
+        isNull(agentCollaborationEvents.toAgent)
+      ),
+      gte(agentCollaborationEvents.createdAt, since),
+      // SECURITY: Exclude "internal" messages - they NEVER go to Gemini
+      ne(agentCollaborationEvents.securityClassification, 'internal')
+    ];
+    
+    if (options?.userId) {
+      conditions.push(eq(agentCollaborationEvents.userId, options.userId));
+    }
+    
+    const events = await db.select().from(agentCollaborationEvents)
+      .where(and(...conditions))
+      .orderBy(desc(agentCollaborationEvents.createdAt))
+      .limit(options?.limit || 15);
+    
+    // Transform: For "daniela_summary" type, use publicSummary instead of content
+    return events.map(event => ({
+      id: event.id,
+      fromAgent: event.fromAgent,
+      subject: event.subject,
+      content: event.securityClassification === 'daniela_summary' && event.publicSummary
+        ? event.publicSummary
+        : event.content,
+      eventType: event.eventType,
+      createdAt: event.createdAt,
+    }));
+  }
+  
+  // Get internal-only messages for Command Center (never exposed to Gemini)
+  async getInternalAgentMessages(options?: {
+    hours?: number;
+    limit?: number;
+  }): Promise<AgentCollaborationEvent[]> {
+    const since = new Date();
+    since.setHours(since.getHours() - (options?.hours || 72));
+    
+    return db.select().from(agentCollaborationEvents)
+      .where(and(
+        eq(agentCollaborationEvents.securityClassification, 'internal'),
+        gte(agentCollaborationEvents.createdAt, since)
+      ))
+      .orderBy(desc(agentCollaborationEvents.createdAt))
+      .limit(options?.limit || 50);
+  }
+  
+  // Get department chat messages (real-time feed)
+  async getDepartmentChatMessages(options?: {
+    classification?: 'public' | 'internal' | 'daniela_summary';
+    hours?: number;
+    limit?: number;
+    afterId?: string;
+  }): Promise<AgentCollaborationEvent[]> {
+    const since = new Date();
+    since.setHours(since.getHours() - (options?.hours || 24));
+    
+    const conditions = [
+      gte(agentCollaborationEvents.createdAt, since)
+    ];
+    
+    if (options?.classification) {
+      conditions.push(eq(agentCollaborationEvents.securityClassification, options.classification));
+    }
+    
+    // For polling: only get messages after a certain ID
+    if (options?.afterId) {
+      const afterEvent = await this.getCollaborationEventById(options.afterId);
+      if (afterEvent) {
+        conditions.push(gt(agentCollaborationEvents.createdAt, afterEvent.createdAt));
+      }
+    }
+    
+    return db.select().from(agentCollaborationEvents)
+      .orderBy(desc(agentCollaborationEvents.createdAt))
+      .where(and(...conditions))
+      .limit(options?.limit || 50);
   }
   
   // ===== ARIS (ASSISTANT TUTOR) STORAGE =====

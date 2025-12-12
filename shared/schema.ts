@@ -3710,6 +3710,12 @@ export const agentRoleEnum = pgEnum("agent_role", [
   "editor",     // Development agent (Claude)
 ]);
 
+export const securityClassificationEnum = pgEnum("security_classification", [
+  "public",           // Safe for Gemini - student-facing teaching tips, feature ideas
+  "internal",         // NEVER goes to Gemini - architecture, security, code details
+  "daniela_summary",  // Daniela sees summary only, not full content
+]);
+
 export const agentCollaborationEvents = pgTable("agent_collaboration_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
@@ -3720,9 +3726,18 @@ export const agentCollaborationEvents = pgTable("agent_collaboration_events", {
   // Event classification
   eventType: agentCollaborationEventTypeEnum("event_type").notNull(),
   
+  // SECURITY CLASSIFICATION - Protects code/architecture from Gemini
+  // "public" = safe for Gemini context
+  // "internal" = NEVER goes to Gemini (code, security, architecture)
+  // "daniela_summary" = Daniela sees summary only, not full content
+  securityClassification: securityClassificationEnum("security_classification").notNull().default("public"),
+  
   // The actual message
   subject: varchar("subject", { length: 255 }),
   content: text("content").notNull(),
+  
+  // For "daniela_summary" classification: what Daniela sees instead of full content
+  publicSummary: text("public_summary"),
   
   // Optional structured payload
   metadata: jsonb("metadata").$type<{
@@ -3751,7 +3766,18 @@ export const agentCollaborationEvents = pgTable("agent_collaboration_events", {
   index("idx_collab_events_status").on(table.status),
   index("idx_collab_events_user").on(table.userId),
   index("idx_collab_events_created").on(table.createdAt),
+  index("idx_collab_events_security").on(table.securityClassification),
 ]);
+
+// Helper type for security-filtered messages going to Daniela's context
+export type SecureAgentMessage = {
+  id: string;
+  fromAgent: string;
+  subject: string | null;
+  content: string;       // For "daniela_summary", this is the publicSummary, not the real content
+  eventType: string;
+  createdAt: Date;
+};
 
 export const insertAgentCollaborationEventSchema = createInsertSchema(agentCollaborationEvents).omit({
   id: true,
