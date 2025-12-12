@@ -656,9 +656,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * Handle VAD speech started event (open mic mode)
    */
   const handleVadSpeechStarted = useCallback((message: { type: string }) => {
-    if (isVerboseLoggingEnabled()) {
-      console.log('[StreamingVoice] VAD speech started');
-    }
+    // ALWAYS log VAD events for barge-in debugging
+    console.log('[StreamingVoice] VAD speech started - triggering onVadSpeechStarted callback');
     sessionConfigRef.current?.onVadSpeechStarted?.();
   }, []);
   

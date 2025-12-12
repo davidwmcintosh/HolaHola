@@ -1021,12 +1021,16 @@ Reference past discussions when relevant, but don't force it.
           
           const newSession = new OpenMicSession(languageCode, {
             onSpeechStarted: () => {
-              console.log('[OpenMic] VAD: Speech started');
+              console.log('[OpenMic] VAD: Speech started - sending to client');
               if (ws.readyState === WS.OPEN) {
-                ws.send(JSON.stringify({
+                const msg = JSON.stringify({
                   type: 'vad_speech_started',
                   timestamp: Date.now(),
-                }));
+                });
+                console.log('[OpenMic] Sending vad_speech_started to client');
+                ws.send(msg);
+              } else {
+                console.warn('[OpenMic] WebSocket not open, cannot send vad_speech_started');
               }
             },
             onUtteranceEnd: async (transcript, confidence) => {
