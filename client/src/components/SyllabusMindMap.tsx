@@ -835,24 +835,24 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
       </div>
       
       {/* Activity Inputs with Flow Lines - Learning activities that feed the brain */}
-      <div className="relative" data-testid="activity-inputs-container">
+      <div className="relative -mt-16" data-testid="activity-inputs-container">
         {/* Flow lines SVG - animated gradients rising to brain */}
         <svg 
           className="absolute left-1/2 -translate-x-1/2 bottom-8 pointer-events-none"
           width="400" 
-          height="80"
+          height="50"
           style={{ overflow: 'visible' }}
         >
           <defs>
-            {/* Animated gradient for flow effect */}
+            {/* Animated gradient for flow effect - warm teal/cyan */}
             <linearGradient id="flow-gradient" x1="0%" y1="100%" x2="0%" y2="0%">
-              <stop offset="0%" stopColor="rgba(139, 92, 246, 0.6)">
+              <stop offset="0%" stopColor="rgba(20, 184, 166, 0.6)">
                 <animate attributeName="offset" values="0;0.3;0" dur="2s" repeatCount="indefinite" />
               </stop>
-              <stop offset="30%" stopColor="rgba(139, 92, 246, 0.3)">
+              <stop offset="30%" stopColor="rgba(20, 184, 166, 0.3)">
                 <animate attributeName="offset" values="0.3;0.6;0.3" dur="2s" repeatCount="indefinite" />
               </stop>
-              <stop offset="100%" stopColor="rgba(139, 92, 246, 0)" />
+              <stop offset="100%" stopColor="rgba(20, 184, 166, 0)" />
             </linearGradient>
             
             {/* Glow filter for flow lines */}
@@ -868,10 +868,10 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
           {/* Flow lines from each activity position converging to brain center */}
           {[-150, -90, -30, 30, 90, 150].map((xOffset, i) => {
             const startX = 200 + xOffset;
-            const startY = 75;
-            const endX = 200 + (xOffset * 0.3); // Converge toward center
+            const startY = 45;
+            const endX = 200 + (xOffset * 0.25); // Converge toward center
             const endY = 0;
-            const ctrlY = 35;
+            const ctrlY = 20;
             
             return (
               <g key={i}>
@@ -879,14 +879,14 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
                 <path
                   d={`M ${startX} ${startY} Q ${startX} ${ctrlY} ${endX} ${endY}`}
                   stroke="url(#flow-gradient)"
-                  strokeWidth="3"
+                  strokeWidth="2.5"
                   fill="none"
                   opacity="0.7"
                   filter="url(#flow-glow)"
                   strokeLinecap="round"
                 />
                 {/* Animated particles along path */}
-                <circle r="2" fill="rgba(139, 92, 246, 0.8)">
+                <circle r="2" fill="rgba(20, 184, 166, 0.9)">
                   <animateMotion
                     path={`M ${startX} ${startY} Q ${startX} ${ctrlY} ${endX} ${endY}`}
                     dur={`${1.5 + i * 0.2}s`}
@@ -899,8 +899,8 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
           })}
         </svg>
         
-        {/* Activity pills */}
-        <div className="flex justify-center gap-2 mt-2" data-testid="activity-inputs">
+        {/* Activity pills - teal/cyan theme (unused color) */}
+        <div className="flex justify-center gap-2" data-testid="activity-inputs">
           {[
             { name: 'Drills', Icon: Target },
             { name: 'Voice', Icon: Mic },
@@ -914,16 +914,16 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
               className="flex flex-col items-center cursor-pointer group"
               data-testid={`activity-${activity.name.toLowerCase()}`}
             >
-              {/* Pill-shaped activity button - unified purple/violet theme */}
+              {/* Pill-shaped activity button - teal/cyan theme */}
               <div 
                 className="relative flex items-center gap-1 px-2.5 py-1.5 rounded-full transition-all duration-200 group-hover:scale-105"
                 style={{ 
-                  background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0.3) 100%)',
-                  border: '2px solid rgba(139, 92, 246, 0.4)',
+                  background: 'linear-gradient(135deg, rgba(20, 184, 166, 0.15) 0%, rgba(20, 184, 166, 0.3) 100%)',
+                  border: '2px solid rgba(20, 184, 166, 0.4)',
                 }}
               >
-                <activity.Icon className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400" />
-                <span className="text-xs font-medium text-violet-600 dark:text-violet-300">
+                <activity.Icon className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+                <span className="text-xs font-medium text-teal-700 dark:text-teal-300">
                   {activity.name}
                 </span>
               </div>
