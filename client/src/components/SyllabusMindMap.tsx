@@ -18,7 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Sparkles, Lock, CheckCircle2, Circle, ChevronUp,
   MessageSquare, BookOpen, Compass, Palette, Settings2, X,
-  Target, Layers, GraduationCap
+  Target, Layers, GraduationCap, Globe, Mic
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import type { ActflProgress } from "@shared/schema";
@@ -834,43 +834,102 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
         ))}
       </div>
       
-      {/* Activity Inputs - Learning activities that feed the brain */}
-      <div className="flex justify-center gap-3 mt-2" data-testid="activity-inputs">
-        {[
-          { name: 'Drills', Icon: Target, color: '#60A5FA' },
-          { name: 'Chats', Icon: MessageSquare, color: '#4ADE80' },
-          { name: 'Cards', Icon: Layers, color: '#FBBF24' },
-          { name: 'Lessons', Icon: GraduationCap, color: '#F87171' },
-        ].map((activity) => (
-          <div
-            key={activity.name}
-            className="flex flex-col items-center cursor-pointer group"
-            data-testid={`activity-${activity.name.toLowerCase()}`}
-          >
-            {/* Pill-shaped activity button */}
-            <div 
-              className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-200 group-hover:scale-105"
-              style={{ 
-                background: `linear-gradient(135deg, ${activity.color}20 0%, ${activity.color}40 100%)`,
-                border: `2px solid ${activity.color}50`,
-              }}
+      {/* Activity Inputs with Flow Lines - Learning activities that feed the brain */}
+      <div className="relative" data-testid="activity-inputs-container">
+        {/* Flow lines SVG - animated gradients rising to brain */}
+        <svg 
+          className="absolute left-1/2 -translate-x-1/2 bottom-8 pointer-events-none"
+          width="400" 
+          height="80"
+          style={{ overflow: 'visible' }}
+        >
+          <defs>
+            {/* Animated gradient for flow effect */}
+            <linearGradient id="flow-gradient" x1="0%" y1="100%" x2="0%" y2="0%">
+              <stop offset="0%" stopColor="rgba(139, 92, 246, 0.6)">
+                <animate attributeName="offset" values="0;0.3;0" dur="2s" repeatCount="indefinite" />
+              </stop>
+              <stop offset="30%" stopColor="rgba(139, 92, 246, 0.3)">
+                <animate attributeName="offset" values="0.3;0.6;0.3" dur="2s" repeatCount="indefinite" />
+              </stop>
+              <stop offset="100%" stopColor="rgba(139, 92, 246, 0)" />
+            </linearGradient>
+            
+            {/* Glow filter for flow lines */}
+            <filter id="flow-glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="2" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          
+          {/* Flow lines from each activity position converging to brain center */}
+          {[-150, -90, -30, 30, 90, 150].map((xOffset, i) => {
+            const startX = 200 + xOffset;
+            const startY = 75;
+            const endX = 200 + (xOffset * 0.3); // Converge toward center
+            const endY = 0;
+            const ctrlY = 35;
+            
+            return (
+              <g key={i}>
+                {/* Main flow line */}
+                <path
+                  d={`M ${startX} ${startY} Q ${startX} ${ctrlY} ${endX} ${endY}`}
+                  stroke="url(#flow-gradient)"
+                  strokeWidth="3"
+                  fill="none"
+                  opacity="0.7"
+                  filter="url(#flow-glow)"
+                  strokeLinecap="round"
+                />
+                {/* Animated particles along path */}
+                <circle r="2" fill="rgba(139, 92, 246, 0.8)">
+                  <animateMotion
+                    path={`M ${startX} ${startY} Q ${startX} ${ctrlY} ${endX} ${endY}`}
+                    dur={`${1.5 + i * 0.2}s`}
+                    repeatCount="indefinite"
+                  />
+                  <animate attributeName="opacity" values="0;1;1;0" dur={`${1.5 + i * 0.2}s`} repeatCount="indefinite" />
+                </circle>
+              </g>
+            );
+          })}
+        </svg>
+        
+        {/* Activity pills */}
+        <div className="flex justify-center gap-2 mt-2" data-testid="activity-inputs">
+          {[
+            { name: 'Drills', Icon: Target },
+            { name: 'Voice', Icon: Mic },
+            { name: 'Cards', Icon: Layers },
+            { name: 'Lessons', Icon: GraduationCap },
+            { name: 'Culture', Icon: Globe },
+            { name: 'Chat', Icon: MessageSquare },
+          ].map((activity) => (
+            <div
+              key={activity.name}
+              className="flex flex-col items-center cursor-pointer group"
+              data-testid={`activity-${activity.name.toLowerCase()}`}
             >
-              {/* Arrow pointing up to brain */}
+              {/* Pill-shaped activity button - unified purple/violet theme */}
               <div 
-                className="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 opacity-60 group-hover:opacity-100 transition-opacity"
-                style={{
-                  borderLeft: '5px solid transparent',
-                  borderRight: '5px solid transparent',
-                  borderBottom: `6px solid ${activity.color}`,
+                className="relative flex items-center gap-1 px-2.5 py-1.5 rounded-full transition-all duration-200 group-hover:scale-105"
+                style={{ 
+                  background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0.3) 100%)',
+                  border: '2px solid rgba(139, 92, 246, 0.4)',
                 }}
-              />
-              <activity.Icon className="h-3.5 w-3.5" style={{ color: activity.color }} />
-              <span className="text-sm font-medium" style={{ color: activity.color }}>
-                {activity.name}
-              </span>
+              >
+                <activity.Icon className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400" />
+                <span className="text-xs font-medium text-violet-600 dark:text-violet-300">
+                  {activity.name}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
       
       {/* Instructions hint */}
