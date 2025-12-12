@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import type { ActflProgress } from "@shared/schema";
-import brainImage from "@assets/generated_images/transparent_colorful_cartoon_brain.png";
+import brainImage from "@assets/transparent_colorful_cartoon_brain_Background_Removed_1765564186963.png";
 
 interface TopicNode {
   id: string;
@@ -233,16 +233,14 @@ function LobeSatellite({
       onClick={() => !isExpanded && onToggle()}
       data-testid={`satellite-${segment}`}
     >
-      {/* Background shape - morphs from comic splat to rounded rect */}
+      {/* Background shape - morphs from cloud to rounded card */}
       <div 
-        className="absolute inset-0 transition-all duration-300 overflow-visible"
+        className="absolute inset-0 transition-all duration-300"
         style={{
           borderRadius: isExpanded ? '16px' : '0',
           backgroundColor: isExpanded ? 'var(--card)' : 'transparent',
           border: isExpanded ? '1px solid var(--border)' : 'none',
-          boxShadow: isExpanded 
-            ? '0 20px 40px rgba(0,0,0,0.3)' 
-            : `${glowIntensity[lightingState]}`,
+          boxShadow: isExpanded ? '0 20px 40px rgba(0,0,0,0.3)' : 'none',
         }}
       >
         {/* Collapsed: Show comic-book splat SVG with text */}
