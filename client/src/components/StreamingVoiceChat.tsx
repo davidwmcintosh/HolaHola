@@ -826,9 +826,9 @@ export function StreamingVoiceChat({
       // Mark that Daniela has spoken at least once this session
       hasDanielaSpokeOnceRef.current = true;
       // TRUE DUPLEX: Keep green light ON while Daniela speaks
-      // This indicates the mic is still hot and user can barge-in anytime
-      if (inputModeRef.current === 'open-mic' && openMicState !== 'ready' && openMicActiveRef.current) {
-        console.log('[OPEN MIC DUPLEX] Daniela speaking - keeping green light ON (duplex mode)');
+      // Don't check openMicActiveRef - just show green if we're in open-mic mode
+      if (inputModeRef.current === 'open-mic' && openMicState !== 'ready') {
+        console.log('[OPEN MIC DUPLEX] Daniela speaking - showing green light (duplex mode)');
         setOpenMicState('ready');
       }
     } else if (!streamProcessing) {
