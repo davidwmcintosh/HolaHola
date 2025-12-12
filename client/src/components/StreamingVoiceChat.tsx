@@ -678,16 +678,20 @@ export function StreamingVoiceChat({
           },
           onVadSpeechStarted: () => {
             // TRUE DUPLEX: Always handle VAD speech events for barge-in support
-            console.log('[OPEN MIC] VAD speech started');
+            console.log('[OPEN MIC] VAD speech started - setting listening state');
             setOpenMicState('listening');
             
             // Barge-in: Interrupt tutor if playing
             if (avatarState === 'speaking' || isAwaitingResponseRef.current) {
-              console.log('[BARGE-IN] User speaking while tutor active - sending interrupt signal');
+              console.log('[BARGE-IN] User speaking while tutor active - stopping audio and sending interrupt');
+              // CRITICAL: Stop audio playback immediately on client side
+              streamingVoice.stop();
+              // Also notify server to stop generating
               streamingVoice.sendInterrupt();
               // Reset awaiting flag so new speech is captured
               isAwaitingResponseRef.current = false;
-              // Note: Server will handle stopping TTS and client will receive response_complete
+              // Update avatar state immediately
+              setAvatarState('listening');
             }
           },
           onVadUtteranceEnd: (transcript) => {
@@ -2132,15 +2136,19 @@ export function StreamingVoiceChat({
               },
               onVadSpeechStarted: () => {
                 // TRUE DUPLEX: Always handle VAD speech events for barge-in support
-                console.log('[OPEN MIC] VAD speech started');
+                console.log('[OPEN MIC] VAD speech started - setting listening state (reconnect)');
                 setOpenMicState('listening');
                 
                 // Barge-in: Interrupt tutor if playing
                 if (avatarState === 'speaking' || isAwaitingResponseRef.current) {
-                  console.log('[BARGE-IN] User speaking while tutor active - sending interrupt signal');
+                  console.log('[BARGE-IN] User speaking while tutor active - stopping audio and sending interrupt');
+                  // CRITICAL: Stop audio playback immediately on client side
+                  streamingVoice.stop();
+                  // Also notify server to stop generating
                   streamingVoice.sendInterrupt();
                   isAwaitingResponseRef.current = false;
-                  // Note: Server will handle stopping TTS and client will receive response_complete
+                  // Update avatar state immediately
+                  setAvatarState('listening');
                 }
               },
               onVadUtteranceEnd: (transcript) => {
