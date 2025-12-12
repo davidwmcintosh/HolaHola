@@ -191,6 +191,7 @@ export class OpenMicSession {
   private lastInterimConfidence = 0;
   private chunkCount = 0;
   private totalBytes = 0;
+  private keepaliveInterval: NodeJS.Timeout | null = null;
   
   constructor(language: string, events: OpenMicEvents) {
     this.language = language;
@@ -237,6 +238,19 @@ export class OpenMicSession {
         // Attach Open handler first
         this.connection.on(LiveTranscriptionEvents.Open, () => {
           console.log('[OpenMic] Deepgram Open event received');
+          
+          // Start keepalive ping to prevent Deepgram from closing due to inactivity
+          // Deepgram expects a KeepAlive message to maintain connection
+          this.keepaliveInterval = setInterval(() => {
+            if (this.isOpen && this.connection) {
+              try {
+                this.connection.keepAlive();
+              } catch (e) {
+                // Ignore keepalive errors
+              }
+            }
+          }, 5000); // Send keepalive every 5 seconds
+          
           resolveOnce();
         });
         
@@ -379,6 +393,12 @@ export class OpenMicSession {
    * Close the session
    */
   close(): void {
+    // Clear keepalive interval
+    if (this.keepaliveInterval) {
+      clearInterval(this.keepaliveInterval);
+      this.keepaliveInterval = null;
+    }
+    
     if (this.connection) {
       try {
         this.connection.requestClose();
