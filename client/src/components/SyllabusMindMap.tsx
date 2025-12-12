@@ -327,7 +327,7 @@ function LobeSatellite({
               {config.shortName}
             </text>
             
-            {/* Progress counter - always full brightness */}
+            {/* Progress counter - just the positive number, no cap */}
             <text
               x="50"
               y="55"
@@ -342,7 +342,7 @@ function LobeSatellite({
                 opacity: 1,
               }}
             >
-              {mastered}/{total}
+              {mastered}
             </text>
           </svg>
         </div>
