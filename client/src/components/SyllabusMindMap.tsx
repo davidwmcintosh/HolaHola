@@ -1,40 +1,28 @@
 /**
- * SyllabusMindMap - Interactive brain-based visualization of learning progress
+ * SyllabusMindMap - Brain-based visualization with expandable satellite cards
  * 
  * Features:
- * - Brain at center with 5 segments that light up based on category mastery
- * - Topic nodes orbit around brain using different shapes by type
- * - Nodes cluster by category (brain segment)
- * - Progressive glow effects show mastery level
- * - Fun animations: sparkles for practicing, aurora for mastered
+ * - Colorful brain image at center
+ * - 5 expandable satellite cards (one per brain lobe)
+ * - Phase progression: Beginner → Intermediate → Advanced
+ * - Celebration animation when phase completes
  */
 
 import { useQuery } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, Lock, CheckCircle2, Circle, Brain } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { 
+  Sparkles, Lock, CheckCircle2, Circle, Brain, ChevronDown, ChevronRight,
+  MessageSquare, BookOpen, Compass, Palette, Settings2, Trophy, Star
+} from "lucide-react";
 import { useState, useMemo } from "react";
 import type { ActflProgress } from "@shared/schema";
-import { 
-  getLevelInfo, 
-  calculateContinuousScore,
-  ActflDialSvgGroup 
-} from "@/components/actfl/actfl-gauge-core";
-import { 
-  BrainSvg, 
-  type BrainSegment, 
-  type BrainSegmentData,
-  getCategorySegment,
-  BRAIN_SEGMENT_CATEGORIES
-} from "@/components/BrainSvg";
-import { 
-  TopicShape, 
-  getTopicShapeType, 
-  ShapeLegend,
-  type ShapeType 
-} from "@/components/TopicShapes";
+import brainImage from "@assets/generated_images/colorful_educational_brain_diagram.png";
 
 interface TopicNode {
   id: string;
@@ -47,229 +35,311 @@ interface TopicNode {
   topicType?: string;
 }
 
-interface ClusteredNode {
-  id: string;
+type BrainSegment = 'frontal' | 'temporal' | 'parietal' | 'occipital' | 'cerebellum';
+type LearningPhase = 'beginner' | 'intermediate' | 'advanced';
+
+const SEGMENT_CONFIG: Record<BrainSegment, {
   name: string;
-  x: number;
-  y: number;
-  size: number;
-  status: 'discovered' | 'practiced' | 'mastered' | 'locked';
-  practiceCount: number;
-  connections: string[];
-  category: string;
-  segment: BrainSegment;
-  shapeType: ShapeType;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  icon: typeof Brain;
+  categories: string[];
+  position: { top?: string; bottom?: string; left?: string; right?: string };
+}> = {
+  frontal: {
+    name: 'Communication',
+    color: 'text-blue-600 dark:text-blue-400',
+    bgColor: 'bg-blue-50 dark:bg-blue-950/30',
+    borderColor: 'border-blue-200 dark:border-blue-800',
+    icon: MessageSquare,
+    categories: ['Social Situations', 'Communication', 'Conversations', 'Introductions'],
+    position: { top: '5%', left: '5%' },
+  },
+  parietal: {
+    name: 'Practical Skills',
+    color: 'text-green-600 dark:text-green-400',
+    bgColor: 'bg-green-50 dark:bg-green-950/30',
+    borderColor: 'border-green-200 dark:border-green-800',
+    icon: Compass,
+    categories: ['Daily Life', 'Travel', 'Directions', 'Shopping', 'Work'],
+    position: { top: '5%', right: '5%' },
+  },
+  temporal: {
+    name: 'Vocabulary',
+    color: 'text-yellow-600 dark:text-yellow-400',
+    bgColor: 'bg-yellow-50 dark:bg-yellow-950/30',
+    borderColor: 'border-yellow-200 dark:border-yellow-800',
+    icon: BookOpen,
+    categories: ['Vocabulary', 'Memory', 'Numbers', 'Colors', 'Time'],
+    position: { bottom: '5%', left: '5%' },
+  },
+  occipital: {
+    name: 'Culture',
+    color: 'text-red-600 dark:text-red-400',
+    bgColor: 'bg-red-50 dark:bg-red-950/30',
+    borderColor: 'border-red-200 dark:border-red-800',
+    icon: Palette,
+    categories: ['Culture', 'Customs', 'Traditions', 'Food', 'Music', 'Art'],
+    position: { bottom: '5%', right: '5%' },
+  },
+  cerebellum: {
+    name: 'Grammar',
+    color: 'text-purple-600 dark:text-purple-400',
+    bgColor: 'bg-purple-50 dark:bg-purple-950/30',
+    borderColor: 'border-purple-200 dark:border-purple-800',
+    icon: Settings2,
+    categories: ['Grammar', 'Conjugation', 'Tenses', 'Sentence Structure'],
+    position: { bottom: '25%', right: '5%' },
+  },
+};
+
+const PHASE_CONFIG: Record<LearningPhase, {
+  name: string;
+  description: string;
+  color: string;
+  requiredMastery: number;
+}> = {
+  beginner: {
+    name: 'Beginner Brain',
+    description: 'Building foundations',
+    color: 'text-emerald-600',
+    requiredMastery: 100,
+  },
+  intermediate: {
+    name: 'Intermediate Brain',
+    description: 'Expanding abilities',
+    color: 'text-blue-600',
+    requiredMastery: 100,
+  },
+  advanced: {
+    name: 'Advanced Brain',
+    description: 'Mastering fluency',
+    color: 'text-purple-600',
+    requiredMastery: 100,
+  },
+};
+
+function getCategorySegment(category: string): BrainSegment {
+  const categoryLower = category.toLowerCase();
+  
+  if (['social situations', 'communication', 'conversations', 'introductions', 'greetings'].some(c => categoryLower.includes(c.toLowerCase()))) {
+    return 'frontal';
+  }
+  if (['daily life', 'travel', 'directions', 'shopping', 'work', 'practical'].some(c => categoryLower.includes(c.toLowerCase()))) {
+    return 'parietal';
+  }
+  if (['vocabulary', 'memory', 'numbers', 'colors', 'time', 'family', 'weather'].some(c => categoryLower.includes(c.toLowerCase()))) {
+    return 'temporal';
+  }
+  if (['culture', 'customs', 'traditions', 'food', 'music', 'art'].some(c => categoryLower.includes(c.toLowerCase()))) {
+    return 'occipital';
+  }
+  if (['grammar', 'conjugation', 'tenses', 'sentence', 'verb', 'noun'].some(c => categoryLower.includes(c.toLowerCase()))) {
+    return 'cerebellum';
+  }
+  
+  return 'temporal';
 }
 
-const SEGMENT_POSITIONS: Record<BrainSegment, { angle: number; distance: number }> = {
-  frontal: { angle: -90, distance: 140 },
-  temporal: { angle: 180, distance: 130 },
-  parietal: { angle: 0, distance: 130 },
-  occipital: { angle: 225, distance: 120 },
-  cerebellum: { angle: -45, distance: 120 },
-};
-
-const STATUS_COLORS = {
-  mastered: { fill: '#22c55e', glow: 'rgba(34, 197, 94, 0.4)' },
-  practiced: { fill: '#3b82f6', glow: 'rgba(59, 130, 246, 0.3)' },
-  discovered: { fill: '#a855f7', glow: 'rgba(168, 85, 247, 0.2)' },
-  locked: { fill: 'hsl(var(--muted))', glow: 'transparent' },
-};
-
-const SEGMENT_ANGLE_LIMITS: Record<BrainSegment, { min: number; max: number }> = {
-  frontal: { min: -120, max: -60 },
-  temporal: { min: 150, max: 210 },
-  parietal: { min: -30, max: 30 },
-  occipital: { min: 210, max: 250 },
-  cerebellum: { min: 290, max: 330 },
-};
-
-function calculateClusteredPositions(
-  topics: TopicNode[], 
-  centerX: number, 
-  centerY: number
-): ClusteredNode[] {
-  if (topics.length === 0) return [];
+function TopicListItem({ topic }: { topic: TopicNode }) {
+  const Icon = topic.status === 'mastered' ? CheckCircle2 : 
+               topic.status === 'practiced' ? Sparkles : 
+               topic.status === 'discovered' ? Circle : Lock;
   
-  const nodesBySegment = new Map<BrainSegment, TopicNode[]>();
-  
-  topics.forEach(topic => {
-    const segment = getCategorySegment(topic.category || '');
-    if (!nodesBySegment.has(segment)) {
-      nodesBySegment.set(segment, []);
-    }
-    nodesBySegment.get(segment)!.push(topic);
-  });
-  
-  const nodes: ClusteredNode[] = [];
-  
-  nodesBySegment.forEach((segmentTopics, segment) => {
-    const baseConfig = SEGMENT_POSITIONS[segment];
-    const baseAngleRad = (baseConfig.angle * Math.PI) / 180;
-    const baseDistance = baseConfig.distance;
-    const angleLimits = SEGMENT_ANGLE_LIMITS[segment];
-    const angleRangeRad = ((angleLimits.max - angleLimits.min) * Math.PI) / 180;
-    
-    const sortedTopics = [...segmentTopics].sort((a, b) => {
-      const statusOrder = { mastered: 0, practiced: 1, discovered: 2, locked: 3 };
-      return statusOrder[a.status] - statusOrder[b.status];
-    });
-    
-    const count = sortedTopics.length;
-    
-    sortedTopics.forEach((topic, index) => {
-      const ringIndex = Math.floor(index / 5);
-      const posInRing = index % 5;
-      const nodesInRing = Math.min(5, count - ringIndex * 5);
-      
-      const angleStep = angleRangeRad / (nodesInRing + 1);
-      const angleOffset = (posInRing - (nodesInRing - 1) / 2) * angleStep * 0.6;
-      const distance = baseDistance + ringIndex * 40;
-      
-      const angle = baseAngleRad + angleOffset;
-      const x = centerX + distance * Math.cos(angle);
-      const y = centerY + distance * Math.sin(angle);
-      
-      const sizeMultiplier = topic.status === 'mastered' ? 1.3 : 
-                            topic.status === 'practiced' ? 1.1 : 
-                            topic.status === 'discovered' ? 1.0 : 0.85;
-      
-      nodes.push({
-        id: topic.id,
-        name: topic.name,
-        x,
-        y,
-        size: 28 * sizeMultiplier,
-        status: topic.status,
-        practiceCount: topic.practiceCount,
-        connections: topic.connections,
-        category: topic.category || 'General',
-        segment,
-        shapeType: getTopicShapeType(topic.topicType, topic.category),
-      });
-    });
-  });
-  
-  return nodes;
-}
-
-function ClusteredTopicNode({ 
-  node, 
-  isHovered, 
-  onHover, 
-  onLeave 
-}: { 
-  node: ClusteredNode; 
-  isHovered: boolean; 
-  onHover: () => void; 
-  onLeave: () => void;
-}) {
-  const colors = STATUS_COLORS[node.status];
-  const Icon = node.status === 'mastered' ? CheckCircle2 : 
-               node.status === 'practiced' ? Sparkles : 
-               node.status === 'discovered' ? Circle : Lock;
+  const statusColor = topic.status === 'mastered' ? 'text-green-500' :
+                      topic.status === 'practiced' ? 'text-blue-500' :
+                      topic.status === 'discovered' ? 'text-purple-500' :
+                      'text-muted-foreground';
   
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <g>
-          <TopicShape
-            x={node.x}
-            y={node.y}
-            size={node.size}
-            type={node.shapeType}
-            fill={colors.fill}
-            fillOpacity={node.status === 'locked' ? 0.4 : 1}
-            stroke={isHovered ? '#fff' : 'transparent'}
-            strokeWidth={isHovered ? 2 : 0}
-            isHovered={isHovered}
-            isPulsing={node.status === 'discovered'}
-            isSparkle={node.status === 'practiced'}
-            isAurora={node.status === 'mastered'}
-            onMouseEnter={onHover}
-            onMouseLeave={onLeave}
-          >
-            <text
-              x={node.size / 2}
-              y={node.size / 2}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              className="text-[8px] font-medium pointer-events-none select-none"
-              fill="#fff"
-            >
-              {node.name.length > 6 ? node.name.substring(0, 5) + '..' : node.name}
-            </text>
-          </TopicShape>
-        </g>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-xs">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Icon className="h-4 w-4" />
-            <span className="font-medium">{node.name}</span>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {node.status === 'mastered' && 'Mastered through conversation'}
-            {node.status === 'practiced' && `Practiced ${node.practiceCount} times`}
-            {node.status === 'discovered' && 'Recently discovered'}
-            {node.status === 'locked' && 'Not yet explored'}
-          </p>
-          <div className="flex gap-1">
-            <Badge variant="outline" className="text-xs">{node.category}</Badge>
-            <Badge variant="secondary" className="text-xs capitalize">{node.shapeType}</Badge>
-          </div>
-        </div>
-      </TooltipContent>
-    </Tooltip>
+    <div 
+      className={`flex items-center gap-2 py-1.5 px-2 rounded-md text-sm ${
+        topic.status === 'locked' ? 'opacity-50' : ''
+      }`}
+      data-testid={`topic-item-${topic.id}`}
+    >
+      <Icon className={`h-4 w-4 flex-shrink-0 ${statusColor}`} />
+      <span className={topic.status === 'mastered' ? 'font-medium' : ''}>
+        {topic.name}
+      </span>
+      {topic.practiceCount > 0 && (
+        <Badge variant="secondary" className="ml-auto text-xs h-5">
+          {topic.practiceCount}x
+        </Badge>
+      )}
+    </div>
   );
 }
 
-function ConnectionLines({ nodes }: { nodes: ClusteredNode[] }) {
-  const lines: JSX.Element[] = [];
-  const drawnConnections = new Set<string>();
+function SatelliteCard({ 
+  segment, 
+  topics,
+  isExpanded,
+  onToggle,
+}: { 
+  segment: BrainSegment;
+  topics: TopicNode[];
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const config = SEGMENT_CONFIG[segment];
+  const Icon = config.icon;
   
-  nodes.forEach(node => {
-    node.connections.forEach(targetId => {
-      const connectionKey = [node.id, targetId].sort().join('-');
-      if (drawnConnections.has(connectionKey)) return;
-      drawnConnections.add(connectionKey);
-      
-      const targetNode = nodes.find(n => n.id === targetId);
-      if (!targetNode) return;
-      
-      const opacity = (node.status !== 'locked' && targetNode.status !== 'locked') ? 0.25 : 0.08;
-      
-      lines.push(
-        <line
-          key={connectionKey}
-          x1={node.x}
-          y1={node.y}
-          x2={targetNode.x}
-          y2={targetNode.y}
-          stroke="currentColor"
-          strokeWidth={1}
-          strokeDasharray="4 4"
-          className="text-muted-foreground"
-          style={{ opacity }}
-        />
-      );
-    });
-  });
+  const mastered = topics.filter(t => t.status === 'mastered').length;
+  const total = topics.length;
+  const progress = total > 0 ? (mastered / total) * 100 : 0;
+  const isComplete = progress === 100 && total > 0;
   
-  return <>{lines}</>;
+  return (
+    <Card 
+      className={`${config.bgColor} ${config.borderColor} border overflow-hidden transition-all duration-200 ${
+        isComplete ? 'ring-2 ring-green-500/50' : ''
+      }`}
+      data-testid={`satellite-${segment}`}
+    >
+      <Collapsible open={isExpanded} onOpenChange={onToggle}>
+        <CollapsibleTrigger asChild>
+          <Button
+            variant="ghost"
+            className="w-full justify-between p-3 h-auto hover:bg-transparent"
+            data-testid={`satellite-toggle-${segment}`}
+          >
+            <div className="flex items-center gap-2">
+              <div className={`p-1.5 rounded-md ${config.bgColor}`}>
+                <Icon className={`h-4 w-4 ${config.color}`} />
+              </div>
+              <div className="text-left">
+                <div className={`font-medium text-sm ${config.color}`}>
+                  {config.name}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {mastered}/{total} mastered
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {isComplete && (
+                <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+              )}
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              )}
+            </div>
+          </Button>
+        </CollapsibleTrigger>
+        
+        <div className="px-3 pb-2">
+          <Progress value={progress} className="h-1.5" />
+        </div>
+        
+        <CollapsibleContent>
+          <div className="px-3 pb-3 space-y-0.5 max-h-40 overflow-y-auto">
+            {topics.length > 0 ? (
+              topics.map(topic => (
+                <TopicListItem key={topic.id} topic={topic} />
+              ))
+            ) : (
+              <p className="text-xs text-muted-foreground py-2 text-center">
+                No topics discovered yet
+              </p>
+            )}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  );
+}
+
+function PhaseIndicator({ 
+  phase, 
+  overallProgress,
+  onPhaseComplete,
+}: { 
+  phase: LearningPhase;
+  overallProgress: number;
+  onPhaseComplete?: () => void;
+}) {
+  const config = PHASE_CONFIG[phase];
+  const phases: LearningPhase[] = ['beginner', 'intermediate', 'advanced'];
+  const currentIndex = phases.indexOf(phase);
+  
+  return (
+    <div className="flex items-center justify-between mb-4" data-testid="phase-indicator">
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1">
+          {phases.map((p, i) => (
+            <div
+              key={p}
+              className={`h-2 w-8 rounded-full transition-colors ${
+                i < currentIndex ? 'bg-green-500' :
+                i === currentIndex ? 'bg-primary' :
+                'bg-muted'
+              }`}
+            />
+          ))}
+        </div>
+        <div>
+          <h3 className={`font-semibold ${config.color}`}>{config.name}</h3>
+          <p className="text-xs text-muted-foreground">{config.description}</p>
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-2">
+        <div className="text-right">
+          <div className="text-lg font-bold">{Math.round(overallProgress)}%</div>
+          <div className="text-xs text-muted-foreground">Complete</div>
+        </div>
+        {overallProgress === 100 && (
+          <Button 
+            size="sm" 
+            className="gap-1"
+            onClick={onPhaseComplete}
+            data-testid="button-next-phase"
+          >
+            <Trophy className="h-4 w-4" />
+            Next Phase
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CelebrationOverlay({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div 
+      className="absolute inset-0 bg-black/50 flex items-center justify-center z-50 rounded-lg"
+      onClick={onDismiss}
+      data-testid="celebration-overlay"
+    >
+      <div className="text-center space-y-4 animate-in zoom-in-50 duration-300">
+        <div className="text-6xl">🎉</div>
+        <h2 className="text-2xl font-bold text-white">Phase Complete!</h2>
+        <p className="text-white/80">Your brain has evolved to the next level!</p>
+        <Button onClick={onDismiss} data-testid="button-dismiss-celebration">
+          Continue Learning
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 const DEMO_TOPICS: TopicNode[] = [
-  { id: '1', name: 'Greetings', status: 'mastered', practiceCount: 15, connections: ['3', '4'], category: 'Social Situations', topicType: 'subject' },
-  { id: '2', name: 'Numbers', status: 'mastered', practiceCount: 12, connections: ['4', '8'], category: 'Daily Life', topicType: 'subject' },
-  { id: '3', name: 'Family', status: 'practiced', practiceCount: 8, connections: ['1', '5'], category: 'Vocabulary', topicType: 'subject' },
-  { id: '4', name: 'Shopping', status: 'practiced', practiceCount: 5, connections: ['2', '6'], category: 'Daily Life', topicType: 'function' },
-  { id: '5', name: 'Weather', status: 'discovered', practiceCount: 2, connections: ['3'], category: 'Vocabulary', topicType: 'subject' },
-  { id: '6', name: 'Food', status: 'discovered', practiceCount: 3, connections: ['4', '9'], category: 'Culture', topicType: 'subject' },
-  { id: '7', name: 'Past Tense', status: 'practiced', practiceCount: 6, connections: ['10'], category: 'Grammar', topicType: 'grammar' },
-  { id: '8', name: 'Directions', status: 'discovered', practiceCount: 1, connections: ['2'], category: 'Travel', topicType: 'function' },
-  { id: '9', name: 'Customs', status: 'locked', practiceCount: 0, connections: ['6'], category: 'Culture', topicType: 'subject' },
-  { id: '10', name: 'Conjugation', status: 'locked', practiceCount: 0, connections: ['7'], category: 'Grammar', topicType: 'grammar' },
+  { id: '1', name: 'Greetings', status: 'mastered', practiceCount: 15, connections: [], category: 'Social Situations', topicType: 'subject' },
+  { id: '2', name: 'Introductions', status: 'mastered', practiceCount: 12, connections: [], category: 'Communication', topicType: 'subject' },
+  { id: '3', name: 'Family Members', status: 'practiced', practiceCount: 8, connections: [], category: 'Vocabulary', topicType: 'subject' },
+  { id: '4', name: 'Shopping', status: 'practiced', practiceCount: 5, connections: [], category: 'Daily Life', topicType: 'function' },
+  { id: '5', name: 'Weather', status: 'discovered', practiceCount: 2, connections: [], category: 'Vocabulary', topicType: 'subject' },
+  { id: '6', name: 'Food & Cuisine', status: 'discovered', practiceCount: 3, connections: [], category: 'Culture', topicType: 'subject' },
+  { id: '7', name: 'Past Tense', status: 'practiced', practiceCount: 6, connections: [], category: 'Grammar', topicType: 'grammar' },
+  { id: '8', name: 'Asking Directions', status: 'discovered', practiceCount: 1, connections: [], category: 'Travel', topicType: 'function' },
+  { id: '9', name: 'Customs', status: 'locked', practiceCount: 0, connections: [], category: 'Culture', topicType: 'subject' },
+  { id: '10', name: 'Verb Conjugation', status: 'locked', practiceCount: 0, connections: [], category: 'Grammar', topicType: 'grammar' },
+  { id: '11', name: 'Numbers 1-100', status: 'mastered', practiceCount: 20, connections: [], category: 'Vocabulary', topicType: 'subject' },
+  { id: '12', name: 'Colors', status: 'mastered', practiceCount: 18, connections: [], category: 'Vocabulary', topicType: 'subject' },
 ];
 
 interface SyllabusMindMapProps {
@@ -280,10 +350,14 @@ interface SyllabusMindMapProps {
 }
 
 export function SyllabusMindMap({ classId, language: languageProp, className, mode = 'emergent' }: SyllabusMindMapProps) {
-  const { language: globalLanguage } = useLanguage();
+  const { language: globalLanguage, difficulty } = useLanguage();
   const language = languageProp ?? globalLanguage;
-  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
-  const [hoveredSegment, setHoveredSegment] = useState<BrainSegment | null>(null);
+  const [expandedSegments, setExpandedSegments] = useState<Set<BrainSegment>>(new Set());
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [currentPhase, setCurrentPhase] = useState<LearningPhase>(
+    difficulty === 'advanced' ? 'advanced' : 
+    difficulty === 'intermediate' ? 'intermediate' : 'beginner'
+  );
   
   const { data: progress, isLoading: progressLoading } = useQuery<ActflProgress | null>({
     queryKey: ['/api/actfl-progress', language],
@@ -304,46 +378,79 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
     return allTopics;
   }, [allTopics, mode]);
   
-  const levelInfo = getLevelInfo(progress?.currentActflLevel);
-  
-  const containerWidth = 550;
-  const containerHeight = 450;
-  const centerX = containerWidth / 2;
-  const centerY = containerHeight / 2;
-  
-  const nodes = useMemo(() => 
-    calculateClusteredPositions(visibleTopics, centerX, centerY),
-    [visibleTopics, centerX, centerY]
-  );
-  
-  const brainSegments = useMemo((): BrainSegmentData[] => {
+  const topicsBySegment = useMemo(() => {
     const segments: BrainSegment[] = ['frontal', 'temporal', 'parietal', 'occipital', 'cerebellum'];
+    const result: Record<BrainSegment, TopicNode[]> = {
+      frontal: [],
+      temporal: [],
+      parietal: [],
+      occipital: [],
+      cerebellum: [],
+    };
     
-    return segments.map(segment => {
-      const segmentTopics = allTopics.filter(t => getCategorySegment(t.category || '') === segment);
-      const masteredCount = segmentTopics.filter(t => t.status === 'mastered').length;
-      const total = segmentTopics.length;
-      const masteryPercent = total > 0 ? (masteredCount / total) * 100 : 0;
-      
-      return {
-        segment,
-        label: segment.charAt(0).toUpperCase() + segment.slice(1),
-        categories: BRAIN_SEGMENT_CATEGORIES[segment],
-        masteryPercent,
-      };
+    visibleTopics.forEach(topic => {
+      const segment = getCategorySegment(topic.category || '');
+      result[segment].push(topic);
     });
-  }, [allTopics]);
+    
+    return result;
+  }, [visibleTopics]);
+  
+  const segmentProgress = useMemo(() => {
+    const segments: BrainSegment[] = ['frontal', 'temporal', 'parietal', 'occipital', 'cerebellum'];
+    return segments.map(segment => {
+      const topics = topicsBySegment[segment];
+      const mastered = topics.filter(t => t.status === 'mastered').length;
+      const total = topics.length;
+      return total > 0 ? (mastered / total) * 100 : 0;
+    });
+  }, [topicsBySegment]);
+  
+  const overallProgress = useMemo(() => {
+    const totalMastered = visibleTopics.filter(t => t.status === 'mastered').length;
+    const total = visibleTopics.length;
+    return total > 0 ? (totalMastered / total) * 100 : 0;
+  }, [visibleTopics]);
+  
+  const toggleSegment = (segment: BrainSegment) => {
+    setExpandedSegments(prev => {
+      const next = new Set(prev);
+      if (next.has(segment)) {
+        next.delete(segment);
+      } else {
+        next.add(segment);
+      }
+      return next;
+    });
+  };
+  
+  const handlePhaseComplete = () => {
+    setShowCelebration(true);
+  };
+  
+  const handleDismissCelebration = () => {
+    setShowCelebration(false);
+    const phases: LearningPhase[] = ['beginner', 'intermediate', 'advanced'];
+    const currentIndex = phases.indexOf(currentPhase);
+    if (currentIndex < phases.length - 1) {
+      setCurrentPhase(phases[currentIndex + 1]);
+    }
+  };
   
   const isLoading = progressLoading || topicsLoading;
   
   if (isLoading) {
     return (
       <div className={className} data-testid="mind-map-loading">
-        <div className="flex items-center justify-center h-[400px]">
-          <div className="text-center">
-            <Skeleton className="h-[300px] w-[450px] rounded-lg mx-auto" />
-            <p className="text-sm text-muted-foreground mt-4">Building your learning brain...</p>
+        <div className="flex flex-col items-center justify-center h-[500px] gap-4">
+          <Skeleton className="h-[200px] w-[200px] rounded-full" />
+          <div className="grid grid-cols-2 gap-3 w-full max-w-md">
+            <Skeleton className="h-20" />
+            <Skeleton className="h-20" />
+            <Skeleton className="h-20" />
+            <Skeleton className="h-20" />
           </div>
+          <p className="text-sm text-muted-foreground">Building your learning brain...</p>
         </div>
       </div>
     );
@@ -356,128 +463,94 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
     locked: allTopics.filter(t => t.status === 'locked').length,
   };
   
-  const hasNoDiscoveredTopics = mode === 'emergent' && visibleTopics.length === 0;
-  
-  if (hasNoDiscoveredTopics) {
-    return (
-      <div className={className} data-testid="mind-map-empty">
-        <div className="flex flex-col items-center justify-center h-[400px] text-center">
-          <div className="relative mb-6">
-            <BrainSvg 
-              segments={brainSegments}
-              size={140}
-            />
-          </div>
-          <h3 className="text-lg font-medium mb-2">Your Language Brain Awaits</h3>
-          <p className="text-sm text-muted-foreground max-w-sm">
-            Start a conversation to light up your brain! Each topic you explore will 
-            appear and illuminate the corresponding brain region.
-          </p>
-        </div>
-      </div>
-    );
-  }
-  
-  const totalMastery = brainSegments.reduce((sum, s) => sum + s.masteryPercent, 0) / brainSegments.length;
-  
   return (
     <div className={className} data-testid="syllabus-mind-map">
-      <div className="flex flex-wrap gap-2 mb-3 items-center justify-between">
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-            {stats.mastered} Mastered
-          </Badge>
-          <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-            {stats.practiced} Practicing
-          </Badge>
-          <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-            {stats.discovered} Discovered
-          </Badge>
-          {mode === 'roadmap' && stats.locked > 0 && (
-            <Badge variant="secondary" className="bg-muted text-muted-foreground">
-              {stats.locked} Unexplored
-            </Badge>
-          )}
-        </div>
-        <Badge variant="outline" className="flex items-center gap-1">
-          <Brain className="h-3 w-3" />
-          {Math.round(totalMastery)}% Active
+      <PhaseIndicator 
+        phase={currentPhase} 
+        overallProgress={overallProgress}
+        onPhaseComplete={handlePhaseComplete}
+      />
+      
+      <div className="flex flex-wrap gap-2 mb-4 items-center justify-center">
+        <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+          {stats.mastered} Mastered
         </Badge>
+        <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+          {stats.practiced} Practicing
+        </Badge>
+        <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+          {stats.discovered} Discovered
+        </Badge>
+        {mode === 'roadmap' && stats.locked > 0 && (
+          <Badge variant="secondary" className="bg-muted text-muted-foreground">
+            {stats.locked} Unexplored
+          </Badge>
+        )}
       </div>
       
-      <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-slate-900/5 to-slate-800/10 dark:from-slate-100/5 dark:to-slate-200/5 border">
-        <svg 
-          viewBox={`0 0 ${containerWidth} ${containerHeight}`}
-          className="w-full h-auto"
-          style={{ maxHeight: '400px' }}
-        >
-          <defs>
-            <radialGradient id="brain-bg-glow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.1" />
-              <stop offset="70%" stopColor="hsl(var(--primary))" stopOpacity="0.02" />
-              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
-            </radialGradient>
-          </defs>
-          
-          <circle cx={centerX} cy={centerY} r={200} fill="url(#brain-bg-glow)" />
-          
-          <ConnectionLines nodes={nodes} />
-          
-          <g transform={`translate(${centerX - 60}, ${centerY - 55})`}>
-            <BrainSvg 
-              segments={brainSegments}
-              size={120}
-              hoveredSegment={hoveredSegment}
-              onSegmentHover={setHoveredSegment}
+      <div className="relative">
+        {showCelebration && (
+          <CelebrationOverlay onDismiss={handleDismissCelebration} />
+        )}
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Left column - 2 satellites */}
+          <div className="space-y-3 order-2 md:order-1">
+            <SatelliteCard
+              segment="frontal"
+              topics={topicsBySegment.frontal}
+              isExpanded={expandedSegments.has('frontal')}
+              onToggle={() => toggleSegment('frontal')}
             />
-          </g>
-          
-          {nodes.map(node => (
-            <ClusteredTopicNode
-              key={node.id}
-              node={node}
-              isHovered={hoveredNode === node.id || hoveredSegment === node.segment}
-              onHover={() => setHoveredNode(node.id)}
-              onLeave={() => setHoveredNode(null)}
+            <SatelliteCard
+              segment="temporal"
+              topics={topicsBySegment.temporal}
+              isExpanded={expandedSegments.has('temporal')}
+              onToggle={() => toggleSegment('temporal')}
             />
-          ))}
+          </div>
           
-          {hoveredSegment && (
-            <text
-              x={centerX}
-              y={containerHeight - 20}
-              textAnchor="middle"
-              className="text-sm font-medium"
-              fill="hsl(var(--foreground))"
-            >
-              {hoveredSegment.charAt(0).toUpperCase() + hoveredSegment.slice(1)} Lobe: {BRAIN_SEGMENT_CATEGORIES[hoveredSegment].slice(0, 3).join(', ')}
-            </text>
-          )}
-        </svg>
-      </div>
-      
-      <div className="mt-3 space-y-2">
-        <div className="flex items-center justify-center gap-4 md:gap-6 text-xs md:text-sm text-muted-foreground flex-wrap">
-          <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-            <span>Mastered</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-            <span>Practicing</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
-            <span>Discovered</span>
-          </div>
-          {mode === 'roadmap' && (
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-muted border" />
-              <span>Unexplored</span>
+          {/* Center - Brain image */}
+          <div className="flex items-center justify-center order-1 md:order-2">
+            <div className="relative">
+              <img 
+                src={brainImage} 
+                alt="Your Learning Brain" 
+                className="w-48 h-48 md:w-56 md:h-56 object-contain drop-shadow-lg"
+                data-testid="brain-image"
+              />
+              {/* Glow effect based on progress */}
+              <div 
+                className="absolute inset-0 rounded-full pointer-events-none transition-opacity duration-500"
+                style={{
+                  background: `radial-gradient(circle, rgba(34, 197, 94, ${overallProgress / 200}) 0%, transparent 70%)`,
+                }}
+              />
             </div>
-          )}
+          </div>
+          
+          {/* Right column - 3 satellites */}
+          <div className="space-y-3 order-3">
+            <SatelliteCard
+              segment="parietal"
+              topics={topicsBySegment.parietal}
+              isExpanded={expandedSegments.has('parietal')}
+              onToggle={() => toggleSegment('parietal')}
+            />
+            <SatelliteCard
+              segment="occipital"
+              topics={topicsBySegment.occipital}
+              isExpanded={expandedSegments.has('occipital')}
+              onToggle={() => toggleSegment('occipital')}
+            />
+            <SatelliteCard
+              segment="cerebellum"
+              topics={topicsBySegment.cerebellum}
+              isExpanded={expandedSegments.has('cerebellum')}
+              onToggle={() => toggleSegment('cerebellum')}
+            />
+          </div>
         </div>
-        <ShapeLegend className="pt-1 border-t" />
       </div>
     </div>
   );
