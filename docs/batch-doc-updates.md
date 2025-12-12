@@ -2,9 +2,34 @@
 
 Staging area for documentation changes to be consolidated later.
 
+**Graduation Criteria**: If it's reusable knowledge → add to hive (agent_observations). If it's session-specific history → batch only.
+
 ---
 
 ## Pending Updates
+
+### Session: December 12, 2025 - Neural Network & Process Improvements
+
+**Overview**: Proactive observations about gaps in neural network schema and process flows. All added to hive (agent_observations table).
+
+#### Observations Added to Hive
+
+| Title | Category | Priority | Summary |
+|-------|----------|----------|---------|
+| Neural Network Effectiveness Tracking | improvement | 70 | Add lastUsedAt, useCount, successRate fields to track procedure usage |
+| Procedure Deprecation Support | improvement | 60 | Add deprecated flag instead of deleting outdated procedures |
+| Cross-Procedure Linking | improvement | 55 | Add relatedProcedureIds array for clustering related entries |
+| Batch Docs vs Hive Graduation Criteria | pattern | 80 | Clear rule: reusable knowledge → hive; session history → batch only |
+| Process Category for Agent Observations | improvement | 50 | Consider adding 'process' category for workflow observations |
+| Pending Observations Dashboard | next_step | 65 | Add Command Center tab for viewing pending hive observations |
+
+#### Protocol Established
+
+Going forward, ANY significant work automatically gets documented in:
+1. `docs/batch-doc-updates.md` - session-specific history
+2. `agent_observations` table (hive) - if reusable knowledge
+
+---
 
 ### Session: December 12, 2025 - Mind Map Visual Polish & Flow Visualization
 
