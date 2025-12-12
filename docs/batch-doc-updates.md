@@ -8,6 +8,69 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 12, 2025 - Secure Inter-Department Chat
+
+**Overview**: Implemented security-classified messaging system to protect code/architecture details from Gemini while enabling real-time collaboration between Editor (Claude) and Daniela (Gemini).
+
+#### Security Classification System
+
+| Classification | Who Sees | Use Case |
+|---------------|----------|----------|
+| `public` | Daniela + Gemini | Teaching tips, feature ideas, student-facing info |
+| `internal` | UI only, NEVER Gemini | Architecture, security, code, implementation details |
+| `daniela_summary` | Daniela sees summary only | Detailed analysis where Daniela needs awareness but not full details |
+
+#### Schema Changes
+
+- Added `securityClassificationEnum`: `public`, `internal`, `daniela_summary`
+- Added `securityClassification` field to `agentCollaborationEvents` table
+- Added `publicSummary` field for summary-only messages
+- Added index on `securityClassification` for efficient filtering
+
+#### Storage Functions
+
+- `getSecureMessagesForDaniela()` - Filters out internal messages, uses publicSummary for daniela_summary type
+- `getInternalAgentMessages()` - Gets internal-only messages for Command Center
+- `getDepartmentChatMessages()` - Real-time feed with polling support via afterId
+
+#### API Endpoints
+
+- `GET /api/agent-collab/chat` - Get department chat messages with optional classification filter
+- `POST /api/agent-collab/chat` - Post new message with security classification
+- `GET /api/agent-collab/internal` - Get internal-only messages (admin only)
+
+#### Command Center UI
+
+Added "Dept Chat" tab to Command Center with:
+- Security classification legend
+- Message composer with from/to agent selection
+- Security classification selector with conditional publicSummary field
+- Real-time message feed with 10-second polling
+- Filter by classification type
+- Color-coded security badges (green=public, red=internal, yellow=summary)
+- Agent badges with distinct colors (purple=daniela, blue=editor, green=assistant, orange=support)
+
+#### Key Design Decision
+
+**Why we protect internal messages from Gemini:**
+Gemini powers Daniela's conversational abilities, but also has access to any context we inject. Internal discussions about architecture, security vulnerabilities, competitive strategy, or code implementation details should NEVER be exposed to external AI providers. The security classification system creates a clear boundary: collaboration events flow freely between our agents, but the storage layer filters what Daniela's LLM context receives.
+
+#### Files Modified
+
+- `shared/schema.ts` - Added security classification enum and fields
+- `server/storage.ts` - Added secure messaging functions
+- `server/routes.ts` - Added department chat API endpoints
+- `client/src/pages/admin/CommandCenter.tsx` - Added Dept Chat tab
+
+#### Observation for Hive
+
+**Title**: Secure Inter-Agent Communication Architecture
+**Category**: architecture
+**Priority**: 90
+**Summary**: Security classification system protects internal (code/architecture) discussions from Gemini context while enabling transparent department communication. Three tiers: public (full access), internal (UI-only), daniela_summary (summary for context, details hidden).
+
+---
+
 ### Session: December 12, 2025 - Neural Network & Process Improvements
 
 **Overview**: Proactive observations about gaps in neural network schema and process flows. All added to hive (agent_observations table).

@@ -74,7 +74,11 @@ import {
   Phone,
   CircleDot,
   Circle,
-  CheckCircle2
+  CheckCircle2,
+  Lock,
+  Send,
+  Eye as EyeIcon,
+  EyeOff
 } from "lucide-react";
 import {
   AlertDialog,
@@ -142,6 +146,7 @@ export default function CommandCenter() {
     { id: "dev-tools", label: "Dev Tools", icon: Code, roles: ['developer', 'admin'] },
     { id: "audit", label: "Audit", icon: FileText, roles: ['admin'] },
     { id: "support", label: "Support", icon: Headphones, roles: ['admin', 'developer'] },
+    { id: "dept-chat", label: "Dept Chat", icon: Lock, roles: ['admin', 'developer'] },
   ].filter(tab => {
     if (user?.role === 'admin') return true;
     if (user?.role === 'developer') return tab.roles.includes('developer');
@@ -237,6 +242,10 @@ export default function CommandCenter() {
 
           <TabsContent value="support" className="space-y-4">
             <SupportTab />
+          </TabsContent>
+
+          <TabsContent value="dept-chat" className="space-y-4">
+            <DepartmentChatTab />
           </TabsContent>
         </Tabs>
       </div>
@@ -4026,6 +4035,322 @@ function SupportTab() {
             </div>
           </CardContent>
         </Card>
+      </CollapsibleSection>
+    </div>
+  );
+}
+
+interface DepartmentChatMessage {
+  id: string;
+  fromAgent: string;
+  toAgent: string | null;
+  eventType: string;
+  subject: string;
+  content: string;
+  publicSummary: string | null;
+  securityClassification: 'public' | 'internal' | 'daniela_summary';
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+function DepartmentChatTab() {
+  const { toast } = useToast();
+  const [classificationFilter, setClassificationFilter] = useState<string>("all");
+  const [newMessage, setNewMessage] = useState({
+    fromAgent: "editor",
+    toAgent: "",
+    subject: "",
+    content: "",
+    publicSummary: "",
+    securityClassification: "public" as "public" | "internal" | "daniela_summary",
+  });
+
+  const { data: messages, isLoading, refetch } = useQuery<DepartmentChatMessage[]>({
+    queryKey: ["/api/agent-collab/chat", { classification: classificationFilter === "all" ? undefined : classificationFilter }],
+    refetchInterval: 10000,
+  });
+
+  const postMessageMutation = useMutation({
+    mutationFn: async (data: typeof newMessage) => {
+      return apiRequest("POST", "/api/agent-collab/chat", {
+        ...data,
+        toAgent: data.toAgent || null,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Message sent" });
+      setNewMessage({
+        fromAgent: "editor",
+        toAgent: "",
+        subject: "",
+        content: "",
+        publicSummary: "",
+        securityClassification: "public",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent-collab/chat"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to send message", variant: "destructive" });
+    },
+  });
+
+  const getSecurityBadge = (classification: string) => {
+    switch (classification) {
+      case "public":
+        return <Badge variant="outline" className="text-green-600 border-green-600"><Globe className="h-3 w-3 mr-1" />Public</Badge>;
+      case "internal":
+        return <Badge variant="outline" className="text-red-600 border-red-600"><Lock className="h-3 w-3 mr-1" />Internal</Badge>;
+      case "daniela_summary":
+        return <Badge variant="outline" className="text-yellow-600 border-yellow-600"><EyeIcon className="h-3 w-3 mr-1" />Summary Only</Badge>;
+      default:
+        return <Badge variant="outline">{classification}</Badge>;
+    }
+  };
+
+  const getAgentBadge = (agent: string) => {
+    const colors: Record<string, string> = {
+      daniela: "bg-purple-500/10 text-purple-600",
+      editor: "bg-blue-500/10 text-blue-600",
+      assistant: "bg-green-500/10 text-green-600",
+      support: "bg-orange-500/10 text-orange-600",
+    };
+    return <Badge className={colors[agent] || "bg-muted"}>{agent}</Badge>;
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lock className="h-5 w-5 text-primary" />
+            Secure Department Chat
+          </CardTitle>
+          <CardDescription>
+            Security-classified messaging between AI departments. Internal messages never reach Gemini.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="p-4 rounded-lg bg-muted/50 border">
+            <div className="text-sm font-medium mb-2">Security Classifications</div>
+            <div className="grid gap-2 md:grid-cols-3">
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4 text-green-600" />
+                <span className="text-sm"><strong>Public:</strong> Daniela + Gemini see full content</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Lock className="h-4 w-4 text-red-600" />
+                <span className="text-sm"><strong>Internal:</strong> UI only, NEVER to Gemini</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <EyeIcon className="h-4 w-4 text-yellow-600" />
+                <span className="text-sm"><strong>Summary:</strong> Daniela sees summary, not details</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <CollapsibleSection
+        title="Send New Message"
+        icon={<Send className="h-5 w-5 text-primary" />}
+        defaultOpen={true}
+      >
+        <Card className="mt-4">
+          <CardContent className="pt-4 space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-sm font-medium mb-1 block">From Agent</label>
+                <Select value={newMessage.fromAgent} onValueChange={(v) => setNewMessage({ ...newMessage, fromAgent: v })}>
+                  <SelectTrigger data-testid="select-from-agent">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="editor">Editor (Claude)</SelectItem>
+                    <SelectItem value="daniela">Daniela (Gemini)</SelectItem>
+                    <SelectItem value="assistant">Assistant (Aris)</SelectItem>
+                    <SelectItem value="support">Support</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-1 block">To Agent (optional)</label>
+                <Select value={newMessage.toAgent || "broadcast"} onValueChange={(v) => setNewMessage({ ...newMessage, toAgent: v === "broadcast" ? "" : v })}>
+                  <SelectTrigger data-testid="select-to-agent">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="broadcast">Broadcast (All)</SelectItem>
+                    <SelectItem value="daniela">Daniela</SelectItem>
+                    <SelectItem value="editor">Editor</SelectItem>
+                    <SelectItem value="assistant">Assistant</SelectItem>
+                    <SelectItem value="support">Support</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-1 block">Security Classification</label>
+              <Select value={newMessage.securityClassification} onValueChange={(v) => setNewMessage({ ...newMessage, securityClassification: v as any })}>
+                <SelectTrigger data-testid="select-security-classification">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="public">
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-3 w-3 text-green-600" />
+                      Public - Visible to Daniela/Gemini
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="internal">
+                    <div className="flex items-center gap-2">
+                      <Lock className="h-3 w-3 text-red-600" />
+                      Internal - NEVER reaches Gemini
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="daniela_summary">
+                    <div className="flex items-center gap-2">
+                      <EyeIcon className="h-3 w-3 text-yellow-600" />
+                      Summary Only - Requires public summary
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-1 block">Subject</label>
+              <Input
+                value={newMessage.subject}
+                onChange={(e) => setNewMessage({ ...newMessage, subject: e.target.value })}
+                placeholder="Message subject..."
+                data-testid="input-message-subject"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-1 block">Content</label>
+              <textarea
+                value={newMessage.content}
+                onChange={(e) => setNewMessage({ ...newMessage, content: e.target.value })}
+                placeholder="Message content... (For internal: include code/architecture details here)"
+                className="w-full min-h-[100px] p-3 rounded-md border bg-background resize-y"
+                data-testid="input-message-content"
+              />
+            </div>
+
+            {newMessage.securityClassification === "daniela_summary" && (
+              <div>
+                <label className="text-sm font-medium mb-1 block">Public Summary (for Daniela)</label>
+                <textarea
+                  value={newMessage.publicSummary}
+                  onChange={(e) => setNewMessage({ ...newMessage, publicSummary: e.target.value })}
+                  placeholder="Safe summary Daniela will see instead of full content..."
+                  className="w-full min-h-[60px] p-3 rounded-md border bg-background resize-y"
+                  data-testid="input-public-summary"
+                />
+              </div>
+            )}
+
+            <Button
+              onClick={() => postMessageMutation.mutate(newMessage)}
+              disabled={!newMessage.content || postMessageMutation.isPending}
+              data-testid="button-send-message"
+            >
+              {postMessageMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4 mr-2" />
+              )}
+              Send Message
+            </Button>
+          </CardContent>
+        </Card>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Message Feed"
+        icon={<MessageSquare className="h-5 w-5 text-primary" />}
+        defaultOpen={true}
+        badge={messages?.length?.toString()}
+      >
+        <div className="mt-4 space-y-4">
+          <div className="flex items-center gap-4">
+            <Select value={classificationFilter} onValueChange={setClassificationFilter}>
+              <SelectTrigger className="w-48" data-testid="select-filter-classification">
+                <SelectValue placeholder="Filter by classification" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Messages</SelectItem>
+                <SelectItem value="public">Public Only</SelectItem>
+                <SelectItem value="internal">Internal Only</SelectItem>
+                <SelectItem value="daniela_summary">Summary Only</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh-messages">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+
+          {isLoading ? (
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24" />)}
+            </div>
+          ) : messages && messages.length > 0 ? (
+            <div className="space-y-3">
+              {messages.map((msg) => (
+                <Card key={msg.id} className="hover-elevate" data-testid={`card-message-${msg.id}`}>
+                  <CardContent className="pt-4">
+                    <div className="flex items-start justify-between gap-4 mb-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {getAgentBadge(msg.fromAgent)}
+                        {msg.toAgent && (
+                          <>
+                            <span className="text-muted-foreground">→</span>
+                            {getAgentBadge(msg.toAgent)}
+                          </>
+                        )}
+                        {getSecurityBadge(msg.securityClassification)}
+                      </div>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {new Date(msg.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+
+                    {msg.subject && (
+                      <div className="font-medium mb-1">{msg.subject}</div>
+                    )}
+
+                    <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+                      {msg.content}
+                    </div>
+
+                    {msg.publicSummary && (
+                      <div className="mt-2 p-2 rounded bg-yellow-500/10 border border-yellow-500/20">
+                        <div className="text-xs font-medium text-yellow-600 mb-1">
+                          <EyeIcon className="h-3 w-3 inline mr-1" />
+                          Daniela sees this summary:
+                        </div>
+                        <div className="text-sm">{msg.publicSummary}</div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No messages found</p>
+                <p className="text-sm">Send your first secure department message above</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </CollapsibleSection>
     </div>
   );

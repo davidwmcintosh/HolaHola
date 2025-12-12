@@ -11170,6 +11170,96 @@ ${context ? `Context provided:\n${context}\n` : ''}`;
     }
   });
 
+  // ===== SECURE INTER-DEPARTMENT CHAT =====
+  // Security-classified messaging between AI departments
+  
+  // Get department chat messages (with optional security filter)
+  app.get("/api/agent-collab/chat", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { classification, hours, limit, afterId } = req.query;
+      
+      const validClassifications = ['public', 'internal', 'daniela_summary'];
+      if (classification && !validClassifications.includes(classification as string)) {
+        return res.status(400).json({ error: `Invalid classification. Must be one of: ${validClassifications.join(', ')}` });
+      }
+      
+      const messages = await storage.getDepartmentChatMessages({
+        classification: classification as 'public' | 'internal' | 'daniela_summary' | undefined,
+        hours: hours ? parseInt(hours as string, 10) : undefined,
+        limit: limit ? parseInt(limit as string, 10) : undefined,
+        afterId: afterId as string | undefined,
+      });
+      
+      res.json(messages);
+    } catch (error: any) {
+      console.error('[API] Error getting department chat messages:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Post a new department chat message with security classification
+  app.post("/api/agent-collab/chat", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { fromAgent, toAgent, subject, content, publicSummary, securityClassification, metadata } = req.body;
+      
+      if (!fromAgent || !content) {
+        return res.status(400).json({ error: 'Missing required fields: fromAgent, content' });
+      }
+      
+      const validAgents = ['daniela', 'assistant', 'support', 'editor'];
+      if (!validAgents.includes(fromAgent)) {
+        return res.status(400).json({ error: `Invalid fromAgent. Must be one of: ${validAgents.join(', ')}` });
+      }
+      
+      const validClassifications = ['public', 'internal', 'daniela_summary'];
+      const classification = securityClassification || 'public';
+      if (!validClassifications.includes(classification)) {
+        return res.status(400).json({ error: `Invalid securityClassification. Must be one of: ${validClassifications.join(', ')}` });
+      }
+      
+      // Require publicSummary for daniela_summary classification
+      if (classification === 'daniela_summary' && !publicSummary) {
+        return res.status(400).json({ error: 'publicSummary is required when using daniela_summary classification' });
+      }
+      
+      const event = await storage.createCollaborationEvent({
+        fromAgent: fromAgent as any,
+        toAgent: toAgent || null,
+        eventType: 'department_chat',
+        subject: subject || 'Department Message',
+        content,
+        publicSummary: publicSummary || null,
+        securityClassification: classification,
+        metadata: { ...metadata, source: 'command_center' },
+        status: 'pending',
+      });
+      
+      console.log(`[Agent Collab] Department chat message from ${fromAgent}, classification: ${classification}`);
+      
+      res.json(event);
+    } catch (error: any) {
+      console.error('[API] Error posting department chat message:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get internal-only messages (never exposed to Gemini)
+  app.get("/api/agent-collab/internal", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { hours, limit } = req.query;
+      
+      const messages = await storage.getInternalAgentMessages({
+        hours: hours ? parseInt(hours as string, 10) : undefined,
+        limit: limit ? parseInt(limit as string, 10) : undefined,
+      });
+      
+      res.json(messages);
+    } catch (error: any) {
+      console.error('[API] Error getting internal messages:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== ARIS (ASSISTANT TUTOR) DRILL API =====
   // These routes allow students to interact with Aris for focused drill practice
   
