@@ -207,36 +207,22 @@ export function ImmersiveTutor({
           </div>
         )}
         
-        {/* Open Mic Status Indicators - TRUE DUPLEX (Phone Call Model) */}
-        {/* GREEN = MIC IS HOT (always, regardless of who's talking) */}
-        {/* Gray = mic is off */}
+        {/* Open Mic Status - Minimal indicator like a real phone call */}
+        {/* Just a small green dot when mic is live, nothing else */}
         {inputMode === 'open-mic' && (
           <>
             {isRecording || openMicState === 'processing' || openMicState === 'ready' || openMicState === 'listening' ? (
-              // MIC HOT: Always green - true duplex means always listening
-              // Shows extra context: "Hearing you..." when VAD detects speech, "Daniela" when she's speaking
+              // MIC HOT: Small green dot - no text, no distraction
               <div 
-                className={`absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-full shadow-lg ${openMicState === 'listening' ? 'animate-pulse' : ''}`}
+                className="absolute top-4 right-4 w-4 h-4 bg-green-500 rounded-full shadow-lg"
                 data-testid="indicator-mic-hot"
-              >
-                <div className={`w-3 h-3 bg-white rounded-full ${openMicState === 'listening' ? 'animate-pulse' : ''}`} />
-                <span className="text-sm font-medium">
-                  {openMicState === 'listening' 
-                    ? 'Hearing you...' 
-                    : isPlaying 
-                      ? 'Daniela speaking' 
-                      : 'Listening'}
-                </span>
-              </div>
+              />
             ) : (
-              // MIC OFF: Gray - only when explicitly stopped
+              // MIC OFF: Small gray dot
               <div 
-                className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-gray-500/70 text-white rounded-full shadow-lg"
+                className="absolute top-4 right-4 w-4 h-4 bg-gray-400 rounded-full shadow-lg opacity-50"
                 data-testid="indicator-mic-off"
-              >
-                <div className="w-3 h-3 bg-white/50 rounded-full" />
-                <span className="text-sm font-medium">Mic off</span>
-              </div>
+              />
             )}
           </>
         )}
