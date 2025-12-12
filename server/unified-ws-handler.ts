@@ -1352,12 +1352,32 @@ Reference past discussions when relevant, but don't force it.
   ws.on('close', (code, reason) => {
     console.log(`[Streaming Voice] Closed: ${code} - ${reason}`);
     clearInterval(heartbeatInterval);  // Clean up heartbeat
+    
+    // Clean up open mic session to prevent orphaned Deepgram connections
+    if (openMicSession) {
+      console.log('[Streaming Voice] Cleaning up open mic session on disconnect');
+      openMicSession.close();
+      openMicSession = null;
+    }
+    openMicPendingChunks = [];
+    openMicSessionStarting = false;
+    
     if (session) orchestrator.endSession(session.id);
     endUsageSession();
   });
 
   ws.on('error', (error) => {
     console.error('[Streaming Voice] Connection error:', error);
+    
+    // Clean up open mic session on error too
+    if (openMicSession) {
+      console.log('[Streaming Voice] Cleaning up open mic session on error');
+      openMicSession.close();
+      openMicSession = null;
+    }
+    openMicPendingChunks = [];
+    openMicSessionStarting = false;
+    
     if (session) orchestrator.endSession(session.id);
     endUsageSession();
   });

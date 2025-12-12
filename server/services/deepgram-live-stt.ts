@@ -219,11 +219,13 @@ export class OpenMicSession {
         // MULTI-LANGUAGE: Always use 'multi' for bilingual detection
         // Students naturally mix native + target language during lessons
         // Better to get 85% accurate bilingual transcript than miss English entirely
+        // IMPORTANT: nova-3 is required for reliable 'multi' language mode
+        // nova-2 with 'multi' returns empty transcripts despite receiving valid audio
         const languageCode = 'multi';
-        console.log(`[OpenMic] Creating Deepgram live connection (language: ${languageCode}, target: ${this.language})`);
+        console.log(`[OpenMic] Creating Deepgram live connection (model: nova-3, language: ${languageCode}, target: ${this.language})`);
         
         this.connection = deepgramClient.listen.live({
-          model: 'nova-2',
+          model: 'nova-3',  // nova-3 required for reliable multilingual streaming
           language: languageCode,
           punctuate: true,
           smart_format: true,
@@ -233,6 +235,7 @@ export class OpenMicSession {
           encoding: 'linear16',
           sample_rate: 16000,
           channels: 1,
+          endpointing: 100, // 100ms endpointing for better code-switching (recommended for multi)
         });
         
         // Attach Open handler first
