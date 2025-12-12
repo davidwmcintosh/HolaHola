@@ -678,11 +678,11 @@ export function StreamingVoiceChat({
           },
           onVadSpeechStarted: () => {
             // TRUE DUPLEX: Always handle VAD speech events for barge-in support
-            console.log('[OPEN MIC] VAD speech started - setting listening state');
+            console.log('[OPEN MIC] VAD speech started - setting listening state, avatarState=', avatarStateRef.current);
             setOpenMicState('listening');
             
-            // Barge-in: Interrupt tutor if playing
-            if (avatarState === 'speaking' || isAwaitingResponseRef.current) {
+            // Barge-in: Interrupt tutor if playing (use ref to avoid stale closure)
+            if (avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) {
               console.log('[BARGE-IN] User speaking while tutor active - stopping audio and sending interrupt');
               // CRITICAL: Stop audio playback immediately on client side
               streamingVoice.stop();
@@ -2136,11 +2136,11 @@ export function StreamingVoiceChat({
               },
               onVadSpeechStarted: () => {
                 // TRUE DUPLEX: Always handle VAD speech events for barge-in support
-                console.log('[OPEN MIC] VAD speech started - setting listening state (reconnect)');
+                console.log('[OPEN MIC] VAD speech started - setting listening state (reconnect), avatarState=', avatarStateRef.current);
                 setOpenMicState('listening');
                 
-                // Barge-in: Interrupt tutor if playing
-                if (avatarState === 'speaking' || isAwaitingResponseRef.current) {
+                // Barge-in: Interrupt tutor if playing (use ref to avoid stale closure)
+                if (avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) {
                   console.log('[BARGE-IN] User speaking while tutor active - stopping audio and sending interrupt');
                   // CRITICAL: Stop audio playback immediately on client side
                   streamingVoice.stop();
