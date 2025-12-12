@@ -692,7 +692,9 @@ export default function ReviewHub() {
 
       {/* Learning Journey - Mind Map or Linear View for all learners */}
       {(() => {
-        const isClassContext = learningContext && !learningContext.includes('self-directed') && learningContext !== 'all';
+        // Check if we're viewing a specific class (not self-directed, all-learning, or special modes)
+        const specialModes = ['self-directed', 'all', 'all-learning', 'founder-mode', 'honesty-mode'];
+        const isClassContext = learningContext && !specialModes.includes(learningContext);
         const isSelfDirected = !learningContext || learningContext === "self-directed";
         const syllabus = data?.syllabusOverview;
         
@@ -805,7 +807,8 @@ export default function ReviewHub() {
 
       {/* Syllabus Time Progress - Shows expected vs actual time per unit */}
       {(() => {
-        const isClassContext = learningContext && !learningContext.includes('self-directed') && learningContext !== 'all';
+        const specialModes = ['self-directed', 'all', 'all-learning', 'founder-mode', 'honesty-mode'];
+        const isClassContext = learningContext && !specialModes.includes(learningContext);
         const syllabus = data?.syllabusOverview;
         
         if (!isClassContext || !syllabus) return null;
