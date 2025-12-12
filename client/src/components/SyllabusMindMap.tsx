@@ -425,7 +425,7 @@ function ACTFLMeter({ progress, level }: { progress: ActflProgress | null | unde
       data-testid="actfl-meter"
     >
       {/* Half-circle dial with needle */}
-      <svg width={size} height={size / 2 + 20} viewBox={`0 0 ${size} ${size / 2 + 20}`} className="overflow-visible">
+      <svg width={size} height={size / 2 + 30} viewBox={`0 0 ${size} ${size / 2 + 30}`} className="overflow-visible">
         <defs>
           <linearGradient id="actfl-dial-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#ef4444" />
@@ -442,12 +442,13 @@ function ACTFLMeter({ progress, level }: { progress: ActflProgress | null | unde
           </filter>
         </defs>
         
-        {/* Semi-transparent background for visibility */}
-        <ellipse
-          cx={center}
-          cy={center}
-          rx={radius + 4}
-          ry={radius / 2 + 8}
+        {/* Semi-transparent arc-shaped background matching the dial */}
+        <path
+          d={`M ${strokeWidth / 2 - 6} ${center + 8} 
+              A ${radius + 6} ${radius + 6} 0 0 1 ${size - strokeWidth / 2 + 6} ${center + 8}
+              L ${size - strokeWidth / 2 + 6} ${center + 22}
+              L ${strokeWidth / 2 - 6} ${center + 22}
+              Z`}
           fill="rgba(0,0,0,0.5)"
         />
         
@@ -489,10 +490,10 @@ function ACTFLMeter({ progress, level }: { progress: ActflProgress | null | unde
           <circle cx={center} cy={center} r={3} fill="#1f2937" />
         </g>
         
-        {/* Score number below */}
+        {/* Score number below - with extra padding from needle */}
         <text
           x={center}
-          y={center + 16}
+          y={center + 24}
           textAnchor="middle"
           fill="white"
           fontSize="14"
