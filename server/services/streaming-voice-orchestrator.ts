@@ -2835,6 +2835,7 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         systemPrompt: session.systemPrompt,
         conversationHistory: [],  // Fresh greeting, no history
         userMessage: greetingPrompt,
+        model: 'gemini-2.0-flash',  // Faster for greetings; conversations use 2.5-flash
         onSentence: async (chunk: SentenceChunk) => {
           if (!firstTokenReceived) {
             metrics.aiFirstTokenMs = Date.now() - aiStart;
