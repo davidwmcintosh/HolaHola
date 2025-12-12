@@ -335,7 +335,7 @@ export function ImmersiveTutor({
         {/* Open-mic: Tap to toggle listening, VAD auto-submits */}
         <div className="flex flex-col items-center gap-1">
           {inputMode === 'open-mic' ? (
-            // Open Mic Mode: Toggle button
+            // Open Mic Mode: TRUE DUPLEX - always green when active
             <Button
               variant="default"
               size="icon"
@@ -343,25 +343,20 @@ export function ImmersiveTutor({
                 console.log('[MIC BUTTON] Open mic toggle click, isRecording:', isRecording);
                 if (isRecording) {
                   onRecordingStop();
-                } else if (!isProcessing) {
+                } else {
                   onRecordingStart();
                 }
               }}
-              disabled={!isUsersTurn && !isRecording}
               className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ${
                 isRecording 
-                  ? openMicState === 'ready'
-                    ? 'bg-green-500 hover:bg-green-600'  // Solid green: invitation to speak
-                    : openMicState === 'listening' 
-                      ? 'animate-pulse bg-green-500 hover:bg-green-600'  // Pulsing green: user is speaking
-                      : openMicState === 'processing'
-                        ? 'bg-blue-500 hover:bg-blue-600'  // Blue: waiting for AI
-                        : ''
+                  ? openMicState === 'listening'
+                    ? 'animate-pulse bg-green-500 hover:bg-green-600'  // Pulsing: user speaking
+                    : 'bg-green-500 hover:bg-green-600'  // Solid green: mic hot (duplex)
                   : ''
-              } ${!isUsersTurn && !isRecording ? 'opacity-50 cursor-not-allowed' : ''}`}
+              }`}
               data-testid={isRecording ? "button-open-mic-active" : "button-open-mic-idle"}
               aria-pressed={isRecording}
-              aria-label={isRecording ? "Listening - tap to stop" : "Tap to start listening"}
+              aria-label={isRecording ? "Mic hot - tap to stop" : "Tap to start"}
             >
               {isRecording ? (
                 <Radio className="h-7 w-7 md:h-8 md:w-8" />
