@@ -217,8 +217,8 @@ function LobeSatellite({
   return (
     <div
       className={`absolute cursor-pointer transition-all duration-300 ease-out ${
-        isExpanded ? 'z-40' : 'z-10'
-      }`}
+        isExpanded ? 'z-40' : 'z-10 hover:z-30'
+      } group`}
       style={{
         left: isExpanded ? x - expandedWidth / 2 : x - collapsedWidth / 2,
         top: isExpanded ? y - collapsedHeight / 2 : y - collapsedHeight / 2,
@@ -239,12 +239,13 @@ function LobeSatellite({
           boxShadow: isExpanded ? '0 20px 40px rgba(0,0,0,0.3)' : 'none',
         }}
       >
-        {/* Collapsed: Show comic-book splat SVG with text */}
+        {/* Collapsed: Show comic-book splat SVG with text - scales up on hover */}
         <div 
-          className="absolute inset-0 transition-all duration-300"
+          className={`absolute inset-0 transition-transform duration-200 ${!isExpanded ? 'group-hover:scale-110' : ''}`}
           style={{ 
             opacity: isExpanded ? 0 : 1,
-            transform: isExpanded ? 'scale(0.5)' : 'scale(1)',
+            transform: isExpanded ? 'scale(0.5)' : undefined,
+            transformOrigin: 'center center',
           }}
         >
           <svg 
@@ -649,9 +650,20 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
         {/* Curved arrows from satellites to brain - above brain */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none z-20">
           <defs>
-            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-              <polygon points="0 0, 10 3.5, 0 7" fill="#374151"/>
-            </marker>
+            {/* Colored arrowheads for each segment */}
+            {(['frontal', 'parietal', 'temporal', 'occipital', 'cerebellum'] as BrainSegment[]).map(segment => (
+              <marker 
+                key={`arrowhead-${segment}`}
+                id={`arrowhead-${segment}`} 
+                markerWidth="10" 
+                markerHeight="7" 
+                refX="9" 
+                refY="3.5" 
+                orient="auto"
+              >
+                <polygon points="0 0, 10 3.5, 0 7" fill={SEGMENT_CONFIG[segment].color}/>
+              </marker>
+            ))}
           </defs>
           {(['frontal', 'parietal', 'temporal', 'occipital', 'cerebellum'] as BrainSegment[]).map(segment => {
             const config = SEGMENT_CONFIG[segment];
@@ -681,8 +693,8 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
                 strokeWidth="3"
                 fill="none"
                 strokeLinecap="round"
-                markerEnd="url(#arrowhead)"
-                opacity="0.8"
+                markerEnd={`url(#arrowhead-${segment})`}
+                opacity="0.9"
                 className="transition-opacity duration-300"
                 style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }}
               />
