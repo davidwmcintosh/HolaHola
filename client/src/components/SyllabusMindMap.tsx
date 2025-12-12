@@ -17,7 +17,8 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Sparkles, Lock, CheckCircle2, Circle, ChevronUp,
-  MessageSquare, BookOpen, Compass, Palette, Settings2, X
+  MessageSquare, BookOpen, Compass, Palette, Settings2, X,
+  Target, Layers, GraduationCap
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import type { ActflProgress } from "@shared/schema";
@@ -533,10 +534,10 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
   const [expandedSegment, setExpandedSegment] = useState<BrainSegment | null>(null);
   
   // Container dimensions for positioning
-  const containerWidth = 400;
-  const containerHeight = 400;
+  const containerWidth = 460;
+  const containerHeight = 420;
   const centerX = containerWidth / 2;
-  const centerY = containerHeight / 2;
+  const centerY = containerHeight / 2 - 20; // Shift brain up slightly to make room below
   
   const { data: progress, isLoading: progressLoading } = useQuery<ActflProgress | null>({
     queryKey: ['/api/actfl-progress', language],
@@ -713,10 +714,10 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
         <div 
           className="absolute transition-all duration-500 z-10"
           style={{
-            left: centerX - 100,
-            top: centerY - 100,
-            width: 200,
-            height: 200,
+            left: centerX - 115,
+            top: centerY - 115,
+            width: 230,
+            height: 230,
           }}
         >
           {/* Ambient glow behind brain */}
@@ -833,8 +834,47 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
         ))}
       </div>
       
+      {/* Activity Inputs - Learning activities that feed the brain */}
+      <div className="flex justify-center gap-3 mt-2" data-testid="activity-inputs">
+        {[
+          { name: 'Drills', Icon: Target, color: '#60A5FA' },
+          { name: 'Chats', Icon: MessageSquare, color: '#4ADE80' },
+          { name: 'Cards', Icon: Layers, color: '#FBBF24' },
+          { name: 'Lessons', Icon: GraduationCap, color: '#F87171' },
+        ].map((activity) => (
+          <div
+            key={activity.name}
+            className="flex flex-col items-center cursor-pointer group"
+            data-testid={`activity-${activity.name.toLowerCase()}`}
+          >
+            {/* Pill-shaped activity button */}
+            <div 
+              className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-200 group-hover:scale-105"
+              style={{ 
+                background: `linear-gradient(135deg, ${activity.color}20 0%, ${activity.color}40 100%)`,
+                border: `2px solid ${activity.color}50`,
+              }}
+            >
+              {/* Arrow pointing up to brain */}
+              <div 
+                className="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 opacity-60 group-hover:opacity-100 transition-opacity"
+                style={{
+                  borderLeft: '5px solid transparent',
+                  borderRight: '5px solid transparent',
+                  borderBottom: `6px solid ${activity.color}`,
+                }}
+              />
+              <activity.Icon className="h-3.5 w-3.5" style={{ color: activity.color }} />
+              <span className="text-sm font-medium" style={{ color: activity.color }}>
+                {activity.name}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+      
       {/* Instructions hint */}
-      <div className="text-center mt-4">
+      <div className="text-center mt-3">
         <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
           <ChevronUp className="h-3 w-3" />
           Tap a lobe to explore topics
