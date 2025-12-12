@@ -1,6 +1,6 @@
-# LinguaFlow User Manual
+# HolaHola User Manual
 
-Your complete guide to language learning with LinguaFlow's AI-powered tutor.
+Your complete guide to language learning with HolaHola's AI-powered tutor.
 
 ---
 
@@ -21,14 +21,14 @@ Your complete guide to language learning with LinguaFlow's AI-powered tutor.
 
 ### Your First Conversation
 
-1. **Log in** to LinguaFlow with your account
+1. **Log in** to HolaHola with your account
 2. **Select a language** you want to learn
 3. **Start a conversation** by clicking "Call Tutor" or typing in the chat
 4. **Speak naturally** - the AI tutor adapts to your level
 
 ### Supported Languages
 
-LinguaFlow supports 9 languages:
+HolaHola supports 9 languages:
 - Spanish, French, German, Italian, Portuguese
 - Japanese, Mandarin Chinese, Korean
 - English (for non-native speakers)
@@ -295,7 +295,7 @@ During conversations, the tutor automatically extracts vocabulary for you to rev
 
 ### Spaced Repetition
 
-LinguaFlow uses spaced repetition to optimize your review schedule:
+HolaHola uses spaced repetition to optimize your review schedule:
 - Words you know well appear less frequently
 - Difficult words appear more often
 - The system adapts to your performance
@@ -345,7 +345,7 @@ During voice lessons, the tutor may show:
 
 ### What's Tracked
 
-LinguaFlow automatically tracks:
+HolaHola automatically tracks:
 - **Vocabulary mastered** - Words learned and retention rate
 - **Conversation time** - Minutes of practice
 - **Proficiency progress** - Your ACTFL level advancement

@@ -1,6 +1,6 @@
-# LinguaFlow Teacher Guide
+# HolaHola Teacher Guide
 
-Complete guide for educators using LinguaFlow in the classroom.
+Complete guide for educators using HolaHola in the classroom.
 
 ---
 
@@ -133,7 +133,7 @@ For each student, you can see:
 
 ### Organic Progress Detection
 
-LinguaFlow automatically recognizes when students cover curriculum topics during free conversation practice.
+HolaHola automatically recognizes when students cover curriculum topics during free conversation practice.
 
 **How It Works:**
 1. Student has conversations with AI tutor
@@ -281,9 +281,9 @@ Students must complete the drill (70%+ mastery) before unlocking the conversatio
 
 ### World-Readiness Standards (5 C's)
 
-LinguaFlow content aligns with ACTFL's framework:
+HolaHola content aligns with ACTFL's framework:
 
-| Standard | How LinguaFlow Supports It |
+| Standard | How HolaHola Supports It |
 |----------|---------------------------|
 | **Communication** | Voice conversations, drills, scenarios |
 | **Cultures** | Cultural tips, context explanations |
@@ -382,7 +382,7 @@ Watch for students who:
 
 ## Resources
 
-### In LinguaFlow
+### In HolaHola
 
 - **Command Center** - View student progress and tool usage
 - **Class Analytics** - See which tools students engage with
