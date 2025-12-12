@@ -1,28 +1,27 @@
 /**
- * SyllabusMindMap - Brain-based visualization with expandable satellite cards
+ * SyllabusMindMap - Brain-based visualization with orbital lobe-shaped satellites
  * 
  * Features:
- * - Colorful brain image at center
- * - 5 expandable satellite cards (one per brain lobe)
+ * - Colorful brain image with transparent background (floating effect)
+ * - 5 lobe-shaped satellite bubbles orbiting the brain
+ * - 3-state lighting system: dim → semi-lit → lit (based on mastery progress)
+ * - ACTFL standards meter in the center of the brain
+ * - Expand-in-place animation for topic lists
  * - Phase progression: Beginner → Intermediate → Advanced
- * - Celebration animation when phase completes
  */
 
 import { useQuery } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
-  Sparkles, Lock, CheckCircle2, Circle, Brain, ChevronDown, ChevronRight,
-  MessageSquare, BookOpen, Compass, Palette, Settings2, Trophy, Star
+  Sparkles, Lock, CheckCircle2, Circle, ChevronUp,
+  MessageSquare, BookOpen, Compass, Palette, Settings2, X
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import type { ActflProgress } from "@shared/schema";
-import brainImage from "@assets/generated_images/colorful_educational_brain_diagram.png";
+import brainImage from "@assets/generated_images/colorful_brain_lobes_transparent_background.png";
 
 interface TopicNode {
   id: string;
@@ -36,87 +35,63 @@ interface TopicNode {
 }
 
 type BrainSegment = 'frontal' | 'temporal' | 'parietal' | 'occipital' | 'cerebellum';
-type LearningPhase = 'beginner' | 'intermediate' | 'advanced';
+type LightingState = 'dim' | 'semi-lit' | 'lit';
 
 const SEGMENT_CONFIG: Record<BrainSegment, {
   name: string;
   color: string;
-  bgColor: string;
-  borderColor: string;
-  icon: typeof Brain;
+  glowColor: string;
+  icon: typeof MessageSquare;
   categories: string[];
-  position: { top?: string; bottom?: string; left?: string; right?: string };
+  // Orbital position (angle in degrees, distance from center)
+  orbit: { angle: number; distance: number };
+  // SVG path for lobe shape
+  lobePath: string;
 }> = {
   frontal: {
     name: 'Communication',
-    color: 'text-blue-600 dark:text-blue-400',
-    bgColor: 'bg-blue-50 dark:bg-blue-950/30',
-    borderColor: 'border-blue-200 dark:border-blue-800',
+    color: '#3B82F6', // blue
+    glowColor: 'rgba(59, 130, 246, 0.6)',
     icon: MessageSquare,
     categories: ['Social Situations', 'Communication', 'Conversations', 'Introductions'],
-    position: { top: '5%', left: '5%' },
+    orbit: { angle: -60, distance: 140 },
+    lobePath: 'M25,5 Q45,0 55,15 Q65,35 55,55 Q45,70 25,65 Q5,60 5,40 Q5,15 25,5',
   },
   parietal: {
     name: 'Practical Skills',
-    color: 'text-green-600 dark:text-green-400',
-    bgColor: 'bg-green-50 dark:bg-green-950/30',
-    borderColor: 'border-green-200 dark:border-green-800',
+    color: '#22C55E', // green
+    glowColor: 'rgba(34, 197, 94, 0.6)',
     icon: Compass,
     categories: ['Daily Life', 'Travel', 'Directions', 'Shopping', 'Work'],
-    position: { top: '5%', right: '5%' },
+    orbit: { angle: -10, distance: 150 },
+    lobePath: 'M30,5 Q50,0 60,20 Q70,45 55,60 Q35,70 20,55 Q5,40 15,20 Q25,5 30,5',
   },
   temporal: {
     name: 'Vocabulary',
-    color: 'text-yellow-600 dark:text-yellow-400',
-    bgColor: 'bg-yellow-50 dark:bg-yellow-950/30',
-    borderColor: 'border-yellow-200 dark:border-yellow-800',
+    color: '#F59E0B', // amber/yellow
+    glowColor: 'rgba(245, 158, 11, 0.6)',
     icon: BookOpen,
     categories: ['Vocabulary', 'Memory', 'Numbers', 'Colors', 'Time'],
-    position: { bottom: '5%', left: '5%' },
+    orbit: { angle: 200, distance: 140 },
+    lobePath: 'M20,10 Q40,0 55,20 Q65,45 50,60 Q30,70 15,55 Q0,35 10,15 Q15,5 20,10',
   },
   occipital: {
     name: 'Culture',
-    color: 'text-red-600 dark:text-red-400',
-    bgColor: 'bg-red-50 dark:bg-red-950/30',
-    borderColor: 'border-red-200 dark:border-red-800',
+    color: '#EF4444', // red
+    glowColor: 'rgba(239, 68, 68, 0.6)',
     icon: Palette,
     categories: ['Culture', 'Customs', 'Traditions', 'Food', 'Music', 'Art'],
-    position: { bottom: '5%', right: '5%' },
+    orbit: { angle: 40, distance: 145 },
+    lobePath: 'M30,5 Q50,5 55,25 Q60,50 45,60 Q25,65 15,50 Q5,30 20,15 Q28,5 30,5',
   },
   cerebellum: {
     name: 'Grammar',
-    color: 'text-purple-600 dark:text-purple-400',
-    bgColor: 'bg-purple-50 dark:bg-purple-950/30',
-    borderColor: 'border-purple-200 dark:border-purple-800',
+    color: '#A855F7', // purple
+    glowColor: 'rgba(168, 85, 247, 0.6)',
     icon: Settings2,
     categories: ['Grammar', 'Conjugation', 'Tenses', 'Sentence Structure'],
-    position: { bottom: '25%', right: '5%' },
-  },
-};
-
-const PHASE_CONFIG: Record<LearningPhase, {
-  name: string;
-  description: string;
-  color: string;
-  requiredMastery: number;
-}> = {
-  beginner: {
-    name: 'Beginner Brain',
-    description: 'Building foundations',
-    color: 'text-emerald-600',
-    requiredMastery: 100,
-  },
-  intermediate: {
-    name: 'Intermediate Brain',
-    description: 'Expanding abilities',
-    color: 'text-blue-600',
-    requiredMastery: 100,
-  },
-  advanced: {
-    name: 'Advanced Brain',
-    description: 'Mastering fluency',
-    color: 'text-purple-600',
-    requiredMastery: 100,
+    orbit: { angle: 160, distance: 150 },
+    lobePath: 'M25,10 Q45,0 55,20 Q60,45 45,60 Q25,65 15,50 Q5,30 15,15 Q22,8 25,10',
   },
 };
 
@@ -140,6 +115,12 @@ function getCategorySegment(category: string): BrainSegment {
   }
   
   return 'temporal';
+}
+
+function getLightingState(progress: number): LightingState {
+  if (progress >= 70) return 'lit';
+  if (progress >= 30) return 'semi-lit';
+  return 'dim';
 }
 
 function TopicListItem({ topic }: { topic: TopicNode }) {
@@ -172,16 +153,20 @@ function TopicListItem({ topic }: { topic: TopicNode }) {
   );
 }
 
-function SatelliteCard({ 
+function LobeSatellite({ 
   segment, 
   topics,
   isExpanded,
   onToggle,
+  centerX,
+  centerY,
 }: { 
   segment: BrainSegment;
   topics: TopicNode[];
   isExpanded: boolean;
   onToggle: () => void;
+  centerX: number;
+  centerY: number;
 }) {
   const config = SEGMENT_CONFIG[segment];
   const Icon = config.icon;
@@ -189,156 +174,264 @@ function SatelliteCard({
   const mastered = topics.filter(t => t.status === 'mastered').length;
   const total = topics.length;
   const progress = total > 0 ? (mastered / total) * 100 : 0;
-  const isComplete = progress === 100 && total > 0;
+  const lightingState = getLightingState(progress);
   
+  // Calculate position based on orbit
+  const angle = (config.orbit.angle * Math.PI) / 180;
+  const x = centerX + Math.cos(angle) * config.orbit.distance;
+  const y = centerY + Math.sin(angle) * config.orbit.distance;
+  
+  // Lighting state styles
+  const opacityMap: Record<LightingState, number> = {
+    dim: 0.4,
+    'semi-lit': 0.7,
+    lit: 1,
+  };
+  
+  const glowIntensity: Record<LightingState, string> = {
+    dim: '0 0 0px transparent',
+    'semi-lit': `0 0 15px ${config.glowColor}`,
+    lit: `0 0 25px ${config.glowColor}, 0 0 50px ${config.glowColor}`,
+  };
+
+  // Expanded size for in-place expansion
+  const expandedWidth = 200;
+  const expandedHeight = 220;
+  const collapsedSize = 70;
+
   return (
-    <Card 
-      className={`${config.bgColor} ${config.borderColor} border overflow-hidden transition-all duration-200 ${
-        isComplete ? 'ring-2 ring-green-500/50' : ''
+    <div
+      className={`absolute cursor-pointer transition-all duration-300 ease-out ${
+        isExpanded ? 'z-40' : 'z-10'
       }`}
+      style={{
+        left: isExpanded ? x - expandedWidth / 2 : x - collapsedSize / 2,
+        top: isExpanded ? y - collapsedSize / 2 : y - collapsedSize / 2,
+        width: isExpanded ? expandedWidth : collapsedSize,
+        height: isExpanded ? expandedHeight : collapsedSize,
+        opacity: opacityMap[lightingState],
+      }}
+      onClick={() => !isExpanded && onToggle()}
       data-testid={`satellite-${segment}`}
     >
-      <Collapsible open={isExpanded} onOpenChange={onToggle}>
-        <CollapsibleTrigger asChild>
-          <Button
-            variant="ghost"
-            className="w-full justify-between p-3 h-auto hover:bg-transparent"
-            data-testid={`satellite-toggle-${segment}`}
+      {/* Background shape - morphs from lobe to rounded rect */}
+      <div 
+        className="absolute inset-0 transition-all duration-300 overflow-hidden"
+        style={{
+          borderRadius: isExpanded ? '16px' : '50%',
+          backgroundColor: isExpanded ? 'var(--card)' : 'transparent',
+          border: isExpanded ? '1px solid var(--border)' : 'none',
+          boxShadow: isExpanded 
+            ? '0 20px 40px rgba(0,0,0,0.3)' 
+            : `${glowIntensity[lightingState]}`,
+        }}
+      >
+        {/* Collapsed: Show lobe SVG */}
+        <div 
+          className="absolute inset-0 transition-all duration-300"
+          style={{ 
+            opacity: isExpanded ? 0 : 1,
+            transform: isExpanded ? 'scale(0.5)' : 'scale(1)',
+          }}
+        >
+          <svg 
+            width="70" 
+            height="70" 
+            viewBox="0 0 70 70"
+            className="w-full h-full"
           >
-            <div className="flex items-center gap-2">
-              <div className={`p-1.5 rounded-md ${config.bgColor}`}>
-                <Icon className={`h-4 w-4 ${config.color}`} />
-              </div>
-              <div className="text-left">
-                <div className={`font-medium text-sm ${config.color}`}>
-                  {config.name}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {mastered}/{total} mastered
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {isComplete && (
-                <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-              )}
-              {isExpanded ? (
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              )}
-            </div>
-          </Button>
-        </CollapsibleTrigger>
-        
-        <div className="px-3 pb-2">
-          <Progress value={progress} className="h-1.5" />
+            <defs>
+              <linearGradient id={`grad-${segment}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor={config.color} stopOpacity="0.9" />
+                <stop offset="100%" stopColor={config.color} stopOpacity="0.6" />
+              </linearGradient>
+            </defs>
+            <path
+              d={config.lobePath}
+              fill={`url(#grad-${segment})`}
+              stroke={config.color}
+              strokeWidth="2"
+            />
+          </svg>
+          
+          {/* Icon overlay for collapsed state */}
+          <div 
+            className="absolute inset-0 flex items-center justify-center"
+            style={{ color: 'white' }}
+          >
+            <Icon className="h-6 w-6 drop-shadow-md" />
+          </div>
+          
+          {/* Progress ring for collapsed state */}
+          <svg 
+            className="absolute -inset-1 pointer-events-none"
+            width="78" 
+            height="78" 
+            viewBox="0 0 78 78"
+          >
+            <circle
+              cx="39"
+              cy="39"
+              r="36"
+              fill="none"
+              stroke="rgba(255,255,255,0.2)"
+              strokeWidth="3"
+            />
+            <circle
+              cx="39"
+              cy="39"
+              r="36"
+              fill="none"
+              stroke="white"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeDasharray={`${(progress / 100) * 226} 226`}
+              transform="rotate(-90 39 39)"
+              style={{ opacity: lightingState === 'dim' ? 0.3 : 0.8 }}
+            />
+          </svg>
         </div>
-        
-        <CollapsibleContent>
-          <div className="px-3 pb-3 space-y-0.5 max-h-40 overflow-y-auto">
+
+        {/* Expanded: Show content */}
+        <div 
+          className="absolute inset-0 p-3 transition-all duration-300 overflow-hidden"
+          style={{ 
+            opacity: isExpanded ? 1 : 0,
+            transform: isExpanded ? 'scale(1)' : 'scale(0.8)',
+          }}
+        >
+          {/* Header with colored bar */}
+          <div 
+            className="h-1 rounded-full mb-2"
+            style={{ backgroundColor: config.color }}
+          />
+          
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Icon className="h-4 w-4" style={{ color: config.color }} />
+              <div>
+                <h3 className="font-semibold text-xs" style={{ color: config.color }}>
+                  {config.name}
+                </h3>
+                <p className="text-[10px] text-muted-foreground">
+                  {mastered}/{total} mastered
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggle(); }}
+              className="p-1 rounded-md hover:bg-muted transition-colors"
+              data-testid={`close-${segment}`}
+            >
+              <X className="h-3 w-3 text-muted-foreground" />
+            </button>
+          </div>
+          
+          {/* Progress bar */}
+          <Progress value={progress} className="h-1 mb-2" />
+          
+          {/* Topics list */}
+          <div className="space-y-0 max-h-32 overflow-y-auto text-xs">
             {topics.length > 0 ? (
-              topics.map(topic => (
+              topics.slice(0, 6).map(topic => (
                 <TopicListItem key={topic.id} topic={topic} />
               ))
             ) : (
-              <p className="text-xs text-muted-foreground py-2 text-center">
-                No topics discovered yet
+              <p className="text-[10px] text-muted-foreground py-2 text-center">
+                No topics yet
+              </p>
+            )}
+            {topics.length > 6 && (
+              <p className="text-[10px] text-muted-foreground text-center pt-1">
+                +{topics.length - 6} more
               </p>
             )}
           </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </Card>
-  );
-}
-
-function PhaseIndicator({ 
-  phase, 
-  overallProgress,
-  onPhaseComplete,
-}: { 
-  phase: LearningPhase;
-  overallProgress: number;
-  onPhaseComplete?: () => void;
-}) {
-  const config = PHASE_CONFIG[phase];
-  const phases: LearningPhase[] = ['beginner', 'intermediate', 'advanced'];
-  const currentIndex = phases.indexOf(phase);
-  
-  return (
-    <div className="flex items-center justify-between mb-4" data-testid="phase-indicator">
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1">
-          {phases.map((p, i) => (
-            <div
-              key={p}
-              className={`h-2 w-8 rounded-full transition-colors ${
-                i < currentIndex ? 'bg-green-500' :
-                i === currentIndex ? 'bg-primary' :
-                'bg-muted'
-              }`}
-            />
-          ))}
         </div>
-        <div>
-          <h3 className={`font-semibold ${config.color}`}>{config.name}</h3>
-          <p className="text-xs text-muted-foreground">{config.description}</p>
-        </div>
-      </div>
-      
-      <div className="flex items-center gap-2">
-        <div className="text-right">
-          <div className="text-lg font-bold">{Math.round(overallProgress)}%</div>
-          <div className="text-xs text-muted-foreground">Complete</div>
-        </div>
-        {overallProgress === 100 && (
-          <Button 
-            size="sm" 
-            className="gap-1"
-            onClick={onPhaseComplete}
-            data-testid="button-next-phase"
-          >
-            <Trophy className="h-4 w-4" />
-            Next Phase
-          </Button>
-        )}
       </div>
     </div>
   );
 }
 
-function CelebrationOverlay({ onDismiss, isLastPhase }: { onDismiss: () => void; isLastPhase: boolean }) {
+function ACTFLMeter({ progress, level }: { progress: ActflProgress | null | undefined; level: string }) {
+  // Parse ACTFL level from format like "novice_low", "intermediate_mid", etc.
+  const actflLevel = progress?.currentActflLevel || 'novice_low';
+  const [mainLevel, subLevel] = actflLevel.split('_');
+  
+  // Calculate overall ACTFL progress percentage based on level
+  const levelValues: Record<string, number> = {
+    'novice': 0,
+    'intermediate': 33,
+    'advanced': 66,
+    'superior': 100,
+  };
+  const subLevelValues: Record<string, number> = {
+    'low': 0,
+    'mid': 11,
+    'high': 22,
+  };
+  
+  const overallProgress = Math.min(
+    (levelValues[mainLevel] || 0) + (subLevelValues[subLevel] || 0),
+    100
+  );
+  
+  const levelDisplay = mainLevel 
+    ? `${mainLevel.charAt(0).toUpperCase()}${mainLevel.slice(1)}`
+    : 'Novice';
+  
+  const subLevelDisplay = subLevel 
+    ? `${subLevel.charAt(0).toUpperCase()}${subLevel.slice(1)}`
+    : 'Low';
+
   return (
     <div 
-      className="absolute inset-0 bg-black/60 flex items-center justify-center z-50 rounded-lg"
-      data-testid="celebration-overlay"
+      className="absolute flex flex-col items-center justify-center pointer-events-none"
+      style={{
+        left: '50%',
+        top: '50%',
+        transform: 'translate(-50%, -50%)',
+      }}
+      data-testid="actfl-meter"
     >
-      <div className="text-center space-y-4 animate-in zoom-in-50 duration-300 p-6">
-        <div className="flex justify-center">
-          <div className="p-4 rounded-full bg-yellow-500/20">
-            <Trophy className="h-16 w-16 text-yellow-500" />
-          </div>
-        </div>
-        <h2 className="text-2xl font-bold text-white">
-          {isLastPhase ? 'Brain Mastery Complete!' : 'Phase Complete!'}
-        </h2>
-        <p className="text-white/80">
-          {isLastPhase 
-            ? 'Congratulations! You have mastered all phases!' 
-            : 'Your brain has evolved to the next level!'}
-        </p>
-        <Button 
-          onClick={(e) => {
-            e.stopPropagation();
-            onDismiss();
-          }} 
-          data-testid="button-dismiss-celebration"
-          className="gap-2"
-        >
-          <Star className="h-4 w-4" />
-          {isLastPhase ? 'View Your Mastery' : 'Continue to Next Phase'}
-        </Button>
+      {/* Circular progress ring */}
+      <svg width="90" height="90" viewBox="0 0 90 90">
+        <defs>
+          <linearGradient id="actfl-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#10B981" />
+            <stop offset="50%" stopColor="#3B82F6" />
+            <stop offset="100%" stopColor="#8B5CF6" />
+          </linearGradient>
+        </defs>
+        {/* Background ring */}
+        <circle
+          cx="45"
+          cy="45"
+          r="38"
+          fill="rgba(0,0,0,0.3)"
+          stroke="rgba(255,255,255,0.1)"
+          strokeWidth="4"
+        />
+        {/* Progress ring */}
+        <circle
+          cx="45"
+          cy="45"
+          r="38"
+          fill="none"
+          stroke="url(#actfl-gradient)"
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeDasharray={`${(overallProgress / 100) * 239} 239`}
+          transform="rotate(-90 45 45)"
+          className="transition-all duration-700"
+        />
+      </svg>
+      
+      {/* Center text */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-white drop-shadow-lg">
+        <span className="text-[10px] uppercase tracking-wider opacity-80">ACTFL</span>
+        <span className="text-sm font-bold">{levelDisplay}</span>
+        <span className="text-[10px] opacity-70">{subLevelDisplay}</span>
       </div>
     </div>
   );
@@ -369,12 +462,13 @@ interface SyllabusMindMapProps {
 export function SyllabusMindMap({ classId, language: languageProp, className, mode = 'emergent' }: SyllabusMindMapProps) {
   const { language: globalLanguage, difficulty } = useLanguage();
   const language = languageProp ?? globalLanguage;
-  const [expandedSegments, setExpandedSegments] = useState<Set<BrainSegment>>(new Set());
-  const [showCelebration, setShowCelebration] = useState(false);
-  const [currentPhase, setCurrentPhase] = useState<LearningPhase>(
-    difficulty === 'advanced' ? 'advanced' : 
-    difficulty === 'intermediate' ? 'intermediate' : 'beginner'
-  );
+  const [expandedSegment, setExpandedSegment] = useState<BrainSegment | null>(null);
+  
+  // Container dimensions for positioning
+  const containerWidth = 400;
+  const containerHeight = 400;
+  const centerX = containerWidth / 2;
+  const centerY = containerHeight / 2;
   
   const { data: progress, isLoading: progressLoading } = useQuery<ActflProgress | null>({
     queryKey: ['/api/actfl-progress', language],
@@ -396,7 +490,6 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
   }, [allTopics, mode]);
   
   const topicsBySegment = useMemo(() => {
-    const segments: BrainSegment[] = ['frontal', 'temporal', 'parietal', 'occipital', 'cerebellum'];
     const result: Record<BrainSegment, TopicNode[]> = {
       frontal: [],
       temporal: [],
@@ -413,45 +506,23 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
     return result;
   }, [visibleTopics]);
   
+  // Calculate segment progress for brain lighting
   const segmentProgress = useMemo(() => {
     const segments: BrainSegment[] = ['frontal', 'temporal', 'parietal', 'occipital', 'cerebellum'];
-    return segments.map(segment => {
+    const result: Record<BrainSegment, number> = {} as any;
+    
+    segments.forEach(segment => {
       const topics = topicsBySegment[segment];
       const mastered = topics.filter(t => t.status === 'mastered').length;
       const total = topics.length;
-      return total > 0 ? (mastered / total) * 100 : 0;
+      result[segment] = total > 0 ? (mastered / total) * 100 : 0;
     });
+    
+    return result;
   }, [topicsBySegment]);
   
-  const overallProgress = useMemo(() => {
-    const totalMastered = visibleTopics.filter(t => t.status === 'mastered').length;
-    const total = visibleTopics.length;
-    return total > 0 ? (totalMastered / total) * 100 : 0;
-  }, [visibleTopics]);
-  
   const toggleSegment = (segment: BrainSegment) => {
-    setExpandedSegments(prev => {
-      const next = new Set(prev);
-      if (next.has(segment)) {
-        next.delete(segment);
-      } else {
-        next.add(segment);
-      }
-      return next;
-    });
-  };
-  
-  const handlePhaseComplete = () => {
-    setShowCelebration(true);
-  };
-  
-  const handleDismissCelebration = () => {
-    setShowCelebration(false);
-    const phases: LearningPhase[] = ['beginner', 'intermediate', 'advanced'];
-    const currentIndex = phases.indexOf(currentPhase);
-    if (currentIndex < phases.length - 1) {
-      setCurrentPhase(phases[currentIndex + 1]);
-    }
+    setExpandedSegment(prev => prev === segment ? null : segment);
   };
   
   const isLoading = progressLoading || topicsLoading;
@@ -459,14 +530,8 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
   if (isLoading) {
     return (
       <div className={className} data-testid="mind-map-loading">
-        <div className="flex flex-col items-center justify-center h-[500px] gap-4">
-          <Skeleton className="h-[200px] w-[200px] rounded-full" />
-          <div className="grid grid-cols-2 gap-3 w-full max-w-md">
-            <Skeleton className="h-20" />
-            <Skeleton className="h-20" />
-            <Skeleton className="h-20" />
-            <Skeleton className="h-20" />
-          </div>
+        <div className="flex flex-col items-center justify-center h-[400px] gap-4">
+          <Skeleton className="h-[180px] w-[180px] rounded-full" />
           <p className="text-sm text-muted-foreground">Building your learning brain...</p>
         </div>
       </div>
@@ -480,14 +545,12 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
     locked: allTopics.filter(t => t.status === 'locked').length,
   };
   
+  // Calculate overall brain glow based on average progress
+  const avgProgress = Object.values(segmentProgress).reduce((a, b) => a + b, 0) / 5;
+  
   return (
     <div className={className} data-testid="syllabus-mind-map">
-      <PhaseIndicator 
-        phase={currentPhase} 
-        overallProgress={overallProgress}
-        onPhaseComplete={handlePhaseComplete}
-      />
-      
+      {/* Stats bar */}
       <div className="flex flex-wrap gap-2 mb-4 items-center justify-center">
         <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
           {stats.mastered} Mastered
@@ -505,72 +568,152 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
         )}
       </div>
       
-      <div className="relative">
-        {showCelebration && (
-          <CelebrationOverlay 
-            onDismiss={handleDismissCelebration} 
-            isLastPhase={currentPhase === 'advanced'}
+      {/* Brain visualization container */}
+      <div 
+        className="relative mx-auto"
+        style={{ 
+          width: containerWidth, 
+          height: containerHeight + 80, // Extra space for expanded panels
+        }}
+        data-testid="brain-container"
+      >
+        {/* Click outside to close expanded panel */}
+        {expandedSegment && (
+          <div 
+            className="absolute inset-0 z-20"
+            onClick={() => setExpandedSegment(null)}
           />
         )}
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Left column - 2 satellites */}
-          <div className="space-y-3 order-2 md:order-1">
-            <SatelliteCard
-              segment="frontal"
-              topics={topicsBySegment.frontal}
-              isExpanded={expandedSegments.has('frontal')}
-              onToggle={() => toggleSegment('frontal')}
-            />
-            <SatelliteCard
-              segment="temporal"
-              topics={topicsBySegment.temporal}
-              isExpanded={expandedSegments.has('temporal')}
-              onToggle={() => toggleSegment('temporal')}
-            />
-          </div>
+        {/* Brain image - floating with glow effect and per-lobe lighting */}
+        <div 
+          className="absolute transition-all duration-500"
+          style={{
+            left: centerX - 100,
+            top: centerY - 100,
+            width: 200,
+            height: 200,
+          }}
+        >
+          {/* Ambient glow behind brain */}
+          <div 
+            className="absolute inset-0 rounded-full blur-xl transition-opacity duration-700"
+            style={{
+              background: `radial-gradient(circle, rgba(139, 92, 246, ${0.2 + avgProgress / 200}) 0%, rgba(59, 130, 246, ${0.1 + avgProgress / 300}) 50%, transparent 70%)`,
+            }}
+          />
           
-          {/* Center - Brain image */}
-          <div className="flex items-center justify-center order-1 md:order-2">
-            <div className="relative">
-              <img 
-                src={brainImage} 
-                alt="Your Learning Brain" 
-                className="w-48 h-48 md:w-56 md:h-56 object-contain drop-shadow-lg"
-                data-testid="brain-image"
-              />
-              {/* Glow effect based on progress */}
-              <div 
-                className="absolute inset-0 rounded-full pointer-events-none transition-opacity duration-500"
-                style={{
-                  background: `radial-gradient(circle, rgba(34, 197, 94, ${overallProgress / 200}) 0%, transparent 70%)`,
-                }}
-              />
-            </div>
-          </div>
+          {/* Brain image */}
+          <img 
+            src={brainImage} 
+            alt="Your Learning Brain" 
+            className="w-full h-full object-contain drop-shadow-2xl relative z-10"
+            data-testid="brain-image"
+          />
           
-          {/* Right column - 3 satellites */}
-          <div className="space-y-3 order-3">
-            <SatelliteCard
-              segment="parietal"
-              topics={topicsBySegment.parietal}
-              isExpanded={expandedSegments.has('parietal')}
-              onToggle={() => toggleSegment('parietal')}
+          {/* Per-lobe lighting overlays */}
+          <svg 
+            className="absolute inset-0 w-full h-full pointer-events-none z-20"
+            viewBox="0 0 200 200"
+          >
+            <defs>
+              {/* Glow filters for each segment */}
+              {(['frontal', 'parietal', 'temporal', 'occipital', 'cerebellum'] as BrainSegment[]).map(segment => (
+                <filter key={`filter-${segment}`} id={`glow-${segment}`} x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                  <feMerge>
+                    <feMergeNode in="coloredBlur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                  </feMerge>
+                </filter>
+              ))}
+            </defs>
+            
+            {/* Frontal lobe (top-left, blue) */}
+            <ellipse
+              cx="65"
+              cy="60"
+              rx="35"
+              ry="40"
+              fill={SEGMENT_CONFIG.frontal.color}
+              opacity={segmentProgress.frontal >= 70 ? 0.4 : segmentProgress.frontal >= 30 ? 0.2 : 0.05}
+              filter={segmentProgress.frontal >= 70 ? 'url(#glow-frontal)' : undefined}
+              className="transition-all duration-700"
             />
-            <SatelliteCard
-              segment="occipital"
-              topics={topicsBySegment.occipital}
-              isExpanded={expandedSegments.has('occipital')}
-              onToggle={() => toggleSegment('occipital')}
+            
+            {/* Parietal lobe (top-right, green) */}
+            <ellipse
+              cx="130"
+              cy="55"
+              rx="30"
+              ry="35"
+              fill={SEGMENT_CONFIG.parietal.color}
+              opacity={segmentProgress.parietal >= 70 ? 0.4 : segmentProgress.parietal >= 30 ? 0.2 : 0.05}
+              filter={segmentProgress.parietal >= 70 ? 'url(#glow-parietal)' : undefined}
+              className="transition-all duration-700"
             />
-            <SatelliteCard
-              segment="cerebellum"
-              topics={topicsBySegment.cerebellum}
-              isExpanded={expandedSegments.has('cerebellum')}
-              onToggle={() => toggleSegment('cerebellum')}
+            
+            {/* Temporal lobe (left side, yellow) */}
+            <ellipse
+              cx="55"
+              cy="120"
+              rx="30"
+              ry="25"
+              fill={SEGMENT_CONFIG.temporal.color}
+              opacity={segmentProgress.temporal >= 70 ? 0.4 : segmentProgress.temporal >= 30 ? 0.2 : 0.05}
+              filter={segmentProgress.temporal >= 70 ? 'url(#glow-temporal)' : undefined}
+              className="transition-all duration-700"
             />
-          </div>
+            
+            {/* Occipital lobe (back, red) */}
+            <ellipse
+              cx="155"
+              cy="100"
+              rx="25"
+              ry="30"
+              fill={SEGMENT_CONFIG.occipital.color}
+              opacity={segmentProgress.occipital >= 70 ? 0.4 : segmentProgress.occipital >= 30 ? 0.2 : 0.05}
+              filter={segmentProgress.occipital >= 70 ? 'url(#glow-occipital)' : undefined}
+              className="transition-all duration-700"
+            />
+            
+            {/* Cerebellum (bottom-back, purple) */}
+            <ellipse
+              cx="145"
+              cy="155"
+              rx="30"
+              ry="22"
+              fill={SEGMENT_CONFIG.cerebellum.color}
+              opacity={segmentProgress.cerebellum >= 70 ? 0.4 : segmentProgress.cerebellum >= 30 ? 0.2 : 0.05}
+              filter={segmentProgress.cerebellum >= 70 ? 'url(#glow-cerebellum)' : undefined}
+              className="transition-all duration-700"
+            />
+          </svg>
+          
+          {/* ACTFL Meter overlay */}
+          <ACTFLMeter progress={progress} level={difficulty} />
         </div>
+        
+        {/* Orbital satellite lobes */}
+        {(['frontal', 'parietal', 'temporal', 'occipital', 'cerebellum'] as BrainSegment[]).map(segment => (
+          <LobeSatellite
+            key={segment}
+            segment={segment}
+            topics={topicsBySegment[segment]}
+            isExpanded={expandedSegment === segment}
+            onToggle={() => toggleSegment(segment)}
+            centerX={centerX}
+            centerY={centerY}
+          />
+        ))}
+      </div>
+      
+      {/* Instructions hint */}
+      <div className="text-center mt-4">
+        <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+          <ChevronUp className="h-3 w-3" />
+          Tap a lobe to explore topics
+        </p>
       </div>
     </div>
   );
