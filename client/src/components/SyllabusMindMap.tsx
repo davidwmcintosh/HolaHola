@@ -224,7 +224,7 @@ function LobeSatellite({
         top: isExpanded ? y - collapsedHeight / 2 : y - collapsedHeight / 2,
         width: isExpanded ? expandedWidth : collapsedWidth,
         height: isExpanded ? expandedHeight : collapsedHeight,
-        opacity: opacityMap[lightingState],
+        // Opacity now only affects the fill, not text - text stays bright
       }}
       onClick={() => !isExpanded && onToggle()}
       data-testid={`satellite-${segment}`}
@@ -272,7 +272,10 @@ function LobeSatellite({
             </defs>
             
             {/* Main group with drop shadow on the shape only */}
-            <g style={{ filter: `drop-shadow(0 2px 4px rgba(0,0,0,0.25)) ${lightingState === 'lit' ? `drop-shadow(0 0 8px ${config.glowColor})` : ''}` }}>
+            <g style={{ 
+              filter: `drop-shadow(0 2px 4px rgba(0,0,0,0.25)) ${lightingState === 'lit' ? `drop-shadow(0 0 8px ${config.glowColor})` : ''}`,
+              opacity: lightingState === 'dim' ? 0.6 : lightingState === 'semi-lit' ? 0.85 : 1,
+            }}>
               {/* Background cloud shape (empty/unfilled base) */}
               <path
                 d={config.cloudPath}
@@ -304,7 +307,7 @@ function LobeSatellite({
               />
             </g>
             
-            {/* Text label inside splat */}
+            {/* Text label inside splat - always full brightness */}
             <text
               x="50"
               y="38"
@@ -315,14 +318,15 @@ function LobeSatellite({
               fontSize="14"
               fontFamily="system-ui, sans-serif"
               style={{ 
-                textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
+                textShadow: '1px 1px 3px rgba(0,0,0,0.7)',
                 letterSpacing: '-0.5px',
+                opacity: 1,
               }}
             >
               {config.shortName}
             </text>
             
-            {/* Progress counter */}
+            {/* Progress counter - always full brightness */}
             <text
               x="50"
               y="55"
@@ -332,7 +336,10 @@ function LobeSatellite({
               fontWeight="600"
               fontSize="10"
               fontFamily="system-ui, sans-serif"
-              style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.6)' }}
+              style={{ 
+                textShadow: '1px 1px 3px rgba(0,0,0,0.7)',
+                opacity: 1,
+              }}
             >
               {mastered}/{total}
             </text>
@@ -629,23 +636,15 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
         )}
       </div>
       
-      {/* Brain visualization container with soft blue cloud background */}
+      {/* Brain visualization container - floating without background for cleaner mobile experience */}
       <div 
-        className="relative mx-auto rounded-3xl"
+        className="relative mx-auto"
         style={{ 
           width: containerWidth, 
           height: containerHeight + 120, // Extra space for expanded panels
-          background: 'linear-gradient(135deg, #87CEEB 0%, #B0E0E6 30%, #E0F4FF 60%, #87CEEB 100%)',
         }}
         data-testid="brain-container"
       >
-        {/* Cloud decorations */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-50" preserveAspectRatio="none">
-          <ellipse cx="10%" cy="15%" rx="60" ry="30" fill="white" opacity="0.6"/>
-          <ellipse cx="85%" cy="20%" rx="50" ry="25" fill="white" opacity="0.5"/>
-          <ellipse cx="15%" cy="85%" rx="70" ry="35" fill="white" opacity="0.4"/>
-          <ellipse cx="90%" cy="80%" rx="55" ry="28" fill="white" opacity="0.5"/>
-        </svg>
         
         {/* Curved arrows from satellites to brain - above brain */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none z-20">
