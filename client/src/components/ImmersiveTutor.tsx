@@ -427,9 +427,11 @@ export function ImmersiveTutor({
               )}
             </Button>
           )}
-          <span className="text-[10px] text-muted-foreground">
-            {inputMode === 'open-mic' ? 'Tap to toggle' : 'Hold to speak'}
-          </span>
+          {inputMode !== 'open-mic' && (
+            <span className="text-[10px] text-muted-foreground">
+              Hold to speak
+            </span>
+          )}
         </div>
 
         {/* Slow Repeat button removed: PLAY whiteboard tool with speed control handles this */}
