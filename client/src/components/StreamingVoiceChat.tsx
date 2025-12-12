@@ -1862,12 +1862,14 @@ export function StreamingVoiceChat({
         }
         
         const sequenceId = openMicSequenceIdRef.current++;
-        try {
-          streamingVoice.sendStreamingChunk(pcm16.buffer, sequenceId);
-        } catch (err) {
-          // Connection may have closed - stop open mic
-          console.warn('[OPEN MIC] Failed to send chunk, stopping recording');
-          openMicActiveRef.current = false;
+        const sent = streamingVoice.sendStreamingChunk(pcm16.buffer, sequenceId);
+        
+        // Track consecutive failures for logging (but don't stop recording)
+        if (!sent) {
+          // Only log occasionally to avoid spam (every 100 failed chunks)
+          if (sequenceId % 100 === 0) {
+            console.warn('[OPEN MIC] Failed to send chunk, WebSocket may be reconnecting');
+          }
         }
       };
       

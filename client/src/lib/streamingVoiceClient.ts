@@ -340,22 +340,28 @@ export class StreamingVoiceClient {
   
   /**
    * Send streaming audio chunk for open mic mode
+   * Returns true if chunk was sent, false if WebSocket not ready
    * @param audioData - Audio chunk to stream
    * @param sequenceId - Sequence number for ordering
    */
-  sendStreamingChunk(audioData: ArrayBuffer, sequenceId: number): void {
+  sendStreamingChunk(audioData: ArrayBuffer, sequenceId: number): boolean {
     if (!this.isReady()) {
-      throw new Error('WebSocket not connected');
+      return false;
     }
     
-    // Convert to base64 for JSON transport
-    const base64Audio = this.arrayBufferToBase64(audioData);
-    this.ws!.send(JSON.stringify({
-      type: 'stream_audio_chunk',
-      audio: base64Audio,
-      format: 'webm',
-      sequenceId,
-    }));
+    try {
+      // Convert to base64 for JSON transport
+      const base64Audio = this.arrayBufferToBase64(audioData);
+      this.ws!.send(JSON.stringify({
+        type: 'stream_audio_chunk',
+        audio: base64Audio,
+        format: 'webm',
+        sequenceId,
+      }));
+      return true;
+    } catch (err) {
+      return false;
+    }
   }
   
   /**
