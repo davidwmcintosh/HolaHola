@@ -205,6 +205,75 @@ These are filtered in `streaming-voice-orchestrator.ts` before sending to the wh
 
 ---
 
+## Hive Mind Architecture
+
+### Multi-Agent Knowledge Sharing
+
+The HolaHola platform uses a "hive mind" approach where multiple agents share knowledge:
+
+```
+┌────────────────────────────────────────────────────────────┐
+│                    SHARED KNOWLEDGE LAYER                   │
+│                                                              │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│  │ agent_      │  │ tutor_      │  │ tool_       │         │
+│  │ observations│  │ procedures  │  │ knowledge   │         │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │
+│         │                │                │                 │
+│         ▼                ▼                ▼                 │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │           UNIFIED INTELLIGENCE LAYER                 │   │
+│  └─────────────────────────────────────────────────────┘   │
+└────────────────────────────────────────────────────────────┘
+         │                │                │
+         ▼                ▼                ▼
+   ┌───────────┐   ┌───────────┐   ┌───────────┐
+   │ Dev Agent │   │  Daniela  │   │  Support  │
+   │ (Builder) │   │  (Tutor)  │   │  (Helper) │
+   └───────────┘   └───────────┘   └───────────┘
+```
+
+### Agent Roles
+
+| Agent | Primary Table | Purpose |
+|-------|---------------|---------|
+| **Dev Agent** | `agent_observations` | Persist architectural insights, patterns, improvement opportunities |
+| **Daniela** | `tutor_procedures`, `tool_knowledge` | Teaching situations, platform feature awareness |
+| **Support** | (future) `support_patterns` | User friction points, solutions |
+
+### Cross-Agent Reference Patterns
+
+1. **Dev Agent → Daniela**: Observations about platform features inform procedural memory additions
+2. **Daniela → Dev Agent**: `daniela_suggestions` table surfaces improvement ideas from teaching experiences
+3. **All Agents → Shared Docs**: `docs/FEATURE-INVENTORY.md` provides comprehensive platform reference
+
+### Agent Observation Categories
+
+| Category | Purpose |
+|----------|---------|
+| `architecture` | System design observations |
+| `pattern` | Recurring patterns noticed |
+| `improvement` | Proposed improvements |
+| `bug_pattern` | Error patterns observed |
+| `user_behavior` | Aggregated user behavior insights |
+| `performance` | Performance observations |
+| `daniela_behavior` | Observations about Daniela's teaching |
+| `sync_issue` | Issues with neural network sync |
+| `next_step` | Identified next development steps |
+
+### Platform Feature Awareness
+
+Daniela's `tool_knowledge` includes platform features (not just whiteboard commands):
+
+| Tool Type | Examples |
+|-----------|----------|
+| `whiteboard_command` | WRITE, PHONETIC, DRILL, IMAGE... |
+| `platform_feature` | PLATFORM_MIND_MAP, PLATFORM_VOCABULARY_LIBRARY, PLATFORM_REVIEW_HUB |
+| `drill` | repeat, translate, match, fill_blank, sentence_order |
+| `internal` | SWITCH_TUTOR, ACTFL_UPDATE, SYLLABUS_PROGRESS |
+
+---
+
 ## Philosophy
 
 > "We define who the Tutor IS, not what the Tutor does."
