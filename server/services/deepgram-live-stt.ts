@@ -361,17 +361,33 @@ export class OpenMicSession {
       this.chunkCount++;
       this.totalBytes += audioBuffer.length;
       
-      // Log first chunk for debugging
+      // Calculate RMS audio level from PCM samples
+      let sumSquares = 0;
+      let maxSample = 0;
+      const numSamples = audioBuffer.length / 2; // 16-bit samples
+      for (let i = 0; i < audioBuffer.length; i += 2) {
+        const sample = audioBuffer.readInt16LE(i);
+        sumSquares += sample * sample;
+        maxSample = Math.max(maxSample, Math.abs(sample));
+      }
+      const rms = Math.sqrt(sumSquares / numSamples);
+      const rmsDb = rms > 0 ? 20 * Math.log10(rms / 32768) : -96;
+      
+      // Log first chunk for debugging with audio level
       if (!this.hasLoggedFirstChunk) {
         this.hasLoggedFirstChunk = true;
-        // PCM audio doesn't have container headers - just raw samples
-        console.log(`[OpenMic] First PCM chunk: ${audioBuffer.length} bytes (${(audioBuffer.length / 2 / 16000 * 1000).toFixed(0)}ms at 16kHz)`);
+        console.log(`[OpenMic] First PCM chunk: ${audioBuffer.length} bytes (${(audioBuffer.length / 2 / 16000 * 1000).toFixed(0)}ms at 16kHz), RMS: ${rmsDb.toFixed(1)}dB, max: ${maxSample}`);
       }
       
       // Log periodically every 50 chunks (~13 seconds of audio)
       if (this.chunkCount % 50 === 0) {
         const totalSeconds = (this.totalBytes / 2 / 16000).toFixed(1);
-        console.log(`[OpenMic] Audio stats: ${this.chunkCount} chunks, ${totalSeconds}s total`);
+        console.log(`[OpenMic] Audio stats: ${this.chunkCount} chunks, ${totalSeconds}s total, RMS: ${rmsDb.toFixed(1)}dB, max: ${maxSample}`);
+      }
+      
+      // Warn if audio appears to be silence
+      if (rmsDb < -60 && this.chunkCount % 20 === 0) {
+        console.warn(`[OpenMic] LOW AUDIO LEVEL: ${rmsDb.toFixed(1)}dB (chunk ${this.chunkCount}) - may be silence`);
       }
       
       this.connection.send(audioBuffer);
