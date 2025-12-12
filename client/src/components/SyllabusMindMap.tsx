@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import type { ActflProgress } from "@shared/schema";
-import brainImage from "@assets/generated_images/cartoon_brain_with_colored_lobes.png";
+import brainImage from "@assets/generated_images/transparent_colorful_cartoon_brain.png";
 
 interface TopicNode {
   id: string;
@@ -257,62 +257,57 @@ function LobeSatellite({
             width={collapsedWidth} 
             height={collapsedHeight} 
             viewBox="0 0 100 80"
-            className="w-full h-full overflow-visible"
-            style={{ filter: `drop-shadow(${glowIntensity[lightingState]})` }}
+            className="w-full h-full"
           >
             <defs>
+              {/* Cloud shape as clipPath to contain all effects */}
+              <clipPath id={`cloud-clip-${segment}`}>
+                <path d={config.cloudPath} />
+              </clipPath>
               {/* Empty (unfilled) gradient - lighter/desaturated version */}
               <linearGradient id={`grad-empty-${segment}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor={config.color} stopOpacity="0.3" />
-                <stop offset="100%" stopColor={config.color} stopOpacity="0.15" />
+                <stop offset="0%" stopColor={config.color} stopOpacity="0.35" />
+                <stop offset="100%" stopColor={config.color} stopOpacity="0.2" />
               </linearGradient>
               {/* Filled gradient - full saturation */}
-              <linearGradient id={`grad-filled-${segment}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <linearGradient id={`grad-filled-${segment}`} x1="0%" y1="100%" x2="0%" y2="0%">
                 <stop offset="0%" stopColor={config.color} stopOpacity="1" />
-                <stop offset="100%" stopColor={config.color} stopOpacity="0.8" />
+                <stop offset="100%" stopColor={config.color} stopOpacity="0.85" />
               </linearGradient>
-              {/* Clip path for fill effect - rises from bottom */}
-              <clipPath id={`fill-clip-${segment}`}>
-                <rect 
-                  x="0" 
-                  y={80 - (progress / 100) * 80} 
-                  width="100" 
-                  height={(progress / 100) * 80}
-                  className="transition-all duration-700"
-                />
-              </clipPath>
-              <filter id={`shadow-${segment}`} x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000" floodOpacity="0.3"/>
-              </filter>
             </defs>
             
-            {/* Background cloud shape (empty/unfilled) */}
-            <path
-              d={config.cloudPath}
-              fill={`url(#grad-empty-${segment})`}
-              stroke="white"
-              strokeWidth="2.5"
-              strokeLinejoin="round"
-              filter={`url(#shadow-${segment})`}
-            />
-            
-            {/* Foreground cloud shape (filled portion) - clipped to show progress */}
-            <path
-              d={config.cloudPath}
-              fill={`url(#grad-filled-${segment})`}
-              stroke="none"
-              clipPath={`url(#fill-clip-${segment})`}
-              className="transition-all duration-700"
-            />
-            
-            {/* White stroke on top */}
-            <path
-              d={config.cloudPath}
-              fill="none"
-              stroke="white"
-              strokeWidth="2.5"
-              strokeLinejoin="round"
-            />
+            {/* Main group with drop shadow on the shape only */}
+            <g style={{ filter: `drop-shadow(0 2px 4px rgba(0,0,0,0.25)) ${lightingState === 'lit' ? `drop-shadow(0 0 8px ${config.glowColor})` : ''}` }}>
+              {/* Background cloud shape (empty/unfilled base) */}
+              <path
+                d={config.cloudPath}
+                fill={`url(#grad-empty-${segment})`}
+                stroke="white"
+                strokeWidth="2.5"
+                strokeLinejoin="round"
+              />
+              
+              {/* Filled portion clipped to cloud shape - rises from bottom */}
+              <g clipPath={`url(#cloud-clip-${segment})`}>
+                <rect
+                  x="0"
+                  y={80 - (progress / 100) * 80}
+                  width="100"
+                  height={(progress / 100) * 80}
+                  fill={`url(#grad-filled-${segment})`}
+                  className="transition-all duration-700"
+                />
+              </g>
+              
+              {/* White stroke on top for crisp edge */}
+              <path
+                d={config.cloudPath}
+                fill="none"
+                stroke="white"
+                strokeWidth="2.5"
+                strokeLinejoin="round"
+              />
+            </g>
             
             {/* Text label inside splat */}
             <text
@@ -713,22 +708,14 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
             }}
           />
           
-          {/* Brain image with soft circular mask to hide square background */}
-          <div 
-            className="w-full h-full relative z-10 rounded-full overflow-hidden"
-            style={{
-              maskImage: 'radial-gradient(ellipse 85% 85% at 50% 50%, black 50%, transparent 85%)',
-              WebkitMaskImage: 'radial-gradient(ellipse 85% 85% at 50% 50%, black 50%, transparent 85%)',
-            }}
-          >
-            <img 
-              src={brainImage} 
-              alt="Your Learning Brain" 
-              className="w-full h-full object-contain scale-110"
-              style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.3))' }}
-              data-testid="brain-image"
-            />
-          </div>
+          {/* Brain image - transparent PNG, no masking needed */}
+          <img 
+            src={brainImage} 
+            alt="Your Learning Brain" 
+            className="w-full h-full object-contain relative z-10"
+            style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.25))' }}
+            data-testid="brain-image"
+          />
           
           {/* Per-lobe lighting overlays */}
           <svg 
