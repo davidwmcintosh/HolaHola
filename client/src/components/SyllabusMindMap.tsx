@@ -796,11 +796,14 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
             height: 230,
           }}
         >
-          {/* Ambient glow behind brain */}
+          {/* Ambient glow behind brain - intensifies with progress */}
           <div 
-            className="absolute inset-0 rounded-full blur-xl transition-opacity duration-700"
+            className={`absolute inset-0 rounded-full blur-xl transition-all duration-700 ${avgProgress >= 30 ? 'animate-pulse' : ''}`}
             style={{
-              background: `radial-gradient(circle, rgba(139, 92, 246, ${0.2 + avgProgress / 200}) 0%, rgba(59, 130, 246, ${0.1 + avgProgress / 300}) 50%, transparent 70%)`,
+              transform: `scale(${1 + avgProgress / 200})`,
+              background: avgProgress < 10 
+                ? 'radial-gradient(circle, rgba(100, 100, 100, 0.15) 0%, transparent 60%)'
+                : `radial-gradient(circle, rgba(139, 92, 246, ${0.3 + avgProgress / 150}) 0%, rgba(59, 130, 246, ${0.2 + avgProgress / 200}) 50%, transparent 70%)`,
             }}
           />
           
