@@ -6,6 +6,58 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 12, 2025 - Brain Mind Map Visualization
+
+**Overview**: Refactored SyllabusMindMap to feature a literal brain illustration at the center with 5 distinct segments (brain lobes) that light up as learners master different topic categories. Topics orbit around their corresponding brain segment, creating visual clustering by category.
+
+#### Brain Segment Mapping
+
+Each brain lobe corresponds to topic categories:
+- **Frontal lobe** (indigo) → Communication/Social (greetings, introductions, conversations)
+- **Temporal lobe** (purple) → Language/Memory (vocabulary, phrases, expressions, idioms)
+- **Parietal lobe** (cyan) → Practical/Spatial (directions, travel, shopping, numbers, time)
+- **Occipital lobe** (amber) → Cultural/Visual (culture, customs, holidays, food, media, art)
+- **Cerebellum** (green) → Grammar/Mechanics (verbs, conjugation, tenses, sentence structure)
+
+#### Topic Shape Types
+
+Different geometric shapes distinguish topic types:
+- **Triangle** → Grammar topics (verb tenses, conjugation)
+- **Hexagon** → Functional topics (ordering food, asking directions)
+- **Rounded Square** → Subject content (family, travel, food)
+- **Star** → Cultural insights (customs, holidays, idioms)
+- **Circle** → Default/mixed topics
+
+#### Progressive Glow Effects
+
+Brain segments illuminate based on category mastery percentage:
+- 0% → 15% opacity (dim)
+- 1-25% → 30% opacity (beginning glow)
+- 25-50% → 45% opacity (growing)
+- 50-75% → 65% opacity (strong)
+- 75-99% → 85% opacity (near mastery)
+- 100% → 100% opacity with glow effect (fully lit)
+
+#### Status Visual Effects
+
+- **Discovered** → Gentle pulse animation
+- **Practicing** → Sparkle effect (rotating dots around shape)
+- **Mastered** → Aurora glow (expanding ring animation)
+
+#### Component Architecture
+
+- `client/src/components/BrainSvg.tsx` - Interactive brain SVG with 5 clickable/hoverable segments
+- `client/src/components/TopicShapes.tsx` - Shape library (triangle, hexagon, square, star, circle) with effects
+- `client/src/components/SyllabusMindMap.tsx` - Orchestrates brain + topic clustering with dual mode (emergent/roadmap)
+
+#### Key Functions
+
+- `getCategorySegment(category)` - Maps topic category to brain segment
+- `getTopicShapeType(topicType, category)` - Determines shape based on topic type
+- `calculateClusteredPositions()` - Groups topics around their corresponding brain segment
+
+---
+
 ### Session: December 11, 2025 - Support Agent Implementation
 
 **Overview**: Implemented full Support Agent capability including CALL_SUPPORT command, support tickets system, admin UI, and neural network documentation. Support Agent serves dual purpose: handling live support handoffs from Daniela AND powering offline drills/exercises.
