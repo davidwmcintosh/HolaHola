@@ -5687,13 +5687,14 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(agentCollaborationEvents.createdAt))
       .limit(options?.limit || 15);
     
-    // Transform: For "daniela_summary" type, use publicSummary instead of content
+    // Transform: For "daniela_summary" type, use ONLY publicSummary (never fall back to content)
+    // SECURITY: If publicSummary is missing for daniela_summary, return empty string to prevent leaking internal details
     return events.map(event => ({
       id: event.id,
       fromAgent: event.fromAgent,
       subject: event.subject,
-      content: event.securityClassification === 'daniela_summary' && event.publicSummary
-        ? event.publicSummary
+      content: event.securityClassification === 'daniela_summary'
+        ? (event.publicSummary || '[Summary not available]')  // Never expose raw content
         : event.content,
       eventType: event.eventType,
       createdAt: event.createdAt,
