@@ -671,17 +671,13 @@ export function StreamingVoiceChat({
             whiteboard.addOrUpdateItems(items, shouldClear);
           },
           onVadSpeechStarted: () => {
-            // Ignore VAD events while awaiting/playing a response (unless barge-in)
-            if (isAwaitingResponseRef.current) {
-              console.log('[OPEN MIC] VAD speech started - ignored (awaiting response)');
-              return;
-            }
+            // TRUE DUPLEX: Always handle VAD speech events for barge-in support
             console.log('[OPEN MIC] VAD speech started');
             setOpenMicState('listening');
             
-            // Barge-in: Interrupt tutor if playing (don't call stop() - let server handle it)
-            if (avatarState === 'speaking') {
-              console.log('[BARGE-IN] User speaking - sending interrupt signal');
+            // Barge-in: Interrupt tutor if playing
+            if (avatarState === 'speaking' || isAwaitingResponseRef.current) {
+              console.log('[BARGE-IN] User speaking while tutor active - sending interrupt signal');
               streamingVoice.sendInterrupt();
               // Reset awaiting flag so new speech is captured
               isAwaitingResponseRef.current = false;
@@ -1837,13 +1833,9 @@ export function StreamingVoiceChat({
           return;
         }
         
-        // CRITICAL: Don't send audio while awaiting/playing AI response
-        // This prevents TTS feedback loop where Daniela's voice triggers new utterances
-        if (isAwaitingResponseRef.current) {
-          // Only log occasionally to avoid spam
-          if (Math.random() < 0.01) console.log('[OPEN MIC] Audio blocked - isAwaitingResponseRef is true');
-          return;
-        }
+        // TRUE DUPLEX MODE: Keep streaming audio even while Daniela speaks
+        // Echo cancellation + server-side VAD will filter out TTS feedback
+        // This enables real-time barge-in and continuous conversation
         
         let inputBuffer = event.inputBuffer.getChannelData(0);
         
@@ -2128,17 +2120,13 @@ export function StreamingVoiceChat({
                 whiteboard.addOrUpdateItems(items, shouldClear);
               },
               onVadSpeechStarted: () => {
-                // Ignore VAD events while awaiting/playing a response (unless barge-in)
-                if (isAwaitingResponseRef.current) {
-                  console.log('[OPEN MIC] VAD speech started - ignored (awaiting response)');
-                  return;
-                }
+                // TRUE DUPLEX: Always handle VAD speech events for barge-in support
                 console.log('[OPEN MIC] VAD speech started');
                 setOpenMicState('listening');
                 
-                // Barge-in: Interrupt tutor if playing (don't call stop() - let server handle it)
-                if (avatarState === 'speaking') {
-                  console.log('[BARGE-IN] User speaking - sending interrupt signal');
+                // Barge-in: Interrupt tutor if playing
+                if (avatarState === 'speaking' || isAwaitingResponseRef.current) {
+                  console.log('[BARGE-IN] User speaking while tutor active - sending interrupt signal');
                   streamingVoice.sendInterrupt();
                   isAwaitingResponseRef.current = false;
                   // Note: Server will handle stopping TTS and client will receive response_complete
