@@ -299,22 +299,11 @@ function LobeSatellite({
             </text>
           </svg>
           
-          {/* Progress bar under the splat */}
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16">
-            <div className="h-1.5 rounded-full bg-black/20 overflow-hidden">
-              <div 
-                className="h-full rounded-full transition-all duration-500"
-                style={{ 
-                  width: `${progress}%`,
-                  backgroundColor: config.color,
-                  opacity: lightingState === 'dim' ? 0.5 : 1,
-                }}
-              />
-            </div>
-            <p className="text-[9px] text-center text-white/80 mt-0.5 font-medium drop-shadow">
-              {mastered}/{total}
-            </p>
-          </div>
+          {/* Progress text under the splat - no bar, just text */}
+          <p className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] text-center font-bold drop-shadow-md"
+             style={{ color: config.color, textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+            {mastered}/{total}
+          </p>
         </div>
 
         {/* Expanded: Show content */}
@@ -681,13 +670,21 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
             }}
           />
           
-          {/* Brain image */}
-          <img 
-            src={brainImage} 
-            alt="Your Learning Brain" 
-            className="w-full h-full object-contain drop-shadow-2xl relative z-10"
-            data-testid="brain-image"
-          />
+          {/* Brain image with blended edges */}
+          <div 
+            className="w-full h-full relative z-10"
+            style={{
+              maskImage: 'radial-gradient(ellipse 90% 90% at 50% 50%, black 60%, transparent 100%)',
+              WebkitMaskImage: 'radial-gradient(ellipse 90% 90% at 50% 50%, black 60%, transparent 100%)',
+            }}
+          >
+            <img 
+              src={brainImage} 
+              alt="Your Learning Brain" 
+              className="w-full h-full object-contain drop-shadow-2xl"
+              data-testid="brain-image"
+            />
+          </div>
           
           {/* Per-lobe lighting overlays */}
           <svg 
