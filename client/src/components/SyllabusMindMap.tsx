@@ -59,9 +59,8 @@ const SEGMENT_CONFIG: Record<BrainSegment, {
     icon: MessageSquare,
     categories: ['Social Situations', 'Communication', 'Conversations', 'Introductions'],
     orbit: { angle: -55, distance: 150 },
-    // Soft cloud bubble
     cloudPath: 'M25,35 C10,35 5,25 15,15 C20,5 35,5 45,10 C55,5 70,8 75,18 C85,20 90,32 80,42 C85,52 75,60 60,58 C50,65 30,62 25,52 C12,55 8,45 25,35 Z',
-    arrowTarget: { x: -35, y: -25 }, // Points to frontal lobe area
+    arrowTarget: { x: -55, y: -20 }, // Blue frontal lobe (top-left)
   },
   parietal: {
     name: 'Practical Skills',
@@ -71,9 +70,8 @@ const SEGMENT_CONFIG: Record<BrainSegment, {
     icon: Compass,
     categories: ['Daily Life', 'Travel', 'Directions', 'Shopping', 'Work'],
     orbit: { angle: -15, distance: 160 },
-    // Soft cloud bubble
     cloudPath: 'M20,38 C8,35 5,22 18,12 C28,2 48,5 55,12 C65,5 82,10 85,25 C95,30 92,48 78,52 C80,62 65,68 50,60 C35,68 15,60 18,48 C5,48 8,40 20,38 Z',
-    arrowTarget: { x: 15, y: -35 }, // Points to parietal lobe area
+    arrowTarget: { x: 25, y: -35 }, // Green parietal lobe (top-right)
   },
   temporal: {
     name: 'Vocabulary',
@@ -83,9 +81,8 @@ const SEGMENT_CONFIG: Record<BrainSegment, {
     icon: BookOpen,
     categories: ['Vocabulary', 'Memory', 'Numbers', 'Colors', 'Time'],
     orbit: { angle: 200, distance: 150 },
-    // Soft cloud bubble
     cloudPath: 'M22,32 C10,28 8,15 22,10 C32,2 52,5 58,15 C68,8 85,15 82,30 C92,38 85,55 70,55 C72,65 55,70 42,62 C28,70 10,60 15,48 C2,45 5,35 22,32 Z',
-    arrowTarget: { x: -30, y: 15 }, // Points to temporal lobe area
+    arrowTarget: { x: -60, y: 5 }, // Yellow temporal lobe (left side)
   },
   occipital: {
     name: 'Culture',
@@ -95,9 +92,8 @@ const SEGMENT_CONFIG: Record<BrainSegment, {
     icon: Palette,
     categories: ['Culture', 'Customs', 'Traditions', 'Food', 'Music', 'Art'],
     orbit: { angle: 25, distance: 155 },
-    // Soft cloud bubble
     cloudPath: 'M28,35 C15,32 10,20 25,12 C35,3 55,8 60,18 C72,10 88,18 85,32 C95,40 88,58 72,55 C75,65 58,72 45,62 C30,70 12,58 18,45 C5,42 10,35 28,35 Z',
-    arrowTarget: { x: 35, y: 0 }, // Points to occipital lobe area
+    arrowTarget: { x: 55, y: -5 }, // Red/orange occipital lobe (right side)
   },
   cerebellum: {
     name: 'Grammar',
@@ -107,9 +103,8 @@ const SEGMENT_CONFIG: Record<BrainSegment, {
     icon: Settings2,
     categories: ['Grammar', 'Conjugation', 'Tenses', 'Sentence Structure'],
     orbit: { angle: 160, distance: 155 },
-    // Soft cloud bubble
     cloudPath: 'M25,30 C12,25 8,12 25,8 C38,0 58,5 62,18 C75,10 92,22 85,38 C95,48 82,62 65,58 C68,70 48,75 35,65 C20,72 5,58 15,45 C2,40 8,32 25,30 Z',
-    arrowTarget: { x: 20, y: 35 }, // Points to cerebellum area
+    arrowTarget: { x: 15, y: 50 }, // Purple cerebellum (bottom)
   },
 };
 
@@ -408,7 +403,7 @@ function ACTFLMeter({ progress, level }: { progress: ActflProgress | null | unde
   const actflLevel = progress?.currentActflLevel || 'novice_low';
   const [mainLevel, subLevel] = actflLevel.split('_');
   
-  // Calculate overall ACTFL progress percentage based on level
+  // Calculate overall ACTFL progress percentage based on level (0-100 scale)
   const levelValues: Record<string, number> = {
     'novice': 0,
     'intermediate': 33,
@@ -425,14 +420,17 @@ function ACTFLMeter({ progress, level }: { progress: ActflProgress | null | unde
     (levelValues[mainLevel] || 0) + (subLevelValues[subLevel] || 0),
     100
   );
-  
-  const levelDisplay = mainLevel 
-    ? `${mainLevel.charAt(0).toUpperCase()}${mainLevel.slice(1)}`
-    : 'Novice';
-  
-  const subLevelDisplay = subLevel 
-    ? `${subLevel.charAt(0).toUpperCase()}${subLevel.slice(1)}`
-    : 'Low';
+
+  // Compact half-circle dial with needle
+  const size = 80;
+  const strokeWidth = 8;
+  const radius = (size - strokeWidth) / 2;
+  const center = size / 2;
+  const needleAngle = -180 + (overallProgress / 100) * 180;
+  const needleRadians = (needleAngle * Math.PI) / 180;
+  const needleLength = radius - 12;
+  const needleX = center + needleLength * Math.cos(needleRadians);
+  const needleY = center + needleLength * Math.sin(needleRadians);
 
   return (
     <div 
@@ -444,45 +442,75 @@ function ACTFLMeter({ progress, level }: { progress: ActflProgress | null | unde
       }}
       data-testid="actfl-meter"
     >
-      {/* Circular progress ring */}
-      <svg width="90" height="90" viewBox="0 0 90 90">
+      {/* Half-circle dial with needle */}
+      <svg width={size} height={size / 2 + 20} viewBox={`0 0 ${size} ${size / 2 + 20}`} className="overflow-visible">
         <defs>
-          <linearGradient id="actfl-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#10B981" />
-            <stop offset="50%" stopColor="#3B82F6" />
-            <stop offset="100%" stopColor="#8B5CF6" />
+          <linearGradient id="actfl-dial-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#ef4444" />
+            <stop offset="33%" stopColor="#f59e0b" />
+            <stop offset="66%" stopColor="#22c55e" />
+            <stop offset="100%" stopColor="#8b5cf6" />
           </linearGradient>
+          <filter id="dial-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2" result="blur"/>
+            <feMerge>
+              <feMergeNode in="blur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
         </defs>
-        {/* Background ring */}
-        <circle
-          cx="45"
-          cy="45"
-          r="38"
-          fill="rgba(0,0,0,0.3)"
-          stroke="rgba(255,255,255,0.1)"
-          strokeWidth="4"
-        />
-        {/* Progress ring */}
-        <circle
-          cx="45"
-          cy="45"
-          r="38"
+        
+        {/* Background arc */}
+        <path
+          d={`M ${strokeWidth / 2} ${center} A ${radius} ${radius} 0 0 1 ${size - strokeWidth / 2} ${center}`}
           fill="none"
-          stroke="url(#actfl-gradient)"
-          strokeWidth="5"
+          stroke="rgba(255,255,255,0.2)"
+          strokeWidth={strokeWidth}
           strokeLinecap="round"
-          strokeDasharray={`${(overallProgress / 100) * 239} 239`}
-          transform="rotate(-90 45 45)"
-          className="transition-all duration-700"
         />
+        
+        {/* Colored arc showing progress */}
+        <path
+          d={`M ${strokeWidth / 2} ${center} A ${radius} ${radius} 0 0 1 ${size - strokeWidth / 2} ${center}`}
+          fill="none"
+          stroke="url(#actfl-dial-gradient)"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={radius * Math.PI}
+          strokeDashoffset={(1 - overallProgress / 100) * radius * Math.PI}
+          style={{ transition: 'stroke-dashoffset 0.7s ease-out' }}
+          filter="url(#dial-glow)"
+        />
+        
+        {/* Needle */}
+        <g style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }}>
+          <circle cx={center} cy={center} r={6} fill="white" />
+          <line
+            x1={center}
+            y1={center}
+            x2={needleX}
+            y2={needleY}
+            stroke="white"
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            style={{ transition: 'all 0.7s ease-out' }}
+          />
+          <circle cx={center} cy={center} r={3} fill="#1f2937" />
+        </g>
+        
+        {/* Score number below */}
+        <text
+          x={center}
+          y={center + 16}
+          textAnchor="middle"
+          fill="white"
+          fontSize="14"
+          fontWeight="bold"
+          style={{ textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}
+        >
+          {Math.round(overallProgress)}
+        </text>
       </svg>
-      
-      {/* Center text */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-white drop-shadow-lg">
-        <span className="text-[10px] uppercase tracking-wider opacity-80">ACTFL</span>
-        <span className="text-sm font-bold">{levelDisplay}</span>
-        <span className="text-[10px] opacity-70">{subLevelDisplay}</span>
-      </div>
     </div>
   );
 }
