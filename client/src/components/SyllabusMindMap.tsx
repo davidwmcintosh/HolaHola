@@ -261,29 +261,63 @@ function LobeSatellite({
             style={{ filter: `drop-shadow(${glowIntensity[lightingState]})` }}
           >
             <defs>
-              <linearGradient id={`grad-${segment}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor={config.color} stopOpacity="1" />
-                <stop offset="100%" stopColor={config.color} stopOpacity="0.7" />
+              {/* Empty (unfilled) gradient - lighter/desaturated version */}
+              <linearGradient id={`grad-empty-${segment}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor={config.color} stopOpacity="0.3" />
+                <stop offset="100%" stopColor={config.color} stopOpacity="0.15" />
               </linearGradient>
+              {/* Filled gradient - full saturation */}
+              <linearGradient id={`grad-filled-${segment}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor={config.color} stopOpacity="1" />
+                <stop offset="100%" stopColor={config.color} stopOpacity="0.8" />
+              </linearGradient>
+              {/* Clip path for fill effect - rises from bottom */}
+              <clipPath id={`fill-clip-${segment}`}>
+                <rect 
+                  x="0" 
+                  y={80 - (progress / 100) * 80} 
+                  width="100" 
+                  height={(progress / 100) * 80}
+                  className="transition-all duration-700"
+                />
+              </clipPath>
               <filter id={`shadow-${segment}`} x="-20%" y="-20%" width="140%" height="140%">
                 <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000" floodOpacity="0.3"/>
               </filter>
             </defs>
-            {/* Soft cloud shape */}
+            
+            {/* Background cloud shape (empty/unfilled) */}
             <path
               d={config.cloudPath}
-              fill={`url(#grad-${segment})`}
+              fill={`url(#grad-empty-${segment})`}
               stroke="white"
               strokeWidth="2.5"
               strokeLinejoin="round"
               filter={`url(#shadow-${segment})`}
-              className="transition-transform duration-200 hover:scale-105"
-              style={{ transformOrigin: 'center' }}
             />
+            
+            {/* Foreground cloud shape (filled portion) - clipped to show progress */}
+            <path
+              d={config.cloudPath}
+              fill={`url(#grad-filled-${segment})`}
+              stroke="none"
+              clipPath={`url(#fill-clip-${segment})`}
+              className="transition-all duration-700"
+            />
+            
+            {/* White stroke on top */}
+            <path
+              d={config.cloudPath}
+              fill="none"
+              stroke="white"
+              strokeWidth="2.5"
+              strokeLinejoin="round"
+            />
+            
             {/* Text label inside splat */}
             <text
               x="50"
-              y="42"
+              y="38"
               textAnchor="middle"
               dominantBaseline="middle"
               fill="white"
@@ -297,13 +331,22 @@ function LobeSatellite({
             >
               {config.shortName}
             </text>
+            
+            {/* Progress counter */}
+            <text
+              x="50"
+              y="55"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="white"
+              fontWeight="600"
+              fontSize="10"
+              fontFamily="system-ui, sans-serif"
+              style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.6)' }}
+            >
+              {mastered}/{total}
+            </text>
           </svg>
-          
-          {/* Progress text under the splat - no bar, just text */}
-          <p className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] text-center font-bold drop-shadow-md"
-             style={{ color: config.color, textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
-            {mastered}/{total}
-          </p>
         </div>
 
         {/* Expanded: Show content */}
@@ -670,18 +713,19 @@ export function SyllabusMindMap({ classId, language: languageProp, className, mo
             }}
           />
           
-          {/* Brain image with blended edges */}
+          {/* Brain image with soft circular mask to hide square background */}
           <div 
-            className="w-full h-full relative z-10"
+            className="w-full h-full relative z-10 rounded-full overflow-hidden"
             style={{
-              maskImage: 'radial-gradient(ellipse 90% 90% at 50% 50%, black 60%, transparent 100%)',
-              WebkitMaskImage: 'radial-gradient(ellipse 90% 90% at 50% 50%, black 60%, transparent 100%)',
+              maskImage: 'radial-gradient(ellipse 85% 85% at 50% 50%, black 50%, transparent 85%)',
+              WebkitMaskImage: 'radial-gradient(ellipse 85% 85% at 50% 50%, black 50%, transparent 85%)',
             }}
           >
             <img 
               src={brainImage} 
               alt="Your Learning Brain" 
-              className="w-full h-full object-contain drop-shadow-2xl"
+              className="w-full h-full object-contain scale-110"
+              style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.3))' }}
               data-testid="brain-image"
             />
           </div>
