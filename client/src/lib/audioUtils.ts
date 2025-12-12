@@ -945,7 +945,8 @@ export class StreamingAudioPlayer {
           }
           
           // Mark sentences as ended when their time passes
-          if (entry.started && !entry.ended && entry.endCtxTime !== undefined && now >= endTime) {
+          // Note: endTime is already calculated with fallback, so no need to check endCtxTime
+          if (entry.started && !entry.ended && now >= endTime) {
             entry.ended = true;
             this.callbacks.onSentenceEnd?.(index);
           }
