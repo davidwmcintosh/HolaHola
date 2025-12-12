@@ -442,21 +442,11 @@ function ACTFLMeter({ progress, level }: { progress: ActflProgress | null | unde
           </filter>
         </defs>
         
-        {/* Semi-transparent arc-shaped background matching the dial */}
-        <path
-          d={`M ${strokeWidth / 2 - 6} ${center + 8} 
-              A ${radius + 6} ${radius + 6} 0 0 1 ${size - strokeWidth / 2 + 6} ${center + 8}
-              L ${size - strokeWidth / 2 + 6} ${center + 22}
-              L ${strokeWidth / 2 - 6} ${center + 22}
-              Z`}
-          fill="rgba(0,0,0,0.5)"
-        />
-        
-        {/* Background arc */}
+        {/* Background arc - increased opacity */}
         <path
           d={`M ${strokeWidth / 2} ${center} A ${radius} ${radius} 0 0 1 ${size - strokeWidth / 2} ${center}`}
           fill="none"
-          stroke="rgba(255,255,255,0.4)"
+          stroke="rgba(255,255,255,0.6)"
           strokeWidth={strokeWidth}
           strokeLinecap="round"
         />
