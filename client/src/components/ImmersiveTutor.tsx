@@ -207,52 +207,31 @@ export function ImmersiveTutor({
           </div>
         )}
         
-        {/* Open Mic Status Indicators - TRUE DUPLEX MODE */}
-        {/* Use isRecording as primary truth - shows actual mic state */}
-        {/* openMicState is secondary - adds detail about what's happening */}
+        {/* Open Mic Status Indicators - TRUE DUPLEX (Phone Call Model) */}
+        {/* Only TWO real states: LISTENING (green) or TALKING (blue) */}
+        {/* Mic stays hot even when Daniela is responding - true barge-in support */}
         {inputMode === 'open-mic' && (
           <>
-            {/* Active Recording State - Mic is actually capturing */}
-            {isRecording ? (
-              openMicState === 'listening' ? (
-                // LISTENING: Pulsing green - user is speaking
-                <div 
-                  className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-full shadow-lg animate-pulse"
-                  data-testid="indicator-listening"
-                >
-                  <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
-                  <span className="text-sm font-medium">Listening...</span>
-                </div>
-              ) : openMicState === 'processing' ? (
-                // PROCESSING: Yellow - waiting for Daniela's response
-                <div 
-                  className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-full shadow-lg"
-                  data-testid="indicator-processing"
-                >
-                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span className="text-sm font-medium">Processing...</span>
-                </div>
-              ) : (
-                // READY: Solid green - mic hot, waiting for speech
-                <div 
-                  className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-full shadow-lg"
-                  data-testid="indicator-ready"
-                >
-                  <div className="w-3 h-3 bg-white rounded-full" />
-                  <span className="text-sm font-medium">Mic hot</span>
-                </div>
-              )
-            ) : isPlaying ? (
-              // PLAYING: Blue - Daniela is speaking (mic temporarily off)
+            {isPlaying ? (
+              // DANIELA TALKING: Blue - but mic is still hot for barge-in
               <div 
                 className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-full shadow-lg"
                 data-testid="indicator-speaking"
               >
                 <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
-                <span className="text-sm font-medium">Speaking...</span>
+                <span className="text-sm font-medium">Daniela</span>
+              </div>
+            ) : isRecording || openMicState === 'processing' || openMicState === 'ready' || openMicState === 'listening' ? (
+              // LISTENING: Green - mic is hot (pulsing if actively hearing speech)
+              <div 
+                className={`absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-full shadow-lg ${openMicState === 'listening' ? 'animate-pulse' : ''}`}
+                data-testid="indicator-listening"
+              >
+                <div className={`w-3 h-3 bg-white rounded-full ${openMicState === 'listening' ? 'animate-pulse' : ''}`} />
+                <span className="text-sm font-medium">{openMicState === 'listening' ? 'Hearing you...' : 'Listening'}</span>
               </div>
             ) : (
-              // IDLE: Gray - mic not active
+              // MIC OFF: Gray - only when explicitly stopped
               <div 
                 className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-gray-500/70 text-white rounded-full shadow-lg"
                 data-testid="indicator-idle"
@@ -320,20 +299,16 @@ export function ImmersiveTutor({
           </div>
         )}
         
-        {/* Instruction text - clear status for each state */}
+        {/* Instruction text - simple two-state model */}
         <p className="text-xs text-muted-foreground" data-testid="text-mic-instruction">
           {isConnecting 
             ? `Calling ${tutorGender === 'male' ? maleVoiceName : femaleVoiceName}...` 
             : inputMode === 'open-mic'
-              ? isRecording
-                ? openMicState === 'listening' 
-                  ? "I hear you..."  // User is speaking
-                  : openMicState === 'processing'
-                    ? "Thinking..."  // Waiting for AI response
-                    : "Just speak when ready"  // Mic hot, waiting for speech
-                : isPlaying
-                  ? "Daniela is speaking"  // Tutor is talking
-                  : "Tap mic to start"  // Mic off
+              ? isPlaying
+                ? ""  // No instruction when Daniela is talking - indicator shows "Daniela"
+                : isRecording || openMicState === 'processing' || openMicState === 'ready' || openMicState === 'listening'
+                  ? ""  // No instruction when listening - indicator shows state
+                  : "Tap to connect"  // Mic off
               : isRecording 
                 ? "Release to send" 
                 : isMicPreparing 
