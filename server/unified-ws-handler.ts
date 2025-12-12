@@ -170,24 +170,26 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
     console.error('[Streaming Voice] Error sending connected:', err);
   }
 
-  // HEARTBEAT: Send ping every 20 seconds to keep connection alive
+  // HEARTBEAT: Send ping every 30 seconds to keep connection alive
   // This prevents network proxies/firewalls from killing idle connections
-  let isAlive = true;
+  // Allow 2 missed pongs before terminating (browser busy states can miss single pongs)
+  let missedPongs = 0;
+  const MAX_MISSED_PONGS = 2;
   const heartbeatInterval = setInterval(() => {
-    if (!isAlive) {
-      console.log('[Streaming Voice] Heartbeat: No pong received, terminating connection');
+    missedPongs++;
+    if (missedPongs > MAX_MISSED_PONGS) {
+      console.log(`[Streaming Voice] Heartbeat: ${missedPongs} pongs missed, terminating connection`);
       clearInterval(heartbeatInterval);
       ws.terminate();
       return;
     }
-    isAlive = false;
     if (ws.readyState === WS.OPEN) {
       ws.ping();
     }
-  }, 20000);
+  }, 30000);
 
   ws.on('pong', () => {
-    isAlive = true;
+    missedPongs = 0; // Reset counter on successful pong
   });
 
   ws.on('message', async (data: Buffer | string) => {

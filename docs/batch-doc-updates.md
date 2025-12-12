@@ -468,6 +468,64 @@ Same Daniela brain, different presentation layer.
 
 ---
 
+### Session: December 12, 2025 - HIVE Command & Heartbeat Fix
+
+**Overview**: Implemented HIVE whiteboard command for Daniela's active contribution to the hive mind, plus fixed aggressive WebSocket heartbeat causing 1006 connection closures.
+
+#### HIVE Whiteboard Command
+
+New whiteboard command for Daniela to actively contribute ideas/suggestions:
+
+```
+[HIVE: category="teaching_insight" title="Multi-sensory vocabulary" description="Students retain better when..." priority=80]
+```
+
+**Categories** (from suggestion_category enum):
+- `self_improvement`: Ideas to improve her own teaching/behavior
+- `content_gap`: Missing drills, topics, cultural content
+- `ux_observation`: UI/UX issues noticed through student behavior
+- `teaching_insight`: Pedagogical pattern that worked/didn't work
+- `product_feature`: Feature idea for HolaHola
+
+**Flow**:
+1. Daniela formulates an observation/idea during conversation
+2. Uses HIVE command with category, title, description, optional reasoning/priority
+3. System validates category against enum, clamps priority to 1-100
+4. Saves to `daniela_suggestions` table with `generatedInMode` context
+5. Founders review in Command Center
+
+**Key Distinction**:
+- **Passive learning**: Neural network learns from observation (tool usage → automatic logging → pattern analysis)
+- **Active contribution**: HIVE command enables deliberate idea writing (Daniela formulates → suggestion saved → founder review)
+
+#### Heartbeat Fix
+
+**Problem**: 20-second ping interval with immediate termination on single missed pong caused 1006 connection closures when browser was busy.
+
+**Solution**:
+- Increased interval to 30 seconds
+- Allow 2 missed pongs before terminating
+- Reset counter on successful pong
+
+```typescript
+// Before: Terminate immediately on single missed pong
+let isAlive = true;
+if (!isAlive) { ws.terminate(); }
+
+// After: Allow 2 missed pongs (browser busy states)
+let missedPongs = 0;
+const MAX_MISSED_PONGS = 2;
+if (missedPongs > MAX_MISSED_PONGS) { ws.terminate(); }
+```
+
+#### Files Modified
+
+- `server/services/streaming-voice-orchestrator.ts` - Added `processHiveSuggestion` method
+- `server/storage.ts` - Added `createDanielaSuggestion` method to interface and implementation
+- `server/unified-ws-handler.ts` - Fixed heartbeat to allow 2 missed pongs
+
+---
+
 ## Next Steps / Action Items
 
 ### Completed This Session
