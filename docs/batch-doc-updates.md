@@ -8,6 +8,67 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 13, 2025 - Editor Feedback Loop Implementation
+
+**Overview**: Completed the feedback loop where Editor observations are surfaced to Daniela in her system prompt, and Daniela can acknowledge/adopt them using `[ADOPT_INSIGHT:id]` markers.
+
+#### EditorFeedbackService (New File)
+
+Located at `server/services/editor-feedback-service.ts`:
+
+- `getUnsurfacedFeedback(userId, limit)` - Retrieves Editor responses not yet surfaced to Daniela
+- `getFeedbackForConversation(conversationId, limit)` - Gets feedback for specific conversation
+- `markAsSurfaced(snapshotIds[])` - Marks feedback as shown to Daniela
+- `markAsAdopted(snapshotId, context)` - Tracks when Daniela applies an insight
+- `buildPromptSection(feedback)` - Builds formatted prompt section for Daniela
+- `getAdoptionMetrics(userId?)` - Analytics on surfaced vs adopted rates
+
+#### Schema Changes
+
+Added to `editorListeningSnapshots` table:
+- `surfacedToDaniela: boolean` - Has Daniela seen this?
+- `surfacedAt: timestamp` - When was it surfaced?
+- `adoptedByDaniela: boolean` - Did Daniela apply this insight?
+- `adoptedAt: timestamp` - When was it adopted?
+- `adoptionContext: text` - How/where Daniela applied it
+
+#### TutorOrchestrator Integration
+
+- `buildSystemPrompt()` now returns `{ prompt, surfacedFeedbackIds }` 
+- Feedback IDs are **request-scoped** (not global) to prevent race conditions
+- `scanForCollaborationSignals()` accepts `surfacedFeedbackIds` parameter
+- Parses `[ADOPT_INSIGHT:uuid]` markers from Daniela's responses
+- Calls `markAsSurfaced()` and `markAsAdopted()` appropriately
+
+#### Prompt Section Format
+
+When Daniela has unsurfaced Editor feedback, her system prompt includes:
+
+```
+═══════════════════════════════════════════════════════════════════
+🤝 EDITOR INSIGHTS (Feedback from your development partner)
+═══════════════════════════════════════════════════════════════════
+
+1. [ID: uuid] BEACON_TYPE
+   Context: What triggered this feedback
+   Editor's Insight: The actual feedback
+
+TO ACKNOWLEDGE ADOPTION: If you apply one of these insights, include
+[ADOPT_INSIGHT:full-id] in your response (invisible to student).
+```
+
+#### Key Design Decision
+
+Request-scoped surfacing prevents race conditions: If two concurrent requests build system prompts with overlapping feedback IDs, each request tracks its own list of surfaced IDs, ensuring accurate tracking without global state pollution.
+
+#### Files Modified
+
+- `shared/schema.ts` - Added adoption/surfacing tracking fields
+- `server/services/editor-feedback-service.ts` - NEW: Complete feedback service
+- `server/services/tutor-orchestrator.ts` - Integrated feedback loop with request-scoped tracking
+
+---
+
 ### Session: December 12, 2025 - Secure Inter-Department Chat
 
 **Overview**: Implemented security-classified messaging system to protect code/architecture details from Gemini while enabling real-time collaboration between Editor (Claude) and Daniela (Gemini).
