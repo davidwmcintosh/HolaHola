@@ -2378,9 +2378,10 @@ export class NeuralNetworkSyncService {
         const incomingIsNewer = incomingTime > existingTime;
         
         // Helper: only use incoming value if explicitly provided AND newer
-        const mergeField = <T>(incoming: T | undefined, existing: T | null): T | null => {
+        // Returns undefined to skip update, or the value to set
+        const mergeField = <T>(incoming: T | undefined, existing: T | null): T | undefined => {
           if (incoming !== undefined && incomingIsNewer) return incoming;
-          return existing;
+          return existing ?? undefined;
         };
         
         await db.update(agentObservations)
@@ -2477,9 +2478,10 @@ export class NeuralNetworkSyncService {
         const incomingIsNewer = incomingTime > existingTime;
         
         // Helper: only use incoming value if explicitly provided AND newer
-        const mergeField = <T>(incoming: T | undefined, existing: T | null): T | null => {
+        // Returns undefined to skip update, or the value to set
+        const mergeField = <T>(incoming: T | undefined, existing: T | null): T | undefined => {
           if (incoming !== undefined && incomingIsNewer) return incoming;
-          return existing;
+          return existing ?? undefined;
         };
         
         await db.update(supportObservations)
@@ -2489,7 +2491,7 @@ export class NeuralNetworkSyncService {
             evidenceCount: data.evidenceCount !== undefined && incomingIsNewer ? data.evidenceCount : existing.evidenceCount,
             // Affected user count: take max when explicitly provided
             affectedUserCount: data.affectedUserCount !== undefined 
-              ? Math.max(data.affectedUserCount, existing.affectedUserCount || 0) 
+              ? Math.max(data.affectedUserCount ?? 0, existing.affectedUserCount ?? 0) 
               : existing.affectedUserCount,
             // Content fields: only overwrite if explicitly provided AND newer
             observation: mergeField(data.observation, existing.observation),
@@ -2579,9 +2581,10 @@ export class NeuralNetworkSyncService {
         const incomingIsNewer = incomingTime > existingTime;
         
         // Helper: only use incoming value if explicitly provided AND newer
-        const mergeField = <T>(incoming: T | undefined, existing: T | null): T | null => {
+        // Returns undefined to skip update, or the value to set
+        const mergeField = <T>(incoming: T | undefined, existing: T | null): T | undefined => {
           if (incoming !== undefined && incomingIsNewer) return incoming;
-          return existing;
+          return existing ?? undefined;
         };
         
         await db.update(systemAlerts)
