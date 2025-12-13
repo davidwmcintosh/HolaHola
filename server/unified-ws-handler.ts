@@ -1750,7 +1750,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
             const user = userId ? await storage.getUser(userId) : null;
             const userName = user?.firstName || 'friend';
             const conversation = conversationId ? await storage.getConversation(conversationId) : null;
-            const messages = conversationId ? await storage.getMessages(conversationId) : [];
+            const messages = conversationId ? await storage.getMessagesByConversation(conversationId) : [];
             
             // Get tutor voice
             const effectiveLanguage = config.targetLanguage || 'spanish';
