@@ -4405,10 +4405,21 @@ export const editorListeningSnapshots = pgTable("editor_listening_snapshots", {
   editorResponse: text("editor_response"),
   editorRespondedAt: timestamp("editor_responded_at"),
   
+  // Adoption tracking - did Daniela use this feedback?
+  adoptedByDaniela: boolean("adopted_by_daniela").default(false),
+  adoptedAt: timestamp("adopted_at"),
+  adoptionContext: text("adoption_context"), // What Daniela was doing when she adopted this
+  
+  // Surfacing tracking - was this shown to Daniela?
+  surfacedToDaniela: boolean("surfaced_to_daniela").default(false),
+  surfacedAt: timestamp("surfaced_at"),
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_editor_snapshots_channel").on(table.channelId),
   index("idx_editor_snapshots_beacon_type").on(table.beaconType),
+  index("idx_editor_snapshots_adopted").on(table.adoptedByDaniela),
+  index("idx_editor_snapshots_surfaced").on(table.surfacedToDaniela),
 ]);
 
 export const insertEditorListeningSnapshotSchema = createInsertSchema(editorListeningSnapshots).omit({

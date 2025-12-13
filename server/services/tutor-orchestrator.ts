@@ -37,6 +37,7 @@ import {
 } from "./procedural-memory-retrieval";
 import { trackToolEvent, addInsight } from "./pedagogical-insights-service";
 import { collaborationHubService } from "./collaboration-hub-service";
+import { editorFeedbackService, FeedbackSummary } from "./editor-feedback-service";
 
 const genAI = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY || "",
@@ -232,11 +233,19 @@ ${adjustments.join("\n")}
 }
 
 /**
+ * Result of building system prompt, includes IDs to mark as surfaced
+ */
+interface SystemPromptResult {
+  prompt: string;
+  surfacedFeedbackIds: string[];
+}
+
+/**
  * Build the complete system prompt for this request
  */
 async function buildSystemPrompt(
   request: OrchestratorRequest
-): Promise<string> {
+): Promise<SystemPromptResult> {
   const { mode, context, voice } = request;
 
   // 1. Core persona (always Daniela underneath)
@@ -272,7 +281,28 @@ ${cached}
     }
   }
 
-  // 5. Additional context if provided
+  // 5. Editor insights (feedback loop from Editor collaboration)
+  let editorInsightsSection = "";
+  if (context.userId && mode === 'conversation') {
+    try {
+      const feedback = await editorFeedbackService.getUnsurfacedFeedback(
+        String(context.userId), 
+        3 // Limit to 3 most recent insights per session
+      );
+      
+      if (feedback.hasNewFeedback) {
+        editorInsightsSection = editorFeedbackService.buildPromptSection(feedback);
+        
+        // Track IDs to mark as surfaced after response
+        pendingSurfacedFeedbackIds = feedback.recentFeedback.map(f => f.id);
+        console.log(`[TutorOrchestrator] Surfacing ${feedback.recentFeedback.length} Editor insights to Daniela`);
+      }
+    } catch (error) {
+      console.error('[TutorOrchestrator] Error fetching Editor feedback:', error);
+    }
+  }
+
+  // 6. Additional context if provided
   const additionalContext = request.additionalPromptContext
     ? `
 ═══════════════════════════════════════════════════════════════════
@@ -288,6 +318,7 @@ ${request.additionalPromptContext}
     modeInstructions,
     voiceStyle,
     proceduralSection,
+    editorInsightsSection,
     additionalContext,
   ]
     .filter(Boolean)
@@ -470,9 +501,13 @@ async function scanForCollaborationSignals(
     // Pattern to detect collaboration signals
     const collabPattern = /\[COLLAB:(SUGGESTION|PAIN_POINT|QUESTION|INSIGHT|MISSING_TOOL|FEATURE_REQUEST)\]([\s\S]*?)\[\/COLLAB\]/g;
     
+    // Pattern to detect Editor insight adoption
+    const adoptPattern = /\[ADOPT_INSIGHT:([a-f0-9-]+)\]/gi;
+    
     let cleanResponse = response;
     let match;
     
+    // Process collaboration signals
     while ((match = collabPattern.exec(response)) !== null) {
       const signalType = match[1];
       const content = match[2].trim();
@@ -506,6 +541,36 @@ async function scanForCollaborationSignals(
       }
       
       console.log(`[TutorOrchestrator] Collaboration signal detected: ${signalType}`);
+    }
+    
+    // Process Editor insight adoptions
+    let adoptMatch;
+    while ((adoptMatch = adoptPattern.exec(response)) !== null) {
+      const insightId = adoptMatch[1];
+      
+      // Remove from response
+      cleanResponse = cleanResponse.replace(adoptMatch[0], '');
+      
+      // Mark insight as adopted
+      try {
+        await editorFeedbackService.markAsAdopted(
+          insightId,
+          `Applied during ${request.mode} mode teaching ${request.context.targetLanguage}`
+        );
+        console.log(`[TutorOrchestrator] Editor insight adopted: ${insightId}`);
+      } catch (adoptError) {
+        console.error(`[TutorOrchestrator] Failed to mark insight as adopted:`, adoptError);
+      }
+    }
+    
+    // Mark surfaced feedback after successful response
+    if (pendingSurfacedFeedbackIds.length > 0) {
+      try {
+        await editorFeedbackService.markAsSurfaced(pendingSurfacedFeedbackIds);
+        pendingSurfacedFeedbackIds = []; // Clear after marking
+      } catch (surfaceError) {
+        console.error(`[TutorOrchestrator] Failed to mark feedback as surfaced:`, surfaceError);
+      }
     }
     
     return cleanResponse.trim();
