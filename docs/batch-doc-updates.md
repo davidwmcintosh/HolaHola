@@ -50,6 +50,10 @@ Added "Dept Chat" tab to Command Center with:
 - Color-coded security badges (green=public, red=internal, yellow=summary)
 - Agent badges with distinct colors (purple=daniela, blue=editor, green=assistant, orange=support)
 
+#### Security Fix Applied (Session 2)
+
+Fixed defensive filtering in `getSecureMessagesForDaniela()`: When `publicSummary` is missing for `daniela_summary` messages, the function now returns `'[Summary not available]'` instead of falling back to raw content. This prevents potential leaks of sensitive details to Gemini.
+
 #### Key Design Decision
 
 **Why we protect internal messages from Gemini:**
