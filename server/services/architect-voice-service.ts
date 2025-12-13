@@ -107,17 +107,26 @@ class ArchitectVoiceService {
    * Returns empty string if no notes pending
    */
   buildArchitectContext(conversationId: string): string {
+    const { context } = this.buildArchitectContextWithIds(conversationId);
+    return context;
+  }
+  
+  /**
+   * Build context string AND return note IDs for delivery tracking
+   * Use this when you need to mark notes as delivered after successful response
+   */
+  buildArchitectContextWithIds(conversationId: string): { context: string; noteIds: string[] } {
     const pending = this.getPendingNotes(conversationId);
     
     if (pending.length === 0) {
-      return '';
+      return { context: '', noteIds: [] };
     }
 
     const notesText = pending
       .map(n => `• ${n.content}`)
       .join('\n');
 
-    return `
+    const context = `
 
 ═══════════════════════════════════════════════════════════════════
 🏗️ ARCHITECT'S NOTES (from Claude)
@@ -133,6 +142,8 @@ Treat Claude as a colleague who knows your capabilities deeply.
 Remember: Claude can't speak with voice, only send text notes like these.
 
 `;
+    
+    return { context, noteIds: pending.map(n => n.id) };
   }
 
   /**

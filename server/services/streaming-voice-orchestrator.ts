@@ -207,6 +207,7 @@ export interface StreamingSession {
   classId?: string;                  // Class ID for syllabus tracking (if class session)
   toolsUsedSession: string[];        // Tools used in this session for ACTFL analytics
   hiveChannelId?: string;            // Hive collaboration channel ID for Daniela-Editor collaboration
+  pendingArchitectNoteIds: string[]; // Architect notes awaiting delivery (cleared on interrupt)
 }
 
 /**
@@ -387,6 +388,7 @@ export class StreamingVoiceOrchestrator {
       studentGoals: additionalContext?.studentGoals,
       dbSessionId,  // Database voice_sessions.id for pedagogical tracking
       toolsUsedSession: [],  // Track tools for ACTFL analytics
+      pendingArchitectNoteIds: [],  // Architect notes awaiting delivery
     };
     
     // PARALLEL WARMUP: Pre-warm both Cartesia and Gemini connections concurrently
@@ -596,10 +598,13 @@ export class StreamingVoiceOrchestrator {
       // Include redirect note if mild content was detected
       // Also check for architect notes (Claude's contributions to the conversation)
       let architectContext = '';
+      session.pendingArchitectNoteIds = [];  // Reset for this turn
       if (session.conversationId) {
-        architectContext = architectVoiceService.buildArchitectContext(session.conversationId);
+        const { context, noteIds } = architectVoiceService.buildArchitectContextWithIds(session.conversationId);
+        architectContext = context;
+        session.pendingArchitectNoteIds = noteIds;
         if (architectContext) {
-          console.log(`[Streaming Orchestrator] Including architect notes in context`);
+          console.log(`[Streaming Orchestrator] Including ${noteIds.length} architect notes in context`);
         }
       }
       
@@ -948,6 +953,13 @@ export class StreamingVoiceOrchestrator {
       // Clear generating flag - response complete
       session.isGenerating = false;
       
+      // Mark architect notes as delivered (only if not cleared by handleInterrupt)
+      // handleInterrupt clears session.pendingArchitectNoteIds, so this is empty if interrupted
+      if (session.pendingArchitectNoteIds.length > 0) {
+        architectVoiceService.markNotesDelivered(session.pendingArchitectNoteIds);
+        session.pendingArchitectNoteIds = [];  // Clear after delivery
+      }
+      
       this.sendMessage(session.ws, {
         type: 'response_complete',
         timestamp: Date.now(),
@@ -1239,8 +1251,14 @@ export class StreamingVoiceOrchestrator {
       
       // Check for architect notes
       let architectContext = '';
+      session.pendingArchitectNoteIds = [];  // Reset for this turn
       if (session.conversationId) {
-        architectContext = architectVoiceService.buildArchitectContext(session.conversationId);
+        const { context, noteIds } = architectVoiceService.buildArchitectContextWithIds(session.conversationId);
+        architectContext = context;
+        session.pendingArchitectNoteIds = noteIds;
+        if (architectContext) {
+          console.log(`[Streaming Orchestrator] Including ${noteIds.length} architect notes in context (open mic)`);
+        }
       }
       
       const userMessageWithNote = transcript + architectContext;
@@ -1327,6 +1345,13 @@ export class StreamingVoiceOrchestrator {
       
       // Clear generating flag - response complete
       session.isGenerating = false;
+      
+      // Mark architect notes as delivered (only if not cleared by handleInterrupt)
+      // handleInterrupt clears session.pendingArchitectNoteIds, so this is empty if interrupted
+      if (session.pendingArchitectNoteIds.length > 0) {
+        architectVoiceService.markNotesDelivered(session.pendingArchitectNoteIds);
+        session.pendingArchitectNoteIds = [];  // Clear after delivery
+      }
       
       // Response complete
       this.sendMessage(session.ws, {
@@ -3290,6 +3315,12 @@ Using this context, speak first to the student with a natural opening message. O
       
       // Clear generating flag since we're aborting
       session.isGenerating = false;
+      
+      // Clear pending architect notes - prevents interrupted turn from marking them as delivered
+      if (session.pendingArchitectNoteIds.length > 0) {
+        console.log(`[Streaming Orchestrator] Clearing ${session.pendingArchitectNoteIds.length} pending architect notes due to barge-in`);
+      }
+      session.pendingArchitectNoteIds = [];
       
       // Send response_complete to signal client to stop playback
       this.sendMessage(session.ws, {
