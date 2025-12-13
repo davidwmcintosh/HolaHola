@@ -16,13 +16,27 @@ import { MessageMedia } from "@/components/MessageMedia";
 import { useStreak } from "@/hooks/use-streak";
 import { useToast } from "@/hooks/use-toast";
 
+export interface SupportHandoffContext {
+  ticketId: string;
+  category: 'technical' | 'account' | 'billing' | 'content' | 'feedback' | 'other';
+  priority: 'low' | 'normal' | 'high' | 'critical';
+  reason: string;
+  sessionContext: {
+    learningTopic?: string;
+    language?: string;
+    lastDanielaMessage?: string;
+    userName?: string;
+  };
+}
+
 interface ChatInterfaceProps {
   conversationId: string | null;
   setConversationId: (id: string | null) => void;
   setCurrentConversationOnboarding: (isOnboarding: boolean | null) => void;
+  onSupportHandoff?: (context: SupportHandoffContext) => void;
 }
 
-export function ChatInterface({ conversationId, setConversationId, setCurrentConversationOnboarding }: ChatInterfaceProps) {
+export function ChatInterface({ conversationId, setConversationId, setCurrentConversationOnboarding, onSupportHandoff }: ChatInterfaceProps) {
   const { language, setLanguage, difficulty, userName, setUserName } = useLanguage();
   const [input, setInput] = useState("");
   const [waitingForResponse, setWaitingForResponse] = useState(false);
@@ -67,6 +81,15 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
     onSuccess: async (data: any) => {
       // Mark that we're waiting for assistant response
       setWaitingForResponse(true);
+      
+      // Check for support handoff - Daniela is handing off to Support Agent
+      if (data.supportHandoff) {
+        console.log('[CHAT] Support handoff triggered:', data.supportHandoff);
+        setWaitingForResponse(false);
+        onSupportHandoff?.(data.supportHandoff);
+        queryClient.invalidateQueries({ queryKey: ["/api/conversations", conversationId, "messages"] });
+        return; // Don't process as regular message flow
+      }
       
       // Update conversation onboarding status if the server sent updated info
       if (data.conversationUpdated) {

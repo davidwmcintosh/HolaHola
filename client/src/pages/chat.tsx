@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearch, useLocation } from "wouter";
-import { ChatInterface } from "@/components/ChatInterface";
+import { ChatInterface, type SupportHandoffContext } from "@/components/ChatInterface";
 import { StreamingVoiceChat as VoiceChat } from "@/components/StreamingVoiceChat";
+import { SupportAssistModal } from "@/components/SupportAssistModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Mic, Plus, GraduationCap, User, Phone, Heart, Sparkles } from "lucide-react";
@@ -33,6 +34,9 @@ export default function Chat() {
   const [showInsufficientCreditsDialog, setShowInsufficientCreditsDialog] = useState(false);
   const { isExhausted, isLow, isCritical } = useCredits();
   const [className, setClassName] = useState<string | null>(null);
+  
+  // Support handoff state - Daniela hands off to Support Agent
+  const [supportHandoffContext, setSupportHandoffContext] = useState<SupportHandoffContext | null>(null);
   
   // Cross-language handoff state - prevents white screen during tutor switch
   const [isLanguageHandoff, setIsLanguageHandoff] = useState(false);
@@ -540,6 +544,7 @@ export default function Chat() {
             conversationId={conversationId}
             setConversationId={setConversationId}
             setCurrentConversationOnboarding={setCurrentConversationOnboarding}
+            onSupportHandoff={setSupportHandoffContext}
           />
         )}
       </div>
@@ -559,6 +564,18 @@ export default function Chat() {
       
       {/* Floating help button - access Sofia support during voice chat */}
       <FloatingHelpButton defaultCategory="technical" />
+      
+      {/* Support modal - triggered by Daniela handoff in text chat */}
+      <SupportAssistModal
+        isOpen={!!supportHandoffContext}
+        onClose={() => setSupportHandoffContext(null)}
+        onResolved={() => setSupportHandoffContext(null)}
+        ticketId={supportHandoffContext?.ticketId || null}
+        category={supportHandoffContext?.category || 'other'}
+        reason={supportHandoffContext?.reason || ''}
+        priority={supportHandoffContext?.priority || 'normal'}
+        mode="support"
+      />
     </div>
   );
 }

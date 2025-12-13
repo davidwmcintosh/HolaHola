@@ -3364,6 +3364,78 @@ Return a JSON array of suggestions with this format:
         }
       }
 
+      // ========================================================================
+      // SUPPORT HANDOFF DETECTION - Check if user needs technical support
+      // ========================================================================
+      // Only check for non-onboarding conversations (onboarding has specific flow)
+      if (!conversation.isOnboarding) {
+        const handoffCheck = supportPersonaService.shouldHandoffToSupport(messageData.content);
+        
+        if (handoffCheck.shouldHandoff && handoffCheck.confidence !== 'low') {
+          console.log('[SUPPORT HANDOFF] Detected support need:', handoffCheck);
+          
+          try {
+            // Get the last AI message for context
+            const recentMessages = await storage.getMessagesByConversation(conversationId);
+            const lastAiMessage = recentMessages.filter(m => m.role === 'assistant').pop();
+            
+            // Create or get active support ticket
+            let ticket = await supportPersonaService.getActiveTicket(userId);
+            if (!ticket) {
+              ticket = await supportPersonaService.createTicket({
+                userId,
+                category: 'technical',
+                subject: `Support request during ${conversation.language} lesson`,
+                description: messageData.content,
+                handoffFrom: 'daniela',
+                handoffContext: {
+                  learningTopic: conversation.topic || conversation.language,
+                  lastDanielaMessage: lastAiMessage?.content?.substring(0, 200),
+                },
+              });
+            }
+            
+            // Generate warm handoff message from Daniela
+            const userName = conversation.userName || 'there';
+            const warmMessage = `I noticed you might need some technical help, ${userName}! Let me connect you with Sofia, our support specialist - she's wonderful with this kind of thing. I'll be right here when you're ready to continue learning!`;
+            
+            // Save Daniela's handoff message
+            const aiMessage = await storage.createMessage({
+              conversationId,
+              role: "assistant",
+              content: warmMessage,
+            });
+            
+            // Emit handoff beacon for Hive collaboration
+            await supportPersonaService.emitHandoffBeacon({
+              reason: handoffCheck.reason || 'Support trigger detected',
+              lastDanielaMessage: lastAiMessage?.content,
+            });
+            
+            // Return handoff response to frontend
+            return res.json({
+              userMessage,
+              aiMessage,
+              supportHandoff: {
+                ticketId: ticket.id,
+                category: 'technical',
+                priority: 'normal',
+                reason: handoffCheck.reason || 'Technical support needed',
+                sessionContext: {
+                  learningTopic: conversation.topic || conversation.language,
+                  language: conversation.language,
+                  lastDanielaMessage: warmMessage,
+                  userName: conversation.userName,
+                },
+              },
+            });
+          } catch (handoffError) {
+            console.error('[SUPPORT HANDOFF] Error creating handoff:', handoffError);
+            // Continue with normal flow if handoff fails
+          }
+        }
+      }
+
       // Simple inappropriate content check for onboarding
       const containsInappropriateContent = (message: string): boolean => {
         const lowerMessage = message.toLowerCase();
