@@ -84,6 +84,17 @@ function cleanTextForDisplay(text: string): string {
   // Strip architect messages first (internal, should not be spoken/displayed)
   text = stripArchitectMessages(text);
   
+  // Strip COLLAB tags (Daniela's collaboration signals to Editor - invisible to students)
+  // Pattern: [COLLAB:TYPE]content[/COLLAB]
+  text = text.replace(/\[COLLAB:[A-Z_]+\][\s\S]*?\[\/COLLAB\]/gi, '');
+  
+  // Strip SELF_SURGERY tags (Daniela's neural network proposals - invisible to students)
+  // Pattern: [SELF_SURGERY target="..." priority=... confidence=... content='...' ...]
+  text = text.replace(/\[SELF_SURGERY[^\]]*\]/gi, '');
+  
+  // Strip KNOWLEDGE_PING tags
+  text = text.replace(/\[KNOWLEDGE_PING[^\]]*\]/gi, '');
+  
   // First strip all whiteboard markup (WRITE, DRILL, SWITCH_TUTOR, etc.)
   // This must happen before other cleaning to ensure markup doesn't appear in TTS
   let cleaned = stripWhiteboardMarkup(text)
