@@ -9,6 +9,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { getTTSService } from "./services/tts-service";
 import { generalLimiter } from "./middleware/rate-limiter";
 import { setupUnifiedWebSocketHandler, setupSocketIOHandler } from "./unified-ws-handler";
+import { founderCollabWSBroker } from "./services/founder-collab-ws-broker";
 
 const app = express();
 
@@ -26,6 +27,9 @@ const io = new SocketIOServer(server, {
   transports: ['websocket', 'polling'],
 });
 setupSocketIOHandler(io);
+
+// Initialize Founder Collaboration WebSocket broker on /founder-collab namespace
+founderCollabWSBroker.initialize(io);
 
 // CRITICAL: Attach WebSocket handler IMMEDIATELY after server creation
 // This ensures upgrade events are handled BEFORE Vite's HMR gets a chance to interfere

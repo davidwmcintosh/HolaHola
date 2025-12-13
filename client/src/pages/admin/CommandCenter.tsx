@@ -16,6 +16,7 @@ import { hasAdminAccess, hasTeacherAccess } from "@shared/permissions";
 import { ImpersonationBanner } from "@/components/admin/ImpersonationBanner";
 import { useUser } from "@/lib/auth";
 import { SyllabusBuilder } from "@/components/SyllabusBuilder";
+import { useFounderCollab } from "@/hooks/useFounderCollab";
 import { 
   LayoutDashboard,
   Users,
@@ -83,7 +84,10 @@ import {
   Edit,
   ShieldCheck,
   XCircle,
-  Handshake
+  Handshake,
+  Wifi,
+  WifiOff,
+  Radio
 } from "lucide-react";
 import {
   AlertDialog,
@@ -6443,6 +6447,17 @@ function CollaborationTab() {
   const [observationText, setObservationText] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<CollaborationEvent | null>(null);
   const [filterType, setFilterType] = useState<string>("all");
+  const [syncMessage, setSyncMessage] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  const { 
+    state: syncState, 
+    connect: syncConnect, 
+    disconnect: syncDisconnect, 
+    sendMessage: syncSendMessage, 
+    isConnected: syncIsConnected, 
+    isReconnecting: syncIsReconnecting 
+  } = useFounderCollab();
 
   const { data: feed, isLoading: feedLoading, refetch: refetchFeed } = useQuery<CollaborationEvent[]>({
     queryKey: ["/api/collaboration/feed"],
@@ -6526,6 +6541,60 @@ function CollaborationTab() {
     if (filterType === "founder") return event.senderRole === "founder";
     return true;
   });
+
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [syncState.messages]);
+
+  const handleSyncSend = () => {
+    if (!syncMessage.trim() || !syncIsConnected) return;
+    syncSendMessage('founder', syncMessage);
+    setSyncMessage("");
+  };
+
+  const getSyncRoleIcon = (role: string) => {
+    if (role === 'daniela') return <Brain className="h-4 w-4 text-purple-500" />;
+    if (role === 'editor') return <Code className="h-4 w-4 text-blue-500" />;
+    if (role === 'founder') return <User className="h-4 w-4 text-amber-500" />;
+    if (role === 'system') return <Radio className="h-4 w-4 text-muted-foreground" />;
+    return <MessageSquare className="h-4 w-4 text-muted-foreground" />;
+  };
+
+  const getConnectionStatusBadge = () => {
+    const { connectionState } = syncState;
+    if (connectionState === 'connected') {
+      return (
+        <Badge variant="outline" className="text-green-600 gap-1">
+          <Wifi className="h-3 w-3" />
+          Connected
+        </Badge>
+      );
+    }
+    if (connectionState === 'connecting' || connectionState === 'reconnecting') {
+      return (
+        <Badge variant="outline" className="text-amber-600 gap-1">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          {connectionState === 'reconnecting' ? `Reconnecting (${syncState.reconnectAttempt})...` : 'Connecting...'}
+        </Badge>
+      );
+    }
+    if (connectionState === 'error') {
+      return (
+        <Badge variant="outline" className="text-red-600 gap-1">
+          <WifiOff className="h-3 w-3" />
+          Error
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="text-muted-foreground gap-1">
+        <WifiOff className="h-3 w-3" />
+        Disconnected
+      </Badge>
+    );
+  };
 
   return (
     <div className="space-y-6" data-testid="collaboration-tab">
@@ -6663,6 +6732,105 @@ function CollaborationTab() {
         </div>
 
         <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Radio className="h-4 w-4 text-primary" />
+                Live Sync Channel
+              </CardTitle>
+              <CardDescription className="flex items-center justify-between gap-2">
+                <span>Persists across restarts</span>
+                {getConnectionStatusBadge()}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {!syncIsConnected && syncState.connectionState !== 'connecting' && syncState.connectionState !== 'reconnecting' && (
+                  <Button
+                    className="w-full"
+                    onClick={() => syncConnect()}
+                    data-testid="button-sync-connect"
+                  >
+                    <Wifi className="h-4 w-4 mr-2" />
+                    Connect to Sync Channel
+                  </Button>
+                )}
+                
+                {syncState.error && (
+                  <div className="text-sm text-red-500 p-2 rounded bg-red-500/10">
+                    {syncState.error}
+                  </div>
+                )}
+                
+                {syncIsConnected && (
+                  <>
+                    <div className="h-64 overflow-y-auto border rounded-lg p-2 space-y-2 bg-muted/30">
+                      {syncState.messages.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground text-sm">
+                          <Radio className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p>Session started. Messages persist across restarts.</p>
+                        </div>
+                      ) : (
+                        syncState.messages.map((msg) => (
+                          <div
+                            key={msg.cursor}
+                            className={`p-2 rounded-lg text-sm ${
+                              msg.role === 'founder' 
+                                ? 'bg-primary/10 ml-4' 
+                                : msg.role === 'system'
+                                ? 'bg-muted/50 text-center italic'
+                                : 'bg-muted/50 mr-4'
+                            }`}
+                            data-testid={`sync-message-${msg.cursor}`}
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              {getSyncRoleIcon(msg.role)}
+                              <span className="font-medium capitalize">{msg.role}</span>
+                              <span className="text-xs text-muted-foreground ml-auto">
+                                {new Date(msg.createdAt).toLocaleTimeString()}
+                              </span>
+                            </div>
+                            <p className="whitespace-pre-wrap">{msg.content}</p>
+                          </div>
+                        ))
+                      )}
+                      <div ref={messagesEndRef} />
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Send a message..."
+                        value={syncMessage}
+                        onChange={(e) => setSyncMessage(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSyncSend()}
+                        data-testid="input-sync-message"
+                      />
+                      <Button
+                        size="icon"
+                        onClick={handleSyncSend}
+                        disabled={!syncMessage.trim()}
+                        data-testid="button-sync-send"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => syncDisconnect()}
+                      data-testid="button-sync-disconnect"
+                    >
+                      <WifiOff className="h-4 w-4 mr-2" />
+                      Disconnect
+                    </Button>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">Founder Observation</CardTitle>

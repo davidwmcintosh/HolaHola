@@ -2332,6 +2332,86 @@ export const insertSyncRunSchema = createInsertSchema(syncRuns).omit({
 export type InsertSyncRun = z.infer<typeof insertSyncRunSchema>;
 export type SyncRun = typeof syncRuns.$inferSelect;
 
+// ===== Founder Collaboration Sync Channel =====
+// Enables persistent conversation with Daniela across dev restarts
+// Uses cursor-based resume for seamless reconnection
+
+export const founderCollabStatusEnum = pgEnum('founder_collab_status', ['active', 'paused', 'completed']);
+export const collabMessageRoleEnum = pgEnum('collab_message_role', ['founder', 'daniela', 'editor', 'system']);
+
+// Founder Sessions - Tracks active collaboration sessions between founder and Daniela
+export const founderSessions = pgTable("founder_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  founderId: varchar("founder_id").notNull().references(() => users.id),
+  status: founderCollabStatusEnum("status").default("active"),
+  lastCursor: varchar("last_cursor"), // Resume point after restart
+  messageCount: integer("message_count").default(0),
+  environment: varchar("environment").notNull(), // 'development' or 'production'
+  title: varchar("title"), // Optional session title/topic
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_founder_sessions_founder").on(table.founderId),
+  index("idx_founder_sessions_status").on(table.status),
+  index("idx_founder_sessions_env").on(table.environment),
+]);
+
+export const insertFounderSessionSchema = createInsertSchema(founderSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertFounderSession = z.infer<typeof insertFounderSessionSchema>;
+export type FounderSession = typeof founderSessions.$inferSelect;
+
+// Collaboration Messages - Persistent message storage with cursor for resume
+export const collaborationMessages = pgTable("collaboration_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => founderSessions.id, { onDelete: 'cascade' }),
+  role: collabMessageRoleEnum("role").notNull(), // founder, daniela, editor, system
+  content: text("content").notNull(),
+  metadata: jsonb("metadata"), // Tool calls, suggestions, whiteboard commands, etc.
+  cursor: varchar("cursor").notNull(), // Unique sequential cursor for resume (e.g., "1702589432100-0001")
+  environment: varchar("environment").notNull(), // 'development' or 'production'
+  synced: boolean("synced").default(false), // Has been synced to peer environment
+  syncedAt: timestamp("synced_at"), // When the message was synced
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_collab_msg_session").on(table.sessionId),
+  index("idx_collab_msg_cursor").on(table.cursor),
+  index("idx_collab_msg_synced").on(table.synced),
+  index("idx_collab_msg_created").on(table.createdAt),
+]);
+
+export const insertCollaborationMessageSchema = createInsertSchema(collaborationMessages).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertCollaborationMessage = z.infer<typeof insertCollaborationMessageSchema>;
+export type CollaborationMessage = typeof collaborationMessages.$inferSelect;
+
+// Sync Cursors - Tracks where each client left off for message replay on reconnect
+export const syncCursors = pgTable("sync_cursors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").notNull(), // Browser/device identifier (stored in localStorage)
+  sessionId: varchar("session_id").notNull().references(() => founderSessions.id, { onDelete: 'cascade' }),
+  lastProcessedCursor: varchar("last_processed_cursor"), // Last message cursor successfully delivered
+  connectedAt: timestamp("connected_at").notNull().defaultNow(),
+  disconnectedAt: timestamp("disconnected_at"),
+  environment: varchar("environment").notNull(), // Track which env this client was connected to
+}, (table) => [
+  index("idx_sync_cursors_client").on(table.clientId),
+  index("idx_sync_cursors_session").on(table.sessionId),
+  index("idx_sync_cursors_client_session").on(table.clientId, table.sessionId),
+]);
+
+export const insertSyncCursorSchema = createInsertSchema(syncCursors).omit({
+  id: true,
+  connectedAt: true,
+});
+export type InsertSyncCursor = z.infer<typeof insertSyncCursorSchema>;
+export type SyncCursor = typeof syncCursors.$inferSelect;
+
 // Connection Status Enum - tracks the state of people connections
 export const connectionStatusEnum = pgEnum("connection_status", [
   'tentative',      // Mentioned once, low confidence
