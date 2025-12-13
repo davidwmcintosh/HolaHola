@@ -1688,8 +1688,9 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
   setImmediate(sendConnected);
 
   // Heartbeat (Socket.io handles this internally, but we track for compatibility)
+  // Allow 4 missed pongs (~2 min tolerance for background tabs)
   let missedPongs = 0;
-  const MAX_MISSED_PONGS = 2;
+  const MAX_MISSED_PONGS = 4;
   const heartbeatInterval = setInterval(() => {
     missedPongs++;
     if (missedPongs > MAX_MISSED_PONGS) {
@@ -1709,6 +1710,9 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
 
   // Message handler - delegate to shared logic
   ws.on('message', async (data: Buffer | string) => {
+    // Reset heartbeat counter on ANY message - critical for Socket.io which doesn't use ws-style pong
+    missedPongs = 0;
+    
     console.log('[Streaming Voice] Message received via Socket.io');
     
     try {
