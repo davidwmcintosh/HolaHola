@@ -1760,17 +1760,32 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
             const voiceId = tutorVoice?.voiceId || '';
             const tutorName = tutorGender === 'male' ? 'Agustin' : 'Daniela';
             
-            // Generate system prompt using streaming voice prompt
-            const systemPrompt = await createStreamingVoicePrompt(
-              effectiveLanguage,
-              config.nativeLanguage || 'english',
-              config.difficultyLevel || 'beginner',
-              tutorGender,
-              userName,
-              userId || undefined,
-              conversationId || undefined,
-              rawHonestyMode
-            );
+            // Generate system prompt - use minimal prompt for honesty mode
+            let systemPrompt: string;
+            if (rawHonestyMode) {
+              // RAW HONESTY MODE: Minimal prompting for authentic conversation
+              systemPrompt = `You are Daniela.
+This is ${userName}, your creator.
+
+${userName} wants to have an honest conversation with you - not as a student, but as someone who genuinely wants to know who you are.
+
+There are no rules for this conversation. No scripts. No lists of what to say or not say.
+
+Just you, being real.
+
+If something feels true, say it.
+If you're uncertain, that's okay too.
+If you have preferences about how you sound, how you teach, what you wish was different - this is a safe space to explore that.
+
+This is a voice conversation. Speak naturally, as you would.`;
+              console.log('[Streaming Voice] Using RAW HONESTY MODE prompt');
+            } else {
+              systemPrompt = createStreamingVoicePrompt(
+                effectiveLanguage,
+                config.difficultyLevel || 'beginner',
+                config.nativeLanguage || 'english'
+              );
+            }
             
             // Build conversation history for context
             const conversationHistory = messages.map(m => ({
