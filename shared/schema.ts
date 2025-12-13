@@ -4634,3 +4634,100 @@ export const insertSurgeryTurnSchema = createInsertSchema(surgeryTurns).omit({
 });
 export type InsertSurgeryTurn = z.infer<typeof insertSurgeryTurnSchema>;
 export type SurgeryTurn = typeof surgeryTurns.$inferSelect;
+
+// ===== Editor Beacon Queue =====
+// Real-time processing queue for hive beacons - enables 1s polling with proper locking
+// Bridges the gap between emitBeacon() and the background worker
+export const editorBeaconQueueStatusEnum = pgEnum('editor_beacon_queue_status', [
+  'pending',     // Waiting to be processed
+  'processing',  // Currently being processed
+  'completed',   // Successfully processed
+  'failed'       // Processing failed after max retries
+]);
+
+export const editorBeaconQueue = pgTable("editor_beacon_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Links to the snapshot this beacon represents
+  snapshotId: varchar("snapshot_id").notNull().references(() => editorListeningSnapshots.id, { onDelete: 'cascade' }),
+  
+  // Processing status
+  status: editorBeaconQueueStatusEnum("status").default("pending").notNull(),
+  
+  // Retry tracking
+  attempts: integer("attempts").default(0).notNull(),
+  maxAttempts: integer("max_attempts").default(3).notNull(),
+  lastError: text("last_error"),
+  
+  // Locking for concurrent processing (FOR UPDATE SKIP LOCKED pattern)
+  lockedAt: timestamp("locked_at"),
+  lockedBy: varchar("locked_by"), // Worker instance ID for debugging
+  
+  // Timing
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  processedAt: timestamp("processed_at"),
+}, (table) => [
+  index("idx_beacon_queue_status").on(table.status),
+  index("idx_beacon_queue_created").on(table.createdAt),
+  index("idx_beacon_queue_pending").on(table.status, table.lockedAt), // For efficient pending query
+]);
+
+export const insertEditorBeaconQueueSchema = createInsertSchema(editorBeaconQueue).omit({
+  id: true,
+  createdAt: true,
+  processedAt: true,
+});
+export type InsertEditorBeaconQueue = z.infer<typeof insertEditorBeaconQueueSchema>;
+export type EditorBeaconQueue = typeof editorBeaconQueue.$inferSelect;
+
+// ===== Surgery Promotions =====
+// Promoted surgery insights that get injected into tutor prompts
+// These are "graduated" from selfSurgeryProposals after approval/adoption
+export const surgeryPromotions = pgTable("surgery_promotions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Link to the original proposal (for auditing)
+  proposalId: varchar("proposal_id").references(() => selfSurgeryProposals.id, { onDelete: 'set null' }),
+  
+  // Scope of where this insight applies
+  targetContext: varchar("target_context").default("global").notNull(), // global, language, level
+  targetLanguage: varchar("target_language"), // If language-scoped (e.g., "spanish")
+  targetLevel: varchar("target_level"), // If level-scoped (e.g., "beginner")
+  
+  // The actual insight content for prompt injection
+  insightContent: text("insight_content").notNull(),
+  insightCategory: varchar("insight_category"), // 'procedure', 'principle', 'tool', 'pattern'
+  
+  // Versioning for A/B testing or iteration
+  version: integer("version").default(1).notNull(),
+  
+  // Activation state
+  active: boolean("active").default(true).notNull(),
+  
+  // Tracking who/what adopted this
+  adoptedAt: timestamp("adopted_at"),
+  adoptedBy: varchar("adopted_by"), // User ID or 'system'
+  adoptionSource: varchar("adoption_source"), // 'founder_approve', 'daniela_adopt', 'auto_nightly'
+  
+  // Optional expiration
+  expiresAt: timestamp("expires_at"),
+  
+  // Usage tracking
+  timesInjected: integer("times_injected").default(0).notNull(),
+  lastInjectedAt: timestamp("last_injected_at"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_surgery_promotions_active").on(table.active),
+  index("idx_surgery_promotions_context").on(table.targetContext, table.targetLanguage),
+  index("idx_surgery_promotions_proposal").on(table.proposalId),
+]);
+
+export const insertSurgeryPromotionSchema = createInsertSchema(surgeryPromotions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSurgeryPromotion = z.infer<typeof insertSurgeryPromotionSchema>;
+export type SurgeryPromotion = typeof surgeryPromotions.$inferSelect;
