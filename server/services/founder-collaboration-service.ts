@@ -43,6 +43,9 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 export interface FounderMessageInput {
   role: 'founder' | 'daniela' | 'editor' | 'system';
   content: string;
+  messageType?: 'text' | 'voice';
+  audioUrl?: string;
+  audioDuration?: number;
   metadata?: Record<string, any>;
 }
 
@@ -192,7 +195,10 @@ class FounderCollaborationService {
     const [message] = await db.insert(collaborationMessages).values({
       sessionId,
       role: input.role,
+      messageType: input.messageType || 'text',
       content: input.content,
+      audioUrl: input.audioUrl || null,
+      audioDuration: input.audioDuration || null,
       metadata: input.metadata || null,
       cursor,
       environment: CURRENT_ENVIRONMENT,

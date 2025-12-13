@@ -16,6 +16,14 @@ import { founderCollabService, type FounderMessageInput } from './founder-collab
 import type { CollaborationMessage, FounderSession } from '@shared/schema';
 import { parse as parseCookie } from 'cookie';
 import signature from 'cookie-signature';
+import {
+  startVoiceSession,
+  startRecording,
+  processAudioChunk,
+  stopRecording,
+  replayVoiceMessage,
+  endVoiceSession,
+} from './sync-channel-voice';
 
 const NAMESPACE = '/founder-collab';
 
@@ -43,6 +51,11 @@ interface ClientToServerEvents {
   request_replay: (data: { afterCursor: string }) => void;
   ack_cursor: (data: { cursor: string }) => void;
   ping: () => void;
+  // Voice events
+  voice_start: () => void;
+  voice_chunk: (data: Buffer) => void;
+  voice_stop: () => void;
+  voice_replay: (data: { messageId: string }) => void;
 }
 
 class FounderCollabWSBroker {
@@ -264,9 +277,46 @@ class FounderCollabWSBroker {
           }
         }
         
+        // End voice session if active
+        endVoiceSession(socket.id);
+        
         this.clients.delete(socket.id);
         console.log(`[FounderCollabWS] Client ${client.clientId} disconnected`);
       }
+    });
+    
+    // Voice event handlers
+    socket.on('voice_start', async () => {
+      const client = this.clients.get(socket.id);
+      if (!client) {
+        socket.emit('error', { code: 'NOT_JOINED', message: 'Not joined to a session' });
+        return;
+      }
+      
+      // Initialize voice session if needed
+      await startVoiceSession(socket, client.sessionId, client.founderId);
+      
+      // Start recording
+      const started = await startRecording(socket.id);
+      if (started) {
+        console.log(`[FounderCollabWS] Voice recording started for ${client.clientId}`);
+      }
+    });
+    
+    socket.on('voice_chunk', (data: Buffer) => {
+      processAudioChunk(socket.id, data);
+    });
+    
+    socket.on('voice_stop', async () => {
+      const client = this.clients.get(socket.id);
+      if (!client) return;
+      
+      await stopRecording(socket.id);
+      console.log(`[FounderCollabWS] Voice recording stopped for ${client.clientId}`);
+    });
+    
+    socket.on('voice_replay', async (data: { messageId: string }) => {
+      await replayVoiceMessage(socket.id, data.messageId);
     });
   }
   

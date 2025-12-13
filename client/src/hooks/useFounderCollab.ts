@@ -37,6 +37,12 @@ interface ServerToClientEvents {
   error: (error: { code: string; message: string }) => void;
   connected: (data: { clientId: string; sessionId: string }) => void;
   pong: () => void;
+  // Voice events
+  voice_transcript: (data: { text: string; isFinal: boolean }) => void;
+  voice_processing: (data: { status: 'thinking' | 'speaking' }) => void;
+  voice_audio: (data: { messageId: string; chunk: string; isLast: boolean; duration?: number }) => void;
+  voice_complete: (data: { success: boolean; message?: string; messageId?: string }) => void;
+  voice_error: (data: { code: string; message: string }) => void;
 }
 
 interface ClientToServerEvents {
@@ -45,6 +51,11 @@ interface ClientToServerEvents {
   request_replay: (data: { afterCursor: string }) => void;
   ack_cursor: (data: { cursor: string }) => void;
   ping: () => void;
+  // Voice events
+  voice_start: () => void;
+  voice_chunk: (data: ArrayBuffer) => void;
+  voice_stop: () => void;
+  voice_replay: (data: { messageId: string }) => void;
 }
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
