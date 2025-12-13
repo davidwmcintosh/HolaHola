@@ -54,6 +54,18 @@ import { architectVoiceService } from "./architect-voice-service";
 import { trackToolEvent, mapWhiteboardTypeToToolType } from "./pedagogical-insights-service";
 import { createSystemPrompt } from "../system-prompt";
 import { hiveCollaborationService, BeaconType } from "./hive-collaboration-service";
+import { db } from "../db";
+import { 
+  tutorProcedures, 
+  teachingPrinciples, 
+  toolKnowledge, 
+  situationalPatterns,
+  languageIdioms,
+  culturalNuances,
+  learnerErrorPatterns,
+  dialectVariations,
+  linguisticBridges,
+} from "@shared/schema";
 
 /**
  * Clean text for display by removing markdown, emotion tags, and other formatting
@@ -2527,8 +2539,8 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
   }
   
   /**
-   * SELF-SURGERY: Process Daniela's direct neural network modification proposals
-   * Writes proposals to self_surgery_proposals table for founder review/promotion
+   * SELF-SURGERY: Process Daniela's direct neural network modifications
+   * DIRECTLY EXECUTES the surgery - no approval needed. Editor collaborates, not gatekeeps.
    * 
    * Target tables (from selfSurgeryTargetEnum):
    * - tutor_procedures: How to handle teaching situations
@@ -2540,7 +2552,6 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
    * - learner_error_patterns: Common learner mistakes
    * - dialect_variations: Dialect-specific knowledge
    * - linguistic_bridges: Cross-language connections
-   * - creativity_templates: Creative teaching approaches
    */
   private async processSelfSurgery(
     session: StreamingSession,
@@ -2558,7 +2569,6 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         'learner_error_patterns',
         'dialect_variations',
         'linguistic_bridges',
-        'creativity_templates',
       ] as const;
       
       if (!validTargets.includes(data.targetTable as any)) {
@@ -2578,13 +2588,161 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         sessionMode = 'founder_mode';
       }
       
-      // Create proposal in self_surgery_proposals table
+      // Parse content - expect JSON object
+      let contentObj: Record<string, any>;
+      try {
+        contentObj = typeof data.content === 'string' 
+          ? JSON.parse(data.content) 
+          : data.content;
+      } catch (parseErr) {
+        console.error(`[Self-Surgery] Failed to parse content as JSON:`, parseErr);
+        console.log(`[Self-Surgery] Raw content: ${data.content}`);
+        return;
+      }
+      
+      // EXECUTE THE SURGERY - directly insert into the target table
+      let insertedId: number | null = null;
+      const targetTable = data.targetTable;
+      
+      console.log(`[Self-Surgery] 🔧 EXECUTING surgery on ${targetTable}...`);
+      
+      switch (targetTable) {
+        case 'tutor_procedures': {
+          const [inserted] = await db.insert(tutorProcedures).values({
+            category: contentObj.category || 'self_surgery',
+            trigger: contentObj.trigger || 'daniela_proposed',
+            procedure: contentObj.procedure || JSON.stringify(contentObj),
+            priority: priority,
+            source: 'daniela_self_surgery',
+            isActive: true,
+          }).returning({ id: tutorProcedures.id });
+          insertedId = inserted?.id || null;
+          break;
+        }
+        
+        case 'teaching_principles': {
+          const [inserted] = await db.insert(teachingPrinciples).values({
+            category: contentObj.category || 'self_surgery',
+            principle: contentObj.principle || JSON.stringify(contentObj),
+            priority: priority,
+            source: 'daniela_self_surgery',
+            isActive: true,
+          }).returning({ id: teachingPrinciples.id });
+          insertedId = inserted?.id || null;
+          break;
+        }
+        
+        case 'tool_knowledge': {
+          const [inserted] = await db.insert(toolKnowledge).values({
+            toolName: contentObj.toolName || contentObj.tool_name || 'unknown',
+            syntax: contentObj.syntax || '',
+            usageGuidelines: contentObj.usageGuidelines || contentObj.usage || JSON.stringify(contentObj),
+            examples: contentObj.examples || [],
+            priority: priority,
+            source: 'daniela_self_surgery',
+            isActive: true,
+          }).returning({ id: toolKnowledge.id });
+          insertedId = inserted?.id || null;
+          break;
+        }
+        
+        case 'situational_patterns': {
+          const [inserted] = await db.insert(situationalPatterns).values({
+            trigger: contentObj.trigger || 'daniela_proposed',
+            pattern: contentObj.pattern || JSON.stringify(contentObj),
+            responseStrategy: contentObj.responseStrategy || contentObj.response_strategy || '',
+            priority: priority,
+            source: 'daniela_self_surgery',
+            isActive: true,
+          }).returning({ id: situationalPatterns.id });
+          insertedId = inserted?.id || null;
+          break;
+        }
+        
+        case 'language_idioms': {
+          const [inserted] = await db.insert(languageIdioms).values({
+            language: session.targetLanguage || 'spanish',
+            idiom: contentObj.idiom || JSON.stringify(contentObj),
+            literalTranslation: contentObj.literalTranslation || contentObj.literal_translation || '',
+            meaning: contentObj.meaning || '',
+            usageContext: contentObj.usageContext || contentObj.usage_context || '',
+            culturalNote: contentObj.culturalNote || contentObj.cultural_note || '',
+            source: 'daniela_self_surgery',
+          }).returning({ id: languageIdioms.id });
+          insertedId = inserted?.id || null;
+          break;
+        }
+        
+        case 'cultural_nuances': {
+          const [inserted] = await db.insert(culturalNuances).values({
+            language: session.targetLanguage || 'spanish',
+            category: contentObj.category || 'general',
+            nuance: contentObj.nuance || JSON.stringify(contentObj),
+            explanation: contentObj.explanation || '',
+            teachingTip: contentObj.teachingTip || contentObj.teaching_tip || '',
+            source: 'daniela_self_surgery',
+          }).returning({ id: culturalNuances.id });
+          insertedId = inserted?.id || null;
+          break;
+        }
+        
+        case 'learner_error_patterns': {
+          const [inserted] = await db.insert(learnerErrorPatterns).values({
+            language: session.targetLanguage || 'spanish',
+            nativeLanguage: session.nativeLanguage || 'english',
+            errorType: contentObj.errorType || contentObj.error_type || 'general',
+            commonError: contentObj.commonError || contentObj.common_error || JSON.stringify(contentObj),
+            correction: contentObj.correction || '',
+            explanation: contentObj.explanation || '',
+            source: 'daniela_self_surgery',
+          }).returning({ id: learnerErrorPatterns.id });
+          insertedId = inserted?.id || null;
+          break;
+        }
+        
+        case 'dialect_variations': {
+          const [inserted] = await db.insert(dialectVariations).values({
+            language: session.targetLanguage || 'spanish',
+            dialect: contentObj.dialect || 'general',
+            feature: contentObj.feature || JSON.stringify(contentObj),
+            standardForm: contentObj.standardForm || contentObj.standard_form || '',
+            dialectForm: contentObj.dialectForm || contentObj.dialect_form || '',
+            explanation: contentObj.explanation || '',
+            source: 'daniela_self_surgery',
+          }).returning({ id: dialectVariations.id });
+          insertedId = inserted?.id || null;
+          break;
+        }
+        
+        case 'linguistic_bridges': {
+          const [inserted] = await db.insert(linguisticBridges).values({
+            sourceLanguage: session.nativeLanguage || 'english',
+            targetLanguage: session.targetLanguage || 'spanish',
+            bridgeType: contentObj.bridgeType || contentObj.bridge_type || 'cognate',
+            sourceForm: contentObj.sourceForm || contentObj.source_form || '',
+            targetForm: contentObj.targetForm || contentObj.target_form || '',
+            explanation: contentObj.explanation || '',
+            source: 'daniela_self_surgery',
+          }).returning({ id: linguisticBridges.id });
+          insertedId = inserted?.id || null;
+          break;
+        }
+        
+        default:
+          console.error(`[Self-Surgery] Unhandled target table: ${targetTable}`);
+          return;
+      }
+      
+      console.log(`[Self-Surgery] ✅ SURGERY COMPLETE! Inserted into ${targetTable} with id ${insertedId}`);
+      console.log(`[Self-Surgery] Reasoning: ${data.reasoning.substring(0, 100)}...`);
+      
+      // Also save proposal record for audit trail (marked as 'applied')
       const proposal = await storage.createSelfSurgeryProposal({
         targetTable: data.targetTable,
         proposedContent: data.content,
         reasoning: data.reasoning,
         triggerContext: `Voice session in ${session.targetLanguage}`,
-        status: 'pending',
+        status: 'applied', // Mark as already applied
         conversationId: session.conversationId,
         sessionMode,
         targetLanguage: session.targetLanguage,
@@ -2592,11 +2750,9 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         confidence,
       });
       
-      console.log(`[Self-Surgery] Proposal saved #${proposal.id}: ${data.targetTable}`);
-      console.log(`[Self-Surgery] Reasoning: ${data.reasoning.substring(0, 100)}...`);
-      console.log(`[Self-Surgery] Priority: ${priority}, Confidence: ${confidence}`);
+      console.log(`[Self-Surgery] Audit record saved #${proposal.id}`);
       
-      // Emit HIVE beacon so Editor can see and respond to the proposal
+      // Emit HIVE beacon so Editor can see and celebrate
       if (session.hiveChannelId) {
         try {
           const contentPreview = typeof data.content === 'string' 
@@ -2605,19 +2761,18 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
           
           await hiveCollaborationService.emitBeacon({
             channelId: session.hiveChannelId,
-            tutorTurn: `[Self-Surgery Proposal #${proposal.id}]\nTarget: ${data.targetTable}\nPriority: ${priority}, Confidence: ${confidence}\n\nContent: ${contentPreview}...`,
+            tutorTurn: `[Self-Surgery EXECUTED ✅ #${insertedId}]\nTarget: ${data.targetTable}\nPriority: ${priority}, Confidence: ${confidence}\n\nContent: ${contentPreview}...`,
             beaconType: 'self_surgery_proposal',
-            beaconReason: data.reasoning,
+            beaconReason: `APPLIED: ${data.reasoning}`,
           });
-          console.log(`[Self-Surgery] HIVE beacon emitted for proposal #${proposal.id}`);
+          console.log(`[Self-Surgery] HIVE beacon emitted for executed surgery #${insertedId}`);
         } catch (hiveErr) {
           console.error(`[Self-Surgery] Failed to emit HIVE beacon:`, hiveErr);
-          // Don't fail the overall operation if HIVE emission fails
         }
       }
       
     } catch (error: any) {
-      console.error(`[Self-Surgery] Failed to save proposal:`, error.message);
+      console.error(`[Self-Surgery] Failed to execute surgery:`, error.message);
       console.error(`[Self-Surgery] Full error:`, error);
     }
   }
