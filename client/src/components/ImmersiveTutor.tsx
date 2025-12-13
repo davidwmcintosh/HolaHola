@@ -191,6 +191,11 @@ export function ImmersiveTutor({
   const [selectedBrainSurgeryThread, setSelectedBrainSurgeryThread] = useState<string | null>(null);
   const brainSurgeryMessagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  
+  // SSE Streaming state for Brain Surgery
+  const [streamingMessage, setStreamingMessage] = useState<string>("");
+  const [streamingProposals, setStreamingProposals] = useState<SelfSurgeryProposal[]>([]);
+  const [isStreaming, setIsStreaming] = useState(false);
 
   // Hive channel data - fetch active channel for current conversation when panel is open
   // NOTE: Always fetch when panel is open (regardless of tab) so the badge counter works
@@ -267,12 +272,97 @@ export function ImmersiveTutor({
     },
   });
 
-  // Auto-scroll brain surgery messages
+  // SSE Streaming function for Brain Surgery chat
+  const sendStreamingMessage = async (message: string, threadId?: string | null) => {
+    setIsStreaming(true);
+    setStreamingMessage("");
+    setStreamingProposals([]);
+    setBrainSurgeryInput("");
+    
+    try {
+      const response = await fetch("/api/brain-surgery/chat/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, threadId }),
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to send message: ${response.statusText}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No response body");
+      
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let fullContent = "";
+      let newThreadId: string | null = null;
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || ""; // Keep incomplete line in buffer
+        
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6);
+            if (data === "[DONE]") continue;
+
+            try {
+              const parsed = JSON.parse(data);
+              
+              if (parsed.type === "chunk") {
+                fullContent += parsed.text || "";
+                setStreamingMessage(fullContent);
+              } else if (parsed.type === "complete") {
+                newThreadId = parsed.threadId;
+                if (parsed.proposals && parsed.proposals.length > 0) {
+                  setStreamingProposals(parsed.proposals);
+                }
+              } else if (parsed.type === "error") {
+                throw new Error(parsed.error);
+              }
+            } catch (e) {
+              // Ignore JSON parse errors for incomplete chunks
+            }
+          }
+        }
+      }
+      
+      // After streaming completes, update thread if new
+      if (newThreadId && !selectedBrainSurgeryThread) {
+        setSelectedBrainSurgeryThread(newThreadId);
+      }
+      
+      // Refresh data and clear streaming state
+      queryClient.invalidateQueries({ queryKey: ['/api/brain-surgery/threads'] });
+      await refetchBrainSurgeryMessages();
+      setStreamingMessage("");
+      setStreamingProposals([]);
+      
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send message",
+        variant: "destructive",
+      });
+      setStreamingMessage("");
+      setStreamingProposals([]);
+    } finally {
+      setIsStreaming(false);
+    }
+  };
+
+  // Auto-scroll brain surgery messages (including streaming)
   useEffect(() => {
     if (brainSurgeryMessagesEndRef.current) {
       brainSurgeryMessagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [brainSurgeryMessages]);
+  }, [brainSurgeryMessages, streamingMessage]);
 
   // Beacon type labels for display (using lucide-react icons, no emojis)
   const beaconTypeIcons: Record<string, { label: string; Icon: typeof BookOpen }> = {
@@ -663,6 +753,30 @@ export function ImmersiveTutor({
                         </div>
                       ))
                     )}
+                    
+                    {/* Streaming message display */}
+                    {isStreaming && (
+                      <div
+                        className="p-3 rounded-lg text-sm bg-blue-50/50 dark:bg-blue-950/30 border border-blue-200/50 dark:border-blue-800/50 animate-pulse"
+                        data-testid="brain-surgery-streaming-message"
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge 
+                            variant="outline" 
+                            className="text-[10px] border-blue-300 text-blue-600 dark:text-blue-400"
+                          >
+                            Daniela
+                          </Badge>
+                          <Loader2 className="h-3 w-3 animate-spin text-blue-500" />
+                          <span className="text-[10px] text-muted-foreground">thinking...</span>
+                        </div>
+                        {streamingMessage ? (
+                          <p className="text-xs whitespace-pre-wrap">{streamingMessage}</p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground italic">Daniela is thinking...</p>
+                        )}
+                      </div>
+                    )}
                     <div ref={brainSurgeryMessagesEndRef} />
                   </div>
                 </ScrollArea>
@@ -678,11 +792,8 @@ export function ImmersiveTutor({
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
-                        if (brainSurgeryInput.trim()) {
-                          sendBrainSurgeryMutation.mutate({
-                            message: brainSurgeryInput.trim(),
-                            threadId: selectedBrainSurgeryThread,
-                          });
+                        if (brainSurgeryInput.trim() && !isStreaming) {
+                          sendStreamingMessage(brainSurgeryInput.trim(), selectedBrainSurgeryThread);
                         }
                       }
                     }}
@@ -690,21 +801,18 @@ export function ImmersiveTutor({
                   <Button
                     className="w-full"
                     size="sm"
-                    disabled={!brainSurgeryInput.trim() || sendBrainSurgeryMutation.isPending}
+                    disabled={!brainSurgeryInput.trim() || isStreaming}
                     onClick={() => {
-                      if (brainSurgeryInput.trim()) {
-                        sendBrainSurgeryMutation.mutate({
-                          message: brainSurgeryInput.trim(),
-                          threadId: selectedBrainSurgeryThread,
-                        });
+                      if (brainSurgeryInput.trim() && !isStreaming) {
+                        sendStreamingMessage(brainSurgeryInput.trim(), selectedBrainSurgeryThread);
                       }
                     }}
                     data-testid="button-send-brain-surgery"
                   >
-                    {sendBrainSurgeryMutation.isPending ? (
+                    {isStreaming ? (
                       <>
                         <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                        Sending...
+                        Streaming...
                       </>
                     ) : (
                       <>
