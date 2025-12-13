@@ -1727,7 +1727,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
         return;
       }
 
-      // Handle message types (simplified - key messages only)
+      // Handle message types - full support for voice streaming
       switch (message.type) {
         case 'start_session': {
           if (!isAuthenticated) {
@@ -1741,12 +1741,197 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
             console.log('[Streaming Voice] ✓ Authenticated userId:', userId);
           }
           
-          // Forward to main session start logic (this would need to be refactored for full support)
-          // For now, send session_started acknowledgment
+          const startMsg = message as ClientStartSessionMessage;
+          const targetLanguage = startMsg.targetLanguage || 'spanish';
+          const nativeLanguage = startMsg.nativeLanguage || 'english';
+          const difficultyLevel = startMsg.difficultyLevel || 'beginner';
+          const tutorGender = startMsg.tutorGender || 'female';
+          const voiceSpeed = startMsg.voiceSpeed || 'normal';
+          const rawHonestyMode = startMsg.rawHonestyMode || false;
+          
+          try {
+            // Generate system prompt
+            const userRecord = userId ? await storage.getUser(userId) : null;
+            const userName = userRecord?.firstName || 'friend';
+            
+            // Get tutor voice for this language
+            const tutorVoice = await storage.getTutorVoice(targetLanguage, tutorGender);
+            const voiceId = tutorVoice?.voiceId || '';
+            
+            // Create streaming voice session config
+            const systemPrompt = await createStreamingVoicePrompt(
+              targetLanguage,
+              nativeLanguage,
+              difficultyLevel,
+              tutorGender,
+              userName,
+              userId || undefined,
+              conversationId || undefined,
+              rawHonestyMode
+            );
+            
+            // Create session with orchestrator
+            session = await orchestrator.createSession({
+              ws: ws as any, // Adapter is compatible
+              systemPrompt,
+              targetLanguage,
+              nativeLanguage,
+              voiceId,
+              voiceSpeed,
+              userId: userId || undefined,
+              conversationId: conversationId || undefined,
+            });
+            
+            if (pendingVoiceUpdate) {
+              pendingVoiceUpdate = tutorGender;
+            }
+            
+            console.log('[Streaming Voice] Session created:', session.id);
+            
+            ws.send(JSON.stringify({
+              type: 'session_started',
+              sessionId: session.id,
+              timestamp: Date.now(),
+            }));
+          } catch (err: any) {
+            console.error('[Streaming Voice] Session creation failed:', err);
+            sendErrorAdapter(ws, 'SESSION_FAILED', err.message || 'Session creation failed', false);
+          }
+          break;
+        }
+        
+        case 'request_greeting': {
+          if (!isAuthenticated || !session) {
+            sendErrorAdapter(ws, 'UNKNOWN', 'Session not ready for greeting', true);
+            return;
+          }
+          
+          const greetingRequest = message as { type: 'request_greeting'; userName?: string; isResumed?: boolean };
+          
+          // Check for pending handoff intro
+          if (userId && pendingHandoffIntros.has(userId)) {
+            const pendingIntro = pendingHandoffIntros.get(userId)!;
+            const age = Date.now() - pendingIntro.timestamp;
+            
+            if (age < 30000) {
+              console.log(`[Streaming Voice] Found pending handoff intro for ${pendingIntro.tutorName} (${age}ms old)`);
+              pendingHandoffIntros.delete(userId);
+              
+              try {
+                await orchestrator.processVoiceSwitchIntro(
+                  session.id,
+                  pendingIntro.tutorName,
+                  pendingIntro.gender
+                );
+                break;
+              } catch (introError: any) {
+                console.error('[Streaming Voice] Handoff intro error:', introError.message);
+              }
+            } else {
+              pendingHandoffIntros.delete(userId);
+            }
+          }
+          
+          console.log(`[Streaming Voice] Generating AI greeting... (resumed: ${greetingRequest.isResumed || false})`);
+          
+          try {
+            await orchestrator.processGreetingRequest(
+              session.id,
+              greetingRequest.userName,
+              greetingRequest.isResumed
+            );
+          } catch (greetingError: any) {
+            console.error('[Streaming Voice] Greeting error:', greetingError.message);
+            sendErrorAdapter(ws, 'AI_FAILED', 'Failed to generate greeting', true);
+          }
+          break;
+        }
+        
+        case 'audio_data': {
+          if (!isAuthenticated || !session) {
+            sendErrorAdapter(ws, 'UNKNOWN', 'Session not ready', true);
+            return;
+          }
+          
+          const audioMessage = message as ClientAudioDataMessage;
+          let audioBuffer: Buffer;
+          if (typeof audioMessage.audio === 'string') {
+            audioBuffer = Buffer.from(audioMessage.audio, 'base64');
+          } else {
+            audioBuffer = Buffer.from(audioMessage.audio);
+          }
+          
+          const metrics = await orchestrator.processUserAudio(session.id, audioBuffer, audioMessage.format || 'webm');
+          
+          // Save messages to database
+          if (metrics.userTranscript && metrics.aiResponse && conversationId) {
+            try {
+              await storage.createMessage({
+                conversationId: conversationId,
+                role: 'user',
+                content: metrics.userTranscript,
+              });
+              await storage.createMessage({
+                conversationId: conversationId,
+                role: 'assistant',
+                content: metrics.aiResponse,
+              });
+            } catch (err: any) {
+              console.error('[Streaming Voice] Failed to save messages:', err.message);
+            }
+          }
+          break;
+        }
+        
+        case 'interrupt':
+          if (session) orchestrator.handleInterrupt(session.id);
+          break;
+        
+        case 'user_activity':
+          if (session) orchestrator.resetIdleTimeoutForSession(session.id);
+          break;
+        
+        case 'update_voice': {
+          const voiceMsg = message as { type: 'update_voice'; tutorGender: 'male' | 'female' };
+          pendingVoiceUpdate = voiceMsg.tutorGender;
+          
+          if (session && !voiceUpdateInProgress) {
+            voiceUpdateInProgress = true;
+            try {
+              const targetLanguage = session.targetLanguage || 'spanish';
+              const tutorVoice = await storage.getTutorVoice(targetLanguage, voiceMsg.tutorGender);
+              
+              if (tutorVoice?.voiceId) {
+                await orchestrator.updateVoice(session.id, tutorVoice.voiceId);
+                ws.send(JSON.stringify({
+                  type: 'voice_updated',
+                  timestamp: Date.now(),
+                  gender: voiceMsg.tutorGender,
+                  voiceName: tutorVoice.voiceName,
+                }));
+              }
+            } catch (err: any) {
+              console.warn('[Streaming Voice] Voice update failed:', err.message);
+            } finally {
+              voiceUpdateInProgress = false;
+            }
+          }
+          break;
+        }
+        
+        case 'set_input_mode': {
+          const modeMessage = message as { type: 'set_input_mode'; inputMode: VoiceInputMode };
+          currentInputMode = modeMessage.inputMode;
+          
+          if (currentInputMode === 'push-to-talk' && openMicSession) {
+            openMicSession.close();
+            openMicSession = null;
+          }
+          
           ws.send(JSON.stringify({
-            type: 'session_started',
-            sessionId: `socketio-${Date.now()}`,
+            type: 'input_mode_changed',
             timestamp: Date.now(),
+            inputMode: currentInputMode,
           }));
           break;
         }
