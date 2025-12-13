@@ -19,7 +19,7 @@ import {
   EditorListeningSnapshot,
   CollaborationChannel,
 } from "@shared/schema";
-import { eq, desc, and, isNotNull, sql, or } from "drizzle-orm";
+import { eq, desc, and, isNotNull, sql, or, inArray } from "drizzle-orm";
 
 export interface EditorFeedback {
   id: string;
@@ -72,7 +72,7 @@ class EditorFeedbackService {
       .from(editorListeningSnapshots)
       .where(
         and(
-          sql`${editorListeningSnapshots.channelId} = ANY(${channelIds})`,
+          inArray(editorListeningSnapshots.channelId, channelIds),
           isNotNull(editorListeningSnapshots.editorResponse),
           or(
             eq(editorListeningSnapshots.surfacedToDaniela, false),
@@ -88,7 +88,7 @@ class EditorFeedbackService {
       .from(editorListeningSnapshots)
       .where(
         and(
-          sql`${editorListeningSnapshots.channelId} = ANY(${channelIds})`,
+          inArray(editorListeningSnapshots.channelId, channelIds),
           isNotNull(editorListeningSnapshots.editorResponse),
           or(
             eq(editorListeningSnapshots.surfacedToDaniela, false),
@@ -137,7 +137,7 @@ class EditorFeedbackService {
       .from(editorListeningSnapshots)
       .where(
         and(
-          sql`${editorListeningSnapshots.channelId} = ANY(${channelIds})`,
+          inArray(editorListeningSnapshots.channelId, channelIds),
           isNotNull(editorListeningSnapshots.editorResponse),
           or(
             eq(editorListeningSnapshots.surfacedToDaniela, false),
@@ -178,7 +178,7 @@ class EditorFeedbackService {
         surfacedToDaniela: true,
         surfacedAt: new Date(),
       })
-      .where(sql`${editorListeningSnapshots.id} = ANY(${snapshotIds})`);
+      .where(inArray(editorListeningSnapshots.id, snapshotIds));
     
     console.log(`[EditorFeedback] Marked ${snapshotIds.length} feedback items as surfaced`);
   }
