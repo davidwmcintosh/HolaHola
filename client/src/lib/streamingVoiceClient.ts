@@ -248,9 +248,12 @@ export class StreamingVoiceClient {
       console.log('[StreamingVoice] Creating Socket.io connection to /voice namespace...');
       
       // Connect to the /voice namespace with conversationId in query
+      // Use polling first - works more reliably through Replit's proxy
       this.socket = io('/voice', {
         query: { conversationId },
-        transports: ['websocket', 'polling'],  // Prefer WebSocket, fallback to polling
+        transports: ['polling', 'websocket'],  // Polling first, then upgrade to WebSocket
+        upgrade: true,  // Allow upgrade to websocket after polling connects
+        reconnection: false,  // We handle reconnection manually
       });
       
       // Create a promise that resolves when connection is ready
@@ -339,7 +342,7 @@ export class StreamingVoiceClient {
           if (resolved) return;
           console.log('[StreamingVoice] Socket.io connection timeout');
           reject(new Error('Socket.io connection timeout'));
-        }, 10000);
+        }, 30000);  // 30 seconds for Replit proxy negotiation
       });
       
       await connectionPromise;
