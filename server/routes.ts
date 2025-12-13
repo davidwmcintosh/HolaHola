@@ -19,6 +19,7 @@ import {
   teacherClasses,
   voiceSessions,
   users,
+  teachingToolEvents,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
@@ -9402,6 +9403,150 @@ Return ONLY the ${targetLanguage} phrase:`;
       });
     } catch (error: any) {
       console.error('Error linking prerequisites:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // ===== Teaching Tool Analytics (Daniela's Neural Network Visualization) =====
+  
+  // Get overall teaching tool usage summary
+  app.get("/api/admin/teaching-tools/summary", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { days = '30' } = req.query;
+      const daysAgo = new Date();
+      daysAgo.setDate(daysAgo.getDate() - parseInt(days as string));
+      
+      // Get tool usage counts and effectiveness
+      const toolStats = await db.select({
+        toolType: teachingToolEvents.toolType,
+        count: sql<number>`count(*)`,
+        uniqueStudents: sql<number>`count(distinct ${teachingToolEvents.userId})`,
+        avgResponseTime: sql<number>`avg(${teachingToolEvents.studentResponseTime})`,
+        drillCorrect: sql<number>`sum(case when ${teachingToolEvents.drillResult} = 'correct' then 1 else 0 end)`,
+        drillTotal: sql<number>`sum(case when ${teachingToolEvents.drillResult} is not null then 1 else 0 end)`,
+      })
+        .from(teachingToolEvents)
+        .where(gte(teachingToolEvents.occurredAt, daysAgo))
+        .groupBy(teachingToolEvents.toolType)
+        .orderBy(sql`count(*) desc`);
+      
+      // Get daily trend
+      const dailyTrend = await db.select({
+        date: sql<string>`date(${teachingToolEvents.occurredAt})`,
+        count: sql<number>`count(*)`,
+      })
+        .from(teachingToolEvents)
+        .where(gte(teachingToolEvents.occurredAt, daysAgo))
+        .groupBy(sql`date(${teachingToolEvents.occurredAt})`)
+        .orderBy(sql`date(${teachingToolEvents.occurredAt})`);
+      
+      // Calculate totals
+      const totalEvents = toolStats.reduce((sum, t) => sum + Number(t.count), 0);
+      const totalStudents = new Set(toolStats.map(t => t.uniqueStudents)).size;
+      
+      res.json({
+        summary: {
+          totalEvents,
+          totalStudents,
+          periodDays: parseInt(days as string),
+        },
+        toolStats: toolStats.map(t => ({
+          toolType: t.toolType,
+          count: Number(t.count),
+          uniqueStudents: Number(t.uniqueStudents),
+          avgResponseTimeMs: t.avgResponseTime ? Math.round(Number(t.avgResponseTime)) : null,
+          drillSuccessRate: t.drillTotal && Number(t.drillTotal) > 0 
+            ? Number(t.drillCorrect) / Number(t.drillTotal) 
+            : null,
+        })),
+        dailyTrend: dailyTrend.map(d => ({
+          date: d.date,
+          count: Number(d.count),
+        })),
+      });
+    } catch (error: any) {
+      console.error('Error fetching teaching tool summary:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get per-student teaching tool effectiveness
+  app.get("/api/admin/teaching-tools/by-student", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { days = '30', limit = '50' } = req.query;
+      const daysAgo = new Date();
+      daysAgo.setDate(daysAgo.getDate() - parseInt(days as string));
+      
+      // Get per-student tool usage breakdown
+      const studentStats = await db.select({
+        userId: teachingToolEvents.userId,
+        language: teachingToolEvents.language,
+        toolType: teachingToolEvents.toolType,
+        count: sql<number>`count(*)`,
+        avgResponseTime: sql<number>`avg(${teachingToolEvents.studentResponseTime})`,
+        drillCorrect: sql<number>`sum(case when ${teachingToolEvents.drillResult} = 'correct' then 1 else 0 end)`,
+        drillTotal: sql<number>`sum(case when ${teachingToolEvents.drillResult} is not null then 1 else 0 end)`,
+      })
+        .from(teachingToolEvents)
+        .where(and(
+          gte(teachingToolEvents.occurredAt, daysAgo),
+          isNotNull(teachingToolEvents.userId)
+        ))
+        .groupBy(teachingToolEvents.userId, teachingToolEvents.language, teachingToolEvents.toolType)
+        .orderBy(sql`count(*) desc`)
+        .limit(parseInt(limit as string));
+      
+      // Group by student
+      const studentMap = new Map<string, any>();
+      for (const stat of studentStats) {
+        if (!stat.userId) continue;
+        if (!studentMap.has(stat.userId)) {
+          studentMap.set(stat.userId, {
+            userId: stat.userId,
+            languages: new Set(),
+            toolBreakdown: {},
+            totalEvents: 0,
+            drillSuccessRate: null,
+          });
+        }
+        const student = studentMap.get(stat.userId);
+        if (stat.language) student.languages.add(stat.language);
+        student.toolBreakdown[stat.toolType] = (student.toolBreakdown[stat.toolType] || 0) + Number(stat.count);
+        student.totalEvents += Number(stat.count);
+        if (stat.drillTotal && Number(stat.drillTotal) > 0) {
+          const rate = Number(stat.drillCorrect) / Number(stat.drillTotal);
+          student.drillSuccessRate = student.drillSuccessRate 
+            ? (student.drillSuccessRate + rate) / 2 
+            : rate;
+        }
+      }
+      
+      res.json({
+        students: Array.from(studentMap.values()).map(s => ({
+          ...s,
+          languages: Array.from(s.languages),
+        })),
+        periodDays: parseInt(days as string),
+      });
+    } catch (error: any) {
+      console.error('Error fetching per-student teaching tools:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get recent teaching tool events (diagnostic feed)
+  app.get("/api/admin/teaching-tools/events", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { limit = '100' } = req.query;
+      
+      const events = await db.select()
+        .from(teachingToolEvents)
+        .orderBy(desc(teachingToolEvents.occurredAt))
+        .limit(parseInt(limit as string));
+      
+      res.json({ events });
+    } catch (error: any) {
+      console.error('Error fetching teaching tool events:', error);
       res.status(500).json({ error: error.message });
     }
   });
