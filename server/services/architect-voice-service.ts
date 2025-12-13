@@ -71,20 +71,35 @@ class ArchitectVoiceService {
 
   /**
    * Get all pending (undelivered) notes for a conversation
-   * Marks them as delivered after retrieval
+   * NOTE: Does NOT mark as delivered - call markNotesDelivered() after successful response
    */
   getPendingNotes(conversationId: string): ArchitectNote[] {
     const notes = this.notes.get(conversationId) || [];
     const pending = notes.filter(n => !n.delivered);
 
-    // Mark as delivered
-    pending.forEach(n => n.delivered = true);
-
     if (pending.length > 0) {
-      console.log(`[Architect Voice] Retrieved ${pending.length} notes for conversation ${conversationId}`);
+      console.log(`[Architect Voice] Retrieved ${pending.length} pending notes for conversation ${conversationId}`);
     }
 
     return pending;
+  }
+  
+  /**
+   * Mark specific notes as delivered (call after successful response)
+   * This prevents notes from being lost on barge-in interrupts
+   */
+  markNotesDelivered(noteIds: string[]): void {
+    if (noteIds.length === 0) return;
+    
+    this.notes.forEach(notes => {
+      notes.forEach(n => {
+        if (noteIds.includes(n.id)) {
+          n.delivered = true;
+        }
+      });
+    });
+    
+    console.log(`[Architect Voice] Marked ${noteIds.length} notes as delivered`);
   }
 
   /**
