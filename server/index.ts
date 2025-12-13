@@ -345,5 +345,16 @@ app.use((req, res, next) => {
     } catch (error) {
       console.error('[EDITOR-WORKER] Failed to start:', error);
     }
+    
+    // Start the Realtime Beacon Dispatcher (fast 1s polling for hive beacons)
+    try {
+      const { startRealtimeDispatcher } = await import('./services/editor-realtime-dispatcher');
+      const started = startRealtimeDispatcher();
+      if (started) {
+        console.log('[REALTIME-DISPATCHER] Started (1s polling for hive beacons)');
+      }
+    } catch (error) {
+      console.error('[REALTIME-DISPATCHER] Failed to start:', error);
+    }
   });
 })();
