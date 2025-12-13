@@ -308,6 +308,9 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
   });
 
   ws.on('message', async (data: Buffer | string) => {
+    // Reset heartbeat counter on ANY message - critical for Socket.io which doesn't use ws-style pong
+    missedPongs = 0;
+    
     console.log('[Streaming Voice] Message received, length:', Buffer.isBuffer(data) ? data.length : data.length);
     
     try {
