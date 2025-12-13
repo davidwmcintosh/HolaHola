@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, MessageSquare, RefreshCw, Trash2, Loader2, PhoneOff, Radio, Handshake, Send, CheckCircle, BookOpen, AlertTriangle, Wrench, Sparkles, Pencil, Globe, BookMarked, Lightbulb, Brain } from "lucide-react";
+import { Mic, MicOff, MessageSquare, RefreshCw, Trash2, Loader2, PhoneOff, Radio, Handshake, Send, CheckCircle, BookOpen, AlertTriangle, Wrench, Sparkles, Pencil, Globe, BookMarked, Lightbulb, Brain, Scissors, Play, Pause, Square } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
@@ -109,6 +109,41 @@ interface CollaborationEvent {
   createdAt: string;
 }
 
+// Surgery Theater types (collaborative autonomous dialogue)
+interface SurgerySession {
+  id: string;
+  topic?: string | null;
+  focusArea?: string | null;
+  status: 'idle' | 'running' | 'paused' | 'completed' | 'stopped';
+  maxTurns?: number | null;
+  currentTurn?: number | null;
+  proposalsGenerated?: number | null;
+  proposalsApproved?: number | null;
+  proposalsRejected?: number | null;
+  errorMessage?: string | null;
+  createdAt?: string | null;
+  lastTurnAt?: string | null;
+  completedAt?: string | null;
+}
+
+interface SurgeryTurn {
+  id: string;
+  sessionId: string;
+  turnNumber: number;
+  speaker: 'daniela' | 'editor' | 'system';
+  content: string;
+  proposalIds?: string[] | null;
+  critiqueOfProposal?: string | null;
+  critiqueVerdict?: string | null;
+  createdAt?: string | null;
+}
+
+interface SurgeryStatusResponse {
+  session: SurgerySession | null;
+  turns: SurgeryTurn[];
+  isProcessing: boolean;
+}
+
 interface ImmersiveTutorProps {
   messages: Message[];
   onRecordingStart: () => void;
@@ -199,7 +234,7 @@ export function ImmersiveTutor({
 
   // Collaboration panel state
   const [isCollabOpen, setIsCollabOpen] = useState(false);
-  const [collabPanelTab, setCollabPanelTab] = useState<"hive" | "brain-surgery">("hive");
+  const [collabPanelTab, setCollabPanelTab] = useState<"hive" | "brain-surgery" | "surgery-theater">("hive");
   
   // Brain Surgery state
   const [brainSurgeryInput, setBrainSurgeryInput] = useState("");
@@ -306,6 +341,79 @@ export function ImmersiveTutor({
       toast({ title: "Error", description: error.message || "Failed to reject proposal", variant: "destructive" });
     },
   });
+
+  // Surgery Theater state
+  const [surgeryTopic, setSurgeryTopic] = useState("");
+  const [surgeryFocusArea, setSurgeryFocusArea] = useState<string>("general");
+  const surgeryTurnsEndRef = useRef<HTMLDivElement>(null);
+
+  // Surgery Theater queries - status endpoint returns { session, turns, isProcessing }
+  const { data: surgeryStatus, isLoading: surgeryStatusLoading, refetch: refetchSurgeryStatus } = useQuery<SurgeryStatusResponse>({
+    queryKey: ['/api/surgery/status'],
+    enabled: isDeveloper && isCollabOpen && collabPanelTab === 'surgery-theater',
+    refetchInterval: collabPanelTab === 'surgery-theater' ? 2000 : false,
+  });
+
+  // Surgery Theater mutations
+  const startSurgeryMutation = useMutation({
+    mutationFn: async ({ topic, focusArea }: { topic?: string; focusArea?: string }) => {
+      return apiRequest("POST", "/api/surgery/sessions", { topic, focusArea, maxTurns: 20 });
+    },
+    onSuccess: async () => {
+      toast({ title: "Surgery Started", description: "Daniela and Editor are now collaborating autonomously" });
+      await refetchSurgeryStatus();
+      setSurgeryTopic("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to start surgery session", variant: "destructive" });
+    },
+  });
+
+  const stopSurgeryMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      return apiRequest("POST", `/api/surgery/sessions/${sessionId}/stop`, {});
+    },
+    onSuccess: async () => {
+      toast({ title: "Surgery Stopped", description: "Session has been stopped" });
+      await refetchSurgeryStatus();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to stop session", variant: "destructive" });
+    },
+  });
+
+  const pauseSurgeryMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      return apiRequest("POST", `/api/surgery/sessions/${sessionId}/pause`, {});
+    },
+    onSuccess: async () => {
+      toast({ title: "Surgery Paused", description: "Session has been paused" });
+      await refetchSurgeryStatus();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to pause session", variant: "destructive" });
+    },
+  });
+
+  const resumeSurgeryMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      return apiRequest("POST", `/api/surgery/sessions/${sessionId}/resume`, {});
+    },
+    onSuccess: async () => {
+      toast({ title: "Surgery Resumed", description: "Session has been resumed" });
+      await refetchSurgeryStatus();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to resume session", variant: "destructive" });
+    },
+  });
+
+  // Auto-scroll surgery turns
+  useEffect(() => {
+    if (surgeryTurnsEndRef.current) {
+      surgeryTurnsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [surgeryStatus?.turns]);
 
   // SSE Streaming function for Brain Surgery chat
   const sendStreamingMessage = async (message: string, threadId?: string | null) => {
@@ -500,18 +608,25 @@ export function ImmersiveTutor({
               </SheetDescription>
             </SheetHeader>
 
-            <Tabs value={collabPanelTab} onValueChange={(v) => setCollabPanelTab(v as "hive" | "brain-surgery")} className="flex-1 flex flex-col">
-              <TabsList className="w-full grid grid-cols-2 mb-3">
+            <Tabs value={collabPanelTab} onValueChange={(v) => setCollabPanelTab(v as "hive" | "brain-surgery" | "surgery-theater")} className="flex-1 flex flex-col">
+              <TabsList className="w-full grid grid-cols-3 mb-3">
                 <TabsTrigger value="hive" className="text-xs relative" data-testid="tab-hive-mind">
                   <Handshake className="h-3 w-3 mr-1" />
-                  Hive Mind
+                  Hive
                   {hasNewEvents && collabPanelTab !== 'hive' && (
                     <span className="absolute -top-1 -right-1 bg-purple-500 rounded-full h-2 w-2" />
                   )}
                 </TabsTrigger>
                 <TabsTrigger value="brain-surgery" className="text-xs" data-testid="tab-brain-surgery">
                   <Brain className="h-3 w-3 mr-1" />
-                  Brain Surgery
+                  Chat
+                </TabsTrigger>
+                <TabsTrigger value="surgery-theater" className="text-xs relative" data-testid="tab-surgery-theater">
+                  <Scissors className="h-3 w-3 mr-1" />
+                  Theater
+                  {surgeryStatus?.session?.status === 'running' && (
+                    <span className="absolute -top-1 -right-1 bg-green-500 rounded-full h-2 w-2 animate-pulse" />
+                  )}
                 </TabsTrigger>
               </TabsList>
 
@@ -919,6 +1034,241 @@ export function ImmersiveTutor({
                     )}
                   </Button>
                 </div>
+              </TabsContent>
+
+              {/* Surgery Theater Tab - Autonomous Daniela ↔ Editor Dialogue */}
+              <TabsContent value="surgery-theater" className="flex-1 flex flex-col mt-0 data-[state=inactive]:hidden">
+                {surgeryStatusLoading ? (
+                  <div className="py-8 text-center text-muted-foreground">
+                    <Loader2 className="h-6 w-6 mx-auto animate-spin mb-2" />
+                    <p className="text-sm">Loading surgery status...</p>
+                  </div>
+                ) : !surgeryStatus?.session?.id || surgeryStatus?.session?.status === 'idle' || surgeryStatus?.session?.status === 'completed' || surgeryStatus?.session?.status === 'stopped' ? (
+                  // No active session - show start form
+                  <div className="py-4 space-y-4">
+                    <div className="text-center">
+                      <Scissors className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-sm font-medium">Surgery Theater</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Start an autonomous dialogue between Daniela and Editor to discuss neural network improvements
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Topic (optional)</label>
+                        <Input
+                          placeholder="e.g., Teaching pronunciation corrections..."
+                          value={surgeryTopic}
+                          onChange={(e) => setSurgeryTopic(e.target.value)}
+                          className="text-xs"
+                          data-testid="input-surgery-topic"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Focus Area</label>
+                        <select
+                          className="w-full text-xs p-2 rounded border bg-background"
+                          value={surgeryFocusArea}
+                          onChange={(e) => setSurgeryFocusArea(e.target.value)}
+                          data-testid="select-surgery-focus"
+                        >
+                          <option value="general">General Discussion</option>
+                          <option value="procedures">Tutor Procedures</option>
+                          <option value="principles">Teaching Principles</option>
+                          <option value="tools">Whiteboard Tools</option>
+                          <option value="patterns">Situational Patterns</option>
+                        </select>
+                      </div>
+                      
+                      <Button
+                        className="w-full"
+                        onClick={() => startSurgeryMutation.mutate({ 
+                          topic: surgeryTopic.trim() || undefined, 
+                          focusArea: surgeryFocusArea 
+                        })}
+                        disabled={startSurgeryMutation.isPending}
+                        data-testid="button-start-surgery"
+                      >
+                        {startSurgeryMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Starting...
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-4 w-4 mr-2" />
+                            Start Surgery Session
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  // Active session - show controls and live feed
+                  <div className="flex flex-col h-full">
+                    {/* Session status bar */}
+                    <div className="flex flex-wrap items-center gap-2 py-2 border-b">
+                      <Badge 
+                        variant={surgeryStatus?.session?.status === 'running' ? 'default' : 'secondary'}
+                        className={`text-xs ${surgeryStatus?.session?.status === 'running' ? 'bg-green-500' : ''}`}
+                      >
+                        {surgeryStatus?.session?.status === 'running' ? 'Running' : 
+                         surgeryStatus?.session?.status === 'paused' ? 'Paused' : surgeryStatus?.session?.status}
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        Turn {surgeryStatus?.session?.currentTurn || 0}/{surgeryStatus?.session?.maxTurns || 20}
+                      </Badge>
+                      {surgeryStatus?.session?.proposalsGenerated && surgeryStatus?.session?.proposalsGenerated > 0 && (
+                        <Badge variant="outline" className="text-xs">
+                          {surgeryStatus?.session?.proposalsGenerated} proposals
+                        </Badge>
+                      )}
+                      
+                      {/* Control buttons */}
+                      <div className="flex gap-1 ml-auto">
+                        {surgeryStatus?.session?.status === 'running' ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs px-2"
+                            onClick={() => pauseSurgeryMutation.mutate(surgeryStatus?.session?.id!)}
+                            disabled={pauseSurgeryMutation.isPending}
+                            data-testid="button-pause-surgery"
+                          >
+                            <Pause className="h-3 w-3 mr-1" />
+                            Pause
+                          </Button>
+                        ) : surgeryStatus?.session?.status === 'paused' ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs px-2"
+                            onClick={() => resumeSurgeryMutation.mutate(surgeryStatus?.session?.id!)}
+                            disabled={resumeSurgeryMutation.isPending}
+                            data-testid="button-resume-surgery"
+                          >
+                            <Play className="h-3 w-3 mr-1" />
+                            Resume
+                          </Button>
+                        ) : null}
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="h-7 text-xs px-2"
+                          onClick={() => stopSurgeryMutation.mutate(surgeryStatus?.session?.id!)}
+                          disabled={stopSurgeryMutation.isPending}
+                          data-testid="button-stop-surgery"
+                        >
+                          <Square className="h-3 w-3 mr-1" />
+                          Stop
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Topic display */}
+                    {surgeryStatus?.session?.topic && (
+                      <div className="py-2 px-3 bg-muted/30 border-b">
+                        <p className="text-[10px] text-muted-foreground">Topic:</p>
+                        <p className="text-xs">{surgeryStatus?.session?.topic}</p>
+                      </div>
+                    )}
+                    
+                    {/* Live turn feed */}
+                    <ScrollArea className="flex-1 -mx-6 px-6">
+                      <div className="space-y-3 py-3">
+                        {!surgeryStatus?.turns?.length ? (
+                          <div className="py-8 text-center text-muted-foreground text-sm">
+                            <Loader2 className="h-6 w-6 mx-auto animate-spin mb-2" />
+                            <p>Waiting for first turn...</p>
+                          </div>
+                        ) : (
+                          surgeryStatus.turns.map((turn) => (
+                            <div
+                              key={turn.id}
+                              className={`p-3 rounded-lg text-sm ${
+                                turn.speaker === 'system'
+                                  ? 'bg-muted/50 text-muted-foreground text-center italic'
+                                  : turn.speaker === 'daniela'
+                                  ? 'bg-blue-50/50 dark:bg-blue-950/30 border border-blue-200/50 dark:border-blue-800/50'
+                                  : 'bg-green-50/50 dark:bg-green-950/30 border border-green-200/50 dark:border-green-800/50'
+                              }`}
+                              data-testid={`surgery-turn-${turn.id}`}
+                            >
+                              {turn.speaker !== 'system' && (
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge 
+                                    variant="outline" 
+                                    className={`text-[10px] ${
+                                      turn.speaker === 'daniela' 
+                                        ? 'border-blue-300 text-blue-600 dark:text-blue-400' 
+                                        : 'border-green-300 text-green-600 dark:text-green-400'
+                                    }`}
+                                  >
+                                    {turn.speaker === 'daniela' ? 'Daniela' : 'Editor'}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-[9px]">
+                                    Turn {turn.turnNumber}
+                                  </Badge>
+                                  {turn.critiqueVerdict && (
+                                    <Badge 
+                                      variant={turn.critiqueVerdict === 'endorse' ? 'default' : 'secondary'}
+                                      className="text-[9px]"
+                                    >
+                                      {turn.critiqueVerdict}
+                                    </Badge>
+                                  )}
+                                  {turn.createdAt && (
+                                    <span className="text-[10px] text-muted-foreground ml-auto">
+                                      {new Date(turn.createdAt).toLocaleTimeString()}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              <p className="text-xs whitespace-pre-wrap">{turn.content}</p>
+                              
+                              {/* Show proposal indicators */}
+                              {turn.proposalIds && turn.proposalIds.length > 0 && (
+                                <div className="mt-2 pt-2 border-t">
+                                  <Badge variant="outline" className="text-[9px] bg-amber-50 dark:bg-amber-950/30">
+                                    {turn.proposalIds.length} proposal{turn.proposalIds.length > 1 ? 's' : ''} in this turn
+                                  </Badge>
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        )}
+                        
+                        {/* Waiting indicator when running */}
+                        {surgeryStatus?.session?.status === 'running' && (
+                          <div className="py-2 text-center">
+                            <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              <span>Dialogue in progress...</span>
+                            </div>
+                          </div>
+                        )}
+                        <div ref={surgeryTurnsEndRef} />
+                      </div>
+                    </ScrollArea>
+                    
+                    {/* Session stats footer */}
+                    <div className="border-t pt-2 mt-auto text-[10px] text-muted-foreground flex items-center gap-2 flex-wrap">
+                      <span>Session: {surgeryStatus?.session?.id?.slice(0, 8)}...</span>
+                      {surgeryStatus?.session?.proposalsApproved !== undefined && (
+                        <Badge variant="outline" className="text-[9px]">
+                          {surgeryStatus.session.proposalsApproved} approved
+                        </Badge>
+                      )}
+                      {surgeryStatus?.session?.proposalsRejected !== undefined && (
+                        <Badge variant="outline" className="text-[9px]">
+                          {surgeryStatus.session.proposalsRejected} rejected
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </SheetContent>
