@@ -4272,6 +4272,12 @@ export const collaborationEvents = pgTable("collaboration_events", {
     
     // For sprint conversion
     convertedToSprintId?: string;
+    
+    // For channel-scoped events (Daniela-Editor hive mind)
+    channelId?: string;
+    phase?: 'active' | 'post_session' | 'completed';
+    visibility?: 'founder_only' | 'all'; // Controls who sees this event in UI
+    snapshotId?: string; // Links to editorListeningSnapshots
   }>(),
   
   // Status tracking
@@ -4324,3 +4330,90 @@ export const insertCollaborationParticipantSchema = createInsertSchema(collabora
 });
 export type InsertCollaborationParticipant = z.infer<typeof insertCollaborationParticipantSchema>;
 export type CollaborationParticipant = typeof collaborationParticipants.$inferSelect;
+
+// ============================================================================
+// COLLABORATION CHANNELS - Scoped conversation threads for Daniela-Editor sync
+// ============================================================================
+
+// Session phase enum - tracks lifecycle of a voice session collaboration
+export const sessionPhaseEnum = pgEnum("session_phase", [
+  "active",        // Voice chat is live, Editor listening in real-time
+  "post_session",  // Voice chat ended, Daniela and Editor continue autonomously
+  "completed",     // Channel closed, summary generated
+]);
+
+// Collaboration channels - groups events by voice session
+export const collaborationChannels = pgTable("collaboration_channels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Link to voice conversation
+  conversationId: varchar("conversation_id").references(() => conversations.id),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Channel lifecycle
+  sessionPhase: sessionPhaseEnum("session_phase").notNull().default("active"),
+  
+  // Context snapshot at channel creation
+  targetLanguage: varchar("target_language"),
+  studentLevel: varchar("student_level"),
+  sessionTopic: varchar("session_topic"),
+  
+  // Heartbeat for live channels (Editor pings to show listening)
+  heartbeatAt: timestamp("heartbeat_at").defaultNow(),
+  
+  // Timestamps
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  endedAt: timestamp("ended_at"),
+  
+  // Summary generated after completion
+  summaryJson: jsonb("summary_json").$type<{
+    keyInsights?: string[];
+    actionItems?: string[];
+    editorNotes?: string[];
+    teachingObservations?: string[];
+  }>(),
+}, (table) => [
+  index("idx_collaboration_channels_conversation").on(table.conversationId),
+  index("idx_collaboration_channels_user").on(table.userId),
+  index("idx_collaboration_channels_phase").on(table.sessionPhase),
+  index("idx_collaboration_channels_started").on(table.startedAt),
+]);
+
+export const insertCollaborationChannelSchema = createInsertSchema(collaborationChannels).omit({
+  id: true,
+  startedAt: true,
+});
+export type InsertCollaborationChannel = z.infer<typeof insertCollaborationChannelSchema>;
+export type CollaborationChannel = typeof collaborationChannels.$inferSelect;
+
+// Editor listening snapshots - summarized teaching context for Editor awareness
+export const editorListeningSnapshots = pgTable("editor_listening_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Link to channel
+  channelId: varchar("channel_id").notNull().references(() => collaborationChannels.id, { onDelete: 'cascade' }),
+  
+  // Snapshot of teaching moment
+  tutorTurn: text("tutor_turn").notNull(),
+  studentTurn: text("student_turn"),
+  
+  // Why this was flagged as interesting
+  beaconType: varchar("beacon_type").notNull(), // 'teaching_moment', 'student_struggle', 'tool_usage', 'breakthrough'
+  beaconReason: text("beacon_reason"),
+  
+  // Editor's response (if any)
+  editorResponse: text("editor_response"),
+  editorRespondedAt: timestamp("editor_responded_at"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_editor_snapshots_channel").on(table.channelId),
+  index("idx_editor_snapshots_beacon_type").on(table.beaconType),
+]);
+
+export const insertEditorListeningSnapshotSchema = createInsertSchema(editorListeningSnapshots).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertEditorListeningSnapshot = z.infer<typeof insertEditorListeningSnapshotSchema>;
+export type EditorListeningSnapshot = typeof editorListeningSnapshots.$inferSelect;
