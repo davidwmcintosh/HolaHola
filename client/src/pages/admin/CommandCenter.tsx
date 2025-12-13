@@ -6599,6 +6599,8 @@ function BrainSurgeryTab() {
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState('');
   const [isChatSending, setIsChatSending] = useState(false);
+  const [streamingMessage, setStreamingMessage] = useState<string>('');
+  const [streamingProposals, setStreamingProposals] = useState<SelfSurgeryProposalChat[]>([]);
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
   
   // Fetch brain surgery threads
@@ -6612,24 +6614,86 @@ function BrainSurgeryTab() {
     enabled: !!selectedThreadId,
   });
   
-  // Send message to Daniela
-  const sendChatMutation = useMutation({
-    mutationFn: async ({ message, threadId }: { message: string; threadId?: string }) => {
-      return apiRequest("POST", "/api/brain-surgery/chat", { message, threadId });
-    },
-    onSuccess: async (response: any) => {
-      // If this was a new thread, select it
-      if (response.threadId && !selectedThreadId) {
-        setSelectedThreadId(response.threadId);
+  // Send message with SSE streaming
+  const sendStreamingMessage = async (message: string, threadId?: string) => {
+    setIsChatSending(true);
+    setStreamingMessage('');
+    setStreamingProposals([]);
+    
+    try {
+      const response = await fetch('/api/brain-surgery/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, threadId }),
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to start streaming');
       }
+      
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response body');
+      
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let fullContent = '';
+      let newThreadId: string | null = null;
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+            
+            try {
+              const parsed = JSON.parse(data);
+              
+              if (parsed.type === 'chunk') {
+                fullContent += parsed.text;
+                setStreamingMessage(fullContent);
+              } else if (parsed.type === 'complete') {
+                newThreadId = parsed.threadId;
+                if (parsed.proposals && parsed.proposals.length > 0) {
+                  setStreamingProposals(parsed.proposals);
+                }
+              } else if (parsed.type === 'error') {
+                throw new Error(parsed.error);
+              }
+            } catch (e) {
+              // Ignore parse errors for incomplete chunks
+            }
+          }
+        }
+      }
+      
+      // After streaming completes, update thread if new
+      if (newThreadId && !selectedThreadId) {
+        setSelectedThreadId(newThreadId);
+      }
+      
+      // Refresh data and clear streaming state
       await refetchThreads();
       await refetchChatMessages();
+      setStreamingMessage('');
+      setStreamingProposals([]);
       setChatInput('');
-    },
-    onError: (error: any) => {
+      
+    } catch (error: any) {
       toast({ title: "Error", description: error.message || "Failed to send message", variant: "destructive" });
-    },
-  });
+      setStreamingMessage('');
+      setStreamingProposals([]);
+    } finally {
+      setIsChatSending(false);
+    }
+  };
   
   // Execute self-surgery proposal
   const executeSurgeryMutation = useMutation({
@@ -6647,25 +6711,18 @@ function BrainSurgeryTab() {
     },
   });
   
-  // Scroll to bottom when messages change
+  // Scroll to bottom when messages change or streaming updates
   useEffect(() => {
     if (chatMessagesEndRef.current) {
       chatMessagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [chatMessages]);
+  }, [chatMessages, streamingMessage]);
   
   const handleSendChat = async () => {
     if (!chatInput.trim()) return;
-    
-    setIsChatSending(true);
-    try {
-      await sendChatMutation.mutateAsync({
-        message: chatInput.trim(),
-        threadId: selectedThreadId || undefined,
-      });
-    } finally {
-      setIsChatSending(false);
-    }
+    const message = chatInput.trim();
+    setChatInput(''); // Clear input immediately for better UX
+    await sendStreamingMessage(message, selectedThreadId || undefined);
   };
   
   const handleChatKeyDown = (e: React.KeyboardEvent) => {
@@ -6970,6 +7027,52 @@ function BrainSurgeryTab() {
                           )}
                         </div>
                       ))}
+                      
+                      {/* Streaming message display */}
+                      {(isChatSending || streamingMessage) && (
+                        <div className="flex gap-3 justify-start">
+                          <div className="h-8 w-8 rounded-full bg-purple-500 dark:bg-purple-600 flex items-center justify-center shrink-0">
+                            <Brain className="h-4 w-4 text-white" />
+                          </div>
+                          <div className="max-w-[75%] space-y-2">
+                            <div className="rounded-lg p-3 bg-muted">
+                              {streamingMessage ? (
+                                <p className="text-sm whitespace-pre-wrap">{streamingMessage}</p>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  <span className="text-sm text-muted-foreground">Daniela is thinking...</span>
+                                </div>
+                              )}
+                              <p className="text-xs mt-1 text-muted-foreground">
+                                Daniela • streaming...
+                              </p>
+                            </div>
+                            
+                            {/* Streaming proposals */}
+                            {streamingProposals.length > 0 && (
+                              <div className="space-y-2">
+                                {streamingProposals.map((proposal, idx) => (
+                                  <Card key={idx} className="border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20">
+                                    <CardContent className="p-3 space-y-2">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                                          SELF_SURGERY
+                                        </Badge>
+                                        <Badge variant="outline">{proposal.target}</Badge>
+                                        <Badge variant="outline">Priority: {proposal.priority}</Badge>
+                                        <Badge variant="outline">Confidence: {proposal.confidence}%</Badge>
+                                      </div>
+                                      <p className="text-sm">{proposal.reasoning}</p>
+                                    </CardContent>
+                                  </Card>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
                       <div ref={chatMessagesEndRef} />
                     </>
                   )}

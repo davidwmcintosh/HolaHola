@@ -13356,6 +13356,9 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
         return res.status(400).json({ error: "Message is required" });
       }
       
+      // Generate threadId BEFORE streaming so we can return the correct one
+      const actualThreadId = threadId || `brain-surgery-${Date.now()}`;
+      
       // Set SSE headers
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
@@ -13365,10 +13368,10 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       
       const { brainSurgeryService } = await import('./services/brain-surgery-service');
       
-      // Stream chunks to client
+      // Stream chunks to client - pass the pre-generated threadId
       const result = await brainSurgeryService.editorToDanielaStreaming(
         message,
-        threadId,
+        actualThreadId,
         (chunk) => {
           // Send chunk as SSE event
           const data = JSON.stringify({
@@ -13383,10 +13386,11 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
         { includeTeachingContext: true }
       );
       
-      // Send final event with proposals
+      // Send final event with proposals and threadId
       const finalData = JSON.stringify({
         type: 'complete',
         id: result.id,
+        threadId: actualThreadId,
         content: result.content,
         proposals: result.selfSurgeryProposals || [],
       });
