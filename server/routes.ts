@@ -13681,6 +13681,137 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
 
+  // ============================================================================
+  // SURGERY THEATER API (Autonomous Daniela ↔ Editor Dialogue)
+  // Auth: Accepts either ARCHITECT_SECRET header OR session with admin/developer role
+  // ============================================================================
+  
+  // Get current surgery session status
+  app.get("/api/surgery/status", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const { surgeryOrchestrator } = await import('./services/collaborative-surgery-orchestrator');
+      const status = await surgeryOrchestrator.getStatus();
+      res.json(status);
+    } catch (error: any) {
+      console.error('[API] Error getting surgery status:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Start a new surgery session
+  app.post("/api/surgery/sessions", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const { topic, focusArea, maxTurns, turnCadenceMs } = req.body;
+      
+      const { surgeryOrchestrator } = await import('./services/collaborative-surgery-orchestrator');
+      const session = await surgeryOrchestrator.startSession({
+        topic,
+        focusArea,
+        maxTurns,
+        turnCadenceMs,
+      }, req.user?.claims?.sub);
+      
+      res.json(session);
+    } catch (error: any) {
+      console.error('[API] Error starting surgery session:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // List all surgery sessions
+  app.get("/api/surgery/sessions", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const limit = parseInt(req.query.limit as string) || 10;
+      const status = req.query.status as string | undefined;
+      const sessions = await storage.getSurgerySessions({ limit, status });
+      res.json(sessions);
+    } catch (error: any) {
+      console.error('[API] Error listing surgery sessions:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get a specific surgery session with its turns
+  app.get("/api/surgery/sessions/:id", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const session = await storage.getSurgerySession(req.params.id);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      const turns = await storage.getSurgeryTurns(req.params.id);
+      res.json({ session, turns });
+    } catch (error: any) {
+      console.error('[API] Error getting surgery session:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Stop the current surgery session
+  app.post("/api/surgery/sessions/:id/stop", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const { reason } = req.body;
+      const { surgeryOrchestrator } = await import('./services/collaborative-surgery-orchestrator');
+      const session = await surgeryOrchestrator.stopSession(reason);
+      res.json({ success: true, session });
+    } catch (error: any) {
+      console.error('[API] Error stopping surgery session:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Pause the current surgery session
+  app.post("/api/surgery/sessions/:id/pause", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const { surgeryOrchestrator } = await import('./services/collaborative-surgery-orchestrator');
+      const session = await surgeryOrchestrator.pauseSession();
+      res.json({ success: true, session });
+    } catch (error: any) {
+      console.error('[API] Error pausing surgery session:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Resume a paused surgery session
+  app.post("/api/surgery/sessions/:id/resume", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const { surgeryOrchestrator } = await import('./services/collaborative-surgery-orchestrator');
+      const session = await surgeryOrchestrator.resumeSession();
+      res.json({ success: true, session });
+    } catch (error: any) {
+      console.error('[API] Error resuming surgery session:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Server is now passed in from index.ts where WebSocket handler is attached first
   // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }

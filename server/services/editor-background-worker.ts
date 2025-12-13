@@ -15,6 +15,7 @@
 
 import { editorPersonaService } from "./editor-persona-service";
 import { hiveCollaborationService } from "./hive-collaboration-service";
+import { surgeryOrchestrator } from "./collaborative-surgery-orchestrator";
 
 // Worker configuration
 const WORKER_INTERVAL_MS = parseInt(process.env.EDITOR_WORKER_INTERVAL_MS || '30000', 10); // 30 seconds default
@@ -55,6 +56,7 @@ export interface WorkerStatus {
     channels: number;
     errors: number;
   };
+  surgerySessionActive: boolean;
 }
 
 /**
@@ -198,6 +200,7 @@ export function getWorkerStatus(): WorkerStatus {
     maxBeaconsPerCycle: MAX_BEACONS_PER_CYCLE,
     maxChannelsPerCycle: MAX_CHANNELS_PER_CYCLE,
     cumulativeCounts: { ...cumulativeCounts },
+    surgerySessionActive: surgeryOrchestrator.isActive(),
   };
 }
 
