@@ -221,21 +221,49 @@ export function useFounderCollab(): UseFounderCollabReturn {
     setConnectionState('connecting');
     setError(null);
     
+    console.log('[FounderCollab] Creating socket connection to namespace:', NAMESPACE);
+    
     const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(NAMESPACE, {
       path: '/socket.io',
       withCredentials: true,
       transports: ['websocket', 'polling'],
       reconnection: false,
+      timeout: 20000,
+      forceNew: true,
     });
     
     socketRef.current = socket;
     
-    socket.on('connect', () => {
-      console.log('[FounderCollab] Connected, joining session...');
+    console.log('[FounderCollab] Socket created, socket.id:', socket.id, 'connected:', socket.connected);
+    
+    // Helper to emit join_session
+    const emitJoinSession = () => {
+      console.log('[FounderCollab] Emitting join_session with clientId:', clientIdRef.current);
       socket.emit('join_session', {
         sessionId: targetSessionId,
         clientId: clientIdRef.current,
       });
+    };
+    
+    // Monitor socket.io Manager events for debugging
+    socket.io.on('open', () => {
+      console.log('[FounderCollab] Transport opened, socket.connected:', socket.connected);
+      // Fallback: If transport opens but connect event doesn't fire, emit after delay
+      setTimeout(() => {
+        if (!sessionIdRef.current && socket.connected) {
+          console.log('[FounderCollab] Fallback: transport open but no session, emitting join_session');
+          emitJoinSession();
+        }
+      }, 500);
+    });
+    
+    socket.io.on('error', (err) => {
+      console.error('[FounderCollab] Transport error:', err);
+    });
+    
+    socket.on('connect', () => {
+      console.log('[FounderCollab] CONNECT EVENT FIRED! Socket.id:', socket.id);
+      emitJoinSession();
     });
     
     socket.on('connected', (data) => {

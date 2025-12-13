@@ -132,7 +132,10 @@ class FounderCollabWSBroker {
    * Set up event handlers for a connected socket
    */
   private setupSocketHandlers(socket: Socket, founderId: string): void {
+    console.log(`[FounderCollabWS] Setting up handlers for socket ${socket.id}, founderId: ${founderId}`);
+    
     socket.on('join_session', async (data) => {
+      console.log(`[FounderCollabWS] Received join_session event:`, JSON.stringify(data));
       try {
         const { sessionId, clientId } = data;
         
@@ -166,8 +169,10 @@ class FounderCollabWSBroker {
         
         socket.join(`session:${session.id}`);
         
+        console.log(`[FounderCollabWS] Emitting session_info and connected events for session ${session.id}`);
         socket.emit('session_info', session);
         socket.emit('connected', { clientId, sessionId: session.id });
+        console.log(`[FounderCollabWS] Connected event emitted successfully`);
         
         const replay = await founderCollabService.getReplayMessagesForClient(clientId, session.id);
         if (replay.messages.length > 0) {

@@ -20,8 +20,9 @@ const server = createServer(app);
 // Setup Socket.io for voice streaming (handles Replit proxy transport negotiation)
 const io = new SocketIOServer(server, {
   cors: {
-    origin: "*",
+    origin: true,  // Allow the requesting origin with credentials
     methods: ["GET", "POST"],
+    credentials: true,
   },
   // Allow both websocket and polling transports
   transports: ['websocket', 'polling'],
