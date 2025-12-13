@@ -241,7 +241,7 @@ Keep your response focused and actionable (2-4 sentences).`;
 
     try {
       const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-5-20250514",
+        model: "claude-3-5-sonnet-20241022",
         max_tokens: 300,
         system: EDITOR_SYSTEM_PROMPT,
         messages: [
@@ -378,7 +378,7 @@ Keep the reflection concise and actionable (3-5 sentences).`;
 
     try {
       const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-5-20250514",
+        model: "claude-3-5-sonnet-20241022",
         max_tokens: 400,
         system: EDITOR_SYSTEM_PROMPT,
         messages: [
@@ -462,7 +462,7 @@ Be helpful, specific, and actionable.`;
 
     try {
       const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-5-20250514",
+        model: "claude-3-5-sonnet-20241022",
         max_tokens: 500,
         system: EDITOR_SYSTEM_PROMPT,
         messages: [
