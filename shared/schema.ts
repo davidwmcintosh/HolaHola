@@ -3170,6 +3170,82 @@ export const danielaSuggestionActions = pgTable("daniela_suggestion_actions", {
   index("idx_suggestion_actions_origin").on(table.originId),
 ]);
 
+// ===== Daniela's Self-Surgery Proposals =====
+// Direct neural network modifications proposed by Daniela during Founder Mode sessions
+// These are structured data ready to be promoted to target tables with one-click approval
+
+export const selfSurgeryStatusEnum = pgEnum('self_surgery_status', [
+  'pending',     // Awaiting review
+  'approved',    // Reviewed and approved, ready to promote
+  'promoted',    // Successfully inserted into target table
+  'rejected',    // Not applicable or incorrect
+  'edited'       // Modified by founder before promotion
+]);
+
+export const selfSurgeryTargetEnum = pgEnum('self_surgery_target', [
+  'tutor_procedures',
+  'teaching_principles', 
+  'tool_knowledge',
+  'situational_patterns',
+  'language_idioms',
+  'cultural_nuances',
+  'learner_error_patterns',
+  'dialect_variations',
+  'linguistic_bridges',
+  'creativity_templates'
+]);
+
+export const selfSurgeryProposals = pgTable("self_surgery_proposals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Target table and proposed content
+  targetTable: selfSurgeryTargetEnum("target_table").notNull(),
+  proposedContent: jsonb("proposed_content").notNull(), // Structured data matching target table schema
+  
+  // Daniela's reasoning
+  reasoning: text("reasoning").notNull(), // Why she's proposing this
+  triggerContext: text("trigger_context"), // What happened in session that prompted this
+  
+  // Status tracking
+  status: selfSurgeryStatusEnum("status").default("pending").notNull(),
+  
+  // Session context
+  conversationId: varchar("conversation_id"),
+  sessionMode: varchar("session_mode"), // founder_mode, honesty_mode, normal
+  targetLanguage: varchar("target_language"),
+  
+  // Review tracking
+  reviewedAt: timestamp("reviewed_at"),
+  reviewedBy: varchar("reviewed_by"), // User ID
+  reviewNotes: text("review_notes"),
+  editedContent: jsonb("edited_content"), // If founder modified before promotion
+  
+  // Promotion tracking
+  promotedAt: timestamp("promoted_at"),
+  promotedRecordId: varchar("promoted_record_id"), // ID of the record created in target table
+  
+  // Priority and confidence
+  priority: integer("priority").default(50), // 1-100
+  confidence: integer("confidence").default(70), // How confident Daniela is
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_self_surgery_status").on(table.status),
+  index("idx_self_surgery_target").on(table.targetTable),
+  index("idx_self_surgery_conversation").on(table.conversationId),
+]);
+
+// Insert schema and types for Self-Surgery Proposals
+export const insertSelfSurgeryProposalSchema = createInsertSchema(selfSurgeryProposals).omit({
+  id: true,
+  createdAt: true,
+  reviewedAt: true,
+  promotedAt: true,
+});
+
+export type InsertSelfSurgeryProposal = z.infer<typeof insertSelfSurgeryProposalSchema>;
+export type SelfSurgeryProposal = typeof selfSurgeryProposals.$inferSelect;
+
 // Insert schemas for Procedural Memory
 export const insertTutorProcedureSchema = createInsertSchema(tutorProcedures).omit({
   id: true,
