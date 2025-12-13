@@ -2707,9 +2707,13 @@ export const tutorProcedures = pgTable("tutor_procedures", {
   syncStatus: varchar("sync_status").default('local'), // local, pending_review, approved, synced, rejected
   originId: varchar("origin_id"), // ID in source environment
   originEnvironment: varchar("origin_environment"), // 'development' or 'production'
+  
+  // Surgery origin tracking (if this came from a surgery proposal)
+  originProposalId: varchar("origin_proposal_id"), // Links to selfSurgeryProposals.id
 }, (table) => [
   index("idx_tutor_procedures_category").on(table.category),
   index("idx_tutor_procedures_trigger").on(table.trigger),
+  index("idx_tutor_procedures_origin_proposal").on(table.originProposalId),
 ]);
 
 // Tool Knowledge - HOW to use each teaching tool
@@ -2740,9 +2744,13 @@ export const toolKnowledge = pgTable("tool_knowledge", {
   syncStatus: varchar("sync_status").default('local'),
   originId: varchar("origin_id"),
   originEnvironment: varchar("origin_environment"),
+  
+  // Surgery origin tracking (if this came from a surgery proposal)
+  originProposalId: varchar("origin_proposal_id"), // Links to selfSurgeryProposals.id
 }, (table) => [
   index("idx_tool_knowledge_name").on(table.toolName),
   index("idx_tool_knowledge_type").on(table.toolType),
+  index("idx_tool_knowledge_origin_proposal").on(table.originProposalId),
 ]);
 
 // Situational Patterns - WHEN to activate procedures/tools
@@ -2777,8 +2785,12 @@ export const situationalPatterns = pgTable("situational_patterns", {
   syncStatus: varchar("sync_status").default('local'),
   originId: varchar("origin_id"),
   originEnvironment: varchar("origin_environment"),
+  
+  // Surgery origin tracking (if this came from a surgery proposal)
+  originProposalId: varchar("origin_proposal_id"), // Links to selfSurgeryProposals.id
 }, (table) => [
   index("idx_situational_patterns_name").on(table.patternName),
+  index("idx_situational_patterns_origin_proposal").on(table.originProposalId),
 ]);
 
 // Teaching Principles - Core beliefs that guide all decisions
@@ -2802,8 +2814,12 @@ export const teachingPrinciples = pgTable("teaching_principles", {
   syncStatus: varchar("sync_status").default('local'),
   originId: varchar("origin_id"),
   originEnvironment: varchar("origin_environment"),
+  
+  // Surgery origin tracking (if this came from a surgery proposal)
+  originProposalId: varchar("origin_proposal_id"), // Links to selfSurgeryProposals.id
 }, (table) => [
   index("idx_teaching_principles_category").on(table.category),
+  index("idx_teaching_principles_origin_proposal").on(table.originProposalId),
 ]);
 
 // Teaching Suggestion Effectiveness Tracking
@@ -4680,54 +4696,3 @@ export const insertEditorBeaconQueueSchema = createInsertSchema(editorBeaconQueu
 export type InsertEditorBeaconQueue = z.infer<typeof insertEditorBeaconQueueSchema>;
 export type EditorBeaconQueue = typeof editorBeaconQueue.$inferSelect;
 
-// ===== Surgery Promotions =====
-// Promoted surgery insights that get injected into tutor prompts
-// These are "graduated" from selfSurgeryProposals after approval/adoption
-export const surgeryPromotions = pgTable("surgery_promotions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // Link to the original proposal (for auditing)
-  proposalId: varchar("proposal_id").references(() => selfSurgeryProposals.id, { onDelete: 'set null' }),
-  
-  // Scope of where this insight applies
-  targetContext: varchar("target_context").default("global").notNull(), // global, language, level
-  targetLanguage: varchar("target_language"), // If language-scoped (e.g., "spanish")
-  targetLevel: varchar("target_level"), // If level-scoped (e.g., "beginner")
-  
-  // The actual insight content for prompt injection
-  insightContent: text("insight_content").notNull(),
-  insightCategory: varchar("insight_category"), // 'procedure', 'principle', 'tool', 'pattern'
-  
-  // Versioning for A/B testing or iteration
-  version: integer("version").default(1).notNull(),
-  
-  // Activation state
-  active: boolean("active").default(true).notNull(),
-  
-  // Tracking who/what adopted this
-  adoptedAt: timestamp("adopted_at"),
-  adoptedBy: varchar("adopted_by"), // User ID or 'system'
-  adoptionSource: varchar("adoption_source"), // 'founder_approve', 'daniela_adopt', 'auto_nightly'
-  
-  // Optional expiration
-  expiresAt: timestamp("expires_at"),
-  
-  // Usage tracking
-  timesInjected: integer("times_injected").default(0).notNull(),
-  lastInjectedAt: timestamp("last_injected_at"),
-  
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-}, (table) => [
-  index("idx_surgery_promotions_active").on(table.active),
-  index("idx_surgery_promotions_context").on(table.targetContext, table.targetLanguage),
-  index("idx_surgery_promotions_proposal").on(table.proposalId),
-]);
-
-export const insertSurgeryPromotionSchema = createInsertSchema(surgeryPromotions).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-export type InsertSurgeryPromotion = z.infer<typeof insertSurgeryPromotionSchema>;
-export type SurgeryPromotion = typeof surgeryPromotions.$inferSelect;
