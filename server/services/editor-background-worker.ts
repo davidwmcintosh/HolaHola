@@ -5,6 +5,7 @@
  * - Processes pending hive beacons (teaching moments awaiting Editor response)
  * - Generates post-session reflections after voice sessions end
  * - Runs on a configurable interval (default: 30 seconds)
+ * - Throttles processing to avoid overwhelming Claude API
  * 
  * Philosophy: The Editor can continue thinking and responding even after 
  * the voice session ends, providing asynchronous insights to founders.
@@ -12,7 +13,8 @@
  * SECURITY: Protected by ARCHITECT_SECRET - worker only starts if configured.
  */
 
-import { editorPersonaService, validateEditorSecret } from "./editor-persona-service";
+import { editorPersonaService } from "./editor-persona-service";
+import { hiveCollaborationService } from "./hive-collaboration-service";
 
 // Worker configuration
 const WORKER_INTERVAL_MS = parseInt(process.env.EDITOR_WORKER_INTERVAL_MS || '30000', 10); // 30 seconds default
@@ -23,11 +25,19 @@ const MAX_CHANNELS_PER_CYCLE = parseInt(process.env.EDITOR_MAX_CHANNELS_PER_CYCL
 let workerInterval: NodeJS.Timeout | null = null;
 let isProcessing = false;
 let lastProcessedAt: Date | null = null;
-let processedCounts = {
+let cumulativeCounts = {
   beacons: 0,
   channels: 0,
   errors: 0,
 };
+
+/**
+ * Check if ARCHITECT_SECRET is properly configured
+ */
+function isSecretConfigured(): boolean {
+  const secret = process.env.ARCHITECT_SECRET;
+  return !!secret && secret.length >= 16;
+}
 
 /**
  * Worker health status
@@ -35,9 +45,12 @@ let processedCounts = {
 export interface WorkerStatus {
   isRunning: boolean;
   isProcessing: boolean;
+  isEnabled: boolean;
   lastProcessedAt: string | null;
   intervalMs: number;
-  processedCounts: {
+  maxBeaconsPerCycle: number;
+  maxChannelsPerCycle: number;
+  cumulativeCounts: {
     beacons: number;
     channels: number;
     errors: number;
@@ -45,12 +58,30 @@ export interface WorkerStatus {
 }
 
 /**
- * Run a single processing cycle
+ * Processing cycle result
  */
-async function runProcessingCycle(): Promise<void> {
+export interface CycleResult {
+  beaconsProcessed: number;
+  channelsProcessed: number;
+  errors: number;
+}
+
+/**
+ * Run a single processing cycle with throttling
+ * Returns per-cycle counts (not cumulative)
+ */
+async function runProcessingCycle(): Promise<CycleResult> {
+  const result: CycleResult = { beaconsProcessed: 0, channelsProcessed: 0, errors: 0 };
+  
   if (isProcessing) {
     console.log('[Editor Worker] Skipping cycle - previous still running');
-    return;
+    return result;
+  }
+  
+  // Security check - don't process without secret
+  if (!isSecretConfigured()) {
+    console.log('[Editor Worker] Skipping cycle - ARCHITECT_SECRET not configured');
+    return result;
   }
   
   isProcessing = true;
@@ -58,25 +89,62 @@ async function runProcessingCycle(): Promise<void> {
   try {
     console.log('[Editor Worker] Starting processing cycle...');
     
-    // Process pending beacons (teaching moments awaiting Editor response)
-    const beaconsProcessed = await editorPersonaService.processAllPendingBeacons();
-    processedCounts.beacons += beaconsProcessed;
+    // Get pending beacons with throttling (only fetch MAX_BEACONS_PER_CYCLE from DB)
+    const beaconsToProcess = await hiveCollaborationService.getPendingSnapshots(undefined, MAX_BEACONS_PER_CYCLE);
     
-    // Process post-session channels (generate reflections)
-    const channelsProcessed = await editorPersonaService.processPostSessionChannels();
-    processedCounts.channels += channelsProcessed;
+    // Process beacons one by one with rate limiting
+    for (const snapshot of beaconsToProcess) {
+      try {
+        await editorPersonaService.processBeacon(snapshot.id);
+        result.beaconsProcessed++;
+        cumulativeCounts.beacons++;
+        
+        // Rate limit: 500ms between Claude API calls
+        if (result.beaconsProcessed < beaconsToProcess.length) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      } catch (error) {
+        result.errors++;
+        cumulativeCounts.errors++;
+        console.error(`[Editor Worker] Error processing beacon ${snapshot.id}:`, error);
+      }
+    }
+    
+    // Get post-session channels with throttling (only fetch MAX_CHANNELS_PER_CYCLE from DB)
+    const channelsToProcess = await hiveCollaborationService.getPostSessionChannels(MAX_CHANNELS_PER_CYCLE);
+    
+    // Process channels one by one with rate limiting
+    for (const channel of channelsToProcess) {
+      try {
+        await editorPersonaService.generatePostSessionReflection(channel.id);
+        result.channelsProcessed++;
+        cumulativeCounts.channels++;
+        
+        // Rate limit: 1s between channel reflections (more substantial API calls)
+        if (result.channelsProcessed < channelsToProcess.length) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      } catch (error) {
+        result.errors++;
+        cumulativeCounts.errors++;
+        console.error(`[Editor Worker] Error processing channel ${channel.id}:`, error);
+      }
+    }
     
     lastProcessedAt = new Date();
     
-    if (beaconsProcessed > 0 || channelsProcessed > 0) {
-      console.log(`[Editor Worker] Cycle complete: ${beaconsProcessed} beacons, ${channelsProcessed} channels`);
+    if (result.beaconsProcessed > 0 || result.channelsProcessed > 0) {
+      console.log(`[Editor Worker] Cycle complete: ${result.beaconsProcessed} beacons, ${result.channelsProcessed} channels`);
     }
   } catch (error) {
-    processedCounts.errors++;
+    result.errors++;
+    cumulativeCounts.errors++;
     console.error('[Editor Worker] Error in processing cycle:', error);
   } finally {
     isProcessing = false;
   }
+  
+  return result;
 }
 
 /**
@@ -91,13 +159,12 @@ export function startEditorWorker(): boolean {
   }
   
   // Validate ARCHITECT_SECRET is configured (security gate)
-  const secretConfigured = process.env.ARCHITECT_SECRET && process.env.ARCHITECT_SECRET.length >= 16;
-  if (!secretConfigured) {
+  if (!isSecretConfigured()) {
     console.log('[Editor Worker] Disabled - ARCHITECT_SECRET not configured');
     return false;
   }
   
-  console.log(`[Editor Worker] Starting with ${WORKER_INTERVAL_MS}ms interval`);
+  console.log(`[Editor Worker] Starting with ${WORKER_INTERVAL_MS}ms interval (max ${MAX_BEACONS_PER_CYCLE} beacons, ${MAX_CHANNELS_PER_CYCLE} channels per cycle)`);
   
   // Run immediately, then on interval
   runProcessingCycle();
@@ -125,33 +192,38 @@ export function getWorkerStatus(): WorkerStatus {
   return {
     isRunning: workerInterval !== null,
     isProcessing,
+    isEnabled: isSecretConfigured(),
     lastProcessedAt: lastProcessedAt?.toISOString() || null,
     intervalMs: WORKER_INTERVAL_MS,
-    processedCounts: { ...processedCounts },
+    maxBeaconsPerCycle: MAX_BEACONS_PER_CYCLE,
+    maxChannelsPerCycle: MAX_CHANNELS_PER_CYCLE,
+    cumulativeCounts: { ...cumulativeCounts },
   };
 }
 
 /**
  * Trigger an immediate processing cycle (for manual/API trigger)
+ * Returns per-cycle counts (not cumulative)
+ * SECURITY: Caller must validate ARCHITECT_SECRET before calling
  */
-export async function triggerProcessingCycle(): Promise<{ beacons: number; channels: number }> {
+export async function triggerProcessingCycle(): Promise<CycleResult> {
+  // Additional security check inside the function
+  if (!isSecretConfigured()) {
+    throw new Error('ARCHITECT_SECRET not configured - cannot trigger processing');
+  }
+  
   if (isProcessing) {
     throw new Error('Processing cycle already in progress');
   }
   
-  await runProcessingCycle();
-  
-  return {
-    beacons: processedCounts.beacons,
-    channels: processedCounts.channels,
-  };
+  return runProcessingCycle();
 }
 
 /**
  * Reset worker statistics
  */
 export function resetWorkerStats(): void {
-  processedCounts = {
+  cumulativeCounts = {
     beacons: 0,
     channels: 0,
     errors: 0,

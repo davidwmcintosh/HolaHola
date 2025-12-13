@@ -300,8 +300,10 @@ class HiveCollaborationService {
   
   /**
    * Get unanswered snapshots for Editor to respond to
+   * @param channelId - Optional channel filter
+   * @param limit - Max snapshots to return (default 20, for throttling)
    */
-  async getPendingSnapshots(channelId?: string): Promise<EditorListeningSnapshot[]> {
+  async getPendingSnapshots(channelId?: string, limit: number = 20): Promise<EditorListeningSnapshot[]> {
     const conditions = [isNull(editorListeningSnapshots.editorResponse)];
     if (channelId) {
       conditions.push(eq(editorListeningSnapshots.channelId, channelId));
@@ -311,7 +313,7 @@ class HiveCollaborationService {
       .from(editorListeningSnapshots)
       .where(and(...conditions))
       .orderBy(editorListeningSnapshots.createdAt)
-      .limit(20);
+      .limit(limit);
   }
   
   /**
@@ -344,12 +346,14 @@ class HiveCollaborationService {
   
   /**
    * Get post-session channels waiting for Editor continuation
+   * @param limit - Max channels to return (default 10, for throttling)
    */
-  async getPostSessionChannels(): Promise<CollaborationChannel[]> {
+  async getPostSessionChannels(limit: number = 10): Promise<CollaborationChannel[]> {
     return db.select()
       .from(collaborationChannels)
       .where(eq(collaborationChannels.sessionPhase, 'post_session'))
-      .orderBy(collaborationChannels.endedAt);
+      .orderBy(collaborationChannels.endedAt)
+      .limit(limit);
   }
   
   /**

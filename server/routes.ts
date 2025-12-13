@@ -13068,9 +13068,14 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   // EDITOR BACKGROUND WORKER API (ARCHITECT_SECRET protected)
   // ============================================================================
   
-  // Get worker status
-  app.get("/api/collaboration/editor/worker/status", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  // Get worker status (ARCHITECT_SECRET protected)
+  app.get("/api/collaboration/editor/worker/status", async (req: any, res) => {
     try {
+      const secret = req.headers['x-architect-secret'] as string;
+      if (!validateEditorSecret(secret)) {
+        return res.status(401).json({ error: "Unauthorized - invalid or missing ARCHITECT_SECRET" });
+      }
+      
       const { getWorkerStatus } = await import('./services/editor-background-worker');
       res.json(getWorkerStatus());
     } catch (error: any) {
@@ -13125,6 +13130,10 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       const result = await triggerProcessingCycle();
       res.json(result);
     } catch (error: any) {
+      // Convert secret-related errors to 401
+      if (error.message?.includes('ARCHITECT_SECRET')) {
+        return res.status(401).json({ error: "Unauthorized - ARCHITECT_SECRET not configured" });
+      }
       console.error('[API] Error triggering worker cycle:', error);
       res.status(500).json({ error: error.message });
     }
