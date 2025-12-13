@@ -3841,6 +3841,97 @@ export const insertSupportMessageSchema = createInsertSchema(supportMessages).om
 export type InsertSupportMessage = z.infer<typeof insertSupportMessageSchema>;
 export type SupportMessage = typeof supportMessages.$inferSelect;
 
+// Support knowledge base - troubleshooting scripts and FAQ answers for Sofia
+export const supportKnowledgeBase = pgTable("support_knowledge_base", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Categorization
+  category: varchar("category").notNull(), // 'audio', 'browser', 'how-to', 'account', 'billing'
+  title: varchar("title").notNull(),
+  keywords: text("keywords").array(), // For search matching
+  
+  // Problem and solution
+  problem: text("problem").notNull(), // What the user might say/ask
+  solution: text("solution").notNull(), // Sofia's response template
+  steps: jsonb("steps"), // Step-by-step resolution instructions
+  
+  // Browser/device specific variations
+  browserSpecific: jsonb("browser_specific"), // { chrome: "...", safari: "...", firefox: "..." }
+  deviceSpecific: jsonb("device_specific"), // { mobile: "...", desktop: "..." }
+  
+  // Effectiveness tracking
+  isActive: boolean("is_active").default(true),
+  useCount: integer("use_count").default(0),
+  successCount: integer("success_count").default(0),
+  
+  // Sync fields
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_support_kb_category").on(table.category),
+  index("idx_support_kb_active").on(table.isActive),
+]);
+
+export const insertSupportKnowledgeBaseSchema = createInsertSchema(supportKnowledgeBase).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  useCount: true,
+  successCount: true,
+});
+
+export type InsertSupportKnowledgeBase = z.infer<typeof insertSupportKnowledgeBaseSchema>;
+export type SupportKnowledgeBase = typeof supportKnowledgeBase.$inferSelect;
+
+// Support issue patterns - aggregated patterns for founder visibility
+export const supportPatterns = pgTable("support_patterns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Pattern details
+  patternType: varchar("pattern_type").notNull(), // 'browser_bug', 'feature_request', 'ux_confusion'
+  description: text("description").notNull(),
+  
+  // Affected systems
+  affectedBrowsers: text("affected_browsers").array(),
+  affectedDevices: text("affected_devices").array(),
+  
+  // Tracking
+  occurrenceCount: integer("occurrence_count").default(1),
+  firstSeen: timestamp("first_seen").notNull().defaultNow(),
+  lastSeen: timestamp("last_seen").notNull().defaultNow(),
+  
+  // Status and notes
+  status: varchar("status").default("open"), // 'open', 'investigating', 'fixed', 'wont_fix'
+  developerNotes: text("developer_notes"),
+  
+  // Sync fields (patterns sync prod→dev for founder visibility)
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_support_patterns_type").on(table.patternType),
+  index("idx_support_patterns_status").on(table.status),
+]);
+
+export const insertSupportPatternSchema = createInsertSchema(supportPatterns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  occurrenceCount: true,
+  firstSeen: true,
+  lastSeen: true,
+});
+
+export type InsertSupportPattern = z.infer<typeof insertSupportPatternSchema>;
+export type SupportPattern = typeof supportPatterns.$inferSelect;
+
 // ===== AGENT COLLABORATION =====
 // Cross-agent text-based communication for the Hive Mind
 
