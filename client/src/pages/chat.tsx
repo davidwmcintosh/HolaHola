@@ -4,7 +4,7 @@ import { ChatInterface } from "@/components/ChatInterface";
 import { StreamingVoiceChat as VoiceChat } from "@/components/StreamingVoiceChat";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Mic, Plus, GraduationCap, User, Phone } from "lucide-react";
+import { MessageSquare, Mic, Plus, GraduationCap, User, Phone, Heart, Sparkles } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { apiRequest, queryClient, forceNewConversation as setForceNewFlag } from "@/lib/queryClient";
@@ -75,10 +75,14 @@ export default function Chat() {
                         learningContext !== "all" && 
                         learningContext !== "all-classes" && 
                         learningContext !== "all-learning" &&
-                        learningContext !== "founder-mode";
+                        learningContext !== "founder-mode" &&
+                        learningContext !== "honesty-mode";
   
   // Check if we're in Founder Mode (developer-only open collaboration)
   const isFounderMode = learningContext === "founder-mode";
+  
+  // Check if we're in Honesty Mode (minimal prompting for authentic exploration)
+  const isHonestyMode = learningContext === "honesty-mode";
 
   // Auto-close sidebar when entering voice chat area
   // This runs ONLY ONCE on initial mount - works for Call Tutor, New Chat, and Start Practicing
@@ -404,10 +408,22 @@ export default function Chat() {
             <TooltipTrigger asChild>
               <Badge 
                 variant="outline" 
-                className="flex items-center gap-1 text-xs"
+                className={`flex items-center gap-1 text-xs ${isHonestyMode ? 'border-rose-500/50 text-rose-600 dark:text-rose-400' : isFounderMode ? 'border-amber-500/50 text-amber-600 dark:text-amber-400' : ''}`}
                 data-testid="badge-practice-mode"
               >
-                {isInClassMode ? (
+                {isHonestyMode ? (
+                  <>
+                    <Heart className="h-3 w-3" />
+                    <span className="hidden sm:inline">Honesty Mode</span>
+                    <span className="sm:hidden">Honesty</span>
+                  </>
+                ) : isFounderMode ? (
+                  <>
+                    <Sparkles className="h-3 w-3" />
+                    <span className="hidden sm:inline">Founder Mode</span>
+                    <span className="sm:hidden">Founder</span>
+                  </>
+                ) : isInClassMode ? (
                   <>
                     <GraduationCap className="h-3 w-3" />
                     <span className="hidden sm:inline max-w-[120px] truncate">{getSelectedClassName()}</span>
@@ -423,7 +439,11 @@ export default function Chat() {
               </Badge>
             </TooltipTrigger>
             <TooltipContent>
-              <p>{isInClassMode 
+              <p>{isHonestyMode 
+                  ? 'Honesty Mode: Minimal prompting for authentic exploration'
+                  : isFounderMode 
+                  ? 'Founder Mode: Open collaboration with Daniela'
+                  : isInClassMode 
                   ? `Practicing in: ${getSelectedClassName()}` 
                   : 'Self-Directed Practice'}</p>
             </TooltipContent>
