@@ -567,7 +567,9 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           
           // Detect session intent from recent conversation history
           // Look for meta-mode trigger phrases
-          let sessionIntent: SessionIntent = 'hybrid'; // Default to hybrid in Founder Mode
+          // NOTE: Founder Mode defaults to 'product_discussion' because founders typically want
+          // collaborative conversation, not language lessons. They can switch to tutor mode explicitly.
+          let sessionIntent: SessionIntent = 'hybrid';
           
           if (isFounderMode) {
             const recentMessages = conversationHistory.slice(-10);
@@ -591,15 +593,20 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             const hasMetaTriggers = metaModeTriggers.some(trigger => recentText.includes(trigger));
             const hasTutorTriggers = tutorModeTriggers.some(trigger => recentText.includes(trigger));
             
-            if (hasMetaTriggers && !hasTutorTriggers) {
-              sessionIntent = 'product_discussion';
-              console.log(`[Streaming Voice] Detected SESSION_INTENT: product_discussion (meta-mode triggers found)`);
-            } else if (hasTutorTriggers && !hasMetaTriggers) {
+            if (hasTutorTriggers && !hasMetaTriggers) {
+              // Explicit tutor mode requested
               sessionIntent = 'language_learning';
               console.log(`[Streaming Voice] Detected SESSION_INTENT: language_learning (tutor-mode triggers found)`);
+            } else if (hasMetaTriggers && !hasTutorTriggers) {
+              // Explicit product discussion
+              sessionIntent = 'product_discussion';
+              console.log(`[Streaming Voice] Detected SESSION_INTENT: product_discussion (meta-mode triggers found)`);
             } else {
-              sessionIntent = 'hybrid';
-              console.log(`[Streaming Voice] SESSION_INTENT: hybrid (no clear mode detected)`);
+              // DEFAULT FOR FOUNDER MODE: product_discussion
+              // Founders are colleagues, not students. They want collaborative conversation.
+              // They can explicitly say "teach me" or "practice Spanish" to switch to tutor mode.
+              sessionIntent = 'product_discussion';
+              console.log(`[Streaming Voice] SESSION_INTENT: product_discussion (founder mode default - say "teach me" for language learning)`);
             }
           } else {
             // Not in Founder Mode = language learning
