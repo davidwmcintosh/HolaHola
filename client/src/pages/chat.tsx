@@ -275,8 +275,9 @@ export default function Chat() {
       creationInProgressRef.current = true;
       acquireSessionLock();
       
-      // Use class ID from learning context if in class mode
-      const selectedClassId = isInClassMode ? learningContext : undefined;
+      // Use class ID from learning context if in class mode, or special mode IDs
+      const selectedClassId = isInClassMode ? learningContext : 
+        (isHonestyMode ? 'honesty-mode' : undefined);
       
       console.log('[SHARED CHAT] Creating shared conversation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)', 'forceNew:', forceNewConversation, 'mode:', mode, 'classId:', selectedClassId, 'founderMode:', isFounderMode);
       setIsCreatingConversation(true);
