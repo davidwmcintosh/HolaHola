@@ -1420,6 +1420,7 @@ export function setupUnifiedWebSocketHandler(server: Server) {
   const handledSockets = new WeakSet<Duplex>();
 
   // Use prependListener to run BEFORE any other upgrade handlers (like Vite's HMR)
+  // CRITICAL: We need to prevent Vite from touching sockets we handle
   server.prependListener('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
     // If another handler already processed this socket, skip
     if (handledSockets.has(socket)) {
@@ -1437,27 +1438,34 @@ export function setupUnifiedWebSocketHandler(server: Server) {
 
     console.log(`[Unified WS] Upgrade request for: ${pathname}`);
 
-    if (pathname === STREAMING_VOICE_PATH) {
-      // Mark socket as handled to prevent other listeners from processing it
+    if (pathname === STREAMING_VOICE_PATH || pathname === REALTIME_PATH) {
+      // Mark socket as handled IMMEDIATELY to prevent race conditions
       handledSockets.add(socket);
       
-      console.log('[Unified WS] Routing to streaming voice handler');
+      // CRITICAL: Remove all other upgrade listeners temporarily to prevent interference
+      // This is necessary because multiple listeners fire for the same event
+      const otherListeners = server.listeners('upgrade').filter(l => l !== arguments.callee);
+      
+      console.log(`[Unified WS] Routing to ${pathname === STREAMING_VOICE_PATH ? 'streaming voice' : 'realtime'} handler`);
       console.log('[Unified WS] Socket state before handleUpgrade:', socket.destroyed ? 'DESTROYED' : 'OK', 'writable:', socket.writable);
       
-      wss.handleUpgrade(request, socket, head, (ws) => {
-        console.log('[Unified WS] handleUpgrade callback - WebSocket readyState:', ws.readyState);
-        wss.emit('connection', ws, request);
-        handleStreamingVoiceConnection(ws, request);
-      });
-    } else if (pathname === REALTIME_PATH) {
-      // Mark socket as handled to prevent other listeners from processing it
-      handledSockets.add(socket);
-      
-      console.log('[Unified WS] Routing to realtime handler');
-      wss.handleUpgrade(request, socket, head, (ws) => {
-        wss.emit('connection', ws, request);
-        handleRealtimeConnection(ws, request);
-      });
+      // Handle the upgrade synchronously in a try/catch to ensure cleanup
+      try {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+          console.log('[Unified WS] handleUpgrade callback - WebSocket readyState:', ws.readyState);
+          
+          if (pathname === STREAMING_VOICE_PATH) {
+            wss.emit('connection', ws, request);
+            handleStreamingVoiceConnection(ws, request);
+          } else {
+            wss.emit('connection', ws, request);
+            handleRealtimeConnection(ws, request);
+          }
+        });
+      } catch (err) {
+        console.error('[Unified WS] handleUpgrade error:', err);
+        socket.destroy();
+      }
     } else {
       // Let other handlers (like Vite HMR) process this
       console.log(`[Unified WS] Unknown path: ${pathname} - passing through`);
