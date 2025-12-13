@@ -245,8 +245,48 @@ export class StreamingVoiceClient {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/api/voice/stream/ws?conversationId=${conversationId}`;
       
+      console.error('[SVC DEBUG] Creating WebSocket:', wsUrl);
       this.ws = new WebSocket(wsUrl);
       this.ws.binaryType = 'arraybuffer';
+      console.error('[SVC DEBUG] WebSocket created, readyState:', this.ws.readyState);
+      
+      // Create a promise that resolves when onopen fires
+      const openPromise = new Promise<void>((resolve, reject) => {
+        const ws = this.ws!;
+        
+        // Check if already open (shouldn't happen, but just in case)
+        if (ws.readyState === WebSocket.OPEN) {
+          console.error('[SVC DEBUG] WebSocket already OPEN immediately after creation');
+          this.setState('connected');
+          resolve();
+          return;
+        }
+        
+        const timeout = setTimeout(() => {
+          console.error('[SVC DEBUG] Connection timeout! readyState:', ws.readyState);
+          reject(new Error('WebSocket connection timeout'));
+        }, 10000);
+        
+        ws.addEventListener('open', () => {
+          console.error('[SVC DEBUG] addEventListener open fired! connectionId:', this.connectionId, 'vs', currentConnectionId);
+          clearTimeout(timeout);
+          if (this.connectionId !== currentConnectionId) {
+            console.error('[SVC DEBUG] open event IGNORED - stale connectionId');
+            return;
+          }
+          this.reconnectAttempts = 0;
+          this.intentionalDisconnect = false;
+          console.error('[SVC DEBUG] Setting state to connected');
+          this.setState('connected');
+          resolve();
+        }, { once: true });
+        
+        ws.addEventListener('error', (event) => {
+          console.error('[SVC DEBUG] WebSocket error event:', event);
+          clearTimeout(timeout);
+          reject(new Error('WebSocket connection failed'));
+        }, { once: true });
+      });
       
       // Track WebSocket instance for debugging
       if (typeof window !== 'undefined') {
@@ -262,17 +302,6 @@ export class StreamingVoiceClient {
         });
       }
       
-      // Setup event handlers - check connectionId to ignore events from old connections
-      this.ws.onopen = () => {
-        if (this.connectionId !== currentConnectionId) {
-          return;
-        }
-        // Reset reconnect state on successful connection
-        this.reconnectAttempts = 0;
-        this.intentionalDisconnect = false;
-        this.setState('connected');
-      };
-      
       this.ws.onmessage = (event) => {
         if (this.connectionId !== currentConnectionId) {
           return;
@@ -287,18 +316,10 @@ export class StreamingVoiceClient {
         this.handleDisconnect();
       };
       
-      this.ws.onerror = (error) => {
-        if (this.connectionId !== currentConnectionId) {
-          return;
-        }
-        if (isVerboseLoggingEnabled()) {
-          console.error('[StreamingVoiceClient] WebSocket error:', error);
-        }
-        this.callbacks.onError?.('CONNECTION_FAILED', 'WebSocket connection failed', true);
-      };
-      
-      // Wait for connection
-      await this.waitForOpen();
+      // Wait for connection using the promise we created IMMEDIATELY after WebSocket creation
+      console.error('[SVC DEBUG] Awaiting openPromise...');
+      await openPromise;
+      console.error('[SVC DEBUG] openPromise resolved! WebSocket connected.');
       
     } catch (error: any) {
       if (isVerboseLoggingEnabled()) {
@@ -860,26 +881,34 @@ export class StreamingVoiceClient {
   private waitForOpen(): Promise<void> {
     return new Promise((resolve, reject) => {
       const ws = this.ws;
+      console.error('[SVC DEBUG] waitForOpen: ws exists?', !!ws, 'readyState:', ws?.readyState);
       if (!ws) {
         reject(new Error('WebSocket not initialized'));
         return;
       }
       
       if (ws.readyState === WebSocket.OPEN) {
+        console.error('[SVC DEBUG] waitForOpen: Already OPEN, resolving immediately');
         resolve();
         return;
       }
       
+      console.error('[SVC DEBUG] waitForOpen: Setting up timeout and onopen override');
       const timeout = setTimeout(() => {
+        console.error('[SVC DEBUG] waitForOpen: TIMEOUT! readyState at timeout:', ws.readyState);
         reject(new Error('WebSocket connection timeout'));
       }, 10000);
       
       const originalOnOpen = ws.onopen;
+      console.error('[SVC DEBUG] waitForOpen: Captured originalOnOpen?', !!originalOnOpen);
       ws.onopen = (event) => {
+        console.error('[SVC DEBUG] waitForOpen onopen override fired!');
         clearTimeout(timeout);
         if (originalOnOpen) {
+          console.error('[SVC DEBUG] waitForOpen: Calling original onopen');
           originalOnOpen.call(ws, event);
         }
+        console.error('[SVC DEBUG] waitForOpen: Resolving promise');
         resolve();
       };
       
