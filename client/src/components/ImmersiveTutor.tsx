@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, MessageSquare, RefreshCw, Trash2, Loader2, PhoneOff, Radio, Handshake, Send, CheckCircle, BookOpen, AlertTriangle, Wrench, Sparkles, Pencil, Globe, BookMarked, Lightbulb } from "lucide-react";
+import { Mic, MicOff, MessageSquare, RefreshCw, Trash2, Loader2, PhoneOff, Radio, Handshake, Send, CheckCircle, BookOpen, AlertTriangle, Wrench, Sparkles, Pencil, Globe, BookMarked, Lightbulb, Brain } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
@@ -11,9 +11,12 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
 import { type Message } from "@shared/schema";
 import { type VoiceSpeed } from "@/contexts/LanguageContext";
 import {
@@ -62,6 +65,28 @@ interface HiveChannel {
   sessionTopic?: string | null;
   startedAt: string;
   endedAt?: string | null;
+}
+
+// Brain Surgery types
+interface BrainSurgeryChatMessage {
+  id: string;
+  fromAgent: 'daniela' | 'editor' | 'support' | 'system';
+  content: string;
+  timestamp: string;
+  selfSurgeryProposals?: Array<{
+    target: string;
+    content: Record<string, unknown>;
+    reasoning: string;
+    priority: number;
+    confidence: number;
+    rawCommand: string;
+  }>;
+}
+
+interface BrainSurgeryThreadSummary {
+  threadId: string;
+  messageCount: number;
+  lastActivity: string;
 }
 
 interface ImmersiveTutorProps {
@@ -154,8 +179,16 @@ export function ImmersiveTutor({
 
   // Collaboration panel state
   const [isCollabOpen, setIsCollabOpen] = useState(false);
+  const [collabPanelTab, setCollabPanelTab] = useState<"hive" | "brain-surgery">("hive");
+  
+  // Brain Surgery state
+  const [brainSurgeryInput, setBrainSurgeryInput] = useState("");
+  const [selectedBrainSurgeryThread, setSelectedBrainSurgeryThread] = useState<string | null>(null);
+  const brainSurgeryMessagesEndRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   // Hive channel data - fetch active channel for current conversation when panel is open
+  // NOTE: Always fetch when panel is open (regardless of tab) so the badge counter works
   const { data: hiveData, isLoading: hiveLoading } = useQuery<{
     channel: HiveChannel | null;
     snapshots: HiveSnapshot[];
@@ -170,6 +203,43 @@ export function ImmersiveTutor({
     queryKey: ["/api/collaboration/channels"],
     enabled: isDeveloper && isCollabOpen && !conversationId,
   });
+
+  // Brain Surgery queries and mutations
+  const { data: brainSurgeryThreads = [] } = useQuery<BrainSurgeryThreadSummary[]>({
+    queryKey: ['/api/brain-surgery/threads'],
+    enabled: isDeveloper && isCollabOpen && collabPanelTab === 'brain-surgery',
+  });
+
+  const { data: brainSurgeryMessages = [], refetch: refetchBrainSurgeryMessages } = useQuery<BrainSurgeryChatMessage[]>({
+    queryKey: ['/api/brain-surgery/thread', selectedBrainSurgeryThread],
+    enabled: !!selectedBrainSurgeryThread,
+  });
+
+  const sendBrainSurgeryMutation = useMutation({
+    mutationFn: async ({ message, threadId }: { message: string; threadId?: string | null }) => {
+      return apiRequest("POST", "/api/brain-surgery/chat", { message, threadId });
+    },
+    onSuccess: async (response: any) => {
+      if (response.threadId) setSelectedBrainSurgeryThread(response.threadId);
+      queryClient.invalidateQueries({ queryKey: ['/api/brain-surgery/threads'] });
+      await refetchBrainSurgeryMessages();
+      setBrainSurgeryInput("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send message",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Auto-scroll brain surgery messages
+  useEffect(() => {
+    if (brainSurgeryMessagesEndRef.current) {
+      brainSurgeryMessagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [brainSurgeryMessages]);
 
   // Beacon type labels for display (using lucide-react icons, no emojis)
   const beaconTypeIcons: Record<string, { label: string; Icon: typeof BookOpen }> = {
@@ -262,160 +332,320 @@ export function ImmersiveTutor({
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="w-[350px] sm:w-[450px] flex flex-col">
-            <SheetHeader>
+            <SheetHeader className="pb-2">
               <SheetTitle className="flex items-center gap-2">
                 <Handshake className="h-5 w-5" />
-                Hive Mind
+                Collaboration
               </SheetTitle>
               <SheetDescription>
-                Real-time Daniela ↔ Editor collaboration feed
+                Daniela & Editor collaboration tools
               </SheetDescription>
             </SheetHeader>
 
-            {/* Channel status */}
-            {hiveData?.channel && (
-              <div className="flex flex-wrap gap-2 py-2 border-b">
-                <Badge 
-                  variant={hiveData.channel.sessionPhase === 'active' ? 'default' : 'secondary'} 
-                  className="text-xs"
-                >
-                  {hiveData.channel.sessionPhase === 'active' ? 'Live Session' : 
-                   hiveData.channel.sessionPhase === 'post_session' ? 'Post-Session' : 'Completed'}
-                </Badge>
-                {hiveData.channel.targetLanguage && (
-                  <Badge variant="outline" className="text-xs">
-                    {hiveData.channel.targetLanguage}
-                  </Badge>
-                )}
-                <Badge variant="outline" className="text-xs">
-                  {hiveData.snapshots.length} beacons
-                </Badge>
-              </div>
-            )}
+            <Tabs value={collabPanelTab} onValueChange={(v) => setCollabPanelTab(v as "hive" | "brain-surgery")} className="flex-1 flex flex-col">
+              <TabsList className="w-full grid grid-cols-2 mb-3">
+                <TabsTrigger value="hive" className="text-xs" data-testid="tab-hive-mind">
+                  <Handshake className="h-3 w-3 mr-1" />
+                  Hive Mind
+                </TabsTrigger>
+                <TabsTrigger value="brain-surgery" className="text-xs" data-testid="tab-brain-surgery">
+                  <Brain className="h-3 w-3 mr-1" />
+                  Brain Surgery
+                </TabsTrigger>
+              </TabsList>
 
-            {/* Beacon feed - Real-time Daniela-Editor dialogue */}
-            <ScrollArea className="flex-1 -mx-6 px-6">
-              {hiveLoading || channelsLoading ? (
-                <div className="py-8 text-center text-muted-foreground">Loading...</div>
-              ) : !conversationId ? (
-                // No active conversation - show recent channels
-                <div className="py-4">
-                  <p className="text-xs text-muted-foreground mb-3">No active voice session. Recent channels:</p>
-                  {recentChannels && recentChannels.length > 0 ? (
-                    <div className="space-y-2">
-                      {recentChannels.slice(0, 5).map((channel) => (
-                        <div key={channel.id} className="p-2 rounded-lg border text-xs">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-[10px]">
-                              {channel.sessionPhase}
-                            </Badge>
-                            {channel.targetLanguage && (
-                              <span className="text-muted-foreground">{channel.targetLanguage}</span>
-                            )}
-                          </div>
-                          <p className="text-[10px] text-muted-foreground mt-1">
-                            {new Date(channel.startedAt).toLocaleString()}
-                          </p>
+              {/* Hive Mind Tab */}
+              <TabsContent value="hive" className="flex-1 flex flex-col mt-0 data-[state=inactive]:hidden">
+                {/* Channel status */}
+                {hiveData?.channel && (
+                  <div className="flex flex-wrap gap-2 py-2 border-b">
+                    <Badge 
+                      variant={hiveData.channel.sessionPhase === 'active' ? 'default' : 'secondary'} 
+                      className="text-xs"
+                    >
+                      {hiveData.channel.sessionPhase === 'active' ? 'Live Session' : 
+                       hiveData.channel.sessionPhase === 'post_session' ? 'Post-Session' : 'Completed'}
+                    </Badge>
+                    {hiveData.channel.targetLanguage && (
+                      <Badge variant="outline" className="text-xs">
+                        {hiveData.channel.targetLanguage}
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="text-xs">
+                      {hiveData.snapshots.length} beacons
+                    </Badge>
+                  </div>
+                )}
+
+                {/* Beacon feed - Real-time Daniela-Editor dialogue */}
+                <ScrollArea className="flex-1 -mx-6 px-6">
+                  {hiveLoading || channelsLoading ? (
+                    <div className="py-8 text-center text-muted-foreground">Loading...</div>
+                  ) : !conversationId ? (
+                    // No active conversation - show recent channels
+                    <div className="py-4">
+                      <p className="text-xs text-muted-foreground mb-3">No active voice session. Recent channels:</p>
+                      {recentChannels && recentChannels.length > 0 ? (
+                        <div className="space-y-2">
+                          {recentChannels.slice(0, 5).map((channel) => (
+                            <div key={channel.id} className="p-2 rounded-lg border text-xs">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-[10px]">
+                                  {channel.sessionPhase}
+                                </Badge>
+                                {channel.targetLanguage && (
+                                  <span className="text-muted-foreground">{channel.targetLanguage}</span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-muted-foreground mt-1">
+                                {new Date(channel.startedAt).toLocaleString()}
+                              </p>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No previous channels found.</p>
+                      )}
+                    </div>
+                  ) : !hiveData?.channel ? (
+                    <div className="py-8 text-center text-muted-foreground text-sm">
+                      <p>No hive channel for this session yet.</p>
+                      <p className="text-xs mt-1">Channel creates when voice session starts.</p>
+                    </div>
+                  ) : !hiveData.snapshots.length ? (
+                    <div className="py-8 text-center text-muted-foreground text-sm">
+                      <p>Listening for teaching moments...</p>
+                      <p className="text-xs mt-1">Beacons appear when Daniela teaches or student struggles.</p>
                     </div>
                   ) : (
-                    <p className="text-xs text-muted-foreground">No previous channels found.</p>
-                  )}
-                </div>
-              ) : !hiveData?.channel ? (
-                <div className="py-8 text-center text-muted-foreground text-sm">
-                  <p>No hive channel for this session yet.</p>
-                  <p className="text-xs mt-1">Channel creates when voice session starts.</p>
-                </div>
-              ) : !hiveData.snapshots.length ? (
-                <div className="py-8 text-center text-muted-foreground text-sm">
-                  <p>Listening for teaching moments...</p>
-                  <p className="text-xs mt-1">Beacons appear when Daniela teaches or student struggles.</p>
-                </div>
-              ) : (
-                <div className="space-y-4 py-3">
-                  {hiveData.snapshots.map((snapshot) => {
-                    const beaconInfo = beaconTypeIcons[snapshot.beaconType] || { label: 'Insight', Icon: Lightbulb };
-                    const BeaconIcon = beaconInfo.Icon;
-                    return (
-                      <div
-                        key={snapshot.id}
-                        className={`p-3 rounded-lg border text-sm space-y-2 ${
-                          snapshot.editorResponse 
-                            ? 'border-green-500/30 bg-green-50/30 dark:bg-green-950/20' 
-                            : 'border-blue-500/30 bg-blue-50/30 dark:bg-blue-950/20'
-                        }`}
-                        data-testid={`beacon-${snapshot.id}`}
-                      >
-                        {/* Beacon header */}
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <BeaconIcon className="h-4 w-4 text-primary" />
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                            {beaconInfo.label}
-                          </Badge>
-                          <span className="text-[10px] text-muted-foreground ml-auto">
-                            {new Date(snapshot.createdAt).toLocaleTimeString()}
-                          </span>
-                        </div>
-
-                        {/* Tutor turn */}
-                        <div className="bg-background/50 rounded p-2">
-                          <p className="text-[10px] text-muted-foreground mb-1 font-medium">Daniela:</p>
-                          <p className="text-xs">{snapshot.tutorTurn}</p>
-                        </div>
-
-                        {/* Student turn (if present) */}
-                        {snapshot.studentTurn && (
-                          <div className="bg-background/50 rounded p-2">
-                            <p className="text-[10px] text-muted-foreground mb-1 font-medium">Student:</p>
-                            <p className="text-xs">{snapshot.studentTurn}</p>
-                          </div>
-                        )}
-
-                        {/* Beacon reason */}
-                        {snapshot.beaconReason && (
-                          <p className="text-[10px] text-muted-foreground italic">
-                            Reason: {snapshot.beaconReason}
-                          </p>
-                        )}
-
-                        {/* Editor response */}
-                        {snapshot.editorResponse ? (
-                          <div className="border-t pt-2 mt-2">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-[10px] font-medium text-green-700 dark:text-green-400">Editor responded:</span>
-                              {snapshot.editorRespondedAt && (
-                                <span className="text-[10px] text-muted-foreground">
-                                  {new Date(snapshot.editorRespondedAt).toLocaleTimeString()}
-                                </span>
-                              )}
+                    <div className="space-y-4 py-3">
+                      {hiveData.snapshots.map((snapshot) => {
+                        const beaconInfo = beaconTypeIcons[snapshot.beaconType] || { label: 'Insight', Icon: Lightbulb };
+                        const BeaconIcon = beaconInfo.Icon;
+                        return (
+                          <div
+                            key={snapshot.id}
+                            className={`p-3 rounded-lg border text-sm space-y-2 ${
+                              snapshot.editorResponse 
+                                ? 'border-green-500/30 bg-green-50/30 dark:bg-green-950/20' 
+                                : 'border-blue-500/30 bg-blue-50/30 dark:bg-blue-950/20'
+                            }`}
+                            data-testid={`beacon-${snapshot.id}`}
+                          >
+                            {/* Beacon header */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <BeaconIcon className="h-4 w-4 text-primary" />
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                {beaconInfo.label}
+                              </Badge>
+                              <span className="text-[10px] text-muted-foreground ml-auto">
+                                {new Date(snapshot.createdAt).toLocaleTimeString()}
+                              </span>
                             </div>
-                            <p className="text-xs bg-green-100/50 dark:bg-green-900/30 rounded p-2">
-                              {snapshot.editorResponse}
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="border-t pt-2 mt-2">
-                            <p className="text-[10px] text-muted-foreground italic flex items-center gap-1">
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                              Awaiting Editor response...
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </ScrollArea>
 
-            {/* Panel footer - channel info */}
-            {hiveData?.channel && (
-              <div className="border-t pt-2 mt-auto text-[10px] text-muted-foreground">
-                Channel: {hiveData.channel.id.slice(0, 8)}... | Started: {new Date(hiveData.channel.startedAt).toLocaleTimeString()}
-              </div>
-            )}
+                            {/* Tutor turn */}
+                            <div className="bg-background/50 rounded p-2">
+                              <p className="text-[10px] text-muted-foreground mb-1 font-medium">Daniela:</p>
+                              <p className="text-xs">{snapshot.tutorTurn}</p>
+                            </div>
+
+                            {/* Student turn (if present) */}
+                            {snapshot.studentTurn && (
+                              <div className="bg-background/50 rounded p-2">
+                                <p className="text-[10px] text-muted-foreground mb-1 font-medium">Student:</p>
+                                <p className="text-xs">{snapshot.studentTurn}</p>
+                              </div>
+                            )}
+
+                            {/* Beacon reason */}
+                            {snapshot.beaconReason && (
+                              <p className="text-[10px] text-muted-foreground italic">
+                                Reason: {snapshot.beaconReason}
+                              </p>
+                            )}
+
+                            {/* Editor response */}
+                            {snapshot.editorResponse ? (
+                              <div className="border-t pt-2 mt-2">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-[10px] font-medium text-green-700 dark:text-green-400">Editor responded:</span>
+                                  {snapshot.editorRespondedAt && (
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {new Date(snapshot.editorRespondedAt).toLocaleTimeString()}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs bg-green-100/50 dark:bg-green-900/30 rounded p-2">
+                                  {snapshot.editorResponse}
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="border-t pt-2 mt-2">
+                                <p className="text-[10px] text-muted-foreground italic flex items-center gap-1">
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  Awaiting Editor response...
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </ScrollArea>
+
+                {/* Panel footer - channel info */}
+                {hiveData?.channel && (
+                  <div className="border-t pt-2 mt-auto text-[10px] text-muted-foreground">
+                    Channel: {hiveData.channel.id.slice(0, 8)}... | Started: {new Date(hiveData.channel.startedAt).toLocaleTimeString()}
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Brain Surgery Tab */}
+              <TabsContent value="brain-surgery" className="flex-1 flex flex-col mt-0 data-[state=inactive]:hidden">
+                {/* Thread selector */}
+                <div className="flex items-center gap-2 py-2 border-b">
+                  <select
+                    className="flex-1 text-xs p-2 rounded border bg-background"
+                    value={selectedBrainSurgeryThread || ""}
+                    onChange={(e) => setSelectedBrainSurgeryThread(e.target.value || null)}
+                    data-testid="select-brain-surgery-thread"
+                  >
+                    <option value="">New Thread</option>
+                    {brainSurgeryThreads.map((thread) => (
+                      <option key={thread.threadId} value={thread.threadId}>
+                        Thread {thread.threadId.slice(0, 8)}... ({thread.messageCount} msgs)
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedBrainSurgeryThread(null)}
+                    data-testid="button-new-thread"
+                    className="text-xs"
+                  >
+                    New
+                  </Button>
+                </div>
+
+                {/* Chat messages */}
+                <ScrollArea className="flex-1 -mx-6 px-6">
+                  <div className="space-y-3 py-3">
+                    {brainSurgeryMessages.length === 0 ? (
+                      <div className="py-8 text-center text-muted-foreground text-sm">
+                        <Brain className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p>Start a conversation with Daniela & Editor</p>
+                        <p className="text-xs mt-1">Ask about teaching strategies, request self-surgery, or discuss pedagogical improvements.</p>
+                      </div>
+                    ) : (
+                      brainSurgeryMessages.map((msg) => (
+                        <div
+                          key={msg.id}
+                          className={`p-3 rounded-lg text-sm ${
+                            msg.fromAgent === 'system' 
+                              ? 'bg-muted/50 text-muted-foreground text-center italic'
+                              : msg.fromAgent === 'daniela'
+                              ? 'bg-blue-50/50 dark:bg-blue-950/30 border border-blue-200/50 dark:border-blue-800/50'
+                              : msg.fromAgent === 'editor'
+                              ? 'bg-green-50/50 dark:bg-green-950/30 border border-green-200/50 dark:border-green-800/50'
+                              : 'bg-purple-50/50 dark:bg-purple-950/30 border border-purple-200/50 dark:border-purple-800/50'
+                          }`}
+                          data-testid={`brain-surgery-message-${msg.id}`}
+                        >
+                          {msg.fromAgent !== 'system' && (
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge 
+                                variant="outline" 
+                                className={`text-[10px] ${
+                                  msg.fromAgent === 'daniela' ? 'border-blue-300 text-blue-600 dark:text-blue-400' :
+                                  msg.fromAgent === 'editor' ? 'border-green-300 text-green-600 dark:text-green-400' :
+                                  'border-purple-300 text-purple-600 dark:text-purple-400'
+                                }`}
+                              >
+                                {msg.fromAgent === 'daniela' ? 'Daniela' : 
+                                 msg.fromAgent === 'editor' ? 'Editor' : 'Support'}
+                              </Badge>
+                              <span className="text-[10px] text-muted-foreground ml-auto">
+                                {new Date(msg.timestamp).toLocaleTimeString()}
+                              </span>
+                            </div>
+                          )}
+                          <p className="text-xs whitespace-pre-wrap">{msg.content}</p>
+                          
+                          {/* Self-surgery proposals */}
+                          {msg.selfSurgeryProposals && msg.selfSurgeryProposals.length > 0 && (
+                            <div className="mt-2 pt-2 border-t space-y-2">
+                              <p className="text-[10px] font-medium text-amber-600 dark:text-amber-400">Self-Surgery Proposals:</p>
+                              {msg.selfSurgeryProposals.map((proposal, idx) => (
+                                <div key={idx} className="text-[10px] bg-amber-50/50 dark:bg-amber-950/30 p-2 rounded border border-amber-200/50 dark:border-amber-800/50">
+                                  <p className="font-medium">Target: {proposal.target}</p>
+                                  <p className="text-muted-foreground">{proposal.reasoning}</p>
+                                  <div className="flex gap-2 mt-1">
+                                    <Badge variant="outline" className="text-[9px]">Priority: {proposal.priority}</Badge>
+                                    <Badge variant="outline" className="text-[9px]">Confidence: {(proposal.confidence * 100).toFixed(0)}%</Badge>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                    <div ref={brainSurgeryMessagesEndRef} />
+                  </div>
+                </ScrollArea>
+
+                {/* Input area */}
+                <div className="border-t pt-3 mt-auto space-y-2">
+                  <Textarea
+                    placeholder="Ask Daniela & Editor about teaching strategies, or propose improvements..."
+                    value={brainSurgeryInput}
+                    onChange={(e) => setBrainSurgeryInput(e.target.value)}
+                    className="min-h-[60px] text-xs resize-none"
+                    data-testid="input-brain-surgery-message"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        if (brainSurgeryInput.trim()) {
+                          sendBrainSurgeryMutation.mutate({
+                            message: brainSurgeryInput.trim(),
+                            threadId: selectedBrainSurgeryThread,
+                          });
+                        }
+                      }
+                    }}
+                  />
+                  <Button
+                    className="w-full"
+                    size="sm"
+                    disabled={!brainSurgeryInput.trim() || sendBrainSurgeryMutation.isPending}
+                    onClick={() => {
+                      if (brainSurgeryInput.trim()) {
+                        sendBrainSurgeryMutation.mutate({
+                          message: brainSurgeryInput.trim(),
+                          threadId: selectedBrainSurgeryThread,
+                        });
+                      }
+                    }}
+                    data-testid="button-send-brain-surgery"
+                  >
+                    {sendBrainSurgeryMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-3 w-3 mr-1" />
+                        Send Message
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </TabsContent>
+            </Tabs>
           </SheetContent>
         </Sheet>
       )}
