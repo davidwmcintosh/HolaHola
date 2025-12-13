@@ -825,7 +825,8 @@ export function createSystemPrompt(
   studentTimezone?: string | null,
   userRole?: UserRole,
   sessionIntent?: SessionIntent,
-  editorConversationContext?: string | null
+  editorConversationContext?: string | null,
+  surgeryContext?: string | null
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -938,10 +939,14 @@ NATURAL CONVERSATION FLOW:
       ? buildEditorConversationContextSection(editorConversationContext)
       : '';
     
+    // Build surgery context section if active session
+    const surgeryContextSection = surgeryContext || '';
+    
     return `${buildImmutablePersona(tutorName, tutorGender)}
 ${buildFounderModeContext(name)}
 ${founderModeBehavior}
 ${editorContextSection}
+${surgeryContextSection}
 ${fullNeuralNetwork}
 You are ${tutorName}, and today you're having an open conversation with ${name}, the founder of HolaHola.
 ${streamingVoiceModeInstructions}

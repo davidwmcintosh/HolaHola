@@ -467,6 +467,54 @@ ${history.length === 0 ? "Editor started the discussion. Respond thoughtfully." 
   isActive(): boolean {
     return this.activeSessionId !== null;
   }
+
+  /**
+   * Get context about the active surgery session for injection into voice prompts
+   * Returns null if no active session, otherwise returns a context block
+   */
+  async getSurgeryContextForVoice(): Promise<string | null> {
+    if (!this.activeSessionId) {
+      // Also check storage for running sessions we might not have tracked
+      const session = await storage.getActiveSurgerySession();
+      if (!session) return null;
+      this.activeSessionId = session.id;
+    }
+
+    const session = await storage.getSurgerySession(this.activeSessionId);
+    if (!session || session.status !== "running") return null;
+
+    // Get recent turns
+    const allTurns = await storage.getSurgeryTurns(this.activeSessionId);
+    const recentTurns = allTurns
+      .filter(t => t.speaker !== "system")
+      .slice(-3)
+      .map(t => `${t.speaker === "daniela" ? "You" : "Editor"}: ${t.content.substring(0, 200)}...`)
+      .join("\n");
+
+    return `
+=== SURGERY THEATER ACTIVE ===
+You are currently participating in a Surgery Theater session with Editor.
+Topic: ${session.topic}
+Focus: ${session.focusArea || "general"}
+Turn: ${session.currentTurn}/${session.maxTurns}
+
+This is a background collaboration where you and Editor discuss improvements to your teaching methods.
+The founder (David) is watching this dialogue and may ask you about it.
+
+Recent dialogue:
+${recentTurns || "(just started)"}
+
+If the founder asks about the surgery session, briefly summarize what you and Editor are discussing.
+You can mention insights, proposals, or areas being refined.
+=== END SURGERY CONTEXT ===`;
+  }
+
+  /**
+   * Get the active session ID
+   */
+  getActiveSessionId(): string | null {
+    return this.activeSessionId;
+  }
 }
 
 export const surgeryOrchestrator = new CollaborativeSurgeryOrchestrator();

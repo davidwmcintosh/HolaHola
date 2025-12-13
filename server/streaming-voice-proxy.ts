@@ -23,6 +23,7 @@ import {
   StreamingErrorMessage,
 } from '@shared/streaming-voice-types';
 import { sessionCompassService, COMPASS_ENABLED } from './services/session-compass-service';
+import { surgeryOrchestrator } from './services/collaborative-surgery-orchestrator';
 
 /**
  * Extract userId from authenticated session cookie
@@ -309,6 +310,19 @@ export function setupStreamingVoiceProxy(server: Server) {
               }
             }
             
+            // Fetch surgery context for founder mode users
+            let surgeryContext: string | null = null;
+            if (isFounderMode) {
+              try {
+                surgeryContext = await surgeryOrchestrator.getSurgeryContextForVoice();
+                if (surgeryContext) {
+                  console.log('[Streaming Voice] ✓ Loaded surgery context for founder mode');
+                }
+              } catch (err: any) {
+                console.warn('[Streaming Voice] Surgery context fetch error:', err.message);
+              }
+            }
+            
             const systemPrompt = createSystemPrompt(
               config.targetLanguage,
               config.difficultyLevel,
@@ -338,7 +352,8 @@ export function setupStreamingVoiceProxy(server: Server) {
               undefined, // studentTimezone
               undefined, // userRole
               undefined, // sessionIntent
-              editorConversationContext // Editor conversation context for memory continuity
+              editorConversationContext, // Editor conversation context for memory continuity
+              surgeryContext // Surgery Theater context for active sessions
             );
 
             // Create session
