@@ -1752,6 +1752,10 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
             const user = userId ? await storage.getUser(userId) : null;
             const userName = user?.firstName || 'friend';
             const conversation = conversationId ? await storage.getConversation(conversationId) : null;
+            
+            // Calculate Founder Mode (enables hive collaboration)
+            const isDeveloper = await usageService.checkDeveloperBypass(userId!);
+            const isFounderMode = isDeveloper && !conversation?.classId;
             const messages = conversationId ? await storage.getMessagesByConversation(conversationId) : [];
             
             // Get tutor voice
@@ -1803,7 +1807,7 @@ This is a voice conversation. Speak naturally, as you would.`;
               systemPrompt,
               conversationHistory,
               voiceId,
-              false, // isFounderMode
+              isFounderMode, // Enables hive collaboration for developer sessions
               rawHonestyMode,
               {
                 conversationTopic: conversation?.topic || undefined,
