@@ -60,6 +60,8 @@ export const WHITEBOARD_TAGS = {
   SYLLABUS_PROGRESS: 'SYLLABUS_PROGRESS', // Mark syllabus topics as demonstrated
   // Daniela's active contribution to the hive mind (internal - processed server-side)
   HIVE: 'HIVE',                       // Post suggestions/ideas to daniela_suggestions table
+  // Daniela's self-surgery: Direct neural network modifications (Founder Mode only)
+  SELF_SURGERY: 'SELF_SURGERY',       // Propose structured data for neural network tables
   CLEAR: 'CLEAR',
   HOLD: 'HOLD',
 } as const;
@@ -69,7 +71,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'actfl_update' | 'syllabus_progress' | 'hive';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'actfl_update' | 'syllabus_progress' | 'hive' | 'self_surgery';
 
 /**
  * Drill types for inline micro-exercises
@@ -601,6 +603,35 @@ export interface HiveItem extends WhiteboardItemBase {
   data: HiveItemData;
 }
 
+// ===== Self-Surgery Item (Founder Mode Only) =====
+// Daniela's direct neural network modifications
+// Target table type matches selfSurgeryTargetEnum in schema.ts
+export type SelfSurgeryTarget = 
+  | 'tutor_procedures'
+  | 'teaching_principles'
+  | 'tool_knowledge'
+  | 'situational_patterns'
+  | 'language_idioms'
+  | 'cultural_nuances'
+  | 'learner_error_patterns'
+  | 'dialect_variations'
+  | 'linguistic_bridges'
+  | 'creativity_templates';
+
+export interface SelfSurgeryItemData {
+  targetTable: SelfSurgeryTarget;     // Which neural network table to update
+  content: Record<string, unknown>;   // Structured data matching target table schema
+  reasoning: string;                  // Why Daniela is proposing this
+  priority?: number;                  // 1-100 importance scale (default 50)
+  confidence?: number;                // 1-100 how confident she is (default 70)
+}
+
+export interface SelfSurgeryItem extends WhiteboardItemBase {
+  type: 'self_surgery';
+  content: string;
+  data: SelfSurgeryItemData;
+}
+
 export type WhiteboardItem = 
   | WriteItem 
   | PhoneticItem 
@@ -625,7 +656,8 @@ export type WhiteboardItem =
   | CallSupportItem
   | ActflUpdateItem
   | SyllabusProgressItem
-  | HiveItem;
+  | HiveItem
+  | SelfSurgeryItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -715,6 +747,9 @@ export const WHITEBOARD_PATTERNS = {
   // HIVE: Daniela's active contribution to the hive mind (internal - processed server-side)
   // [HIVE category="product_feature" title="Mind Map Syllabus" description="Replace linear syllabus..." priority=8]
   HIVE: /\[HIVE\s+category="(self_improvement|content_gap|ux_observation|teaching_insight|product_feature|technical_issue|student_pattern|tool_enhancement)"\s+title="([^"]+)"\s+description="([^"]+)"(?:\s+reasoning="([^"]+)")?(?:\s+priority=(\d+))?\]/gi,
+  // SELF_SURGERY: Daniela's direct neural network modifications (Founder Mode only)
+  // [SELF_SURGERY target="tutor_procedures" content='{...}' reasoning="..."]
+  SELF_SURGERY: /\[SELF_SURGERY\s+target="(tutor_procedures|teaching_principles|tool_knowledge|situational_patterns|language_idioms|cultural_nuances|learner_error_patterns|dialect_variations|linguistic_bridges|creativity_templates)"\s+content='(\{[^']+\})'\s+reasoning="([^"]+)"(?:\s+priority=(\d+))?(?:\s+confidence=(\d+))?\]/gi,
   CLEAR: /\[CLEAR\]/gi,
   HOLD: /\[HOLD\]/gi,
 } as const;
@@ -1584,6 +1619,40 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
         priority,
       },
     });
+  }
+
+  // Parse SELF_SURGERY tags (Daniela's direct neural network modifications - Founder Mode only)
+  // Format: [SELF_SURGERY target="tutor_procedures" content='{...}' reasoning="..."]
+  WHITEBOARD_PATTERNS.SELF_SURGERY.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.SELF_SURGERY.exec(text)) !== null) {
+    const targetTable = match[1] as SelfSurgeryTarget;
+    const contentJson = match[2];
+    const reasoning = match[3];
+    const priority = match[4] ? parseInt(match[4], 10) : 50;
+    const confidence = match[5] ? parseInt(match[5], 10) : 70;
+    
+    // Parse the JSON content
+    let parsedContent: Record<string, unknown> = {};
+    try {
+      parsedContent = JSON.parse(contentJson);
+    } catch (e) {
+      console.error('[SELF_SURGERY] Failed to parse content JSON:', contentJson);
+      continue; // Skip malformed entries
+    }
+    
+    items.push({
+      type: 'self_surgery',
+      content: `${targetTable}:${reasoning.slice(0, 50)}...`,
+      timestamp: now,
+      id: generateItemId(),
+      data: {
+        targetTable,
+        content: parsedContent,
+        reasoning,
+        priority,
+        confidence,
+      },
+    } as SelfSurgeryItem);
   }
 
   // Parse SUBTITLE control tags: [SUBTITLE off/on/target]
