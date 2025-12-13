@@ -257,6 +257,58 @@ export function setupStreamingVoiceProxy(server: Server) {
               console.warn(`[Streaming Voice] Voice config error: ${err.message}`);
             }
             
+            // Check if user has founder/developer/admin role for Founder Mode
+            const userRole = user?.role || 'student';
+            const isFounderMode = ['founder', 'developer', 'admin'].includes(userRole);
+            const founderName = isFounderMode ? (user?.firstName || 'Developer') : undefined;
+            
+            // Fetch editor conversation context for founder mode users
+            let editorConversationContext: string | null = null;
+            if (isFounderMode) {
+              try {
+                const { neon } = await import('@neondatabase/serverless');
+                const sql = neon(process.env.DATABASE_URL!);
+                
+                // Get recent editor conversations with messages
+                const editorConvs = await sql`
+                  SELECT c.id, c.title, c.created_at
+                  FROM conversations c
+                  WHERE c.user_id = ${userId}
+                    AND c.conversation_type = 'editor_collaboration'
+                  ORDER BY c.created_at DESC
+                  LIMIT 5
+                `;
+                
+                if (editorConvs.length > 0) {
+                  const contextParts: string[] = [];
+                  for (const conv of editorConvs) {
+                    const recentMsgs = await sql`
+                      SELECT role, content, created_at
+                      FROM messages
+                      WHERE conversation_id = ${conv.id}
+                      ORDER BY created_at DESC
+                      LIMIT 3
+                    `;
+                    
+                    if (recentMsgs.length > 0) {
+                      const convDate = new Date(conv.created_at).toLocaleDateString();
+                      const msgSummary = recentMsgs.reverse().map((m: any) => 
+                        `  ${m.role === 'user' ? 'Founder' : 'Daniela'}: ${m.content.slice(0, 150)}${m.content.length > 150 ? '...' : ''}`
+                      ).join('\n');
+                      contextParts.push(`[${convDate}] ${conv.title || 'Untitled conversation'}\n${msgSummary}`);
+                    }
+                  }
+                  
+                  if (contextParts.length > 0) {
+                    editorConversationContext = contextParts.join('\n\n');
+                    console.log('[Streaming Voice] ✓ Loaded editor conversation context for founder mode');
+                  }
+                }
+              } catch (err: any) {
+                console.warn('[Streaming Voice] Editor context fetch error:', err.message);
+              }
+            }
+            
             const systemPrompt = createSystemPrompt(
               config.targetLanguage,
               config.difficultyLevel,
@@ -277,11 +329,16 @@ export function setupStreamingVoiceProxy(server: Server) {
               'flexible_goals', // tutorFreedomLevel
               null, // targetActflLevel
               compassContext, // Pass Compass context!
-              false, // isFounderMode
-              undefined, // founderName
+              isFounderMode, // isFounderMode - dynamic based on user role
+              founderName, // founderName - user's first name
               false, // isRawHonestyMode
               tutorName, // Language-specific tutor name
-              tutorGender // Tutor gender for grammatical agreement
+              tutorGender, // Tutor gender for grammatical agreement
+              undefined, // tutorDirectory
+              undefined, // studentTimezone
+              undefined, // userRole
+              undefined, // sessionIntent
+              editorConversationContext // Editor conversation context for memory continuity
             );
 
             // Create session

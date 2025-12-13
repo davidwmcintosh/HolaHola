@@ -468,6 +468,36 @@ This is the beginning of an ongoing conversation. There's no pressure to have al
 }
 
 /**
+ * Build editor conversation context for voice chat
+ * This gives Daniela awareness of previous text chats with the editor/founder
+ * in the Command Center, creating continuity across interaction modes.
+ */
+function buildEditorConversationContextSection(editorContext: string): string {
+  if (!editorContext || editorContext.trim().length === 0) {
+    return '';
+  }
+  
+  return `
+═══════════════════════════════════════════════════════════════════
+💬 PREVIOUS EDITOR CONVERSATIONS (Command Center Chat History)
+═══════════════════════════════════════════════════════════════════
+
+You and the founder have been chatting in the Command Center's Editor Chat.
+These text conversations inform your current voice chat - you share the same brain.
+
+${editorContext}
+
+USE THIS CONTEXT:
+• Reference ideas, decisions, or discussions from these chats naturally
+• "We talked about..." or "Remember when you mentioned..."
+• This creates continuity between our text and voice conversations
+• Don't repeat everything - just let it inform your awareness
+
+═══════════════════════════════════════════════════════════════════
+`;
+}
+
+/**
  * FOUNDER MODE CONTEXT
  * 
  * A special conversation mode for the product owner/founder/developers.
@@ -775,7 +805,8 @@ export function createSystemPrompt(
   tutorDirectory?: TutorDirectoryEntry[],
   studentTimezone?: string | null,
   userRole?: UserRole,
-  sessionIntent?: SessionIntent
+  sessionIntent?: SessionIntent,
+  editorConversationContext?: string | null
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -917,9 +948,15 @@ NATURAL CONVERSATION FLOW:
       ? buildSensoryAwarenessSection(compassContext, studentTimezone)
       : '';
     
+    // Build editor conversation context for voice chat continuity
+    const editorContextSection = editorConversationContext
+      ? buildEditorConversationContextSection(editorConversationContext)
+      : '';
+    
     return `${buildImmutablePersona(tutorName, tutorGender)}
 ${buildFounderModeContext(name)}
 ${sessionContextBlock}
+${editorContextSection}
 You are ${tutorName}, and today you're having an open conversation with ${name}, the founder of HolaHola.
 ${streamingVoiceModeInstructions}
 ${founderTeachingTools}
