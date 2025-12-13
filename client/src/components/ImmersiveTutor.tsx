@@ -30,6 +30,7 @@ import {
 import { DebugTimingPanel } from "./DebugTimingPanel";
 import { Whiteboard } from "./Whiteboard";
 import { FloatingSubtitleOverlay } from "./FloatingSubtitleOverlay";
+import { CollaborationIndicator } from "./CollaborationIndicator";
 import type { WhiteboardItem, SubtitleMode } from "@shared/whiteboard-types";
 import type { StreamingSubtitleState } from "../hooks/useStreamingSubtitles";
 import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types";
@@ -833,6 +834,14 @@ export function ImmersiveTutor({
       
       {/* Fixed Tutor Visual - larger avatar container */}
       <div className="flex-shrink-0 relative w-full max-w-lg mx-auto aspect-square max-h-[45vh] flex items-center justify-center">
+        {/* 3-Way Collaboration Indicator - Founder Mode only, visible during active session */}
+        <CollaborationIndicator
+          isFounderMode={isDeveloper}
+          tutorName={tutorGender === 'male' ? (maleVoiceName || 'Agustin') : (femaleVoiceName || 'Daniela')}
+          tutorStatus={isPlaying ? 'speaking' : isProcessing ? 'thinking' : isRecording ? 'listening' : 'idle'}
+          isSessionActive={isPlaying || isProcessing || isRecording || openMicState === 'listening' || openMicState === 'ready' || openMicState === 'processing'}
+        />
+        
         <img
           src={tutorImageUrl}
           alt="Language Tutor"
