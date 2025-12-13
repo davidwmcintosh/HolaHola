@@ -504,13 +504,15 @@ export function StreamingVoiceChat({
   
   // Play ringing sound during voice connection
   // Ringing should continue through 'connecting' → 'connected' → 'reconnecting' → until 'ready' (session started)
+  // IMPORTANT: Don't ring on reconnects if Daniela has already spoken (prevents mid-call ringing)
   useEffect(() => {
     if (!useStreamingMode) return;
     
     const { connectionState } = streamingVoice.state;
     
     // Start ringing when connecting (WebSocket opening)
-    if (connectionState === 'connecting') {
+    // BUT only if Daniela hasn't spoken yet (prevents ringing during reconnects)
+    if (connectionState === 'connecting' && !hasDanielaSpokeOnceRef.current) {
       startRinging();
     }
     // Continue ringing during 'connected' and 'reconnecting' states
