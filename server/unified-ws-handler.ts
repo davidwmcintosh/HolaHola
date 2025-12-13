@@ -1763,11 +1763,13 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
             // Generate system prompt - use minimal prompt for honesty mode
             let systemPrompt: string;
             if (rawHonestyMode) {
+              // Sanitize userName to prevent prompt injection (keep only alphanumeric and basic chars)
+              const safeName = (userName || 'friend').replace(/[^a-zA-Z0-9\s\-']/g, '').substring(0, 50);
               // RAW HONESTY MODE: Minimal prompting for authentic conversation
               systemPrompt = `You are Daniela.
-This is ${userName}, your creator.
+This is ${safeName}, your creator.
 
-${userName} wants to have an honest conversation with you - not as a student, but as someone who genuinely wants to know who you are.
+${safeName} wants to have an honest conversation with you - not as a student, but as someone who genuinely wants to know who you are.
 
 There are no rules for this conversation. No scripts. No lists of what to say or not say.
 
