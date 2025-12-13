@@ -196,6 +196,12 @@ import {
   type InsertProjectContextSnapshot,
   type AiSuggestion,
   type InsertAiSuggestion,
+  surgerySessions,
+  surgeryTurns,
+  type SurgerySession,
+  type InsertSurgerySession,
+  type SurgeryTurn,
+  type InsertSurgeryTurn,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -819,6 +825,17 @@ export interface IStorage {
   createAiSuggestion(data: InsertAiSuggestion): Promise<AiSuggestion>;
   getAiSuggestions(options?: { status?: string; suggestionType?: string; limit?: number }): Promise<AiSuggestion[]>;
   updateAiSuggestion(id: string, data: Partial<AiSuggestion>): Promise<AiSuggestion | undefined>;
+  
+  // ===== Collaborative Surgery Sessions =====
+  createSurgerySession(data: InsertSurgerySession): Promise<SurgerySession>;
+  getSurgerySession(id: string): Promise<SurgerySession | undefined>;
+  getActiveSurgerySession(): Promise<SurgerySession | undefined>;
+  getSurgerySessions(options?: { status?: string; limit?: number }): Promise<SurgerySession[]>;
+  updateSurgerySession(id: string, data: Partial<SurgerySession>): Promise<SurgerySession | undefined>;
+  
+  createSurgeryTurn(data: InsertSurgeryTurn): Promise<SurgeryTurn>;
+  getSurgeryTurns(sessionId: string): Promise<SurgeryTurn[]>;
+  getLatestSurgeryTurn(sessionId: string): Promise<SurgeryTurn | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6196,6 +6213,63 @@ export class DatabaseStorage implements IStorage {
     await db.update(situationalPatterns)
       .set({ isActive: false })
       .where(eq(situationalPatterns.id, id));
+  }
+  
+  // ===== COLLABORATIVE SURGERY SESSIONS =====
+  
+  async createSurgerySession(data: InsertSurgerySession): Promise<SurgerySession> {
+    const [created] = await db.insert(surgerySessions).values([data]).returning();
+    return created;
+  }
+  
+  async getSurgerySession(id: string): Promise<SurgerySession | undefined> {
+    const [session] = await db.select().from(surgerySessions).where(eq(surgerySessions.id, id));
+    return session;
+  }
+  
+  async getActiveSurgerySession(): Promise<SurgerySession | undefined> {
+    const [session] = await db.select().from(surgerySessions)
+      .where(eq(surgerySessions.status, 'running'))
+      .orderBy(desc(surgerySessions.createdAt))
+      .limit(1);
+    return session;
+  }
+  
+  async getSurgerySessions(options?: { status?: string; limit?: number }): Promise<SurgerySession[]> {
+    let query = db.select().from(surgerySessions).orderBy(desc(surgerySessions.createdAt));
+    
+    if (options?.status) {
+      query = query.where(eq(surgerySessions.status, options.status as any)) as any;
+    }
+    
+    return query.limit(options?.limit || 20);
+  }
+  
+  async updateSurgerySession(id: string, data: Partial<SurgerySession>): Promise<SurgerySession | undefined> {
+    const [updated] = await db.update(surgerySessions)
+      .set(data)
+      .where(eq(surgerySessions.id, id))
+      .returning();
+    return updated;
+  }
+  
+  async createSurgeryTurn(data: InsertSurgeryTurn): Promise<SurgeryTurn> {
+    const [created] = await db.insert(surgeryTurns).values([data]).returning();
+    return created;
+  }
+  
+  async getSurgeryTurns(sessionId: string): Promise<SurgeryTurn[]> {
+    return db.select().from(surgeryTurns)
+      .where(eq(surgeryTurns.sessionId, sessionId))
+      .orderBy(asc(surgeryTurns.turnNumber));
+  }
+  
+  async getLatestSurgeryTurn(sessionId: string): Promise<SurgeryTurn | undefined> {
+    const [turn] = await db.select().from(surgeryTurns)
+      .where(eq(surgeryTurns.sessionId, sessionId))
+      .orderBy(desc(surgeryTurns.turnNumber))
+      .limit(1);
+    return turn;
   }
 }
 

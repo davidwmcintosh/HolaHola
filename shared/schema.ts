@@ -4534,3 +4534,103 @@ export const insertArchitectNoteSchema = createInsertSchema(architectNotes).omit
 });
 export type InsertArchitectNote = z.infer<typeof insertArchitectNoteSchema>;
 export type ArchitectNote = typeof architectNotes.$inferSelect;
+
+// ===== Collaborative Surgery Sessions =====
+// "Two Surgeons, One Hive Mind" - Autonomous Daniela ↔ Editor dialogue
+// These sessions run in the background while the user chats with Daniela
+
+export const surgerySessionStatusEnum = pgEnum('surgery_session_status', [
+  'idle',        // Not started or paused
+  'running',     // Actively exchanging turns
+  'paused',      // Manually paused by founder
+  'completed',   // Reached natural conclusion
+  'stopped'      // Stopped due to limits/errors
+]);
+
+export const surgerySessions = pgTable("surgery_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Session configuration
+  topic: text("topic"), // What they're discussing
+  focusArea: varchar("focus_area"), // 'procedures', 'principles', 'tools', 'patterns', 'general'
+  
+  // Status tracking
+  status: surgerySessionStatusEnum("status").default("idle").notNull(),
+  
+  // Turn limits and progress
+  maxTurns: integer("max_turns").default(20),
+  currentTurn: integer("current_turn").default(0),
+  
+  // Proposal tracking
+  proposalsGenerated: integer("proposals_generated").default(0),
+  proposalsApproved: integer("proposals_approved").default(0),
+  proposalsRejected: integer("proposals_rejected").default(0),
+  
+  // Timing
+  lastTurnAt: timestamp("last_turn_at"),
+  turnCadenceMs: integer("turn_cadence_ms").default(30000), // How fast they talk (30s default)
+  
+  // Session summary (generated at completion)
+  summary: text("summary"),
+  keyInsights: jsonb("key_insights").$type<string[]>(),
+  
+  // Founder who initiated (for auditing)
+  initiatedBy: varchar("initiated_by"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("idx_surgery_sessions_status").on(table.status),
+  index("idx_surgery_sessions_created").on(table.createdAt),
+]);
+
+export const surgeryTurnSpeakerEnum = pgEnum('surgery_turn_speaker', [
+  'daniela',     // Daniela speaking
+  'editor',      // Editor speaking
+  'system'       // System messages (start/stop/errors)
+]);
+
+export const surgeryTurns = pgTable("surgery_turns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Link to session
+  sessionId: varchar("session_id").notNull().references(() => surgerySessions.id, { onDelete: 'cascade' }),
+  
+  // Turn info
+  turnNumber: integer("turn_number").notNull(),
+  speaker: surgeryTurnSpeakerEnum("speaker").notNull(),
+  
+  // Content
+  content: text("content").notNull(),
+  
+  // Any proposals in this turn
+  proposalIds: jsonb("proposal_ids").$type<string[]>(), // IDs of selfSurgeryProposals created
+  
+  // Editor critique/review (when Editor responds to Daniela's proposal)
+  critiqueOfProposal: varchar("critique_of_proposal"), // ID of proposal being critiqued
+  critiqueVerdict: varchar("critique_verdict"), // 'endorse', 'suggest_refinement', 'question', 'reject'
+  
+  // Timing
+  processingTimeMs: integer("processing_time_ms"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_surgery_turns_session").on(table.sessionId),
+  index("idx_surgery_turns_speaker").on(table.speaker),
+  index("idx_surgery_turns_number").on(table.turnNumber),
+]);
+
+export const insertSurgerySessionSchema = createInsertSchema(surgerySessions).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+  lastTurnAt: true,
+});
+export type InsertSurgerySession = z.infer<typeof insertSurgerySessionSchema>;
+export type SurgerySession = typeof surgerySessions.$inferSelect;
+
+export const insertSurgeryTurnSchema = createInsertSchema(surgeryTurns).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertSurgeryTurn = z.infer<typeof insertSurgeryTurnSchema>;
+export type SurgeryTurn = typeof surgeryTurns.$inferSelect;
