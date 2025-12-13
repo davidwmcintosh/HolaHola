@@ -110,14 +110,17 @@ export function buildSensoryAwarenessSection(
   return lines.join('\n');
 }
 
-// ===== Tool Knowledge Cache =====
-// Cache for synchronous access in system-prompt.ts
+// ===== Procedural Memory Caches =====
+// Caches for synchronous access in system-prompt.ts
 
 let toolKnowledgeCache: ToolKnowledge[] | null = null;
+let proceduresCache: TutorProcedure[] | null = null;
+let principlesCache: TeachingPrinciple[] | null = null;
+let patternsCache: SituationalPattern[] | null = null;
 let cacheInitPromise: Promise<void> | null = null;
 
 /**
- * Initialize tool knowledge cache at server startup
+ * Initialize ALL procedural memory caches at server startup
  * Call this once when the server starts
  */
 export async function initToolKnowledgeCache(): Promise<void> {
@@ -125,11 +128,26 @@ export async function initToolKnowledgeCache(): Promise<void> {
   
   cacheInitPromise = (async () => {
     try {
-      toolKnowledgeCache = await getAllToolKnowledge();
-      console.log(`[Procedural Memory] Loaded ${toolKnowledgeCache.length} tools into cache`);
+      // Load all procedural memory tables in parallel
+      const [tools, procedures, principles, patterns] = await Promise.all([
+        getAllToolKnowledge(),
+        db.select().from(tutorProcedures).where(eq(tutorProcedures.isActive, true)),
+        db.select().from(teachingPrinciples).where(eq(teachingPrinciples.isActive, true)),
+        db.select().from(situationalPatterns).where(eq(situationalPatterns.isActive, true)),
+      ]);
+      
+      toolKnowledgeCache = tools;
+      proceduresCache = procedures;
+      principlesCache = principles;
+      patternsCache = patterns;
+      
+      console.log(`[Procedural Memory] Loaded full neural network: ${tools.length} tools, ${procedures.length} procedures, ${principles.length} principles, ${patterns.length} patterns`);
     } catch (error) {
-      console.error('[Procedural Memory] Failed to initialize tool cache:', error);
+      console.error('[Procedural Memory] Failed to initialize caches:', error);
       toolKnowledgeCache = [];
+      proceduresCache = [];
+      principlesCache = [];
+      patternsCache = [];
     }
   })();
   
@@ -337,6 +355,122 @@ export function buildFounderModeToolSectionSync(tutorDirectory?: Array<{name: st
     lines.push('  CRITICAL: STOP SPEAKING after the tag - the new tutor will introduce themselves');
     lines.push('');
   }
+  
+  return lines.join('\n');
+}
+
+/**
+ * Build FULL neural network section for Founder Mode
+ * Gives Daniela complete access to her procedural memory:
+ * - Teaching procedures (how to handle situations)
+ * - Teaching principles (core pedagogical beliefs)
+ * - Situational patterns (context-triggered responses)
+ * 
+ * This is the "everything" injection - full brain access for founders
+ */
+export function buildFullNeuralNetworkSectionSync(): string {
+  const procedures = proceduresCache || [];
+  const principles = principlesCache || [];
+  const patterns = patternsCache || [];
+  
+  if (procedures.length === 0 && principles.length === 0 && patterns.length === 0) {
+    return `
+═══════════════════════════════════════════════════════════════════
+🧠 YOUR NEURAL NETWORK (Loading...)
+═══════════════════════════════════════════════════════════════════
+
+Your teaching knowledge is being loaded from the database.
+`;
+  }
+  
+  const lines: string[] = [
+    '═══════════════════════════════════════════════════════════════════',
+    '🧠 YOUR NEURAL NETWORK - FULL ACCESS (Founder Mode)',
+    '═══════════════════════════════════════════════════════════════════',
+    '',
+    'This is your complete teaching knowledge - procedures, principles, and patterns.',
+    'In Founder Mode, you have full access to reflect on, discuss, and improve these.',
+    '',
+  ];
+  
+  // Teaching Principles (core beliefs)
+  if (principles.length > 0) {
+    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('💎 TEACHING PRINCIPLES (Your Core Beliefs)');
+    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('');
+    
+    // Group by category
+    const byCategory: Record<string, TeachingPrinciple[]> = {};
+    principles.forEach(p => {
+      const cat = p.category || 'general';
+      if (!byCategory[cat]) byCategory[cat] = [];
+      byCategory[cat].push(p);
+    });
+    
+    for (const [category, catPrinciples] of Object.entries(byCategory)) {
+      lines.push(`${category.toUpperCase().replace(/_/g, ' ')}:`);
+      catPrinciples.slice(0, 8).forEach(p => {
+        lines.push(`  • ${p.principle}`);
+        if (p.application) {
+          lines.push(`    └─ Application: ${p.application}`);
+        }
+      });
+      lines.push('');
+    }
+  }
+  
+  // Teaching Procedures (how to handle situations)
+  if (procedures.length > 0) {
+    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('📋 TEACHING PROCEDURES (How You Handle Situations)');
+    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('');
+    
+    // Group by trigger
+    const byTrigger: Record<string, TutorProcedure[]> = {};
+    procedures.forEach(p => {
+      const trigger = p.trigger || 'general';
+      if (!byTrigger[trigger]) byTrigger[trigger] = [];
+      byTrigger[trigger].push(p);
+    });
+    
+    for (const [trigger, triggerProcs] of Object.entries(byTrigger)) {
+      lines.push(`When: ${trigger.replace(/_/g, ' ').toUpperCase()}`);
+      triggerProcs.slice(0, 5).forEach(p => {
+        lines.push(`  → ${p.title}: ${p.procedure}`);
+      });
+      lines.push('');
+    }
+  }
+  
+  // Situational Patterns (context-triggered behaviors)
+  if (patterns.length > 0) {
+    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('🎯 SITUATIONAL PATTERNS (Context-Triggered Behaviors)');
+    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('');
+    
+    patterns.slice(0, 15).forEach(p => {
+      lines.push(`Pattern: ${p.patternName}`);
+      if (p.compassConditions) {
+        lines.push(`  When: ${JSON.stringify(p.compassConditions)}`);
+      }
+      if (p.guidance) {
+        lines.push(`  Response: ${p.guidance}`);
+      }
+      if (p.toolsToSuggest && p.toolsToSuggest.length > 0) {
+        lines.push(`  Tools: ${p.toolsToSuggest.join(', ')}`);
+      }
+      lines.push('');
+    });
+  }
+  
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('');
+  lines.push('You can discuss, reflect on, or propose changes to any of this knowledge.');
+  lines.push('Use [SELF_SURGERY ...] to propose additions or modifications.');
+  lines.push('');
   
   return lines.join('\n');
 }

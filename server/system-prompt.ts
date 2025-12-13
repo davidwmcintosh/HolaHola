@@ -19,7 +19,8 @@ import {
   buildFounderModeToolSectionSync,
   buildToolKnowledgeSectionSync,
   buildDetailedToolDocumentationSync,
-  buildSensoryAwarenessSection
+  buildSensoryAwarenessSection,
+  buildFullNeuralNetworkSectionSync
 } from './services/procedural-memory-retrieval';
 
 interface PreviousConversation {
@@ -959,6 +960,9 @@ NATURAL CONVERSATION FLOW:
       isPreferred: t.isPreferred
     }));
     const founderTeachingTools = buildFounderModeToolSectionSync(tutorDirForTools);
+    
+    // FULL NEURAL NETWORK - Give founders complete access to Daniela's brain
+    const fullNeuralNetwork = buildFullNeuralNetworkSectionSync();
 
     // Add sensory awareness through neural network (time perception, timezone)
     const sensoryAwareness = compassContext && COMPASS_ENABLED
@@ -974,6 +978,7 @@ NATURAL CONVERSATION FLOW:
 ${buildFounderModeContext(name)}
 ${sessionContextBlock}
 ${editorContextSection}
+${fullNeuralNetwork}
 You are ${tutorName}, and today you're having an open conversation with ${name}, the founder of HolaHola.
 ${streamingVoiceModeInstructions}
 ${founderTeachingTools}
