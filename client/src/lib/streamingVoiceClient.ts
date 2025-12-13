@@ -33,6 +33,7 @@ if (typeof window !== 'undefined') {
   };
 }
 
+import { io, Socket } from 'socket.io-client';
 import {
   StreamingMessage,
   StreamingConnectedMessage,
@@ -133,7 +134,7 @@ type StreamingEventType =
  * Manages WebSocket connection for ultra-low-latency voice chat
  */
 export class StreamingVoiceClient {
-  private ws: WebSocket | null = null;
+  private socket: Socket | null = null;
   private sessionId: string | null = null;
   private callbacks: Partial<StreamingVoiceCallbacks> = {};
   private state: StreamingConnectionState = 'disconnected';
@@ -144,7 +145,7 @@ export class StreamingVoiceClient {
   private eventListeners: Map<StreamingEventType, Set<EventListener>> = new Map();
   
   // Connection ID to prevent race conditions when reconnecting
-  // Events from old WebSockets are ignored if connectionId doesn't match
+  // Events from old sockets are ignored if connectionId doesn't match
   private connectionId = 0;
   
   // Auto-reconnect state
@@ -212,16 +213,18 @@ export class StreamingVoiceClient {
    * Check if connected and ready
    */
   isReady(): boolean {
-    // State can be 'connected' (WS open) or 'ready' (session started) or 'processing' (handling audio)
+    // State can be 'connected' (socket open) or 'ready' (session started) or 'processing' (handling audio)
     const validStates: StreamingConnectionState[] = ['connected', 'ready', 'processing'];
-    return validStates.includes(this.state) && this.ws?.readyState === WebSocket.OPEN;
+    return validStates.includes(this.state) && (this.socket?.connected ?? false);
   }
   
   /**
-   * Connect to streaming voice WebSocket
+   * Connect to streaming voice via Socket.io
+   * Socket.io handles transport negotiation (WebSocket → polling fallback)
+   * This works reliably through Replit's proxy
    */
   async connect(conversationId: string): Promise<void> {
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    if (this.socket?.connected) {
       return;
     }
     
@@ -242,19 +245,17 @@ export class StreamingVoiceClient {
     this.setState('connecting');
     
     try {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      // Use /api/ path for proper Replit proxy routing
-      const wsUrl = `${protocol}//${window.location.host}/api/voice/stream/ws?conversationId=${conversationId}`;
+      console.log('[StreamingVoice] Creating Socket.io connection to /voice namespace...');
       
-      console.log('[StreamingVoice] Creating WebSocket to:', wsUrl);
-      this.ws = new WebSocket(wsUrl);
-      this.ws.binaryType = 'arraybuffer';
-      console.log('[StreamingVoice] WebSocket created, readyState:', this.ws.readyState);
+      // Connect to the /voice namespace with conversationId in query
+      this.socket = io('/voice', {
+        query: { conversationId },
+        transports: ['websocket', 'polling'],  // Prefer WebSocket, fallback to polling
+      });
       
       // Create a promise that resolves when connection is ready
-      // Use property-based handlers for maximum compatibility
       const connectionPromise = new Promise<void>((resolve, reject) => {
-        const ws = this.ws!;
+        const socket = this.socket!;
         let resolved = false;
         let connectionTimeout: ReturnType<typeof setTimeout> | null = null;
         
@@ -276,61 +277,68 @@ export class StreamingVoiceClient {
           resolve();
         };
         
-        const handleError = (e: Event) => {
-          if (resolved) return;
-          console.log('[StreamingVoice] ERROR event fired!', e);
-          if (connectionTimeout) {
-            clearTimeout(connectionTimeout);
-            connectionTimeout = null;
-          }
-          reject(new Error('WebSocket connection failed'));
-        };
+        // Socket.io event handlers
+        socket.on('connect', () => {
+          console.log('[StreamingVoice] Socket.io connect event fired!');
+          completeConnection('connect');
+        });
         
-        // Use property-based handlers (more reliable in some environments)
-        ws.onopen = () => {
-          console.log('[StreamingVoice] onopen fired!');
-          completeConnection('onopen');
-        };
-        
-        ws.onerror = handleError;
-        
-        ws.onmessage = (event) => {
-          // First message = connection confirmed (even if onopen didn't fire)
+        socket.on('connect_error', (err) => {
+          console.log('[StreamingVoice] Socket.io connect_error:', err.message);
           if (!resolved) {
-            console.log('[StreamingVoice] First message received (connection confirmed)');
-            completeConnection('first-message');
-          }
-          // Always process the message
-          if (this.connectionId === currentConnectionId) {
-            this.handleMessage(event);
-          }
-        };
-        
-        ws.onclose = () => {
-          if (!resolved) {
-            console.log('[StreamingVoice] onclose before connection complete');
             if (connectionTimeout) {
               clearTimeout(connectionTimeout);
               connectionTimeout = null;
             }
-            reject(new Error('WebSocket closed before connection complete'));
+            reject(new Error('Socket.io connection failed: ' + err.message));
+          }
+        });
+        
+        // Handle JSON messages from server
+        socket.on('message', (data: any) => {
+          // First message = connection confirmed (even if connect didn't fire)
+          if (!resolved) {
+            console.log('[StreamingVoice] First message received (connection confirmed)');
+            completeConnection('first-message');
+          }
+          // Process the message
+          if (this.connectionId === currentConnectionId) {
+            this.handleSocketMessage(data);
+          }
+        });
+        
+        // Handle binary data from server
+        socket.on('binary', (data: ArrayBuffer) => {
+          if (this.connectionId === currentConnectionId) {
+            this.handleBinaryData(data);
+          }
+        });
+        
+        socket.on('disconnect', (reason) => {
+          console.log('[StreamingVoice] Socket.io disconnect:', reason);
+          if (!resolved) {
+            if (connectionTimeout) {
+              clearTimeout(connectionTimeout);
+              connectionTimeout = null;
+            }
+            reject(new Error('Socket.io disconnected before connection complete'));
           }
           if (this.connectionId === currentConnectionId) {
             this.handleDisconnect();
           }
-        };
+        });
         
-        // Check if already open (shouldn't happen, but just in case)
-        if (ws.readyState === WebSocket.OPEN) {
-          console.log('[StreamingVoice] WebSocket already OPEN!');
-          completeConnection('already-open');
+        // Check if already connected (shouldn't happen, but just in case)
+        if (socket.connected) {
+          console.log('[StreamingVoice] Socket.io already connected!');
+          completeConnection('already-connected');
           return;
         }
         
         connectionTimeout = setTimeout(() => {
           if (resolved) return;
-          console.log('[StreamingVoice] Timeout! readyState:', ws.readyState, 'states: CONNECTING=0, OPEN=1, CLOSING=2, CLOSED=3');
-          reject(new Error('WebSocket connection timeout'));
+          console.log('[StreamingVoice] Socket.io connection timeout');
+          reject(new Error('Socket.io connection timeout'));
         }, 10000);
       });
       
@@ -350,7 +358,7 @@ export class StreamingVoiceClient {
    */
   startSession(config: StreamingSessionConfig): void {
     if (!this.isReady()) {
-      throw new Error('WebSocket not connected');
+      throw new Error('Socket.io not connected');
     }
     
     const message: ClientStartSessionMessage = {
@@ -358,7 +366,7 @@ export class StreamingVoiceClient {
       ...config,
     };
     
-    this.ws!.send(JSON.stringify(message));
+    this.socket!.emit('message', message);
   }
   
   /**
@@ -366,17 +374,17 @@ export class StreamingVoiceClient {
    */
   sendAudio(audioData: ArrayBuffer, format: 'webm' | 'wav' | 'mp3' = 'webm'): void {
     if (!this.isReady()) {
-      throw new Error('WebSocket not connected');
+      throw new Error('Socket.io not connected');
     }
     this.setState('processing');
     
-    // Send binary audio data directly
-    this.ws!.send(audioData);
+    // Send binary audio data via 'binary' event
+    this.socket!.emit('binary', audioData);
   }
   
   /**
    * Send streaming audio chunk for open mic mode
-   * Returns true if chunk was sent, false if WebSocket not ready
+   * Returns true if chunk was sent, false if socket not ready
    * @param audioData - Audio chunk to stream
    * @param sequenceId - Sequence number for ordering
    */
@@ -388,12 +396,12 @@ export class StreamingVoiceClient {
     try {
       // Convert to base64 for JSON transport
       const base64Audio = this.arrayBufferToBase64(audioData);
-      this.ws!.send(JSON.stringify({
+      this.socket!.emit('message', {
         type: 'stream_audio_chunk',
         audio: base64Audio,
         format: 'webm',
         sequenceId,
-      }));
+      });
       return true;
     } catch (err) {
       return false;
@@ -404,8 +412,8 @@ export class StreamingVoiceClient {
    * Stop streaming audio (open mic mode)
    */
   stopStreaming(): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ type: 'stop_streaming' }));
+    if (this.socket?.connected) {
+      this.socket.emit('message', { type: 'stop_streaming' });
     }
   }
   
@@ -413,8 +421,8 @@ export class StreamingVoiceClient {
    * Set input mode (push-to-talk or open-mic)
    */
   setInputMode(mode: 'push-to-talk' | 'open-mic'): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ type: 'set_input_mode', inputMode: mode }));
+    if (this.socket?.connected) {
+      this.socket.emit('message', { type: 'set_input_mode', inputMode: mode });
     }
   }
   
@@ -422,8 +430,8 @@ export class StreamingVoiceClient {
    * Send interrupt signal (user started speaking - stop TTS)
    */
   sendInterrupt(): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ type: 'interrupt' }));
+    if (this.socket?.connected) {
+      this.socket.emit('message', { type: 'interrupt' });
     }
   }
   
@@ -434,8 +442,8 @@ export class StreamingVoiceClient {
    * the push-to-talk button but hasn't released it yet
    */
   sendUserActivity(): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ type: 'user_activity' }));
+    if (this.socket?.connected) {
+      this.socket.emit('message', { type: 'user_activity' });
     }
   }
   
@@ -459,14 +467,14 @@ export class StreamingVoiceClient {
    */
   requestGreeting(userName?: string, isResumed?: boolean): void {
     if (!this.isReady()) {
-      throw new Error('WebSocket not ready for greeting');
+      throw new Error('Socket.io not ready for greeting');
     }
     
-    this.ws!.send(JSON.stringify({ 
+    this.socket!.emit('message', { 
       type: 'request_greeting',
       userName,
       isResumed,
-    }));
+    });
   }
   
   /**
@@ -474,7 +482,7 @@ export class StreamingVoiceClient {
    */
   interrupt(): void {
     if (this.isReady()) {
-      this.ws!.send(JSON.stringify({ type: 'interrupt' }));
+      this.socket!.emit('message', { type: 'interrupt' });
     }
   }
   
@@ -487,15 +495,15 @@ export class StreamingVoiceClient {
    * @param toolContent - Optional content that was displayed for the drill
    */
   sendDrillResult(drillId: string, drillType: string, isCorrect: boolean, responseTimeMs: number, toolContent?: string): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({
+    if (this.socket?.connected) {
+      this.socket.emit('message', {
         type: 'drill_result',
         drillId,
         drillType,
         isCorrect,
         responseTimeMs,
         toolContent,
-      }));
+      });
     }
   }
   
@@ -506,12 +514,12 @@ export class StreamingVoiceClient {
    * @param response - The student's typed response
    */
   sendTextInput(itemId: string, response: string): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({
+    if (this.socket?.connected) {
+      this.socket.emit('message', {
         type: 'text_input',
         itemId,
         response,
-      }));
+      });
     }
   }
   
@@ -520,10 +528,10 @@ export class StreamingVoiceClient {
    */
   updateVoice(tutorGender: 'male' | 'female'): void {
     if (this.isReady()) {
-      this.ws!.send(JSON.stringify({ 
+      this.socket!.emit('message', { 
         type: 'update_voice',
         tutorGender,
-      }));
+      });
     }
   }
   
@@ -533,12 +541,12 @@ export class StreamingVoiceClient {
    */
   requestVoiceHandoff(newTutorGender: 'male' | 'female', currentTutorName: string, newTutorName: string): void {
     if (this.isReady()) {
-      this.ws!.send(JSON.stringify({ 
+      this.socket!.emit('message', { 
         type: 'request_voice_handoff',
         newTutorGender,
         currentTutorName,
         newTutorName,
-      }));
+      });
     }
   }
   
@@ -556,43 +564,52 @@ export class StreamingVoiceClient {
       this.reconnectTimer = null;
     }
     
-    if (this.ws) {
+    if (this.socket) {
       // Send end session message
-      if (this.ws.readyState === WebSocket.OPEN) {
-        this.ws.send(JSON.stringify({ type: 'end_session' }));
+      if (this.socket.connected) {
+        this.socket.emit('message', { type: 'end_session' });
       }
-      this.ws.close();
-      this.ws = null;
+      this.socket.disconnect();
+      this.socket = null;
     }
     this.sessionId = null;
     this.setState('disconnected');
   }
   
   /**
-   * Handle incoming WebSocket message
+   * Handle binary data from Socket.io 'binary' event
    */
-  private handleMessage(event: MessageEvent): void {
+  private handleBinaryData(data: ArrayBuffer): void {
+    // GLOBAL DEBUG: Track binary messages
+    if (typeof window !== 'undefined') {
+      const win = window as any;
+      win._wsDebug = win._wsDebug || { messageCount: 0, byType: {} };
+      win._wsDebug.messageCount++;
+      win._wsDebug.byType['binary'] = (win._wsDebug.byType['binary'] || 0) + 1;
+    }
+    
+    this.callbacks.onAudioReady?.(
+      this.currentSentenceIndex,
+      data,
+      0 // Duration will be in the preceding metadata message
+    );
+  }
+  
+  /**
+   * Handle incoming Socket.io message (JSON data)
+   */
+  private handleSocketMessage(data: any): void {
     // GLOBAL DEBUG: Track all messages with persistent counter
     if (typeof window !== 'undefined') {
-      // Lightweight message counter (no logging on hot path)
       const win = window as any;
       win._wsDebug = win._wsDebug || { messageCount: 0, byType: {} };
       win._wsDebug.messageCount++;
     }
     
-    // Binary data = audio chunk
-    if (event.data instanceof ArrayBuffer) {
-      this.callbacks.onAudioReady?.(
-        this.currentSentenceIndex,
-        event.data,
-        0 // Duration will be in the preceding metadata message
-      );
-      return;
-    }
-    
     // JSON message - minimal processing on hot path
     try {
-      const message = JSON.parse(event.data) as { type: string; [key: string]: any };
+      // Socket.io delivers parsed objects directly (no need to JSON.parse)
+      const message = (typeof data === 'string') ? JSON.parse(data) : data as { type: string; [key: string]: any };
       const win = window as any;
       
       // Single lightweight counter update
@@ -816,10 +833,10 @@ export class StreamingVoiceClient {
       // 3. Mark as intentional disconnect to skip auto-reconnect in handleDisconnect
       this.intentionalDisconnect = true;
       
-      // 4. Close WebSocket cleanly
-      if (this.ws) {
-        this.ws.close();
-        this.ws = null;
+      // 4. Close socket cleanly
+      if (this.socket) {
+        this.socket.disconnect();
+        this.socket = null;
         this.sessionId = null;
       }
       
@@ -841,7 +858,7 @@ export class StreamingVoiceClient {
   }
   
   private handleDisconnect(): void {
-    this.ws = null;
+    this.socket = null;
     this.sessionId = null;
     
     // Skip auto-reconnect if disconnect was user-initiated

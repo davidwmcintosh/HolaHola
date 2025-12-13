@@ -92,6 +92,8 @@
     "react-icons": "^5.4.0",
     "react-resizable-panels": "^2.1.7",
     "recharts": "^2.15.2",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
     "stripe": "^20.0.0",
     "stripe-replit-sync": "^0.0.8",
     "tailwind-merge": "^2.6.0",

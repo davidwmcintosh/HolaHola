@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
+import { Server as SocketIOServer } from "socket.io";
 import { runMigrations, StripeSync } from 'stripe-replit-sync';
 import { getStripeSecretKey, getStripeWebhookSecret } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
@@ -7,7 +8,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { getTTSService } from "./services/tts-service";
 import { generalLimiter } from "./middleware/rate-limiter";
-import { setupUnifiedWebSocketHandler } from "./unified-ws-handler";
+import { setupUnifiedWebSocketHandler, setupSocketIOHandler } from "./unified-ws-handler";
 
 const app = express();
 
@@ -15,8 +16,20 @@ const app = express();
 // This allows us to attach WebSocket upgrade handler BEFORE Express/Vite interfere
 const server = createServer(app);
 
+// Setup Socket.io for voice streaming (handles Replit proxy transport negotiation)
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+  // Allow both websocket and polling transports
+  transports: ['websocket', 'polling'],
+});
+setupSocketIOHandler(io);
+
 // CRITICAL: Attach WebSocket handler IMMEDIATELY after server creation
 // This ensures upgrade events are handled BEFORE Vite's HMR gets a chance to interfere
+// Note: This handles legacy ws connections and realtime API
 setupUnifiedWebSocketHandler(server);
 
 // Initialize Stripe before starting server
