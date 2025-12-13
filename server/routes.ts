@@ -11605,6 +11605,288 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
     }
   });
 
+  // ===== FEATURE SPRINT SYSTEM API =====
+  // Persistent collaborative workspace for AI-human feature development
+
+  // Get all feature sprints
+  app.get("/api/feature-sprints", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { stage, createdBy, limit } = req.query;
+      const sprints = await storage.getFeatureSprints({
+        stage: stage as string,
+        createdBy: createdBy as string,
+        limit: limit ? parseInt(limit as string) : undefined
+      });
+      res.json(sprints);
+    } catch (error: any) {
+      console.error('[API] Error fetching feature sprints:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get single feature sprint
+  app.get("/api/feature-sprints/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const sprint = await storage.getFeatureSprint(req.params.id);
+      if (!sprint) {
+        return res.status(404).json({ error: "Sprint not found" });
+      }
+      res.json(sprint);
+    } catch (error: any) {
+      console.error('[API] Error fetching feature sprint:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create feature sprint
+  app.post("/api/feature-sprints", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const sprint = await storage.createFeatureSprint({
+        ...req.body,
+        createdBy: userId
+      });
+      res.status(201).json(sprint);
+    } catch (error: any) {
+      console.error('[API] Error creating feature sprint:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update feature sprint
+  app.patch("/api/feature-sprints/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const sprint = await storage.getFeatureSprint(req.params.id);
+      if (!sprint) {
+        return res.status(404).json({ error: "Sprint not found" });
+      }
+      
+      // If stage is changing, create a transition record
+      if (req.body.stage && req.body.stage !== sprint.stage) {
+        await storage.createSprintStageTransition({
+          sprintId: sprint.id,
+          fromStage: sprint.stage,
+          toStage: req.body.stage,
+          transitionedBy: req.user?.id,
+          notes: req.body.transitionNotes
+        });
+        
+        // Add shippedAt if transitioning to shipped
+        if (req.body.stage === 'shipped') {
+          req.body.shippedAt = new Date();
+        }
+      }
+      
+      const updated = await storage.updateFeatureSprint(req.params.id, req.body);
+      res.json(updated);
+    } catch (error: any) {
+      console.error('[API] Error updating feature sprint:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete feature sprint
+  app.delete("/api/feature-sprints/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      await storage.deleteFeatureSprint(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error('[API] Error deleting feature sprint:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get sprint stage transitions
+  app.get("/api/feature-sprints/:id/transitions", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const transitions = await storage.getSprintTransitions(req.params.id);
+      res.json(transitions);
+    } catch (error: any) {
+      console.error('[API] Error fetching sprint transitions:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== Consultation Threads API =====
+  
+  // Get all consultation threads
+  app.get("/api/sprint-consults", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { createdBy, sprintId, limit } = req.query;
+      const threads = await storage.getConsultationThreads({
+        createdBy: createdBy as string,
+        sprintId: sprintId as string,
+        limit: limit ? parseInt(limit as string) : undefined
+      });
+      res.json(threads);
+    } catch (error: any) {
+      console.error('[API] Error fetching consultation threads:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get single consultation thread with messages
+  app.get("/api/sprint-consults/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const thread = await storage.getConsultationThread(req.params.id);
+      if (!thread) {
+        return res.status(404).json({ error: "Thread not found" });
+      }
+      const messages = await storage.getConsultationMessages(req.params.id);
+      res.json({ thread, messages });
+    } catch (error: any) {
+      console.error('[API] Error fetching consultation thread:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create consultation thread
+  app.post("/api/sprint-consults", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const thread = await storage.createConsultationThread({
+        ...req.body,
+        createdBy: userId
+      });
+      res.status(201).json(thread);
+    } catch (error: any) {
+      console.error('[API] Error creating consultation thread:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Add message to consultation thread
+  app.post("/api/sprint-consults/:id/messages", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const thread = await storage.getConsultationThread(req.params.id);
+      if (!thread) {
+        return res.status(404).json({ error: "Thread not found" });
+      }
+      
+      const message = await storage.createConsultationMessage({
+        threadId: req.params.id,
+        ...req.body
+      });
+      res.status(201).json(message);
+    } catch (error: any) {
+      console.error('[API] Error adding consultation message:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update consultation thread
+  app.patch("/api/sprint-consults/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const updated = await storage.updateConsultationThread(req.params.id, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: "Thread not found" });
+      }
+      res.json(updated);
+    } catch (error: any) {
+      console.error('[API] Error updating consultation thread:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== Sprint Templates API =====
+  
+  app.get("/api/sprint-templates", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { templateType } = req.query;
+      const templates = await storage.getSprintTemplates(templateType as string);
+      res.json(templates);
+    } catch (error: any) {
+      console.error('[API] Error fetching sprint templates:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/sprint-templates", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const template = await storage.createSprintTemplate({
+        ...req.body,
+        createdBy: req.user?.id
+      });
+      res.status(201).json(template);
+    } catch (error: any) {
+      console.error('[API] Error creating sprint template:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/sprint-templates/:id/use", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const template = await storage.getSprintTemplate(req.params.id);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      await storage.incrementTemplateUsage(req.params.id);
+      res.json(template);
+    } catch (error: any) {
+      console.error('[API] Error using sprint template:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== Project Context API =====
+  
+  app.get("/api/project-context", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const context = await storage.getActiveProjectContext();
+      res.json(context || null);
+    } catch (error: any) {
+      console.error('[API] Error fetching project context:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/project-context", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const snapshot = await storage.createProjectContextSnapshot({
+        ...req.body,
+        createdBy: req.user?.id
+      });
+      res.status(201).json(snapshot);
+    } catch (error: any) {
+      console.error('[API] Error creating project context:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== AI Suggestions API =====
+  
+  app.get("/api/ai-suggestions", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { status, suggestionType, limit } = req.query;
+      const suggestions = await storage.getAiSuggestions({
+        status: status as string,
+        suggestionType: suggestionType as string,
+        limit: limit ? parseInt(limit as string) : undefined
+      });
+      res.json(suggestions);
+    } catch (error: any) {
+      console.error('[API] Error fetching AI suggestions:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/ai-suggestions/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const updated = await storage.updateAiSuggestion(req.params.id, {
+        ...req.body,
+        reviewedBy: req.user?.id,
+        reviewedAt: new Date()
+      });
+      if (!updated) {
+        return res.status(404).json({ error: "Suggestion not found" });
+      }
+      res.json(updated);
+    } catch (error: any) {
+      console.error('[API] Error updating AI suggestion:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up unified WebSocket handler for all paths
