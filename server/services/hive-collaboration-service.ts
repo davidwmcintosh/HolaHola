@@ -50,6 +50,7 @@ interface EmitBeaconParams {
   studentTurn?: string;
   beaconType: BeaconType;
   beaconReason?: string;
+  conversationHistory?: Array<{role: string, content: string}>; // Last N turns for deeper context
 }
 
 class HiveCollaborationService {
@@ -189,6 +190,7 @@ class HiveCollaborationService {
       studentTurn: params.studentTurn,
       beaconType: params.beaconType,
       beaconReason: params.beaconReason,
+      conversationHistory: params.conversationHistory,
     };
     
     const [snapshot] = await db.insert(editorListeningSnapshots)

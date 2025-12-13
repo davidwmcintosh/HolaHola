@@ -4489,6 +4489,9 @@ export const editorListeningSnapshots = pgTable("editor_listening_snapshots", {
   tutorTurn: text("tutor_turn").notNull(),
   studentTurn: text("student_turn"),
   
+  // Conversation history for deeper context (last N turns before this beacon)
+  conversationHistory: jsonb("conversation_history").$type<Array<{role: string, content: string}>>(),
+  
   // Why this was flagged as interesting
   beaconType: varchar("beacon_type").notNull(), // 'teaching_moment', 'student_struggle', 'tool_usage', 'breakthrough'
   beaconReason: text("beacon_reason"),
