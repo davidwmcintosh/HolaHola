@@ -38,6 +38,7 @@ import {
 import { trackToolEvent, addInsight } from "./pedagogical-insights-service";
 import { collaborationHubService } from "./collaboration-hub-service";
 import { editorFeedbackService, FeedbackSummary } from "./editor-feedback-service";
+import { hiveCollaborationService } from "./hive-collaboration-service";
 import { storage } from "../storage";
 
 const genAI = new GoogleGenAI({
@@ -554,8 +555,8 @@ async function scanForCollaborationSignals(
   surfacedFeedbackIds: string[] = []
 ): Promise<string> {
   try {
-    // Pattern to detect collaboration signals
-    const collabPattern = /\[COLLAB:(SUGGESTION|PAIN_POINT|QUESTION|INSIGHT|MISSING_TOOL|FEATURE_REQUEST)\]([\s\S]*?)\[\/COLLAB\]/g;
+    // Pattern to detect collaboration signals (including KNOWLEDGE_PING)
+    const collabPattern = /\[COLLAB:(SUGGESTION|PAIN_POINT|QUESTION|INSIGHT|MISSING_TOOL|FEATURE_REQUEST|KNOWLEDGE_PING)\]([\s\S]*?)\[\/COLLAB\]/g;
     
     // Pattern to detect Editor insight adoption
     const adoptPattern = /\[ADOPT_INSIGHT:([a-f0-9-]+)\]/gi;
@@ -580,7 +581,34 @@ async function scanForCollaborationSignals(
         'INSIGHT': 'improvement_idea',
       };
       
-      if (signalType === 'QUESTION') {
+      if (signalType === 'KNOWLEDGE_PING') {
+        // Emit a knowledge_ping beacon to the Editor
+        try {
+          const channel = request.context.conversationId 
+            ? await hiveCollaborationService.getActiveChannelForConversation(request.context.conversationId)
+            : null;
+          
+          if (channel) {
+            await hiveCollaborationService.emitBeacon({
+              channelId: channel.id,
+              tutorTurn: content,
+              beaconType: 'knowledge_ping',
+              beaconReason: 'Daniela noticed a knowledge gap or issue',
+            });
+          } else {
+            // No active channel - emit as suggestion instead
+            await collaborationHubService.emitDanielaSuggestion({
+              content: `[Knowledge Ping] ${content}`,
+              category: 'improvement_idea',
+              conversationId: request.context.conversationId,
+              targetLanguage: request.context.targetLanguage,
+            });
+          }
+          console.log(`[TutorOrchestrator] Knowledge ping emitted: ${content.slice(0, 80)}...`);
+        } catch (pingError) {
+          console.error(`[TutorOrchestrator] Failed to emit knowledge ping:`, pingError);
+        }
+      } else if (signalType === 'QUESTION') {
         await collaborationHubService.emitDanielaQuestion({
           content,
           conversationId: request.context.conversationId,

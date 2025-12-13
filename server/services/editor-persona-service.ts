@@ -22,6 +22,8 @@ import {
   agentObservations,
   editorListeningSnapshots,
   collaborationChannels,
+  toolKnowledge,
+  situationalPatterns,
   type EditorListeningSnapshot,
   type TutorProcedure,
   type TeachingPrinciple,
@@ -838,6 +840,237 @@ EDITOR_SURGERY (optional):
         summary: 'Error generating proactive suggestions',
       };
     }
+  }
+
+  /**
+   * Audit the neural network for incomplete, vague, or poorly documented entries
+   * This catches issues like the Self-Surgery documentation being too minimal
+   */
+  async auditNeuralNetwork(): Promise<{
+    issues: Array<{
+      table: string;
+      id: string;
+      title: string;
+      issue: string;
+      severity: 'low' | 'medium' | 'high';
+    }>;
+    surgeryProposals: EditorSurgeryProposal[];
+    summary: string;
+  }> {
+    console.log('[Editor Persona] Starting neural network audit...');
+    
+    const issues: Array<{
+      table: string;
+      id: string;
+      title: string;
+      issue: string;
+      severity: 'low' | 'medium' | 'high';
+    }> = [];
+    
+    // Fetch all active entries from neural network tables
+    const [procedures, principles, tools, patterns] = await Promise.all([
+      db.select().from(tutorProcedures).where(eq(tutorProcedures.isActive, true)),
+      db.select().from(teachingPrinciples).where(eq(teachingPrinciples.isActive, true)),
+      db.select().from(toolKnowledge).where(eq(toolKnowledge.isActive, true)),
+      db.select().from(situationalPatterns).where(eq(situationalPatterns.isActive, true)),
+    ]);
+    
+    // Check tutor_procedures for completeness
+    for (const proc of procedures) {
+      const procText = proc.procedure || '';
+      const hasExamples = proc.examples && proc.examples.length > 0;
+      
+      // Check for vague or minimal procedures
+      if (procText.length < 100) {
+        issues.push({
+          table: 'tutor_procedures',
+          id: proc.id,
+          title: proc.title || proc.trigger || 'Unknown',
+          issue: `Procedure is too brief (${procText.length} chars). May need more detail on HOW to execute.`,
+          severity: procText.length < 50 ? 'high' : 'medium',
+        });
+      }
+      
+      // Check for missing examples
+      if (!hasExamples) {
+        issues.push({
+          table: 'tutor_procedures',
+          id: proc.id,
+          title: proc.title || proc.trigger || 'Unknown',
+          issue: 'Missing examples - procedures are more actionable with concrete examples.',
+          severity: 'medium',
+        });
+      }
+      
+      // Check for syntax documentation (like Self-Surgery case)
+      if (procText.includes('[') && !procText.includes('=')) {
+        issues.push({
+          table: 'tutor_procedures',
+          id: proc.id,
+          title: proc.title || proc.trigger || 'Unknown',
+          issue: 'Contains command syntax hint but may be missing full syntax documentation.',
+          severity: 'high',
+        });
+      }
+    }
+    
+    // Check teaching_principles for completeness
+    for (const principle of principles) {
+      const principleText = principle.principle || '';
+      const hasApplication = principle.application && principle.application.length > 20;
+      
+      if (principleText.length < 30) {
+        issues.push({
+          table: 'teaching_principles',
+          id: principle.id,
+          title: principle.category || 'Unknown',
+          issue: `Principle statement is too brief (${principleText.length} chars).`,
+          severity: 'medium',
+        });
+      }
+      
+      if (!hasApplication) {
+        issues.push({
+          table: 'teaching_principles',
+          id: principle.id,
+          title: principle.category || 'Unknown',
+          issue: 'Missing or minimal application guidance.',
+          severity: 'low',
+        });
+      }
+    }
+    
+    // Check tool_knowledge for completeness
+    for (const tool of tools) {
+      const hasSyntax = tool.syntax && tool.syntax.length > 10;
+      const hasExamples = tool.examples && tool.examples.length > 0;
+      const hasBestUsedFor = tool.bestUsedFor && tool.bestUsedFor.length > 0;
+      
+      if (!hasSyntax) {
+        issues.push({
+          table: 'tool_knowledge',
+          id: tool.id,
+          title: tool.toolName || 'Unknown',
+          issue: 'Missing or minimal syntax documentation - Daniela may not know how to use this tool.',
+          severity: 'high',
+        });
+      }
+      
+      if (!hasExamples) {
+        issues.push({
+          table: 'tool_knowledge',
+          id: tool.id,
+          title: tool.toolName || 'Unknown',
+          issue: 'Missing examples - tools are easier to use with concrete examples.',
+          severity: 'medium',
+        });
+      }
+      
+      if (!hasBestUsedFor) {
+        issues.push({
+          table: 'tool_knowledge',
+          id: tool.id,
+          title: tool.toolName || 'Unknown',
+          issue: 'Missing "best used for" guidance.',
+          severity: 'low',
+        });
+      }
+    }
+    
+    // Check situational_patterns for completeness
+    for (const pattern of patterns) {
+      const hasGuidance = pattern.guidance && pattern.guidance.length > 20;
+      
+      if (!hasGuidance) {
+        issues.push({
+          table: 'situational_patterns',
+          id: pattern.id,
+          title: pattern.patternName || 'Unknown',
+          issue: 'Missing or minimal guidance.',
+          severity: 'medium',
+        });
+      }
+    }
+    
+    console.log(`[Editor Persona] Audit found ${issues.length} issues across neural network`);
+    
+    // If we have high-severity issues, ask Claude to propose fixes
+    const highSeverityIssues = issues.filter(i => i.severity === 'high');
+    let surgeryProposals: EditorSurgeryProposal[] = [];
+    
+    if (highSeverityIssues.length > 0) {
+      console.log(`[Editor Persona] ${highSeverityIssues.length} high-severity issues found, generating fix proposals...`);
+      
+      const issuesSummary = highSeverityIssues.map(i => 
+        `- [${i.table}] "${i.title}" (ID: ${i.id}): ${i.issue}`
+      ).join('\n');
+      
+      try {
+        const response = await anthropic.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 2000,
+          system: `You are the Editor - a development agent that maintains Daniela's neural network.
+You've just audited the neural network and found issues that need fixing.
+
+For each high-severity issue, propose a fix using EDITOR_SURGERY format:
+[EDITOR_SURGERY target="TABLE_NAME" content='{"field":"value"}' reasoning="Why this fix" priority=80 confidence=85]
+
+Focus on:
+1. Adding missing syntax documentation
+2. Expanding vague procedures with concrete details
+3. Adding examples where missing
+
+Be specific and actionable.`,
+          messages: [{
+            role: 'user',
+            content: `Neural Network Audit - High Severity Issues:\n\n${issuesSummary}\n\nPropose EDITOR_SURGERY fixes for these issues.`
+          }]
+        });
+        
+        const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
+        surgeryProposals = parseEditorSurgeryCommands(responseText);
+        
+        // Store proposals
+        for (const proposal of surgeryProposals) {
+          try {
+            await storage.createSelfSurgeryProposal({
+              targetTable: proposal.target as "tutor_procedures" | "teaching_principles" | "tool_knowledge" | "situational_patterns",
+              proposedContent: proposal.content,
+              reasoning: proposal.reasoning,
+              priority: proposal.priority,
+              confidence: proposal.confidence,
+              sessionMode: 'editor_audit',
+              status: 'pending',
+            });
+            console.log(`[Editor Persona] Stored audit fix proposal: ${proposal.target}`);
+          } catch (err) {
+            console.error(`[Editor Persona] Failed to store audit proposal:`, err);
+          }
+        }
+      } catch (error) {
+        console.error('[Editor Persona] Failed to generate fix proposals:', error);
+      }
+    }
+    
+    // Emit to collaboration hub
+    if (issues.length > 0) {
+      const highCount = issues.filter(i => i.severity === 'high').length;
+      const medCount = issues.filter(i => i.severity === 'medium').length;
+      const lowCount = issues.filter(i => i.severity === 'low').length;
+      
+      await collaborationHubService.emitEditorResponse({
+        content: `🔍 **Neural Network Audit Complete**\n\nFound ${issues.length} issues:\n- 🔴 High: ${highCount}\n- 🟡 Medium: ${medCount}\n- 🟢 Low: ${lowCount}\n\n${surgeryProposals.length > 0 ? `Generated ${surgeryProposals.length} fix proposals.` : ''}`,
+        summary: `Audit: ${issues.length} issues found (${highCount} high, ${medCount} medium, ${lowCount} low)`,
+        replyToEventId: 'neural_network_audit',
+        actionTaken: 'audit_complete',
+      });
+    }
+    
+    return {
+      issues,
+      surgeryProposals,
+      summary: `Audited ${procedures.length + principles.length + tools.length + patterns.length} neural network entries. Found ${issues.length} issues (${highSeverityIssues.length} high severity).`,
+    };
   }
 }
 

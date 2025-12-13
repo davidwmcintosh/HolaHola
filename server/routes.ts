@@ -1551,6 +1551,20 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  // Audit neural network for incomplete/vague entries
+  app.post('/api/self-surgery/audit-network', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { editorPersonaService } = await import('./services/editor-persona-service');
+      const result = await editorPersonaService.auditNeuralNetwork();
+      
+      console.log(`[Self-Surgery] Neural network audit: ${result.issues.length} issues, ${result.surgeryProposals.length} proposals`);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error auditing neural network:", error);
+      res.status(500).json({ message: "Failed to audit neural network" });
+    }
+  });
+
   // Get student memory context (insights, motivations, struggles, notes, connections)
   app.get('/api/memory/student/:studentId', isAuthenticated, async (req: any, res) => {
     try {

@@ -36,6 +36,7 @@ export type BeaconType =
   | 'cultural_insight'       // Cultural/contextual teaching moment
   | 'vocabulary_intro'       // New vocabulary introduced
   | 'self_surgery_proposal'  // Daniela proposes neural network modification
+  | 'knowledge_ping'         // Daniela notices a gap or issue in her knowledge
   // Support beacons (Sofia)
   | 'support_handoff'        // Daniela handed off to Sofia
   | 'tech_issue_reported'    // User reported a technical issue
@@ -295,6 +296,7 @@ class HiveCollaborationService {
       cultural_insight: '🌍 Cultural Insight',
       vocabulary_intro: '📝 New Vocabulary',
       self_surgery_proposal: '🧠 Self-Surgery Proposal',
+      knowledge_ping: '🔔 Knowledge Ping',
       // Support beacons (Sofia)
       support_handoff: '🔀 Support Handoff',
       tech_issue_reported: '🔧 Tech Issue Reported',

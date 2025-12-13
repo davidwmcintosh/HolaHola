@@ -21,15 +21,19 @@ import { surgeryOrchestrator } from "./collaborative-surgery-orchestrator";
 const WORKER_INTERVAL_MS = parseInt(process.env.EDITOR_WORKER_INTERVAL_MS || '30000', 10); // 30 seconds default
 const MAX_BEACONS_PER_CYCLE = parseInt(process.env.EDITOR_MAX_BEACONS_PER_CYCLE || '10', 10);
 const MAX_CHANNELS_PER_CYCLE = parseInt(process.env.EDITOR_MAX_CHANNELS_PER_CYCLE || '3', 10);
+const AUDIT_INTERVAL_MS = parseInt(process.env.EDITOR_AUDIT_INTERVAL_MS || '86400000', 10); // 24 hours default
 
 // Worker state
 let workerInterval: NodeJS.Timeout | null = null;
+let auditInterval: NodeJS.Timeout | null = null;
 let isProcessing = false;
 let lastProcessedAt: Date | null = null;
+let lastAuditAt: Date | null = null;
 let cumulativeCounts = {
   beacons: 0,
   channels: 0,
   errors: 0,
+  audits: 0,
 };
 
 /**
@@ -230,6 +234,43 @@ export function resetWorkerStats(): void {
     beacons: 0,
     channels: 0,
     errors: 0,
+    audits: 0,
   };
   console.log('[Editor Worker] Stats reset');
+}
+
+/**
+ * Run a neural network audit cycle
+ */
+async function runAuditCycle(): Promise<void> {
+  if (!isSecretConfigured()) {
+    console.log('[Editor Worker] Skipping audit - ARCHITECT_SECRET not configured');
+    return;
+  }
+  
+  console.log('[Editor Worker] Running neural network audit...');
+  
+  try {
+    const result = await editorPersonaService.auditNeuralNetwork();
+    cumulativeCounts.audits++;
+    lastAuditAt = new Date();
+    console.log(`[Editor Worker] Audit complete: ${result.issues.length} issues found, ${result.surgeryProposals.length} proposals generated`);
+  } catch (error) {
+    cumulativeCounts.errors++;
+    console.error('[Editor Worker] Error in audit cycle:', error);
+  }
+}
+
+/**
+ * Trigger an immediate audit (for API trigger)
+ */
+export async function triggerAuditCycle(): Promise<{ issues: number; proposals: number }> {
+  if (!isSecretConfigured()) {
+    throw new Error('ARCHITECT_SECRET not configured - cannot trigger audit');
+  }
+  
+  const result = await editorPersonaService.auditNeuralNetwork();
+  cumulativeCounts.audits++;
+  lastAuditAt = new Date();
+  return { issues: result.issues.length, proposals: result.surgeryProposals.length };
 }
