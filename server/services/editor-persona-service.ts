@@ -212,6 +212,7 @@ SESSION CONTEXT:
       correction: 'Error Correction',
       cultural_insight: 'Cultural Teaching',
       vocabulary_intro: 'Vocabulary Introduction',
+      self_surgery_proposal: 'Self-Surgery Proposal',
     };
     
     const beaconLabel = beaconLabels[snapshot.beaconType as BeaconType] || 'Observation';
