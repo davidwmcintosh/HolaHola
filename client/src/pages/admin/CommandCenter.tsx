@@ -3198,7 +3198,253 @@ function DevToolsTab() {
           )}
         </div>
       </CollapsibleSection>
+
+      <CrossEnvSyncSection />
     </div>
+  );
+}
+
+function CrossEnvSyncSection() {
+  const { toast } = useToast();
+  
+  const { data: syncStatus, isLoading: statusLoading, refetch: refetchStatus } = useQuery<{
+    configured: boolean;
+    peerUrl: string | null;
+    currentEnvironment: string;
+    lastPush: any;
+    lastPull: any;
+    recentRuns: any[];
+  }>({
+    queryKey: ["/api/sync/status"],
+    refetchInterval: 30000,
+  });
+
+  const pushMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/sync/push");
+    },
+    onSuccess: (data: any) => {
+      refetchStatus();
+      toast({
+        title: data.success ? "Push Successful" : "Push Completed with Errors",
+        description: `Synced in ${data.durationMs}ms${data.errors?.length ? ` (${data.errors.length} errors)` : ""}`,
+        variant: data.success ? "default" : "destructive",
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Push Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const pullMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/sync/pull");
+    },
+    onSuccess: (data: any) => {
+      refetchStatus();
+      toast({
+        title: data.success ? "Pull Successful" : "Pull Completed with Errors",
+        description: `Synced in ${data.durationMs}ms${data.errors?.length ? ` (${data.errors.length} errors)` : ""}`,
+        variant: data.success ? "default" : "destructive",
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Pull Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const fullSyncMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/sync/full");
+    },
+    onSuccess: (data: any) => {
+      refetchStatus();
+      const pushOk = data.push?.success;
+      const pullOk = data.pull?.success;
+      toast({
+        title: pushOk && pullOk ? "Full Sync Successful" : "Sync Completed with Issues",
+        description: `Push: ${pushOk ? "OK" : "Failed"}, Pull: ${pullOk ? "OK" : "Failed"}`,
+        variant: pushOk && pullOk ? "default" : "destructive",
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Full Sync Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const formatDate = (date: string | Date | null) => {
+    if (!date) return "Never";
+    return new Date(date).toLocaleString();
+  };
+
+  const isAnySyncRunning = pushMutation.isPending || pullMutation.isPending || fullSyncMutation.isPending;
+
+  return (
+    <CollapsibleSection 
+      title="Cross-Environment Sync" 
+      icon={<Globe className="h-5 w-5 text-primary" />}
+      defaultOpen={false}
+    >
+      <div className="mt-4 space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <RefreshCw className="h-4 w-4" />
+              Neural Network Sync
+            </CardTitle>
+            <CardDescription>
+              Synchronize Daniela's neural network between development and production environments
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {statusLoading ? (
+              <Skeleton className="h-24" />
+            ) : !syncStatus?.configured ? (
+              <div className="text-center py-4">
+                <AlertTriangle className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
+                <p className="text-muted-foreground">
+                  Cross-environment sync not configured.
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Set <code className="bg-muted px-1 rounded">SYNC_PEER_URL</code> and{" "}
+                  <code className="bg-muted px-1 rounded">SYNC_SHARED_SECRET</code> environment variables.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Current Environment:</span>
+                    <Badge variant="outline" className="ml-2 capitalize">
+                      {syncStatus.currentEnvironment}
+                    </Badge>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Peer URL:</span>
+                    <span className="ml-2 font-mono text-xs truncate">
+                      {syncStatus.peerUrl?.replace(/^https?:\/\//, "").split("/")[0]}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 rounded-md border">
+                    <div className="flex items-center gap-2 mb-1">
+                      <ArrowUp className="h-4 w-4 text-blue-500" />
+                      <span className="font-medium text-sm">Last Push</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatDate(syncStatus.lastPush?.completedAt)}
+                    </div>
+                    {syncStatus.lastPush && (
+                      <Badge 
+                        variant={syncStatus.lastPush.status === "success" ? "default" : "destructive"}
+                        className="mt-1"
+                      >
+                        {syncStatus.lastPush.status}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="p-3 rounded-md border">
+                    <div className="flex items-center gap-2 mb-1">
+                      <ArrowDown className="h-4 w-4 text-green-500" />
+                      <span className="font-medium text-sm">Last Pull</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatDate(syncStatus.lastPull?.completedAt)}
+                    </div>
+                    {syncStatus.lastPull && (
+                      <Badge 
+                        variant={syncStatus.lastPull.status === "success" ? "default" : "destructive"}
+                        className="mt-1"
+                      >
+                        {syncStatus.lastPull.status}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => pushMutation.mutate()}
+                    disabled={isAnySyncRunning}
+                    data-testid="button-sync-push"
+                  >
+                    {pushMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <ArrowUp className="h-4 w-4 mr-1" />
+                    )}
+                    Push to Peer
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => pullMutation.mutate()}
+                    disabled={isAnySyncRunning}
+                    data-testid="button-sync-pull"
+                  >
+                    {pullMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4 mr-1" />
+                    )}
+                    Pull from Peer
+                  </Button>
+                  <Button
+                    onClick={() => fullSyncMutation.mutate()}
+                    disabled={isAnySyncRunning}
+                    data-testid="button-sync-full"
+                  >
+                    {fullSyncMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-1" />
+                    )}
+                    Full Sync
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {syncStatus?.recentRuns && syncStatus.recentRuns.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Recent Sync Runs</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {syncStatus.recentRuns.slice(0, 5).map((run: any) => (
+                  <div key={run.id} className="flex items-center justify-between text-sm p-2 rounded border">
+                    <div className="flex items-center gap-2">
+                      {run.direction === "push" ? (
+                        <ArrowUp className="h-3 w-3 text-blue-500" />
+                      ) : (
+                        <ArrowDown className="h-3 w-3 text-green-500" />
+                      )}
+                      <span className="capitalize">{run.direction}</span>
+                    </div>
+                    <Badge variant={run.status === "success" ? "default" : run.status === "failed" ? "destructive" : "secondary"}>
+                      {run.status}
+                    </Badge>
+                    <span className="text-muted-foreground text-xs">
+                      {run.durationMs ? `${run.durationMs}ms` : "-"}
+                    </span>
+                    <span className="text-muted-foreground text-xs">
+                      {formatDate(run.startedAt)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </CollapsibleSection>
   );
 }
 

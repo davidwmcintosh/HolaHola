@@ -13812,6 +13812,90 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
 
+  // ============================================================================
+  // CROSS-ENVIRONMENT SYNC API
+  // Peer-to-peer routes use HMAC auth, admin routes use session auth
+  // ============================================================================
+  
+  // Import sync services
+  const { validateSyncRequest } = await import('./middleware/sync-auth');
+  const { syncBridge } = await import('./services/sync-bridge');
+  
+  // Peer-to-peer: Export bundle (called by remote peer pulling from us)
+  app.post("/api/sync/export", validateSyncRequest, async (req: any, res) => {
+    try {
+      console.log('[SYNC API] Export request received from peer');
+      const bundle = await syncBridge.collectExportBundle();
+      res.json(bundle);
+    } catch (error: any) {
+      console.error('[SYNC API] Export error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Peer-to-peer: Import bundle (called by remote peer pushing to us)
+  app.post("/api/sync/import", validateSyncRequest, async (req: any, res) => {
+    try {
+      console.log('[SYNC API] Import request received from peer');
+      const bundle = req.body;
+      const result = await syncBridge.applyImportBundle(bundle);
+      res.json(result);
+    } catch (error: any) {
+      console.error('[SYNC API] Import error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Admin: Trigger push to peer environment
+  app.post("/api/sync/push", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const triggeredBy = req.user?.claims?.sub || 'admin';
+      console.log('[SYNC API] Manual push triggered by', triggeredBy);
+      const result = await syncBridge.pushToPeer(triggeredBy);
+      res.json(result);
+    } catch (error: any) {
+      console.error('[SYNC API] Push error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Admin: Trigger pull from peer environment
+  app.post("/api/sync/pull", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const triggeredBy = req.user?.claims?.sub || 'admin';
+      console.log('[SYNC API] Manual pull triggered by', triggeredBy);
+      const result = await syncBridge.pullFromPeer(triggeredBy);
+      res.json(result);
+    } catch (error: any) {
+      console.error('[SYNC API] Pull error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Admin: Trigger full bidirectional sync
+  app.post("/api/sync/full", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const triggeredBy = req.user?.claims?.sub || 'admin';
+      console.log('[SYNC API] Manual full sync triggered by', triggeredBy);
+      const result = await syncBridge.performFullSync(triggeredBy);
+      res.json(result);
+    } catch (error: any) {
+      console.error('[SYNC API] Full sync error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Admin/Developer: Get sync status and history
+  app.get("/api/sync/status", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
+    try {
+      const status = await syncBridge.getSyncStatus();
+      res.json(status);
+    } catch (error: any) {
+      console.error('[SYNC API] Status error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Server is now passed in from index.ts where WebSocket handler is attached first
   // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }

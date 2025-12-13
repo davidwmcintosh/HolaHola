@@ -1,4 +1,6 @@
 import { neuralNetworkSync } from './neural-network-sync';
+import { syncBridge, type SyncResult } from './sync-bridge';
+import { isSyncConfigured } from '../middleware/sync-auth';
 
 let scheduledTimer: NodeJS.Timeout | null = null;
 let lastSyncResult: { 
@@ -17,6 +19,10 @@ let lastSyncResult: {
     procedures: number;
     principles: number;
     patterns: number;
+  };
+  crossEnvSync?: {
+    push: SyncResult;
+    pull: SyncResult;
   };
   error?: string;
 } | null = null;
@@ -89,6 +95,18 @@ async function runNightlySync(): Promise<void> {
     const approvedSuggestions = await neuralNetworkSync.autoApproveDanielaSuggestions();
     console.log(`  - Auto-approved ${approvedSuggestions.approved} suggestions for sync`);
     
+    // 6. Cross-Environment Sync (bidirectional dev ↔ prod sync)
+    let crossEnvResult: { push: SyncResult; pull: SyncResult } | undefined;
+    if (isSyncConfigured()) {
+      console.log(`[SYNC-SCHEDULER] Cross-environment sync enabled, performing full sync...`);
+      crossEnvResult = await syncBridge.performFullSync('nightly');
+      console.log(`[SYNC-SCHEDULER] Cross-environment sync complete:`);
+      console.log(`  - Push: ${crossEnvResult.push.success ? 'success' : 'failed'} (${crossEnvResult.push.durationMs}ms)`);
+      console.log(`  - Pull: ${crossEnvResult.pull.success ? 'success' : 'failed'} (${crossEnvResult.pull.durationMs}ms)`);
+    } else {
+      console.log(`[SYNC-SCHEDULER] Cross-environment sync not configured (set SYNC_PEER_URL and SYNC_SHARED_SECRET)`);
+    }
+    
     if (bestPracticesResult.success) {
       console.log(`[SYNC-SCHEDULER] Nightly sync complete: ${bestPracticesResult.syncedCount} best practices synced`);
       lastSyncResult = {
@@ -108,6 +126,7 @@ async function runNightlySync(): Promise<void> {
           principles: proceduralData.principles.length,
           patterns: proceduralData.patterns.length,
         },
+        crossEnvSync: crossEnvResult,
       };
     } else {
       console.error('[SYNC-SCHEDULER] Nightly sync failed:', bestPracticesResult.error);
@@ -115,6 +134,7 @@ async function runNightlySync(): Promise<void> {
         timestamp: new Date(),
         success: false,
         error: bestPracticesResult.error,
+        crossEnvSync: crossEnvResult,
       };
     }
   } catch (error: any) {
