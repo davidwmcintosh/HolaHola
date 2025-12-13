@@ -8,6 +8,65 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 13, 2025 - Editor Co-Surgeon Upgrades
+
+**Overview**: Enhanced the Editor's ability to act as Daniela's "co-surgeon" - a development partner that can observe teaching sessions, propose neural network changes, and receive richer context for deeper analysis.
+
+#### 1. Language-Specific Neural Context
+
+Editor now receives the same language-specific knowledge that Daniela has:
+- Idioms, cultural nuances, learner error patterns, dialect variations
+- Fetched via `getNeuralNetworkContext()` / `formatNeuralNetworkForPrompt()` 
+- Injected into `generateBeaconResponse()` when processing beacons
+
+#### 2. EDITOR_SURGERY Command
+
+Editor can now propose neural network modifications (like Daniela's SELF_SURGERY):
+
+```
+[EDITOR_SURGERY target="teaching_principles" content='{"category":"correction","principle":"Always validate student intent before correcting"}' reasoning="Observed pattern across 3 sessions" priority=70 confidence=85]
+```
+
+**Target tables**: tutor_procedures, teaching_principles, tool_knowledge, situational_patterns
+
+**Validation**: Schema-aligned requirements enforced:
+- `tutor_procedures`: category, trigger, procedure
+- `teaching_principles`: category, principle
+- `tool_knowledge`: toolName, purpose, syntax
+- `situational_patterns`: patternName
+
+**Storage**: Proposals saved via `storage.createSelfSurgeryProposal()` with `sessionMode: 'editor_beacon'`
+
+#### 3. Conversation History Enrichment
+
+Beacons can now include recent conversation turns for deeper Editor analysis:
+
+- Added `conversationHistory` field to `EmitBeaconParams` interface
+- Flows through to `editorListeningSnapshots` table (jsonb column)
+- Editor prompt displays last N turns for context
+
+#### 4. Model Escalation with Fallback
+
+For `self_surgery_proposal` beacons (complex analysis), Editor escalates to Sonnet with graceful fallback:
+
+```typescript
+if (useSonnet) {
+  try {
+    return await tryModel('claude-sonnet-4-20250514');
+  } catch (sonnetError) {
+    console.warn('[Editor] Sonnet failed, falling back to Haiku');
+    return await tryModel('claude-3-haiku-20240307');
+  }
+}
+```
+
+#### Files Modified
+
+- `server/services/editor-persona-service.ts` - All 4 upgrades implemented
+- `server/services/hive-collaboration-service.ts` - EmitBeaconParams extended with conversationHistory
+
+---
+
 ### Session: December 13, 2025 - Editor Feedback Loop Implementation
 
 **Overview**: Completed the feedback loop where Editor observations are surfaced to Daniela in her system prompt, and Daniela can acknowledge/adopt them using `[ADOPT_INSIGHT:id]` markers.
