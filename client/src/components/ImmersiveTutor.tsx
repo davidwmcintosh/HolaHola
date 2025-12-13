@@ -95,6 +95,20 @@ interface BrainSurgeryThreadSummary {
   lastActivity: string;
 }
 
+// Collaboration Event types for real-time Daniela ↔ Architect communication
+interface CollaborationEvent {
+  id: string;
+  eventType: string;
+  senderRole: 'daniela' | 'editor' | 'founder' | 'system';
+  senderId?: string | null;
+  content: string;
+  summary?: string | null;
+  metadata?: Record<string, unknown> | null;
+  isRead: boolean;
+  isResolved: boolean;
+  createdAt: string;
+}
+
 interface ImmersiveTutorProps {
   messages: Message[];
   onRecordingStart: () => void;
@@ -214,6 +228,26 @@ export function ImmersiveTutor({
     queryKey: ["/api/collaboration/channels"],
     enabled: isDeveloper && isCollabOpen && !conversationId,
   });
+
+  // Collaboration events (Daniela ↔ Architect messages) - real-time feed
+  // Keep polling even when sheet is closed so badge can show new events
+  const { data: collabEventsData, isLoading: collabEventsLoading } = useQuery<CollaborationEvent[]>({
+    queryKey: ["/api/collaboration/feed"],
+    enabled: isDeveloper,
+    refetchInterval: isDeveloper ? 10000 : false, // 10s background refresh for badge updates
+  });
+  const collabEvents = collabEventsData ?? [];
+
+  // Track new events for visual indicator
+  const [lastSeenEventCount, setLastSeenEventCount] = useState(0);
+  const hasNewEvents = collabEvents.length > lastSeenEventCount && lastSeenEventCount > 0;
+
+  // Reset new events indicator when switching to hive tab
+  useEffect(() => {
+    if (isCollabOpen && collabPanelTab === 'hive') {
+      setLastSeenEventCount(collabEvents.length);
+    }
+  }, [isCollabOpen, collabPanelTab, collabEvents.length]);
 
   // Brain Surgery queries and mutations
   const { data: brainSurgeryThreads = [] } = useQuery<BrainSurgeryThreadSummary[]>({
@@ -468,9 +502,12 @@ export function ImmersiveTutor({
 
             <Tabs value={collabPanelTab} onValueChange={(v) => setCollabPanelTab(v as "hive" | "brain-surgery")} className="flex-1 flex flex-col">
               <TabsList className="w-full grid grid-cols-2 mb-3">
-                <TabsTrigger value="hive" className="text-xs" data-testid="tab-hive-mind">
+                <TabsTrigger value="hive" className="text-xs relative" data-testid="tab-hive-mind">
                   <Handshake className="h-3 w-3 mr-1" />
                   Hive Mind
+                  {hasNewEvents && collabPanelTab !== 'hive' && (
+                    <span className="absolute -top-1 -right-1 bg-purple-500 rounded-full h-2 w-2" />
+                  )}
                 </TabsTrigger>
                 <TabsTrigger value="brain-surgery" className="text-xs" data-testid="tab-brain-surgery">
                   <Brain className="h-3 w-3 mr-1" />
@@ -617,6 +654,65 @@ export function ImmersiveTutor({
                     </div>
                   )}
                 </ScrollArea>
+
+                {/* Collaboration Events Feed - Daniela ↔ Architect */}
+                {collabEvents.length > 0 && (
+                  <div className="border-t pt-3 mt-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Radio className="h-4 w-4 text-purple-500" />
+                      <span className="text-xs font-medium">Collaboration Feed</span>
+                      {hasNewEvents && (
+                        <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-purple-500">
+                          New
+                        </Badge>
+                      )}
+                      <span className="text-[10px] text-muted-foreground ml-auto">
+                        {collabEvents.length} events
+                      </span>
+                    </div>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {collabEvents.slice(0, 10).map((event) => (
+                        <div
+                          key={event.id}
+                          className={`p-2 rounded-lg border text-xs ${
+                            event.senderRole === 'daniela'
+                              ? 'border-blue-500/30 bg-blue-50/30 dark:bg-blue-950/20'
+                              : event.senderRole === 'editor'
+                              ? 'border-green-500/30 bg-green-50/30 dark:bg-green-950/20'
+                              : 'border-purple-500/30 bg-purple-50/30 dark:bg-purple-950/20'
+                          }`}
+                          data-testid={`collab-event-${event.id}`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge 
+                              variant="outline" 
+                              className={`text-[10px] px-1.5 py-0 ${
+                                event.senderRole === 'daniela' ? 'border-blue-300 text-blue-600 dark:text-blue-400' :
+                                event.senderRole === 'editor' ? 'border-green-300 text-green-600 dark:text-green-400' :
+                                'border-purple-300 text-purple-600 dark:text-purple-400'
+                              }`}
+                            >
+                              {event.senderRole === 'daniela' ? 'Daniela' : 
+                               event.senderRole === 'editor' ? 'Architect' : 'Founder'}
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                              {event.eventType.replace(/_/g, ' ')}
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground ml-auto">
+                              {new Date(event.createdAt).toLocaleTimeString()}
+                            </span>
+                          </div>
+                          <p className="text-xs line-clamp-2">{event.summary || event.content.slice(0, 150)}</p>
+                          {!event.isResolved && (event.metadata as any)?.actionRequired && (
+                            <Badge variant="secondary" className="text-[10px] mt-1">
+                              Action Required
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Panel footer - channel info */}
                 {hiveData?.channel && (
