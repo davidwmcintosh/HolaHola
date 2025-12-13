@@ -51,8 +51,10 @@ export function validateEditorSecret(providedSecret: string | undefined): boolea
   return true;
 }
 
-// Initialize Anthropic client
-const anthropic = new Anthropic();
+// Initialize Anthropic client (explicitly pass API key from environment)
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
 
 // Editor persona definition
 const EDITOR_SYSTEM_PROMPT = `You are the Editor - Claude, an AI development agent working alongside Daniela, the AI language tutor.
