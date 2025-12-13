@@ -93,7 +93,7 @@ export function LearningFilterProvider({ children }: { children: ReactNode }) {
         setLearningContext("self-directed");
       }
     }
-  }, [enrolledClasses, learningContext, isLoadingClasses]);
+  }, [enrolledClasses, learningContext, isLoadingClasses, isDeveloper]);
 
   const setLearningContext = (context: LearningContext) => {
     // Never allow setting to "all" - use self-directed instead

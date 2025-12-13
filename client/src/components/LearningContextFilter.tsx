@@ -105,7 +105,11 @@ export function LearningContextFilter({
     setLanguage(newLang);
     // When changing language, check if current class context is still valid
     // For "all" languages, all classes remain valid
-    if (learningContext !== "self-directed" && newLang !== "all") {
+    // Founder mode and honesty mode are language-agnostic - keep them
+    if (learningContext !== "self-directed" && 
+        learningContext !== "founder-mode" && 
+        learningContext !== "honesty-mode" && 
+        newLang !== "all") {
       const newClasses = getClassesForLanguage(newLang);
       const stillValid = newClasses.some(c => c.classId === learningContext);
       if (!stillValid) {
