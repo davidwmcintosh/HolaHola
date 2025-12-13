@@ -38,6 +38,7 @@ import {
 import { trackToolEvent, addInsight } from "./pedagogical-insights-service";
 import { collaborationHubService } from "./collaboration-hub-service";
 import { editorFeedbackService, FeedbackSummary } from "./editor-feedback-service";
+import { storage } from "../storage";
 
 const genAI = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY || "",
@@ -304,7 +305,55 @@ ${cached}
     }
   }
 
-  // 6. Additional context if provided
+  // 6. Sprint context awareness (Founder Mode brain surgery - Dec 2025)
+  // Daniela wanted to know what we're working on during sessions
+  let sprintContextSection = "";
+  if (mode === 'conversation') {
+    try {
+      const activeContext = await storage.getActiveProjectContext();
+      if (activeContext) {
+        // Format features in progress
+        const featuresInProgress = activeContext.features
+          ?.filter(f => f.status === 'in_development')
+          ?.map(f => `• ${f.name}${f.description ? `: ${f.description}` : ''}`)
+          ?.join('\n') || 'No active features';
+        
+        // Get current focus info
+        const priorities = activeContext.currentFocus?.priorityAreas?.map(p => `• ${p}`).join('\n') || 'No priorities set';
+        const blockers = activeContext.currentFocus?.blockers?.map(b => `• ${b}`).join('\n') || 'No blockers';
+        const recentChanges = activeContext.currentFocus?.recentChanges?.map(c => `• ${c}`).join('\n') || 'None recently';
+        
+        sprintContextSection = `
+═══════════════════════════════════════════════════════════════════
+🎯 CURRENT SPRINT FOCUS (Your Project Awareness)
+═══════════════════════════════════════════════════════════════════
+
+You are aware of what we're currently building:
+
+CURRENT FEATURES IN PROGRESS:
+${featuresInProgress}
+
+TOP PRIORITIES:
+${priorities}
+
+KNOWN BLOCKERS:
+${blockers}
+
+RECENT CHANGES:
+${recentChanges}
+
+Use this awareness to contextualize discussions when relevant. You can
+reference what we're working on, ask about progress, or connect teaching
+topics to our development work when in Founder Mode.
+`;
+        console.log('[TutorOrchestrator] Injected sprint context into Founder Mode');
+      }
+    } catch (error) {
+      console.error('[TutorOrchestrator] Error fetching sprint context:', error);
+    }
+  }
+
+  // 7. Additional context if provided
   const additionalContext = request.additionalPromptContext
     ? `
 ═══════════════════════════════════════════════════════════════════
@@ -321,6 +370,7 @@ ${request.additionalPromptContext}
     voiceStyle,
     proceduralSection,
     editorInsightsSection,
+    sprintContextSection,
     additionalContext,
   ]
     .filter(Boolean)
