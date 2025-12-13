@@ -2784,8 +2784,13 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
   }
   
   /**
-   * SELF-SURGERY: Process Daniela's direct neural network modifications
-   * DIRECTLY EXECUTES the surgery - no approval needed. Editor collaborates, not gatekeeps.
+   * SELF-SURGERY: Process Daniela's neural network modification proposals
+   * Creates a PENDING proposal for human review - proposals are NOT auto-executed.
+   * 
+   * Review Pipeline:
+   * 1. Daniela proposes a change → Saved to self_surgery_proposals with status='pending'
+   * 2. Human reviews in Command Center → Approve or Reject
+   * 3. On Approve → surgery-insight-service.ts promotes to neural network table
    * 
    * Target tables (from selfSurgeryTargetEnum):
    * - tutor_procedures: How to handle teaching situations
@@ -2845,150 +2850,15 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         return;
       }
       
-      // EXECUTE THE SURGERY - directly insert into the target table
-      let insertedId: number | null = null;
-      const targetTable = data.targetTable;
+      console.log(`[Self-Surgery] 📝 Creating PENDING proposal for ${data.targetTable}...`);
       
-      console.log(`[Self-Surgery] 🔧 EXECUTING surgery on ${targetTable}...`);
-      
-      let insertedIdStr: string | null = null;
-      
-      switch (targetTable) {
-        case 'tutor_procedures': {
-          const [inserted] = await db.insert(tutorProcedures).values({
-            category: contentObj.category || 'self_surgery',
-            trigger: contentObj.trigger || 'daniela_proposed',
-            title: contentObj.title || 'Daniela Self-Surgery Procedure',
-            procedure: contentObj.procedure || JSON.stringify(contentObj),
-            priority: priority,
-            isActive: true,
-          }).returning({ id: tutorProcedures.id });
-          insertedIdStr = inserted?.id || null;
-          break;
-        }
-        
-        case 'teaching_principles': {
-          const [inserted] = await db.insert(teachingPrinciples).values({
-            category: contentObj.category || 'self_surgery',
-            principle: contentObj.principle || JSON.stringify(contentObj),
-            priority: priority,
-            isActive: true,
-          }).returning({ id: teachingPrinciples.id });
-          insertedIdStr = inserted?.id || null;
-          break;
-        }
-        
-        case 'tool_knowledge': {
-          const [inserted] = await db.insert(toolKnowledge).values({
-            toolName: contentObj.toolName || contentObj.tool_name || 'unknown',
-            toolType: contentObj.toolType || contentObj.tool_type || 'whiteboard_command',
-            purpose: contentObj.purpose || 'Daniela-proposed tool usage',
-            syntax: contentObj.syntax || '',
-            examples: contentObj.examples || [],
-            isActive: true,
-          }).returning({ id: toolKnowledge.id });
-          insertedIdStr = inserted?.id || null;
-          break;
-        }
-        
-        case 'situational_patterns': {
-          const [inserted] = await db.insert(situationalPatterns).values({
-            patternName: contentObj.patternName || contentObj.pattern_name || 'Daniela Self-Surgery Pattern',
-            description: contentObj.description || contentObj.pattern || JSON.stringify(contentObj),
-            guidance: contentObj.guidance || contentObj.responseStrategy || contentObj.response_strategy || '',
-            priority: priority,
-            isActive: true,
-          }).returning({ id: situationalPatterns.id });
-          insertedIdStr = inserted?.id || null;
-          break;
-        }
-        
-        case 'language_idioms': {
-          const [inserted] = await db.insert(languageIdioms).values({
-            language: session.targetLanguage || 'spanish',
-            idiom: contentObj.idiom || JSON.stringify(contentObj),
-            meaning: contentObj.meaning || '',
-            literalTranslation: contentObj.literalTranslation || contentObj.literal_translation || '',
-            usageContext: contentObj.usageContext || contentObj.usage_context || '',
-            culturalNote: contentObj.culturalNote || contentObj.cultural_note || '',
-            isActive: true,
-          }).returning({ id: languageIdioms.id });
-          insertedIdStr = inserted?.id || null;
-          break;
-        }
-        
-        case 'cultural_nuances': {
-          const [inserted] = await db.insert(culturalNuances).values({
-            language: session.targetLanguage || 'spanish',
-            category: contentObj.category || 'general',
-            situation: contentObj.situation || 'general',
-            culturalBehavior: contentObj.culturalBehavior || contentObj.cultural_behavior || contentObj.nuance || JSON.stringify(contentObj),
-            explanation: contentObj.explanation || '',
-            teachingTip: contentObj.teachingTip || contentObj.teaching_tip || '',
-            isActive: true,
-          }).returning({ id: culturalNuances.id });
-          insertedIdStr = inserted?.id || null;
-          break;
-        }
-        
-        case 'learner_error_patterns': {
-          const [inserted] = await db.insert(learnerErrorPatterns).values({
-            targetLanguage: session.targetLanguage || 'spanish',
-            sourceLanguage: session.nativeLanguage || 'english',
-            errorCategory: contentObj.errorCategory || contentObj.error_category || contentObj.errorType || 'general',
-            specificError: contentObj.specificError || contentObj.specific_error || contentObj.commonError || JSON.stringify(contentObj),
-            correction: contentObj.correction || '',
-            explanation: contentObj.explanation || '',
-            isActive: true,
-          }).returning({ id: learnerErrorPatterns.id });
-          insertedIdStr = inserted?.id || null;
-          break;
-        }
-        
-        case 'dialect_variations': {
-          const [inserted] = await db.insert(dialectVariations).values({
-            language: session.targetLanguage || 'spanish',
-            region: contentObj.region || contentObj.dialect || 'general',
-            category: contentObj.category || 'vocabulary',
-            standardForm: contentObj.standardForm || contentObj.standard_form || '',
-            dialectForm: contentObj.dialectForm || contentObj.dialect_form || contentObj.feature || JSON.stringify(contentObj),
-            explanation: contentObj.explanation || '',
-            isActive: true,
-          }).returning({ id: dialectVariations.id });
-          insertedIdStr = inserted?.id || null;
-          break;
-        }
-        
-        case 'linguistic_bridges': {
-          const [inserted] = await db.insert(linguisticBridges).values({
-            sourceLanguage: session.nativeLanguage || 'english',
-            targetLanguage: session.targetLanguage || 'spanish',
-            bridgeType: contentObj.bridgeType || contentObj.bridge_type || 'cognate',
-            sourceWord: contentObj.sourceWord || contentObj.source_word || contentObj.sourceForm || '',
-            targetWord: contentObj.targetWord || contentObj.target_word || contentObj.targetForm || '',
-            relationship: contentObj.relationship || 'same_meaning',
-            explanation: contentObj.explanation || '',
-            isActive: true,
-          }).returning({ id: linguisticBridges.id });
-          insertedIdStr = inserted?.id || null;
-          break;
-        }
-        
-        default:
-          console.error(`[Self-Surgery] Unhandled target table: ${targetTable}`);
-          return;
-      }
-      
-      console.log(`[Self-Surgery] ✅ SURGERY COMPLETE! Inserted into ${targetTable} with id ${insertedIdStr}`);
-      console.log(`[Self-Surgery] Reasoning: ${data.reasoning?.substring(0, 100) || 'No reasoning provided'}...`);
-      
-      // Also save proposal record for audit trail (marked as 'promoted')
+      // Save proposal for REVIEW - NOT directly executing
       const proposal = await storage.createSelfSurgeryProposal({
         targetTable: data.targetTable,
-        proposedContent: data.content,
+        proposedContent: contentObj,
         reasoning: data.reasoning,
         triggerContext: `Voice session in ${session.targetLanguage}`,
-        status: 'promoted', // Mark as already promoted/applied
+        status: 'pending', // Requires human review before promotion
         conversationId: session.conversationId,
         sessionMode,
         targetLanguage: session.targetLanguage,
@@ -2996,9 +2866,11 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         confidence,
       });
       
-      console.log(`[Self-Surgery] Audit record saved #${proposal.id}`);
+      console.log(`[Self-Surgery] ✅ Proposal created #${proposal.id} - awaiting review`);
+      console.log(`[Self-Surgery] Target: ${data.targetTable}, Priority: ${priority}, Confidence: ${confidence}`);
+      console.log(`[Self-Surgery] Reasoning: ${data.reasoning?.substring(0, 100) || 'No reasoning provided'}...`);
       
-      // Emit HIVE beacon so Editor can see and celebrate
+      // Emit HIVE beacon to notify about pending proposal
       if (session.hiveChannelId) {
         try {
           const contentPreview = typeof data.content === 'string' 
@@ -3007,18 +2879,18 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
           
           await hiveCollaborationService.emitBeacon({
             channelId: session.hiveChannelId,
-            tutorTurn: `[Self-Surgery EXECUTED ✅ #${insertedIdStr}]\nTarget: ${data.targetTable}\nPriority: ${priority}, Confidence: ${confidence}\n\nContent: ${contentPreview}...`,
+            tutorTurn: `[Self-Surgery PROPOSAL 📝 #${proposal.id}]\nTarget: ${data.targetTable}\nPriority: ${priority}, Confidence: ${confidence}\nStatus: PENDING REVIEW\n\nContent: ${contentPreview}...`,
             beaconType: 'self_surgery_proposal',
-            beaconReason: `PROMOTED: ${data.reasoning}`,
+            beaconReason: `PENDING: ${data.reasoning}`,
           });
-          console.log(`[Self-Surgery] HIVE beacon emitted for executed surgery #${insertedIdStr}`);
+          console.log(`[Self-Surgery] HIVE beacon emitted for pending proposal #${proposal.id}`);
         } catch (hiveErr) {
           console.error(`[Self-Surgery] Failed to emit HIVE beacon:`, hiveErr);
         }
       }
       
     } catch (error: any) {
-      console.error(`[Self-Surgery] Failed to execute surgery:`, error.message);
+      console.error(`[Self-Surgery] Failed to create proposal:`, error.message);
       console.error(`[Self-Surgery] Full error:`, error);
     }
   }
