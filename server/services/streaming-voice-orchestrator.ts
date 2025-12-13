@@ -2850,6 +2850,15 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         return;
       }
       
+      // Validate content matches target table schema
+      const validation = this.validateSurgeryContent(data.targetTable, contentObj);
+      if (!validation.valid) {
+        console.warn(`[Self-Surgery] Invalid content for ${data.targetTable}: ${validation.error}`);
+        console.log(`[Self-Surgery] Missing fields will be noted but proposal still created for review`);
+        // Add validation warning to reasoning for reviewer awareness
+        data.reasoning = `[SCHEMA WARNING: ${validation.error}] ${data.reasoning || ''}`;
+      }
+      
       console.log(`[Self-Surgery] 📝 Creating PENDING proposal for ${data.targetTable}...`);
       
       // Save proposal for REVIEW - NOT directly executing
@@ -2857,7 +2866,7 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         targetTable: data.targetTable,
         proposedContent: contentObj,
         reasoning: data.reasoning,
-        triggerContext: `Voice session in ${session.targetLanguage}`,
+        triggerContext: `Voice session in ${session.targetLanguage} (${sessionMode}${session.conversationId ? `, conv: ${session.conversationId.slice(0, 8)}` : ''})`,
         status: 'pending', // Requires human review before promotion
         conversationId: session.conversationId,
         sessionMode,
@@ -2893,6 +2902,63 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       console.error(`[Self-Surgery] Failed to create proposal:`, error.message);
       console.error(`[Self-Surgery] Full error:`, error);
     }
+  }
+  
+  /**
+   * Validate Self-Surgery content matches required schema for target table
+   * Returns validation result with error message if invalid
+   */
+  private validateSurgeryContent(target: string, content: Record<string, any>): { valid: boolean; error?: string } {
+    switch (target) {
+      case 'tutor_procedures':
+        if (!content.category || !content.trigger || !content.procedure) {
+          return { valid: false, error: 'tutor_procedures requires: category, trigger, procedure' };
+        }
+        break;
+      case 'teaching_principles':
+        if (!content.category || !content.principle) {
+          return { valid: false, error: 'teaching_principles requires: category, principle' };
+        }
+        break;
+      case 'tool_knowledge':
+        if (!content.toolName || !content.toolType || !content.purpose || !content.syntax) {
+          return { valid: false, error: 'tool_knowledge requires: toolName, toolType, purpose, syntax' };
+        }
+        break;
+      case 'situational_patterns':
+        if (!content.patternName) {
+          return { valid: false, error: 'situational_patterns requires: patternName' };
+        }
+        break;
+      case 'language_idioms':
+        if (!content.idiom || !content.meaning || !content.language) {
+          return { valid: false, error: 'language_idioms requires: idiom, meaning, language' };
+        }
+        break;
+      case 'cultural_nuances':
+        if (!content.topic || !content.insight || !content.language) {
+          return { valid: false, error: 'cultural_nuances requires: topic, insight, language' };
+        }
+        break;
+      case 'learner_error_patterns':
+        if (!content.errorType || !content.targetLanguage) {
+          return { valid: false, error: 'learner_error_patterns requires: errorType, targetLanguage' };
+        }
+        break;
+      case 'dialect_variations':
+        if (!content.standardForm || !content.language) {
+          return { valid: false, error: 'dialect_variations requires: standardForm, language' };
+        }
+        break;
+      case 'linguistic_bridges':
+        if (!content.sourceLanguage || !content.targetLanguage || !content.concept) {
+          return { valid: false, error: 'linguistic_bridges requires: sourceLanguage, targetLanguage, concept' };
+        }
+        break;
+      default:
+        return { valid: false, error: `Unknown target table: ${target}` };
+    }
+    return { valid: true };
   }
   
   /**

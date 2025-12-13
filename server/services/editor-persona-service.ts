@@ -63,8 +63,8 @@ function validateSurgeryContent(target: string, content: Record<string, any>): {
       }
       break;
     case 'tool_knowledge':
-      if (!content.toolName || !content.purpose || !content.syntax) {
-        return { valid: false, error: 'tool_knowledge requires: toolName, purpose, syntax' };
+      if (!content.toolName || !content.toolType || !content.purpose || !content.syntax) {
+        return { valid: false, error: 'tool_knowledge requires: toolName, toolType, purpose, syntax' };
       }
       break;
     case 'situational_patterns':
