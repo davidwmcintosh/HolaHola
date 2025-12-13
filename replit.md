@@ -39,6 +39,40 @@ HolaHola provides conversational onboarding, an adaptive multi-phase conversatio
 ### System Design Choices
 Core data models include Users, Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress, CulturalTips, Topics, MediaFiles, and pedagogical tracking tables (teachingToolEvents, pedagogicalInsights). Daniela's "Neural Network for Pedagogical Strategies" tracks teaching effectiveness with three layers: Data Collection (tool usage logging), Analysis Engine (pattern discovery), and Self-Reflection Loop (tutor pedagogical judgment as first-class input). A Neural Network Expansion system provides language-specific pedagogical knowledge through five tables: languageIdioms, culturalNuances, learnerErrorPatterns, dialectVariations, and linguisticBridges. This knowledge is injected into Daniela's system prompt, allowing her to teach idioms, cultural context, common learner errors, dialect variations, and cross-language connections naturally. A Procedural Memory system stores 120+ pieces of "how-to" knowledge in Daniela's brain through four tables: toolKnowledge (22 entries for whiteboard commands/drills), tutorProcedures (44 entries for teaching situations like greetings, corrections, scaffolding), teachingPrinciples (35 entries for core pedagogical beliefs), and situationalPatterns (19 entries for Compass-triggered behaviors). The retrieval service (`procedural-memory-retrieval.ts`) pulls relevant knowledge based on session context, enabling a shift from scripted prompts to emergent, context-aware tutoring. The TONE whiteboard command visualizes Mandarin tone contours (1-5) with accurate pitch shapes for tonal language learners. An automated nightly sync at 3 AM promotes pending best practices to active teaching status; synced items can be retracted (marked inactive/rejected) through the Command Center UI. The voice architecture implements a two-tier validation system and uses Cartesia Pronunciation Dictionaries for TTS correction. A server-driven subtitle system with karaoke-style word highlighting uses native Cartesia word-level timestamps via WebSocket API, with automatic fallback. The `sentence_ready` architecture ensures audio playback only starts after word timings arrive. "Daniela's Compass" (Time-Aware Tutoring), enabled by `COMPASS_ENABLED=true`, manages tutor session state with an in-memory cache, tracking student snapshots, session roadmaps, and time. An "Architect's Voice" feature allows injecting notes into Daniela's context. A principled target language extraction system uses bold-only extraction and foreign character detection. A WebSocket-based progressive audio delivery system integrates Deepgram STT, Gemini streaming, and Cartesia WebSocket TTS. Dynamic streaming greetings are personalized, ACTFL-aware, history-aware, and context-aware. An AI-powered conversation tagging system categorizes conversations and vocabulary. A Syllabus-Aware Competency System tracks student progress against syllabus topics. A unified learning filter system provides consistent content filtering. A comprehensive metering system for voice tutoring time is integrated with Stripe, with a class-specific balance system. Centralized Role-Based Access Control (RBAC) defines hierarchical permissions. A hybrid grammar system combines conversational practice with targeted instruction. A syllabus content system provides pre-built syllabi across 9 languages. A class type taxonomy system categorizes classes. A tutor freedom level system controls AI tutor behavior per class. A unified ACTFL assessment system dynamically assesses learner proficiency. A placement assessment system verifies proficiency for class enrollments. A Command Center (`/admin`) provides a unified tab-based admin experience with role-based visibility for managing users, classes, analytics, and developer tools, including syllabus editing and an Image Library with quality control review.
 
+### Feature Sprint System (Developer Workflow)
+**Purpose**: A persistent planning and tracking system for feature development, integrated into the Command Center. Use this for all new features to maintain context across sessions.
+
+**Location**: Command Center → Feature Sprint tab (`/admin` → "Feature Sprint")
+
+**Core Components**:
+- **Feature Sprints**: Top-level containers for feature work with title, description, status, and priority
+- **Sprint Items**: Individual tasks within a sprint (spec, design, build, test phases)
+- **Consultation Threads**: AI-assisted discussions during development for clarifying requirements
+- **Sprint Templates**: Pre-built templates for feature briefs, pedagogy specs, and build plans
+- **Project Context Snapshots**: Gives AI assistants awareness of current project state (features, priorities, blockers)
+
+**Database Tables** (in `shared/schema.ts`):
+- `featureSprints` - Sprint containers
+- `sprintItems` - Individual sprint tasks
+- `consultationThreads` - AI consultation threads
+- `consultationMessages` - Messages within threads
+- `sprintTemplates` - Reusable templates
+- `projectContextSnapshots` - Project state for AI awareness
+
+**API Routes** (in `server/routes.ts`):
+- `GET/POST /api/feature-sprints` - Sprint CRUD
+- `GET/POST /api/sprint-consults` - Consultation threads
+- `GET/POST /api/project-context` - Project context for AI
+
+**Usage Workflow**:
+1. Create a new sprint for the feature you're building
+2. Add items for each phase (spec, design, build, test)
+3. Use consultation threads to discuss requirements with Daniela
+4. Update project context to keep AI aware of current work
+5. Mark items complete as you progress
+
+**Agent Instructions**: When starting significant feature work, check the Feature Sprint tab first. Create a sprint if one doesn't exist for the current work. Update project context when major features are completed.
+
 ## External Dependencies
 
 ### Third-Party Services
