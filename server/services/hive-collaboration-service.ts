@@ -27,6 +27,7 @@ import { collaborationHubService } from "./collaboration-hub-service";
 
 // Beacon types that trigger Editor awareness
 export type BeaconType = 
+  // Teaching beacons (Daniela)
   | 'teaching_moment'        // Daniela uses whiteboard, drill, or special tool
   | 'student_struggle'       // Student makes repeated errors or asks for help
   | 'tool_usage'             // Specific tool invocation (WRITE, COMPARE, etc.)
@@ -34,7 +35,14 @@ export type BeaconType =
   | 'correction'             // Daniela corrects a mistake
   | 'cultural_insight'       // Cultural/contextual teaching moment
   | 'vocabulary_intro'       // New vocabulary introduced
-  | 'self_surgery_proposal'; // Daniela proposes neural network modification
+  | 'self_surgery_proposal'  // Daniela proposes neural network modification
+  // Support beacons (Sofia)
+  | 'support_handoff'        // Daniela handed off to Sofia
+  | 'tech_issue_reported'    // User reported a technical issue
+  | 'hardware_diagnosed'     // Sofia diagnosed mic/audio/device issue
+  | 'support_escalation'     // Issue escalated to founder/human
+  | 'support_resolution'     // Issue successfully resolved
+  | 'support_return';        // User returned to Daniela from Sofia
 
 interface CreateChannelParams {
   conversationId: string;
@@ -194,7 +202,7 @@ class HiveCollaborationService {
     };
     
     const [snapshot] = await db.insert(editorListeningSnapshots)
-      .values(snapshotData)
+      .values(snapshotData as any)
       .returning();
     
     console.log(`[Hive] Beacon emitted: ${params.beaconType} in channel ${params.channelId}`);
@@ -278,6 +286,7 @@ class HiveCollaborationService {
    */
   private formatBeaconContent(snapshot: EditorListeningSnapshot): string {
     const typeLabels: Record<BeaconType, string> = {
+      // Teaching beacons (Daniela)
       teaching_moment: '📚 Teaching Moment',
       student_struggle: '😓 Student Struggle',
       tool_usage: '🛠️ Tool Usage',
@@ -286,6 +295,13 @@ class HiveCollaborationService {
       cultural_insight: '🌍 Cultural Insight',
       vocabulary_intro: '📝 New Vocabulary',
       self_surgery_proposal: '🧠 Self-Surgery Proposal',
+      // Support beacons (Sofia)
+      support_handoff: '🔀 Support Handoff',
+      tech_issue_reported: '🔧 Tech Issue Reported',
+      hardware_diagnosed: '🎤 Hardware Diagnosed',
+      support_escalation: '🚨 Escalation Needed',
+      support_resolution: '✅ Issue Resolved',
+      support_return: '↩️ Returned to Tutor',
     };
     
     const label = typeLabels[snapshot.beaconType as BeaconType] || '💡 Insight';

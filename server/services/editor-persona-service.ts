@@ -320,6 +320,7 @@ SESSION CONTEXT:
     
     // Build beacon context
     const beaconLabels: Record<BeaconType, string> = {
+      // Teaching beacons (Daniela)
       teaching_moment: 'Teaching Moment',
       student_struggle: 'Student Struggle',
       tool_usage: 'Whiteboard Tool Usage',
@@ -328,6 +329,13 @@ SESSION CONTEXT:
       cultural_insight: 'Cultural Teaching',
       vocabulary_intro: 'Vocabulary Introduction',
       self_surgery_proposal: 'Self-Surgery Proposal',
+      // Support beacons (Sofia)
+      support_handoff: 'Support Handoff',
+      tech_issue_reported: 'Technical Issue Reported',
+      hardware_diagnosed: 'Hardware Diagnosed',
+      support_escalation: 'Escalation Needed',
+      support_resolution: 'Issue Resolved',
+      support_return: 'Returned to Tutor',
     };
     
     const beaconLabel = beaconLabels[snapshot.beaconType as BeaconType] || 'Observation';

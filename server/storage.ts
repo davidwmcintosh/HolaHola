@@ -766,6 +766,8 @@ export interface IStorage {
   updateSupportTicket(id: string, data: Partial<SupportTicket>): Promise<SupportTicket | undefined>;
   createSupportMessage(data: InsertSupportMessage): Promise<SupportMessage>;
   getSupportMessages(ticketId: string): Promise<SupportMessage[]>;
+  // Alias for routes - maps senderType to role field
+  addSupportMessage(data: { ticketId: string; senderType: 'user' | 'support'; senderId?: string; content: string }): Promise<SupportMessage>;
   
   // Daniela Suggestions (Hive Mind - Active contributions from Daniela)
   createDanielaSuggestion(data: InsertDanielaSuggestion): Promise<DanielaSuggestion>;
@@ -5525,6 +5527,17 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(supportMessages)
       .where(eq(supportMessages.ticketId, ticketId))
       .orderBy(supportMessages.createdAt);
+  }
+  
+  // Alias for routes - maps senderType to role field
+  async addSupportMessage(data: { ticketId: string; senderType: 'user' | 'support'; senderId?: string; content: string }): Promise<SupportMessage> {
+    // Map senderType to role field expected by schema
+    const role = data.senderType === 'user' ? 'user' : 'support_agent';
+    return this.createSupportMessage({
+      ticketId: data.ticketId,
+      role,
+      content: data.content,
+    });
   }
   
   // ===== Daniela Suggestions (Hive Mind - Active contributions) =====

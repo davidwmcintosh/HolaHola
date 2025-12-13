@@ -52,6 +52,7 @@ import { getStreamingVoiceOrchestrator } from "./services/streaming-voice-orches
 import { collaborationHubService } from "./services/collaboration-hub-service";
 import { hiveCollaborationService } from "./services/hive-collaboration-service";
 import { editorPersonaService, validateEditorSecret } from "./services/editor-persona-service";
+import { supportPersonaService } from "./services/support-persona-service";
 import { 
   getAvailableActflLevels,
   getSupportedLanguages,
@@ -11248,7 +11249,7 @@ Current conversation context:
         }
       }
       
-      // Store the user message
+      // Store the user message using storage (reliable persistence)
       await storage.addSupportMessage({
         ticketId,
         senderType: 'user',
@@ -11256,17 +11257,31 @@ Current conversation context:
         content: message,
       });
       
-      // Get support reply
-      const reply = getSimpleSupportReply(message, category || 'other');
+      // Get AI-powered support reply from Sofia
+      const user = await storage.getUser(userId);
+      const result = await supportPersonaService.generateResponse({
+        ticketId,
+        userMessage: message,
+        userName: user?.firstName || undefined,
+        deviceInfo: ticket.deviceInfo as { browser?: string; os?: string; device?: string } | undefined,
+        handoffContext: ticket.handoffReason ? {
+          fromDaniela: ticket.handoffReason.includes('Daniela'),
+          learningTopic: ticket.handoffReason,
+        } : undefined,
+      });
       
-      // Store the support response
+      // Store the support response using storage (reliable persistence)
       await storage.addSupportMessage({
         ticketId,
         senderType: 'support',
-        content: reply,
+        content: result.response,
       });
       
-      res.json({ reply });
+      res.json({ 
+        reply: result.response,
+        shouldReturnToDaniela: result.shouldReturnToDaniela,
+        knowledgeUsed: result.knowledgeUsed,
+      });
     } catch (error: any) {
       console.error('[API] Error handling support message:', error);
       res.status(500).json({ error: error.message });
@@ -11386,34 +11401,47 @@ Current conversation context:
         return res.json({ transcript: '', reply: "I couldn't hear what you said. Could you please try again?" });
       }
       
-      // Store the user message if we have a ticket
-      if (ticketId) {
-        await storage.addSupportMessage({
-          ticketId,
-          senderType: 'user',
-          senderId: userId,
-          content: transcript,
-        });
-      }
+      // Store the user message using storage (reliable persistence)
+      await storage.addSupportMessage({
+        ticketId,
+        senderType: 'user',
+        senderId: userId,
+        content: transcript,
+      });
       
-      // Get reply based on mode (support vs drill)
+      // Get AI-powered reply from Sofia
       let reply: string;
+      let shouldReturnToDaniela = false;
+      let knowledgeUsed: string | undefined;
+      
       if (mode === 'drill' && drillContext) {
         reply = `Great job working on this ${drillContext.exerciseType || 'exercise'}! Keep practicing.`;
       } else {
-        reply = getSimpleSupportReply(transcript, category || 'other');
-      }
-      
-      // Store the support response if we have a ticket
-      if (ticketId) {
-        await storage.addSupportMessage({
+        const user = await storage.getUser(userId);
+        const result = await supportPersonaService.generateResponse({
           ticketId,
-          senderType: 'support',
-          content: reply,
+          userMessage: transcript,
+          userName: user?.firstName || undefined,
+          deviceInfo: ticket.deviceInfo as { browser?: string; os?: string; device?: string } | undefined,
+          handoffContext: ticket.handoffReason ? {
+            fromDaniela: ticket.handoffReason.includes('Daniela'),
+            learningTopic: ticket.handoffReason,
+          } : undefined,
         });
+        
+        reply = result.response;
+        shouldReturnToDaniela = result.shouldReturnToDaniela;
+        knowledgeUsed = result.knowledgeUsed;
       }
       
-      res.json({ transcript, reply });
+      // Store the support response using storage (reliable persistence)
+      await storage.addSupportMessage({
+        ticketId,
+        senderType: 'support',
+        content: reply,
+      });
+      
+      res.json({ transcript, reply, shouldReturnToDaniela, knowledgeUsed });
     } catch (error: any) {
       console.error('[API] Error processing voice message:', error);
       res.status(500).json({ error: error.message });
@@ -11447,6 +11475,38 @@ Current conversation context:
       res.json({ success: true, ticket: updated });
     } catch (error: any) {
       console.error('[API] Error resolving support ticket:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Create a new support ticket
+  app.post("/api/support/tickets", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { category, subject, description, handoffFrom, handoffContext, deviceInfo } = req.body;
+      
+      if (!category || !subject || !description) {
+        return res.status(400).json({ error: 'Category, subject, and description are required' });
+      }
+      
+      const ticket = await storage.createSupportTicket({
+        userId,
+        category,
+        subject,
+        description,
+        status: 'pending',
+        priority: 'normal',
+        handoffReason: handoffFrom === 'daniela' 
+          ? `Referred from Daniela: ${handoffContext?.learningTopic || 'general'}` 
+          : null,
+        deviceInfo: deviceInfo || null,
+        assignedTo: 'ai_support',
+      });
+      
+      console.log(`[API] Created support ticket ${ticket.id} for user ${userId}`);
+      res.json(ticket);
+    } catch (error: any) {
+      console.error('[API] Error creating support ticket:', error);
       res.status(500).json({ error: error.message });
     }
   });

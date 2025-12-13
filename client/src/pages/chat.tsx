@@ -14,6 +14,7 @@ import { useCredits } from "@/contexts/UsageContext";
 import { InsufficientCreditsDialog } from "@/components/InsufficientCreditsDialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DevToolsFloatingMenu } from "@/components/DevToolsFloatingMenu";
+import { FloatingHelpButton } from "@/components/FloatingHelpButton";
 
 export default function Chat() {
   const search = useSearch();
@@ -555,6 +556,9 @@ export default function Chat() {
           setForceNewConversation(true);
         }}
       />
+      
+      {/* Floating help button - access Sofia support during voice chat */}
+      <FloatingHelpButton defaultCategory="technical" />
     </div>
   );
 }
