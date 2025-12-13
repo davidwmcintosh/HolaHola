@@ -17,6 +17,9 @@ export const userRoleEnum = pgEnum('user_role', ['student', 'teacher', 'develope
 // Learning context enum - distinguishes self-directed vs class-directed learning
 export const learningContextEnum = pgEnum('learning_context', ['self_directed', 'class_assigned']);
 
+// Conversation type enum - distinguishes learning conversations from editor collaboration
+export const conversationTypeEnum = pgEnum('conversation_type', ['learning', 'editor_collaboration']);
+
 // Syllabus completion status enum
 export const syllabusStatusEnum = pgEnum('syllabus_status', ['not_started', 'in_progress', 'completed_early', 'completed_assigned', 'skipped']);
 
@@ -339,11 +342,14 @@ export const conversations = pgTable("conversations", {
   // Institutional features - Class/Course assignment
   classId: varchar("class_id"), // Links to teacherClasses table for filtering by class (e.g., "Spanish 101")
   learningContext: learningContextEnum("learning_context").default("self_directed"), // self_directed or class_assigned
+  // Conversation type - distinguishes learning from editor collaboration
+  conversationType: conversationTypeEnum("conversation_type").default("learning"), // learning, editor_collaboration
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_conversations_user_id").on(table.userId),
   index("idx_conversations_user_language").on(table.userId, table.language),
   index("idx_conversations_class").on(table.classId),
+  index("idx_conversations_type").on(table.conversationType),
 ]);
 
 export const messages = pgTable("messages", {

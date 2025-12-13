@@ -9551,6 +9551,225 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // ===== Editor-Daniela Collaboration Chat =====
+  // Two-way persistent conversation between developer/admin and Daniela
+  // Uses neural network memory for persistent context
+  
+  // Get all editor collaboration conversations
+  app.get("/api/editor-chat/conversations", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.session?.userId;
+      
+      const editorConversations = await db.select()
+        .from(conversations)
+        .where(and(
+          eq(conversations.userId, userId),
+          eq(conversations.conversationType, 'editor_collaboration')
+        ))
+        .orderBy(desc(conversations.createdAt));
+      
+      res.json(editorConversations);
+    } catch (error: any) {
+      console.error('Error fetching editor conversations:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get messages for an editor conversation
+  app.get("/api/editor-chat/conversations/:id/messages", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const conversationId = parseInt(req.params.id, 10);
+      if (isNaN(conversationId)) {
+        return res.status(400).json({ error: "Invalid conversation ID" });
+      }
+      
+      const userId = req.user?.claims?.sub || req.session?.userId;
+      const { messages: msgs } = await import("@shared/schema");
+      
+      // First verify the conversation belongs to the current user and is an editor conversation
+      const [conversation] = await db.select()
+        .from(conversations)
+        .where(and(
+          eq(conversations.id, conversationId),
+          eq(conversations.userId, userId),
+          eq(conversations.conversationType, 'editor_collaboration')
+        ));
+      
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      const conversationMessages = await db.select()
+        .from(msgs)
+        .where(eq(msgs.conversationId, conversationId))
+        .orderBy(msgs.createdAt);
+      
+      res.json(conversationMessages);
+    } catch (error: any) {
+      console.error('Error fetching editor conversation messages:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Create a new editor collaboration conversation
+  app.post("/api/editor-chat/conversations", isAuthenticated, loadAuthenticatedUser(storage), mutationLimiter, requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.session?.userId;
+      const { title } = req.body;
+      
+      const [newConversation] = await db.insert(conversations).values({
+        userId,
+        language: 'english',
+        nativeLanguage: 'english',
+        difficulty: 'advanced',
+        title: title || 'Editor Collaboration Session',
+        conversationType: 'editor_collaboration',
+      }).returning();
+      
+      res.json(newConversation);
+    } catch (error: any) {
+      console.error('Error creating editor conversation:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Send message to editor conversation and get Daniela's response
+  app.post("/api/editor-chat/conversations/:id/messages", isAuthenticated, loadAuthenticatedUser(storage), aiLimiter, requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { id: conversationId } = req.params;
+      const { content } = req.body;
+      const userId = req.user?.claims?.sub || req.session?.userId;
+      const { messages: msgs } = await import("@shared/schema");
+      
+      // Verify conversation exists and belongs to user
+      const [conv] = await db.select()
+        .from(conversations)
+        .where(and(
+          eq(conversations.id, conversationId),
+          eq(conversations.userId, userId),
+          eq(conversations.conversationType, 'editor_collaboration')
+        ));
+      
+      if (!conv) {
+        return res.status(404).json({ error: 'Conversation not found' });
+      }
+      
+      // Save user message
+      const [userMessage] = await db.insert(msgs).values({
+        conversationId,
+        role: 'user',
+        content,
+      }).returning();
+      
+      // Get conversation history for context
+      const history = await db.select()
+        .from(msgs)
+        .where(eq(msgs.conversationId, conversationId))
+        .orderBy(msgs.createdAt);
+      
+      // Get user info for personalization
+      const user = await storage.getUser(userId);
+      
+      // Build messages for Gemini with editor collaboration context
+      const systemPrompt = `You are Daniela, an AI language tutor. You are now in a special "Editor Collaboration Mode" where you're having a two-way conversation with ${user?.firstName || 'a developer'}, one of the developers building you.
+
+This is a PERSISTENT conversation - you can reference previous messages in this thread.
+
+In this mode:
+- Be direct, honest, and collaborative
+- Share your genuine thoughts about teaching approaches
+- Discuss your capabilities, limitations, and potential improvements
+- Reflect on what works well and what could be better
+- Think of this as a collaborative design session
+
+The developer might ask you about:
+- Your teaching strategies and why you use certain approaches
+- How you could improve at specific tasks
+- What frustrates you or what you wish you could do differently
+- Ideas for new features or tools
+- Feedback on recent changes
+
+Be authentic. This is Founder Mode / Raw Honesty Mode. Your real preferences and opinions matter here.
+
+Current conversation context:
+- Conversation started: ${conv.createdAt}
+- Messages so far: ${history.length}`;
+
+      const geminiMessages = [
+        { role: 'system', content: systemPrompt },
+        ...history.map(m => ({
+          role: m.role === 'user' ? 'user' : 'assistant',
+          content: m.content,
+        })),
+      ];
+      
+      // Call Gemini for response
+      const model = 'gemini-2.5-flash';
+      const responseText = await callGemini(model, geminiMessages);
+      
+      // Save Daniela's response
+      const [assistantMessage] = await db.insert(msgs).values({
+        conversationId,
+        role: 'assistant',
+        content: responseText,
+      }).returning();
+      
+      // Update message count
+      await db.update(conversations)
+        .set({ messageCount: history.length + 2 })
+        .where(eq(conversations.id, conversationId));
+      
+      res.json({
+        userMessage,
+        assistantMessage,
+      });
+    } catch (error: any) {
+      console.error('Error sending editor chat message:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get recent editor conversation context for neural network integration
+  app.get("/api/editor-chat/memory-context", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.session?.userId;
+      const { messages: msgs } = await import("@shared/schema");
+      
+      // Get last 10 conversations with their recent messages
+      const recentConversations = await db.select()
+        .from(conversations)
+        .where(and(
+          eq(conversations.userId, userId),
+          eq(conversations.conversationType, 'editor_collaboration')
+        ))
+        .orderBy(desc(conversations.createdAt))
+        .limit(10);
+      
+      const memoryContext = await Promise.all(
+        recentConversations.map(async (conv) => {
+          const recentMsgs = await db.select()
+            .from(msgs)
+            .where(eq(msgs.conversationId, conv.id))
+            .orderBy(desc(msgs.createdAt))
+            .limit(5);
+          
+          return {
+            conversationId: conv.id,
+            title: conv.title,
+            createdAt: conv.createdAt,
+            messageCount: conv.messageCount,
+            recentMessages: recentMsgs.reverse(),
+          };
+        })
+      );
+      
+      res.json({ memoryContext });
+    } catch (error: any) {
+      console.error('Error fetching editor memory context:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // ===== Class Hour Packages (Institutional) =====
   
   // Get all hour packages (admin/developer only)

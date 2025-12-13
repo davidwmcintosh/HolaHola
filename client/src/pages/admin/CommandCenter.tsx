@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -149,6 +149,7 @@ export default function CommandCenter() {
     { id: "audit", label: "Audit", icon: FileText, roles: ['admin'] },
     { id: "support", label: "Support", icon: Headphones, roles: ['admin', 'developer'] },
     { id: "dept-chat", label: "Dept Chat", icon: Lock, roles: ['admin', 'developer'] },
+    { id: "editor-chat", label: "Editor Chat", icon: MessageSquare, roles: ['admin', 'developer'] },
     { id: "feature-sprint", label: "Feature Sprint", icon: Zap, roles: ['admin', 'developer'] },
   ].filter(tab => {
     if (user?.role === 'admin') return true;
@@ -249,6 +250,10 @@ export default function CommandCenter() {
 
           <TabsContent value="dept-chat" className="space-y-4">
             <DepartmentChatTab />
+          </TabsContent>
+
+          <TabsContent value="editor-chat" className="space-y-4">
+            <EditorChatTab />
           </TabsContent>
 
           <TabsContent value="feature-sprint" className="space-y-4">
@@ -4422,6 +4427,302 @@ interface ConsultationMessageData {
   confidence?: number | null;
   convertedToSprintId?: string | null;
   createdAt: string;
+}
+
+// Editor Chat Tab - Persistent 2-way conversation with Daniela for founders/developers
+interface EditorConversation {
+  id: number;
+  title: string | null;
+  userId: number;
+  language: string;
+  conversationType: 'learning' | 'editor_collaboration';
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface EditorMessage {
+  id: number;
+  conversationId: number;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+}
+
+interface MemoryContext {
+  recentConversations: Array<{
+    id: number;
+    title: string | null;
+    createdAt: string;
+    messageCount: number;
+    lastMessage: string | null;
+  }>;
+  totalConversations: number;
+}
+
+function EditorChatTab() {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null);
+  const [inputMessage, setInputMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Fetch all editor conversations
+  const { data: conversations = [], isLoading: conversationsLoading, refetch: refetchConversations } = useQuery<EditorConversation[]>({
+    queryKey: ['/api/editor-chat/conversations'],
+  });
+
+  // Fetch messages for selected conversation
+  const { data: messages = [], isLoading: messagesLoading, refetch: refetchMessages } = useQuery<EditorMessage[]>({
+    queryKey: ['/api/editor-chat/conversations', selectedConversationId, 'messages'],
+    enabled: !!selectedConversationId,
+  });
+
+  // Fetch memory context
+  const { data: memoryContext } = useQuery<MemoryContext>({
+    queryKey: ['/api/editor-chat/memory-context'],
+  });
+
+  // Create new conversation mutation
+  const createConversationMutation = useMutation({
+    mutationFn: async (title?: string) => {
+      return apiRequest("POST", "/api/editor-chat/conversations", { title });
+    },
+    onSuccess: async (data: any) => {
+      await refetchConversations();
+      setSelectedConversationId(data.id);
+      toast({ title: "New conversation started" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to create conversation", variant: "destructive" });
+    },
+  });
+
+  // Send message mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: async ({ conversationId, content }: { conversationId: number; content: string }) => {
+      return apiRequest("POST", `/api/editor-chat/conversations/${conversationId}/messages`, { content });
+    },
+    onSuccess: async () => {
+      await refetchMessages();
+      setInputMessage('');
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to send message", variant: "destructive" });
+    },
+  });
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() || !selectedConversationId) return;
+    
+    setIsSending(true);
+    try {
+      await sendMessageMutation.mutateAsync({
+        conversationId: selectedConversationId,
+        content: inputMessage.trim(),
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const startNewConversation = () => {
+    createConversationMutation.mutate();
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Brain className="h-5 w-5 text-primary" />
+            Editor Chat with Daniela
+          </CardTitle>
+          <CardDescription>
+            Persistent 2-way conversation with Daniela in Founder Mode. These conversations build her understanding over time.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4 h-[500px]">
+            {/* Conversation List Sidebar */}
+            <div className="w-64 border-r pr-4 flex flex-col">
+              <Button 
+                onClick={startNewConversation}
+                className="mb-4"
+                disabled={createConversationMutation.isPending}
+                data-testid="button-new-editor-conversation"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Conversation
+              </Button>
+              
+              <div className="flex-1 overflow-y-auto space-y-2">
+                {conversationsLoading ? (
+                  <div className="space-y-2">
+                    {[...Array(3)].map((_, i) => (
+                      <Skeleton key={i} className="h-16" />
+                    ))}
+                  </div>
+                ) : conversations.length === 0 ? (
+                  <div className="text-sm text-muted-foreground text-center py-4">
+                    No conversations yet. Start one above!
+                  </div>
+                ) : (
+                  conversations.map((conv) => (
+                    <Button
+                      key={conv.id}
+                      variant={selectedConversationId === conv.id ? "secondary" : "ghost"}
+                      className="w-full justify-start h-auto py-2 px-3 text-left"
+                      onClick={() => setSelectedConversationId(conv.id)}
+                      data-testid={`button-conversation-${conv.id}`}
+                    >
+                      <div className="truncate">
+                        <div className="font-medium text-sm truncate">
+                          {conv.title || `Conversation #${conv.id}`}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(conv.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </Button>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Chat Area */}
+            <div className="flex-1 flex flex-col">
+              {!selectedConversationId ? (
+                <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                  <div className="text-center">
+                    <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Select a conversation or start a new one</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Messages */}
+                  <div className="flex-1 overflow-y-auto space-y-4 mb-4 p-4 border rounded-md bg-muted/20">
+                    {messagesLoading ? (
+                      <div className="space-y-4">
+                        {[...Array(3)].map((_, i) => (
+                          <Skeleton key={i} className="h-20" />
+                        ))}
+                      </div>
+                    ) : messages.length === 0 ? (
+                      <div className="text-center text-muted-foreground py-8">
+                        <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p>Start the conversation. Daniela is in Founder Mode here.</p>
+                      </div>
+                    ) : (
+                      messages.map((msg) => (
+                        <div
+                          key={msg.id}
+                          className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div
+                            className={`max-w-[80%] rounded-lg p-3 ${
+                              msg.role === 'user'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-card border'
+                            }`}
+                            data-testid={`message-${msg.id}`}
+                          >
+                            <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
+                            <div className={`text-xs mt-1 ${msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                              {new Date(msg.createdAt).toLocaleTimeString()}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Input */}
+                  <div className="flex gap-2">
+                    <Input
+                      value={inputMessage}
+                      onChange={(e) => setInputMessage(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Type your message to Daniela..."
+                      disabled={isSending}
+                      data-testid="input-editor-message"
+                    />
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!inputMessage.trim() || isSending}
+                      data-testid="button-send-editor-message"
+                    >
+                      {isSending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Memory Context Section */}
+      {memoryContext && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Brain className="h-4 w-4 text-primary" />
+              Daniela's Memory Context
+            </CardTitle>
+            <CardDescription>
+              Recent conversations that inform Daniela's understanding during voice chat
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="text-sm text-muted-foreground">
+                Total conversations: <span className="font-medium">{memoryContext.totalConversations}</span>
+              </div>
+              {memoryContext.recentConversations.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Recent Context:</div>
+                  {memoryContext.recentConversations.map((conv) => (
+                    <div key={conv.id} className="text-sm p-2 bg-muted/50 rounded-md">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{conv.title || `Conversation #${conv.id}`}</span>
+                        <Badge variant="secondary" className="text-xs">{conv.messageCount} messages</Badge>
+                      </div>
+                      {conv.lastMessage && (
+                        <div className="text-muted-foreground text-xs mt-1 truncate">
+                          {conv.lastMessage}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
 }
 
 interface ProjectContextData {
