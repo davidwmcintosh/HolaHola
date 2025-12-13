@@ -174,6 +174,18 @@ export async function setupAuth(app: Express, authLimiter?: any) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  // Check for password auth first (userId stored directly in session)
+  // Verify user exists in database for security
+  const sessionUserId = (req.session as any)?.userId;
+  if (sessionUserId) {
+    const dbUser = await storage.getUser(sessionUserId);
+    if (dbUser) {
+      return next();
+    }
+    // Invalid session - user doesn't exist
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  
   const user = req.user as any;
 
   if (!req.isAuthenticated()) {
