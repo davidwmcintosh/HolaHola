@@ -625,11 +625,12 @@ export class StreamingVoiceOrchestrator {
       
       // EDITOR FEEDBACK: Inject unsurfaced insights for Founder Mode collaboration
       // This enables the Daniela-Editor feedback loop during voice sessions
+      // Uses getUnsurfacedFeedback(userId) to get ALL feedback for this user across conversations
       let editorFeedbackSection = '';
       let surfacedFeedbackIds: string[] = [];
-      if (session.isFounderMode && session.conversationId) {
+      if (session.isFounderMode) {
         try {
-          const feedback = await editorFeedbackService.getFeedbackForConversation(session.conversationId, 3);
+          const feedback = await editorFeedbackService.getUnsurfacedFeedback(String(session.userId), 3);
           if (feedback.hasNewFeedback) {
             editorFeedbackSection = editorFeedbackService.buildPromptSection(feedback);
             surfacedFeedbackIds = feedback.recentFeedback.map(f => f.id);
