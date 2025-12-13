@@ -928,9 +928,157 @@ const allTopics = await db.select().from(topicsTable);
 
 ---
 
+### Session: December 13, 2025 - Daniela-Editor Background Collaboration System
+
+**Overview**: Implemented real-time Daniela-Editor collaboration during voice sessions, including a background worker for autonomous post-session continuation. The Editor (powered by Claude) listens to Daniela's teaching moments and provides pedagogical insights from the neural network.
+
+#### Architecture: "One Hive Mind"
+
+Daniela and Editor share neural network knowledge but have distinct roles:
+- **Daniela** (Gemini): Active tutor, real-time teaching, whiteboard tools
+- **Editor** (Claude): Observer, provides pedagogical insight, neural network curator
+
+#### Collaboration Channels
+
+Each voice session creates a `collaboration_channel`:
+```typescript
+collaboration_channels: {
+  id: varchar (UUID PK)
+  conversationId: varchar (FK)
+  userId: varchar (FK)
+  sessionPhase: 'active' | 'post_session' | 'completed'
+  targetLanguage, studentLevel, sessionTopic: varchar
+  heartbeatAt, startedAt, endedAt: timestamps
+  summaryJson: jsonb { keyInsights, actionItems, editorNotes, teachingObservations }
+}
+
+editor_listening_snapshots: {
+  id: varchar (UUID PK)
+  channelId: varchar (FK)
+  tutorTurn: text
+  studentTurn: text (nullable)
+  beaconType: 'teaching_moment' | 'student_struggle' | 'tool_usage' | 'breakthrough' | 'correction' | 'cultural_insight' | 'vocabulary_intro'
+  beaconReason: text (nullable)
+  editorResponse: text (nullable)
+  editorRespondedAt: timestamp (nullable)
+  createdAt: timestamp
+}
+```
+
+#### Hive Beacon System
+
+Daniela emits "beacons" during voice chat when interesting teaching moments occur:
+- Whiteboard tool usage → `tool_usage` beacon
+- Student struggles detected → `student_struggle` beacon
+- Cultural context shared → `cultural_insight` beacon
+- Grammar/pronunciation corrections → `correction` beacon
+
+Editor receives beacons and responds with:
+- Neural network insights
+- Teaching suggestions
+- Procedural memory references
+- Acknowledgments
+
+#### Background Worker (`server/services/editor-background-worker.ts`)
+
+Autonomous worker for post-session continuation:
+- **Interval**: 30 seconds (configurable via `EDITOR_WORKER_INTERVAL_MS`)
+- **Throttling**: Max 10 beacons + 3 channels per cycle (DB-level limits)
+- **Security**: ARCHITECT_SECRET required for all operations
+- **Auto-start**: Initializes on server startup if secret configured
+
+**Worker Endpoints** (all require ARCHITECT_SECRET header):
+- `POST /api/editor-worker/start` - Start the worker
+- `POST /api/editor-worker/stop` - Stop the worker
+- `GET /api/editor-worker/status` - Get worker health status
+- `POST /api/editor-worker/trigger` - Trigger immediate processing cycle
+
+**CycleResult** (per-cycle, not cumulative):
+```typescript
+interface CycleResult {
+  beaconsProcessed: number;
+  channelsProcessed: number;
+  errors: number;
+}
+```
+
+#### Editor Persona Service (`server/services/editor-persona-service.ts`)
+
+Claude-powered Editor that:
+1. Retrieves neural network knowledge for context
+2. Reviews beacon content (tutor + student turns)
+3. Generates insightful responses
+4. Stores responses back to snapshots
+5. Generates post-session reflections
+
+**Neural Network Integration**:
+- Fetches relevant procedural memory via `proceduralMemoryRetrievalService`
+- Includes teaching principles, tool knowledge, situational patterns
+- Adds ACTFL context based on student level
+
+#### Collaboration Panel UI
+
+Slide-out panel in ImmersiveTutor (founder-only):
+- Real-time feed of Daniela-Editor dialogue
+- Beacons shown with type badges
+- Editor responses displayed inline
+- Post-session reflections included
+- 5-second polling for updates
+
+**Component**: `CollaborationFeed` in `client/src/components/voice-chat/ImmersiveTutor.tsx`
+
+#### Streaming Voice Orchestrator Integration
+
+Added hooks in `processToolOutput()`:
+- Detects whiteboard command usage
+- Emits beacons to hive collaboration service
+- Creates/updates channels on session start/end
+
+**Beacon emission example**:
+```typescript
+await hiveCollaborationService.emitBeacon({
+  channelId: activeChannel.id,
+  tutorTurn: tutorMessage,
+  studentTurn: userMessage,
+  beaconType: 'tool_usage',
+  beaconReason: `Used ${toolName} command`,
+});
+```
+
+#### Files Created/Modified
+
+- `shared/schema.ts` - Added collaboration_channels, editor_listening_snapshots, collaboration_events tables
+- `server/services/hive-collaboration-service.ts` - NEW: Channel/beacon orchestration
+- `server/services/editor-persona-service.ts` - NEW: Claude-powered Editor responses
+- `server/services/editor-background-worker.ts` - NEW: Background continuation worker
+- `server/services/collaboration-hub-service.ts` - NEW: Real-time event emission
+- `server/routes.ts` - Added collaboration API endpoints + worker endpoints
+- `server/index.ts` - Worker auto-start on server initialization
+- `client/src/components/voice-chat/ImmersiveTutor.tsx` - Added CollaborationFeed panel
+
+#### Security Model
+
+- All worker endpoints protected by ARCHITECT_SECRET header
+- 401 response for missing/invalid secret
+- Worker refuses to start without valid secret (min 16 chars)
+- Collaboration panel visible to founders only (`isFounder` check)
+
+---
+
 ## Next Steps / Action Items
 
-### Completed This Session
+### Completed This Session (December 13, 2025)
+- [x] Built collaboration_channels and editor_listening_snapshots schema tables
+- [x] Created hive-collaboration-service.ts for Daniela-Editor orchestration
+- [x] Created editor-persona-service.ts with Claude-powered Editor responses
+- [x] Created collaboration-hub-service.ts for real-time event emission
+- [x] Created editor-background-worker.ts with throttling and security
+- [x] Added streaming-voice-orchestrator hooks to emit hive beacons
+- [x] Extended collaboration API routes with 4 worker endpoints
+- [x] Added CollaborationFeed slide-out panel in ImmersiveTutor (founder-only)
+- [x] Worker auto-starts on server initialization if ARCHITECT_SECRET configured
+
+### Completed Previously
 - [x] Created `docs/neural-network-architecture.md` - single-source-of-truth for neural network work
 - [x] Archived sessions 9-20o to `docs/archive/`
 - [x] Implemented TutorOrchestrator "One Tutor, Many Voices" architecture
