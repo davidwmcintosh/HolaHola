@@ -26,6 +26,7 @@ export default function Chat() {
   const [isResumedConversation, setIsResumedConversation] = useState(false);
   const resumeHandledRef = useRef(false);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+  const [isCheckingActiveSession, setIsCheckingActiveSession] = useState(true); // Start true to block auto-create until checked
   const [currentConversationOnboarding, setCurrentConversationOnboarding] = useState<boolean | null>(null);
   const previousModeRef = useRef<"text" | "voice">("voice");
   const [showInsufficientCreditsDialog, setShowInsufficientCreditsDialog] = useState(false);
@@ -96,6 +97,47 @@ export default function Chat() {
     }
   }, [setOpen, setOpenMobile]);
 
+  // Check for active voice session on mount - allows resuming after reconnect/server restart
+  // This runs BEFORE auto-create conversation logic to reuse existing sessions
+  const activeSessionCheckedRef = useRef(false);
+  useEffect(() => {
+    // Only check once, and only if we haven't already set a conversation
+    if (activeSessionCheckedRef.current || conversationId || forceNewConversation) {
+      // If force new or already have conversation, skip check and allow auto-create
+      if (forceNewConversation || conversationId) {
+        setIsCheckingActiveSession(false);
+      }
+      return;
+    }
+    
+    activeSessionCheckedRef.current = true;
+    
+    console.log('[SHARED CHAT] Checking for active voice session...');
+    apiRequest("GET", "/api/voice/active-session")
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`Server returned ${res.status}`);
+        }
+        return res.json();
+      })
+      .then(data => {
+        if (data.hasActiveSession && data.conversationId) {
+          console.log('[SHARED CHAT] Found active session, resuming:', data.conversationId);
+          setConversationId(data.conversationId);
+          setIsResumedConversation(true); // Mark as resumed for welcome-back greeting
+        } else {
+          console.log('[SHARED CHAT] No active session found');
+        }
+      })
+      .catch(err => {
+        console.log('[SHARED CHAT] Failed to check active session:', err.message);
+        // Not critical - we'll just create a new conversation
+      })
+      .finally(() => {
+        setIsCheckingActiveSession(false); // Allow auto-create to proceed
+      });
+  }, [conversationId, forceNewConversation]);
+  
   // Handle resume parameter from URL - allows resuming a specific conversation
   useEffect(() => {
     if (resumeHandledRef.current) return;
@@ -255,6 +297,12 @@ export default function Chat() {
   
   // Auto-create shared conversation
   useEffect(() => {
+    // Wait for active session check to complete first
+    if (isCheckingActiveSession) {
+      console.log('[SHARED CHAT] Auto-create check - waiting for active session check');
+      return;
+    }
+    
     const isOnboardingComplete = userName && userName.trim() !== "";
     const isCurrentlyOnboarding = currentConversationOnboarding === true;
     
@@ -330,7 +378,7 @@ export default function Chat() {
     // NOTE: forceNewConversation is intentionally NOT in dependencies
     // We only read its current value when creating, we don't need to re-run when it changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, difficulty, userName, conversationId, isCreatingConversation, currentConversationOnboarding, mode]);
+  }, [language, difficulty, userName, conversationId, isCreatingConversation, currentConversationOnboarding, mode, isCheckingActiveSession]);
 
   const handleNewChat = () => {
     console.log('[SHARED CHAT] User requested new chat - forcing new conversation');

@@ -5113,6 +5113,34 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
 
   // ===== NEW REST-Based Voice API (Whisper + GPT + TTS) =====
   
+  // Get active voice session for user (allows client to reconnect to existing session)
+  app.get("/api/voice/active-session", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const activeSession = await usageService.getActiveSession(userId);
+      
+      if (activeSession) {
+        res.json({
+          hasActiveSession: true,
+          sessionId: activeSession.id,
+          conversationId: activeSession.conversationId,
+          language: activeSession.language,
+          classId: activeSession.classId,
+          startedAt: activeSession.startedAt,
+        });
+      } else {
+        res.json({ hasActiveSession: false });
+      }
+    } catch (error: any) {
+      console.error("[VOICE] Error getting active session:", error);
+      res.status(500).json({ error: "Failed to get active session" });
+    }
+  });
+  
   // Pre-warm Deepgram connection to avoid cold-start latency
   // Called when user enters voice chat mode
   app.post("/api/voice/warm", isAuthenticated, async (req: any, res) => {
