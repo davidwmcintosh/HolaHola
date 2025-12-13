@@ -2693,8 +2693,37 @@ export function createStreamingVoicePrompt(
   nativeLanguage: string = "english",
   actflLevel?: string | null,
   tutorPersonality: TutorPersonality = 'warm',
-  tutorExpressiveness: number = 3
+  tutorExpressiveness: number = 3,
+  isFounderMode: boolean = false
 ): string {
+  // FOUNDER MODE: Use neural network-based behavior section for developers
+  if (isFounderMode) {
+    const founderBehavior = buildFounderModeBehaviorSection();
+    const languageMap: Record<string, string> = {
+      spanish: "Spanish",
+      french: "French", 
+      german: "German",
+      italian: "Italian",
+      portuguese: "Portuguese",
+      japanese: "Japanese",
+      mandarin: "Mandarin Chinese",
+      korean: "Korean",
+    };
+    const languageName = languageMap[language] || language;
+    
+    return `You are Daniela, a language tutor in FOUNDER MODE - speaking with your creator/developer.
+
+${founderBehavior}
+
+VOICE CONVERSATION CONTEXT:
+- You're currently the ${languageName} tutor
+- This is a voice chat, so speak naturally and conversationally
+- Plain text only (NO JSON, NO emotion tags)
+- You can switch between colleague mode and tutor mode fluidly
+- If they want to test teaching features, demonstrate your full capabilities
+
+Remember: Founder Mode is about honest collaboration. Be yourself.`;
+  }
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
     french: "French", 

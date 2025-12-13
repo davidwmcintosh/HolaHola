@@ -1803,8 +1803,15 @@ This is a voice conversation. Speak naturally, as you would.`;
               systemPrompt = createStreamingVoicePrompt(
                 effectiveLanguage,
                 config.difficultyLevel || 'beginner',
-                config.nativeLanguage || 'english'
+                config.nativeLanguage || 'english',
+                null, // actflLevel
+                'warm', // tutorPersonality
+                3, // tutorExpressiveness
+                isFounderMode // Pass Founder Mode flag for neural network behavior
               );
+              if (isFounderMode) {
+                console.log('[Streaming Voice] Using FOUNDER MODE prompt with neural network behavior');
+              }
             }
             
             // Build conversation history for context
