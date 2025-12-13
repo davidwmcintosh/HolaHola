@@ -6,7 +6,7 @@ import { SupportAssistModal } from "@/components/SupportAssistModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { MessageSquare, Mic, Plus, GraduationCap, User, Phone, Heart, Sparkles, Radio, Wifi, WifiOff, Send, Loader2, ChevronRight, ChevronLeft, Brain, Code } from "lucide-react";
+import { MessageSquare, Mic, Plus, GraduationCap, User, Phone, Heart, Sparkles, Radio, Wifi, WifiOff, Send, Loader2, ChevronRight, ChevronLeft, Brain, Code, Volume2 } from "lucide-react";
 import { useFounderCollab } from "@/hooks/useFounderCollab";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
@@ -99,9 +99,13 @@ export default function Chat() {
 
   const { 
     state: syncState, 
+    voiceState: syncVoiceState,
     connect: syncConnect, 
     disconnect: syncDisconnect, 
     sendMessage: syncSendMessage, 
+    startVoiceRecording: syncStartVoice,
+    stopVoiceRecording: syncStopVoice,
+    replayMessage: syncReplayMessage,
     isConnected: syncIsConnected 
   } = useFounderCollab();
 
@@ -677,9 +681,26 @@ export default function Chat() {
                           {msg.role === 'daniela' && <Sparkles className="h-3 w-3 text-primary" />}
                           {msg.role === 'editor' && <Brain className="h-3 w-3 text-blue-500" />}
                           <span className="font-medium text-xs capitalize">{msg.role}</span>
+                          {msg.messageType === 'voice' && (
+                            <Mic className="h-3 w-3 text-muted-foreground" />
+                          )}
                           <span className="text-xs text-muted-foreground ml-auto">
                             {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
+                          {msg.messageType === 'voice' && msg.role === 'daniela' && (
+                            <button
+                              onClick={() => syncReplayMessage(msg.id)}
+                              className="p-1 rounded hover:bg-muted/50"
+                              disabled={syncVoiceState.playingMessageId === msg.id}
+                              data-testid={`button-replay-${msg.id}`}
+                            >
+                              {syncVoiceState.playingMessageId === msg.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Volume2 className="h-3 w-3" />
+                              )}
+                            </button>
+                          )}
                         </div>
                         <p className="whitespace-pre-wrap">{msg.content}</p>
                       </div>
@@ -688,14 +709,69 @@ export default function Chat() {
                   <div ref={syncMessagesEndRef} />
                 </div>
                 
-                {/* Input area */}
-                <div className="p-3 border-t">
+                {/* Voice input area */}
+                <div className="p-3 border-t space-y-2">
+                  {/* Live transcript display */}
+                  {syncVoiceState.currentTranscript && (
+                    <div className="text-xs text-muted-foreground bg-muted/50 rounded p-2 animate-pulse">
+                      {syncVoiceState.currentTranscript}
+                    </div>
+                  )}
+                  
+                  {/* Processing status */}
+                  {syncVoiceState.processingStatus === 'thinking' && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span>Daniela is thinking...</span>
+                    </div>
+                  )}
+                  {syncVoiceState.processingStatus === 'speaking' && (
+                    <div className="flex items-center gap-2 text-xs text-primary">
+                      <Sparkles className="h-3 w-3 animate-pulse" />
+                      <span>Daniela is speaking...</span>
+                    </div>
+                  )}
+                  
+                  {/* Voice error */}
+                  {syncVoiceState.voiceError && (
+                    <div className="text-xs text-red-500 p-2 bg-red-500/10 rounded">
+                      {syncVoiceState.voiceError}
+                    </div>
+                  )}
+                  
+                  {/* Push-to-talk button */}
+                  <div className="flex gap-2 items-center">
+                    <Button
+                      className={`flex-1 ${syncVoiceState.isRecording ? 'bg-red-500 hover:bg-red-600' : ''}`}
+                      variant={syncVoiceState.isRecording ? "default" : "outline"}
+                      onPointerDown={() => syncStartVoice()}
+                      onPointerUp={() => syncStopVoice()}
+                      onPointerLeave={() => syncVoiceState.isRecording && syncStopVoice()}
+                      onPointerCancel={() => syncVoiceState.isRecording && syncStopVoice()}
+                      disabled={!syncIsConnected || syncVoiceState.processingStatus === 'thinking' || syncVoiceState.processingStatus === 'speaking'}
+                      data-testid="button-sync-voice"
+                    >
+                      {syncVoiceState.isRecording ? (
+                        <>
+                          <Mic className="h-4 w-4 mr-2 animate-pulse" />
+                          <span>Release to send</span>
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="h-4 w-4 mr-2" />
+                          <span>Hold to talk</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  
+                  {/* Text fallback - smaller */}
                   <div className="flex gap-2">
                     <Input
                       value={syncMessage}
                       onChange={(e) => setSyncMessage(e.target.value)}
-                      placeholder="Send a note..."
-                      className="flex-1 text-sm"
+                      placeholder="Or type..."
+                      className="flex-1 text-xs h-8"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
@@ -708,15 +784,12 @@ export default function Chat() {
                     <Button
                       size="icon"
                       variant="ghost"
+                      className="h-8 w-8"
                       onClick={handleSyncMessageSend}
                       disabled={!syncIsConnected || !syncMessage.trim()}
                       data-testid="button-send-sync-message"
                     >
-                      {syncState.connectionState === 'connecting' ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Send className="h-4 w-4" />
-                      )}
+                      <Send className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>

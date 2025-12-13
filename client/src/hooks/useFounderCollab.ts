@@ -59,6 +59,7 @@ interface ClientToServerEvents {
 }
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
+export type VoiceProcessingStatus = 'idle' | 'recording' | 'thinking' | 'speaking';
 
 export interface FounderCollabState {
   connectionState: ConnectionState;
@@ -68,12 +69,24 @@ export interface FounderCollabState {
   reconnectAttempt: number;
 }
 
+export interface VoiceState {
+  isRecording: boolean;
+  currentTranscript: string;
+  processingStatus: VoiceProcessingStatus;
+  voiceError: string | null;
+  playingMessageId: string | null;
+}
+
 export interface UseFounderCollabReturn {
   state: FounderCollabState;
+  voiceState: VoiceState;
   connect: (sessionId?: string) => void;
   disconnect: () => void;
   sendMessage: (role: MessageRole, content: string, metadata?: Record<string, any>) => void;
   clearMessages: () => void;
+  startVoiceRecording: () => Promise<void>;
+  stopVoiceRecording: () => void;
+  replayMessage: (messageId: string) => void;
   isConnected: boolean;
   isReconnecting: boolean;
 }
@@ -102,6 +115,13 @@ export function useFounderCollab(): UseFounderCollabReturn {
   const [error, setError] = useState<string | null>(null);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   
+  // Voice state
+  const [isRecording, setIsRecording] = useState(false);
+  const [currentTranscript, setCurrentTranscript] = useState('');
+  const [processingStatus, setProcessingStatus] = useState<VoiceProcessingStatus>('idle');
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
+  
   const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
   const clientIdRef = useRef<string>(getClientId());
   const sessionIdRef = useRef<string | null>(null);
@@ -110,6 +130,12 @@ export function useFounderCollab(): UseFounderCollabReturn {
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isManualDisconnectRef = useRef(false);
   const reconnectAttemptRef = useRef(0);
+  
+  // Voice recording refs
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioBufferRef = useRef<ArrayBuffer[]>([]);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   
   /**
    * Clear any pending reconnect timeout
@@ -324,6 +350,64 @@ export function useFounderCollab(): UseFounderCollabReturn {
     socket.on('pong', () => {
       // Connection is healthy
     });
+    
+    // Voice event listeners
+    socket.on('voice_transcript', (data) => {
+      setCurrentTranscript(data.text);
+    });
+    
+    socket.on('voice_processing', (data) => {
+      setProcessingStatus(data.status);
+    });
+    
+    socket.on('voice_audio', (data) => {
+      // Accumulate audio chunks
+      const chunk = Uint8Array.from(atob(data.chunk), c => c.charCodeAt(0));
+      audioBufferRef.current.push(chunk.buffer);
+      
+      if (data.isLast) {
+        // Combine all chunks and play
+        const totalLength = audioBufferRef.current.reduce((acc, buf) => acc + buf.byteLength, 0);
+        const combined = new Uint8Array(totalLength);
+        let offset = 0;
+        audioBufferRef.current.forEach(buf => {
+          combined.set(new Uint8Array(buf), offset);
+          offset += buf.byteLength;
+        });
+        
+        // Create blob and play
+        const blob = new Blob([combined], { type: 'audio/wav' });
+        const url = URL.createObjectURL(blob);
+        
+        if (audioPlayerRef.current) {
+          audioPlayerRef.current.pause();
+        }
+        audioPlayerRef.current = new Audio(url);
+        audioPlayerRef.current.onended = () => {
+          setPlayingMessageId(null);
+          setProcessingStatus('idle');
+          URL.revokeObjectURL(url);
+        };
+        setPlayingMessageId(data.messageId);
+        audioPlayerRef.current.play().catch(console.error);
+        
+        audioBufferRef.current = [];
+      }
+    });
+    
+    socket.on('voice_complete', (data) => {
+      if (!data.success) {
+        setVoiceError(data.message || 'Voice processing failed');
+      }
+      setIsRecording(false);
+    });
+    
+    socket.on('voice_error', (data) => {
+      console.error('[FounderCollab] Voice error:', data);
+      setVoiceError(data.message);
+      setIsRecording(false);
+      setProcessingStatus('idle');
+    });
   }, [handleMessage, handleMessagesReplay, scheduleReconnect, startPingInterval, clearPingInterval]);
   
   /**
@@ -377,9 +461,123 @@ export function useFounderCollab(): UseFounderCollabReturn {
     lastCursorRef.current = null;
   }, []);
   
+  /**
+   * Start voice recording (push-to-talk)
+   */
+  const startVoiceRecording = useCallback(async () => {
+    // Guard against duplicate starts (mobile touch + mouse events)
+    if (isRecording) {
+      console.log('[FounderCollab] Already recording, ignoring duplicate start');
+      return;
+    }
+    
+    if (!socketRef.current?.connected) {
+      console.warn('[FounderCollab] Cannot start recording: not connected');
+      return;
+    }
+    
+    try {
+      setVoiceError(null);
+      setCurrentTranscript('');
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+        }
+      });
+      
+      // Create AudioContext for processing
+      audioContextRef.current = new AudioContext({ sampleRate: 16000 });
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      const processor = audioContextRef.current.createScriptProcessor(4096, 1, 1);
+      
+      processor.onaudioprocess = (e) => {
+        if (socketRef.current?.connected) {
+          const inputData = e.inputBuffer.getChannelData(0);
+          // Convert Float32 to Int16
+          const int16 = new Int16Array(inputData.length);
+          for (let i = 0; i < inputData.length; i++) {
+            int16[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
+          }
+          socketRef.current.emit('voice_chunk', int16.buffer);
+        }
+      };
+      
+      source.connect(processor);
+      processor.connect(audioContextRef.current.destination);
+      
+      // Store stream for cleanup
+      mediaRecorderRef.current = { stream, processor, source } as any;
+      
+      // Signal server to start recording
+      socketRef.current.emit('voice_start');
+      setIsRecording(true);
+      setProcessingStatus('recording');
+      
+      console.log('[FounderCollab] Voice recording started');
+    } catch (err: any) {
+      console.error('[FounderCollab] Failed to start recording:', err);
+      setVoiceError(err.message || 'Failed to access microphone');
+    }
+  }, [isRecording]);
+  
+  /**
+   * Stop voice recording
+   */
+  const stopVoiceRecording = useCallback(() => {
+    if (!isRecording) return;
+    
+    // Cleanup audio resources
+    if (mediaRecorderRef.current) {
+      const { stream, processor, source } = mediaRecorderRef.current as any;
+      if (processor) {
+        processor.disconnect();
+      }
+      if (source) {
+        source.disconnect();
+      }
+      if (stream) {
+        stream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+      }
+      mediaRecorderRef.current = null;
+    }
+    
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(console.error);
+      audioContextRef.current = null;
+    }
+    
+    // Signal server to stop and process
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('voice_stop');
+    }
+    
+    setIsRecording(false);
+    setProcessingStatus('thinking');
+    console.log('[FounderCollab] Voice recording stopped');
+  }, [isRecording]);
+  
+  /**
+   * Replay a voice message
+   */
+  const replayMessage = useCallback((messageId: string) => {
+    if (!socketRef.current?.connected) return;
+    
+    setPlayingMessageId(messageId);
+    socketRef.current.emit('voice_replay', { messageId });
+  }, []);
+  
   useEffect(() => {
     return () => {
       disconnect();
+      // Cleanup audio on unmount
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
     };
   }, [disconnect]);
   
@@ -391,10 +589,20 @@ export function useFounderCollab(): UseFounderCollabReturn {
       error,
       reconnectAttempt,
     },
+    voiceState: {
+      isRecording,
+      currentTranscript,
+      processingStatus,
+      voiceError,
+      playingMessageId,
+    },
     connect,
     disconnect,
     sendMessage,
     clearMessages,
+    startVoiceRecording,
+    stopVoiceRecording,
+    replayMessage,
     isConnected: connectionState === 'connected',
     isReconnecting: connectionState === 'reconnecting',
   };
