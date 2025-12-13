@@ -160,6 +160,27 @@ import {
   danielaSuggestions,
   type DanielaSuggestion,
   type InsertDanielaSuggestion,
+  featureSprints,
+  sprintStageTransitions,
+  consultationThreads,
+  consultationMessages,
+  sprintTemplates,
+  projectContextSnapshots,
+  aiSuggestions,
+  type FeatureSprint,
+  type InsertFeatureSprint,
+  type SprintStageTransition,
+  type InsertSprintStageTransition,
+  type ConsultationThread,
+  type InsertConsultationThread,
+  type ConsultationMessage,
+  type InsertConsultationMessage,
+  type SprintTemplate,
+  type InsertSprintTemplate,
+  type ProjectContextSnapshot,
+  type InsertProjectContextSnapshot,
+  type AiSuggestion,
+  type InsertAiSuggestion,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -739,6 +760,44 @@ export interface IStorage {
     agentObservations: AgentObservation[];
     supportObservations: SupportObservation[];
   }>;
+  
+  // ===== Feature Sprint System =====
+  // Feature Sprints
+  createFeatureSprint(data: InsertFeatureSprint): Promise<FeatureSprint>;
+  getFeatureSprint(id: string): Promise<FeatureSprint | undefined>;
+  getFeatureSprints(options?: { stage?: string; createdBy?: string; limit?: number }): Promise<FeatureSprint[]>;
+  updateFeatureSprint(id: string, data: Partial<FeatureSprint>): Promise<FeatureSprint | undefined>;
+  deleteFeatureSprint(id: string): Promise<void>;
+  
+  // Sprint Stage Transitions
+  createSprintStageTransition(data: InsertSprintStageTransition): Promise<SprintStageTransition>;
+  getSprintTransitions(sprintId: string): Promise<SprintStageTransition[]>;
+  
+  // Consultation Threads
+  createConsultationThread(data: InsertConsultationThread): Promise<ConsultationThread>;
+  getConsultationThread(id: string): Promise<ConsultationThread | undefined>;
+  getConsultationThreads(options?: { createdBy?: string; sprintId?: string; limit?: number }): Promise<ConsultationThread[]>;
+  updateConsultationThread(id: string, data: Partial<ConsultationThread>): Promise<ConsultationThread | undefined>;
+  
+  // Consultation Messages
+  createConsultationMessage(data: InsertConsultationMessage): Promise<ConsultationMessage>;
+  getConsultationMessages(threadId: string): Promise<ConsultationMessage[]>;
+  
+  // Sprint Templates
+  getSprintTemplates(templateType?: string): Promise<SprintTemplate[]>;
+  getSprintTemplate(id: string): Promise<SprintTemplate | undefined>;
+  createSprintTemplate(data: InsertSprintTemplate): Promise<SprintTemplate>;
+  incrementTemplateUsage(id: string): Promise<void>;
+  
+  // Project Context Snapshots
+  getActiveProjectContext(): Promise<ProjectContextSnapshot | undefined>;
+  createProjectContextSnapshot(data: InsertProjectContextSnapshot): Promise<ProjectContextSnapshot>;
+  deactivateOldSnapshots(): Promise<void>;
+  
+  // AI Suggestions
+  createAiSuggestion(data: InsertAiSuggestion): Promise<AiSuggestion>;
+  getAiSuggestions(options?: { status?: string; suggestionType?: string; limit?: number }): Promise<AiSuggestion[]>;
+  updateAiSuggestion(id: string, data: Partial<AiSuggestion>): Promise<AiSuggestion | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5835,6 +5894,182 @@ export class DatabaseStorage implements IStorage {
       .limit(options?.limit || 10);
     
     return { results, feedbackEvents };
+  }
+
+  // ===== FEATURE SPRINT SYSTEM STORAGE =====
+
+  async createFeatureSprint(data: InsertFeatureSprint): Promise<FeatureSprint> {
+    const [created] = await db.insert(featureSprints).values([data]).returning();
+    return created;
+  }
+
+  async getFeatureSprint(id: string): Promise<FeatureSprint | undefined> {
+    const [sprint] = await db.select().from(featureSprints)
+      .where(eq(featureSprints.id, id));
+    return sprint;
+  }
+
+  async getFeatureSprints(options?: { stage?: string; createdBy?: string; limit?: number }): Promise<FeatureSprint[]> {
+    const conditions: any[] = [];
+    if (options?.stage) conditions.push(eq(featureSprints.stage, options.stage as any));
+    if (options?.createdBy) conditions.push(eq(featureSprints.createdBy, options.createdBy));
+    
+    let query = db.select().from(featureSprints)
+      .orderBy(desc(featureSprints.createdAt));
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    return query.limit(options?.limit || 100);
+  }
+
+  async updateFeatureSprint(id: string, data: Partial<FeatureSprint>): Promise<FeatureSprint | undefined> {
+    const [updated] = await db.update(featureSprints)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(featureSprints.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteFeatureSprint(id: string): Promise<void> {
+    await db.delete(featureSprints).where(eq(featureSprints.id, id));
+  }
+
+  async createSprintStageTransition(data: InsertSprintStageTransition): Promise<SprintStageTransition> {
+    const [created] = await db.insert(sprintStageTransitions).values([data]).returning();
+    return created;
+  }
+
+  async getSprintTransitions(sprintId: string): Promise<SprintStageTransition[]> {
+    return db.select().from(sprintStageTransitions)
+      .where(eq(sprintStageTransitions.sprintId, sprintId))
+      .orderBy(asc(sprintStageTransitions.createdAt));
+  }
+
+  async createConsultationThread(data: InsertConsultationThread): Promise<ConsultationThread> {
+    const [created] = await db.insert(consultationThreads).values([data]).returning();
+    return created;
+  }
+
+  async getConsultationThread(id: string): Promise<ConsultationThread | undefined> {
+    const [thread] = await db.select().from(consultationThreads)
+      .where(eq(consultationThreads.id, id));
+    return thread;
+  }
+
+  async getConsultationThreads(options?: { createdBy?: string; sprintId?: string; limit?: number }): Promise<ConsultationThread[]> {
+    const conditions: any[] = [];
+    if (options?.createdBy) conditions.push(eq(consultationThreads.createdBy, options.createdBy));
+    if (options?.sprintId) conditions.push(eq(consultationThreads.sprintId, options.sprintId));
+    
+    let query = db.select().from(consultationThreads)
+      .orderBy(desc(consultationThreads.updatedAt));
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    return query.limit(options?.limit || 50);
+  }
+
+  async updateConsultationThread(id: string, data: Partial<ConsultationThread>): Promise<ConsultationThread | undefined> {
+    const [updated] = await db.update(consultationThreads)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(consultationThreads.id, id))
+      .returning();
+    return updated;
+  }
+
+  async createConsultationMessage(data: InsertConsultationMessage): Promise<ConsultationMessage> {
+    const [created] = await db.insert(consultationMessages).values([data]).returning();
+    // Also update the thread's updatedAt
+    await db.update(consultationThreads)
+      .set({ updatedAt: new Date() })
+      .where(eq(consultationThreads.id, data.threadId));
+    return created;
+  }
+
+  async getConsultationMessages(threadId: string): Promise<ConsultationMessage[]> {
+    return db.select().from(consultationMessages)
+      .where(eq(consultationMessages.threadId, threadId))
+      .orderBy(asc(consultationMessages.createdAt));
+  }
+
+  async getSprintTemplates(templateType?: string): Promise<SprintTemplate[]> {
+    if (templateType) {
+      return db.select().from(sprintTemplates)
+        .where(eq(sprintTemplates.templateType, templateType))
+        .orderBy(desc(sprintTemplates.usageCount));
+    }
+    return db.select().from(sprintTemplates)
+      .orderBy(desc(sprintTemplates.usageCount));
+  }
+
+  async getSprintTemplate(id: string): Promise<SprintTemplate | undefined> {
+    const [template] = await db.select().from(sprintTemplates)
+      .where(eq(sprintTemplates.id, id));
+    return template;
+  }
+
+  async createSprintTemplate(data: InsertSprintTemplate): Promise<SprintTemplate> {
+    const [created] = await db.insert(sprintTemplates).values([data]).returning();
+    return created;
+  }
+
+  async incrementTemplateUsage(id: string): Promise<void> {
+    await db.update(sprintTemplates)
+      .set({ usageCount: sql`${sprintTemplates.usageCount} + 1`, updatedAt: new Date() })
+      .where(eq(sprintTemplates.id, id));
+  }
+
+  async getActiveProjectContext(): Promise<ProjectContextSnapshot | undefined> {
+    const [snapshot] = await db.select().from(projectContextSnapshots)
+      .where(eq(projectContextSnapshots.isActive, true))
+      .orderBy(desc(projectContextSnapshots.createdAt))
+      .limit(1);
+    return snapshot;
+  }
+
+  async createProjectContextSnapshot(data: InsertProjectContextSnapshot): Promise<ProjectContextSnapshot> {
+    // First deactivate all existing snapshots
+    await this.deactivateOldSnapshots();
+    const [created] = await db.insert(projectContextSnapshots).values([{ ...data, isActive: true }]).returning();
+    return created;
+  }
+
+  async deactivateOldSnapshots(): Promise<void> {
+    await db.update(projectContextSnapshots)
+      .set({ isActive: false })
+      .where(eq(projectContextSnapshots.isActive, true));
+  }
+
+  async createAiSuggestion(data: InsertAiSuggestion): Promise<AiSuggestion> {
+    const [created] = await db.insert(aiSuggestions).values([data]).returning();
+    return created;
+  }
+
+  async getAiSuggestions(options?: { status?: string; suggestionType?: string; limit?: number }): Promise<AiSuggestion[]> {
+    const conditions: any[] = [];
+    if (options?.status) conditions.push(eq(aiSuggestions.status, options.status));
+    if (options?.suggestionType) conditions.push(eq(aiSuggestions.suggestionType, options.suggestionType));
+    
+    let query = db.select().from(aiSuggestions)
+      .orderBy(desc(aiSuggestions.createdAt));
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    return query.limit(options?.limit || 50);
+  }
+
+  async updateAiSuggestion(id: string, data: Partial<AiSuggestion>): Promise<AiSuggestion | undefined> {
+    const [updated] = await db.update(aiSuggestions)
+      .set(data)
+      .where(eq(aiSuggestions.id, id))
+      .returning();
+    return updated;
   }
 }
 

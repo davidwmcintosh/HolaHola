@@ -3921,3 +3921,286 @@ export const insertArisDrillResultSchema = createInsertSchema(arisDrillResults).
 
 export type InsertArisDrillResult = z.infer<typeof insertArisDrillResultSchema>;
 export type ArisDrillResult = typeof arisDrillResults.$inferSelect;
+
+// ===== Feature Sprint System =====
+// Persistent collaborative workspace for AI-human feature development
+
+// Sprint stage enum - tracks feature progress through development pipeline
+export const sprintStageEnum = pgEnum('sprint_stage', [
+  'idea',           // Initial concept captured
+  'pedagogy_spec',  // Educational design documented
+  'build_plan',     // Technical implementation planned
+  'in_progress',    // Actively being built
+  'shipped'         // Deployed and live
+]);
+
+// Sprint priority enum
+export const sprintPriorityEnum = pgEnum('sprint_priority', ['low', 'medium', 'high', 'critical']);
+
+// Feature sprints - main sprint items
+export const featureSprints = pgTable("feature_sprints", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Basic info
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  stage: sprintStageEnum("stage").notNull().default("idea"),
+  priority: sprintPriorityEnum("priority").notNull().default("medium"),
+  
+  // Templates/structured content
+  featureBrief: jsonb("feature_brief").$type<{
+    problem?: string;
+    solution?: string;
+    userStory?: string;
+    successMetrics?: string[];
+  }>(),
+  pedagogySpec: jsonb("pedagogy_spec").$type<{
+    learningObjectives?: string[];
+    targetProficiency?: string;
+    teachingApproach?: string;
+    assessmentCriteria?: string[];
+    danielaGuidance?: string;
+  }>(),
+  buildPlan: jsonb("build_plan").$type<{
+    technicalApproach?: string;
+    componentsAffected?: string[];
+    estimatedEffort?: string;
+    dependencies?: string[];
+    testingStrategy?: string;
+  }>(),
+  
+  // AI collaboration metadata
+  aiSuggested: boolean("ai_suggested").default(false), // True if AI proactively suggested this
+  aiConfidence: real("ai_confidence"), // 0.0-1.0 confidence in suggestion
+  sourceConsultationId: varchar("source_consultation_id"), // If converted from a consultation
+  
+  // Ownership
+  createdBy: varchar("created_by").notNull(),
+  assignedTo: varchar("assigned_to"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  shippedAt: timestamp("shipped_at"),
+}, (table) => [
+  index("idx_feature_sprints_stage").on(table.stage),
+  index("idx_feature_sprints_created_by").on(table.createdBy),
+  index("idx_feature_sprints_created_at").on(table.createdAt),
+]);
+
+export const insertFeatureSprintSchema = createInsertSchema(featureSprints).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertFeatureSprint = z.infer<typeof insertFeatureSprintSchema>;
+export type FeatureSprint = typeof featureSprints.$inferSelect;
+
+// Sprint stage transitions - audit trail of stage changes
+export const sprintStageTransitions = pgTable("sprint_stage_transitions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sprintId: varchar("sprint_id").notNull().references(() => featureSprints.id, { onDelete: 'cascade' }),
+  fromStage: sprintStageEnum("from_stage"),
+  toStage: sprintStageEnum("to_stage").notNull(),
+  transitionedBy: varchar("transitioned_by").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_sprint_transitions_sprint").on(table.sprintId),
+]);
+
+export const insertSprintStageTransitionSchema = createInsertSchema(sprintStageTransitions).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertSprintStageTransition = z.infer<typeof insertSprintStageTransitionSchema>;
+export type SprintStageTransition = typeof sprintStageTransitions.$inferSelect;
+
+// Consultation threads - persistent conversations with Daniela about features
+export const consultationThreads = pgTable("consultation_threads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Thread metadata
+  title: varchar("title", { length: 255 }),
+  topic: varchar("topic", { length: 100 }), // e.g., "feature_design", "pedagogy", "architecture"
+  
+  // Link to sprint if applicable
+  sprintId: varchar("sprint_id").references(() => featureSprints.id, { onDelete: 'set null' }),
+  
+  // Ownership
+  createdBy: varchar("created_by").notNull(),
+  
+  // Status
+  isResolved: boolean("is_resolved").default(false),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_consultation_threads_created_by").on(table.createdBy),
+  index("idx_consultation_threads_sprint").on(table.sprintId),
+]);
+
+export const insertConsultationThreadSchema = createInsertSchema(consultationThreads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertConsultationThread = z.infer<typeof insertConsultationThreadSchema>;
+export type ConsultationThread = typeof consultationThreads.$inferSelect;
+
+// Consultation messages - individual messages within a thread
+export const consultationMessages = pgTable("consultation_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  threadId: varchar("thread_id").notNull().references(() => consultationThreads.id, { onDelete: 'cascade' }),
+  
+  // Message content
+  role: varchar("role", { length: 20 }).notNull(), // 'user' or 'assistant'
+  content: text("content").notNull(),
+  
+  // AI response metadata
+  responseType: varchar("response_type", { length: 50 }), // 'insight', 'suggestion', 'question', 'implementation'
+  confidence: real("confidence"), // AI confidence in response
+  
+  // Action taken
+  convertedToSprintId: varchar("converted_to_sprint_id").references(() => featureSprints.id, { onDelete: 'set null' }),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_consultation_messages_thread").on(table.threadId),
+  index("idx_consultation_messages_created").on(table.createdAt),
+]);
+
+export const insertConsultationMessageSchema = createInsertSchema(consultationMessages).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertConsultationMessage = z.infer<typeof insertConsultationMessageSchema>;
+export type ConsultationMessage = typeof consultationMessages.$inferSelect;
+
+// Sprint templates - reusable templates for feature briefs, specs, and plans
+export const sprintTemplates = pgTable("sprint_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Template info
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  templateType: varchar("template_type", { length: 50 }).notNull(), // 'feature_brief', 'pedagogy_spec', 'build_plan'
+  
+  // Template content (JSON structure with placeholders)
+  content: jsonb("content").notNull(),
+  
+  // Usage tracking
+  usageCount: integer("usage_count").default(0),
+  
+  // Metadata
+  isSystemTemplate: boolean("is_system_template").default(false), // Pre-built vs user-created
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_sprint_templates_type").on(table.templateType),
+]);
+
+export const insertSprintTemplateSchema = createInsertSchema(sprintTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSprintTemplate = z.infer<typeof insertSprintTemplateSchema>;
+export type SprintTemplate = typeof sprintTemplates.$inferSelect;
+
+// Project context snapshots - captures current state for AI awareness
+export const projectContextSnapshots = pgTable("project_context_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Snapshot content
+  features: jsonb("features").$type<Array<{
+    name: string;
+    status: 'planned' | 'in_development' | 'shipped' | 'deprecated';
+    description?: string;
+    lastUpdated?: string;
+  }>>(),
+  
+  architecture: jsonb("architecture").$type<{
+    frontendStack?: string[];
+    backendStack?: string[];
+    databases?: string[];
+    integrations?: string[];
+    keyPatterns?: string[];
+  }>(),
+  
+  currentFocus: jsonb("current_focus").$type<{
+    activeSprintIds?: string[];
+    priorityAreas?: string[];
+    blockers?: string[];
+    recentChanges?: string[];
+  }>(),
+  
+  // AI-generated insights about the project
+  aiInsights: jsonb("ai_insights").$type<{
+    suggestedImprovements?: string[];
+    potentialRisks?: string[];
+    opportunityAreas?: string[];
+  }>(),
+  
+  // Metadata
+  source: varchar("source", { length: 50 }).notNull(), // 'manual', 'auto_harvest', 'deploy_trigger'
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  isActive: boolean("is_active").default(true), // Only one active snapshot at a time
+}, (table) => [
+  index("idx_project_context_active").on(table.isActive),
+  index("idx_project_context_created").on(table.createdAt),
+]);
+
+export const insertProjectContextSnapshotSchema = createInsertSchema(projectContextSnapshots).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertProjectContextSnapshot = z.infer<typeof insertProjectContextSnapshotSchema>;
+export type ProjectContextSnapshot = typeof projectContextSnapshots.$inferSelect;
+
+// Proactive AI suggestions - ideas generated by the AI team
+export const aiSuggestions = pgTable("ai_suggestions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Suggestion content
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  rationale: text("rationale"), // Why the AI thinks this is valuable
+  
+  // Classification
+  suggestionType: varchar("suggestion_type", { length: 50 }).notNull(), // 'feature', 'improvement', 'bug_risk', 'optimization'
+  priority: sprintPriorityEnum("priority").notNull().default("medium"),
+  confidence: real("confidence").notNull(), // AI confidence 0.0-1.0
+  
+  // Context that triggered the suggestion
+  triggerContext: jsonb("trigger_context").$type<{
+    sourceType?: string; // 'pattern_analysis', 'user_feedback', 'error_logs', 'usage_data'
+    relatedFeatures?: string[];
+    supportingEvidence?: string[];
+  }>(),
+  
+  // Status
+  status: varchar("status", { length: 50 }).notNull().default("pending"), // 'pending', 'accepted', 'rejected', 'deferred'
+  convertedToSprintId: varchar("converted_to_sprint_id").references(() => featureSprints.id, { onDelete: 'set null' }),
+  
+  // Review
+  reviewedBy: varchar("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_ai_suggestions_status").on(table.status),
+  index("idx_ai_suggestions_type").on(table.suggestionType),
+  index("idx_ai_suggestions_created").on(table.createdAt),
+]);
+
+export const insertAiSuggestionSchema = createInsertSchema(aiSuggestions).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAiSuggestion = z.infer<typeof insertAiSuggestionSchema>;
+export type AiSuggestion = typeof aiSuggestions.$inferSelect;
