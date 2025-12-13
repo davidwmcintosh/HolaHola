@@ -11853,6 +11853,116 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
     }
   });
 
+  // ===== Sprint Templates Seeder =====
+  
+  app.post("/api/sprint-templates/seed", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const defaultTemplates = [
+        // Feature Brief Templates
+        {
+          name: "Standard Feature Brief",
+          description: "General-purpose template for documenting new feature ideas",
+          templateType: "feature_brief",
+          isSystemTemplate: true,
+          content: {
+            problem: "[Describe the problem this feature solves]",
+            solution: "[Describe the proposed solution]",
+            userStory: "As a [user type], I want [goal] so that [benefit]",
+            successMetrics: ["Metric 1: [e.g., 50% increase in engagement]", "Metric 2: [e.g., Reduced support tickets]"]
+          }
+        },
+        {
+          name: "Pedagogical Feature Brief",
+          description: "For features with significant educational impact",
+          templateType: "feature_brief",
+          isSystemTemplate: true,
+          content: {
+            problem: "[Educational gap or learning challenge]",
+            solution: "[How this feature addresses the learning need]",
+            userStory: "As a language learner at [proficiency level], I want [learning goal] so that [educational outcome]",
+            successMetrics: ["Learning outcome improvement", "Time to mastery reduction", "Student engagement increase"]
+          }
+        },
+        // Pedagogy Spec Templates
+        {
+          name: "Standard Pedagogy Spec",
+          description: "Document educational design for learning features",
+          templateType: "pedagogy_spec",
+          isSystemTemplate: true,
+          content: {
+            learningObjectives: ["Objective 1", "Objective 2", "Objective 3"],
+            targetProficiency: "ACTFL level (Novice/Intermediate/Advanced)",
+            teachingApproach: "[Describe the pedagogical approach]",
+            assessmentCriteria: ["How we'll measure learning success"],
+            danielaGuidance: "[Specific guidance for AI tutor behavior]"
+          }
+        },
+        {
+          name: "Drill-Based Learning Spec",
+          description: "For drill and practice-based learning features",
+          templateType: "pedagogy_spec",
+          isSystemTemplate: true,
+          content: {
+            learningObjectives: ["Skill acquisition through repetition", "Pattern recognition", "Automaticity development"],
+            targetProficiency: "Novice-Intermediate",
+            teachingApproach: "Spaced repetition with progressive difficulty",
+            assessmentCriteria: ["Accuracy rate", "Response time improvement", "Retention after delay"],
+            danielaGuidance: "Provide encouraging feedback, scaffold difficulty based on performance"
+          }
+        },
+        // Build Plan Templates
+        {
+          name: "Standard Build Plan",
+          description: "General implementation planning template",
+          templateType: "build_plan",
+          isSystemTemplate: true,
+          content: {
+            technicalApproach: "[High-level technical approach]",
+            componentsAffected: ["Component 1", "Component 2"],
+            estimatedEffort: "[Small/Medium/Large]",
+            dependencies: ["Dependency 1", "Dependency 2"],
+            testingStrategy: "[Unit tests, integration tests, e2e tests needed]"
+          }
+        },
+        {
+          name: "Full Stack Feature Plan",
+          description: "For features requiring frontend and backend work",
+          templateType: "build_plan",
+          isSystemTemplate: true,
+          content: {
+            technicalApproach: "Frontend: [approach]\nBackend: [approach]\nDatabase: [changes needed]",
+            componentsAffected: ["Frontend: pages/components", "Backend: routes/services", "Database: schema changes"],
+            estimatedEffort: "Medium-Large",
+            dependencies: ["API endpoints", "Database migrations", "UI components"],
+            testingStrategy: "Backend: API tests\nFrontend: Component tests\nE2E: Playwright tests"
+          }
+        }
+      ];
+      
+      // Check which templates already exist
+      const existingTemplates = await storage.getSprintTemplates();
+      const existingNames = new Set(existingTemplates.map(t => t.name));
+      
+      const templatesToCreate = defaultTemplates.filter(t => !existingNames.has(t.name));
+      
+      for (const template of templatesToCreate) {
+        await storage.createSprintTemplate({
+          ...template,
+          createdBy: req.user?.id
+        });
+      }
+      
+      res.json({ 
+        message: `Seeded ${templatesToCreate.length} templates`,
+        created: templatesToCreate.length,
+        skipped: defaultTemplates.length - templatesToCreate.length
+      });
+    } catch (error: any) {
+      console.error('[API] Error seeding sprint templates:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== AI Suggestions API =====
   
   app.get("/api/ai-suggestions", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {

@@ -4361,36 +4361,180 @@ function DepartmentChatTab() {
   );
 }
 
-interface ConsultationRecord {
-  id: string;
-  question: string;
-  response: string;
-  timestamp: Date;
-}
+// Types from database schema
+type SprintStage = 'idea' | 'pedagogy_spec' | 'build_plan' | 'in_progress' | 'shipped';
 
-interface FeatureSprint {
+interface FeatureSprintData {
   id: string;
   title: string;
-  stage: 'idea' | 'pedagogy' | 'build_plan' | 'in_progress' | 'shipped';
-  description: string;
-  danielaInsights?: string;
-  buildPlan?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  description: string | null;
+  stage: SprintStage;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  featureBrief?: {
+    problem?: string;
+    solution?: string;
+    userStory?: string;
+    successMetrics?: string[];
+  } | null;
+  pedagogySpec?: {
+    learningObjectives?: string[];
+    targetProficiency?: string;
+    teachingApproach?: string;
+    assessmentCriteria?: string[];
+    danielaGuidance?: string;
+  } | null;
+  buildPlan?: {
+    technicalApproach?: string;
+    componentsAffected?: string[];
+    estimatedEffort?: string;
+    dependencies?: string[];
+    testingStrategy?: string;
+  } | null;
+  aiSuggested?: boolean | null;
+  sourceConsultationId?: string | null;
+  createdBy: string;
+  assignedTo?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  shippedAt?: string | null;
+}
+
+interface ConsultationThreadData {
+  id: string;
+  title: string | null;
+  topic: string | null;
+  sprintId?: string | null;
+  createdBy: string;
+  isResolved: boolean | null;
+  createdAt: string;
+  updatedAt: string;
+  messages?: ConsultationMessageData[];
+}
+
+interface ConsultationMessageData {
+  id: string;
+  threadId: string;
+  role: string;
+  content: string;
+  responseType?: string | null;
+  confidence?: number | null;
+  convertedToSprintId?: string | null;
+  createdAt: string;
 }
 
 function FeatureSprintTab() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [mode, setMode] = useState<'consultation' | 'sprint'>('consultation');
   const [consultationQuestion, setConsultationQuestion] = useState('');
-  const [consultationHistory, setConsultationHistory] = useState<ConsultationRecord[]>([]);
   const [isConsulting, setIsConsulting] = useState(false);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   
-  const [sprints, setSprints] = useState<FeatureSprint[]>([]);
   const [newSprintTitle, setNewSprintTitle] = useState('');
   const [newSprintDescription, setNewSprintDescription] = useState('');
   const [showNewSprintForm, setShowNewSprintForm] = useState(false);
-  const [selectedSprint, setSelectedSprint] = useState<FeatureSprint | null>(null);
+  const [selectedSprint, setSelectedSprint] = useState<FeatureSprintData | null>(null);
+
+  // Fetch sprints from API
+  const { data: sprints = [], isLoading: sprintsLoading, refetch: refetchSprints } = useQuery<FeatureSprintData[]>({
+    queryKey: ['/api/feature-sprints'],
+  });
+
+  // Fetch consultation threads
+  const { data: threads = [], refetch: refetchThreads } = useQuery<ConsultationThreadData[]>({
+    queryKey: ['/api/sprint-consults'],
+  });
+
+  // Fetch messages for active thread
+  const { data: activeThread } = useQuery<ConsultationThreadData>({
+    queryKey: ['/api/sprint-consults', activeThreadId],
+    enabled: !!activeThreadId,
+  });
+
+  // Create sprint mutation
+  const createSprintMutation = useMutation({
+    mutationFn: async (data: { title: string; description?: string; stage?: SprintStage }) => {
+      return apiRequest("POST", "/api/feature-sprints", {
+        ...data,
+        createdBy: user?.id,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/feature-sprints'] });
+      setNewSprintTitle('');
+      setNewSprintDescription('');
+      setShowNewSprintForm(false);
+      toast({ title: "Sprint created" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Update sprint mutation
+  const updateSprintMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: string; stage?: SprintStage; [key: string]: any }): Promise<FeatureSprintData> => {
+      const result = await apiRequest("PATCH", `/api/feature-sprints/${id}`, data);
+      return result as unknown as FeatureSprintData;
+    },
+    onSuccess: (updatedSprint) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/feature-sprints'] });
+      if (selectedSprint?.id === updatedSprint.id) {
+        setSelectedSprint(updatedSprint);
+      }
+      toast({ title: "Sprint updated" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Create consultation thread mutation
+  const createThreadMutation = useMutation({
+    mutationFn: async (data: { title?: string; topic?: string }): Promise<ConsultationThreadData> => {
+      const result = await apiRequest("POST", "/api/sprint-consults", {
+        ...data,
+        createdBy: user?.id,
+      });
+      return result as unknown as ConsultationThreadData;
+    },
+    onSuccess: (thread) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sprint-consults'] });
+      setActiveThreadId(thread.id);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Add message to thread mutation
+  const addMessageMutation = useMutation({
+    mutationFn: async ({ threadId, role, content }: { threadId: string; role: string; content: string }) => {
+      return apiRequest("POST", `/api/sprint-consults/${threadId}/messages`, { role, content });
+    },
+    onSuccess: () => {
+      if (activeThreadId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/sprint-consults', activeThreadId] });
+        queryClient.invalidateQueries({ queryKey: ['/api/sprint-consults'] });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Seed templates mutation
+  const seedTemplatesMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/sprint-templates/seed", {});
+    },
+    onSuccess: (data: any) => {
+      toast({ title: "Templates seeded", description: data.message });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
 
   const consultDaniela = async () => {
     if (!consultationQuestion.trim()) {
@@ -4400,21 +4544,39 @@ function FeatureSprintTab() {
     
     setIsConsulting(true);
     try {
+      // Create thread if needed
+      let threadId = activeThreadId;
+      if (!threadId) {
+        const thread = await createThreadMutation.mutateAsync({
+          title: consultationQuestion.substring(0, 100),
+          topic: "feature_design",
+        });
+        threadId = thread.id;
+      }
+      
+      // Add user message
+      await addMessageMutation.mutateAsync({
+        threadId: threadId!,
+        role: 'user',
+        content: consultationQuestion,
+      });
+
+      // Call Daniela
       const data = await apiRequest("POST", "/api/agent-collab/consult-daniela", {
         question: consultationQuestion,
         context: "Founder collaboration session - seeking pedagogical insights for feature development.",
         fromAgent: "editor",
+      }) as { danielaSays?: string };
+      
+      // Save Daniela's response
+      await addMessageMutation.mutateAsync({
+        threadId: threadId!,
+        role: 'assistant',
+        content: data.danielaSays || "No response received",
       });
       
-      const newRecord: ConsultationRecord = {
-        id: Date.now().toString(),
-        question: consultationQuestion,
-        response: data.danielaSays || "No response received",
-        timestamp: new Date(),
-      };
-      
-      setConsultationHistory(prev => [newRecord, ...prev]);
       setConsultationQuestion('');
+      refetchThreads();
       toast({ title: "Daniela responded" });
     } catch (error: any) {
       toast({ 
@@ -4427,20 +4589,18 @@ function FeatureSprintTab() {
     }
   };
 
-  const convertToSprint = (consultation: ConsultationRecord) => {
-    const newSprint: FeatureSprint = {
-      id: Date.now().toString(),
-      title: `Sprint from: ${consultation.question.substring(0, 50)}...`,
-      stage: 'idea',
-      description: consultation.question,
-      danielaInsights: consultation.response,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setSprints(prev => [...prev, newSprint]);
-    setMode('sprint');
-    setSelectedSprint(newSprint);
-    toast({ title: "Created sprint from consultation" });
+  const convertToSprint = async (message: ConsultationMessageData, question: string) => {
+    try {
+      await createSprintMutation.mutateAsync({
+        title: `Sprint from: ${question.substring(0, 50)}...`,
+        description: question,
+        stage: 'idea',
+      });
+      setMode('sprint');
+      toast({ title: "Created sprint from consultation" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   };
 
   const createNewSprint = () => {
@@ -4448,40 +4608,28 @@ function FeatureSprintTab() {
       toast({ title: "Please enter a title", variant: "destructive" });
       return;
     }
-    
-    const newSprint: FeatureSprint = {
-      id: Date.now().toString(),
+    createSprintMutation.mutate({
       title: newSprintTitle,
-      stage: 'idea',
       description: newSprintDescription,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setSprints(prev => [...prev, newSprint]);
-    setNewSprintTitle('');
-    setNewSprintDescription('');
-    setShowNewSprintForm(false);
-    toast({ title: "Sprint created" });
+      stage: 'idea',
+    });
   };
 
-  const moveSprintToStage = (sprintId: string, newStage: FeatureSprint['stage']) => {
-    setSprints(prev => prev.map(s => 
-      s.id === sprintId ? { ...s, stage: newStage, updatedAt: new Date() } : s
-    ));
-    toast({ title: `Moved to ${newStage.replace('_', ' ')}` });
+  const moveSprintToStage = (sprintId: string, newStage: SprintStage) => {
+    updateSprintMutation.mutate({ id: sprintId, stage: newStage });
   };
 
-  const stageOrder: FeatureSprint['stage'][] = ['idea', 'pedagogy', 'build_plan', 'in_progress', 'shipped'];
-  const stageLabels: Record<FeatureSprint['stage'], string> = {
+  const stageOrder: SprintStage[] = ['idea', 'pedagogy_spec', 'build_plan', 'in_progress', 'shipped'];
+  const stageLabels: Record<SprintStage, string> = {
     idea: 'Idea',
-    pedagogy: 'Pedagogy Spec',
+    pedagogy_spec: 'Pedagogy Spec',
     build_plan: 'Build Plan',
     in_progress: 'In Progress',
     shipped: 'Shipped',
   };
-  const stageColors: Record<FeatureSprint['stage'], string> = {
+  const stageColors: Record<SprintStage, string> = {
     idea: 'bg-blue-500/10 border-blue-500/30',
-    pedagogy: 'bg-purple-500/10 border-purple-500/30',
+    pedagogy_spec: 'bg-purple-500/10 border-purple-500/30',
     build_plan: 'bg-orange-500/10 border-orange-500/30',
     in_progress: 'bg-yellow-500/10 border-yellow-500/30',
     shipped: 'bg-green-500/10 border-green-500/30',
@@ -4539,12 +4687,52 @@ function FeatureSprintTab() {
         <div className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Sparkles className="h-4 w-4" />
-                Ask Daniela
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  Ask Daniela
+                </CardTitle>
+                <div className="flex gap-2">
+                  {activeThreadId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setActiveThreadId(null)}
+                      data-testid="button-new-thread"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      New Thread
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => seedTemplatesMutation.mutate()}
+                    disabled={seedTemplatesMutation.isPending}
+                    data-testid="button-seed-templates"
+                  >
+                    {seedTemplatesMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              {activeThread?.messages && activeThread.messages.length > 0 && (
+                <div className="space-y-3 mb-4 max-h-[300px] overflow-y-auto p-2 border rounded-lg bg-muted/30">
+                  {activeThread.messages.map((msg) => (
+                    <div key={msg.id} className={`p-2 rounded-md ${msg.role === 'user' ? 'bg-background' : 'bg-purple-500/10'}`}>
+                      <div className="text-xs text-muted-foreground mb-1">
+                        {msg.role === 'user' ? 'You' : 'Daniela'} • {new Date(msg.createdAt).toLocaleTimeString()}
+                      </div>
+                      <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div>
                 <textarea
                   value={consultationQuestion}
@@ -4574,49 +4762,55 @@ Examples:
             </CardContent>
           </Card>
 
-          {consultationHistory.length > 0 && (
+          {threads.length > 0 && (
             <CollapsibleSection
-              title="Consultation History"
+              title="Consultation Threads"
               icon={<Clock className="h-5 w-5 text-primary" />}
               defaultOpen={true}
-              badge={consultationHistory.length.toString()}
+              badge={threads.length.toString()}
             >
-              <div className="space-y-4 mt-4">
-                {consultationHistory.map((record) => (
-                  <Card key={record.id} className="border-l-4 border-l-purple-500">
-                    <CardContent className="pt-4">
-                      <div className="flex items-start justify-between gap-4 mb-3">
-                        <div className="flex-1">
-                          <div className="font-medium text-sm mb-1">Your Question:</div>
-                          <div className="text-muted-foreground">{record.question}</div>
+              <div className="space-y-2 mt-4">
+                {threads.map((thread) => {
+                  const lastUserMsg = thread.messages?.filter(m => m.role === 'user').pop();
+                  const lastAssistantMsg = thread.messages?.filter(m => m.role === 'assistant').pop();
+                  return (
+                    <Card 
+                      key={thread.id} 
+                      className={`cursor-pointer hover-elevate ${activeThreadId === thread.id ? 'border-primary' : ''}`}
+                      onClick={() => setActiveThreadId(thread.id)}
+                      data-testid={`card-thread-${thread.id}`}
+                    >
+                      <CardContent className="py-3">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">{thread.title || 'Untitled Thread'}</div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {lastUserMsg?.content.substring(0, 80)}...
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge variant="secondary" className="text-xs">
+                              {thread.messages?.length || 0} msgs
+                            </Badge>
+                            {lastAssistantMsg && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  convertToSprint(lastAssistantMsg, lastUserMsg?.content || thread.title || '');
+                                }}
+                                data-testid={`button-convert-thread-${thread.id}`}
+                              >
+                                <Zap className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {new Date(record.timestamp).toLocaleTimeString()}
-                        </div>
-                      </div>
-                      
-                      <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20 mb-3">
-                        <div className="font-medium text-sm text-purple-600 mb-1 flex items-center gap-1">
-                          <Sparkles className="h-3 w-3" />
-                          Daniela's Response:
-                        </div>
-                        <div className="text-sm whitespace-pre-wrap">{record.response}</div>
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => convertToSprint(record)}
-                          data-testid={`button-convert-to-sprint-${record.id}`}
-                        >
-                          <Zap className="h-3 w-3 mr-1" />
-                          Convert to Sprint
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </CollapsibleSection>
           )}
@@ -4625,14 +4819,24 @@ Examples:
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-medium">Sprint Board</h3>
-            <Button
-              size="sm"
-              onClick={() => setShowNewSprintForm(true)}
-              data-testid="button-new-sprint"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              New Sprint
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => refetchSprints()}
+                data-testid="button-refresh-sprints"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setShowNewSprintForm(true)}
+                data-testid="button-new-sprint"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                New Sprint
+              </Button>
+            </div>
           </div>
 
           {showNewSprintForm && (
@@ -4652,8 +4856,13 @@ Examples:
                   data-testid="input-sprint-description"
                 />
                 <div className="flex gap-2">
-                  <Button size="sm" onClick={createNewSprint} data-testid="button-create-sprint">
-                    Create
+                  <Button 
+                    size="sm" 
+                    onClick={createNewSprint} 
+                    disabled={createSprintMutation.isPending}
+                    data-testid="button-create-sprint"
+                  >
+                    {createSprintMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create'}
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => setShowNewSprintForm(false)}>
                     Cancel
@@ -4663,39 +4872,47 @@ Examples:
             </Card>
           )}
 
-          <div className="grid grid-cols-5 gap-3">
-            {stageOrder.map((stage) => (
-              <div key={stage} className={`rounded-lg border p-3 ${stageColors[stage]}`}>
-                <div className="font-medium text-sm mb-3 flex items-center justify-between">
-                  {stageLabels[stage]}
-                  <Badge variant="secondary" className="text-xs">
-                    {sprints.filter(s => s.stage === stage).length}
-                  </Badge>
+          {sprintsLoading ? (
+            <div className="grid grid-cols-5 gap-3">
+              {stageOrder.map((stage) => (
+                <Skeleton key={stage} className="h-48" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-5 gap-3">
+              {stageOrder.map((stage) => (
+                <div key={stage} className={`rounded-lg border p-3 ${stageColors[stage]}`}>
+                  <div className="font-medium text-sm mb-3 flex items-center justify-between">
+                    {stageLabels[stage]}
+                    <Badge variant="secondary" className="text-xs">
+                      {sprints.filter(s => s.stage === stage).length}
+                    </Badge>
+                  </div>
+                  <div className="space-y-2">
+                    {sprints
+                      .filter(s => s.stage === stage)
+                      .map(sprint => (
+                        <Card 
+                          key={sprint.id} 
+                          className="cursor-pointer hover-elevate"
+                          onClick={() => setSelectedSprint(sprint)}
+                          data-testid={`card-sprint-${sprint.id}`}
+                        >
+                          <CardContent className="p-2">
+                            <div className="font-medium text-sm truncate">{sprint.title}</div>
+                            {sprint.description && (
+                              <div className="text-xs text-muted-foreground truncate">
+                                {sprint.description}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  {sprints
-                    .filter(s => s.stage === stage)
-                    .map(sprint => (
-                      <Card 
-                        key={sprint.id} 
-                        className="cursor-pointer hover-elevate"
-                        onClick={() => setSelectedSprint(sprint)}
-                        data-testid={`card-sprint-${sprint.id}`}
-                      >
-                        <CardContent className="p-2">
-                          <div className="font-medium text-sm truncate">{sprint.title}</div>
-                          {sprint.description && (
-                            <div className="text-xs text-muted-foreground truncate">
-                              {sprint.description}
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           {selectedSprint && (
             <Card>
@@ -4716,10 +4933,10 @@ Examples:
                   <div className="text-muted-foreground">{selectedSprint.description || 'No description'}</div>
                 </div>
                 
-                {selectedSprint.danielaInsights && (
+                {selectedSprint.pedagogySpec?.danielaGuidance && (
                   <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                    <div className="font-medium text-sm text-purple-600 mb-1">Daniela's Insights</div>
-                    <div className="text-sm whitespace-pre-wrap">{selectedSprint.danielaInsights}</div>
+                    <div className="font-medium text-sm text-purple-600 mb-1">Daniela's Guidance</div>
+                    <div className="text-sm whitespace-pre-wrap">{selectedSprint.pedagogySpec.danielaGuidance}</div>
                   </div>
                 )}
                 
@@ -4730,7 +4947,7 @@ Examples:
                       key={stage}
                       size="sm"
                       variant={selectedSprint.stage === stage ? 'default' : 'outline'}
-                      disabled={selectedSprint.stage === stage}
+                      disabled={selectedSprint.stage === stage || updateSprintMutation.isPending}
                       onClick={() => moveSprintToStage(selectedSprint.id, stage)}
                       data-testid={`button-move-to-${stage}`}
                     >
