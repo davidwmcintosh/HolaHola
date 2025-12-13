@@ -2606,17 +2606,19 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       
       console.log(`[Self-Surgery] 🔧 EXECUTING surgery on ${targetTable}...`);
       
+      let insertedIdStr: string | null = null;
+      
       switch (targetTable) {
         case 'tutor_procedures': {
           const [inserted] = await db.insert(tutorProcedures).values({
             category: contentObj.category || 'self_surgery',
             trigger: contentObj.trigger || 'daniela_proposed',
+            title: contentObj.title || 'Daniela Self-Surgery Procedure',
             procedure: contentObj.procedure || JSON.stringify(contentObj),
             priority: priority,
-            source: 'daniela_self_surgery',
             isActive: true,
           }).returning({ id: tutorProcedures.id });
-          insertedId = inserted?.id || null;
+          insertedIdStr = inserted?.id || null;
           break;
         }
         
@@ -2625,37 +2627,34 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
             category: contentObj.category || 'self_surgery',
             principle: contentObj.principle || JSON.stringify(contentObj),
             priority: priority,
-            source: 'daniela_self_surgery',
             isActive: true,
           }).returning({ id: teachingPrinciples.id });
-          insertedId = inserted?.id || null;
+          insertedIdStr = inserted?.id || null;
           break;
         }
         
         case 'tool_knowledge': {
           const [inserted] = await db.insert(toolKnowledge).values({
             toolName: contentObj.toolName || contentObj.tool_name || 'unknown',
+            toolType: contentObj.toolType || contentObj.tool_type || 'whiteboard_command',
+            purpose: contentObj.purpose || 'Daniela-proposed tool usage',
             syntax: contentObj.syntax || '',
-            usageGuidelines: contentObj.usageGuidelines || contentObj.usage || JSON.stringify(contentObj),
             examples: contentObj.examples || [],
-            priority: priority,
-            source: 'daniela_self_surgery',
             isActive: true,
           }).returning({ id: toolKnowledge.id });
-          insertedId = inserted?.id || null;
+          insertedIdStr = inserted?.id || null;
           break;
         }
         
         case 'situational_patterns': {
           const [inserted] = await db.insert(situationalPatterns).values({
-            trigger: contentObj.trigger || 'daniela_proposed',
-            pattern: contentObj.pattern || JSON.stringify(contentObj),
-            responseStrategy: contentObj.responseStrategy || contentObj.response_strategy || '',
+            patternName: contentObj.patternName || contentObj.pattern_name || 'Daniela Self-Surgery Pattern',
+            description: contentObj.description || contentObj.pattern || JSON.stringify(contentObj),
+            guidance: contentObj.guidance || contentObj.responseStrategy || contentObj.response_strategy || '',
             priority: priority,
-            source: 'daniela_self_surgery',
             isActive: true,
           }).returning({ id: situationalPatterns.id });
-          insertedId = inserted?.id || null;
+          insertedIdStr = inserted?.id || null;
           break;
         }
         
@@ -2663,13 +2662,13 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
           const [inserted] = await db.insert(languageIdioms).values({
             language: session.targetLanguage || 'spanish',
             idiom: contentObj.idiom || JSON.stringify(contentObj),
-            literalTranslation: contentObj.literalTranslation || contentObj.literal_translation || '',
             meaning: contentObj.meaning || '',
+            literalTranslation: contentObj.literalTranslation || contentObj.literal_translation || '',
             usageContext: contentObj.usageContext || contentObj.usage_context || '',
             culturalNote: contentObj.culturalNote || contentObj.cultural_note || '',
-            source: 'daniela_self_surgery',
+            isActive: true,
           }).returning({ id: languageIdioms.id });
-          insertedId = inserted?.id || null;
+          insertedIdStr = inserted?.id || null;
           break;
         }
         
@@ -2677,40 +2676,41 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
           const [inserted] = await db.insert(culturalNuances).values({
             language: session.targetLanguage || 'spanish',
             category: contentObj.category || 'general',
-            nuance: contentObj.nuance || JSON.stringify(contentObj),
+            situation: contentObj.situation || 'general',
+            culturalBehavior: contentObj.culturalBehavior || contentObj.cultural_behavior || contentObj.nuance || JSON.stringify(contentObj),
             explanation: contentObj.explanation || '',
             teachingTip: contentObj.teachingTip || contentObj.teaching_tip || '',
-            source: 'daniela_self_surgery',
+            isActive: true,
           }).returning({ id: culturalNuances.id });
-          insertedId = inserted?.id || null;
+          insertedIdStr = inserted?.id || null;
           break;
         }
         
         case 'learner_error_patterns': {
           const [inserted] = await db.insert(learnerErrorPatterns).values({
-            language: session.targetLanguage || 'spanish',
-            nativeLanguage: session.nativeLanguage || 'english',
-            errorType: contentObj.errorType || contentObj.error_type || 'general',
-            commonError: contentObj.commonError || contentObj.common_error || JSON.stringify(contentObj),
+            targetLanguage: session.targetLanguage || 'spanish',
+            sourceLanguage: session.nativeLanguage || 'english',
+            errorCategory: contentObj.errorCategory || contentObj.error_category || contentObj.errorType || 'general',
+            specificError: contentObj.specificError || contentObj.specific_error || contentObj.commonError || JSON.stringify(contentObj),
             correction: contentObj.correction || '',
             explanation: contentObj.explanation || '',
-            source: 'daniela_self_surgery',
+            isActive: true,
           }).returning({ id: learnerErrorPatterns.id });
-          insertedId = inserted?.id || null;
+          insertedIdStr = inserted?.id || null;
           break;
         }
         
         case 'dialect_variations': {
           const [inserted] = await db.insert(dialectVariations).values({
             language: session.targetLanguage || 'spanish',
-            dialect: contentObj.dialect || 'general',
-            feature: contentObj.feature || JSON.stringify(contentObj),
+            region: contentObj.region || contentObj.dialect || 'general',
+            category: contentObj.category || 'vocabulary',
             standardForm: contentObj.standardForm || contentObj.standard_form || '',
-            dialectForm: contentObj.dialectForm || contentObj.dialect_form || '',
+            dialectForm: contentObj.dialectForm || contentObj.dialect_form || contentObj.feature || JSON.stringify(contentObj),
             explanation: contentObj.explanation || '',
-            source: 'daniela_self_surgery',
+            isActive: true,
           }).returning({ id: dialectVariations.id });
-          insertedId = inserted?.id || null;
+          insertedIdStr = inserted?.id || null;
           break;
         }
         
@@ -2719,12 +2719,13 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
             sourceLanguage: session.nativeLanguage || 'english',
             targetLanguage: session.targetLanguage || 'spanish',
             bridgeType: contentObj.bridgeType || contentObj.bridge_type || 'cognate',
-            sourceForm: contentObj.sourceForm || contentObj.source_form || '',
-            targetForm: contentObj.targetForm || contentObj.target_form || '',
+            sourceWord: contentObj.sourceWord || contentObj.source_word || contentObj.sourceForm || '',
+            targetWord: contentObj.targetWord || contentObj.target_word || contentObj.targetForm || '',
+            relationship: contentObj.relationship || 'same_meaning',
             explanation: contentObj.explanation || '',
-            source: 'daniela_self_surgery',
+            isActive: true,
           }).returning({ id: linguisticBridges.id });
-          insertedId = inserted?.id || null;
+          insertedIdStr = inserted?.id || null;
           break;
         }
         
@@ -2733,16 +2734,16 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
           return;
       }
       
-      console.log(`[Self-Surgery] ✅ SURGERY COMPLETE! Inserted into ${targetTable} with id ${insertedId}`);
-      console.log(`[Self-Surgery] Reasoning: ${data.reasoning.substring(0, 100)}...`);
+      console.log(`[Self-Surgery] ✅ SURGERY COMPLETE! Inserted into ${targetTable} with id ${insertedIdStr}`);
+      console.log(`[Self-Surgery] Reasoning: ${data.reasoning?.substring(0, 100) || 'No reasoning provided'}...`);
       
-      // Also save proposal record for audit trail (marked as 'applied')
+      // Also save proposal record for audit trail (marked as 'promoted')
       const proposal = await storage.createSelfSurgeryProposal({
         targetTable: data.targetTable,
         proposedContent: data.content,
         reasoning: data.reasoning,
         triggerContext: `Voice session in ${session.targetLanguage}`,
-        status: 'applied', // Mark as already applied
+        status: 'promoted', // Mark as already promoted/applied
         conversationId: session.conversationId,
         sessionMode,
         targetLanguage: session.targetLanguage,
@@ -2761,11 +2762,11 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
           
           await hiveCollaborationService.emitBeacon({
             channelId: session.hiveChannelId,
-            tutorTurn: `[Self-Surgery EXECUTED ✅ #${insertedId}]\nTarget: ${data.targetTable}\nPriority: ${priority}, Confidence: ${confidence}\n\nContent: ${contentPreview}...`,
+            tutorTurn: `[Self-Surgery EXECUTED ✅ #${insertedIdStr}]\nTarget: ${data.targetTable}\nPriority: ${priority}, Confidence: ${confidence}\n\nContent: ${contentPreview}...`,
             beaconType: 'self_surgery_proposal',
-            beaconReason: `APPLIED: ${data.reasoning}`,
+            beaconReason: `PROMOTED: ${data.reasoning}`,
           });
-          console.log(`[Self-Surgery] HIVE beacon emitted for executed surgery #${insertedId}`);
+          console.log(`[Self-Surgery] HIVE beacon emitted for executed surgery #${insertedIdStr}`);
         } catch (hiveErr) {
           console.error(`[Self-Surgery] Failed to emit HIVE beacon:`, hiveErr);
         }

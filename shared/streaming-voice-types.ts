@@ -65,6 +65,7 @@ export type StreamingVoiceMessageType =
   | 'voice_updated'       // Voice switch confirmation (tutor voice changed)
   | 'tutor_handoff'       // Tutor handoff: Switch to different tutor voice after farewell
   | 'support_handoff'     // Support handoff: Route student to Support Agent (Tri-Lane Hive)
+  | 'assistant_handoff'   // Assistant handoff: Route student to Aris for drills (Tri-Lane Hive)
   | 'vad_speech_started'  // Open mic: User started speaking (VAD detected speech)
   | 'vad_utterance_end'   // Open mic: User stopped speaking (VAD detected silence)
   | 'interim_transcript'  // Open mic: Real-time interim transcript for feedback
