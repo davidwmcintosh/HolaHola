@@ -41,8 +41,9 @@ import { updateToolEventEngagement, mapWhiteboardTypeToToolType } from './servic
 import { buildNeuralNetworkPromptSection } from './services/neural-network-retrieval';
 import type { VoiceSession as UsageVoiceSession, CompassContext, TutorSession } from '@shared/schema';
 
-const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
-const REALTIME_PATH = '/api/realtime/ws';
+// NOTE: Using non-/api/ path to avoid potential Replit proxy issues with WebSocket upgrades
+const STREAMING_VOICE_PATH = '/ws/voice';
+const REALTIME_PATH = '/ws/realtime';
 
 /**
  * Convert ACTFL level to legacy difficulty level for system prompt compatibility
@@ -1400,6 +1401,10 @@ async function handleRealtimeConnection(ws: WS, req: IncomingMessage) {
 
 /**
  * Setup unified WebSocket handler
+ * 
+ * CRITICAL: Uses prependListener to ensure this handler runs BEFORE Vite's HMR handler.
+ * This prevents race conditions where multiple handlers try to process the same socket.
+ * We mark handled sockets by destroying them from Vite's perspective.
  */
 export function setupUnifiedWebSocketHandler(server: Server) {
   console.log('[Unified WS] Setting up unified WebSocket handler...');
@@ -1411,8 +1416,16 @@ export function setupUnifiedWebSocketHandler(server: Server) {
     console.error('[Unified WS] Server error:', error);
   });
 
-  // Handle upgrade requests manually
-  server.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
+  // Track which sockets we've handled to prevent other handlers from interfering
+  const handledSockets = new WeakSet<Duplex>();
+
+  // Use prependListener to run BEFORE any other upgrade handlers (like Vite's HMR)
+  server.prependListener('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
+    // If another handler already processed this socket, skip
+    if (handledSockets.has(socket)) {
+      return;
+    }
+
     let pathname = '';
     try {
       pathname = new URL(request.url || '', `http://${request.headers.host}`).pathname;
@@ -1425,12 +1438,21 @@ export function setupUnifiedWebSocketHandler(server: Server) {
     console.log(`[Unified WS] Upgrade request for: ${pathname}`);
 
     if (pathname === STREAMING_VOICE_PATH) {
+      // Mark socket as handled to prevent other listeners from processing it
+      handledSockets.add(socket);
+      
       console.log('[Unified WS] Routing to streaming voice handler');
+      console.log('[Unified WS] Socket state before handleUpgrade:', socket.destroyed ? 'DESTROYED' : 'OK', 'writable:', socket.writable);
+      
       wss.handleUpgrade(request, socket, head, (ws) => {
+        console.log('[Unified WS] handleUpgrade callback - WebSocket readyState:', ws.readyState);
         wss.emit('connection', ws, request);
         handleStreamingVoiceConnection(ws, request);
       });
     } else if (pathname === REALTIME_PATH) {
+      // Mark socket as handled to prevent other listeners from processing it
+      handledSockets.add(socket);
+      
       console.log('[Unified WS] Routing to realtime handler');
       wss.handleUpgrade(request, socket, head, (ws) => {
         wss.emit('connection', ws, request);
@@ -1443,8 +1465,8 @@ export function setupUnifiedWebSocketHandler(server: Server) {
   });
 
   console.log('[Unified WS] ✓ Unified WebSocket handler ready');
-  console.log('[Unified WS] - Streaming Voice: /api/voice/stream/ws');
-  console.log('[Unified WS] - Realtime API: /api/realtime/ws');
+  console.log('[Unified WS] - Streaming Voice: /ws/voice');
+  console.log('[Unified WS] - Realtime API: /ws/realtime');
 
   return wss;
 }
