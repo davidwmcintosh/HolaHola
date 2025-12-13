@@ -48,6 +48,7 @@ import { getTTSService } from "./services/tts-service";
 import { usageService } from "./services/usage-service";
 import { sessionCompassService, COMPASS_ENABLED } from "./services/session-compass-service";
 import { architectVoiceService, validateArchitectSecret } from "./services/architect-voice-service";
+import { getStreamingVoiceOrchestrator } from "./services/streaming-voice-orchestrator";
 import { collaborationHubService } from "./services/collaboration-hub-service";
 import { hiveCollaborationService } from "./services/hive-collaboration-service";
 import { editorPersonaService, validateEditorSecret } from "./services/editor-persona-service";
@@ -1277,13 +1278,35 @@ export async function registerRoutes(app: Express): Promise<void> {
       
       console.log(`[Architect Voice] Note injected into conversation ${conversationId}`);
       
+      // REAL-TIME TRIGGER: If there's an active voice session, trigger Daniela immediately
+      // This enables true 3-way collaboration without waiting for the user to speak
+      const orchestrator = getStreamingVoiceOrchestrator();
+      const activeSession = orchestrator.findSessionByConversationId(conversationId);
+      let triggeredImmediateResponse = false;
+      
+      if (activeSession) {
+        console.log(`[Architect Voice] 🏗️ Found active session - triggering immediate Daniela response`);
+        // Don't await - let the response stream in the background
+        // Pass noteId so it can be marked as delivered after successful response
+        orchestrator.triggerArchitectResponse(activeSession, content, note.id).catch(err => {
+          console.error(`[Architect Voice] Failed to trigger response:`, err.message);
+        });
+        triggeredImmediateResponse = true;
+      } else {
+        console.log(`[Architect Voice] No active voice session - note stored for next turn`);
+      }
+      
       res.json({ 
         success: true, 
         note: {
           id: note.id,
           content: note.content,
           timestamp: note.timestamp
-        }
+        },
+        immediateResponse: triggeredImmediateResponse,
+        message: triggeredImmediateResponse 
+          ? 'Note delivered - Daniela is responding now!' 
+          : 'Note stored - will be delivered when user speaks next'
       });
     } catch (error: any) {
       console.error("Error injecting architect note:", error);

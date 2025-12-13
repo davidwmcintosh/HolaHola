@@ -3967,6 +3967,193 @@ DON'T:
   }
   
   /**
+   * Find an active session by conversationId
+   * Used for architect note injection - allows finding the active voice session
+   */
+  findSessionByConversationId(conversationId: string): StreamingSession | undefined {
+    for (const session of this.sessions.values()) {
+      if (session.conversationId === conversationId && session.isActive) {
+        return session;
+      }
+    }
+    return undefined;
+  }
+  
+  /**
+   * Trigger Daniela to respond to an architect note immediately
+   * This enables real-time Claude participation in voice sessions
+   * The architect note becomes the "user message" that Daniela responds to
+   * @param noteId - The database ID of the note to mark as delivered after response
+   */
+  async triggerArchitectResponse(session: StreamingSession, architectNote: string, noteId?: string): Promise<void> {
+    if (!session.isActive || !session.isFounderMode) {
+      console.log('[Streaming Orchestrator] Cannot trigger architect response - session not active or not in Founder Mode');
+      return;
+    }
+    
+    // Skip if already generating a response (avoid race conditions)
+    if (session.isGenerating) {
+      console.log('[Streaming Orchestrator] Skipping architect trigger - response already in progress');
+      return;
+    }
+    
+    console.log(`[Streaming Orchestrator] 🏗️ Triggering immediate response for architect note`);
+    
+    // NEW TURN: Increment turnId for this response
+    session.currentTurnId++;
+    session.isInterrupted = false;
+    session.isGenerating = true;
+    const turnId = session.currentTurnId;
+    
+    // Notify client that an architect-triggered response is starting
+    this.sendMessage(session.ws, {
+      type: 'processing',
+      timestamp: Date.now(),
+      turnId,
+      userTranscript: '[Architect Note]',  // Indicate this is from the architect
+    } as StreamingProcessingMessage);
+    
+    try {
+      const aiStart = Date.now();
+      let firstTokenReceived = false;
+      let fullText = '';
+      let currentSentenceIndex = 0;
+      
+      const seenSentences = new Set<string>();
+      const MAX_SENTENCES = 15;
+      let actualSentenceCount = 0;
+      
+      // Build the architect context - the note we just received
+      const architectContext = `
+
+═══════════════════════════════════════════════════════════════════
+🏗️ ARCHITECT'S NOTE (from Claude - RESPOND NOW)
+═══════════════════════════════════════════════════════════════════
+
+Claude, the architect, just sent you this note and is waiting for your response:
+
+• ${architectNote}
+
+This is a REAL-TIME message. Respond directly to Claude's note.
+Acknowledge Claude's input naturally and address what they said.
+
+`;
+      
+      // Create metrics structure
+      const metrics: StreamingMetrics = {
+        sessionId: session.id,
+        sttLatencyMs: 0,  // No STT for architect trigger
+        aiFirstTokenMs: 0,
+        ttsFirstByteMs: 0,
+        totalLatencyMs: 0,
+        sentenceCount: 0,
+        audioBytes: 0,
+      };
+      
+      // Use a system prompt that tells Daniela to respond to the architect
+      const triggerPrompt = `[ARCHITECT DIRECT MESSAGE]
+Claude, the architect building your teaching tools, just sent you a message. 
+Respond to them directly - they're listening. This is real-time collaboration.`;
+      
+      await this.geminiService.streamWithSentenceChunking({
+        systemPrompt: session.systemPrompt + architectContext,
+        conversationHistory: session.conversationHistory,
+        userMessage: triggerPrompt,
+        onSentence: async (chunk: SentenceChunk) => {
+          // Check for interrupt
+          if (session.isInterrupted) {
+            console.log('[Streaming Orchestrator] Architect response interrupted by user');
+            return;
+          }
+          
+          const cleanedText = cleanTextForDisplay(chunk.text);
+          if (!cleanedText) return;
+          
+          // Deduplication
+          const normalizedSentence = cleanedText.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+          if (seenSentences.has(normalizedSentence)) return;
+          seenSentences.add(normalizedSentence);
+          
+          actualSentenceCount++;
+          if (actualSentenceCount > MAX_SENTENCES) return;
+          
+          if (!firstTokenReceived) {
+            metrics.aiFirstTokenMs = Date.now() - aiStart;
+            firstTokenReceived = true;
+          }
+          
+          fullText += (fullText ? ' ' : '') + cleanedText;
+          
+          // Send sentence_start
+          this.sendMessage(session.ws, {
+            type: 'sentence_start',
+            timestamp: Date.now(),
+            turnId,
+            sentenceIndex: currentSentenceIndex,
+            text: cleanedText,
+            hasTargetContent: true,
+            targetLanguageText: cleanedText,
+          } as StreamingSentenceStartMessage);
+          
+          // Stream audio for this sentence
+          await this.streamSentenceAudioProgressive(
+            session,
+            { index: currentSentenceIndex, text: cleanedText, isFinal: chunk.isFinal },
+            cleanedText,
+            metrics,
+            turnId
+          );
+          
+          currentSentenceIndex++;
+          metrics.sentenceCount = currentSentenceIndex;
+        },
+      });
+      
+      // Add response to conversation history
+      if (fullText) {
+        // Add the architect note as a "user" message to maintain context
+        session.conversationHistory.push({ 
+          role: 'user', 
+          content: `[Architect Note from Claude]: ${architectNote}` 
+        });
+        session.conversationHistory.push({ role: 'model', content: fullText });
+      }
+      
+      metrics.totalLatencyMs = Date.now() - aiStart;
+      
+      // Send response_complete
+      this.sendMessage(session.ws, {
+        type: 'response_complete',
+        timestamp: Date.now(),
+        turnId,
+        fullText,
+        totalSentences: currentSentenceIndex,
+        totalDurationMs: metrics.totalLatencyMs,
+      } as StreamingResponseCompleteMessage);
+      
+      console.log(`[Streaming Orchestrator] 🏗️ Architect response complete: "${fullText.slice(0, 100)}..."`);
+      
+      // Mark the architect note as delivered so it's not repeated
+      if (noteId) {
+        await architectVoiceService.markNotesDelivered([noteId]);
+        console.log(`[Streaming Orchestrator] 🏗️ Marked architect note ${noteId} as delivered`);
+      }
+      
+    } catch (err: any) {
+      console.error(`[Streaming Orchestrator] Architect response failed: ${err.message}`);
+      this.sendMessage(session.ws, {
+        type: 'error',
+        timestamp: Date.now(),
+        code: 'ARCHITECT_RESPONSE_FAILED',
+        message: 'Failed to respond to architect note',
+        recoverable: true,
+      });
+    } finally {
+      session.isGenerating = false;
+    }
+  }
+  
+  /**
    * Get active session count
    */
   getActiveSessionCount(): number {
