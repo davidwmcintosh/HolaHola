@@ -703,6 +703,7 @@ export class StreamingVoiceOrchestrator {
       const aiStart = Date.now();
       let firstTokenReceived = false;
       let fullText = '';
+      let rawFullText = '';  // Preserve raw AI response for COLLAB/SELF_SURGERY extraction
       let currentSentenceIndex = 0;
       
       // DEDUPLICATION GUARD: Track seen sentences to prevent LLM repetition loops
@@ -1115,6 +1116,7 @@ export class StreamingVoiceOrchestrator {
           
           // Use cleaned displayText for persistence (no emotion tags, no markdown)
           fullText += displayText + ' ';
+          rawFullText += chunk.text + ' ';  // Preserve raw for COLLAB/SELF_SURGERY extraction
           currentSentenceIndex = chunk.index;
           metrics.sentenceCount++;
         },
@@ -1188,8 +1190,9 @@ export class StreamingVoiceOrchestrator {
       
       // HIVE BEACON EMISSION: Flag interesting teaching moments for Editor collaboration
       // Only emit for founder sessions to avoid noise, and run non-blocking
+      // Pass rawFullText to extract COLLAB/SELF_SURGERY tags before they were stripped
       if (session.isFounderMode && session.hiveChannelId) {
-        this.emitHiveBeacons(session, transcript, fullText.trim()).catch((err: Error) => {
+        this.emitHiveBeacons(session, transcript, fullText.trim(), rawFullText.trim()).catch((err: Error) => {
           console.warn('[Hive Beacon] Error emitting beacons:', err.message);
         });
       }
@@ -2207,17 +2210,75 @@ export class StreamingVoiceOrchestrator {
   
   /**
    * Emit hive beacons for Daniela-Editor collaboration
-   * Detects teaching moments, tool usage, and other notable events for Editor awareness
+   * Detects teaching moments, tool usage, COLLAB/SELF_SURGERY tags, and other notable events for Editor awareness
    */
   private async emitHiveBeacons(
     session: StreamingSession,
     studentTurn: string,
-    tutorTurn: string
+    tutorTurn: string,
+    rawTutorTurn?: string  // Raw AI response with COLLAB/SELF_SURGERY tags intact
   ): Promise<void> {
     if (!session.hiveChannelId) return;
     
     // Parse tutor response for whiteboard markup
     const whiteboardItems = parseWhiteboardMarkup(tutorTurn);
+    
+    // COLLAB/SELF_SURGERY EXTRACTION: Extract collaboration signals from raw response
+    // These tags are stripped for display but should be sent to Editor as beacons
+    const rawText = rawTutorTurn || tutorTurn;
+    
+    // COLLAB tags: [COLLAB:TYPE]content[/COLLAB]
+    const collabPattern = /\[COLLAB:(SUGGESTION|PAIN_POINT|QUESTION|INSIGHT|MISSING_TOOL|FEATURE_REQUEST|KNOWLEDGE_PING)\]([\s\S]*?)\[\/COLLAB\]/g;
+    let collabMatch;
+    while ((collabMatch = collabPattern.exec(rawText)) !== null) {
+      const signalType = collabMatch[1];
+      const content = collabMatch[2].trim();
+      
+      // Map signal type to beacon type
+      let beaconType: BeaconType = 'teaching_moment';
+      let beaconReason = `${signalType}: ${content.slice(0, 100)}`;
+      
+      if (signalType === 'KNOWLEDGE_PING') {
+        beaconType = 'knowledge_ping';
+        beaconReason = `Daniela noticed a knowledge gap: ${content.slice(0, 100)}`;
+      } else if (signalType === 'MISSING_TOOL' || signalType === 'FEATURE_REQUEST') {
+        beaconType = 'teaching_moment';
+        beaconReason = `Tool request: ${content.slice(0, 100)}`;
+      }
+      
+      try {
+        await hiveCollaborationService.emitBeacon({
+          channelId: session.hiveChannelId,
+          tutorTurn: content,
+          studentTurn,
+          beaconType,
+          beaconReason,
+        });
+        console.log(`[Hive Beacon] Emitted COLLAB:${signalType} beacon`);
+      } catch (err: any) {
+        console.warn(`[Hive Beacon] Failed to emit COLLAB beacon:`, err.message);
+      }
+    }
+    
+    // SELF_SURGERY tags: [SELF_SURGERY target="..." priority=... confidence=... content='...' ...]
+    const selfSurgeryPattern = /\[SELF_SURGERY[^\]]*\]/gi;
+    let surgeryMatch;
+    while ((surgeryMatch = selfSurgeryPattern.exec(rawText)) !== null) {
+      const fullTag = surgeryMatch[0];
+      
+      try {
+        await hiveCollaborationService.emitBeacon({
+          channelId: session.hiveChannelId,
+          tutorTurn: fullTag,
+          studentTurn,
+          beaconType: 'self_surgery_proposal',
+          beaconReason: 'Daniela proposed a neural network modification',
+        });
+        console.log(`[Hive Beacon] Emitted SELF_SURGERY beacon`);
+      } catch (err: any) {
+        console.warn(`[Hive Beacon] Failed to emit SELF_SURGERY beacon:`, err.message);
+      }
+    }
     
     // Detect beacon types based on content
     const beaconsToEmit: Array<{ type: BeaconType; reason: string }> = [];
