@@ -1,6 +1,19 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, MessageSquare, RefreshCw, Trash2, Loader2, PhoneOff, Radio } from "lucide-react";
+import { Mic, MicOff, MessageSquare, RefreshCw, Trash2, Loader2, PhoneOff, Radio, Handshake, Send, CheckCircle } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { type Message } from "@shared/schema";
 import { type VoiceSpeed } from "@/contexts/LanguageContext";
 import {
@@ -111,6 +124,58 @@ export function ImmersiveTutor({
   // Debounce voice switching to prevent rapid clicks
   const voiceSwitchInProgressRef = useRef<boolean>(false);
 
+  // Collaboration panel state
+  const [isCollabOpen, setIsCollabOpen] = useState(false);
+  const [observationInput, setObservationInput] = useState("");
+
+  // Collaboration feed data - only fetch when panel is open and user is developer
+  const { data: collabFeed, isLoading: feedLoading, refetch: refetchFeed } = useQuery<{
+    events: Array<{
+      id: number;
+      eventType: string;
+      title: string;
+      content: string | null;
+      priority: string;
+      status: string;
+      participantId: string | null;
+      sourceContext: any;
+      createdAt: string;
+      resolvedAt: string | null;
+      resolvedBy: string | null;
+    }>;
+    stats: {
+      total: number;
+      active: number;
+      resolved: number;
+      byType: Record<string, number>;
+    };
+  }>({
+    queryKey: ["/api/collaboration/feed"],
+    enabled: isDeveloper && isCollabOpen,
+    refetchInterval: isCollabOpen ? 10000 : false, // Auto-refresh every 10s when open
+  });
+
+  // Add observation mutation
+  const addObservationMutation = useMutation({
+    mutationFn: async (content: string) => {
+      return apiRequest("POST", "/api/collaboration/observe", { content });
+    },
+    onSuccess: () => {
+      setObservationInput("");
+      refetchFeed();
+    },
+  });
+
+  // Resolve event mutation
+  const resolveEventMutation = useMutation({
+    mutationFn: async (eventId: number) => {
+      return apiRequest("POST", `/api/collaboration/events/${eventId}/resolve`, {});
+    },
+    onSuccess: () => {
+      refetchFeed();
+    },
+  });
+
   // Determine which tutor image to show based on state and gender preference
   const getTutorImage = () => {
     // Select avatar set based on gender preference
@@ -169,6 +234,142 @@ export function ImmersiveTutor({
             {maleVoiceName || "Male"}
           </Button>
         </div>
+      )}
+
+      {/* Collaboration Panel Button - Developer/Founder only, top-right */}
+      {isDeveloper && (
+        <Sheet open={isCollabOpen} onOpenChange={setIsCollabOpen}>
+          <SheetTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 right-4 z-20 bg-background/80 backdrop-blur-sm rounded-full shadow-lg border h-10 w-10"
+              data-testid="button-collaboration-panel"
+              title="Collaboration Feed"
+            >
+              <Handshake className="h-5 w-5" />
+              {collabFeed?.stats?.active && collabFeed.stats.active > 0 && (
+                <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                  {collabFeed.stats.active > 9 ? '9+' : collabFeed.stats.active}
+                </span>
+              )}
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-[350px] sm:w-[400px] flex flex-col">
+            <SheetHeader>
+              <SheetTitle className="flex items-center gap-2">
+                <Handshake className="h-5 w-5" />
+                Live Collaboration
+              </SheetTitle>
+              <SheetDescription>
+                Real-time founder-AI collaboration feed
+              </SheetDescription>
+            </SheetHeader>
+
+            {/* Stats summary */}
+            {collabFeed?.stats && (
+              <div className="flex gap-2 py-2 border-b">
+                <Badge variant="outline" className="text-xs">
+                  {collabFeed.stats.active} active
+                </Badge>
+                <Badge variant="secondary" className="text-xs">
+                  {collabFeed.stats.resolved} resolved
+                </Badge>
+              </div>
+            )}
+
+            {/* Event feed */}
+            <ScrollArea className="flex-1 -mx-6 px-6">
+              {feedLoading ? (
+                <div className="py-8 text-center text-muted-foreground">Loading...</div>
+              ) : !collabFeed?.events?.length ? (
+                <div className="py-8 text-center text-muted-foreground text-sm">
+                  No collaboration events yet
+                </div>
+              ) : (
+                <div className="space-y-3 py-3">
+                  {collabFeed.events.slice(0, 20).map((event) => (
+                    <div
+                      key={event.id}
+                      className={`p-3 rounded-lg border text-sm ${
+                        event.status === 'resolved' 
+                          ? 'bg-muted/50 opacity-60' 
+                          : event.priority === 'high' 
+                            ? 'border-orange-500/50 bg-orange-50/50 dark:bg-orange-950/20'
+                            : ''
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                              {event.eventType.replace('_', ' ')}
+                            </Badge>
+                            {event.priority === 'high' && (
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                                high
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="font-medium text-xs line-clamp-2">{event.title}</p>
+                          {event.content && (
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                              {event.content}
+                            </p>
+                          )}
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            {new Date(event.createdAt).toLocaleTimeString()}
+                          </p>
+                        </div>
+                        {event.status === 'active' && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0"
+                            onClick={() => resolveEventMutation.mutate(event.id)}
+                            disabled={resolveEventMutation.isPending}
+                            title="Mark resolved"
+                          >
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+
+            {/* Observation input */}
+            <div className="border-t pt-3 mt-auto">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (observationInput.trim()) {
+                    addObservationMutation.mutate(observationInput.trim());
+                  }
+                }}
+                className="flex gap-2"
+              >
+                <Input
+                  value={observationInput}
+                  onChange={(e) => setObservationInput(e.target.value)}
+                  placeholder="Add observation..."
+                  className="flex-1 text-sm"
+                  data-testid="input-collaboration-observation"
+                />
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={!observationInput.trim() || addObservationMutation.isPending}
+                  data-testid="button-submit-observation"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </form>
+            </div>
+          </SheetContent>
+        </Sheet>
       )}
       
       {/* Top spacer for vertical centering */}
