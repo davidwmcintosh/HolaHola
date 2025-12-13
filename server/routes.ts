@@ -11707,6 +11707,88 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
     }
   });
 
+  // ===== Daniela Active Sprint Participation =====
+  
+  // Daniela suggests sprint updates (pedagogy spec, build plan, items)
+  app.post("/api/feature-sprints/:id/daniela-suggest", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const sprint = await storage.getFeatureSprint(req.params.id);
+      if (!sprint) {
+        return res.status(404).json({ error: "Sprint not found" });
+      }
+      
+      const { suggestionType, content, reasoning, confidence } = req.body;
+      
+      // Validate suggestion type
+      const validTypes = ['pedagogy_spec', 'build_plan', 'feature_brief', 'sprint_item', 'dependency', 'risk'];
+      if (!validTypes.includes(suggestionType)) {
+        return res.status(400).json({ error: `Invalid suggestion type. Must be one of: ${validTypes.join(', ')}` });
+      }
+      
+      // Store the suggestion in a consultation message for audit trail
+      let thread = await storage.getConsultationThreads({ sprintId: sprint.id, limit: 1 });
+      let threadId: string;
+      
+      if (!thread || thread.length === 0) {
+        // Create a thread for Daniela's suggestions on this sprint
+        const newThread = await storage.createConsultationThread({
+          title: `Daniela's Active Contributions: ${sprint.title}`,
+          topic: 'ai_suggestions',
+          sprintId: sprint.id,
+          createdBy: 'daniela'
+        });
+        threadId = newThread.id;
+      } else {
+        threadId = thread[0].id;
+      }
+      
+      // Add Daniela's suggestion as a message
+      // Serialize object content for readable audit trail
+      const contentText = typeof content === 'object' 
+        ? JSON.stringify(content, null, 2) 
+        : String(content);
+      const message = await storage.createConsultationMessage({
+        threadId,
+        role: 'assistant',
+        content: `**[${suggestionType.toUpperCase()}] Suggestion**\n\n${contentText}\n\n**Reasoning:** ${reasoning || 'Based on pedagogical best practices and project context.'}`,
+        responseType: 'suggestion',
+        confidence: confidence || 0.85
+      });
+      
+      // If it's a structured update, apply it to the sprint
+      let updates: any = {};
+      if (suggestionType === 'pedagogy_spec' && typeof content === 'object') {
+        updates.pedagogySpec = { ...(sprint.pedagogySpec || {}), ...content, danielaContributed: true };
+        updates.aiSuggested = true;
+        updates.aiConfidence = confidence || 0.85;
+      } else if (suggestionType === 'build_plan' && typeof content === 'object') {
+        updates.buildPlan = { ...(sprint.buildPlan || {}), ...content, danielaContributed: true };
+        updates.aiSuggested = true;
+        updates.aiConfidence = confidence || 0.85;
+      } else if (suggestionType === 'feature_brief' && typeof content === 'object') {
+        updates.featureBrief = { ...(sprint.featureBrief || {}), ...content, danielaContributed: true };
+        updates.aiSuggested = true;
+        updates.aiConfidence = confidence || 0.85;
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        await storage.updateFeatureSprint(sprint.id, updates);
+      }
+      
+      res.status(201).json({ 
+        success: true, 
+        message: 'Daniela\'s suggestion recorded',
+        suggestionType,
+        messageId: message.id,
+        threadId,
+        appliedToSprint: Object.keys(updates).length > 0
+      });
+    } catch (error: any) {
+      console.error('[API] Error processing Daniela suggestion:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== Consultation Threads API =====
   
   // Get all consultation threads
