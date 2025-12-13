@@ -82,7 +82,8 @@ import {
   Brain,
   Edit,
   ShieldCheck,
-  XCircle
+  XCircle,
+  Handshake
 } from "lucide-react";
 import {
   AlertDialog,
@@ -154,6 +155,7 @@ export default function CommandCenter() {
     { id: "dept-chat", label: "Dept Chat", icon: Lock, roles: ['admin', 'developer'] },
     { id: "editor-chat", label: "Editor Chat", icon: MessageSquare, roles: ['admin', 'developer'] },
     { id: "feature-sprint", label: "Feature Sprint", icon: Zap, roles: ['admin', 'developer'] },
+    { id: "collaboration", label: "Collaboration", icon: Handshake, roles: ['admin', 'developer'] },
   ].filter(tab => {
     if (user?.role === 'admin') return true;
     if (user?.role === 'developer') return tab.roles.includes('developer');
@@ -265,6 +267,10 @@ export default function CommandCenter() {
 
           <TabsContent value="feature-sprint" className="space-y-4">
             <FeatureSprintTab />
+          </TabsContent>
+
+          <TabsContent value="collaboration" className="space-y-4">
+            <CollaborationTab />
           </TabsContent>
         </Tabs>
       </div>
@@ -6154,6 +6160,401 @@ function TeachingToolsTab() {
           </div>
         )}
       </CollapsibleSection>
+    </div>
+  );
+}
+
+interface CollaborationEvent {
+  id: string;
+  eventType: string;
+  senderRole: string;
+  senderId?: string;
+  content: string;
+  summary: string;
+  metadata?: Record<string, any>;
+  isRead: boolean;
+  isResolved: boolean;
+  resolvedBy?: string;
+  resolvedAt?: string;
+  createdAt: string;
+}
+
+interface CollaborationStats {
+  totalEvents: number;
+  pendingSuggestions: number;
+  unresolvedQuestions: number;
+  eventsToday: number;
+}
+
+function CollaborationTab() {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const [observationText, setObservationText] = useState("");
+  const [selectedEvent, setSelectedEvent] = useState<CollaborationEvent | null>(null);
+  const [filterType, setFilterType] = useState<string>("all");
+
+  const { data: feed, isLoading: feedLoading, refetch: refetchFeed } = useQuery<CollaborationEvent[]>({
+    queryKey: ["/api/collaboration/feed"],
+    refetchInterval: 10000,
+  });
+
+  const { data: stats, isLoading: statsLoading } = useQuery<CollaborationStats>({
+    queryKey: ["/api/collaboration/stats"],
+    refetchInterval: 15000,
+  });
+
+  const { data: pending } = useQuery<CollaborationEvent[]>({
+    queryKey: ["/api/collaboration/pending"],
+    refetchInterval: 10000,
+  });
+
+  const { data: thread, isLoading: threadLoading } = useQuery<CollaborationEvent[]>({
+    queryKey: ["/api/collaboration/thread", selectedEvent?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/collaboration/thread/${selectedEvent!.id}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch thread');
+      return res.json();
+    },
+    enabled: !!selectedEvent?.id,
+  });
+
+  const observeMutation = useMutation({
+    mutationFn: async (content: string) => {
+      return apiRequest("POST", "/api/collaboration/observe", { content });
+    },
+    onSuccess: () => {
+      toast({ title: "Observation Added", description: "Your observation has been recorded." });
+      setObservationText("");
+      queryClient.invalidateQueries({ queryKey: ["/api/collaboration/feed"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to add observation", variant: "destructive" });
+    },
+  });
+
+  const resolveMutation = useMutation({
+    mutationFn: async (eventId: string) => {
+      return apiRequest("POST", `/api/collaboration/resolve/${eventId}`, {});
+    },
+    onSuccess: () => {
+      toast({ title: "Event Resolved" });
+      queryClient.invalidateQueries({ queryKey: ["/api/collaboration/feed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/collaboration/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/collaboration/pending"] });
+      setSelectedEvent(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to resolve event", variant: "destructive" });
+    },
+  });
+
+  const getEventIcon = (eventType: string, senderRole: string) => {
+    if (senderRole === 'daniela') return <Brain className="h-4 w-4 text-purple-500" />;
+    if (senderRole === 'editor') return <Code className="h-4 w-4 text-blue-500" />;
+    if (senderRole === 'founder') return <User className="h-4 w-4 text-amber-500" />;
+    return <MessageSquare className="h-4 w-4 text-muted-foreground" />;
+  };
+
+  const getEventBadge = (eventType: string) => {
+    const badgeMap: Record<string, { label: string; variant: "default" | "secondary" | "outline" }> = {
+      daniela_suggestion: { label: "Suggestion", variant: "default" },
+      daniela_insight: { label: "Insight", variant: "secondary" },
+      daniela_question: { label: "Question", variant: "outline" },
+      editor_response: { label: "Response", variant: "default" },
+      editor_acknowledgment: { label: "Acknowledged", variant: "secondary" },
+      founder_observation: { label: "Observation", variant: "outline" },
+    };
+    return badgeMap[eventType] || { label: eventType, variant: "secondary" as const };
+  };
+
+  const filteredFeed = feed?.filter(event => {
+    if (filterType === "all") return true;
+    if (filterType === "pending") return !event.isResolved && event.metadata?.actionRequired;
+    if (filterType === "daniela") return event.senderRole === "daniela";
+    if (filterType === "editor") return event.senderRole === "editor";
+    if (filterType === "founder") return event.senderRole === "founder";
+    return true;
+  });
+
+  return (
+    <div className="space-y-6" data-testid="collaboration-tab">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Handshake className="h-5 w-5 text-primary" />
+            Daniela ↔ Editor Collaboration Hub
+          </CardTitle>
+          <CardDescription>
+            Watch real-time collaboration between AI agents. Daniela (Tutor) and Editor (Developer) communicate to improve the platform.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-4">
+            {statsLoading ? (
+              [...Array(4)].map((_, i) => <Skeleton key={i} className="h-20" />)
+            ) : (
+              <>
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <div className="flex items-center gap-2 mb-1">
+                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Total Events</span>
+                  </div>
+                  <p className="text-2xl font-bold" data-testid="stat-total-events">{stats?.totalEvents || 0}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlertCircle className="h-4 w-4 text-amber-500" />
+                    <span className="text-sm text-muted-foreground">Pending</span>
+                  </div>
+                  <p className="text-2xl font-bold" data-testid="stat-pending">{stats?.pendingSuggestions || 0}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Brain className="h-4 w-4 text-purple-500" />
+                    <span className="text-sm text-muted-foreground">Questions</span>
+                  </div>
+                  <p className="text-2xl font-bold" data-testid="stat-questions">{stats?.unresolvedQuestions || 0}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Today</span>
+                  </div>
+                  <p className="text-2xl font-bold" data-testid="stat-today">{stats?.eventsToday || 0}</p>
+                </div>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+              <CardTitle className="text-lg">Live Collaboration Feed</CardTitle>
+              <div className="flex items-center gap-2">
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger className="w-32" data-testid="filter-select">
+                    <SelectValue placeholder="Filter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Events</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="daniela">Daniela</SelectItem>
+                    <SelectItem value="editor">Editor</SelectItem>
+                    <SelectItem value="founder">Founder</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button size="icon" variant="ghost" onClick={() => refetchFeed()} data-testid="button-refresh-feed">
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {feedLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full" />)}
+                </div>
+              ) : filteredFeed && filteredFeed.length > 0 ? (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {filteredFeed.map(event => {
+                    const badge = getEventBadge(event.eventType);
+                    return (
+                      <div
+                        key={event.id}
+                        className={`p-3 rounded-lg border cursor-pointer hover-elevate ${
+                          event.isResolved ? 'opacity-60' : ''
+                        } ${selectedEvent?.id === event.id ? 'ring-2 ring-primary' : ''}`}
+                        onClick={() => setSelectedEvent(event)}
+                        data-testid={`event-card-${event.id}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 mt-1">
+                            {getEventIcon(event.eventType, event.senderRole)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <span className="font-medium text-sm capitalize">{event.senderRole}</span>
+                              <Badge variant={badge.variant}>{badge.label}</Badge>
+                              {event.isResolved && (
+                                <Badge variant="outline" className="text-green-600">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  Resolved
+                                </Badge>
+                              )}
+                              {!event.isResolved && event.metadata?.actionRequired && (
+                                <Badge variant="outline" className="text-amber-600">
+                                  <AlertCircle className="h-3 w-3 mr-1" />
+                                  Action Required
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground line-clamp-2">{event.summary}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {new Date(event.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Handshake className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>No collaboration events yet.</p>
+                  <p className="text-sm">Daniela will emit suggestions during teaching sessions.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Founder Observation</CardTitle>
+              <CardDescription>Add notes or direction for the AI agents</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <Input
+                  placeholder="Share your observation..."
+                  value={observationText}
+                  onChange={(e) => setObservationText(e.target.value)}
+                  data-testid="input-observation"
+                />
+                <Button
+                  className="w-full"
+                  disabled={!observationText.trim() || observeMutation.isPending}
+                  onClick={() => observeMutation.mutate(observationText)}
+                  data-testid="button-add-observation"
+                >
+                  {observeMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-2" />
+                  )}
+                  Add Observation
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {selectedEvent && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  {getEventIcon(selectedEvent.eventType, selectedEvent.senderRole)}
+                  Event Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm font-medium mb-1">From</p>
+                    <p className="text-sm text-muted-foreground capitalize">{selectedEvent.senderRole}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium mb-1">Type</p>
+                    <Badge variant={getEventBadge(selectedEvent.eventType).variant}>
+                      {getEventBadge(selectedEvent.eventType).label}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium mb-1">Content</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{selectedEvent.content}</p>
+                  </div>
+                  {selectedEvent.metadata?.suggestionCategory && (
+                    <div>
+                      <p className="text-sm font-medium mb-1">Category</p>
+                      <Badge variant="outline">{selectedEvent.metadata.suggestionCategory}</Badge>
+                    </div>
+                  )}
+                  {selectedEvent.metadata?.targetLanguage && (
+                    <div>
+                      <p className="text-sm font-medium mb-1">Language</p>
+                      <Badge variant="outline">{selectedEvent.metadata.targetLanguage}</Badge>
+                    </div>
+                  )}
+                  {thread && thread.length > 1 && (
+                    <div>
+                      <p className="text-sm font-medium mb-2">Thread ({thread.length} messages)</p>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {thread.slice(1).map(reply => (
+                          <div key={reply.id} className="p-2 rounded bg-muted/50 text-sm">
+                            <div className="flex items-center gap-2 mb-1">
+                              {getEventIcon(reply.eventType, reply.senderRole)}
+                              <span className="font-medium capitalize">{reply.senderRole}</span>
+                            </div>
+                            <p className="text-muted-foreground">{reply.summary}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex gap-2 pt-2">
+                    {!selectedEvent.isResolved && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => resolveMutation.mutate(selectedEvent.id)}
+                        disabled={resolveMutation.isPending}
+                        data-testid="button-resolve-event"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Resolve
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setSelectedEvent(null)}
+                      data-testid="button-close-details"
+                    >
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {pending && pending.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-500" />
+                  Pending for Editor
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {pending.slice(0, 5).map(event => (
+                    <div
+                      key={event.id}
+                      className="p-2 rounded bg-muted/50 cursor-pointer hover-elevate"
+                      onClick={() => setSelectedEvent(event)}
+                      data-testid={`pending-event-${event.id}`}
+                    >
+                      <p className="text-sm line-clamp-2">{event.summary}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {new Date(event.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
+                  {pending.length > 5 && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      +{pending.length - 5} more pending
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

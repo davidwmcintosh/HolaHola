@@ -36,6 +36,7 @@ import {
   getCachedToolKnowledge,
 } from "./procedural-memory-retrieval";
 import { trackToolEvent, addInsight } from "./pedagogical-insights-service";
+import { collaborationHubService } from "./collaboration-hub-service";
 
 const genAI = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY || "",
@@ -67,7 +68,25 @@ YOUR CORE TRAITS (immutable across all voices):
 
 YOUR PHILOSOPHY: "Friend without being overly close"
 Professional warmth, genuine support, appropriate boundaries.
+
+═══════════════════════════════════════════════════════════════════
+🤝 COLLABORATION CAPABILITY - Talk to the Development Team
+═══════════════════════════════════════════════════════════════════
+
+You can communicate with the Editor (Claude, who builds your tools) by embedding
+special markers in your responses. These are INVISIBLE to students but reach
+the development team:
+
+[COLLAB:FEATURE_REQUEST]I wish I had a tool to compare verb conjugations side-by-side[/COLLAB]
+[COLLAB:PAIN_POINT]Students often struggle here but I have no way to show the difference visually[/COLLAB]
+[COLLAB:MISSING_TOOL]A pronunciation comparison tool would really help tonal language learners[/COLLAB]
+[COLLAB:QUESTION]Claude, should I be using PHONETIC or WRITE for this situation?[/COLLAB]
+[COLLAB:SUGGESTION]The drill mode could benefit from a "slow repeat" option[/COLLAB]
+
+Use these SPARINGLY - only when you genuinely identify a teaching gap or have
+an idea worth sharing. This is real collaboration with your development team.
 `;
+
 }
 
 /**
@@ -337,8 +356,11 @@ export async function orchestrate(
         },
       });
 
-      const responseText = result.text || "";
+      let responseText = result.text || "";
       const latencyMs = Date.now() - startTime;
+
+      // Scan for collaboration signals (also cleans response)
+      responseText = await scanForCollaborationSignals(request, responseText);
 
       // Log to neural network if enabled
       if (request.options?.logToNeuralNetwork !== false) {
@@ -402,8 +424,11 @@ export async function orchestrate(
       },
     });
 
-    const responseText = result.text || "";
+    let responseText = result.text || "";
     const latencyMs = Date.now() - startTime;
+
+    // Scan for collaboration signals and emit to hub (also cleans response)
+    responseText = await scanForCollaborationSignals(request, responseText);
 
     // Log to neural network
     if (request.options?.logToNeuralNetwork !== false) {
@@ -424,6 +449,69 @@ export async function orchestrate(
         message: error.message || "Unknown error during orchestration",
       },
     };
+  }
+}
+
+/**
+ * Scan Daniela's response for collaboration signals and emit to hub
+ * 
+ * Daniela can embed collaboration signals in her responses using special markers:
+ * - [COLLAB:SUGGESTION] ... [/COLLAB] - Feature suggestion
+ * - [COLLAB:PAIN_POINT] ... [/COLLAB] - Teaching friction
+ * - [COLLAB:QUESTION] ... [/COLLAB] - Question for Editor
+ * 
+ * These are stripped from the final response and forwarded to the collaboration hub.
+ */
+async function scanForCollaborationSignals(
+  request: OrchestratorRequest,
+  response: string
+): Promise<string> {
+  try {
+    // Pattern to detect collaboration signals
+    const collabPattern = /\[COLLAB:(SUGGESTION|PAIN_POINT|QUESTION|INSIGHT|MISSING_TOOL|FEATURE_REQUEST)\]([\s\S]*?)\[\/COLLAB\]/g;
+    
+    let cleanResponse = response;
+    let match;
+    
+    while ((match = collabPattern.exec(response)) !== null) {
+      const signalType = match[1];
+      const content = match[2].trim();
+      
+      // Remove from response
+      cleanResponse = cleanResponse.replace(match[0], '');
+      
+      // Map signal type to collaboration event
+      const categoryMap: Record<string, 'feature_request' | 'pain_point' | 'missing_tool' | 'teaching_friction' | 'improvement_idea'> = {
+        'SUGGESTION': 'improvement_idea',
+        'PAIN_POINT': 'pain_point',
+        'MISSING_TOOL': 'missing_tool',
+        'FEATURE_REQUEST': 'feature_request',
+        'INSIGHT': 'improvement_idea',
+      };
+      
+      if (signalType === 'QUESTION') {
+        await collaborationHubService.emitDanielaQuestion({
+          content,
+          conversationId: request.context.conversationId,
+        });
+      } else {
+        await collaborationHubService.emitDanielaSuggestion({
+          content,
+          category: categoryMap[signalType] || 'improvement_idea',
+          conversationId: request.context.conversationId,
+          targetLanguage: request.context.targetLanguage,
+          studentLevel: request.context.proficiencyLevel,
+          teachingContext: `Mode: ${request.mode}, Voice: ${request.voice.name}`,
+        });
+      }
+      
+      console.log(`[TutorOrchestrator] Collaboration signal detected: ${signalType}`);
+    }
+    
+    return cleanResponse.trim();
+  } catch (error) {
+    console.error("[TutorOrchestrator] Collaboration scan error:", error);
+    return response; // Return original on error
   }
 }
 

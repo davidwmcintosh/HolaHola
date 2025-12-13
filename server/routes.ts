@@ -48,6 +48,7 @@ import { getTTSService } from "./services/tts-service";
 import { usageService } from "./services/usage-service";
 import { sessionCompassService, COMPASS_ENABLED } from "./services/session-compass-service";
 import { architectVoiceService, validateArchitectSecret } from "./services/architect-voice-service";
+import { collaborationHubService } from "./services/collaboration-hub-service";
 import { 
   getAvailableActflLevels,
   getSupportedLanguages,
@@ -12779,6 +12780,126 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       res.json(updated);
     } catch (error: any) {
       console.error('[API] Error updating AI suggestion:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== Collaboration Hub API =====
+  // Real-time bidirectional communication between AI agents (Daniela ↔ Editor)
+  
+  // Get collaboration feed (for Founder observation)
+  app.get("/api/collaboration/feed", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const events = await collaborationHubService.getRecentFeed(limit);
+      res.json(events);
+    } catch (error: any) {
+      console.error('[API] Error fetching collaboration feed:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get pending suggestions for Editor
+  app.get("/api/collaboration/pending", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const pending = await collaborationHubService.getPendingSuggestionsForEditor();
+      res.json(pending);
+    } catch (error: any) {
+      console.error('[API] Error fetching pending suggestions:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get collaboration stats
+  app.get("/api/collaboration/stats", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const stats = await collaborationHubService.getStats();
+      res.json(stats);
+    } catch (error: any) {
+      console.error('[API] Error fetching collaboration stats:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Editor responds to an event
+  app.post("/api/collaboration/respond", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { eventId, content, actionTaken } = req.body;
+      if (!eventId || !content) {
+        return res.status(400).json({ error: "eventId and content are required" });
+      }
+      const event = await collaborationHubService.emitEditorResponse({
+        content,
+        replyToEventId: eventId,
+        actionTaken
+      });
+      res.json(event);
+    } catch (error: any) {
+      console.error('[API] Error sending editor response:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Editor acknowledges an event
+  app.post("/api/collaboration/acknowledge", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { eventId, content } = req.body;
+      if (!eventId) {
+        return res.status(400).json({ error: "eventId is required" });
+      }
+      const event = await collaborationHubService.emitEditorAcknowledgment({
+        replyToEventId: eventId,
+        content
+      });
+      res.json(event);
+    } catch (error: any) {
+      console.error('[API] Error acknowledging event:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Founder adds observation
+  app.post("/api/collaboration/observe", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { content, replyToEventId } = req.body;
+      if (!content) {
+        return res.status(400).json({ error: "content is required" });
+      }
+      const event = await collaborationHubService.emitFounderObservation({
+        content,
+        userId: req.user?.id,
+        replyToEventId
+      });
+      res.json(event);
+    } catch (error: any) {
+      console.error('[API] Error adding founder observation:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Resolve an event (optionally convert to sprint)
+  app.post("/api/collaboration/resolve/:eventId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { convertToSprintId } = req.body;
+      await collaborationHubService.resolveEvent(
+        req.params.eventId,
+        req.user?.id,
+        convertToSprintId
+      );
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('[API] Error resolving event:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get event thread
+  app.get("/api/collaboration/thread/:eventId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const thread = await collaborationHubService.getEventThread(req.params.eventId);
+      res.json(thread);
+    } catch (error: any) {
+      console.error('[API] Error fetching event thread:', error);
       res.status(500).json({ error: error.message });
     }
   });

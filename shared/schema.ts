@@ -4210,3 +4210,117 @@ export const insertAiSuggestionSchema = createInsertSchema(aiSuggestions).omit({
 });
 export type InsertAiSuggestion = z.infer<typeof insertAiSuggestionSchema>;
 export type AiSuggestion = typeof aiSuggestions.$inferSelect;
+
+// ============================================================================
+// COLLABORATION HUB - Real-time bidirectional communication between AI agents
+// ============================================================================
+
+// Collaboration event types enum
+export const collaborationEventTypeEnum = pgEnum("collaboration_event_type", [
+  "daniela_suggestion",      // Daniela flags a feature request or pain point
+  "daniela_insight",         // Daniela shares a teaching observation
+  "daniela_question",        // Daniela asks Editor for clarification
+  "editor_response",         // Editor responds to Daniela
+  "editor_note",             // Editor sends a note (via Architect Voice)
+  "editor_acknowledgment",   // Editor acknowledges receipt
+  "founder_observation",     // Founder adds context or direction
+  "system_notification",     // Automated system events
+]);
+
+// Collaboration participant roles
+export const collaborationRoleEnum = pgEnum("collaboration_role", [
+  "daniela",    // AI tutor (Gemini)
+  "editor",     // Development agent (Claude)
+  "founder",    // Human observer/director
+  "system",     // Automated processes
+]);
+
+// Collaboration events - the core event stream
+export const collaborationEvents = pgTable("collaboration_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Event classification
+  eventType: collaborationEventTypeEnum("event_type").notNull(),
+  
+  // Who sent this event
+  senderRole: collaborationRoleEnum("sender_role").notNull(),
+  senderId: varchar("sender_id"), // User ID for founders, null for AI agents
+  
+  // Content
+  content: text("content").notNull(),
+  summary: varchar("summary", { length: 255 }), // Short summary for list views
+  
+  // Rich metadata for different event types
+  metadata: jsonb("metadata").$type<{
+    // For Daniela suggestions
+    suggestionCategory?: 'feature_request' | 'pain_point' | 'missing_tool' | 'teaching_friction' | 'improvement_idea';
+    urgency?: 'low' | 'medium' | 'high';
+    
+    // For context linking
+    conversationId?: string;
+    targetLanguage?: string;
+    studentLevel?: string;
+    teachingContext?: string;
+    
+    // For threading
+    replyToEventId?: string;
+    threadId?: string;
+    
+    // For action tracking
+    actionRequired?: boolean;
+    actionTaken?: string;
+    
+    // For sprint conversion
+    convertedToSprintId?: string;
+  }>(),
+  
+  // Status tracking
+  isRead: boolean("is_read").default(false),
+  isResolved: boolean("is_resolved").default(false),
+  resolvedBy: varchar("resolved_by"),
+  resolvedAt: timestamp("resolved_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_collaboration_hub_events_type").on(table.eventType),
+  index("idx_collaboration_hub_events_sender").on(table.senderRole),
+  index("idx_collaboration_hub_events_unread").on(table.isRead),
+  index("idx_collaboration_hub_events_created").on(table.createdAt),
+]);
+
+export const insertCollaborationEventSchema = createInsertSchema(collaborationEvents).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertCollaborationEvent = z.infer<typeof insertCollaborationEventSchema>;
+export type CollaborationEvent = typeof collaborationEvents.$inferSelect;
+
+// Collaboration participants - track active participants
+export const collaborationParticipants = pgTable("collaboration_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Participant identity
+  role: collaborationRoleEnum("role").notNull(),
+  userId: varchar("user_id"), // For founders
+  displayName: varchar("display_name", { length: 100 }).notNull(),
+  
+  // Status
+  isOnline: boolean("is_online").default(false),
+  lastSeen: timestamp("last_seen").notNull().defaultNow(),
+  
+  // Preferences
+  notifyOnNewEvents: boolean("notify_on_new_events").default(true),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_collaboration_hub_participants_role").on(table.role),
+  index("idx_collaboration_hub_participants_online").on(table.isOnline),
+]);
+
+export const insertCollaborationParticipantSchema = createInsertSchema(collaborationParticipants).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertCollaborationParticipant = z.infer<typeof insertCollaborationParticipantSchema>;
+export type CollaborationParticipant = typeof collaborationParticipants.$inferSelect;
