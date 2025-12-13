@@ -148,6 +148,7 @@ export default function CommandCenter() {
     { id: "images", label: "Images", icon: Image, roles: ['admin', 'developer'] },
     { id: "voice-lab", label: "Voice Lab", icon: Volume2, roles: ['admin', 'developer'] },
     { id: "neural-network", label: "Neural Network", icon: Zap, roles: ['developer', 'admin'] },
+    { id: "brain-surgery", label: "Brain Surgery", icon: Brain, roles: ['developer', 'admin'] },
     { id: "teaching-tools", label: "Teaching Tools", icon: Activity, roles: ['developer', 'admin'] },
     { id: "dev-tools", label: "Dev Tools", icon: Code, roles: ['developer', 'admin'] },
     { id: "audit", label: "Audit", icon: FileText, roles: ['admin'] },
@@ -239,6 +240,10 @@ export default function CommandCenter() {
 
           <TabsContent value="neural-network" className="space-y-4">
             <NeuralNetworkTab />
+          </TabsContent>
+
+          <TabsContent value="brain-surgery" className="space-y-4">
+            <BrainSurgeryTab />
           </TabsContent>
 
           <TabsContent value="teaching-tools" className="space-y-4">
@@ -6555,6 +6560,425 @@ function CollaborationTab() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function BrainSurgeryTab() {
+  const { toast } = useToast();
+  const [statusFilter, setStatusFilter] = useState<string>("pending");
+  const [targetFilter, setTargetFilter] = useState<string>("all");
+  const [expandedProposal, setExpandedProposal] = useState<string | null>(null);
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+  
+  const { data: proposals, isLoading, refetch } = useQuery<Array<{
+    id: string;
+    targetTable: string;
+    proposedContent: any;
+    reasoning: string;
+    triggerContext: string | null;
+    status: string;
+    sessionMode: string | null;
+    targetLanguage: string | null;
+    priority: number | null;
+    confidence: number | null;
+    createdAt: string;
+    reviewedAt: string | null;
+    reviewedBy: string | null;
+    reviewNotes: string | null;
+    promotedAt: string | null;
+    promotedRecordId: string | null;
+  }>>({
+    queryKey: ["/api/self-surgery/proposals", { status: statusFilter, targetTable: targetFilter !== "all" ? targetFilter : undefined }],
+  });
+  
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status, notes }: { id: string; status: string; notes?: string }) => {
+      return apiRequest("PATCH", `/api/self-surgery/proposals/${id}`, { status, reviewNotes: notes });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/self-surgery/proposals"] });
+      toast({ title: "Status updated", description: "Proposal status has been updated" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+  
+  const promoteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("POST", `/api/self-surgery/proposals/${id}/promote`);
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/self-surgery/proposals"] });
+      toast({ 
+        title: "Promoted!", 
+        description: `Successfully promoted to ${data.targetTable}` 
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Promotion failed", description: error.message, variant: "destructive" });
+    },
+  });
+  
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/self-surgery/proposals/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/self-surgery/proposals"] });
+      toast({ title: "Deleted", description: "Proposal has been removed" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+  
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "—";
+    return new Date(dateStr).toLocaleDateString() + " " + new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+  
+  const getTargetTableLabel = (target: string) => {
+    const labels: Record<string, string> = {
+      tutor_procedures: "Tutor Procedures",
+      teaching_principles: "Teaching Principles",
+      tool_knowledge: "Tool Knowledge",
+      situational_patterns: "Situational Patterns",
+      language_idioms: "Language Idioms",
+      cultural_nuances: "Cultural Nuances",
+      learner_error_patterns: "Learner Errors",
+      dialect_variations: "Dialect Variations",
+      linguistic_bridges: "Linguistic Bridges",
+      creativity_templates: "Creativity Templates",
+    };
+    return labels[target] || target;
+  };
+  
+  const getTargetTableColor = (target: string) => {
+    const colors: Record<string, string> = {
+      tutor_procedures: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+      teaching_principles: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+      tool_knowledge: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      situational_patterns: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+      language_idioms: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200",
+      cultural_nuances: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+      learner_error_patterns: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+      dialect_variations: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200",
+      linguistic_bridges: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200",
+      creativity_templates: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200",
+    };
+    return colors[target] || "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+  };
+  
+  const getStatusBadge = (status: string) => {
+    const badges: Record<string, { color: string; label: string }> = {
+      pending: { color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200", label: "Pending" },
+      approved: { color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200", label: "Approved" },
+      promoted: { color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200", label: "Promoted" },
+      rejected: { color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200", label: "Rejected" },
+      edited: { color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200", label: "Edited" },
+    };
+    return badges[status] || { color: "bg-gray-100 text-gray-800", label: status };
+  };
+  
+  const targetTables = [
+    "tutor_procedures",
+    "teaching_principles",
+    "tool_knowledge",
+    "situational_patterns",
+    "language_idioms",
+    "cultural_nuances",
+    "learner_error_patterns",
+    "dialect_variations",
+    "linguistic_bridges",
+    "creativity_templates",
+  ];
+  
+  return (
+    <div className="space-y-6">
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2">
+            <Brain className="h-5 w-5 text-primary" />
+            Daniela's Self-Surgery Proposals
+          </CardTitle>
+          <CardDescription>
+            Direct neural network modifications proposed by Daniela during Founder Mode sessions.
+            Review, approve, and promote proposals to enhance her teaching capabilities.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Status:</span>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-32" data-testid="select-status-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="promoted">Promoted</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Target:</span>
+              <Select value={targetFilter} onValueChange={setTargetFilter}>
+                <SelectTrigger className="w-44" data-testid="select-target-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Tables</SelectItem>
+                  {targetTables.map(t => (
+                    <SelectItem key={t} value={t}>{getTargetTableLabel(t)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => refetch()}
+              data-testid="button-refresh-proposals"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {isLoading ? (
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+      ) : proposals && proposals.length > 0 ? (
+        <div className="space-y-4">
+          {proposals.map(proposal => (
+            <Card key={proposal.id} className="overflow-hidden">
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                      <Badge className={getTargetTableColor(proposal.targetTable)}>
+                        {getTargetTableLabel(proposal.targetTable)}
+                      </Badge>
+                      <Badge className={getStatusBadge(proposal.status).color}>
+                        {getStatusBadge(proposal.status).label}
+                      </Badge>
+                      {proposal.priority && (
+                        <Badge variant="outline">
+                          Priority: {proposal.priority}
+                        </Badge>
+                      )}
+                      {proposal.confidence && (
+                        <Badge variant="outline">
+                          Confidence: {proposal.confidence}%
+                        </Badge>
+                      )}
+                      {proposal.targetLanguage && (
+                        <Badge variant="secondary">
+                          {proposal.targetLanguage}
+                        </Badge>
+                      )}
+                    </div>
+                    <CardTitle className="text-base font-medium">
+                      {proposal.reasoning.length > 120 
+                        ? proposal.reasoning.substring(0, 120) + "..." 
+                        : proposal.reasoning}
+                    </CardTitle>
+                  </div>
+                  <div className="text-xs text-muted-foreground text-right shrink-0">
+                    <div>{formatDate(proposal.createdAt)}</div>
+                    {proposal.sessionMode && (
+                      <div className="mt-1 capitalize">{proposal.sessionMode.replace('_', ' ')}</div>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Collapsible 
+                  open={expandedProposal === proposal.id}
+                  onOpenChange={(open) => setExpandedProposal(open ? proposal.id : null)}
+                >
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-full justify-between" data-testid={`button-expand-${proposal.id}`}>
+                      <span className="text-sm">View proposed content</span>
+                      {expandedProposal === proposal.id ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-3">
+                    <div className="space-y-3">
+                      <div className="bg-muted/50 rounded-md p-3">
+                        <p className="text-xs text-muted-foreground mb-1 font-medium">Proposed Content:</p>
+                        <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+                          {JSON.stringify(proposal.proposedContent, null, 2)}
+                        </pre>
+                      </div>
+                      {proposal.triggerContext && (
+                        <div className="bg-muted/50 rounded-md p-3">
+                          <p className="text-xs text-muted-foreground mb-1 font-medium">Trigger Context:</p>
+                          <p className="text-sm">{proposal.triggerContext}</p>
+                        </div>
+                      )}
+                      {proposal.reviewNotes && (
+                        <div className="bg-muted/50 rounded-md p-3">
+                          <p className="text-xs text-muted-foreground mb-1 font-medium">Review Notes:</p>
+                          <p className="text-sm">{proposal.reviewNotes}</p>
+                        </div>
+                      )}
+                      {proposal.promotedRecordId && (
+                        <div className="text-xs text-muted-foreground">
+                          Promoted record ID: <code className="bg-muted px-1 rounded">{proposal.promotedRecordId}</code>
+                        </div>
+                      )}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+                
+                {proposal.status === 'pending' && (
+                  <div className="flex items-center gap-2 pt-2 border-t flex-wrap">
+                    <Input
+                      placeholder="Optional review notes..."
+                      value={reviewNotes[proposal.id] || ""}
+                      onChange={(e) => setReviewNotes(prev => ({ ...prev, [proposal.id]: e.target.value }))}
+                      className="flex-1 h-8 text-sm"
+                      data-testid={`input-notes-${proposal.id}`}
+                    />
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => updateStatusMutation.mutate({ 
+                        id: proposal.id, 
+                        status: 'approved',
+                        notes: reviewNotes[proposal.id]
+                      })}
+                      disabled={updateStatusMutation.isPending}
+                      data-testid={`button-approve-${proposal.id}`}
+                    >
+                      <Check className="h-4 w-4 mr-1" />
+                      Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => updateStatusMutation.mutate({ 
+                        id: proposal.id, 
+                        status: 'rejected',
+                        notes: reviewNotes[proposal.id]
+                      })}
+                      disabled={updateStatusMutation.isPending}
+                      data-testid={`button-reject-${proposal.id}`}
+                    >
+                      <XCircle className="h-4 w-4 mr-1" />
+                      Reject
+                    </Button>
+                  </div>
+                )}
+                
+                {proposal.status === 'approved' && (
+                  <div className="flex items-center gap-2 pt-2 border-t">
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => promoteMutation.mutate(proposal.id)}
+                      disabled={promoteMutation.isPending}
+                      data-testid={`button-promote-${proposal.id}`}
+                    >
+                      {promoteMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <Zap className="h-4 w-4 mr-1" />
+                      )}
+                      Promote to {getTargetTableLabel(proposal.targetTable)}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => updateStatusMutation.mutate({ id: proposal.id, status: 'pending' })}
+                      disabled={updateStatusMutation.isPending}
+                      data-testid={`button-unapprove-${proposal.id}`}
+                    >
+                      <Undo2 className="h-4 w-4 mr-1" />
+                      Back to Pending
+                    </Button>
+                  </div>
+                )}
+                
+                {(proposal.status === 'rejected' || proposal.status === 'promoted') && (
+                  <div className="flex items-center gap-2 pt-2 border-t">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          data-testid={`button-delete-${proposal.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete this proposal?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently remove the proposal from the system.
+                            {proposal.status === 'promoted' && " The promoted record in the target table will not be affected."}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteMutation.mutate(proposal.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                    {proposal.status === 'rejected' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => updateStatusMutation.mutate({ id: proposal.id, status: 'pending' })}
+                        disabled={updateStatusMutation.isPending}
+                        data-testid={`button-reconsider-${proposal.id}`}
+                      >
+                        <Undo2 className="h-4 w-4 mr-1" />
+                        Reconsider
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <Brain className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">
+              No proposals found with the current filters.
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Proposals are created when Daniela identifies teaching improvements during Founder Mode voice sessions.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

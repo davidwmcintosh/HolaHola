@@ -1353,6 +1353,164 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== Self-Surgery Proposals (Daniela's Neural Network Modifications) =====
+  
+  // Get all self-surgery proposals (admin/developer only)
+  app.get('/api/self-surgery/proposals', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { status, targetTable, limit } = req.query;
+      const proposals = await storage.getSelfSurgeryProposals({
+        status: status as string,
+        targetTable: targetTable as string,
+        limit: limit ? parseInt(limit as string) : undefined,
+      });
+      res.json(proposals);
+    } catch (error: any) {
+      console.error("Error fetching self-surgery proposals:", error);
+      res.status(500).json({ message: "Failed to fetch proposals" });
+    }
+  });
+
+  // Update a self-surgery proposal (approve/reject/edit)
+  app.patch('/api/self-surgery/proposals/:id', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { status, reviewNotes, editedContent } = req.body;
+      
+      const updateData: any = {
+        status,
+        reviewedAt: new Date(),
+        reviewedBy: req.user?.id,
+      };
+      
+      if (reviewNotes) updateData.reviewNotes = reviewNotes;
+      if (editedContent) updateData.editedContent = editedContent;
+      
+      const proposal = await storage.updateSelfSurgeryProposal(id, updateData);
+      if (!proposal) {
+        return res.status(404).json({ message: "Proposal not found" });
+      }
+      
+      console.log(`[Self-Surgery] Proposal ${id} updated to status: ${status}`);
+      res.json(proposal);
+    } catch (error: any) {
+      console.error("Error updating self-surgery proposal:", error);
+      res.status(500).json({ message: "Failed to update proposal" });
+    }
+  });
+
+  // Promote a self-surgery proposal to target table
+  app.post('/api/self-surgery/proposals/:id/promote', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get the proposal
+      const proposals = await storage.getSelfSurgeryProposals({ limit: 100 });
+      const proposal = proposals.find(p => p.id === id);
+      
+      if (!proposal) {
+        return res.status(404).json({ message: "Proposal not found" });
+      }
+      
+      if (proposal.status !== 'approved' && proposal.status !== 'edited') {
+        return res.status(400).json({ message: "Proposal must be approved or edited before promotion" });
+      }
+      
+      // Get content to promote (edited version if available, otherwise original)
+      const contentToPromote = proposal.editedContent || proposal.proposedContent;
+      
+      // Promote to target table based on targetTable value
+      let promotedRecordId: string | undefined;
+      
+      try {
+        switch (proposal.targetTable) {
+          case 'tutor_procedures':
+            const procedure = await storage.createTutorProcedure(contentToPromote as any);
+            promotedRecordId = procedure.id;
+            break;
+          case 'teaching_principles':
+            const principle = await storage.createTeachingPrinciple(contentToPromote as any);
+            promotedRecordId = principle.id;
+            break;
+          case 'tool_knowledge':
+            const knowledge = await storage.createToolKnowledge(contentToPromote as any);
+            promotedRecordId = knowledge.id;
+            break;
+          case 'situational_patterns':
+            const pattern = await storage.createSituationalPattern(contentToPromote as any);
+            promotedRecordId = pattern.id;
+            break;
+          case 'language_idioms':
+            const idiom = await storage.createLanguageIdiom(contentToPromote as any);
+            promotedRecordId = idiom.id;
+            break;
+          case 'cultural_nuances':
+            const nuance = await storage.createCulturalNuance(contentToPromote as any);
+            promotedRecordId = nuance.id;
+            break;
+          case 'learner_error_patterns':
+            const errorPattern = await storage.createLearnerErrorPattern(contentToPromote as any);
+            promotedRecordId = errorPattern.id;
+            break;
+          case 'dialect_variations':
+            const dialect = await storage.createDialectVariation(contentToPromote as any);
+            promotedRecordId = dialect.id;
+            break;
+          case 'linguistic_bridges':
+            const bridge = await storage.createLinguisticBridge(contentToPromote as any);
+            promotedRecordId = bridge.id;
+            break;
+          default:
+            return res.status(400).json({ message: `Unknown target table: ${proposal.targetTable}` });
+        }
+      } catch (insertError: any) {
+        console.error(`[Self-Surgery] Failed to insert into ${proposal.targetTable}:`, insertError);
+        return res.status(500).json({ 
+          message: `Failed to insert into ${proposal.targetTable}`,
+          error: insertError.message 
+        });
+      }
+      
+      // Update proposal status to promoted
+      const updatedProposal = await storage.updateSelfSurgeryProposal(id, {
+        status: 'promoted',
+        promotedAt: new Date(),
+        promotedRecordId,
+      });
+      
+      console.log(`[Self-Surgery] Proposal ${id} promoted to ${proposal.targetTable}, record ID: ${promotedRecordId}`);
+      res.json(updatedProposal);
+    } catch (error: any) {
+      console.error("Error promoting self-surgery proposal:", error);
+      res.status(500).json({ message: "Failed to promote proposal" });
+    }
+  });
+
+  // Delete a self-surgery proposal
+  app.delete('/api/self-surgery/proposals/:id', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      // For now, we'll just mark it as rejected rather than hard delete
+      const proposal = await storage.updateSelfSurgeryProposal(id, {
+        status: 'rejected',
+        reviewedAt: new Date(),
+        reviewedBy: req.user?.id,
+        reviewNotes: 'Deleted by admin',
+      });
+      
+      if (!proposal) {
+        return res.status(404).json({ message: "Proposal not found" });
+      }
+      
+      console.log(`[Self-Surgery] Proposal ${id} deleted (marked as rejected)`);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting self-surgery proposal:", error);
+      res.status(500).json({ message: "Failed to delete proposal" });
+    }
+  });
+
   // Get student memory context (insights, motivations, struggles, notes, connections)
   app.get('/api/memory/student/:studentId', isAuthenticated, async (req: any, res) => {
     try {

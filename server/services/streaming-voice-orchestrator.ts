@@ -33,7 +33,7 @@ import {
   LATENCY_TARGETS,
   STREAMING_FEATURE_FLAGS,
 } from "@shared/streaming-voice-types";
-import { parseWhiteboardMarkup, WhiteboardItem, WordMapItem, isWordMapItem, stripWhiteboardMarkup } from "@shared/whiteboard-types";
+import { parseWhiteboardMarkup, WhiteboardItem, WordMapItem, isWordMapItem, stripWhiteboardMarkup, SelfSurgeryItemData } from "@shared/whiteboard-types";
 
 /**
  * Lightweight metrics logger for performance monitoring
@@ -809,9 +809,23 @@ export class StreamingVoiceOrchestrator {
               }
             }
             
-            // Filter out internal commands (switch_tutor, actfl_update, syllabus_progress, call_support, call_assistant, hive) - only send visual items to whiteboard
+            // SELF-SURGERY: Daniela's direct neural network modifications (Founder Mode only)
+            // When Daniela proposes structured data for insertion into her procedural memory tables
+            const selfSurgeryItems = whiteboardParsed.whiteboardItems.filter(item => item.type === 'self_surgery');
+            for (const item of selfSurgeryItems) {
+              if ('data' in item && item.data) {
+                const data = item.data as SelfSurgeryItemData;
+                // Queue self-surgery proposal (don't block TTS)
+                this.processSelfSurgery(session, data).catch(err => {
+                  console.error(`[Self-Surgery] Error processing proposal:`, err);
+                });
+                console.log(`[Self-Surgery] Daniela proposed: ${data.targetTable} (priority: ${data.priority || 50}, confidence: ${data.confidence || 70})`);
+              }
+            }
+            
+            // Filter out internal commands (switch_tutor, actfl_update, syllabus_progress, call_support, call_assistant, hive, self_surgery) - only send visual items to whiteboard
             const visualWhiteboardItems = whiteboardParsed.whiteboardItems.filter(
-              item => !['switch_tutor', 'actfl_update', 'syllabus_progress', 'call_support', 'call_assistant', 'hive'].includes(item.type)
+              item => !['switch_tutor', 'actfl_update', 'syllabus_progress', 'call_support', 'call_assistant', 'hive', 'self_surgery'].includes(item.type)
             );
             
             // Send whiteboard update to client (only visual teaching tools)
@@ -2509,6 +2523,82 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       console.error(`[Hive] Failed to save suggestion:`, error.message);
       // Log the full error for debugging but don't throw - non-blocking operation
       console.error(`[Hive] Full error:`, error);
+    }
+  }
+  
+  /**
+   * SELF-SURGERY: Process Daniela's direct neural network modification proposals
+   * Writes proposals to self_surgery_proposals table for founder review/promotion
+   * 
+   * Target tables (from selfSurgeryTargetEnum):
+   * - tutor_procedures: How to handle teaching situations
+   * - teaching_principles: Core pedagogical beliefs
+   * - tool_knowledge: How to use whiteboard tools
+   * - situational_patterns: Compass-triggered behaviors
+   * - language_idioms: Language-specific idioms
+   * - cultural_nuances: Cultural context
+   * - learner_error_patterns: Common learner mistakes
+   * - dialect_variations: Dialect-specific knowledge
+   * - linguistic_bridges: Cross-language connections
+   * - creativity_templates: Creative teaching approaches
+   */
+  private async processSelfSurgery(
+    session: StreamingSession,
+    data: SelfSurgeryItemData
+  ): Promise<void> {
+    try {
+      // Validate target table against allowed enum values
+      const validTargets = [
+        'tutor_procedures',
+        'teaching_principles',
+        'tool_knowledge',
+        'situational_patterns',
+        'language_idioms',
+        'cultural_nuances',
+        'learner_error_patterns',
+        'dialect_variations',
+        'linguistic_bridges',
+        'creativity_templates',
+      ] as const;
+      
+      if (!validTargets.includes(data.targetTable as any)) {
+        console.error(`[Self-Surgery] Invalid target table: ${data.targetTable}`);
+        return;
+      }
+      
+      // Validate priority and confidence (1-100)
+      const priority = Math.max(1, Math.min(100, data.priority || 50));
+      const confidence = Math.max(1, Math.min(100, data.confidence || 70));
+      
+      // Determine session mode
+      let sessionMode = 'normal';
+      if (session.isFounderMode && session.isRawHonestyMode) {
+        sessionMode = 'honesty_mode';
+      } else if (session.isFounderMode) {
+        sessionMode = 'founder_mode';
+      }
+      
+      // Create proposal in self_surgery_proposals table
+      const proposal = await storage.createSelfSurgeryProposal({
+        targetTable: data.targetTable,
+        proposedContent: data.content,
+        reasoning: data.reasoning,
+        triggerContext: `Voice session in ${session.targetLanguage}`,
+        status: 'pending',
+        conversationId: session.conversationId,
+        sessionMode,
+        targetLanguage: session.targetLanguage,
+        priority,
+        confidence,
+      });
+      
+      console.log(`[Self-Surgery] Proposal saved #${proposal.id}: ${data.targetTable}`);
+      console.log(`[Self-Surgery] Reasoning: ${data.reasoning.substring(0, 100)}...`);
+      console.log(`[Self-Surgery] Priority: ${priority}, Confidence: ${confidence}`);
+      
+    } catch (error: any) {
+      console.error(`[Self-Surgery] Failed to save proposal:`, error.message);
+      console.error(`[Self-Surgery] Full error:`, error);
     }
   }
   

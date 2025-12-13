@@ -160,6 +160,9 @@ import {
   danielaSuggestions,
   type DanielaSuggestion,
   type InsertDanielaSuggestion,
+  selfSurgeryProposals,
+  type SelfSurgeryProposal,
+  type InsertSelfSurgeryProposal,
   featureSprints,
   sprintStageTransitions,
   consultationThreads,
@@ -748,6 +751,11 @@ export interface IStorage {
   
   // Daniela Suggestions (Hive Mind - Active contributions from Daniela)
   createDanielaSuggestion(data: InsertDanielaSuggestion): Promise<DanielaSuggestion>;
+  
+  // Self-Surgery Proposals (Daniela's direct neural network modifications)
+  createSelfSurgeryProposal(data: InsertSelfSurgeryProposal): Promise<SelfSurgeryProposal>;
+  getSelfSurgeryProposals(options?: { status?: string; targetTable?: string; limit?: number }): Promise<SelfSurgeryProposal[]>;
+  updateSelfSurgeryProposal(id: string, data: Partial<SelfSurgeryProposal>): Promise<SelfSurgeryProposal | undefined>;
   
   // Tri-Lane Hive Collaboration APIs
   getCollaborationContext(options?: { domainTags?: string[]; originRole?: string; limit?: number }): Promise<{
@@ -5494,6 +5502,40 @@ export class DatabaseStorage implements IStorage {
   async createDanielaSuggestion(data: InsertDanielaSuggestion): Promise<DanielaSuggestion> {
     const [suggestion] = await db.insert(danielaSuggestions).values(data).returning();
     return suggestion;
+  }
+  
+  // ===== Self-Surgery Proposals (Daniela's Neural Network Modifications) =====
+  
+  async createSelfSurgeryProposal(data: InsertSelfSurgeryProposal): Promise<SelfSurgeryProposal> {
+    const [proposal] = await db.insert(selfSurgeryProposals).values(data).returning();
+    return proposal;
+  }
+  
+  async getSelfSurgeryProposals(options?: { status?: string; targetTable?: string; limit?: number }): Promise<SelfSurgeryProposal[]> {
+    const limit = options?.limit || 50;
+    let query = db.select().from(selfSurgeryProposals);
+    
+    const conditions = [];
+    if (options?.status) {
+      conditions.push(eq(selfSurgeryProposals.status, options.status as any));
+    }
+    if (options?.targetTable) {
+      conditions.push(eq(selfSurgeryProposals.targetTable, options.targetTable as any));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    return query.orderBy(desc(selfSurgeryProposals.createdAt)).limit(limit) as any;
+  }
+  
+  async updateSelfSurgeryProposal(id: string, data: Partial<SelfSurgeryProposal>): Promise<SelfSurgeryProposal | undefined> {
+    const [updated] = await db.update(selfSurgeryProposals)
+      .set(data)
+      .where(eq(selfSurgeryProposals.id, id))
+      .returning();
+    return updated;
   }
   
   // ===== Tri-Lane Hive Collaboration APIs =====
