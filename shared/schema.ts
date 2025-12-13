@@ -2338,6 +2338,7 @@ export type SyncRun = typeof syncRuns.$inferSelect;
 
 export const founderCollabStatusEnum = pgEnum('founder_collab_status', ['active', 'paused', 'completed']);
 export const collabMessageRoleEnum = pgEnum('collab_message_role', ['founder', 'daniela', 'editor', 'system']);
+export const collabMessageTypeEnum = pgEnum('collab_message_type', ['text', 'voice']);
 
 // Founder Sessions - Tracks active collaboration sessions between founder and Daniela
 export const founderSessions = pgTable("founder_sessions", {
@@ -2369,7 +2370,10 @@ export const collaborationMessages = pgTable("collaboration_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   sessionId: varchar("session_id").notNull().references(() => founderSessions.id, { onDelete: 'cascade' }),
   role: collabMessageRoleEnum("role").notNull(), // founder, daniela, editor, system
-  content: text("content").notNull(),
+  messageType: collabMessageTypeEnum("message_type").default("text"), // text or voice
+  content: text("content").notNull(), // For voice: the transcript
+  audioUrl: varchar("audio_url"), // URL to stored audio (for founder voice messages)
+  audioDuration: integer("audio_duration"), // Duration in milliseconds
   metadata: jsonb("metadata"), // Tool calls, suggestions, whiteboard commands, etc.
   cursor: varchar("cursor").notNull(), // Unique sequential cursor for resume (e.g., "1702589432100-0001")
   environment: varchar("environment").notNull(), // 'development' or 'production'
