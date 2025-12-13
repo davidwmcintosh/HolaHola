@@ -13064,6 +13064,72 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
 
+  // ============================================================================
+  // EDITOR BACKGROUND WORKER API (ARCHITECT_SECRET protected)
+  // ============================================================================
+  
+  // Get worker status
+  app.get("/api/collaboration/editor/worker/status", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { getWorkerStatus } = await import('./services/editor-background-worker');
+      res.json(getWorkerStatus());
+    } catch (error: any) {
+      console.error('[API] Error getting worker status:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Start worker (ARCHITECT_SECRET protected)
+  app.post("/api/collaboration/editor/worker/start", async (req: any, res) => {
+    try {
+      const secret = req.headers['x-architect-secret'] as string;
+      if (!validateEditorSecret(secret)) {
+        return res.status(401).json({ error: "Unauthorized - invalid or missing ARCHITECT_SECRET" });
+      }
+      
+      const { startEditorWorker } = await import('./services/editor-background-worker');
+      const started = startEditorWorker();
+      res.json({ started });
+    } catch (error: any) {
+      console.error('[API] Error starting worker:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Stop worker (ARCHITECT_SECRET protected)
+  app.post("/api/collaboration/editor/worker/stop", async (req: any, res) => {
+    try {
+      const secret = req.headers['x-architect-secret'] as string;
+      if (!validateEditorSecret(secret)) {
+        return res.status(401).json({ error: "Unauthorized - invalid or missing ARCHITECT_SECRET" });
+      }
+      
+      const { stopEditorWorker } = await import('./services/editor-background-worker');
+      stopEditorWorker();
+      res.json({ stopped: true });
+    } catch (error: any) {
+      console.error('[API] Error stopping worker:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Trigger immediate processing cycle (ARCHITECT_SECRET protected)
+  app.post("/api/collaboration/editor/worker/trigger", async (req: any, res) => {
+    try {
+      const secret = req.headers['x-architect-secret'] as string;
+      if (!validateEditorSecret(secret)) {
+        return res.status(401).json({ error: "Unauthorized - invalid or missing ARCHITECT_SECRET" });
+      }
+      
+      const { triggerProcessingCycle } = await import('./services/editor-background-worker');
+      const result = await triggerProcessingCycle();
+      res.json(result);
+    } catch (error: any) {
+      console.error('[API] Error triggering worker cycle:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up unified WebSocket handler for all paths

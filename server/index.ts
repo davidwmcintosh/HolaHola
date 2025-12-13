@@ -310,5 +310,16 @@ app.use((req, res, next) => {
     } catch (error) {
       console.error('[SYNC-SCHEDULER] Failed to start:', error);
     }
+    
+    // Start the Editor background worker (for Daniela-Editor collaboration)
+    try {
+      const { startEditorWorker } = await import('./services/editor-background-worker');
+      const started = startEditorWorker();
+      if (started) {
+        console.log('[EDITOR-WORKER] Background worker started successfully');
+      }
+    } catch (error) {
+      console.error('[EDITOR-WORKER] Failed to start:', error);
+    }
   });
 })();
