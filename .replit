@@ -51,3 +51,6 @@ APP_NAME = "HolaHola"
 APP_URL = "https://getholahola.com"
 FROM_EMAIL = "noreply@getholahola.com"
 COMPASS_ENABLED = "true"
+
+[userenv.development]
+SYNC_PEER_URL = "https://getholahola.com"
