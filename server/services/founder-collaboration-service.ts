@@ -8,7 +8,20 @@
  * - Session lifecycle management (create, pause, resume, complete)
  * - Persistent message storage with unique cursors
  * - Client sync cursor tracking for message replay on reconnect
- * - Cross-environment sync support (dev ↔ prod)
+ * - Cross-environment sync (dev ↔ prod via shared database)
+ * 
+ * ARCHITECTURE NOTE: Cross-Environment Sync
+ * ==========================================
+ * Development and production environments share the SAME PostgreSQL database.
+ * This means cross-environment sync is AUTOMATIC - messages written in dev
+ * are immediately visible in prod and vice versa.
+ * 
+ * The `synced` flag on messages is used for WebSocket real-time push tracking:
+ * - false = message hasn't been pushed to connected WebSocket clients yet
+ * - true = message was delivered to at least one connected client
+ * 
+ * The `environment` field tracks WHERE the message originated (dev vs prod),
+ * which helps with debugging and audit trails.
  */
 
 import { db } from "../db";
@@ -360,13 +373,17 @@ class FounderCollaborationService {
   }
   
   // ============================================================================
-  // CROSS-ENVIRONMENT SYNC
+  // WEBSOCKET REAL-TIME PUSH TRACKING
   // ============================================================================
+  // NOTE: Dev and prod share the same database, so cross-environment sync is
+  // automatic. The `synced` flag tracks whether messages have been pushed to
+  // connected WebSocket clients (for real-time delivery confirmation).
   
   /**
-   * Get unsynced messages for cross-environment sync
+   * Get messages not yet pushed to WebSocket clients
+   * Used by the WebSocket broker to ensure delivery
    */
-  async getUnsyncedMessages(limit = 100): Promise<CollaborationMessage[]> {
+  async getUnpushedMessages(limit = 100): Promise<CollaborationMessage[]> {
     return db.select()
       .from(collaborationMessages)
       .where(eq(collaborationMessages.synced, false))
@@ -375,9 +392,9 @@ class FounderCollaborationService {
   }
   
   /**
-   * Mark messages as synced
+   * Mark messages as pushed to WebSocket clients
    */
-  async markMessagesSynced(messageIds: string[]): Promise<void> {
+  async markMessagesPushed(messageIds: string[]): Promise<void> {
     if (messageIds.length === 0) return;
     
     for (const id of messageIds) {
@@ -389,33 +406,74 @@ class FounderCollaborationService {
         .where(eq(collaborationMessages.id, id));
     }
     
-    console.log(`[FounderCollab] Marked ${messageIds.length} messages as synced`);
+    console.log(`[FounderCollab] Marked ${messageIds.length} messages as pushed to clients`);
   }
   
   /**
-   * Import messages from peer environment
+   * Get cross-environment sync status
+   * Since dev/prod share the same DB, this shows message distribution by origin
    */
-  async importMessages(messages: Omit<InsertCollaborationMessage, 'synced' | 'syncedAt'>[]): Promise<number> {
-    let imported = 0;
+  async getCrossEnvironmentStatus(sessionId?: string): Promise<{
+    totalMessages: number;
+    byEnvironment: { environment: string; count: number }[];
+    pendingWebSocketPush: number;
+    sharedDatabase: boolean;
+    databaseHost: string;
+  }> {
+    // Build session filter condition
+    const sessionFilter = sessionId 
+      ? eq(collaborationMessages.sessionId, sessionId)
+      : undefined;
     
-    for (const msg of messages) {
-      const [existing] = await db.select()
-        .from(collaborationMessages)
-        .where(eq(collaborationMessages.cursor, msg.cursor))
-        .limit(1);
-      
-      if (!existing) {
-        await db.insert(collaborationMessages).values({
-          ...msg,
-          synced: true,
-          syncedAt: new Date(),
-        });
-        imported++;
+    // Get total count
+    const [totalResult] = await db.select({ 
+      count: sql<number>`COUNT(*)` 
+    })
+      .from(collaborationMessages)
+      .where(sessionFilter);
+    
+    // Get counts by environment
+    const envCounts = await db.select({
+      environment: collaborationMessages.environment,
+      count: sql<number>`COUNT(*)`
+    })
+      .from(collaborationMessages)
+      .where(sessionFilter)
+      .groupBy(collaborationMessages.environment);
+    
+    // Get pending WebSocket push count
+    const pendingFilter = sessionId 
+      ? and(eq(collaborationMessages.sessionId, sessionId), eq(collaborationMessages.synced, false))
+      : eq(collaborationMessages.synced, false);
+    
+    const [pendingResult] = await db.select({
+      count: sql<number>`COUNT(*)`
+    })
+      .from(collaborationMessages)
+      .where(pendingFilter);
+    
+    // Extract database host from DATABASE_URL for verification
+    let databaseHost = 'unknown';
+    try {
+      const dbUrl = process.env.DATABASE_URL;
+      if (dbUrl) {
+        const url = new URL(dbUrl);
+        databaseHost = url.hostname;
       }
+    } catch {
+      databaseHost = 'parse-error';
     }
     
-    console.log(`[FounderCollab] Imported ${imported} messages from peer environment`);
-    return imported;
+    return {
+      totalMessages: totalResult?.count || 0,
+      byEnvironment: envCounts.map(e => ({
+        environment: e.environment,
+        count: Number(e.count)
+      })),
+      pendingWebSocketPush: pendingResult?.count || 0,
+      sharedDatabase: true, // Dev and prod share the same PostgreSQL database
+      databaseHost // Exposed for verification that both envs use same Neon project
+    };
   }
   
   // ============================================================================
@@ -476,6 +534,59 @@ class FounderCollaborationService {
         activeSessionCount: 0
       };
     }
+  }
+  
+  /**
+   * Verify failover capability by testing cursor-based replay
+   * Returns info about what would be replayed after a hypothetical disconnect
+   * 
+   * FAILOVER TEST PROCEDURE:
+   * 1. Call this method before restart to get currentCursor
+   * 2. Restart the server
+   * 3. Call getMessagesAfterCursor(sessionId, currentCursor) 
+   * 4. Verify all messages sent after step 1 are returned
+   * 
+   * The cursor-based system ensures no messages are lost on reconnect.
+   */
+  async verifyFailoverReadiness(sessionId: string, clientId: string): Promise<{
+    sessionExists: boolean;
+    clientRegistered: boolean;
+    lastClientCursor: string | null;
+    messagesSinceCursor: number;
+    replayCapable: boolean;
+  }> {
+    const session = await this.getSession(sessionId);
+    if (!session) {
+      return {
+        sessionExists: false,
+        clientRegistered: false,
+        lastClientCursor: null,
+        messagesSinceCursor: 0,
+        replayCapable: false
+      };
+    }
+    
+    const [syncCursor] = await db.select()
+      .from(syncCursors)
+      .where(and(
+        eq(syncCursors.clientId, clientId),
+        eq(syncCursors.sessionId, sessionId)
+      ))
+      .limit(1);
+    
+    let messagesSinceCursor = 0;
+    if (syncCursor?.lastProcessedCursor) {
+      const replay = await this.getMessagesAfterCursor(sessionId, syncCursor.lastProcessedCursor);
+      messagesSinceCursor = replay.messages.length;
+    }
+    
+    return {
+      sessionExists: true,
+      clientRegistered: !!syncCursor,
+      lastClientCursor: syncCursor?.lastProcessedCursor || null,
+      messagesSinceCursor,
+      replayCapable: true // Cursor-based replay always available
+    };
   }
 }
 

@@ -53,6 +53,8 @@ import { collaborationHubService } from "./services/collaboration-hub-service";
 import { hiveCollaborationService } from "./services/hive-collaboration-service";
 import { editorPersonaService, validateEditorSecret } from "./services/editor-persona-service";
 import { supportPersonaService } from "./services/support-persona-service";
+import { founderCollabService } from "./services/founder-collaboration-service";
+import { founderCollabWSBroker } from "./services/founder-collab-ws-broker";
 import { 
   getAvailableActflLevels,
   getSupportedLanguages,
@@ -14024,6 +14026,102 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       res.json(status);
     } catch (error: any) {
       console.error('[SYNC API] Status error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================================
+  // FOUNDER COLLABORATION SYNC CHANNEL
+  // ============================================================================
+  // Cross-environment sync is automatic via shared PostgreSQL database.
+  // These endpoints provide visibility into sync status and WebSocket health.
+
+  // Developer/Admin: Get founder collaboration sync status
+  app.get("/api/founder-collab/sync-status", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
+    try {
+      const sessionId = req.query.sessionId as string | undefined;
+      
+      // Get cross-environment sync status
+      const syncStatus = await founderCollabService.getCrossEnvironmentStatus(sessionId);
+      
+      // Get WebSocket broker stats
+      const wsStats = founderCollabWSBroker.getStats();
+      
+      // Get service health
+      const health = await founderCollabService.healthCheck();
+      
+      res.json({
+        environment: process.env.NODE_ENV === 'production' ? 'production' : 'development',
+        sync: syncStatus,
+        websocket: {
+          initialized: founderCollabWSBroker.isInitialized(),
+          ...wsStats
+        },
+        health,
+        architecture: {
+          description: 'Dev and prod share the same PostgreSQL database',
+          crossEnvSync: 'Automatic via shared database',
+          realtimePush: 'WebSocket-based for connected clients'
+        }
+      });
+    } catch (error: any) {
+      console.error('[FounderCollab API] Sync status error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Developer/Admin: Get founder sessions
+  app.get("/api/founder-collab/sessions", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
+    try {
+      const founderId = req.user?.id;
+      if (!founderId) {
+        return res.status(401).json({ error: 'User ID required' });
+      }
+      
+      const sessions = await founderCollabService.getFounderSessions(founderId);
+      res.json(sessions);
+    } catch (error: any) {
+      console.error('[FounderCollab API] Get sessions error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Developer/Admin: Get session messages
+  app.get("/api/founder-collab/sessions/:sessionId/messages", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
+    try {
+      const { sessionId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 100;
+      
+      const messages = await founderCollabService.getSessionMessages(sessionId, limit);
+      res.json(messages);
+    } catch (error: any) {
+      console.error('[FounderCollab API] Get messages error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Developer/Admin: Verify failover readiness for a session
+  app.get("/api/founder-collab/sessions/:sessionId/failover-check", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
+    try {
+      const { sessionId } = req.params;
+      const clientId = req.query.clientId as string;
+      
+      if (!clientId) {
+        return res.status(400).json({ error: 'clientId query parameter required' });
+      }
+      
+      const result = await founderCollabService.verifyFailoverReadiness(sessionId, clientId);
+      res.json({
+        ...result,
+        testProcedure: {
+          step1: 'Note the lastClientCursor returned here',
+          step2: 'Restart the server or disconnect WebSocket',
+          step3: 'Reconnect and verify messages since cursor are replayed',
+          step4: 'messagesSinceCursor should match new messages received'
+        }
+      });
+    } catch (error: any) {
+      console.error('[FounderCollab API] Failover check error:', error);
       res.status(500).json({ error: error.message });
     }
   });
