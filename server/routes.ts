@@ -13335,7 +13335,8 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       }
       
       const { brainSurgeryService } = await import('./services/brain-surgery-service');
-      const response = await brainSurgeryService.editorToDaniela(message, threadId);
+      // Use enhanced version to track proposals in history for approval/rejection
+      const response = await brainSurgeryService.editorToDanielaEnhanced(message, threadId, { includeTeachingContext: true });
       res.json(response);
     } catch (error: any) {
       console.error('[API] Error in brain surgery chat:', error);
@@ -13392,6 +13393,170 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       res.json(result);
     } catch (error: any) {
       console.error('[API] Error executing brain surgery:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Approve a brain surgery proposal
+  app.post("/api/brain-surgery/approve", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const { proposalId, approvedBy } = req.body;
+      if (!proposalId) {
+        return res.status(400).json({ error: "proposalId is required" });
+      }
+      
+      const { brainSurgeryService } = await import('./services/brain-surgery-service');
+      const result = await brainSurgeryService.approveProposal(proposalId, approvedBy || 'david');
+      res.json(result);
+    } catch (error: any) {
+      console.error('[API] Error approving brain surgery proposal:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Reject a brain surgery proposal
+  app.post("/api/brain-surgery/reject", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const { proposalId, reason, rejectedBy } = req.body;
+      if (!proposalId) {
+        return res.status(400).json({ error: "proposalId is required" });
+      }
+      
+      const { brainSurgeryService } = await import('./services/brain-surgery-service');
+      const result = await brainSurgeryService.rejectProposal(proposalId, reason || 'Not specified', rejectedBy || 'david');
+      res.json(result);
+    } catch (error: any) {
+      console.error('[API] Error rejecting brain surgery proposal:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Rollback an approved brain surgery proposal
+  app.post("/api/brain-surgery/rollback", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const { proposalId, rolledBackBy } = req.body;
+      if (!proposalId) {
+        return res.status(400).json({ error: "proposalId is required" });
+      }
+      
+      const { brainSurgeryService } = await import('./services/brain-surgery-service');
+      const result = await brainSurgeryService.rollbackProposal(proposalId, rolledBackBy || 'david');
+      res.json(result);
+    } catch (error: any) {
+      console.error('[API] Error rolling back brain surgery proposal:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get proposal history
+  app.get("/api/brain-surgery/history", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const threadId = req.query.threadId as string | undefined;
+      const { brainSurgeryService } = await import('./services/brain-surgery-service');
+      const history = brainSurgeryService.getProposalHistory(threadId);
+      res.json(history);
+    } catch (error: any) {
+      console.error('[API] Error getting proposal history:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get proposal templates
+  app.get("/api/brain-surgery/templates", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const { brainSurgeryService } = await import('./services/brain-surgery-service');
+      const templates = brainSurgeryService.getProposalTemplates();
+      res.json(templates);
+    } catch (error: any) {
+      console.error('[API] Error getting proposal templates:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Update thread metadata (title, category)
+  app.put("/api/brain-surgery/thread/:threadId/metadata", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const { threadId } = req.params;
+      const { title, category } = req.body;
+      
+      const { brainSurgeryService } = await import('./services/brain-surgery-service');
+      brainSurgeryService.updateThreadMetadata(threadId, { title, category });
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('[API] Error updating thread metadata:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get thread metadata
+  app.get("/api/brain-surgery/thread/:threadId/metadata", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const { threadId } = req.params;
+      const { brainSurgeryService } = await import('./services/brain-surgery-service');
+      const metadata = brainSurgeryService.getThreadMetadata(threadId);
+      res.json(metadata || { title: "", category: "general" });
+    } catch (error: any) {
+      console.error('[API] Error getting thread metadata:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get auto-approval configuration
+  app.get("/api/brain-surgery/auto-approval-config", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const { brainSurgeryService } = await import('./services/brain-surgery-service');
+      const config = brainSurgeryService.getAutoApprovalConfig();
+      res.json(config);
+    } catch (error: any) {
+      console.error('[API] Error getting auto-approval config:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Update auto-approval configuration
+  app.put("/api/brain-surgery/auto-approval-config", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const { brainSurgeryService } = await import('./services/brain-surgery-service');
+      const updated = brainSurgeryService.updateAutoApprovalConfig(req.body);
+      res.json(updated);
+    } catch (error: any) {
+      console.error('[API] Error updating auto-approval config:', error);
       res.status(500).json({ error: error.message });
     }
   });

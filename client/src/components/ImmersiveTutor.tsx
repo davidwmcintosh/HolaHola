@@ -68,19 +68,24 @@ interface HiveChannel {
 }
 
 // Brain Surgery types
+interface SelfSurgeryProposal {
+  proposalId?: string;
+  target: string;
+  content: Record<string, unknown>;
+  reasoning: string;
+  priority: number;
+  confidence: number;
+  rawCommand: string;
+  status?: 'pending' | 'approved' | 'rejected' | 'auto_approved' | 'rolled_back';
+  insertedId?: string;
+}
+
 interface BrainSurgeryChatMessage {
   id: string;
   fromAgent: 'daniela' | 'editor' | 'support' | 'system';
   content: string;
   timestamp: string;
-  selfSurgeryProposals?: Array<{
-    target: string;
-    content: Record<string, unknown>;
-    reasoning: string;
-    priority: number;
-    confidence: number;
-    rawCommand: string;
-  }>;
+  selfSurgeryProposals?: SelfSurgeryProposal[];
 }
 
 interface BrainSurgeryThreadSummary {
@@ -231,6 +236,34 @@ export function ImmersiveTutor({
         description: error.message || "Failed to send message",
         variant: "destructive",
       });
+    },
+  });
+
+  // Approve proposal mutation
+  const approveProposalMutation = useMutation({
+    mutationFn: async ({ proposalId }: { proposalId: string }) => {
+      return apiRequest("POST", "/api/brain-surgery/approve", { proposalId });
+    },
+    onSuccess: async () => {
+      toast({ title: "Approved", description: "Proposal has been applied to the neural network" });
+      await refetchBrainSurgeryMessages();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to approve proposal", variant: "destructive" });
+    },
+  });
+
+  // Reject proposal mutation
+  const rejectProposalMutation = useMutation({
+    mutationFn: async ({ proposalId, reason }: { proposalId: string; reason?: string }) => {
+      return apiRequest("POST", "/api/brain-surgery/reject", { proposalId, reason });
+    },
+    onSuccess: async () => {
+      toast({ title: "Rejected", description: "Proposal has been rejected" });
+      await refetchBrainSurgeryMessages();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to reject proposal", variant: "destructive" });
     },
   });
 
@@ -579,13 +612,50 @@ export function ImmersiveTutor({
                             <div className="mt-2 pt-2 border-t space-y-2">
                               <p className="text-[10px] font-medium text-amber-600 dark:text-amber-400">Self-Surgery Proposals:</p>
                               {msg.selfSurgeryProposals.map((proposal, idx) => (
-                                <div key={idx} className="text-[10px] bg-amber-50/50 dark:bg-amber-950/30 p-2 rounded border border-amber-200/50 dark:border-amber-800/50">
-                                  <p className="font-medium">Target: {proposal.target}</p>
-                                  <p className="text-muted-foreground">{proposal.reasoning}</p>
-                                  <div className="flex gap-2 mt-1">
-                                    <Badge variant="outline" className="text-[9px]">Priority: {proposal.priority}</Badge>
-                                    <Badge variant="outline" className="text-[9px]">Confidence: {(proposal.confidence * 100).toFixed(0)}%</Badge>
+                                <div key={proposal.proposalId || idx} className="text-[10px] bg-amber-50/50 dark:bg-amber-950/30 p-2 rounded border border-amber-200/50 dark:border-amber-800/50">
+                                  <div className="flex items-center justify-between gap-2 mb-1">
+                                    <p className="font-medium">Target: {proposal.target}</p>
+                                    {proposal.status && (
+                                      <Badge 
+                                        variant={proposal.status === 'approved' || proposal.status === 'auto_approved' ? 'default' : 
+                                                proposal.status === 'rejected' ? 'destructive' : 'outline'}
+                                        className="text-[8px]"
+                                      >
+                                        {proposal.status === 'auto_approved' ? 'Auto-Approved' : proposal.status}
+                                      </Badge>
+                                    )}
                                   </div>
+                                  <p className="text-muted-foreground">{proposal.reasoning}</p>
+                                  <div className="flex gap-2 mt-1 flex-wrap">
+                                    <Badge variant="outline" className="text-[9px]">Priority: {proposal.priority}</Badge>
+                                    <Badge variant="outline" className="text-[9px]">Confidence: {proposal.confidence}%</Badge>
+                                  </div>
+                                  {/* Approve/Reject buttons - only show for pending proposals with proposalId */}
+                                  {proposal.proposalId && (!proposal.status || proposal.status === 'pending') && (
+                                    <div className="flex gap-2 mt-2 pt-2 border-t border-amber-200/50 dark:border-amber-800/50">
+                                      <Button
+                                        size="sm"
+                                        variant="default"
+                                        className="h-6 text-[10px] px-2"
+                                        disabled={approveProposalMutation.isPending || rejectProposalMutation.isPending}
+                                        onClick={() => approveProposalMutation.mutate({ proposalId: proposal.proposalId! })}
+                                        data-testid={`button-approve-proposal-${proposal.proposalId}`}
+                                      >
+                                        {approveProposalMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3 mr-1" />}
+                                        Approve
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-6 text-[10px] px-2"
+                                        disabled={approveProposalMutation.isPending || rejectProposalMutation.isPending}
+                                        onClick={() => rejectProposalMutation.mutate({ proposalId: proposal.proposalId! })}
+                                        data-testid={`button-reject-proposal-${proposal.proposalId}`}
+                                      >
+                                        Reject
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>

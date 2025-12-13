@@ -6163,6 +6163,32 @@ export class DatabaseStorage implements IStorage {
     const [created] = await db.insert(situationalPatterns).values([data]).returning();
     return created.id;
   }
+  
+  // ===== BRAIN SURGERY DEACTIVATE/ROLLBACK METHODS =====
+  
+  async deactivateTutorProcedure(id: string): Promise<void> {
+    await db.update(tutorProcedures)
+      .set({ isActive: false })
+      .where(eq(tutorProcedures.id, id));
+  }
+  
+  async deactivateTeachingPrinciple(id: string): Promise<void> {
+    await db.update(teachingPrinciples)
+      .set({ isActive: false })
+      .where(eq(teachingPrinciples.id, id));
+  }
+  
+  async deactivateToolKnowledge(id: string): Promise<void> {
+    await db.update(toolKnowledge)
+      .set({ isActive: false })
+      .where(eq(toolKnowledge.id, id));
+  }
+  
+  async deactivateSituationalPattern(id: string): Promise<void> {
+    await db.update(situationalPatterns)
+      .set({ isActive: false })
+      .where(eq(situationalPatterns.id, id));
+  }
 }
 
 export const storage = new DatabaseStorage();
