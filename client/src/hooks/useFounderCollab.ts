@@ -98,6 +98,7 @@ export function useFounderCollab(): UseFounderCollabReturn {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isManualDisconnectRef = useRef(false);
+  const reconnectAttemptRef = useRef(0);
   
   /**
    * Clear any pending reconnect timeout
@@ -182,27 +183,30 @@ export function useFounderCollab(): UseFounderCollabReturn {
   }, []);
   
   /**
-   * Schedule reconnection attempt
+   * Schedule reconnection attempt using ref to avoid stale closure
    */
   const scheduleReconnect = useCallback(() => {
     if (isManualDisconnectRef.current) return;
-    if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+    
+    const currentAttempt = reconnectAttemptRef.current;
+    if (currentAttempt >= MAX_RECONNECT_ATTEMPTS) {
       setConnectionState('error');
       setError('Max reconnection attempts reached');
       return;
     }
     
-    const delay = RECONNECT_BASE_DELAY * Math.pow(2, reconnectAttempt);
-    console.log(`[FounderCollab] Scheduling reconnect in ${delay}ms (attempt ${reconnectAttempt + 1})`);
+    const delay = RECONNECT_BASE_DELAY * Math.pow(2, currentAttempt);
+    console.log(`[FounderCollab] Scheduling reconnect in ${delay}ms (attempt ${currentAttempt + 1})`);
     
     setConnectionState('reconnecting');
     clearReconnectTimeout();
     
     reconnectTimeoutRef.current = setTimeout(() => {
-      setReconnectAttempt(prev => prev + 1);
+      reconnectAttemptRef.current = currentAttempt + 1;
+      setReconnectAttempt(currentAttempt + 1);
       connectSocket(sessionIdRef.current || undefined);
     }, delay);
-  }, [reconnectAttempt, clearReconnectTimeout]);
+  }, [clearReconnectTimeout]);
   
   /**
    * Connect to the WebSocket server
@@ -238,6 +242,7 @@ export function useFounderCollab(): UseFounderCollabReturn {
       console.log(`[FounderCollab] Joined session ${data.sessionId}`);
       sessionIdRef.current = data.sessionId;
       setConnectionState('connected');
+      reconnectAttemptRef.current = 0;
       setReconnectAttempt(0);
       startPingInterval();
     });
@@ -305,6 +310,7 @@ export function useFounderCollab(): UseFounderCollabReturn {
     
     setConnectionState('disconnected');
     setSession(null);
+    reconnectAttemptRef.current = 0;
     setReconnectAttempt(0);
   }, [clearReconnectTimeout, clearPingInterval]);
   

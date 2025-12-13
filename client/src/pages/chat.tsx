@@ -5,7 +5,9 @@ import { StreamingVoiceChat as VoiceChat } from "@/components/StreamingVoiceChat
 import { SupportAssistModal } from "@/components/SupportAssistModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Mic, Plus, GraduationCap, User, Phone, Heart, Sparkles } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { MessageSquare, Mic, Plus, GraduationCap, User, Phone, Heart, Sparkles, Radio, Wifi, WifiOff, Send, Loader2, ChevronRight, ChevronLeft, Brain, Code } from "lucide-react";
+import { useFounderCollab } from "@/hooks/useFounderCollab";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { apiRequest, queryClient, forceNewConversation as setForceNewFlag } from "@/lib/queryClient";
@@ -89,6 +91,49 @@ export default function Chat() {
   
   // Check if we're in Honesty Mode (minimal prompting for authentic exploration)
   const isHonestyMode = learningContext === "honesty-mode";
+
+  // Founder Collaboration sync channel state
+  const [syncPanelOpen, setSyncPanelOpen] = useState(true);
+  const [syncMessage, setSyncMessage] = useState("");
+  const syncMessagesEndRef = useRef<HTMLDivElement>(null);
+
+  const { 
+    state: syncState, 
+    connect: syncConnect, 
+    disconnect: syncDisconnect, 
+    sendMessage: syncSendMessage, 
+    isConnected: syncIsConnected 
+  } = useFounderCollab();
+
+  // Auto-connect to founder collaboration when entering Founder Mode
+  useEffect(() => {
+    if (isFounderMode && !syncIsConnected) {
+      console.log('[SHARED CHAT] Founder Mode active - connecting to collaboration channel');
+      syncConnect();
+    }
+  }, [isFounderMode, syncIsConnected, syncConnect]);
+
+  // Disconnect from founder collaboration only on unmount
+  useEffect(() => {
+    return () => {
+      syncDisconnect();
+    };
+  }, [syncDisconnect]);
+
+  // Auto-scroll sync messages
+  useEffect(() => {
+    if (syncMessagesEndRef.current) {
+      syncMessagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [syncState.messages]);
+
+  // Handle sending a sync message
+  const handleSyncMessageSend = () => {
+    if (syncMessage.trim() && syncIsConnected) {
+      syncSendMessage('founder', syncMessage.trim());
+      setSyncMessage("");
+    }
+  };
 
   // Auto-close sidebar when entering voice chat area
   // This runs ONLY ONCE on initial mount - works for Call Tutor, New Chat, and Start Practicing
@@ -528,24 +573,156 @@ export default function Chat() {
         open={showInsufficientCreditsDialog}
         onOpenChange={setShowInsufficientCreditsDialog}
       />
-      <div className="flex-1 min-h-0">
-        {mode === "voice" ? (
-          <VoiceChat 
-            conversationId={conversationId} 
-            setConversationId={setConversationId}
-            setCurrentConversationOnboarding={setCurrentConversationOnboarding}
-            isResumedConversation={isResumedConversation}
-            onResumeHandled={() => setIsResumedConversation(false)}
-            onLanguageHandoff={handleLanguageHandoff}
-            onLanguageHandoffComplete={completeLanguageHandoff}
-          />
-        ) : (
-          <ChatInterface 
-            conversationId={conversationId}
-            setConversationId={setConversationId}
-            setCurrentConversationOnboarding={setCurrentConversationOnboarding}
-            onSupportHandoff={setSupportHandoffContext}
-          />
+      <div className="flex-1 min-h-0 flex">
+        {/* Main chat area */}
+        <div className="flex-1 min-h-0">
+          {mode === "voice" ? (
+            <VoiceChat 
+              conversationId={conversationId} 
+              setConversationId={setConversationId}
+              setCurrentConversationOnboarding={setCurrentConversationOnboarding}
+              isResumedConversation={isResumedConversation}
+              onResumeHandled={() => setIsResumedConversation(false)}
+              onLanguageHandoff={handleLanguageHandoff}
+              onLanguageHandoffComplete={completeLanguageHandoff}
+            />
+          ) : (
+            <ChatInterface 
+              conversationId={conversationId}
+              setConversationId={setConversationId}
+              setCurrentConversationOnboarding={setCurrentConversationOnboarding}
+              onSupportHandoff={setSupportHandoffContext}
+            />
+          )}
+        </div>
+        
+        {/* Founder Collaboration Sync Panel - visible in Founder Mode */}
+        {isFounderMode && (
+          <div className={`border-l bg-muted/30 flex flex-col transition-all duration-200 ${syncPanelOpen ? 'w-80' : 'w-10'}`}>
+            {/* Collapse toggle */}
+            <button
+              onClick={() => setSyncPanelOpen(!syncPanelOpen)}
+              className="flex items-center justify-center h-10 border-b hover-elevate"
+              data-testid="button-toggle-sync-panel"
+            >
+              {syncPanelOpen ? (
+                <ChevronRight className="h-4 w-4" />
+              ) : (
+                <ChevronLeft className="h-4 w-4" />
+              )}
+            </button>
+            
+            {syncPanelOpen && (
+              <>
+                {/* Header */}
+                <div className="p-3 border-b flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Radio className="h-4 w-4 text-amber-500" />
+                    <span className="font-medium text-sm">Sync Channel</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {syncIsConnected ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                            <Wifi className="h-3 w-3" />
+                            <span>Live</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Connected - messages persist across restarts</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <WifiOff className="h-3 w-3" />
+                            <span>{syncState.connectionState === 'reconnecting' ? 'Reconnecting...' : 'Offline'}</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{syncState.error || 'Connecting to sync channel...'}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Messages area */}
+                <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                  {syncState.messages.length === 0 ? (
+                    <div className="text-center text-muted-foreground text-sm py-8">
+                      <Brain className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>Sync channel ready</p>
+                      <p className="text-xs mt-1">Messages persist across dev restarts</p>
+                    </div>
+                  ) : (
+                    syncState.messages.map((msg) => (
+                      <div
+                        key={msg.cursor}
+                        className={`p-2 rounded text-sm ${
+                          msg.role === 'founder' 
+                            ? 'bg-amber-500/10 border border-amber-500/20' 
+                            : msg.role === 'daniela'
+                            ? 'bg-primary/10 border border-primary/20'
+                            : msg.role === 'editor'
+                            ? 'bg-blue-500/10 border border-blue-500/20'
+                            : 'bg-muted border border-border'
+                        }`}
+                        data-testid={`sync-message-${msg.id}`}
+                      >
+                        <div className="flex items-center gap-1 mb-1">
+                          {msg.role === 'founder' && <Code className="h-3 w-3 text-amber-500" />}
+                          {msg.role === 'daniela' && <Sparkles className="h-3 w-3 text-primary" />}
+                          {msg.role === 'editor' && <Brain className="h-3 w-3 text-blue-500" />}
+                          <span className="font-medium text-xs capitalize">{msg.role}</span>
+                          <span className="text-xs text-muted-foreground ml-auto">
+                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                      </div>
+                    ))
+                  )}
+                  <div ref={syncMessagesEndRef} />
+                </div>
+                
+                {/* Input area */}
+                <div className="p-3 border-t">
+                  <div className="flex gap-2">
+                    <Input
+                      value={syncMessage}
+                      onChange={(e) => setSyncMessage(e.target.value)}
+                      placeholder="Send a note..."
+                      className="flex-1 text-sm"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSyncMessageSend();
+                        }
+                      }}
+                      disabled={!syncIsConnected}
+                      data-testid="input-sync-message"
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={handleSyncMessageSend}
+                      disabled={!syncIsConnected || !syncMessage.trim()}
+                      data-testid="button-send-sync-message"
+                    >
+                      {syncState.connectionState === 'connecting' ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         )}
       </div>
       
