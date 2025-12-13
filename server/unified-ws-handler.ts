@@ -1741,28 +1741,28 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
             console.log('[Streaming Voice] ✓ Authenticated userId:', userId);
           }
           
-          const startMsg = message as ClientStartSessionMessage;
-          const targetLanguage = startMsg.targetLanguage || 'spanish';
-          const nativeLanguage = startMsg.nativeLanguage || 'english';
-          const difficultyLevel = startMsg.difficultyLevel || 'beginner';
-          const tutorGender = startMsg.tutorGender || 'female';
-          const voiceSpeed = startMsg.voiceSpeed || 'normal';
-          const rawHonestyMode = startMsg.rawHonestyMode || false;
+          const config = message as ClientStartSessionMessage;
+          const tutorGender = config.tutorGender || 'female';
+          const rawHonestyMode = config.rawHonestyMode || false;
           
           try {
-            // Generate system prompt
-            const userRecord = userId ? await storage.getUser(userId) : null;
-            const userName = userRecord?.firstName || 'friend';
+            // Get user and conversation
+            const user = userId ? await storage.getUser(userId) : null;
+            const userName = user?.firstName || 'friend';
+            const conversation = conversationId ? await storage.getConversation(conversationId) : null;
+            const messages = conversationId ? await storage.getMessages(conversationId) : [];
             
-            // Get tutor voice for this language
-            const tutorVoice = await storage.getTutorVoice(targetLanguage, tutorGender);
+            // Get tutor voice
+            const effectiveLanguage = config.targetLanguage || 'spanish';
+            const tutorVoice = await storage.getTutorVoice(effectiveLanguage, tutorGender);
             const voiceId = tutorVoice?.voiceId || '';
+            const tutorName = tutorGender === 'male' ? 'Agustin' : 'Daniela';
             
-            // Create streaming voice session config
+            // Generate system prompt using streaming voice prompt
             const systemPrompt = await createStreamingVoicePrompt(
-              targetLanguage,
-              nativeLanguage,
-              difficultyLevel,
+              effectiveLanguage,
+              config.nativeLanguage || 'english',
+              config.difficultyLevel || 'beginner',
               tutorGender,
               userName,
               userId || undefined,
@@ -1770,22 +1770,29 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
               rawHonestyMode
             );
             
-            // Create session with orchestrator
-            session = await orchestrator.createSession({
-              ws: ws as any, // Adapter is compatible
+            // Build conversation history for context
+            const conversationHistory = messages.map(m => ({
+              role: m.role === 'user' ? 'user' as const : 'model' as const,
+              content: m.content,
+            }));
+            
+            // Create session with correct parameters
+            session = await orchestrator.createSession(
+              ws as any,
+              parseInt(userId!),
+              config,
               systemPrompt,
-              targetLanguage,
-              nativeLanguage,
+              conversationHistory,
               voiceId,
-              voiceSpeed,
-              userId: userId || undefined,
-              conversationId: conversationId || undefined,
-            });
+              false, // isFounderMode
+              rawHonestyMode,
+              {
+                conversationTopic: conversation?.topic || undefined,
+                conversationTitle: conversation?.title || undefined,
+              }
+            );
             
-            if (pendingVoiceUpdate) {
-              pendingVoiceUpdate = tutorGender;
-            }
-            
+            pendingVoiceUpdate = tutorGender;
             console.log('[Streaming Voice] Session created:', session.id);
             
             ws.send(JSON.stringify({
