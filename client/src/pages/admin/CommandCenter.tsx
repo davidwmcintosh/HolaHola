@@ -143,6 +143,13 @@ export default function CommandCenter() {
 
   const [activeTab, setActiveTab] = useState("overview");
 
+  // Query pending self-surgery proposals for notification badge
+  const { data: pendingProposalsData } = useQuery<{ proposals: Array<{ status: string }> }>({
+    queryKey: ["/api/self-surgery/proposals"],
+    enabled: isDeveloper,
+  });
+  const pendingProposalsCount = pendingProposalsData?.proposals?.filter(p => p.status === 'pending').length || 0;
+
   const availableTabs = [
     { id: "overview", label: "Overview", icon: LayoutDashboard, roles: ['admin', 'developer', 'teacher'] },
     { id: "users", label: "Users", icon: Users, roles: ['admin'] },
@@ -200,6 +207,7 @@ export default function CommandCenter() {
           <TabsList className="flex flex-wrap h-auto gap-1 p-1">
             {availableTabs.map(tab => {
               const Icon = tab.icon;
+              const showBadge = tab.id === 'brain-surgery' && pendingProposalsCount > 0;
               return (
                 <TabsTrigger 
                   key={tab.id} 
@@ -209,6 +217,11 @@ export default function CommandCenter() {
                 >
                   <Icon className="h-4 w-4" />
                   <span className="hidden sm:inline">{tab.label}</span>
+                  {showBadge && (
+                    <Badge variant="destructive" className="h-5 min-w-5 px-1 text-xs" data-testid="badge-pending-proposals">
+                      {pendingProposalsCount}
+                    </Badge>
+                  )}
                 </TabsTrigger>
               );
             })}

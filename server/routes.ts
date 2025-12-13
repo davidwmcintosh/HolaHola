@@ -1537,6 +1537,20 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  // Trigger Editor proactive suggestions (analyze patterns and suggest improvements)
+  app.post('/api/self-surgery/proactive-suggestions', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { editorPersonaService } = await import('./services/editor-persona-service');
+      const result = await editorPersonaService.generateProactiveSuggestions();
+      
+      console.log(`[Self-Surgery] Proactive suggestions: ${result.suggestions.length} suggestions, ${result.surgeryProposals.length} proposals`);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error generating proactive suggestions:", error);
+      res.status(500).json({ message: "Failed to generate proactive suggestions" });
+    }
+  });
+
   // Get student memory context (insights, motivations, struggles, notes, connections)
   app.get('/api/memory/student/:studentId', isAuthenticated, async (req: any, res) => {
     try {

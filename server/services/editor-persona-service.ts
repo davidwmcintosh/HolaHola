@@ -26,7 +26,7 @@ import {
   type TutorProcedure,
   type TeachingPrinciple,
 } from "@shared/schema";
-import { eq, desc, inArray, sql } from "drizzle-orm";
+import { eq, desc, inArray, sql, gt } from "drizzle-orm";
 import { collaborationHubService } from "./collaboration-hub-service";
 import { hiveCollaborationService, type BeaconType } from "./hive-collaboration-service";
 import { getNeuralNetworkContext, formatNeuralNetworkForPrompt } from "./neural-network-retrieval";
@@ -657,6 +657,187 @@ Be helpful, specific, and actionable.`;
     this.knowledgeCache = null;
     this.cacheExpiry = null;
     console.log('[Editor Persona] Knowledge cache invalidated');
+  }
+  
+  // ============================================================================
+  // PROACTIVE SUGGESTIONS (Pattern Analysis)
+  // ============================================================================
+  
+  /**
+   * Generate proactive improvement suggestions by analyzing recent beacon patterns
+   * This is Editor's unique ability to see across sessions and suggest systemic improvements
+   */
+  async generateProactiveSuggestions(): Promise<{
+    suggestions: Array<{
+      category: string;
+      observation: string;
+      suggestion: string;
+      priority: 'low' | 'medium' | 'high';
+    }>;
+    surgeryProposals: EditorSurgeryProposal[];
+    summary: string;
+  }> {
+    const knowledge = await this.loadKnowledgeContext();
+    
+    // Get recent snapshots across all channels (last 24 hours)
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentSnapshots = await db.select()
+      .from(editorListeningSnapshots)
+      .where(gt(editorListeningSnapshots.createdAt, twentyFourHoursAgo))
+      .orderBy(desc(editorListeningSnapshots.createdAt))
+      .limit(50);
+    
+    if (recentSnapshots.length === 0) {
+      console.log('[Editor Persona] No recent snapshots for proactive analysis');
+      return {
+        suggestions: [],
+        surgeryProposals: [],
+        summary: 'No recent teaching sessions to analyze',
+      };
+    }
+    
+    // Group by beacon type for pattern detection
+    const beaconTypeCounts: Record<string, number> = {};
+    const strugglesDetected: string[] = [];
+    const breakthroughsDetected: string[] = [];
+    const toolUsagePatterns: string[] = [];
+    
+    for (const snapshot of recentSnapshots) {
+      beaconTypeCounts[snapshot.beaconType] = (beaconTypeCounts[snapshot.beaconType] || 0) + 1;
+      
+      if (snapshot.beaconType === 'student_struggle') {
+        strugglesDetected.push(snapshot.beaconReason || 'unknown struggle');
+      } else if (snapshot.beaconType === 'breakthrough') {
+        breakthroughsDetected.push(snapshot.tutorTurn.slice(0, 100));
+      } else if (snapshot.beaconType === 'tool_usage') {
+        toolUsagePatterns.push(snapshot.beaconReason || 'unknown tool');
+      }
+    }
+    
+    const beaconSummary = Object.entries(beaconTypeCounts)
+      .map(([type, count]) => `${type}: ${count}`)
+      .join(', ');
+    
+    const userPrompt = `
+${this.buildKnowledgeContext(knowledge)}
+
+PROACTIVE ANALYSIS REQUEST:
+Analyze the following patterns from the last 24 hours of teaching sessions and suggest systemic improvements.
+
+BEACON DISTRIBUTION (${recentSnapshots.length} total):
+${beaconSummary}
+
+${strugglesDetected.length > 0 ? `
+STUDENT STRUGGLES DETECTED (${strugglesDetected.length}):
+${strugglesDetected.slice(0, 10).map(s => `- ${s}`).join('\n')}
+` : ''}
+
+${breakthroughsDetected.length > 0 ? `
+BREAKTHROUGH MOMENTS (${breakthroughsDetected.length}):
+${breakthroughsDetected.slice(0, 5).map(b => `- ${b}`).join('\n')}
+` : ''}
+
+${toolUsagePatterns.length > 0 ? `
+TOOL USAGE PATTERNS (${toolUsagePatterns.length}):
+${toolUsagePatterns.slice(0, 10).map(t => `- ${t}`).join('\n')}
+` : ''}
+
+Please provide:
+1. 2-3 key observations about teaching patterns
+2. 2-3 concrete suggestions for improvement
+3. If you see something worth codifying into the neural network, use EDITOR_SURGERY format
+
+Format your response as:
+OBSERVATIONS:
+- [observation 1]
+- [observation 2]
+
+SUGGESTIONS:
+- [HIGH/MEDIUM/LOW] [category]: [suggestion]
+
+EDITOR_SURGERY (optional):
+[EDITOR_SURGERY target="TABLE" content='{"field":"value"}' reasoning="reason" priority=70 confidence=80]`;
+
+    try {
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 800,
+        system: EDITOR_SYSTEM_PROMPT,
+        messages: [
+          { role: "user", content: userPrompt }
+        ],
+      });
+      
+      const textContent = response.content.find(c => c.type === 'text');
+      const responseText = textContent?.text || '';
+      
+      // Parse suggestions from response
+      const suggestions: Array<{
+        category: string;
+        observation: string;
+        suggestion: string;
+        priority: 'low' | 'medium' | 'high';
+      }> = [];
+      
+      // Simple parsing for suggestions (format: - [PRIORITY] [category]: [suggestion])
+      const suggestionRegex = /- \[(HIGH|MEDIUM|LOW)\]\s*([^:]+):\s*(.+)/gi;
+      let match;
+      while ((match = suggestionRegex.exec(responseText)) !== null) {
+        suggestions.push({
+          priority: match[1].toLowerCase() as 'low' | 'medium' | 'high',
+          category: match[2].trim(),
+          suggestion: match[3].trim(),
+          observation: '', // Will be filled from observations section
+        });
+      }
+      
+      // Parse any EDITOR_SURGERY proposals
+      const surgeryProposals = parseEditorSurgeryCommands(responseText);
+      
+      // Store surgery proposals for founder review
+      for (const proposal of surgeryProposals) {
+        try {
+          await storage.createSelfSurgeryProposal({
+            targetTable: proposal.target as 'tutor_procedures' | 'teaching_principles' | 'tool_knowledge' | 'situational_patterns',
+            proposedContent: proposal.content,
+            reasoning: proposal.reasoning,
+            triggerContext: `[Editor proactive analysis] Analyzed ${recentSnapshots.length} recent beacons`,
+            priority: proposal.priority,
+            confidence: proposal.confidence,
+            sessionMode: 'editor_proactive',
+            status: 'pending',
+          });
+          console.log(`[Editor Persona] Stored proactive EDITOR_SURGERY proposal: ${proposal.target}`);
+        } catch (err) {
+          console.error(`[Editor Persona] Failed to store proactive proposal:`, err);
+        }
+      }
+      
+      // Emit to collaboration hub
+      if (suggestions.length > 0 || surgeryProposals.length > 0) {
+        await collaborationHubService.emitEditorResponse({
+          content: `📊 **Proactive Analysis**\n\n${responseText}`,
+          summary: `Editor proactive analysis: ${suggestions.length} suggestions, ${surgeryProposals.length} surgery proposals`,
+          replyToEventId: 'proactive_analysis', // No specific event, self-initiated
+          actionTaken: 'proactive_analysis',
+        });
+      }
+      
+      console.log(`[Editor Persona] Proactive analysis: ${suggestions.length} suggestions, ${surgeryProposals.length} surgery proposals`);
+      
+      return {
+        suggestions,
+        surgeryProposals,
+        summary: `Analyzed ${recentSnapshots.length} recent beacons. Found ${suggestions.length} improvement suggestions and ${surgeryProposals.length} neural network proposals.`,
+      };
+    } catch (error) {
+      console.error('[Editor Persona] Proactive suggestions error:', error);
+      return {
+        suggestions: [],
+        surgeryProposals: [],
+        summary: 'Error generating proactive suggestions',
+      };
+    }
   }
 }
 
