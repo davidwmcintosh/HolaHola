@@ -283,6 +283,8 @@ ${cached}
 
   // 5. Editor insights (feedback loop from Editor collaboration)
   let editorInsightsSection = "";
+  let surfacedFeedbackIds: string[] = [];
+  
   if (context.userId && mode === 'conversation') {
     try {
       const feedback = await editorFeedbackService.getUnsurfacedFeedback(
@@ -293,8 +295,8 @@ ${cached}
       if (feedback.hasNewFeedback) {
         editorInsightsSection = editorFeedbackService.buildPromptSection(feedback);
         
-        // Track IDs to mark as surfaced after response
-        pendingSurfacedFeedbackIds = feedback.recentFeedback.map(f => f.id);
+        // Track IDs to mark as surfaced after response (request-scoped, not global)
+        surfacedFeedbackIds = feedback.recentFeedback.map(f => f.id);
         console.log(`[TutorOrchestrator] Surfacing ${feedback.recentFeedback.length} Editor insights to Daniela`);
       }
     } catch (error) {
@@ -313,7 +315,7 @@ ${request.additionalPromptContext}
 `
     : "";
 
-  return [
+  const prompt = [
     corePersona,
     modeInstructions,
     voiceStyle,
@@ -323,6 +325,8 @@ ${request.additionalPromptContext}
   ]
     .filter(Boolean)
     .join("\n");
+
+  return { prompt, surfacedFeedbackIds };
 }
 
 /**
@@ -346,8 +350,8 @@ export async function orchestrate(
   const startTime = Date.now();
 
   try {
-    // 1. Build the system prompt
-    const systemPrompt = await buildSystemPrompt(request);
+    // 1. Build the system prompt (returns prompt + request-scoped surfaced feedback IDs)
+    const { prompt: systemPrompt, surfacedFeedbackIds } = await buildSystemPrompt(request);
 
     // 2. Determine model and parameters based on mode
     const modelName = "gemini-2.0-flash";
@@ -390,8 +394,8 @@ export async function orchestrate(
       let responseText = result.text || "";
       const latencyMs = Date.now() - startTime;
 
-      // Scan for collaboration signals (also cleans response)
-      responseText = await scanForCollaborationSignals(request, responseText);
+      // Scan for collaboration signals (also cleans response, marks surfaced feedback)
+      responseText = await scanForCollaborationSignals(request, responseText, surfacedFeedbackIds);
 
       // Log to neural network if enabled
       if (request.options?.logToNeuralNetwork !== false) {
@@ -458,8 +462,8 @@ export async function orchestrate(
     let responseText = result.text || "";
     const latencyMs = Date.now() - startTime;
 
-    // Scan for collaboration signals and emit to hub (also cleans response)
-    responseText = await scanForCollaborationSignals(request, responseText);
+    // Scan for collaboration signals and emit to hub (also cleans response, marks surfaced feedback)
+    responseText = await scanForCollaborationSignals(request, responseText, surfacedFeedbackIds);
 
     // Log to neural network
     if (request.options?.logToNeuralNetwork !== false) {
@@ -492,10 +496,12 @@ export async function orchestrate(
  * - [COLLAB:QUESTION] ... [/COLLAB] - Question for Editor
  * 
  * These are stripped from the final response and forwarded to the collaboration hub.
+ * Also handles marking surfaced feedback IDs and processing [ADOPT_INSIGHT] markers.
  */
 async function scanForCollaborationSignals(
   request: OrchestratorRequest,
-  response: string
+  response: string,
+  surfacedFeedbackIds: string[] = []
 ): Promise<string> {
   try {
     // Pattern to detect collaboration signals
@@ -563,11 +569,11 @@ async function scanForCollaborationSignals(
       }
     }
     
-    // Mark surfaced feedback after successful response
-    if (pendingSurfacedFeedbackIds.length > 0) {
+    // Mark surfaced feedback after successful response (using request-scoped IDs)
+    if (surfacedFeedbackIds.length > 0) {
       try {
-        await editorFeedbackService.markAsSurfaced(pendingSurfacedFeedbackIds);
-        pendingSurfacedFeedbackIds = []; // Clear after marking
+        await editorFeedbackService.markAsSurfaced(surfacedFeedbackIds);
+        console.log(`[TutorOrchestrator] Marked ${surfacedFeedbackIds.length} feedback items as surfaced`);
       } catch (surfaceError) {
         console.error(`[TutorOrchestrator] Failed to mark feedback as surfaced:`, surfaceError);
       }
