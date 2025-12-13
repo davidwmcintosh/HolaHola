@@ -211,6 +211,83 @@ These are filtered in `streaming-voice-orchestrator.ts` before sending to the wh
 
 The HolaHola platform uses a "hive mind" approach where multiple agents share knowledge:
 
+### The Editor Collaboration Loop (Daniela ↔ Claude)
+
+**Architecture Doc**: See `docs/hive-collaboration-architecture.md` for complete details.
+
+The Editor is an autonomous observer (Claude) that watches Daniela teach and provides feedback:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    VOICE SESSION (Active)                        │
+│                                                                  │
+│  Student ──────► Daniela ──────► Response                       │
+│                     │                                            │
+│                     ▼                                            │
+│              ┌──────────┐                                        │
+│              │  BEACON  │  (teaching moment detected)            │
+│              └────┬─────┘                                        │
+└───────────────────┼──────────────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────────────┐
+│               EDITOR BACKGROUND WORKER (Every 30s)               │
+│                                                                  │
+│  Pending Beacons ───► Editor Persona (Claude) ───► Feedback     │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────────────┐
+│              NEXT SESSION (Founder Mode)                         │
+│                                                                  │
+│  System Prompt includes Editor feedback:                         │
+│  • [ID:123] "Consider using WORD_MAP for vocabulary clusters"   │
+│                                                                  │
+│  Daniela can adopt: [ADOPT_INSIGHT:123]                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Beacon Types:**
+| Type | Trigger |
+|------|---------|
+| `teaching_moment` | Daniela uses whiteboard/drill |
+| `student_struggle` | Repeated errors or help requests |
+| `tool_usage` | Specific tool invocation |
+| `breakthrough` | Student demonstrates understanding |
+| `correction` | Daniela corrects a mistake |
+| `cultural_insight` | Cultural/contextual teaching |
+| `vocabulary_intro` | New vocabulary introduced |
+| `self_surgery_proposal` | Daniela proposes neural network change |
+
+**Core Files:**
+| File | Purpose |
+|------|---------|
+| `server/services/hive-collaboration-service.ts` | Channel/beacon infrastructure |
+| `server/services/editor-persona-service.ts` | Editor "brain" (Claude) |
+| `server/services/editor-background-worker.ts` | Autonomous 30s processing loop |
+| `server/services/editor-feedback-service.ts` | Feedback retrieval/injection |
+
+**Database Tables:**
+| Table | Purpose |
+|-------|---------|
+| `collaborationChannels` | One per voice session |
+| `editorListeningSnapshots` | Individual beacons |
+| `collaborationEvents` | Event log for real-time updates |
+
+### Founder Mode Full Access
+
+In Founder Mode, Daniela has complete neural network access:
+- **33 tools** (whiteboard commands, drills, internal)
+- **67 procedures** (teaching situations)
+- **42 principles** (pedagogical beliefs)
+- **31 patterns** (context-triggered behaviors)
+- **Editor feedback** visible and adoptable
+- **Self-Surgery** capability (`[SELF_SURGERY ...]`)
+- **Command Center chat history** carries over
+
+### Knowledge Sharing Diagram
+
 ```
 ┌────────────────────────────────────────────────────────────┐
 │                    SHARED KNOWLEDGE LAYER                   │

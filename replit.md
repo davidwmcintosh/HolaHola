@@ -33,6 +33,25 @@ The frontend is built with React and TypeScript (Vite), using Wouter for routing
 
 **Integration Status**: Drill mode fully migrated. Streaming voice chat pending (high complexity, using existing working system-prompt.ts for now).
 
+### Hive Collaboration System (Daniela ↔ Editor)
+**ARCHITECTURE DOC**: See `docs/hive-collaboration-architecture.md` for full details.
+
+**Philosophy**: The Editor watches, learns, and whispers back. An autonomous collaboration loop between Daniela (teaching) and an Editor persona (Claude observing/advising).
+
+**Flow**: Voice Session → Beacons emitted → Editor Worker processes (every 30s) → Editor responds → Feedback injected into next session → Daniela can adopt insights.
+
+**Beacon Types**: teaching_moment, student_struggle, tool_usage, breakthrough, correction, cultural_insight, vocabulary_intro, self_surgery_proposal.
+
+**Core Files**:
+- `server/services/hive-collaboration-service.ts`: Channel/beacon infrastructure
+- `server/services/editor-persona-service.ts`: Editor "brain" (Claude)
+- `server/services/editor-background-worker.ts`: Autonomous 30s processing loop
+- `server/services/editor-feedback-service.ts`: Feedback retrieval/injection
+
+**Founder Mode Integration**: Full neural network access (33 tools, 67 procedures, 42 principles, 31 patterns), Editor feedback visible, Self-Surgery capability (`[SELF_SURGERY ...]`), Command Center chat history carries over.
+
+**Adoption**: Daniela sees `[ID:123] feedback...` and can respond with `[ADOPT_INSIGHT:123]` to track which insights are useful.
+
 ### Feature Specifications
 HolaHola provides conversational onboarding, an adaptive multi-phase conversation system, and AI-suggested topics. It employs a streaming-only voice pipeline (Deepgram Nova-3 STT → Gemini 2.5 Flash → Cartesia Sonic-3 TTS) with push-to-talk recording and smart language handling. Personalized learning includes scenario-based learning, slow pronunciation, automatic vocabulary extraction, spaced repetition, streak tracking, progress charts, and auto-difficulty adjustment. AI-generated educational images are displayed with caching. The application supports various subscription tiers, tracks atomic voice message usage, and tracks student proficiency using ACTFL World-Readiness Standards. Institutional features include teacher class management, student enrollment, syllabus systems, assignment workflows, and a unified Command Center with RBAC. A Syllabus Builder allows customization with drag-and-drop reordering, custom lesson creation, and ACTFL Standards Coverage analysis. Developer tools include test account isolation, floating dev controls, and usage analytics. Self-directed learners can customize their AI tutor's teaching style per language in Settings with four flexibility levels; class chats use the teacher's setting. Drill-based lessons support multiple modes (`repeat`, `translate`, `match`, `fill_blank`, `sentence_order`), utilizing Google Cloud TTS for batch audio synthesis. Fill-in-the-blank drills support both dropdown options and text input. Sentence order drills use drag-and-drop or button-based word reordering. Vocabulary can be exported in CSV and Anki-compatible formats. Conversation history includes full-text search. "Founder Mode" provides a collaboration mode for developer/admin users. Open Mic Mode offers continuous listening with Deepgram VAD for automatic speech detection, supporting barge-in and bilingual conversations. "Raw Honesty Mode" provides minimal prompting for founders to explore Daniela's authentic preferences.
 
