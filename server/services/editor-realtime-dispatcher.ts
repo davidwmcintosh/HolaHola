@@ -87,7 +87,20 @@ async function acquireBeacons(limit: number): Promise<EditorBeaconQueue[]> {
     RETURNING *
   `);
   
-  return result.rows as EditorBeaconQueue[];
+  // Raw SQL returns snake_case columns, but TypeScript type expects camelCase
+  // Map the columns to match the EditorBeaconQueue type
+  return result.rows.map((row: any) => ({
+    id: row.id,
+    snapshotId: row.snapshot_id,
+    status: row.status,
+    attempts: row.attempts,
+    maxAttempts: row.max_attempts,
+    lastError: row.last_error,
+    lockedAt: row.locked_at,
+    lockedBy: row.locked_by,
+    createdAt: row.created_at,
+    processedAt: row.processed_at,
+  })) as EditorBeaconQueue[];
 }
 
 /**
