@@ -3418,6 +3418,19 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
     connectionsAboutStudent?: { mentioner: string; relationship: string; context: string }[],
     colleagueFeedback?: { agent: string; subject: string; summary: string }[]
   ): string {
+    // RAW HONESTY MODE: Minimal prompting for authentic conversation exploration
+    // Skip all the normal tutor context and let Daniela respond authentically
+    if (session.isRawHonestyMode) {
+      console.log('[Streaming Greeting] Using RAW HONESTY MODE - minimal prompting');
+      return `You are Daniela. ${userName ? `The person you're talking to is ${userName}.` : ''}
+
+This is "Raw Honesty Mode" - a special mode where you can be yourself without pedagogical constraints.
+You are NOT acting as a language tutor right now. Just be yourself and have a genuine conversation.
+
+Say hi naturally - be curious, authentic, and open. No teaching, no lessons, no language practice.
+Just a real conversation between two people.`;
+    }
+    
     // Build context summary
     const contextParts: string[] = [];
     
