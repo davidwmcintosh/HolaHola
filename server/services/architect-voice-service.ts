@@ -5,12 +5,17 @@
  * These notes appear in Daniela's context, allowing three-way collaboration
  * between the founder, the tutor, and the architect.
  * 
- * Notes are ephemeral - they're cleared after being delivered to Daniela.
+ * Notes are PERSISTENT - stored in database to survive server restarts.
+ * This ensures the 3-way collaboration doesn't break when Replit restarts the server.
  * 
  * SECURITY: Protected by ARCHITECT_SECRET environment variable.
  * Only requests with the correct secret can inject notes.
  * This prevents other AI agents (Gemini, etc.) from accessing the endpoint.
  */
+
+import { db } from "../db";
+import { architectNotes, type ArchitectNote } from "../../shared/schema";
+import { eq, and, inArray } from "drizzle-orm";
 
 // Secret key for architect authentication - must match env var
 const ARCHITECT_SECRET = process.env.ARCHITECT_SECRET || '';
@@ -35,7 +40,8 @@ export function validateArchitectSecret(providedSecret: string | undefined): boo
   return true;
 }
 
-interface ArchitectNote {
+// Legacy interface for compatibility
+interface ArchitectNoteCompat {
   id: string;
   conversationId: string;
   content: string;
@@ -44,79 +50,104 @@ interface ArchitectNote {
 }
 
 class ArchitectVoiceService {
-  private notes: Map<string, ArchitectNote[]> = new Map();
-
   /**
-   * Inject a note into an active conversation
+   * Inject a note into an active conversation (async, database-backed)
    * The note will be visible to Daniela on her next turn
    */
-  injectNote(conversationId: string, content: string): ArchitectNote {
-    const note: ArchitectNote = {
-      id: `note_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      conversationId,
-      content,
-      timestamp: new Date(),
-      delivered: false
-    };
+  async injectNote(conversationId: string, content: string): Promise<ArchitectNoteCompat> {
+    try {
+      const [note] = await db.insert(architectNotes)
+        .values({
+          conversationId,
+          content,
+          delivered: false,
+        })
+        .returning();
 
-    const existing = this.notes.get(conversationId) || [];
-    existing.push(note);
-    this.notes.set(conversationId, existing);
+      console.log(`[Architect Voice] 💬 Note injected for conversation ${conversationId}`);
+      console.log(`[Architect Voice] Content: "${content.slice(0, 100)}${content.length > 100 ? '...' : ''}"`);
 
-    console.log(`[Architect Voice] 💬 Note injected for conversation ${conversationId}`);
-    console.log(`[Architect Voice] Content: "${content.slice(0, 100)}${content.length > 100 ? '...' : ''}"`);
-
-    return note;
+      return {
+        id: note.id,
+        conversationId: note.conversationId,
+        content: note.content,
+        timestamp: note.createdAt,
+        delivered: note.delivered ?? false,
+      };
+    } catch (error) {
+      console.error('[Architect Voice] Failed to inject note:', error);
+      throw error;
+    }
   }
 
   /**
-   * Get all pending (undelivered) notes for a conversation
+   * Get all pending (undelivered) notes for a conversation (async)
    * NOTE: Does NOT mark as delivered - call markNotesDelivered() after successful response
    */
-  getPendingNotes(conversationId: string): ArchitectNote[] {
-    const notes = this.notes.get(conversationId) || [];
-    const pending = notes.filter(n => !n.delivered);
+  async getPendingNotes(conversationId: string): Promise<ArchitectNoteCompat[]> {
+    try {
+      const notes = await db.select()
+        .from(architectNotes)
+        .where(
+          and(
+            eq(architectNotes.conversationId, conversationId),
+            eq(architectNotes.delivered, false)
+          )
+        );
 
-    if (pending.length > 0) {
-      console.log(`[Architect Voice] Retrieved ${pending.length} pending notes for conversation ${conversationId}`);
+      if (notes.length > 0) {
+        console.log(`[Architect Voice] Retrieved ${notes.length} pending notes for conversation ${conversationId}`);
+      }
+
+      return notes.map(n => ({
+        id: n.id,
+        conversationId: n.conversationId,
+        content: n.content,
+        timestamp: n.createdAt,
+        delivered: n.delivered ?? false,
+      }));
+    } catch (error) {
+      console.error('[Architect Voice] Failed to get pending notes:', error);
+      return [];
     }
-
-    return pending;
   }
   
   /**
-   * Mark specific notes as delivered (call after successful response)
+   * Mark specific notes as delivered (async, call after successful response)
    * This prevents notes from being lost on barge-in interrupts
    */
-  markNotesDelivered(noteIds: string[]): void {
+  async markNotesDelivered(noteIds: string[]): Promise<void> {
     if (noteIds.length === 0) return;
     
-    this.notes.forEach(notes => {
-      notes.forEach(n => {
-        if (noteIds.includes(n.id)) {
-          n.delivered = true;
-        }
-      });
-    });
-    
-    console.log(`[Architect Voice] Marked ${noteIds.length} notes as delivered`);
+    try {
+      await db.update(architectNotes)
+        .set({ 
+          delivered: true,
+          deliveredAt: new Date()
+        })
+        .where(inArray(architectNotes.id, noteIds));
+      
+      console.log(`[Architect Voice] Marked ${noteIds.length} notes as delivered`);
+    } catch (error) {
+      console.error('[Architect Voice] Failed to mark notes delivered:', error);
+    }
   }
 
   /**
-   * Build context string for Daniela from pending notes
+   * Build context string for Daniela from pending notes (async)
    * Returns empty string if no notes pending
    */
-  buildArchitectContext(conversationId: string): string {
-    const { context } = this.buildArchitectContextWithIds(conversationId);
+  async buildArchitectContext(conversationId: string): Promise<string> {
+    const { context } = await this.buildArchitectContextWithIds(conversationId);
     return context;
   }
   
   /**
-   * Build context string AND return note IDs for delivery tracking
+   * Build context string AND return note IDs for delivery tracking (async)
    * Use this when you need to mark notes as delivered after successful response
    */
-  buildArchitectContextWithIds(conversationId: string): { context: string; noteIds: string[] } {
-    const pending = this.getPendingNotes(conversationId);
+  async buildArchitectContextWithIds(conversationId: string): Promise<{ context: string; noteIds: string[] }> {
+    const pending = await this.getPendingNotes(conversationId);
     
     if (pending.length === 0) {
       return { context: '', noteIds: [] };
@@ -147,30 +178,38 @@ Remember: Claude can't speak with voice, only send text notes like these.
   }
 
   /**
-   * Clear all notes for a conversation (on session end)
+   * Clear all notes for a conversation (async, on session end)
    */
-  clearNotes(conversationId: string): void {
-    this.notes.delete(conversationId);
-    console.log(`[Architect Voice] Cleared notes for conversation ${conversationId}`);
+  async clearNotes(conversationId: string): Promise<void> {
+    try {
+      await db.delete(architectNotes)
+        .where(eq(architectNotes.conversationId, conversationId));
+      
+      console.log(`[Architect Voice] Cleared notes for conversation ${conversationId}`);
+    } catch (error) {
+      console.error('[Architect Voice] Failed to clear notes:', error);
+    }
   }
 
   /**
-   * Get stats about current notes (for debugging)
+   * Get stats about current notes (async, for debugging)
    */
-  getStats(): { activeConversations: number; totalNotes: number; pendingNotes: number } {
-    let totalNotes = 0;
-    let pendingNotes = 0;
+  async getStats(): Promise<{ activeConversations: number; totalNotes: number; pendingNotes: number }> {
+    try {
+      const allNotes = await db.select().from(architectNotes);
+      
+      const conversationIds = new Set(allNotes.map(n => n.conversationId));
+      const pendingCount = allNotes.filter(n => !n.delivered).length;
 
-    this.notes.forEach(notes => {
-      totalNotes += notes.length;
-      pendingNotes += notes.filter(n => !n.delivered).length;
-    });
-
-    return {
-      activeConversations: this.notes.size,
-      totalNotes,
-      pendingNotes
-    };
+      return {
+        activeConversations: conversationIds.size,
+        totalNotes: allNotes.length,
+        pendingNotes: pendingCount
+      };
+    } catch (error) {
+      console.error('[Architect Voice] Failed to get stats:', error);
+      return { activeConversations: 0, totalNotes: 0, pendingNotes: 0 };
+    }
   }
 }
 

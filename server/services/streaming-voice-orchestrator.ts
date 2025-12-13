@@ -615,7 +615,7 @@ export class StreamingVoiceOrchestrator {
       let architectContext = '';
       session.pendingArchitectNoteIds = [];  // Reset for this turn
       if (session.conversationId) {
-        const { context, noteIds } = architectVoiceService.buildArchitectContextWithIds(session.conversationId);
+        const { context, noteIds } = await architectVoiceService.buildArchitectContextWithIds(session.conversationId);
         architectContext = context;
         session.pendingArchitectNoteIds = noteIds;
         if (architectContext) {
@@ -1008,7 +1008,7 @@ export class StreamingVoiceOrchestrator {
       // Mark architect notes as delivered (only if not cleared by handleInterrupt)
       // handleInterrupt clears session.pendingArchitectNoteIds, so this is empty if interrupted
       if (session.pendingArchitectNoteIds.length > 0) {
-        architectVoiceService.markNotesDelivered(session.pendingArchitectNoteIds);
+        await architectVoiceService.markNotesDelivered(session.pendingArchitectNoteIds);
         session.pendingArchitectNoteIds = [];  // Clear after delivery
       }
       
@@ -1331,7 +1331,7 @@ export class StreamingVoiceOrchestrator {
       let architectContext = '';
       session.pendingArchitectNoteIds = [];  // Reset for this turn
       if (session.conversationId) {
-        const { context, noteIds } = architectVoiceService.buildArchitectContextWithIds(session.conversationId);
+        const { context, noteIds } = await architectVoiceService.buildArchitectContextWithIds(session.conversationId);
         architectContext = context;
         session.pendingArchitectNoteIds = noteIds;
         if (architectContext) {
@@ -1427,7 +1427,7 @@ export class StreamingVoiceOrchestrator {
       // Mark architect notes as delivered (only if not cleared by handleInterrupt)
       // handleInterrupt clears session.pendingArchitectNoteIds, so this is empty if interrupted
       if (session.pendingArchitectNoteIds.length > 0) {
-        architectVoiceService.markNotesDelivered(session.pendingArchitectNoteIds);
+        await architectVoiceService.markNotesDelivered(session.pendingArchitectNoteIds);
         session.pendingArchitectNoteIds = [];  // Clear after delivery
       }
       

@@ -1272,8 +1272,8 @@ export async function registerRoutes(app: Express): Promise<void> {
         return res.status(404).json({ message: "Conversation not found" });
       }
       
-      // Inject the note
-      const note = architectVoiceService.injectNote(conversationId, content);
+      // Inject the note (async - persisted to database)
+      const note = await architectVoiceService.injectNote(conversationId, content);
       
       console.log(`[Architect Voice] Note injected into conversation ${conversationId}`);
       
@@ -1302,7 +1302,7 @@ export async function registerRoutes(app: Express): Promise<void> {
         return res.status(403).json({ message: "Developer access required" });
       }
       
-      const stats = architectVoiceService.getStats();
+      const stats = await architectVoiceService.getStats();
       res.json(stats);
     } catch (error: any) {
       console.error("Error getting architect stats:", error);

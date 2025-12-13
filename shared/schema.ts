@@ -4504,3 +4504,33 @@ export const insertEditorListeningSnapshotSchema = createInsertSchema(editorList
 });
 export type InsertEditorListeningSnapshot = z.infer<typeof insertEditorListeningSnapshotSchema>;
 export type EditorListeningSnapshot = typeof editorListeningSnapshots.$inferSelect;
+
+// Architect notes - persistent storage for Claude's notes during voice sessions
+// These notes survive server restarts and are delivered to Daniela when the user speaks
+export const architectNotes = pgTable("architect_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Link to conversation - notes are tied to a specific voice session
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id, { onDelete: 'cascade' }),
+  
+  // Note content from Claude
+  content: text("content").notNull(),
+  
+  // Delivery tracking
+  delivered: boolean("delivered").default(false),
+  deliveredAt: timestamp("delivered_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_architect_notes_conversation").on(table.conversationId),
+  index("idx_architect_notes_delivered").on(table.delivered),
+  index("idx_architect_notes_created").on(table.createdAt),
+]);
+
+export const insertArchitectNoteSchema = createInsertSchema(architectNotes).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertArchitectNote = z.infer<typeof insertArchitectNoteSchema>;
+export type ArchitectNote = typeof architectNotes.$inferSelect;
