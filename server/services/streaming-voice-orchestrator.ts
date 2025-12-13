@@ -943,6 +943,26 @@ export class StreamingVoiceOrchestrator {
             for (const item of selfSurgeryItems) {
               if ('data' in item && item.data) {
                 const data = item.data as SelfSurgeryItemData;
+                
+                // AUTO-DETECT & EMIT BEACON: Notify Editor of SELF_SURGERY proposal before execution
+                // This allows the Editor to review proposals in real-time
+                if (session.hiveChannelId) {
+                  const contentPreview = typeof data.content === 'string' 
+                    ? data.content.substring(0, 300)
+                    : JSON.stringify(data.content).substring(0, 300);
+                  
+                  hiveCollaborationService.emitBeacon({
+                    channelId: session.hiveChannelId,
+                    tutorTurn: `[SELF_SURGERY PROPOSAL]\nTarget: ${data.targetTable}\nPriority: ${data.priority || 50}, Confidence: ${data.confidence || 70}\nReasoning: ${data.reasoning || 'No reasoning provided'}\n\nContent: ${contentPreview}...`,
+                    studentTurn: transcript || '',
+                    beaconType: 'self_surgery_proposal',
+                    beaconReason: `Daniela proposed neural network modification: ${data.targetTable}`,
+                  }).catch(err => {
+                    console.error(`[Self-Surgery] Failed to emit proposal beacon:`, err);
+                  });
+                  console.log(`[Self-Surgery] HIVE beacon emitted for proposal: ${data.targetTable}`);
+                }
+                
                 // Queue self-surgery proposal (don't block TTS)
                 this.processSelfSurgery(session, data).catch(err => {
                   console.error(`[Self-Surgery] Error processing proposal:`, err);
