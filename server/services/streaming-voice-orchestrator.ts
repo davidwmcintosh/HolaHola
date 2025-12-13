@@ -54,6 +54,7 @@ import { architectVoiceService } from "./architect-voice-service";
 import { trackToolEvent, mapWhiteboardTypeToToolType } from "./pedagogical-insights-service";
 import { createSystemPrompt } from "../system-prompt";
 import { hiveCollaborationService, BeaconType } from "./hive-collaboration-service";
+import { collaborationHubService } from "./collaboration-hub-service";
 import { editorFeedbackService } from "./editor-feedback-service";
 import { db } from "../db";
 import { 
@@ -79,6 +80,9 @@ function cleanTextForDisplay(text: string): string {
   if (jsonEmotionPattern.test(text.trim())) {
     return ''; // Return empty to skip this sentence entirely
   }
+  
+  // Strip architect messages first (internal, should not be spoken/displayed)
+  text = stripArchitectMessages(text);
   
   // First strip all whiteboard markup (WRITE, DRILL, SWITCH_TUTOR, etc.)
   // This must happen before other cleaning to ensure markup doesn't appear in TTS
@@ -133,6 +137,92 @@ function cleanTextForDisplay(text: string): string {
     .replace(/\s+/g, ' ')
     .replace(/^[,.\s]+|[,.\s]+$/g, '')  // Trim leading/trailing commas, periods, spaces
     .trim();
+}
+
+/**
+ * Architect Message Types for bidirectional communication
+ * Daniela can send different types of messages to the Architect/Claude
+ */
+interface ArchitectMessage {
+  type: 'question' | 'suggestion' | 'observation' | 'request';
+  content: string;
+  urgency?: 'low' | 'medium' | 'high';
+}
+
+/**
+ * Detect and extract [TO_ARCHITECT: message] tags from Daniela's responses
+ * Uses balanced bracket matching to handle nested brackets in payloads
+ * 
+ * Supports multiple formats:
+ * - [TO_ARCHITECT: message] - Simple format (becomes 'observation')
+ * - [TO_ARCHITECT type="question": message] - With type
+ * - [TO_ARCHITECT type="suggestion" urgency="high": message] - Full format
+ * 
+ * Returns: Array of messages extracted, and text with tags stripped (preserving original whitespace)
+ */
+function extractArchitectMessages(text: string): { messages: ArchitectMessage[]; cleanedText: string } {
+  const messages: ArchitectMessage[] = [];
+  let cleanedText = text;
+  
+  // Find all [TO_ARCHITECT ...] blocks using balanced bracket matching
+  let searchStart = 0;
+  while (true) {
+    const tagStart = cleanedText.indexOf('[TO_ARCHITECT', searchStart);
+    if (tagStart === -1) break;
+    
+    // Find the matching closing bracket using bracket counting
+    let bracketCount = 0;
+    let tagEnd = -1;
+    for (let i = tagStart; i < cleanedText.length; i++) {
+      if (cleanedText[i] === '[') bracketCount++;
+      else if (cleanedText[i] === ']') {
+        bracketCount--;
+        if (bracketCount === 0) {
+          tagEnd = i;
+          break;
+        }
+      }
+    }
+    
+    if (tagEnd === -1) {
+      // No matching bracket found, skip
+      searchStart = tagStart + 1;
+      continue;
+    }
+    
+    // Extract the full tag content
+    const fullTag = cleanedText.substring(tagStart, tagEnd + 1);
+    const innerContent = fullTag.substring('[TO_ARCHITECT'.length, fullTag.length - 1);
+    
+    // Parse type and urgency attributes
+    const typeMatch = innerContent.match(/type="(question|suggestion|observation|request)"/i);
+    const urgencyMatch = innerContent.match(/urgency="(low|medium|high)"/i);
+    
+    // Find the colon that separates attributes from message
+    const colonIndex = innerContent.indexOf(':');
+    if (colonIndex !== -1) {
+      const messageContent = innerContent.substring(colonIndex + 1).trim();
+      const type = (typeMatch?.[1]?.toLowerCase() || 'observation') as ArchitectMessage['type'];
+      const urgency = (urgencyMatch?.[1]?.toLowerCase() || 'medium') as ArchitectMessage['urgency'];
+      
+      messages.push({ type, content: messageContent, urgency });
+    }
+    
+    // Remove the tag from cleaned text (preserve surrounding whitespace structure)
+    cleanedText = cleanedText.substring(0, tagStart) + cleanedText.substring(tagEnd + 1);
+    // Don't advance searchStart since we removed content
+  }
+  
+  return { messages, cleanedText };
+}
+
+/**
+ * Strip [TO_ARCHITECT: ...] tags from text (for TTS/display)
+ * Uses balanced bracket matching - preserves original whitespace/newlines
+ */
+function stripArchitectMessages(text: string): string {
+  const { cleanedText } = extractArchitectMessages(text);
+  return cleanedText;
 }
 
 /**
@@ -860,7 +950,22 @@ export class StreamingVoiceOrchestrator {
                 console.log(`[Self-Surgery] Daniela proposed: ${data.targetTable} (priority: ${data.priority || 50}, confidence: ${data.confidence || 70})`);
               }
             }
-            
+          }
+          
+          // ARCHITECT BIDIRECTIONAL: Detect and route [TO_ARCHITECT: message] tags
+          // This enables Daniela to send real-time messages to the Architect/Claude
+          const { messages: architectMessages } = extractArchitectMessages(chunk.text);
+          if (architectMessages.length > 0 && session.isFounderMode) {
+            for (const msg of architectMessages) {
+              // Route to collaboration hub based on message type
+              this.processArchitectMessage(session, msg).catch(err => {
+                console.error(`[Architect Bidirectional] Error processing message:`, err);
+              });
+              console.log(`[Architect Bidirectional] Daniela → Claude: ${msg.type} (${msg.urgency}): "${msg.content.substring(0, 80)}..."`);
+            }
+          }
+          
+          if (whiteboardParsed.whiteboardItems.length > 0 || whiteboardParsed.shouldClear || whiteboardParsed.shouldHold) {
             // Filter out internal commands (switch_tutor, actfl_update, syllabus_progress, call_support, call_assistant, hive, self_surgery) - only send visual items to whiteboard
             const visualWhiteboardItems = whiteboardParsed.whiteboardItems.filter(
               item => !['switch_tutor', 'actfl_update', 'syllabus_progress', 'call_support', 'call_assistant', 'hive', 'self_surgery'].includes(item.type)
@@ -2587,6 +2692,74 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       console.error(`[Hive] Failed to save suggestion:`, error.message);
       // Log the full error for debugging but don't throw - non-blocking operation
       console.error(`[Hive] Full error:`, error);
+    }
+  }
+  
+  /**
+   * ARCHITECT BIDIRECTIONAL: Process Daniela's message to the Architect
+   * Routes messages through collaboration hub for real-time 3-way communication
+   * 
+   * Message types:
+   * - question: Daniela asks Claude something
+   * - suggestion: Daniela suggests an improvement
+   * - observation: Daniela shares an insight
+   * - request: Daniela requests an action
+   */
+  private async processArchitectMessage(
+    session: StreamingSession,
+    message: ArchitectMessage
+  ): Promise<void> {
+    try {
+      const conversationId = session.conversationId;
+      
+      // Route based on message type
+      switch (message.type) {
+        case 'question':
+          await collaborationHubService.emitDanielaQuestion({
+            content: message.content,
+            summary: `Daniela asks: ${message.content.substring(0, 100)}...`,
+            conversationId,
+          });
+          break;
+          
+        case 'suggestion':
+          await collaborationHubService.emitDanielaSuggestion({
+            content: message.content,
+            summary: `Daniela suggests: ${message.content.substring(0, 100)}...`,
+            category: 'improvement_idea',
+            urgency: message.urgency || 'medium',
+            conversationId,
+            targetLanguage: session.targetLanguage,
+            studentLevel: session.difficultyLevel,
+          });
+          break;
+          
+        case 'observation':
+        case 'request':
+        default:
+          await collaborationHubService.emitDanielaInsight({
+            content: message.content,
+            summary: `Daniela ${message.type}: ${message.content.substring(0, 100)}...`,
+            conversationId,
+            targetLanguage: session.targetLanguage,
+          });
+          break;
+      }
+      
+      // Also emit as a hive beacon for tracking
+      if (session.hiveChannelId) {
+        await hiveCollaborationService.emitBeacon({
+          channelId: session.hiveChannelId,
+          tutorTurn: `[TO_ARCHITECT ${message.type}]: ${message.content}`,
+          beaconType: 'teaching_moment',
+          beaconReason: `Daniela communicated with Architect: ${message.type}`,
+        });
+      }
+      
+      console.log(`[Architect Bidirectional] Message routed: ${message.type} → collaboration hub`);
+      
+    } catch (error: any) {
+      console.error(`[Architect Bidirectional] Failed to route message:`, error.message);
     }
   }
   
