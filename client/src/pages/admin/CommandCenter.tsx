@@ -80,7 +80,9 @@ import {
   Eye as EyeIcon,
   EyeOff,
   Brain,
-  Edit
+  Edit,
+  ShieldCheck,
+  XCircle
 } from "lucide-react";
 import {
   AlertDialog,
@@ -5858,6 +5860,170 @@ function TeachingToolsTab() {
             {(!eventsData?.events || eventsData.events.length === 0) && (
               <p className="text-muted-foreground text-center py-4">No recent events</p>
             )}
+          </div>
+        )}
+      </CollapsibleSection>
+
+      {/* Data Health Monitor */}
+      <CollapsibleSection 
+        title="Data Health Monitor" 
+        icon={<ShieldCheck className="h-5 w-5" />}
+        defaultOpen={false}
+      >
+        {summaryLoading || eventsLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : (
+          <div className="space-y-4">
+            {(() => {
+              const checks: Array<{ name: string; status: 'pass' | 'warn' | 'fail'; message: string }> = [];
+              
+              // Check 1: Data format - totals object exists
+              if (summary?.totals) {
+                checks.push({
+                  name: 'Data Format',
+                  status: 'pass',
+                  message: 'Summary totals structure is valid'
+                });
+              } else if (summary) {
+                checks.push({
+                  name: 'Data Format',
+                  status: 'fail',
+                  message: 'Missing totals object in summary response'
+                });
+              } else {
+                checks.push({
+                  name: 'Data Format',
+                  status: 'warn',
+                  message: 'No data available yet'
+                });
+              }
+              
+              // Check 2: Drill accuracy calculation consistency
+              if (summary?.toolStats && summary.toolStats.length > 0) {
+                const totalCorrect = summary.toolStats.reduce((sum, t) => sum + (t.drillCorrect || 0), 0);
+                const totalDrills = summary.toolStats.reduce((sum, t) => sum + (t.drillTotal || 0), 0);
+                const calculatedAccuracy = totalDrills > 0 ? Math.round((totalCorrect / totalDrills) * 100) : null;
+                const reportedAccuracy = summary.totals?.avgDrillAccuracy;
+                
+                if (calculatedAccuracy === reportedAccuracy || (calculatedAccuracy === null && reportedAccuracy === null)) {
+                  checks.push({
+                    name: 'Drill Accuracy',
+                    status: 'pass',
+                    message: `Calculation verified: ${calculatedAccuracy ?? 'N/A'}% (${totalCorrect}/${totalDrills} drills)`
+                  });
+                } else {
+                  checks.push({
+                    name: 'Drill Accuracy',
+                    status: 'warn',
+                    message: `Mismatch: calculated ${calculatedAccuracy}% vs reported ${reportedAccuracy}%`
+                  });
+                }
+              } else {
+                checks.push({
+                  name: 'Drill Accuracy',
+                  status: 'warn',
+                  message: 'No drill data to verify'
+                });
+              }
+              
+              // Check 3: Trend chart date sequence
+              if (summary?.dailyTrend && summary.dailyTrend.length > 1) {
+                let isSequential = true;
+                let gapCount = 0;
+                for (let i = 1; i < summary.dailyTrend.length; i++) {
+                  const prev = new Date(summary.dailyTrend[i - 1].date);
+                  const curr = new Date(summary.dailyTrend[i].date);
+                  const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
+                  if (diffDays !== 1) {
+                    isSequential = false;
+                    gapCount++;
+                  }
+                }
+                if (isSequential) {
+                  checks.push({
+                    name: 'Trend Dates',
+                    status: 'pass',
+                    message: `${summary.dailyTrend.length} consecutive days`
+                  });
+                } else {
+                  checks.push({
+                    name: 'Trend Dates',
+                    status: 'warn',
+                    message: `${gapCount} date gaps found (expected for days with no activity)`
+                  });
+                }
+              } else if (summary?.dailyTrend?.length === 1) {
+                checks.push({
+                  name: 'Trend Dates',
+                  status: 'pass',
+                  message: 'Single day of data'
+                });
+              } else {
+                checks.push({
+                  name: 'Trend Dates',
+                  status: 'warn',
+                  message: 'No trend data available'
+                });
+              }
+              
+              // Check 4: Event count consistency
+              if (summary?.totals?.totalEvents && eventsData?.events) {
+                const recentEventCount = eventsData.events.length;
+                checks.push({
+                  name: 'Event Count',
+                  status: 'pass',
+                  message: `${summary.totals.totalEvents.toLocaleString()} total, ${recentEventCount} recent events loaded`
+                });
+              }
+              
+              // Check 5: Tool type coverage
+              const knownToolTypes = Object.keys(toolColors);
+              const foundToolTypes = new Set(summary?.toolStats?.map(t => t.toolType) || []);
+              const unknownTools = Array.from(foundToolTypes).filter(t => !knownToolTypes.includes(t));
+              if (unknownTools.length > 0) {
+                checks.push({
+                  name: 'Tool Coverage',
+                  status: 'warn',
+                  message: `Unknown tool types: ${unknownTools.join(', ')}`
+                });
+              } else if (foundToolTypes.size > 0) {
+                checks.push({
+                  name: 'Tool Coverage',
+                  status: 'pass',
+                  message: `${foundToolTypes.size} recognized tool types in use`
+                });
+              }
+              
+              return (
+                <div className="space-y-2">
+                  {checks.map((check, idx) => (
+                    <div 
+                      key={idx}
+                      className={`flex items-center gap-3 p-2 rounded-md ${
+                        check.status === 'pass' ? 'bg-green-500/10' :
+                        check.status === 'warn' ? 'bg-yellow-500/10' :
+                        'bg-red-500/10'
+                      }`}
+                      data-testid={`health-check-${check.name.toLowerCase().replace(' ', '-')}`}
+                    >
+                      <div className={`flex-shrink-0 ${
+                        check.status === 'pass' ? 'text-green-500' :
+                        check.status === 'warn' ? 'text-yellow-500' :
+                        'text-red-500'
+                      }`}>
+                        {check.status === 'pass' ? <CheckCircle className="h-5 w-5" /> :
+                         check.status === 'warn' ? <AlertTriangle className="h-5 w-5" /> :
+                         <XCircle className="h-5 w-5" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{check.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{check.message}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         )}
       </CollapsibleSection>

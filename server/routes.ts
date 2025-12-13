@@ -9442,27 +9442,42 @@ Return ONLY the ${targetLanguage} phrase:`;
       
       // Calculate totals
       const totalEvents = toolStats.reduce((sum, t) => sum + Number(t.count), 0);
-      const totalStudents = new Set(toolStats.map(t => t.uniqueStudents)).size;
+      const uniqueStudentIds = new Set<string>();
+      
+      // Get actual unique students by querying distinct userIds
+      const uniqueStudentsResult = await db.selectDistinct({ userId: teachingToolEvents.userId })
+        .from(teachingToolEvents)
+        .where(and(
+          gte(teachingToolEvents.occurredAt, daysAgo),
+          isNotNull(teachingToolEvents.userId)
+        ));
+      const totalStudents = uniqueStudentsResult.length;
+      
+      // Calculate overall drill accuracy
+      const totalDrillCorrect = toolStats.reduce((sum, t) => sum + Number(t.drillCorrect || 0), 0);
+      const totalDrillTotal = toolStats.reduce((sum, t) => sum + Number(t.drillTotal || 0), 0);
+      const avgDrillAccuracy = totalDrillTotal > 0 
+        ? Math.round((totalDrillCorrect / totalDrillTotal) * 100) 
+        : null;
       
       res.json({
-        summary: {
-          totalEvents,
-          totalStudents,
-          periodDays: parseInt(days as string),
-        },
         toolStats: toolStats.map(t => ({
           toolType: t.toolType,
           count: Number(t.count),
           uniqueStudents: Number(t.uniqueStudents),
-          avgResponseTimeMs: t.avgResponseTime ? Math.round(Number(t.avgResponseTime)) : null,
-          drillSuccessRate: t.drillTotal && Number(t.drillTotal) > 0 
-            ? Number(t.drillCorrect) / Number(t.drillTotal) 
-            : null,
+          avgResponseTime: t.avgResponseTime ? Math.round(Number(t.avgResponseTime)) : null,
+          drillCorrect: Number(t.drillCorrect || 0),
+          drillTotal: Number(t.drillTotal || 0),
         })),
         dailyTrend: dailyTrend.map(d => ({
           date: d.date,
           count: Number(d.count),
         })),
+        totals: {
+          totalEvents,
+          uniqueStudents: totalStudents,
+          avgDrillAccuracy,
+        },
       });
     } catch (error: any) {
       console.error('Error fetching teaching tool summary:', error);
@@ -9496,36 +9511,48 @@ Return ONLY the ${targetLanguage} phrase:`;
         .orderBy(sql`count(*) desc`)
         .limit(parseInt(limit as string));
       
-      // Group by student
-      const studentMap = new Map<string, any>();
+      // Group by student with proper tools structure
+      const studentMap = new Map<string, {
+        userId: string;
+        languages: Set<string>;
+        tools: Record<string, { count: number; avgResponseTime: number | null; drillAccuracy: number | null }>;
+        totalEvents: number;
+      }>();
+      
       for (const stat of studentStats) {
         if (!stat.userId) continue;
         if (!studentMap.has(stat.userId)) {
           studentMap.set(stat.userId, {
             userId: stat.userId,
             languages: new Set(),
-            toolBreakdown: {},
+            tools: {},
             totalEvents: 0,
-            drillSuccessRate: null,
           });
         }
-        const student = studentMap.get(stat.userId);
+        const student = studentMap.get(stat.userId)!;
         if (stat.language) student.languages.add(stat.language);
-        student.toolBreakdown[stat.toolType] = (student.toolBreakdown[stat.toolType] || 0) + Number(stat.count);
-        student.totalEvents += Number(stat.count);
-        if (stat.drillTotal && Number(stat.drillTotal) > 0) {
-          const rate = Number(stat.drillCorrect) / Number(stat.drillTotal);
-          student.drillSuccessRate = student.drillSuccessRate 
-            ? (student.drillSuccessRate + rate) / 2 
-            : rate;
+        
+        // Build tools with full structure
+        if (!student.tools[stat.toolType]) {
+          student.tools[stat.toolType] = { count: 0, avgResponseTime: null, drillAccuracy: null };
         }
+        student.tools[stat.toolType].count += Number(stat.count);
+        student.tools[stat.toolType].avgResponseTime = stat.avgResponseTime ? Math.round(Number(stat.avgResponseTime)) : null;
+        if (stat.drillTotal && Number(stat.drillTotal) > 0) {
+          student.tools[stat.toolType].drillAccuracy = Math.round((Number(stat.drillCorrect) / Number(stat.drillTotal)) * 100);
+        }
+        student.totalEvents += Number(stat.count);
       }
       
       res.json({
-        students: Array.from(studentMap.values()).map(s => ({
-          ...s,
-          languages: Array.from(s.languages),
-        })),
+        students: Array.from(studentMap.values())
+          .sort((a, b) => b.totalEvents - a.totalEvents)
+          .map(s => ({
+            userId: s.userId,
+            totalEvents: s.totalEvents,
+            languages: Array.from(s.languages),
+            tools: s.tools,
+          })),
         periodDays: parseInt(days as string),
       });
     } catch (error: any) {
