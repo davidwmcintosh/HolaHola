@@ -103,7 +103,7 @@ export interface UseStreamingVoiceReturn {
   isReady: () => boolean;
   getCombinedAudioBlob: () => Blob | null;
   clearStoredAudio: () => void;
-  sendStreamingChunk: (audioData: ArrayBuffer, sequenceId: number) => void;
+  sendStreamingChunk: (audioData: ArrayBuffer, sequenceId: number) => boolean;
   stopStreaming: () => void;
   setInputMode: (mode: 'push-to-talk' | 'open-mic') => void;
   sendInterrupt: () => void;
@@ -907,8 +907,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   /**
    * Send streaming audio chunk for open mic mode
    */
-  const sendStreamingChunk = useCallback((audioData: ArrayBuffer, sequenceId: number) => {
-    clientRef.current?.sendStreamingChunk(audioData, sequenceId);
+  const sendStreamingChunk = useCallback((audioData: ArrayBuffer, sequenceId: number): boolean => {
+    return clientRef.current?.sendStreamingChunk(audioData, sequenceId) ?? false;
   }, []);
   
   /**
