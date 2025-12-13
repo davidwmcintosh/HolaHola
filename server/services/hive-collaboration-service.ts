@@ -25,13 +25,14 @@ import { collaborationHubService } from "./collaboration-hub-service";
 
 // Beacon types that trigger Editor awareness
 export type BeaconType = 
-  | 'teaching_moment'     // Daniela uses whiteboard, drill, or special tool
-  | 'student_struggle'    // Student makes repeated errors or asks for help
-  | 'tool_usage'          // Specific tool invocation (WRITE, COMPARE, etc.)
-  | 'breakthrough'        // Student demonstrates understanding
-  | 'correction'          // Daniela corrects a mistake
-  | 'cultural_insight'    // Cultural/contextual teaching moment
-  | 'vocabulary_intro';   // New vocabulary introduced
+  | 'teaching_moment'        // Daniela uses whiteboard, drill, or special tool
+  | 'student_struggle'       // Student makes repeated errors or asks for help
+  | 'tool_usage'             // Specific tool invocation (WRITE, COMPARE, etc.)
+  | 'breakthrough'           // Student demonstrates understanding
+  | 'correction'             // Daniela corrects a mistake
+  | 'cultural_insight'       // Cultural/contextual teaching moment
+  | 'vocabulary_intro'       // New vocabulary introduced
+  | 'self_surgery_proposal'; // Daniela proposes neural network modification
 
 interface CreateChannelParams {
   conversationId: string;
@@ -243,6 +244,7 @@ class HiveCollaborationService {
       correction: '✏️ Correction',
       cultural_insight: '🌍 Cultural Insight',
       vocabulary_intro: '📝 New Vocabulary',
+      self_surgery_proposal: '🧠 Self-Surgery Proposal',
     };
     
     const label = typeLabels[snapshot.beaconType as BeaconType] || '💡 Insight';

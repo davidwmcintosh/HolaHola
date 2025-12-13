@@ -2596,6 +2596,26 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       console.log(`[Self-Surgery] Reasoning: ${data.reasoning.substring(0, 100)}...`);
       console.log(`[Self-Surgery] Priority: ${priority}, Confidence: ${confidence}`);
       
+      // Emit HIVE beacon so Editor can see and respond to the proposal
+      if (session.hiveChannelId) {
+        try {
+          const contentPreview = typeof data.content === 'string' 
+            ? data.content.substring(0, 200) 
+            : JSON.stringify(data.content).substring(0, 200);
+          
+          await hiveCollaborationService.emitBeacon({
+            channelId: session.hiveChannelId,
+            tutorTurn: `[Self-Surgery Proposal #${proposal.id}]\nTarget: ${data.targetTable}\nPriority: ${priority}, Confidence: ${confidence}\n\nContent: ${contentPreview}...`,
+            beaconType: 'self_surgery_proposal',
+            beaconReason: data.reasoning,
+          });
+          console.log(`[Self-Surgery] HIVE beacon emitted for proposal #${proposal.id}`);
+        } catch (hiveErr) {
+          console.error(`[Self-Surgery] Failed to emit HIVE beacon:`, hiveErr);
+          // Don't fail the overall operation if HIVE emission fails
+        }
+      }
+      
     } catch (error: any) {
       console.error(`[Self-Surgery] Failed to save proposal:`, error.message);
       console.error(`[Self-Surgery] Full error:`, error);
