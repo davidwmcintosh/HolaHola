@@ -245,38 +245,60 @@ export class StreamingVoiceClient {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/api/voice/stream/ws?conversationId=${conversationId}`;
       
+      console.log('[StreamingVoice] Creating WebSocket to:', wsUrl);
       this.ws = new WebSocket(wsUrl);
       this.ws.binaryType = 'arraybuffer';
+      console.log('[StreamingVoice] WebSocket created, readyState:', this.ws.readyState);
       
-      // Create a promise that resolves when onopen fires - IMMEDIATELY after WebSocket creation
-      // to prevent missing the open event
-      const openPromise = new Promise<void>((resolve, reject) => {
+      // Create a promise that resolves when EITHER open event fires OR first message received
+      // Some proxies/environments may not properly fire the open event
+      const connectionPromise = new Promise<void>((resolve, reject) => {
         const ws = this.ws!;
+        let resolved = false;
         
-        // Check if already open (shouldn't happen, but just in case)
-        if (ws.readyState === WebSocket.OPEN) {
-          this.setState('connected');
-          resolve();
-          return;
-        }
-        
-        const timeout = setTimeout(() => {
-          reject(new Error('WebSocket connection timeout'));
-        }, 10000);
-        
-        // Use addEventListener instead of property assignment to avoid race conditions
-        ws.addEventListener('open', () => {
+        const completeConnection = (source: string) => {
+          if (resolved) return;
+          resolved = true;
+          console.log('[StreamingVoice] Connection complete via:', source);
           clearTimeout(timeout);
           if (this.connectionId !== currentConnectionId) {
+            console.log('[StreamingVoice] Connection ID mismatch, ignoring');
             return;
           }
           this.reconnectAttempts = 0;
           this.intentionalDisconnect = false;
           this.setState('connected');
           resolve();
+        };
+        
+        // Check if already open (shouldn't happen, but just in case)
+        if (ws.readyState === WebSocket.OPEN) {
+          console.log('[StreamingVoice] WebSocket already OPEN!');
+          completeConnection('already-open');
+          return;
+        }
+        
+        const timeout = setTimeout(() => {
+          if (resolved) return;
+          console.log('[StreamingVoice] Timeout! readyState:', ws.readyState);
+          reject(new Error('WebSocket connection timeout'));
+        }, 10000);
+        
+        // Method 1: Wait for open event
+        ws.addEventListener('open', () => {
+          console.log('[StreamingVoice] OPEN event fired!');
+          completeConnection('open-event');
         }, { once: true });
         
-        ws.addEventListener('error', () => {
+        // Method 2: If we receive a message, connection is definitely open
+        ws.addEventListener('message', () => {
+          console.log('[StreamingVoice] First MESSAGE received (connection confirmed)');
+          completeConnection('first-message');
+        }, { once: true });
+        
+        ws.addEventListener('error', (e) => {
+          if (resolved) return;
+          console.log('[StreamingVoice] ERROR event fired!', e);
           clearTimeout(timeout);
           reject(new Error('WebSocket connection failed'));
         }, { once: true });
@@ -296,7 +318,7 @@ export class StreamingVoiceClient {
         this.handleDisconnect();
       };
       
-      await openPromise;
+      await connectionPromise;
       
     } catch (error: any) {
       if (isVerboseLoggingEnabled()) {
