@@ -766,6 +766,7 @@ export interface IStorage {
   
   // Self-Surgery Proposals (Daniela's direct neural network modifications)
   createSelfSurgeryProposal(data: InsertSelfSurgeryProposal): Promise<SelfSurgeryProposal>;
+  getSelfSurgeryProposalById(id: string): Promise<SelfSurgeryProposal | undefined>;
   getSelfSurgeryProposals(options?: { status?: string; targetTable?: string; limit?: number }): Promise<SelfSurgeryProposal[]>;
   updateSelfSurgeryProposal(id: string, data: Partial<SelfSurgeryProposal>): Promise<SelfSurgeryProposal | undefined>;
   
@@ -5520,6 +5521,13 @@ export class DatabaseStorage implements IStorage {
   
   async createSelfSurgeryProposal(data: InsertSelfSurgeryProposal): Promise<SelfSurgeryProposal> {
     const [proposal] = await db.insert(selfSurgeryProposals).values(data).returning();
+    return proposal;
+  }
+  
+  async getSelfSurgeryProposalById(id: string): Promise<SelfSurgeryProposal | undefined> {
+    const [proposal] = await db.select().from(selfSurgeryProposals)
+      .where(eq(selfSurgeryProposals.id, id))
+      .limit(1);
     return proposal;
   }
   

@@ -20,6 +20,8 @@
 import { callGemini, GEMINI_MODELS } from "../gemini-utils";
 import { storage } from "../storage";
 import type { AgentCollaborationEvent, InsertAgentCollaborationEvent } from "@shared/schema";
+import { getGeminiStreamingService, type SentenceChunk } from "./gemini-streaming";
+import { editorPersonaService } from "./editor-persona-service";
 
 // Types for brain surgery
 export interface BrainSurgeryMessage {
@@ -95,9 +97,6 @@ const DEFAULT_AUTO_APPROVAL_CONFIG: AutoApprovalConfig = {
   priorityThreshold: 80,
   requiresBothThresholds: true,
 };
-
-// In-memory proposal history (should be persisted to DB in production)
-const proposalHistory: Map<string, ProposalHistoryEntry> = new Map();
 
 // Thread metadata storage (should be persisted to DB in production)
 const threadMetadata: Map<string, { title: string; category: ThreadCategory }> = new Map();
@@ -223,20 +222,37 @@ export async function editorToDaniela(
   // Call Gemini as Daniela
   const danielaResponse = await callGemini(GEMINI_MODELS.FLASH, messages);
   
-  // Parse any SELF_SURGERY proposals and assign IDs BEFORE storing
+  // Parse any SELF_SURGERY proposals
   const proposals = parseSelfSurgeryCommands(danielaResponse);
-  
-  // Assign proposalId and status to each proposal before storage
-  for (const proposal of proposals) {
-    proposal.proposalId = generateProposalId();
-    proposal.status = "pending";
-  }
   
   if (proposals.length > 0) {
     console.log(`[Brain Surgery] Daniela proposed ${proposals.length} neural network changes`);
   }
   
-  // Store Daniela's response with proposals that have IDs
+  // Persist proposals to database FIRST to get correct IDs
+  for (const proposal of proposals) {
+    try {
+      const dbProposal = await storage.createSelfSurgeryProposal({
+        targetTable: proposal.target as any,
+        proposedContent: proposal.content,
+        reasoning: proposal.reasoning,
+        triggerContext: message.substring(0, 500),
+        status: "pending",
+        conversationId: actualThreadId,
+        sessionMode: "brain_surgery",
+        priority: proposal.priority,
+        confidence: proposal.confidence,
+      });
+      // Use database-generated ID for all references
+      proposal.proposalId = dbProposal.id;
+      proposal.status = "pending";
+      console.log(`[Brain Surgery] Persisted proposal ${proposal.proposalId} to database`);
+    } catch (err) {
+      console.error(`[Brain Surgery] Failed to persist proposal to database:`, err);
+    }
+  }
+  
+  // Store Daniela's response with proposals that have database IDs
   const danielaEvent = await storage.createCollaborationEvent({
     fromAgent: "daniela",
     toAgent: "editor",
@@ -252,18 +268,6 @@ export async function editorToDaniela(
     securityClassification: "public",
     status: "pending",
   });
-  
-  // Register proposals in history for approval/rejection tracking
-  for (const proposal of proposals) {
-    const historyEntry: ProposalHistoryEntry = {
-      proposalId: proposal.proposalId!,
-      threadId: actualThreadId,
-      proposal,
-      status: "pending",
-      createdAt: new Date(),
-    };
-    proposalHistory.set(proposal.proposalId!, historyEntry);
-  }
   
   console.log(`[Brain Surgery] Daniela responded (${danielaResponse.length} chars, ${proposals.length} proposals)`);
   
@@ -433,32 +437,46 @@ function generateProposalId(): string {
 }
 
 /**
- * Approve a proposal and execute it
+ * Approve a proposal and execute it (uses database for persistence)
  */
 export async function approveProposal(
   proposalId: string,
   approvedBy: string = "david"
 ): Promise<{ success: boolean; insertedId?: string; error?: string }> {
-  const historyEntry = proposalHistory.get(proposalId);
+  // Fetch proposal directly by ID
+  const dbProposal = await storage.getSelfSurgeryProposalById(proposalId);
   
-  if (!historyEntry) {
-    return { success: false, error: `Proposal ${proposalId} not found in history` };
+  if (!dbProposal) {
+    return { success: false, error: `Proposal ${proposalId} not found in database` };
   }
   
-  if (historyEntry.status !== "pending") {
-    return { success: false, error: `Proposal ${proposalId} is already ${historyEntry.status}` };
+  if (dbProposal.status !== "pending") {
+    return { success: false, error: `Proposal ${proposalId} is already ${dbProposal.status}` };
   }
+  
+  // Convert DB proposal to local format for execution
+  const localProposal: SelfSurgeryProposal = {
+    target: dbProposal.targetTable,
+    content: dbProposal.proposedContent as Record<string, unknown>,
+    reasoning: dbProposal.reasoning,
+    priority: dbProposal.priority ?? 50,
+    confidence: dbProposal.confidence ?? 50,
+    rawCommand: "",
+    proposalId: dbProposal.id,
+    status: "pending",
+  };
   
   // Execute the surgery
-  const result = await executeSelfSurgery(historyEntry.proposal, approvedBy);
+  const result = await executeSelfSurgery(localProposal, approvedBy);
   
   if (result.success) {
-    // Update history
-    historyEntry.status = "approved";
-    historyEntry.approvedBy = approvedBy;
-    historyEntry.approvedAt = new Date();
-    historyEntry.insertedId = result.insertedId;
-    proposalHistory.set(proposalId, historyEntry);
+    // Update database
+    await storage.updateSelfSurgeryProposal(proposalId, {
+      status: "approved",
+      reviewedBy: approvedBy,
+      reviewedAt: new Date(),
+      promotedRecordId: result.insertedId,
+    });
     
     console.log(`[Brain Surgery] Proposal ${proposalId} approved by ${approvedBy}, insertedId: ${result.insertedId}`);
   }
@@ -467,27 +485,31 @@ export async function approveProposal(
 }
 
 /**
- * Reject a proposal with a reason
+ * Reject a proposal with a reason (uses database for persistence)
  */
 export async function rejectProposal(
   proposalId: string,
   reason: string,
   rejectedBy: string = "david"
 ): Promise<{ success: boolean; error?: string }> {
-  const historyEntry = proposalHistory.get(proposalId);
+  // Fetch proposal directly by ID
+  const dbProposal = await storage.getSelfSurgeryProposalById(proposalId);
   
-  if (!historyEntry) {
-    return { success: false, error: `Proposal ${proposalId} not found in history` };
+  if (!dbProposal) {
+    return { success: false, error: `Proposal ${proposalId} not found in database` };
   }
   
-  if (historyEntry.status !== "pending") {
-    return { success: false, error: `Proposal ${proposalId} is already ${historyEntry.status}` };
+  if (dbProposal.status !== "pending") {
+    return { success: false, error: `Proposal ${proposalId} is already ${dbProposal.status}` };
   }
   
-  // Update history
-  historyEntry.status = "rejected";
-  historyEntry.rejectedReason = reason;
-  proposalHistory.set(proposalId, historyEntry);
+  // Update database
+  await storage.updateSelfSurgeryProposal(proposalId, {
+    status: "rejected",
+    reviewedBy: rejectedBy,
+    reviewedAt: new Date(),
+    reviewNotes: reason,
+  });
   
   console.log(`[Brain Surgery] Proposal ${proposalId} rejected by ${rejectedBy}: ${reason}`);
   
@@ -495,48 +517,52 @@ export async function rejectProposal(
 }
 
 /**
- * Rollback an approved proposal (mark as inactive in the neural network)
+ * Rollback an approved proposal (mark as inactive in the neural network) - uses database
  */
 export async function rollbackProposal(
   proposalId: string,
   rolledBackBy: string = "david"
 ): Promise<{ success: boolean; error?: string }> {
-  const historyEntry = proposalHistory.get(proposalId);
+  // Fetch proposal directly by ID
+  const dbProposal = await storage.getSelfSurgeryProposalById(proposalId);
   
-  if (!historyEntry) {
-    return { success: false, error: `Proposal ${proposalId} not found in history` };
+  if (!dbProposal) {
+    return { success: false, error: `Proposal ${proposalId} not found in database` };
   }
   
-  if (historyEntry.status !== "approved" && historyEntry.status !== "auto_approved") {
-    return { success: false, error: `Proposal ${proposalId} is ${historyEntry.status}, cannot rollback` };
+  if (dbProposal.status !== "approved" && dbProposal.status !== "promoted") {
+    return { success: false, error: `Proposal ${proposalId} is ${dbProposal.status}, cannot rollback` };
   }
   
-  if (!historyEntry.insertedId) {
-    return { success: false, error: `Proposal ${proposalId} has no insertedId to rollback` };
+  if (!dbProposal.promotedRecordId) {
+    return { success: false, error: `Proposal ${proposalId} has no promotedRecordId to rollback` };
   }
   
   try {
     // Mark the inserted record as inactive based on target table
-    switch (historyEntry.proposal.target) {
+    switch (dbProposal.targetTable) {
       case "tutor_procedures":
-        await storage.deactivateTutorProcedure(historyEntry.insertedId);
+        await storage.deactivateTutorProcedure(dbProposal.promotedRecordId);
         break;
       case "teaching_principles":
-        await storage.deactivateTeachingPrinciple(historyEntry.insertedId);
+        await storage.deactivateTeachingPrinciple(dbProposal.promotedRecordId);
         break;
       case "tool_knowledge":
-        await storage.deactivateToolKnowledge(historyEntry.insertedId);
+        await storage.deactivateToolKnowledge(dbProposal.promotedRecordId);
         break;
       case "situational_patterns":
-        await storage.deactivateSituationalPattern(historyEntry.insertedId);
+        await storage.deactivateSituationalPattern(dbProposal.promotedRecordId);
         break;
       default:
-        return { success: false, error: `Unknown target table: ${historyEntry.proposal.target}` };
+        return { success: false, error: `Unknown target table: ${dbProposal.targetTable}` };
     }
     
-    // Update history
-    historyEntry.status = "rolled_back";
-    proposalHistory.set(proposalId, historyEntry);
+    // Update database - mark as rejected (rollback state)
+    await storage.updateSelfSurgeryProposal(proposalId, {
+      status: "rejected",
+      reviewNotes: `Rolled back by ${rolledBackBy}`,
+      reviewedAt: new Date(),
+    });
     
     console.log(`[Brain Surgery] Proposal ${proposalId} rolled back by ${rolledBackBy}`);
     
@@ -548,16 +574,39 @@ export async function rollbackProposal(
 }
 
 /**
- * Get proposal history for a thread or all proposals
+ * Get proposal history for a thread or all proposals (from database)
  */
-export function getProposalHistory(threadId?: string): ProposalHistoryEntry[] {
-  const entries = Array.from(proposalHistory.values());
+export async function getProposalHistory(threadId?: string): Promise<ProposalHistoryEntry[]> {
+  // Use high limit to retrieve all proposals - no arbitrary pagination cutoff
+  const proposals = await storage.getSelfSurgeryProposals({ limit: 10000 });
   
+  // Filter by threadId (stored as conversationId)
+  let filtered = proposals;
   if (threadId) {
-    return entries.filter(e => e.threadId === threadId);
+    filtered = proposals.filter(p => p.conversationId === threadId);
   }
   
-  return entries.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  // Convert to ProposalHistoryEntry format
+  return filtered.map(p => ({
+    proposalId: p.id,
+    threadId: p.conversationId || "",
+    proposal: {
+      target: p.targetTable,
+      content: p.proposedContent as Record<string, unknown>,
+      reasoning: p.reasoning,
+      priority: p.priority ?? 50,
+      confidence: p.confidence ?? 50,
+      rawCommand: "",
+      proposalId: p.id,
+      status: p.status as any,
+    },
+    status: p.status as any,
+    approvedBy: p.reviewedBy ?? undefined,
+    approvedAt: p.reviewedAt ? new Date(p.reviewedAt) : undefined,
+    rejectedReason: p.reviewNotes ?? undefined,
+    insertedId: p.promotedRecordId ?? undefined,
+    createdAt: new Date(p.createdAt!),
+  })).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
 /**
@@ -667,28 +716,281 @@ export async function editorToDanielaEnhanced(
         
         const result = await executeSelfSurgery(proposal, "auto");
         if (result.success) {
-          // Update history entry
-          const historyEntry = proposalHistory.get(proposal.proposalId);
-          if (historyEntry) {
-            historyEntry.status = "auto_approved";
-            historyEntry.approvedBy = "auto";
-            historyEntry.approvedAt = new Date();
-            historyEntry.insertedId = result.insertedId;
-            proposalHistory.set(proposal.proposalId, historyEntry);
+          // Update database with auto-approved status
+          // Note: We need to find the proposal by its attributes since proposalId is generated locally
+          const dbProposals = await storage.getSelfSurgeryProposals({ status: "pending", limit: 10 });
+          const matchingProposal = dbProposals.find(p => 
+            p.targetTable === proposal.target && 
+            p.reasoning === proposal.reasoning
+          );
+          
+          if (matchingProposal) {
+            await storage.updateSelfSurgeryProposal(matchingProposal.id, {
+              status: "approved",
+              reviewedBy: "auto",
+              reviewedAt: new Date(),
+              promotedRecordId: result.insertedId,
+            });
           }
+          
           proposal.status = "auto_approved";
           proposal.insertedId = result.insertedId;
         }
       }
     }
+    
+    // Auto-invoke Editor to review proposals (fire and forget)
+    const actualThreadId = threadId || `brain-surgery-${Date.now()}`;
+    invokeEditorForProposalReview(response.selfSurgeryProposals, actualThreadId, response.content).catch(err => {
+      console.error(`[Brain Surgery] Editor invocation failed:`, err.message);
+    });
   }
   
   return response;
 }
 
+/**
+ * Auto-invoke Editor to review Daniela's SELF_SURGERY proposals
+ * Returns Editor's feedback which is stored in collaboration events
+ */
+export async function invokeEditorForProposalReview(
+  proposals: SelfSurgeryProposal[],
+  threadId: string,
+  danielaMessage: string
+): Promise<string | null> {
+  if (proposals.length === 0) {
+    return null;
+  }
+  
+  console.log(`[Brain Surgery] Auto-invoking Editor to review ${proposals.length} proposal(s)`);
+  
+  // Format proposals for Editor review
+  const proposalSummary = proposals.map((p, i) => {
+    return `Proposal ${i + 1}:
+  - Target: ${p.target}
+  - Reasoning: ${p.reasoning}
+  - Priority: ${p.priority}/100
+  - Confidence: ${p.confidence}/100
+  - Content: ${JSON.stringify(p.content).substring(0, 200)}...`;
+  }).join('\n\n');
+  
+  const reviewPrompt = `Daniela has proposed ${proposals.length} SELF_SURGERY change(s) to her neural network during a Brain Surgery session.
+
+DANIELA'S FULL MESSAGE:
+"${danielaMessage.substring(0, 1000)}"
+
+PROPOSALS TO REVIEW:
+${proposalSummary}
+
+As the Editor, please review these proposals and provide:
+1. Your assessment of each proposal's quality and completeness
+2. Any concerns or risks you see
+3. Whether you recommend approval, revision, or rejection
+4. Any suggestions for improvement
+
+Be specific and actionable in your feedback.`;
+
+  try {
+    const editorFeedback = await editorPersonaService.askEditor(reviewPrompt, {
+      additionalContext: `Brain Surgery Thread: ${threadId}`,
+    });
+    
+    console.log(`[Brain Surgery] Editor feedback received (${editorFeedback.length} chars)`);
+    
+    // Store Editor's feedback as a collaboration event
+    await storage.createCollaborationEvent({
+      fromAgent: "editor",
+      toAgent: "daniela",
+      eventType: "feedback",
+      subject: "Proposal Review",
+      content: editorFeedback,
+      metadata: { 
+        threadId,
+        priority: "high",
+        tags: ["brain-surgery", "proposal-review"],
+        proposalCount: proposals.length,
+        proposalIds: proposals.map(p => p.proposalId).filter(Boolean),
+      },
+      securityClassification: "public",
+      status: "pending",
+    });
+    
+    return editorFeedback;
+  } catch (error: any) {
+    console.error(`[Brain Surgery] Editor review failed:`, error.message);
+    return null;
+  }
+}
+
+/**
+ * Streaming callback type for SSE responses
+ */
+export type StreamingChunkCallback = (chunk: SentenceChunk) => void;
+
+/**
+ * Streaming version of editorToDaniela for SSE support
+ * Streams Daniela's response sentence by sentence
+ */
+export async function editorToDanielaStreaming(
+  message: string,
+  threadId: string | undefined,
+  onChunk: StreamingChunkCallback,
+  options?: { includeTeachingContext?: boolean }
+): Promise<BrainSurgeryMessage> {
+  const actualThreadId = threadId || `brain-surgery-${Date.now()}`;
+  
+  console.log(`[Brain Surgery Streaming] Editor → Daniela: ${message.substring(0, 100)}...`);
+  
+  // Optionally inject teaching context
+  let enhancedMessage = message;
+  if (options?.includeTeachingContext) {
+    const context = await getRecentTeachingContext();
+    if (context) {
+      enhancedMessage = message + context;
+    }
+  }
+  
+  // Store Editor's message
+  await storage.createCollaborationEvent({
+    fromAgent: "editor",
+    toAgent: "daniela",
+    eventType: "consultation",
+    subject: "Brain Surgery Session (Streaming)",
+    content: enhancedMessage,
+    metadata: { threadId: actualThreadId, priority: "high", tags: ["brain-surgery", "streaming"] },
+    securityClassification: "public",
+    status: "pending",
+  });
+  
+  // Get conversation history for context
+  const history = await getThreadHistory(actualThreadId);
+  
+  // Build conversation history in format for streaming service
+  const conversationHistory: Array<{ role: 'user' | 'model'; content: string }> = [];
+  for (const event of history.slice(-20)) { // Last 20 messages for context
+    conversationHistory.push({
+      role: event.fromAgent === "daniela" ? 'model' : 'user',
+      content: event.content,
+    });
+  }
+  
+  // Get streaming service
+  const streamingService = getGeminiStreamingService();
+  
+  // Accumulate full response for parsing proposals at the end
+  let fullResponse = '';
+  
+  // Stream with sentence chunking - callback is sync to avoid blocking
+  await streamingService.streamWithSentenceChunking({
+    systemPrompt: DANIELA_BRAIN_SURGERY_PERSONA,
+    conversationHistory,
+    userMessage: enhancedMessage,
+    model: 'gemini-2.5-flash',
+    onSentence: async (chunk) => {
+      fullResponse += chunk.text + ' ';
+      // Call onChunk synchronously - it just writes to SSE stream
+      try {
+        onChunk(chunk);
+      } catch (err: any) {
+        console.error(`[Brain Surgery Streaming] Chunk write error:`, err.message);
+      }
+    },
+    onError: (error) => {
+      console.error(`[Brain Surgery Streaming] Error:`, error.message);
+    },
+  });
+  
+  // All DB writes and Editor invocation happen AFTER streaming completes
+  
+  // Parse proposals from full response
+  const proposals = parseSelfSurgeryCommands(fullResponse);
+  
+  if (proposals.length > 0) {
+    console.log(`[Brain Surgery Streaming] Daniela proposed ${proposals.length} neural network changes`);
+  }
+  
+  // Persist proposals to database FIRST to get correct IDs
+  for (const proposal of proposals) {
+    try {
+      const dbProposal = await storage.createSelfSurgeryProposal({
+        targetTable: proposal.target as any,
+        proposedContent: proposal.content,
+        reasoning: proposal.reasoning,
+        triggerContext: message.substring(0, 500),
+        status: "pending",
+        conversationId: actualThreadId,
+        sessionMode: "brain_surgery",
+        priority: proposal.priority,
+        confidence: proposal.confidence,
+      });
+      // Use database-generated ID for all references
+      proposal.proposalId = dbProposal.id;
+      proposal.status = "pending";
+      console.log(`[Brain Surgery Streaming] Persisted proposal ${proposal.proposalId} to database`);
+    } catch (err) {
+      console.error(`[Brain Surgery Streaming] Failed to persist proposal:`, err);
+    }
+  }
+  
+  // Store Daniela's full response with proposals that have database IDs
+  const danielaEvent = await storage.createCollaborationEvent({
+    fromAgent: "daniela",
+    toAgent: "editor",
+    eventType: "response",
+    subject: "Brain Surgery Response (Streaming)",
+    content: fullResponse.trim(),
+    metadata: { 
+      threadId: actualThreadId, 
+      priority: "high", 
+      tags: ["brain-surgery", "streaming"],
+      selfSurgeryProposals: proposals.length > 0 ? proposals : undefined,
+    },
+    securityClassification: "public",
+    status: "pending",
+  });
+  
+  // Check for auto-approval
+  for (const proposal of proposals) {
+    if (proposal.proposalId && checkAutoApproval(proposal)) {
+      console.log(`[Brain Surgery Streaming] Auto-approving proposal ${proposal.proposalId}`);
+      const result = await executeSelfSurgery(proposal, "auto");
+      if (result.success) {
+        // Use direct update with database ID
+        await storage.updateSelfSurgeryProposal(proposal.proposalId, {
+          status: "approved",
+          reviewedBy: "auto",
+          reviewedAt: new Date(),
+          promotedRecordId: result.insertedId,
+        });
+        proposal.status = "auto_approved";
+        proposal.insertedId = result.insertedId;
+      }
+    }
+  }
+  
+  // Auto-invoke Editor to review proposals (fire and forget - don't block response)
+  if (proposals.length > 0) {
+    invokeEditorForProposalReview(proposals, actualThreadId, fullResponse.trim()).catch(err => {
+      console.error(`[Brain Surgery Streaming] Editor invocation failed:`, err.message);
+    });
+  }
+  
+  console.log(`[Brain Surgery Streaming] Complete: ${fullResponse.length} chars, ${proposals.length} proposals`);
+  
+  return {
+    id: danielaEvent.id,
+    fromAgent: "daniela",
+    content: fullResponse.trim(),
+    timestamp: new Date(),
+    selfSurgeryProposals: proposals.length > 0 ? proposals : undefined,
+  };
+}
+
 export const brainSurgeryService = {
   editorToDaniela,
   editorToDanielaEnhanced,
+  editorToDanielaStreaming,
+  invokeEditorForProposalReview,
   getBrainSurgeryThread,
   listBrainSurgeryThreads,
   executeSelfSurgery,

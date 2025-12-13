@@ -13344,6 +13344,71 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
   
+  // Streaming chat endpoint with SSE (Server-Sent Events)
+  app.post("/api/brain-surgery/chat/stream", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const { message, threadId } = req.body;
+      if (!message) {
+        return res.status(400).json({ error: "Message is required" });
+      }
+      
+      // Set SSE headers
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+      res.flushHeaders();
+      
+      const { brainSurgeryService } = await import('./services/brain-surgery-service');
+      
+      // Stream chunks to client
+      const result = await brainSurgeryService.editorToDanielaStreaming(
+        message,
+        threadId,
+        (chunk) => {
+          // Send chunk as SSE event
+          const data = JSON.stringify({
+            type: 'chunk',
+            index: chunk.index,
+            text: chunk.text,
+            isComplete: chunk.isComplete,
+            isFinal: chunk.isFinal,
+          });
+          res.write(`data: ${data}\n\n`);
+        },
+        { includeTeachingContext: true }
+      );
+      
+      // Send final event with proposals
+      const finalData = JSON.stringify({
+        type: 'complete',
+        id: result.id,
+        content: result.content,
+        proposals: result.selfSurgeryProposals || [],
+      });
+      res.write(`data: ${finalData}\n\n`);
+      
+      // Close the stream
+      res.write('data: [DONE]\n\n');
+      res.end();
+      
+    } catch (error: any) {
+      console.error('[API] Error in brain surgery streaming chat:', error);
+      // If headers already sent, try to send error via SSE
+      if (res.headersSent) {
+        const errorData = JSON.stringify({ type: 'error', error: error.message });
+        res.write(`data: ${errorData}\n\n`);
+        res.end();
+      } else {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  });
+  
   // List all brain surgery threads (ARCHITECT_SECRET or admin/developer session)
   app.get("/api/brain-surgery/threads", async (req: any, res) => {
     try {
