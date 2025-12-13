@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { createServer } from "http";
 import { runMigrations, StripeSync } from 'stripe-replit-sync';
 import { getStripeSecretKey, getStripeWebhookSecret } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
@@ -6,8 +7,17 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { getTTSService } from "./services/tts-service";
 import { generalLimiter } from "./middleware/rate-limiter";
+import { setupUnifiedWebSocketHandler } from "./unified-ws-handler";
 
 const app = express();
+
+// CRITICAL: Create HTTP server FIRST, before any middleware
+// This allows us to attach WebSocket upgrade handler BEFORE Express/Vite interfere
+const server = createServer(app);
+
+// CRITICAL: Attach WebSocket handler IMMEDIATELY after server creation
+// This ensures upgrade events are handled BEFORE Vite's HMR gets a chance to interfere
+setupUnifiedWebSocketHandler(server);
 
 // Initialize Stripe before starting server
 let stripeReady = false;
@@ -237,7 +247,8 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  // Register routes (no longer creates server - we created it above)
+  await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

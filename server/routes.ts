@@ -460,7 +460,7 @@ const upload = multer({
   },
 });
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express): Promise<void> {
   // Set up Replit Auth with rate limiting
   await setupAuth(app, authLimiter);
 
@@ -13297,10 +13297,6 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
 
-  const httpServer = createServer(app);
-  
-  // Set up unified WebSocket handler for all paths
-  setupUnifiedWebSocketHandler(httpServer);
-  
-  return httpServer;
+  // Server is now passed in from index.ts where WebSocket handler is attached first
+  // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }

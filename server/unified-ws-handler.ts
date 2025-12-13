@@ -41,9 +41,9 @@ import { updateToolEventEngagement, mapWhiteboardTypeToToolType } from './servic
 import { buildNeuralNetworkPromptSection } from './services/neural-network-retrieval';
 import type { VoiceSession as UsageVoiceSession, CompassContext, TutorSession } from '@shared/schema';
 
-// NOTE: Using non-/api/ path to avoid potential Replit proxy issues with WebSocket upgrades
-const STREAMING_VOICE_PATH = '/ws/voice';
-const REALTIME_PATH = '/ws/realtime';
+// Use /api/ paths - Replit's proxy properly routes these
+const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
+const REALTIME_PATH = '/api/realtime/ws';
 
 /**
  * Convert ACTFL level to legacy difficulty level for system prompt compatibility
@@ -161,15 +161,28 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
   }
 
   // Send connected confirmation
-  try {
-    ws.send(JSON.stringify({
-      type: 'connected',
-      timestamp: Date.now(),
-    }));
-    console.log('[Streaming Voice] Connected message sent');
-  } catch (err) {
-    console.error('[Streaming Voice] Error sending connected:', err);
-  }
+  // Use setImmediate to ensure the upgrade response is fully flushed
+  // before we try to send data over the WebSocket
+  const sendConnected = () => {
+    try {
+      if (ws.readyState === WS.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'connected',
+          timestamp: Date.now(),
+        }));
+        console.log('[Streaming Voice] Connected message sent, readyState:', ws.readyState);
+      } else {
+        console.log('[Streaming Voice] WebSocket not open yet, readyState:', ws.readyState);
+        // Retry after a short delay
+        setTimeout(sendConnected, 50);
+      }
+    } catch (err) {
+      console.error('[Streaming Voice] Error sending connected:', err);
+    }
+  };
+  
+  // Give the upgrade response time to be fully processed by the proxy
+  setImmediate(sendConnected);
 
   // HEARTBEAT: Send ping every 30 seconds to keep connection alive
   // This prevents network proxies/firewalls from killing idle connections
@@ -1442,14 +1455,14 @@ export function setupUnifiedWebSocketHandler(server: Server) {
       // Mark socket as handled IMMEDIATELY to prevent race conditions
       handledSockets.add(socket);
       
-      // CRITICAL: Remove all other upgrade listeners temporarily to prevent interference
-      // This is necessary because multiple listeners fire for the same event
-      const otherListeners = server.listeners('upgrade').filter(l => l !== arguments.callee);
-      
       console.log(`[Unified WS] Routing to ${pathname === STREAMING_VOICE_PATH ? 'streaming voice' : 'realtime'} handler`);
       console.log('[Unified WS] Socket state before handleUpgrade:', socket.destroyed ? 'DESTROYED' : 'OK', 'writable:', socket.writable);
       
-      // Handle the upgrade synchronously in a try/catch to ensure cleanup
+      // CRITICAL: Resume the socket to ensure data flows
+      // When using prependListener, the socket might be in a paused state
+      socket.resume();
+      
+      // Handle the upgrade in a try/catch to ensure cleanup
       try {
         wss.handleUpgrade(request, socket, head, (ws) => {
           console.log('[Unified WS] handleUpgrade callback - WebSocket readyState:', ws.readyState);
@@ -1473,8 +1486,8 @@ export function setupUnifiedWebSocketHandler(server: Server) {
   });
 
   console.log('[Unified WS] ✓ Unified WebSocket handler ready');
-  console.log('[Unified WS] - Streaming Voice: /ws/voice');
-  console.log('[Unified WS] - Realtime API: /ws/realtime');
+  console.log('[Unified WS] - Streaming Voice:', STREAMING_VOICE_PATH);
+  console.log('[Unified WS] - Realtime API:', REALTIME_PATH);
 
   return wss;
 }

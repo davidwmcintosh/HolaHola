@@ -243,8 +243,8 @@ export class StreamingVoiceClient {
     
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      // NOTE: Using non-/api/ path to avoid potential Replit proxy issues with WebSocket upgrades
-      const wsUrl = `${protocol}//${window.location.host}/ws/voice?conversationId=${conversationId}`;
+      // Use /api/ path for proper Replit proxy routing
+      const wsUrl = `${protocol}//${window.location.host}/api/voice/stream/ws?conversationId=${conversationId}`;
       
       console.log('[StreamingVoice] Creating WebSocket to:', wsUrl);
       this.ws = new WebSocket(wsUrl);
