@@ -147,6 +147,7 @@ export default function CommandCenter() {
     { id: "audit", label: "Audit", icon: FileText, roles: ['admin'] },
     { id: "support", label: "Support", icon: Headphones, roles: ['admin', 'developer'] },
     { id: "dept-chat", label: "Dept Chat", icon: Lock, roles: ['admin', 'developer'] },
+    { id: "feature-sprint", label: "Feature Sprint", icon: Zap, roles: ['admin', 'developer'] },
   ].filter(tab => {
     if (user?.role === 'admin') return true;
     if (user?.role === 'developer') return tab.roles.includes('developer');
@@ -246,6 +247,10 @@ export default function CommandCenter() {
 
           <TabsContent value="dept-chat" className="space-y-4">
             <DepartmentChatTab />
+          </TabsContent>
+
+          <TabsContent value="feature-sprint" className="space-y-4">
+            <FeatureSprintTab />
           </TabsContent>
         </Tabs>
       </div>
@@ -4352,6 +4357,402 @@ function DepartmentChatTab() {
           )}
         </div>
       </CollapsibleSection>
+    </div>
+  );
+}
+
+interface ConsultationRecord {
+  id: string;
+  question: string;
+  response: string;
+  timestamp: Date;
+}
+
+interface FeatureSprint {
+  id: string;
+  title: string;
+  stage: 'idea' | 'pedagogy' | 'build_plan' | 'in_progress' | 'shipped';
+  description: string;
+  danielaInsights?: string;
+  buildPlan?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+function FeatureSprintTab() {
+  const { toast } = useToast();
+  const [mode, setMode] = useState<'consultation' | 'sprint'>('consultation');
+  const [consultationQuestion, setConsultationQuestion] = useState('');
+  const [consultationHistory, setConsultationHistory] = useState<ConsultationRecord[]>([]);
+  const [isConsulting, setIsConsulting] = useState(false);
+  
+  const [sprints, setSprints] = useState<FeatureSprint[]>([]);
+  const [newSprintTitle, setNewSprintTitle] = useState('');
+  const [newSprintDescription, setNewSprintDescription] = useState('');
+  const [showNewSprintForm, setShowNewSprintForm] = useState(false);
+  const [selectedSprint, setSelectedSprint] = useState<FeatureSprint | null>(null);
+
+  const consultDaniela = async () => {
+    if (!consultationQuestion.trim()) {
+      toast({ title: "Please enter a question", variant: "destructive" });
+      return;
+    }
+    
+    setIsConsulting(true);
+    try {
+      const data = await apiRequest("POST", "/api/agent-collab/consult-daniela", {
+        question: consultationQuestion,
+        context: "Founder collaboration session - seeking pedagogical insights for feature development.",
+        fromAgent: "editor",
+      });
+      
+      const newRecord: ConsultationRecord = {
+        id: Date.now().toString(),
+        question: consultationQuestion,
+        response: data.danielaSays || "No response received",
+        timestamp: new Date(),
+      };
+      
+      setConsultationHistory(prev => [newRecord, ...prev]);
+      setConsultationQuestion('');
+      toast({ title: "Daniela responded" });
+    } catch (error: any) {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to consult Daniela", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsConsulting(false);
+    }
+  };
+
+  const convertToSprint = (consultation: ConsultationRecord) => {
+    const newSprint: FeatureSprint = {
+      id: Date.now().toString(),
+      title: `Sprint from: ${consultation.question.substring(0, 50)}...`,
+      stage: 'idea',
+      description: consultation.question,
+      danielaInsights: consultation.response,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    setSprints(prev => [...prev, newSprint]);
+    setMode('sprint');
+    setSelectedSprint(newSprint);
+    toast({ title: "Created sprint from consultation" });
+  };
+
+  const createNewSprint = () => {
+    if (!newSprintTitle.trim()) {
+      toast({ title: "Please enter a title", variant: "destructive" });
+      return;
+    }
+    
+    const newSprint: FeatureSprint = {
+      id: Date.now().toString(),
+      title: newSprintTitle,
+      stage: 'idea',
+      description: newSprintDescription,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    setSprints(prev => [...prev, newSprint]);
+    setNewSprintTitle('');
+    setNewSprintDescription('');
+    setShowNewSprintForm(false);
+    toast({ title: "Sprint created" });
+  };
+
+  const moveSprintToStage = (sprintId: string, newStage: FeatureSprint['stage']) => {
+    setSprints(prev => prev.map(s => 
+      s.id === sprintId ? { ...s, stage: newStage, updatedAt: new Date() } : s
+    ));
+    toast({ title: `Moved to ${newStage.replace('_', ' ')}` });
+  };
+
+  const stageOrder: FeatureSprint['stage'][] = ['idea', 'pedagogy', 'build_plan', 'in_progress', 'shipped'];
+  const stageLabels: Record<FeatureSprint['stage'], string> = {
+    idea: 'Idea',
+    pedagogy: 'Pedagogy Spec',
+    build_plan: 'Build Plan',
+    in_progress: 'In Progress',
+    shipped: 'Shipped',
+  };
+  const stageColors: Record<FeatureSprint['stage'], string> = {
+    idea: 'bg-blue-500/10 border-blue-500/30',
+    pedagogy: 'bg-purple-500/10 border-purple-500/30',
+    build_plan: 'bg-orange-500/10 border-orange-500/30',
+    in_progress: 'bg-yellow-500/10 border-yellow-500/30',
+    shipped: 'bg-green-500/10 border-green-500/30',
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-primary" />
+            Feature Sprint
+          </CardTitle>
+          <CardDescription>
+            Rapid feature development with Daniela (pedagogy) and Editor (implementation)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2 mb-4">
+            <Button
+              variant={mode === 'consultation' ? 'default' : 'outline'}
+              onClick={() => setMode('consultation')}
+              data-testid="button-mode-consultation"
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Consultation
+            </Button>
+            <Button
+              variant={mode === 'sprint' ? 'default' : 'outline'}
+              onClick={() => setMode('sprint')}
+              data-testid="button-mode-sprint"
+            >
+              <Zap className="h-4 w-4 mr-2" />
+              Sprint Board
+            </Button>
+          </div>
+          
+          <div className="p-3 rounded-lg bg-muted/50 text-sm text-muted-foreground">
+            {mode === 'consultation' ? (
+              <>
+                <strong>Consultation Mode:</strong> Ask Daniela open-ended questions about pedagogy, 
+                student learning patterns, or feature ideas. Get insights before committing to a sprint.
+              </>
+            ) : (
+              <>
+                <strong>Sprint Mode:</strong> Track feature development through stages: 
+                Idea → Pedagogy Spec → Build Plan → In Progress → Shipped
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {mode === 'consultation' ? (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                Ask Daniela
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <textarea
+                  value={consultationQuestion}
+                  onChange={(e) => setConsultationQuestion(e.target.value)}
+                  placeholder="Ask Daniela about pedagogy, learning patterns, or feature ideas...
+
+Examples:
+• Are there any missing tools that would enhance student learning?
+• How could we better support tonal language learners?
+• What patterns do you see in student struggles with grammar?"
+                  className="w-full min-h-[120px] p-3 rounded-md border bg-background resize-y"
+                  data-testid="input-consultation-question"
+                />
+              </div>
+              <Button
+                onClick={consultDaniela}
+                disabled={isConsulting || !consultationQuestion.trim()}
+                data-testid="button-ask-daniela"
+              >
+                {isConsulting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4 mr-2" />
+                )}
+                Ask Daniela
+              </Button>
+            </CardContent>
+          </Card>
+
+          {consultationHistory.length > 0 && (
+            <CollapsibleSection
+              title="Consultation History"
+              icon={<Clock className="h-5 w-5 text-primary" />}
+              defaultOpen={true}
+              badge={consultationHistory.length.toString()}
+            >
+              <div className="space-y-4 mt-4">
+                {consultationHistory.map((record) => (
+                  <Card key={record.id} className="border-l-4 border-l-purple-500">
+                    <CardContent className="pt-4">
+                      <div className="flex items-start justify-between gap-4 mb-3">
+                        <div className="flex-1">
+                          <div className="font-medium text-sm mb-1">Your Question:</div>
+                          <div className="text-muted-foreground">{record.question}</div>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(record.timestamp).toLocaleTimeString()}
+                        </div>
+                      </div>
+                      
+                      <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20 mb-3">
+                        <div className="font-medium text-sm text-purple-600 mb-1 flex items-center gap-1">
+                          <Sparkles className="h-3 w-3" />
+                          Daniela's Response:
+                        </div>
+                        <div className="text-sm whitespace-pre-wrap">{record.response}</div>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => convertToSprint(record)}
+                          data-testid={`button-convert-to-sprint-${record.id}`}
+                        >
+                          <Zap className="h-3 w-3 mr-1" />
+                          Convert to Sprint
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CollapsibleSection>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium">Sprint Board</h3>
+            <Button
+              size="sm"
+              onClick={() => setShowNewSprintForm(true)}
+              data-testid="button-new-sprint"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              New Sprint
+            </Button>
+          </div>
+
+          {showNewSprintForm && (
+            <Card>
+              <CardContent className="pt-4 space-y-3">
+                <Input
+                  value={newSprintTitle}
+                  onChange={(e) => setNewSprintTitle(e.target.value)}
+                  placeholder="Sprint title..."
+                  data-testid="input-sprint-title"
+                />
+                <textarea
+                  value={newSprintDescription}
+                  onChange={(e) => setNewSprintDescription(e.target.value)}
+                  placeholder="Description..."
+                  className="w-full min-h-[80px] p-3 rounded-md border bg-background resize-y"
+                  data-testid="input-sprint-description"
+                />
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={createNewSprint} data-testid="button-create-sprint">
+                    Create
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setShowNewSprintForm(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid grid-cols-5 gap-3">
+            {stageOrder.map((stage) => (
+              <div key={stage} className={`rounded-lg border p-3 ${stageColors[stage]}`}>
+                <div className="font-medium text-sm mb-3 flex items-center justify-between">
+                  {stageLabels[stage]}
+                  <Badge variant="secondary" className="text-xs">
+                    {sprints.filter(s => s.stage === stage).length}
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  {sprints
+                    .filter(s => s.stage === stage)
+                    .map(sprint => (
+                      <Card 
+                        key={sprint.id} 
+                        className="cursor-pointer hover-elevate"
+                        onClick={() => setSelectedSprint(sprint)}
+                        data-testid={`card-sprint-${sprint.id}`}
+                      >
+                        <CardContent className="p-2">
+                          <div className="font-medium text-sm truncate">{sprint.title}</div>
+                          {sprint.description && (
+                            <div className="text-xs text-muted-foreground truncate">
+                              {sprint.description}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {selectedSprint && (
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">{selectedSprint.title}</CardTitle>
+                  <Button size="icon" variant="ghost" onClick={() => setSelectedSprint(null)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Badge className={stageColors[selectedSprint.stage]}>
+                  {stageLabels[selectedSprint.stage]}
+                </Badge>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <div className="font-medium text-sm mb-1">Description</div>
+                  <div className="text-muted-foreground">{selectedSprint.description || 'No description'}</div>
+                </div>
+                
+                {selectedSprint.danielaInsights && (
+                  <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                    <div className="font-medium text-sm text-purple-600 mb-1">Daniela's Insights</div>
+                    <div className="text-sm whitespace-pre-wrap">{selectedSprint.danielaInsights}</div>
+                  </div>
+                )}
+                
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-sm text-muted-foreground">Move to:</span>
+                  {stageOrder.map(stage => (
+                    <Button
+                      key={stage}
+                      size="sm"
+                      variant={selectedSprint.stage === stage ? 'default' : 'outline'}
+                      disabled={selectedSprint.stage === stage}
+                      onClick={() => moveSprintToStage(selectedSprint.id, stage)}
+                      data-testid={`button-move-to-${stage}`}
+                    >
+                      {stageLabels[stage]}
+                    </Button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {sprints.length === 0 && !showNewSprintForm && (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                <Zap className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No sprints yet</p>
+                <p className="text-sm">Start by consulting Daniela or create a new sprint</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
     </div>
   );
 }
