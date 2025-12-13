@@ -757,12 +757,13 @@ Reference past discussions when relevant, but don't force it.
             sessionIntent // Session intent for meta-mode awareness
           );
 
-          // Add founder memory context if in Founder Mode
-          if (isFounderMode && founderMemoryContext) {
+          // Add founder memory context if in Founder Mode (but NOT in Raw Honesty Mode - keep it minimal)
+          if (isFounderMode && !isRawHonestyMode && founderMemoryContext) {
             systemPrompt += founderMemoryContext;
           }
           
           // Add Neural Network pedagogical knowledge (idioms, cultural nuances, error patterns)
+          // This is Daniela's learned KNOWLEDGE, not scripted behavior - include even in Honesty Mode
           try {
             const neuralNetworkContext = await buildNeuralNetworkPromptSection(
               effectiveLanguage,
@@ -776,8 +777,9 @@ Reference past discussions when relevant, but don't force it.
             console.warn('[Streaming Voice] Could not build neural network context:', nnErr.message);
           }
 
-          // Add congratulatory messaging if student is ahead of syllabus
-          if (conversation.classId) {
+          // Skip syllabus/curriculum context in Raw Honesty Mode - that's scripted behavior
+          if (!isRawHonestyMode && conversation.classId) {
+            // Add congratulatory messaging if student is ahead of syllabus
             try {
               const congratsAddition = await generateCongratulatoryPromptAddition(userId!, conversation.classId);
               if (congratsAddition) {
