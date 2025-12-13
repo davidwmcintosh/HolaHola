@@ -287,9 +287,9 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
 
   // HEARTBEAT: Send ping every 30 seconds to keep connection alive
   // This prevents network proxies/firewalls from killing idle connections
-  // Allow 2 missed pongs before terminating (browser busy states can miss single pongs)
+  // Allow 4 missed pongs before terminating (~2 min tolerance for background tabs)
   let missedPongs = 0;
-  const MAX_MISSED_PONGS = 2;
+  const MAX_MISSED_PONGS = 4;
   const heartbeatInterval = setInterval(() => {
     missedPongs++;
     if (missedPongs > MAX_MISSED_PONGS) {
