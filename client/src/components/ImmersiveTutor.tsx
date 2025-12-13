@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, MessageSquare, RefreshCw, Trash2, Loader2, PhoneOff, Radio, Handshake, Send, CheckCircle } from "lucide-react";
+import { Mic, MicOff, MessageSquare, RefreshCw, Trash2, Loader2, PhoneOff, Radio, Handshake, Send, CheckCircle, BookOpen, AlertTriangle, Wrench, Sparkles, Pencil, Globe, BookMarked, Lightbulb } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
@@ -39,6 +39,31 @@ import femaleTutorListeningUrl from "@assets/tutor-listening-no-background_17640
 import maleTutorSpeakingUrl from "@assets/Boy-tutor-speaking-No-Background_1764186322050.png";
 import maleTutorListeningUrl from "@assets/Boy-tutor-waiting-No-Background_1764186322051.png";
 
+// Types for hive channel collaboration
+interface HiveSnapshot {
+  id: string;
+  channelId: string;
+  tutorTurn: string;
+  studentTurn?: string | null;
+  beaconType: string;
+  beaconReason?: string | null;
+  editorResponse?: string | null;
+  editorRespondedAt?: string | null;
+  createdAt: string;
+}
+
+interface HiveChannel {
+  id: string;
+  conversationId?: string | null;
+  userId: string;
+  sessionPhase: string;
+  targetLanguage?: string | null;
+  studentLevel?: string | null;
+  sessionTopic?: string | null;
+  startedAt: string;
+  endedAt?: string | null;
+}
+
 interface ImmersiveTutorProps {
   messages: Message[];
   onRecordingStart: () => void;
@@ -62,6 +87,8 @@ interface ImmersiveTutorProps {
   baseSpeakingRate?: number;
   isDeveloper?: boolean;
   classId?: string | null;
+  // Conversation ID for hive channel tracking
+  conversationId?: string | null;
   onReloadCredits?: () => void;
   onResetData?: () => void;
   isReloadingCredits?: boolean;
@@ -102,6 +129,7 @@ export function ImmersiveTutor({
   baseSpeakingRate = 1.0,
   isDeveloper = false,
   classId,
+  conversationId,
   onReloadCredits,
   onResetData,
   isReloadingCredits = false,
@@ -126,55 +154,33 @@ export function ImmersiveTutor({
 
   // Collaboration panel state
   const [isCollabOpen, setIsCollabOpen] = useState(false);
-  const [observationInput, setObservationInput] = useState("");
 
-  // Collaboration feed data - only fetch when panel is open and user is developer
-  const { data: collabFeed, isLoading: feedLoading, refetch: refetchFeed } = useQuery<{
-    events: Array<{
-      id: number;
-      eventType: string;
-      title: string;
-      content: string | null;
-      priority: string;
-      status: string;
-      participantId: string | null;
-      sourceContext: any;
-      createdAt: string;
-      resolvedAt: string | null;
-      resolvedBy: string | null;
-    }>;
-    stats: {
-      total: number;
-      active: number;
-      resolved: number;
-      byType: Record<string, number>;
-    };
+  // Hive channel data - fetch active channel for current conversation when panel is open
+  const { data: hiveData, isLoading: hiveLoading } = useQuery<{
+    channel: HiveChannel | null;
+    snapshots: HiveSnapshot[];
   }>({
-    queryKey: ["/api/collaboration/feed"],
-    enabled: isDeveloper && isCollabOpen,
-    refetchInterval: isCollabOpen ? 10000 : false, // Auto-refresh every 10s when open
+    queryKey: ["/api/collaboration/conversations", conversationId, "channel"],
+    enabled: isDeveloper && isCollabOpen && !!conversationId,
+    refetchInterval: isCollabOpen ? 5000 : false, // Auto-refresh every 5s when open for real-time updates
   });
 
-  // Add observation mutation
-  const addObservationMutation = useMutation({
-    mutationFn: async (content: string) => {
-      return apiRequest("POST", "/api/collaboration/observe", { content });
-    },
-    onSuccess: () => {
-      setObservationInput("");
-      refetchFeed();
-    },
+  // Fallback: Get recent channels when no active conversation
+  const { data: recentChannels, isLoading: channelsLoading } = useQuery<HiveChannel[]>({
+    queryKey: ["/api/collaboration/channels"],
+    enabled: isDeveloper && isCollabOpen && !conversationId,
   });
 
-  // Resolve event mutation
-  const resolveEventMutation = useMutation({
-    mutationFn: async (eventId: number) => {
-      return apiRequest("POST", `/api/collaboration/events/${eventId}/resolve`, {});
-    },
-    onSuccess: () => {
-      refetchFeed();
-    },
-  });
+  // Beacon type labels for display (using lucide-react icons, no emojis)
+  const beaconTypeIcons: Record<string, { label: string; Icon: typeof BookOpen }> = {
+    teaching_moment: { label: 'Teaching Moment', Icon: BookOpen },
+    student_struggle: { label: 'Student Struggle', Icon: AlertTriangle },
+    tool_usage: { label: 'Tool Usage', Icon: Wrench },
+    breakthrough: { label: 'Breakthrough', Icon: Sparkles },
+    correction: { label: 'Correction', Icon: Pencil },
+    cultural_insight: { label: 'Cultural Insight', Icon: Globe },
+    vocabulary_intro: { label: 'New Vocabulary', Icon: BookMarked },
+  };
 
   // Determine which tutor image to show based on state and gender preference
   const getTutorImage = () => {
@@ -245,129 +251,171 @@ export function ImmersiveTutor({
               size="icon"
               className="absolute top-4 right-4 z-20 bg-background/80 backdrop-blur-sm rounded-full shadow-lg border h-10 w-10"
               data-testid="button-collaboration-panel"
-              title="Collaboration Feed"
+              title="Hive Mind - Daniela & Editor Collaboration"
             >
               <Handshake className="h-5 w-5" />
-              {collabFeed?.stats?.active && collabFeed.stats.active > 0 && (
+              {hiveData?.snapshots && hiveData.snapshots.filter(s => !s.editorResponse).length > 0 && (
                 <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
-                  {collabFeed.stats.active > 9 ? '9+' : collabFeed.stats.active}
+                  {hiveData.snapshots.filter(s => !s.editorResponse).length > 9 ? '9+' : hiveData.snapshots.filter(s => !s.editorResponse).length}
                 </span>
               )}
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-[350px] sm:w-[400px] flex flex-col">
+          <SheetContent side="right" className="w-[350px] sm:w-[450px] flex flex-col">
             <SheetHeader>
               <SheetTitle className="flex items-center gap-2">
                 <Handshake className="h-5 w-5" />
-                Live Collaboration
+                Hive Mind
               </SheetTitle>
               <SheetDescription>
-                Real-time founder-AI collaboration feed
+                Real-time Daniela ↔ Editor collaboration feed
               </SheetDescription>
             </SheetHeader>
 
-            {/* Stats summary */}
-            {collabFeed?.stats && (
-              <div className="flex gap-2 py-2 border-b">
-                <Badge variant="outline" className="text-xs">
-                  {collabFeed.stats.active} active
+            {/* Channel status */}
+            {hiveData?.channel && (
+              <div className="flex flex-wrap gap-2 py-2 border-b">
+                <Badge 
+                  variant={hiveData.channel.sessionPhase === 'active' ? 'default' : 'secondary'} 
+                  className="text-xs"
+                >
+                  {hiveData.channel.sessionPhase === 'active' ? 'Live Session' : 
+                   hiveData.channel.sessionPhase === 'post_session' ? 'Post-Session' : 'Completed'}
                 </Badge>
-                <Badge variant="secondary" className="text-xs">
-                  {collabFeed.stats.resolved} resolved
+                {hiveData.channel.targetLanguage && (
+                  <Badge variant="outline" className="text-xs">
+                    {hiveData.channel.targetLanguage}
+                  </Badge>
+                )}
+                <Badge variant="outline" className="text-xs">
+                  {hiveData.snapshots.length} beacons
                 </Badge>
               </div>
             )}
 
-            {/* Event feed */}
+            {/* Beacon feed - Real-time Daniela-Editor dialogue */}
             <ScrollArea className="flex-1 -mx-6 px-6">
-              {feedLoading ? (
+              {hiveLoading || channelsLoading ? (
                 <div className="py-8 text-center text-muted-foreground">Loading...</div>
-              ) : !collabFeed?.events?.length ? (
-                <div className="py-8 text-center text-muted-foreground text-sm">
-                  No collaboration events yet
-                </div>
-              ) : (
-                <div className="space-y-3 py-3">
-                  {collabFeed.events.slice(0, 20).map((event) => (
-                    <div
-                      key={event.id}
-                      className={`p-3 rounded-lg border text-sm ${
-                        event.status === 'resolved' 
-                          ? 'bg-muted/50 opacity-60' 
-                          : event.priority === 'high' 
-                            ? 'border-orange-500/50 bg-orange-50/50 dark:bg-orange-950/20'
-                            : ''
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                              {event.eventType.replace('_', ' ')}
+              ) : !conversationId ? (
+                // No active conversation - show recent channels
+                <div className="py-4">
+                  <p className="text-xs text-muted-foreground mb-3">No active voice session. Recent channels:</p>
+                  {recentChannels && recentChannels.length > 0 ? (
+                    <div className="space-y-2">
+                      {recentChannels.slice(0, 5).map((channel) => (
+                        <div key={channel.id} className="p-2 rounded-lg border text-xs">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-[10px]">
+                              {channel.sessionPhase}
                             </Badge>
-                            {event.priority === 'high' && (
-                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
-                                high
-                              </Badge>
+                            {channel.targetLanguage && (
+                              <span className="text-muted-foreground">{channel.targetLanguage}</span>
                             )}
                           </div>
-                          <p className="font-medium text-xs line-clamp-2">{event.title}</p>
-                          {event.content && (
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                              {event.content}
-                            </p>
-                          )}
                           <p className="text-[10px] text-muted-foreground mt-1">
-                            {new Date(event.createdAt).toLocaleTimeString()}
+                            {new Date(channel.startedAt).toLocaleString()}
                           </p>
                         </div>
-                        {event.status === 'active' && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 shrink-0"
-                            onClick={() => resolveEventMutation.mutate(event.id)}
-                            disabled={resolveEventMutation.isPending}
-                            title="Mark resolved"
-                          >
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                          </Button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No previous channels found.</p>
+                  )}
+                </div>
+              ) : !hiveData?.channel ? (
+                <div className="py-8 text-center text-muted-foreground text-sm">
+                  <p>No hive channel for this session yet.</p>
+                  <p className="text-xs mt-1">Channel creates when voice session starts.</p>
+                </div>
+              ) : !hiveData.snapshots.length ? (
+                <div className="py-8 text-center text-muted-foreground text-sm">
+                  <p>Listening for teaching moments...</p>
+                  <p className="text-xs mt-1">Beacons appear when Daniela teaches or student struggles.</p>
+                </div>
+              ) : (
+                <div className="space-y-4 py-3">
+                  {hiveData.snapshots.map((snapshot) => {
+                    const beaconInfo = beaconTypeIcons[snapshot.beaconType] || { label: 'Insight', Icon: Lightbulb };
+                    const BeaconIcon = beaconInfo.Icon;
+                    return (
+                      <div
+                        key={snapshot.id}
+                        className={`p-3 rounded-lg border text-sm space-y-2 ${
+                          snapshot.editorResponse 
+                            ? 'border-green-500/30 bg-green-50/30 dark:bg-green-950/20' 
+                            : 'border-blue-500/30 bg-blue-50/30 dark:bg-blue-950/20'
+                        }`}
+                        data-testid={`beacon-${snapshot.id}`}
+                      >
+                        {/* Beacon header */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <BeaconIcon className="h-4 w-4 text-primary" />
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            {beaconInfo.label}
+                          </Badge>
+                          <span className="text-[10px] text-muted-foreground ml-auto">
+                            {new Date(snapshot.createdAt).toLocaleTimeString()}
+                          </span>
+                        </div>
+
+                        {/* Tutor turn */}
+                        <div className="bg-background/50 rounded p-2">
+                          <p className="text-[10px] text-muted-foreground mb-1 font-medium">Daniela:</p>
+                          <p className="text-xs">{snapshot.tutorTurn}</p>
+                        </div>
+
+                        {/* Student turn (if present) */}
+                        {snapshot.studentTurn && (
+                          <div className="bg-background/50 rounded p-2">
+                            <p className="text-[10px] text-muted-foreground mb-1 font-medium">Student:</p>
+                            <p className="text-xs">{snapshot.studentTurn}</p>
+                          </div>
+                        )}
+
+                        {/* Beacon reason */}
+                        {snapshot.beaconReason && (
+                          <p className="text-[10px] text-muted-foreground italic">
+                            Reason: {snapshot.beaconReason}
+                          </p>
+                        )}
+
+                        {/* Editor response */}
+                        {snapshot.editorResponse ? (
+                          <div className="border-t pt-2 mt-2">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-[10px] font-medium text-green-700 dark:text-green-400">Editor responded:</span>
+                              {snapshot.editorRespondedAt && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  {new Date(snapshot.editorRespondedAt).toLocaleTimeString()}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs bg-green-100/50 dark:bg-green-900/30 rounded p-2">
+                              {snapshot.editorResponse}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="border-t pt-2 mt-2">
+                            <p className="text-[10px] text-muted-foreground italic flex items-center gap-1">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Awaiting Editor response...
+                            </p>
+                          </div>
                         )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </ScrollArea>
 
-            {/* Observation input */}
-            <div className="border-t pt-3 mt-auto">
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (observationInput.trim()) {
-                    addObservationMutation.mutate(observationInput.trim());
-                  }
-                }}
-                className="flex gap-2"
-              >
-                <Input
-                  value={observationInput}
-                  onChange={(e) => setObservationInput(e.target.value)}
-                  placeholder="Add observation..."
-                  className="flex-1 text-sm"
-                  data-testid="input-collaboration-observation"
-                />
-                <Button
-                  type="submit"
-                  size="icon"
-                  disabled={!observationInput.trim() || addObservationMutation.isPending}
-                  data-testid="button-submit-observation"
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
-              </form>
-            </div>
+            {/* Panel footer - channel info */}
+            {hiveData?.channel && (
+              <div className="border-t pt-2 mt-auto text-[10px] text-muted-foreground">
+                Channel: {hiveData.channel.id.slice(0, 8)}... | Started: {new Date(hiveData.channel.startedAt).toLocaleTimeString()}
+              </div>
+            )}
           </SheetContent>
         </Sheet>
       )}

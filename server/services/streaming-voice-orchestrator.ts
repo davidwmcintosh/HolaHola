@@ -53,6 +53,7 @@ import { tagConversation } from "./conversation-tagger";
 import { architectVoiceService } from "./architect-voice-service";
 import { trackToolEvent, mapWhiteboardTypeToToolType } from "./pedagogical-insights-service";
 import { createSystemPrompt } from "../system-prompt";
+import { hiveCollaborationService, BeaconType } from "./hive-collaboration-service";
 
 /**
  * Clean text for display by removing markdown, emotion tags, and other formatting
@@ -205,6 +206,7 @@ export interface StreamingSession {
   dbSessionId?: string;             // Database voice_sessions.id (UUID) for pedagogical tracking
   classId?: string;                  // Class ID for syllabus tracking (if class session)
   toolsUsedSession: string[];        // Tools used in this session for ACTFL analytics
+  hiveChannelId?: string;            // Hive collaboration channel ID for Daniela-Editor collaboration
 }
 
 /**
@@ -418,6 +420,23 @@ export class StreamingVoiceOrchestrator {
     });
     
     this.sessions.set(sessionId, session);
+    
+    // HIVE CHANNEL: Create collaboration channel for founder sessions
+    // This enables Daniela-Editor collaboration during voice chat
+    if (isFounderMode) {
+      hiveCollaborationService.getOrCreateChannel({
+        conversationId: config.conversationId,
+        userId: String(userId),
+        targetLanguage: config.targetLanguage,
+        studentLevel: config.difficultyLevel,
+        sessionTopic: additionalContext?.conversationTopic,
+      }).then(channel => {
+        session.hiveChannelId = channel.id;
+        console.log(`[Streaming Orchestrator] Hive channel created: ${channel.id}`);
+      }).catch((err: Error) => {
+        console.warn(`[Streaming Orchestrator] Failed to create hive channel:`, err.message);
+      });
+    }
     
     // Send connected message
     this.sendMessage(ws, {
@@ -940,6 +959,14 @@ export class StreamingVoiceOrchestrator {
       
       console.log(`[Streaming Orchestrator] Complete: ${metrics.sentenceCount} sentences in ${metrics.totalLatencyMs}ms (turnId: ${turnId})`);
       console.log(`[Streaming Orchestrator] Latencies: STT=${metrics.sttLatencyMs}ms, AI=${metrics.aiFirstTokenMs}ms, TTS=${metrics.ttsFirstByteMs}ms`);
+      
+      // HIVE BEACON EMISSION: Flag interesting teaching moments for Editor collaboration
+      // Only emit for founder sessions to avoid noise, and run non-blocking
+      if (session.isFounderMode && session.hiveChannelId) {
+        this.emitHiveBeacons(session, transcript, fullText.trim()).catch((err: Error) => {
+          console.warn('[Hive Beacon] Error emitting beacons:', err.message);
+        });
+      }
       
       // TUTOR SWITCH: Execute pending handoff after farewell completes
       // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
@@ -1936,6 +1963,147 @@ export class StreamingVoiceOrchestrator {
     } catch (error: any) {
       console.error('[Streaming Orchestrator] Database error:', error.message);
       throw error;
+    }
+  }
+  
+  /**
+   * Emit hive beacons for Daniela-Editor collaboration
+   * Detects teaching moments, tool usage, and other notable events for Editor awareness
+   */
+  private async emitHiveBeacons(
+    session: StreamingSession,
+    studentTurn: string,
+    tutorTurn: string
+  ): Promise<void> {
+    if (!session.hiveChannelId) return;
+    
+    // Parse tutor response for whiteboard markup
+    const whiteboardItems = parseWhiteboardMarkup(tutorTurn);
+    
+    // Detect beacon types based on content
+    const beaconsToEmit: Array<{ type: BeaconType; reason: string }> = [];
+    
+    // TOOL USAGE: Check for whiteboard tool usage
+    if (whiteboardItems.length > 0) {
+      const toolTypes = whiteboardItems.map(item => item.type);
+      const uniqueTools = [...new Set(toolTypes)];
+      
+      // Emit teaching_moment for significant tools
+      const teachingTools = ['WRITE', 'COMPARE', 'PHONETIC', 'GRAMMAR_TABLE', 'STROKE', 'TONE', 'CULTURE'];
+      if (uniqueTools.some(t => teachingTools.includes(t))) {
+        beaconsToEmit.push({
+          type: 'teaching_moment',
+          reason: `Used whiteboard tools: ${uniqueTools.join(', ')}`,
+        });
+      }
+      
+      // Emit tool_usage for any tool
+      beaconsToEmit.push({
+        type: 'tool_usage',
+        reason: `Whiteboard: ${uniqueTools.join(', ')}`,
+      });
+    }
+    
+    // VOCABULARY INTRODUCTION: Check for new vocabulary teaching
+    const vocabPatterns = [
+      /let'?s learn/i,
+      /new word/i,
+      /vocabulary/i,
+      /this means/i,
+      /in (spanish|french|german|italian|japanese|mandarin|korean|portuguese)/i,
+    ];
+    if (vocabPatterns.some(pattern => pattern.test(tutorTurn))) {
+      beaconsToEmit.push({
+        type: 'vocabulary_intro',
+        reason: 'Introducing new vocabulary',
+      });
+    }
+    
+    // CORRECTION: Check for error correction patterns
+    const correctionPatterns = [
+      /correct form is/i,
+      /actually.*should be/i,
+      /close.*but/i,
+      /almost.*but/i,
+      /not quite/i,
+      /small mistake/i,
+      /correction/i,
+    ];
+    if (correctionPatterns.some(pattern => pattern.test(tutorTurn))) {
+      beaconsToEmit.push({
+        type: 'correction',
+        reason: 'Correcting student error',
+      });
+    }
+    
+    // BREAKTHROUGH: Check for positive reinforcement of understanding
+    const breakthroughPatterns = [
+      /perfect!/i,
+      /excellent!/i,
+      /you got it/i,
+      /exactly right/i,
+      /wonderful progress/i,
+      /you'?re getting it/i,
+      /great job/i,
+      /¡?excelente!?/i,
+      /¡?perfecto!?/i,
+    ];
+    if (breakthroughPatterns.some(pattern => pattern.test(tutorTurn))) {
+      beaconsToEmit.push({
+        type: 'breakthrough',
+        reason: 'Student demonstrated understanding',
+      });
+    }
+    
+    // CULTURAL INSIGHT: Check for cultural teaching
+    const culturalPatterns = [
+      /in (spanish|french|german|italian|japanese|mandarin|korean|portuguese) culture/i,
+      /culturally/i,
+      /tradition/i,
+      /custom/i,
+      /native speakers/i,
+      /in (spain|mexico|france|germany|italy|japan|china|korea|brazil|portugal)/i,
+    ];
+    if (culturalPatterns.some(pattern => pattern.test(tutorTurn))) {
+      beaconsToEmit.push({
+        type: 'cultural_insight',
+        reason: 'Cultural context teaching',
+      });
+    }
+    
+    // STUDENT STRUGGLE: Check for student asking for help
+    const strugglePatterns = [
+      /i don'?t (understand|get it)/i,
+      /can you repeat/i,
+      /what does.*mean/i,
+      /help/i,
+      /confused/i,
+      /too fast/i,
+      /slower/i,
+    ];
+    if (strugglePatterns.some(pattern => pattern.test(studentTurn))) {
+      beaconsToEmit.push({
+        type: 'student_struggle',
+        reason: 'Student requested help or showed confusion',
+      });
+    }
+    
+    // Emit beacons (limit to 2 per turn to avoid spam)
+    const beaconsToSend = beaconsToEmit.slice(0, 2);
+    
+    for (const beacon of beaconsToSend) {
+      try {
+        await hiveCollaborationService.emitBeacon({
+          channelId: session.hiveChannelId,
+          tutorTurn,
+          studentTurn,
+          beaconType: beacon.type,
+          beaconReason: beacon.reason,
+        });
+        console.log(`[Hive Beacon] Emitted ${beacon.type}: ${beacon.reason}`);
+      } catch (err: any) {
+        console.warn(`[Hive Beacon] Failed to emit ${beacon.type}:`, err.message);
+      }
     }
   }
   
@@ -3147,6 +3315,14 @@ Using this context, speak first to the student with a natural opening message. O
         clearTimeout(session.idleTimeoutId);
         session.idleTimeoutId = undefined;
       }
+      
+      // HIVE CHANNEL: Transition to post_session for Editor continuation
+      if (session.hiveChannelId) {
+        hiveCollaborationService.endSession(session.hiveChannelId).catch((err: Error) => {
+          console.warn(`[Streaming Orchestrator] Failed to end hive channel:`, err.message);
+        });
+      }
+      
       session.isActive = false;
       this.sessions.delete(sessionId);
       console.log(`[Streaming Orchestrator] Session ended: ${sessionId}`);

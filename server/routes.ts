@@ -49,6 +49,8 @@ import { usageService } from "./services/usage-service";
 import { sessionCompassService, COMPASS_ENABLED } from "./services/session-compass-service";
 import { architectVoiceService, validateArchitectSecret } from "./services/architect-voice-service";
 import { collaborationHubService } from "./services/collaboration-hub-service";
+import { hiveCollaborationService } from "./services/hive-collaboration-service";
+import { editorPersonaService, validateEditorSecret } from "./services/editor-persona-service";
 import { 
   getAvailableActflLevels,
   getSupportedLanguages,
@@ -12900,6 +12902,164 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       res.json(thread);
     } catch (error: any) {
       console.error('[API] Error fetching event thread:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================================
+  // HIVE COLLABORATION: Channelized Feeds & Editor Endpoints
+  // ============================================================================
+  
+  // Get channel with snapshots
+  app.get("/api/collaboration/channels/:channelId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const channel = await hiveCollaborationService.getChannel(req.params.channelId);
+      if (!channel) {
+        return res.status(404).json({ error: "Channel not found" });
+      }
+      const snapshots = await hiveCollaborationService.getChannelSnapshots(req.params.channelId);
+      res.json({ channel, snapshots });
+    } catch (error: any) {
+      console.error('[API] Error fetching channel:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get channel feed (collaboration events for a specific channel)
+  app.get("/api/collaboration/channels/:channelId/feed", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const feed = await hiveCollaborationService.getChannelFeed(req.params.channelId, limit);
+      res.json(feed);
+    } catch (error: any) {
+      console.error('[API] Error fetching channel feed:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get user's recent collaboration channels
+  app.get("/api/collaboration/channels", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const channels = await hiveCollaborationService.getUserChannels(req.user?.id, limit);
+      res.json(channels);
+    } catch (error: any) {
+      console.error('[API] Error fetching user channels:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get active channel for a conversation (for real-time panel during voice session)
+  app.get("/api/collaboration/conversations/:conversationId/channel", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const channel = await hiveCollaborationService.getActiveChannelForConversation(req.params.conversationId);
+      if (!channel) {
+        return res.json({ channel: null, snapshots: [] });
+      }
+      const snapshots = await hiveCollaborationService.getChannelSnapshots(channel.id);
+      res.json({ channel, snapshots });
+    } catch (error: any) {
+      console.error('[API] Error fetching active channel for conversation:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Editor responds to a specific beacon (ARCHITECT_SECRET protected)
+  app.post("/api/collaboration/editor/respond/:snapshotId", async (req: any, res) => {
+    try {
+      const secret = req.headers['x-architect-secret'] as string;
+      if (!validateEditorSecret(secret)) {
+        return res.status(401).json({ error: "Unauthorized - invalid or missing ARCHITECT_SECRET" });
+      }
+      
+      const result = await editorPersonaService.processBeacon(req.params.snapshotId);
+      if (!result) {
+        return res.status(404).json({ error: "Snapshot not found" });
+      }
+      res.json(result);
+    } catch (error: any) {
+      console.error('[API] Error processing editor beacon response:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Direct question to Editor (ARCHITECT_SECRET protected)
+  app.post("/api/collaboration/editor/ask", async (req: any, res) => {
+    try {
+      const secret = req.headers['x-architect-secret'] as string;
+      if (!validateEditorSecret(secret)) {
+        return res.status(401).json({ error: "Unauthorized - invalid or missing ARCHITECT_SECRET" });
+      }
+      
+      const { question, conversationId, targetLanguage, additionalContext } = req.body;
+      if (!question) {
+        return res.status(400).json({ error: "question is required" });
+      }
+      
+      const response = await editorPersonaService.askEditor(question, {
+        conversationId,
+        targetLanguage,
+        additionalContext,
+      });
+      res.json({ response });
+    } catch (error: any) {
+      console.error('[API] Error asking editor:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Process all pending beacons (ARCHITECT_SECRET protected, for background worker)
+  app.post("/api/collaboration/editor/process-pending", async (req: any, res) => {
+    try {
+      const secret = req.headers['x-architect-secret'] as string;
+      if (!validateEditorSecret(secret)) {
+        return res.status(401).json({ error: "Unauthorized - invalid or missing ARCHITECT_SECRET" });
+      }
+      
+      const { channelId } = req.body;
+      let processed: number;
+      
+      if (channelId) {
+        processed = await editorPersonaService.processChannelBeacons(channelId);
+      } else {
+        processed = await editorPersonaService.processAllPendingBeacons();
+      }
+      
+      res.json({ processed });
+    } catch (error: any) {
+      console.error('[API] Error processing pending beacons:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Generate post-session reflection for a channel (ARCHITECT_SECRET protected)
+  app.post("/api/collaboration/editor/reflect/:channelId", async (req: any, res) => {
+    try {
+      const secret = req.headers['x-architect-secret'] as string;
+      if (!validateEditorSecret(secret)) {
+        return res.status(401).json({ error: "Unauthorized - invalid or missing ARCHITECT_SECRET" });
+      }
+      
+      const reflection = await editorPersonaService.generatePostSessionReflection(req.params.channelId);
+      res.json({ reflection });
+    } catch (error: any) {
+      console.error('[API] Error generating post-session reflection:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Process all post-session channels (ARCHITECT_SECRET protected, for background worker)
+  app.post("/api/collaboration/editor/process-post-sessions", async (req: any, res) => {
+    try {
+      const secret = req.headers['x-architect-secret'] as string;
+      if (!validateEditorSecret(secret)) {
+        return res.status(401).json({ error: "Unauthorized - invalid or missing ARCHITECT_SECRET" });
+      }
+      
+      const processed = await editorPersonaService.processPostSessionChannels();
+      res.json({ processed });
+    } catch (error: any) {
+      console.error('[API] Error processing post-session channels:', error);
       res.status(500).json({ error: error.message });
     }
   });

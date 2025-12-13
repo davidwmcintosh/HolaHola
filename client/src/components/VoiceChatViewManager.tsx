@@ -190,6 +190,7 @@ export function VoiceChatViewManager({
                 baseSpeakingRate={baseSpeakingRate}
                 isDeveloper={isDeveloper}
                 classId={classId}
+                conversationId={conversationId}
                 onReloadCredits={onReloadCredits}
                 onResetData={onResetData}
                 isReloadingCredits={isReloadingCredits}
