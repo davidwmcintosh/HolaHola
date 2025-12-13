@@ -54,6 +54,7 @@ import { architectVoiceService } from "./architect-voice-service";
 import { trackToolEvent, mapWhiteboardTypeToToolType } from "./pedagogical-insights-service";
 import { createSystemPrompt } from "../system-prompt";
 import { hiveCollaborationService, BeaconType } from "./hive-collaboration-service";
+import { editorFeedbackService } from "./editor-feedback-service";
 import { db } from "../db";
 import { 
   tutorProcedures, 
@@ -106,6 +107,8 @@ function cleanTextForDisplay(text: string): string {
     .replace(/\s*\((?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful|encouraging|patient)\)\s*/gi, ' ')
     // Remove [laughter] tags for display
     .replace(/\[laughter\]/gi, '')
+    // Remove [ADOPT_INSIGHT:uuid] markers - internal tracking, not for display
+    .replace(/\[ADOPT_INSIGHT:[a-f0-9-]+\]/gi, '')
     // Remove [bracket] emotion/action tags like [happy], [excited]
     .replace(/\[(?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful|encouraging|patient)\]/gi, '')
     // Remove BARE emotion words at start of text (AI sometimes outputs "happy\n" or "friendly**text**")
@@ -620,10 +623,32 @@ export class StreamingVoiceOrchestrator {
         }
       }
       
+      // EDITOR FEEDBACK: Inject unsurfaced insights for Founder Mode collaboration
+      // This enables the Daniela-Editor feedback loop during voice sessions
+      let editorFeedbackSection = '';
+      let surfacedFeedbackIds: string[] = [];
+      if (session.isFounderMode && session.conversationId) {
+        try {
+          const feedback = await editorFeedbackService.getFeedbackForConversation(session.conversationId, 3);
+          if (feedback.hasNewFeedback) {
+            editorFeedbackSection = editorFeedbackService.buildPromptSection(feedback);
+            surfacedFeedbackIds = feedback.recentFeedback.map(f => f.id);
+            console.log(`[Editor Feedback] Injecting ${feedback.recentFeedback.length} insights into context`);
+          }
+        } catch (err: any) {
+          console.warn(`[Editor Feedback] Failed to fetch feedback:`, err.message);
+        }
+      }
+      
+      // Build enhanced system prompt with Editor feedback if available
+      const enhancedSystemPrompt = editorFeedbackSection 
+        ? session.systemPrompt + editorFeedbackSection 
+        : session.systemPrompt;
+      
       const userMessageWithNote = transcript + contentRedirectNote + architectContext;
       
       await this.geminiService.streamWithSentenceChunking({
-        systemPrompt: session.systemPrompt,
+        systemPrompt: enhancedSystemPrompt,
         conversationHistory: session.conversationHistory,
         userMessage: userMessageWithNote,
         onSentence: async (chunk: SentenceChunk) => {
@@ -984,6 +1009,32 @@ export class StreamingVoiceOrchestrator {
       if (session.pendingArchitectNoteIds.length > 0) {
         architectVoiceService.markNotesDelivered(session.pendingArchitectNoteIds);
         session.pendingArchitectNoteIds = [];  // Clear after delivery
+      }
+      
+      // EDITOR FEEDBACK: Mark newly surfaced feedback
+      if (surfacedFeedbackIds.length > 0) {
+        editorFeedbackService.markAsSurfaced(surfacedFeedbackIds).catch((err: any) => {
+          console.warn(`[Editor Feedback] Failed to mark as surfaced:`, err.message);
+        });
+      }
+      
+      // EDITOR FEEDBACK: Parse [ADOPT_INSIGHT:id] markers from Daniela's response
+      // This runs unconditionally for Founder Mode so Daniela can adopt previously surfaced insights
+      if (session.isFounderMode) {
+        const responseText = fullText.trim();
+        const adoptionMatches = responseText.match(/\[ADOPT_INSIGHT:([a-f0-9-]+)\]/gi);
+        if (adoptionMatches) {
+          for (const match of adoptionMatches) {
+            const idMatch = match.match(/\[ADOPT_INSIGHT:([a-f0-9-]+)\]/i);
+            if (idMatch && idMatch[1]) {
+              const adoptedId = idMatch[1];
+              editorFeedbackService.markAsAdopted(adoptedId, `Voice response in ${session.targetLanguage}`).catch((err: any) => {
+                console.warn(`[Editor Feedback] Failed to mark adoption:`, err.message);
+              });
+              console.log(`[Editor Feedback] Daniela adopted insight: ${adoptedId}`);
+            }
+          }
+        }
       }
       
       this.sendMessage(session.ws, {
