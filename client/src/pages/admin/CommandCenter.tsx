@@ -78,7 +78,9 @@ import {
   Lock,
   Send,
   Eye as EyeIcon,
-  EyeOff
+  EyeOff,
+  Brain,
+  Edit
 } from "lucide-react";
 import {
   AlertDialog,
@@ -4422,6 +4424,37 @@ interface ConsultationMessageData {
   createdAt: string;
 }
 
+interface ProjectContextData {
+  id: string;
+  features?: Array<{
+    name: string;
+    status: 'planned' | 'in_development' | 'shipped' | 'deprecated';
+    description?: string;
+    lastUpdated?: string;
+  }> | null;
+  architecture?: {
+    frontendStack?: string[];
+    backendStack?: string[];
+    databases?: string[];
+    integrations?: string[];
+    keyPatterns?: string[];
+  } | null;
+  currentFocus?: {
+    activeSprintIds?: string[];
+    priorityAreas?: string[];
+    blockers?: string[];
+    recentChanges?: string[];
+  } | null;
+  aiInsights?: {
+    suggestedImprovements?: string[];
+    potentialRisks?: string[];
+    opportunityAreas?: string[];
+  } | null;
+  isActive: boolean | null;
+  createdBy: string | null;
+  createdAt: string;
+}
+
 function FeatureSprintTab() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -4535,6 +4568,60 @@ function FeatureSprintTab() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
+
+  // Project context query and mutation
+  const { data: projectContext, refetch: refetchContext } = useQuery<ProjectContextData | null>({
+    queryKey: ['/api/project-context'],
+  });
+
+  const [showContextEditor, setShowContextEditor] = useState(false);
+  const [contextFeatures, setContextFeatures] = useState<string>('');
+  const [contextPriorities, setContextPriorities] = useState<string>('');
+  const [contextBlockers, setContextBlockers] = useState<string>('');
+
+  const updateContextMutation = useMutation({
+    mutationFn: async (data: {
+      source: string;
+      features?: Array<{ name: string; status: string; description?: string; lastUpdated?: string }>;
+      architecture?: { frontendStack?: string[]; backendStack?: string[]; databases?: string[]; integrations?: string[]; keyPatterns?: string[] };
+      currentFocus?: { activeSprintIds?: string[]; priorityAreas?: string[]; blockers?: string[]; recentChanges?: string[] };
+      aiInsights?: { suggestedImprovements?: string[]; potentialRisks?: string[]; opportunityAreas?: string[] };
+    }) => {
+      return apiRequest("POST", "/api/project-context", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/project-context'] });
+      setShowContextEditor(false);
+      toast({ title: "Project context updated" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const saveProjectContext = () => {
+    const features = contextFeatures.split('\n').filter(f => f.trim()).map(f => {
+      const parts = f.split(':');
+      const status = parts[1]?.trim();
+      const validStatuses = ['planned', 'in_development', 'shipped', 'deprecated'];
+      return {
+        name: parts[0]?.trim() || f.trim(),
+        status: (validStatuses.includes(status || '') ? status : 'in_development') as 'planned' | 'in_development' | 'shipped' | 'deprecated',
+        description: parts.slice(2).join(':').trim() || undefined,
+        lastUpdated: new Date().toISOString(),
+      };
+    });
+    
+    updateContextMutation.mutate({
+      source: 'manual',
+      features: features.length > 0 ? features : undefined,
+      currentFocus: {
+        priorityAreas: contextPriorities.split('\n').filter(p => p.trim()),
+        blockers: contextBlockers.split('\n').filter(b => b.trim()),
+        activeSprintIds: sprints.filter(s => s.stage === 'in_progress').map(s => s.id),
+      },
+    });
+  };
 
   const consultDaniela = async () => {
     if (!consultationQuestion.trim()) {
@@ -4970,6 +5057,146 @@ Examples:
           )}
         </div>
       )}
+
+      {/* Project Context Section - AI Awareness */}
+      <CollapsibleSection
+        title="Project Context"
+        icon={<Brain className="h-5 w-5 text-primary" />}
+        defaultOpen={false}
+        badge={projectContext?.isActive ? "Active" : projectContext ? "Inactive" : "Not Set"}
+      >
+        <div className="space-y-4 mt-4">
+          <div className="p-3 rounded-lg bg-muted/50 text-sm text-muted-foreground">
+            Project context helps AI understand current features, priorities, and blockers. 
+            Update this when starting new work or changing focus areas.
+          </div>
+
+          {projectContext && !showContextEditor && (
+            <div className="space-y-3">
+              {projectContext.features && projectContext.features.length > 0 && (
+                <div>
+                  <div className="font-medium text-sm mb-2">Features</div>
+                  <div className="flex flex-wrap gap-2">
+                    {projectContext.features.map((f, i) => (
+                      <Badge 
+                        key={i} 
+                        variant={f.status === 'shipped' ? 'default' : 'secondary'}
+                        className="text-xs"
+                      >
+                        {f.name} ({f.status})
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {projectContext.currentFocus?.priorityAreas && projectContext.currentFocus.priorityAreas.length > 0 && (
+                <div>
+                  <div className="font-medium text-sm mb-2">Priority Areas</div>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    {projectContext.currentFocus.priorityAreas.map((p, i) => (
+                      <li key={i} className="flex items-center gap-2">
+                        <ChevronRight className="h-3 w-3" />
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              {projectContext.currentFocus?.blockers && projectContext.currentFocus.blockers.length > 0 && (
+                <div>
+                  <div className="font-medium text-sm mb-2 text-destructive">Blockers</div>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    {projectContext.currentFocus.blockers.map((b, i) => (
+                      <li key={i} className="flex items-center gap-2">
+                        <AlertCircle className="h-3 w-3 text-destructive" />
+                        {b}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              <div className="text-xs text-muted-foreground">
+                Last updated: {new Date(projectContext.createdAt).toLocaleString()}
+              </div>
+            </div>
+          )}
+
+          {showContextEditor ? (
+            <Card>
+              <CardContent className="pt-4 space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Features (one per line: name:status:description)</label>
+                  <textarea
+                    value={contextFeatures}
+                    onChange={(e) => setContextFeatures(e.target.value)}
+                    placeholder="Voice Chat:shipped:Real-time conversation with AI tutor
+Drill Mode:in_development:Practice exercises with feedback
+Grammar Tables:planned:Visual grammar reference"
+                    className="w-full min-h-[80px] p-3 rounded-md border bg-background resize-y text-sm"
+                    data-testid="input-context-features"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Priority Areas (one per line)</label>
+                  <textarea
+                    value={contextPriorities}
+                    onChange={(e) => setContextPriorities(e.target.value)}
+                    placeholder="Improve drill completion rates
+Fix voice latency issues
+Add more language support"
+                    className="w-full min-h-[60px] p-3 rounded-md border bg-background resize-y text-sm"
+                    data-testid="input-context-priorities"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Blockers (one per line)</label>
+                  <textarea
+                    value={contextBlockers}
+                    onChange={(e) => setContextBlockers(e.target.value)}
+                    placeholder="API rate limits on TTS
+Database migration pending"
+                    className="w-full min-h-[60px] p-3 rounded-md border bg-background resize-y text-sm"
+                    data-testid="input-context-blockers"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    onClick={saveProjectContext}
+                    disabled={updateContextMutation.isPending}
+                    data-testid="button-save-context"
+                  >
+                    {updateContextMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Context'}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setShowContextEditor(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                if (projectContext) {
+                  setContextFeatures(projectContext.features?.map(f => `${f.name}:${f.status}:${f.description || ''}`).join('\n') || '');
+                  setContextPriorities(projectContext.currentFocus?.priorityAreas?.join('\n') || '');
+                  setContextBlockers(projectContext.currentFocus?.blockers?.join('\n') || '');
+                }
+                setShowContextEditor(true);
+              }}
+              data-testid="button-edit-context"
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              {projectContext ? 'Update Context' : 'Set Context'}
+            </Button>
+          )}
+        </div>
+      </CollapsibleSection>
     </div>
   );
 }
