@@ -2278,6 +2278,60 @@ export const syncLog = pgTable("sync_log", {
   index("idx_sync_log_created").on(table.createdAt),
 ]);
 
+// Sync Runs - Tracks cross-environment sync operations (push/pull between dev and prod)
+export const syncRuns = pgTable("sync_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  direction: varchar("direction").notNull(), // 'push' or 'pull'
+  peerUrl: varchar("peer_url").notNull(),
+  
+  sourceEnvironment: environmentOriginEnum("source_environment").notNull(),
+  targetEnvironment: environmentOriginEnum("target_environment").notNull(),
+  
+  status: varchar("status").default("pending").notNull(), // pending, running, success, failed, partial
+  
+  // Counts per bundle type
+  bestPracticesCount: integer("best_practices_count").default(0),
+  idiomCount: integer("idiom_count").default(0),
+  nuanceCount: integer("nuance_count").default(0),
+  errorPatternCount: integer("error_pattern_count").default(0),
+  dialectCount: integer("dialect_count").default(0),
+  bridgeCount: integer("bridge_count").default(0),
+  toolCount: integer("tool_count").default(0),
+  procedureCount: integer("procedure_count").default(0),
+  principleCount: integer("principle_count").default(0),
+  patternCount: integer("pattern_count").default(0),
+  subtletyCount: integer("subtlety_count").default(0),
+  emotionalCount: integer("emotional_count").default(0),
+  creativityCount: integer("creativity_count").default(0),
+  suggestionCount: integer("suggestion_count").default(0),
+  triggerCount: integer("trigger_count").default(0),
+  actionCount: integer("action_count").default(0),
+  observationCount: integer("observation_count").default(0),
+  alertCount: integer("alert_count").default(0),
+  
+  errorMessage: text("error_message"),
+  failedTables: text("failed_tables").array(),
+  
+  triggeredBy: varchar("triggered_by"), // 'nightly', 'manual', 'api', or user ID
+  durationMs: integer("duration_ms"),
+  payloadChecksum: varchar("payload_checksum"),
+  
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("idx_sync_runs_status").on(table.status),
+  index("idx_sync_runs_direction").on(table.direction),
+  index("idx_sync_runs_started").on(table.startedAt),
+]);
+
+export const insertSyncRunSchema = createInsertSchema(syncRuns).omit({
+  id: true,
+  startedAt: true,
+});
+export type InsertSyncRun = z.infer<typeof insertSyncRunSchema>;
+export type SyncRun = typeof syncRuns.$inferSelect;
+
 // Connection Status Enum - tracks the state of people connections
 export const connectionStatusEnum = pgEnum("connection_status", [
   'tentative',      // Mentioned once, low confidence
