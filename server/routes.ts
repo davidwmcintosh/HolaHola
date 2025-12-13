@@ -13297,6 +13297,105 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
 
+  // ============================================================================
+  // BRAIN SURGERY API (3-WAY COLLABORATION: Editor ↔ Daniela ↔ David)
+  // Auth: Accepts either ARCHITECT_SECRET header OR session with admin/developer role
+  // ============================================================================
+  
+  // Helper to check brain surgery auth (secret OR session)
+  const checkBrainSurgeryAuth = async (req: any, res: any): Promise<boolean> => {
+    // Check for ARCHITECT_SECRET header first (for agent-to-agent calls)
+    const secret = req.headers['x-architect-secret'] as string;
+    if (secret && validateEditorSecret(secret)) {
+      return true;
+    }
+    
+    // Fall back to session-based auth for Command Center access
+    if (req.user?.claims?.sub) {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (user?.role === 'admin' || user?.role === 'developer') {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+  
+  // Send message from Editor to Daniela (ARCHITECT_SECRET or admin/developer session)
+  app.post("/api/brain-surgery/chat", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const { message, threadId } = req.body;
+      if (!message) {
+        return res.status(400).json({ error: "Message is required" });
+      }
+      
+      const { brainSurgeryService } = await import('./services/brain-surgery-service');
+      const response = await brainSurgeryService.editorToDaniela(message, threadId);
+      res.json(response);
+    } catch (error: any) {
+      console.error('[API] Error in brain surgery chat:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // List all brain surgery threads (ARCHITECT_SECRET or admin/developer session)
+  app.get("/api/brain-surgery/threads", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const { brainSurgeryService } = await import('./services/brain-surgery-service');
+      const threads = await brainSurgeryService.listBrainSurgeryThreads();
+      res.json(threads);
+    } catch (error: any) {
+      console.error('[API] Error listing brain surgery threads:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get a specific brain surgery thread (ARCHITECT_SECRET or admin/developer session)
+  app.get("/api/brain-surgery/thread/:threadId", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const { brainSurgeryService } = await import('./services/brain-surgery-service');
+      const messages = await brainSurgeryService.getBrainSurgeryThread(req.params.threadId);
+      res.json(messages);
+    } catch (error: any) {
+      console.error('[API] Error getting brain surgery thread:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Execute a SELF_SURGERY proposal (ARCHITECT_SECRET or admin/developer session)
+  app.post("/api/brain-surgery/execute", async (req: any, res) => {
+    try {
+      if (!await checkBrainSurgeryAuth(req, res)) {
+        return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
+      }
+      
+      const { proposal, approvedBy } = req.body;
+      if (!proposal) {
+        return res.status(400).json({ error: "Proposal is required" });
+      }
+      
+      const { brainSurgeryService } = await import('./services/brain-surgery-service');
+      const result = await brainSurgeryService.executeSelfSurgery(proposal, approvedBy || 'david');
+      res.json(result);
+    } catch (error: any) {
+      console.error('[API] Error executing brain surgery:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Server is now passed in from index.ts where WebSocket handler is attached first
   // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }

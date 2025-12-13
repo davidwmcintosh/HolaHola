@@ -4559,7 +4559,7 @@ function EditorChatTab() {
   };
 
   const startNewConversation = () => {
-    createConversationMutation.mutate();
+    createConversationMutation.mutate(undefined);
   };
 
   return (
@@ -6564,12 +6564,125 @@ function CollaborationTab() {
   );
 }
 
+// Types for Brain Surgery Chat
+interface BrainSurgeryThreadSummary {
+  threadId: string;
+  messageCount: number;
+  lastActivity: string;
+}
+
+interface SelfSurgeryProposalChat {
+  target: string;
+  content: Record<string, unknown>;
+  reasoning: string;
+  priority: number;
+  confidence: number;
+  rawCommand: string;
+}
+
+interface BrainSurgeryChatMessage {
+  id: string;
+  fromAgent: 'daniela' | 'editor' | 'support' | 'system';
+  content: string;
+  timestamp: string;
+  selfSurgeryProposals?: SelfSurgeryProposalChat[];
+}
+
 function BrainSurgeryTab() {
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<string>("pending");
   const [targetFilter, setTargetFilter] = useState<string>("all");
   const [expandedProposal, setExpandedProposal] = useState<string | null>(null);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+  
+  // Chat state
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatSending, setIsChatSending] = useState(false);
+  const chatMessagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Fetch brain surgery threads
+  const { data: threads = [], isLoading: threadsLoading, refetch: refetchThreads } = useQuery<BrainSurgeryThreadSummary[]>({
+    queryKey: ['/api/brain-surgery/threads'],
+  });
+  
+  // Fetch messages for selected thread
+  const { data: chatMessages = [], isLoading: messagesLoading, refetch: refetchChatMessages } = useQuery<BrainSurgeryChatMessage[]>({
+    queryKey: ['/api/brain-surgery/thread', selectedThreadId],
+    enabled: !!selectedThreadId,
+  });
+  
+  // Send message to Daniela
+  const sendChatMutation = useMutation({
+    mutationFn: async ({ message, threadId }: { message: string; threadId?: string }) => {
+      return apiRequest("POST", "/api/brain-surgery/chat", { message, threadId });
+    },
+    onSuccess: async (response: any) => {
+      // If this was a new thread, select it
+      if (response.threadId && !selectedThreadId) {
+        setSelectedThreadId(response.threadId);
+      }
+      await refetchThreads();
+      await refetchChatMessages();
+      setChatInput('');
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to send message", variant: "destructive" });
+    },
+  });
+  
+  // Execute self-surgery proposal
+  const executeSurgeryMutation = useMutation({
+    mutationFn: async (proposal: SelfSurgeryProposalChat) => {
+      return apiRequest("POST", "/api/brain-surgery/execute", { proposal });
+    },
+    onSuccess: (data: any) => {
+      toast({ 
+        title: "Surgery executed!", 
+        description: data.insertedId ? `Record ${data.insertedId} created in ${data.target}` : "Change applied successfully" 
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Surgery failed", description: error.message, variant: "destructive" });
+    },
+  });
+  
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (chatMessagesEndRef.current) {
+      chatMessagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages]);
+  
+  const handleSendChat = async () => {
+    if (!chatInput.trim()) return;
+    
+    setIsChatSending(true);
+    try {
+      await sendChatMutation.mutateAsync({
+        message: chatInput.trim(),
+        threadId: selectedThreadId || undefined,
+      });
+    } finally {
+      setIsChatSending(false);
+    }
+  };
+  
+  const handleChatKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendChat();
+    }
+  };
+  
+  const startNewThread = () => {
+    setSelectedThreadId(null);
+    setChatInput('');
+  };
+  
+  const formatChatTime = (timestamp: string) => {
+    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
   
   const { data: proposals, isLoading, refetch } = useQuery<Array<{
     id: string;
@@ -6697,6 +6810,203 @@ function BrainSurgeryTab() {
   
   return (
     <div className="space-y-6">
+      {/* 3-Way Collaboration Chat Section */}
+      <CollapsibleSection
+        title="Chat with Daniela"
+        icon={<MessageSquare className="h-5 w-5 text-primary" />}
+        defaultOpen={true}
+        badge={threads.length > 0 ? `${threads.length} threads` : undefined}
+      >
+        <Card className="mt-4">
+          <CardContent className="p-0">
+            <div className="flex h-[450px]">
+              {/* Thread List Sidebar */}
+              <div className="w-56 border-r flex flex-col">
+                <div className="p-3 border-b">
+                  <Button 
+                    onClick={startNewThread}
+                    className="w-full"
+                    size="sm"
+                    data-testid="button-new-brain-surgery-thread"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Thread
+                  </Button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                  {threadsLoading ? (
+                    <div className="space-y-2 p-2">
+                      {[...Array(3)].map((_, i) => (
+                        <Skeleton key={i} className="h-12" />
+                      ))}
+                    </div>
+                  ) : threads.length === 0 ? (
+                    <div className="text-xs text-muted-foreground text-center py-4 px-2">
+                      No threads yet. Start a conversation!
+                    </div>
+                  ) : (
+                    threads.map((thread) => (
+                      <Button
+                        key={thread.threadId}
+                        variant={selectedThreadId === thread.threadId ? "secondary" : "ghost"}
+                        className="w-full justify-start h-auto py-2 px-2 text-left"
+                        onClick={() => setSelectedThreadId(thread.threadId)}
+                        data-testid={`thread-${thread.threadId}`}
+                      >
+                        <div className="truncate w-full">
+                          <div className="font-medium text-xs truncate">
+                            {thread.threadId.replace('brain-surgery-', '').substring(0, 12)}...
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {thread.messageCount} msgs • {new Date(thread.lastActivity).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </Button>
+                    ))
+                  )}
+                </div>
+              </div>
+              
+              {/* Chat Messages Area */}
+              <div className="flex-1 flex flex-col">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {!selectedThreadId && chatMessages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+                      <Brain className="h-12 w-12 mb-4 opacity-50" />
+                      <p className="text-sm font-medium">Brain Surgery Session</p>
+                      <p className="text-xs mt-1 max-w-xs">
+                        Ask Daniela questions about her teaching, request improvements, or collaborate on her neural network.
+                      </p>
+                    </div>
+                  ) : messagesLoading ? (
+                    <div className="space-y-3">
+                      {[...Array(3)].map((_, i) => (
+                        <Skeleton key={i} className="h-20" />
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      {chatMessages.map((msg) => (
+                        <div
+                          key={msg.id}
+                          className={`flex gap-3 ${msg.fromAgent === 'editor' ? 'justify-end' : 'justify-start'}`}
+                        >
+                          {msg.fromAgent !== 'editor' && (
+                            <div className="h-8 w-8 rounded-full bg-purple-500 dark:bg-purple-600 flex items-center justify-center shrink-0">
+                              <Brain className="h-4 w-4 text-white" />
+                            </div>
+                          )}
+                          <div className={`max-w-[75%] space-y-2`}>
+                            <div
+                              className={`rounded-lg p-3 ${
+                                msg.fromAgent === 'editor'
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-muted'
+                              }`}
+                            >
+                              <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                              <p className={`text-xs mt-1 ${
+                                msg.fromAgent === 'editor' ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                              }`}>
+                                {msg.fromAgent === 'editor' ? 'You' : 'Daniela'} • {formatChatTime(msg.timestamp)}
+                              </p>
+                            </div>
+                            
+                            {/* Self-Surgery Proposals inline */}
+                            {msg.selfSurgeryProposals && msg.selfSurgeryProposals.length > 0 && (
+                              <div className="space-y-2">
+                                {msg.selfSurgeryProposals.map((proposal, idx) => (
+                                  <Card key={idx} className="border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20">
+                                    <CardContent className="p-3 space-y-2">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                                          SELF_SURGERY
+                                        </Badge>
+                                        <Badge variant="outline">{proposal.target}</Badge>
+                                        <Badge variant="outline">Priority: {proposal.priority}</Badge>
+                                        <Badge variant="outline">Confidence: {proposal.confidence}%</Badge>
+                                      </div>
+                                      <p className="text-sm">{proposal.reasoning}</p>
+                                      <Collapsible>
+                                        <CollapsibleTrigger asChild>
+                                          <Button variant="ghost" size="sm" className="w-full justify-between">
+                                            <span className="text-xs">View content</span>
+                                            <ChevronRight className="h-3 w-3" />
+                                          </Button>
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent className="pt-2">
+                                          <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">
+                                            {JSON.stringify(proposal.content, null, 2)}
+                                          </pre>
+                                        </CollapsibleContent>
+                                      </Collapsible>
+                                      <div className="flex gap-2">
+                                        <Button
+                                          size="sm"
+                                          variant="default"
+                                          onClick={() => executeSurgeryMutation.mutate(proposal)}
+                                          disabled={executeSurgeryMutation.isPending}
+                                          data-testid={`button-execute-surgery-${idx}`}
+                                        >
+                                          {executeSurgeryMutation.isPending ? (
+                                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                          ) : (
+                                            <Zap className="h-3 w-3 mr-1" />
+                                          )}
+                                          Execute
+                                        </Button>
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          {msg.fromAgent === 'editor' && (
+                            <div className="h-8 w-8 rounded-full bg-blue-500 dark:bg-blue-600 flex items-center justify-center shrink-0">
+                              <Edit className="h-4 w-4 text-white" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      <div ref={chatMessagesEndRef} />
+                    </>
+                  )}
+                </div>
+                
+                {/* Chat Input */}
+                <div className="border-t p-3">
+                  <div className="flex gap-2">
+                    <Input
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={handleChatKeyDown}
+                      placeholder="Ask Daniela about her teaching..."
+                      className="flex-1"
+                      disabled={isChatSending}
+                      data-testid="input-brain-surgery-chat"
+                    />
+                    <Button
+                      onClick={handleSendChat}
+                      disabled={!chatInput.trim() || isChatSending}
+                      data-testid="button-send-brain-surgery"
+                    >
+                      {isChatSending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </CollapsibleSection>
+
+      {/* Self-Surgery Proposals Section */}
       <Card className="border-primary/20 bg-primary/5">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2">

@@ -163,6 +163,18 @@ import {
   selfSurgeryProposals,
   type SelfSurgeryProposal,
   type InsertSelfSurgeryProposal,
+  tutorProcedures,
+  type TutorProcedure,
+  type InsertTutorProcedure,
+  toolKnowledge,
+  type ToolKnowledge,
+  type InsertToolKnowledge,
+  situationalPatterns,
+  type SituationalPattern,
+  type InsertSituationalPattern,
+  teachingPrinciples,
+  type TeachingPrinciple,
+  type InsertTeachingPrinciple,
   featureSprints,
   sprintStageTransitions,
   consultationThreads,
@@ -6112,6 +6124,44 @@ export class DatabaseStorage implements IStorage {
       .where(eq(aiSuggestions.id, id))
       .returning();
     return updated;
+  }
+
+  // ===== BRAIN SURGERY METHODS =====
+  
+  async getCollaborationEventsByThread(threadId: string, limit: number = 20): Promise<AgentCollaborationEvent[]> {
+    // Query events where metadata.threadId matches
+    return db.select().from(agentCollaborationEvents)
+      .where(sql`${agentCollaborationEvents.metadata}->>'threadId' = ${threadId}`)
+      .orderBy(asc(agentCollaborationEvents.createdAt))
+      .limit(limit);
+  }
+  
+  async getCollaborationEventsByTag(tag: string, limit: number = 500): Promise<AgentCollaborationEvent[]> {
+    // Query events where metadata.tags contains the tag
+    return db.select().from(agentCollaborationEvents)
+      .where(sql`${agentCollaborationEvents.metadata}->'tags' ? ${tag}`)
+      .orderBy(desc(agentCollaborationEvents.createdAt))
+      .limit(limit);
+  }
+  
+  async insertTutorProcedure(data: InsertTutorProcedure): Promise<string> {
+    const [created] = await db.insert(tutorProcedures).values([data]).returning();
+    return created.id;
+  }
+  
+  async insertTeachingPrinciple(data: InsertTeachingPrinciple): Promise<string> {
+    const [created] = await db.insert(teachingPrinciples).values([data]).returning();
+    return created.id;
+  }
+  
+  async insertToolKnowledge(data: InsertToolKnowledge): Promise<string> {
+    const [created] = await db.insert(toolKnowledge).values([data]).returning();
+    return created.id;
+  }
+  
+  async insertSituationalPattern(data: InsertSituationalPattern): Promise<string> {
+    const [created] = await db.insert(situationalPatterns).values([data]).returning();
+    return created.id;
   }
 }
 
