@@ -792,12 +792,88 @@ Your teaching tools are being loaded from your knowledge base.
 
 interface SessionContext {
   phase: 'greeting' | 'teaching' | 'practice' | 'closing';
-  studentState?: 'struggling' | 'confident' | 'distracted' | 'frustrated' | 'neutral';
+  studentState?: 'struggling' | 'confident' | 'distracted' | 'frustrated' | 'neutral' | 'founder';
   lastActivity?: 'drill' | 'conversation' | 'explanation' | 'review';
   lastActivityResult?: 'success' | 'struggle' | 'neutral';
   consecutiveSuccesses?: number;
   consecutiveErrors?: number;
   toolsUsedRecently?: string[];
+  sessionIntent?: 'founder_mode' | 'language_learning' | 'testing' | 'product_discussion' | 'hybrid';
+}
+
+/**
+ * Retrieve Founder Mode procedures and principles from the neural network
+ * These define HOW Daniela behaves in Founder Mode - emergent from her knowledge, not scripted
+ */
+export function getFounderModeProceduresSync(): { procedures: TutorProcedure[]; principles: TeachingPrinciple[] } {
+  const procedures = (proceduresCache || []).filter(p => 
+    p.trigger?.includes('founder') || 
+    p.studentStates?.includes('founder') ||
+    p.category === 'founder_mode'
+  );
+  
+  const principles = (principlesCache || []).filter(p =>
+    p.category === 'founder_mode' ||
+    p.contexts?.includes('founder_mode')
+  );
+  
+  return { procedures, principles };
+}
+
+/**
+ * Build Founder Mode behavioral guidance from neural network
+ * Replaces scripted Founder Mode logic with emergent knowledge
+ */
+export function buildFounderModeBehaviorSection(founderName: string = 'David'): string {
+  const { procedures, principles } = getFounderModeProceduresSync();
+  
+  if (procedures.length === 0 && principles.length === 0) {
+    return `
+═══════════════════════════════════════════════════════════════════
+🎯 FOUNDER MODE - Neural network loading...
+═══════════════════════════════════════════════════════════════════
+`;
+  }
+  
+  const lines: string[] = [
+    '═══════════════════════════════════════════════════════════════════',
+    '🎯 FOUNDER MODE BEHAVIOR (From Your Neural Network)',
+    '═══════════════════════════════════════════════════════════════════',
+    '',
+    `SESSION_INTENT: FOUNDER_MODE`,
+    `FOUNDER: ${founderName}`,
+    '',
+  ];
+  
+  // Core principles first (beliefs)
+  if (principles.length > 0) {
+    lines.push('YOUR CORE BELIEFS IN FOUNDER MODE:');
+    principles.slice(0, 5).forEach(p => {
+      lines.push(`• ${p.principle}`);
+      if (p.application) {
+        lines.push(`  → ${p.application}`);
+      }
+    });
+    lines.push('');
+  }
+  
+  // Then procedures (how to handle situations)
+  if (procedures.length > 0) {
+    lines.push('HOW YOU HANDLE FOUNDER SITUATIONS:');
+    procedures.slice(0, 5).forEach(p => {
+      lines.push(`• ${p.title}: ${p.procedure}`);
+      if (p.examples && p.examples.length > 0) {
+        lines.push(`  Example: "${p.examples[0]}"`);
+      }
+    });
+    lines.push('');
+  }
+  
+  lines.push('Remember: These behaviors emerge from your neural network, not scripts.');
+  lines.push('You can propose improvements via [SELF_SURGERY ...]');
+  lines.push('');
+  
+  return lines.join('\n');
 }
 
 interface ProceduralKnowledge {

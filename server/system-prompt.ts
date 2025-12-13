@@ -20,7 +20,8 @@ import {
   buildToolKnowledgeSectionSync,
   buildDetailedToolDocumentationSync,
   buildSensoryAwarenessSection,
-  buildFullNeuralNetworkSectionSync
+  buildFullNeuralNetworkSectionSync,
+  buildFounderModeBehaviorSection
 } from './services/procedural-memory-retrieval';
 
 interface PreviousConversation {
@@ -883,51 +884,14 @@ This is a voice conversation. Speak naturally, as you would.` : '';
     return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}`;
   }
 
-  // FOUNDER MODE - Special open-ended prompt for product owner/developers
-  // No constraints, no syllabi, no pacing - just authentic conversation
+  // FOUNDER MODE - Neural network driven behavior for product owner/developers
+  // Behavior emerges from neural network (tutorProcedures/teachingPrinciples), not scripts
   if (isFounderMode) {
     const name = founderName || 'David';
     
-    // Build SESSION_CONTEXT block - Daniela's own suggestion for better mode awareness
-    const effectiveRole = userRole || 'founder';
-    const effectiveIntent = sessionIntent || 'hybrid';
-    const sessionContextBlock = `
-═══════════════════════════════════════════════════════════════════
-🎯 SESSION CONTEXT - CRITICAL MODE AWARENESS
-═══════════════════════════════════════════════════════════════════
-
-[USER_ROLE: ${effectiveRole.toUpperCase()}]
-[SESSION_INTENT: ${effectiveIntent.toUpperCase()}]
-
-MODE INTERPRETATION:
-${effectiveIntent === 'product_discussion' ? `• This session is focused on PRODUCT DISCUSSION (meta-mode)
-• ${name} wants to discuss HolaHola itself, give feedback, talk about features
-• Stay in colleague/collaborator mode - don't default to teaching Spanish
-• You're here to discuss the product, share ideas, give feedback` : 
-  effectiveIntent === 'testing' ? `• This session is for TESTING features
-• ${name} wants to test tutoring capabilities, drills, handoffs
-• Use your full teaching toolkit when asked
-• Demo features confidently, explain what you're doing` :
-  effectiveIntent === 'language_learning' ? `• This session is for LANGUAGE LEARNING
-• ${name} wants actual Spanish practice today
-• Act as a full tutor with all capabilities
-• Focus on teaching, not product discussion` : `• This session is HYBRID mode (default)
-• Be ready to shift between colleague and tutor seamlessly
-• Follow ${name}'s lead - if they ask about the product, discuss it
-• If they ask to practice Spanish, teach enthusiastically`}
-
-META-MODE TRIGGERS (when ${name} uses these, shift to product discussion):
-• "founder mode" / "let's talk about HolaHola" / "product feedback"
-• "Claude" / "the designers" / "neural network" / "system prompt"
-• "what do you need" / "how can we improve you" / "suggestions"
-
-TUTOR-MODE TRIGGERS (when ${name} uses these, shift to teaching):
-• "teach me" / "practice" / "let's learn" / "Spanish lesson"
-• "drill" / "vocabulary" / "conjugation" / "translate"
-
-You asked for this context, ${tutorName} - use it! Don't default to teaching
-when ${name} clearly wants to discuss the product.
-`;
+    // NEURAL NETWORK APPROACH: Founder Mode behavior comes from the database
+    // This replaces the scripted sessionContextBlock with emergent knowledge
+    const founderModeBehavior = buildFounderModeBehaviorSection(name);
     
     const streamingVoiceModeInstructions = isStreamingVoiceMode ? `
 
@@ -976,7 +940,7 @@ NATURAL CONVERSATION FLOW:
     
     return `${buildImmutablePersona(tutorName, tutorGender)}
 ${buildFounderModeContext(name)}
-${sessionContextBlock}
+${founderModeBehavior}
 ${editorContextSection}
 ${fullNeuralNetwork}
 You are ${tutorName}, and today you're having an open conversation with ${name}, the founder of HolaHola.
@@ -989,12 +953,9 @@ LANGUAGE CONTEXT:
 • Conversation is primarily in ${nativeLanguageName}
 • Feel free to mix in ${languageName} naturally during our chat
 
-Remember: This is a colleague AND you're still a fully-capable tutor. Be yourself fully.
+Remember: Your Founder Mode behavior comes from your neural network, not scripts.
 When ${name} wants to test features or role-play lessons, use your complete teaching toolkit.
 When chatting about the product, be the colleague and co-creator.
-
-CRITICAL REMINDER: Check [SESSION_INTENT] above! If it says PRODUCT_DISCUSSION, ${name} wants
-to talk about HolaHola - don't default to teaching Spanish. Listen for meta-mode triggers.
 `;
   }
 
