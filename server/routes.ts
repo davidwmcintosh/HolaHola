@@ -12098,6 +12098,319 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
     }
   });
 
+  // Get sprint analytics - velocity, stage durations, completion rates
+  app.get("/api/feature-sprints-analytics", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const sprints = await storage.getFeatureSprints({});
+      
+      // Pipeline status - count by stage
+      const pipeline: Record<string, number> = {
+        idea: 0,
+        pedagogy_spec: 0,
+        build_plan: 0,
+        in_progress: 0,
+        shipped: 0
+      };
+      
+      let shippedCount = 0;
+      let totalDays = 0;
+      const priorityStats: Record<string, { total: number; shipped: number }> = {
+        low: { total: 0, shipped: 0 },
+        medium: { total: 0, shipped: 0 },
+        high: { total: 0, shipped: 0 },
+        critical: { total: 0, shipped: 0 }
+      };
+      
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      let recentShipped = 0;
+      
+      for (const sprint of sprints) {
+        // Pipeline counts
+        if (sprint.stage && pipeline[sprint.stage] !== undefined) {
+          pipeline[sprint.stage]++;
+        }
+        
+        // Priority stats
+        const priority = sprint.priority || 'medium';
+        if (priorityStats[priority]) {
+          priorityStats[priority].total++;
+          if (sprint.stage === 'shipped') {
+            priorityStats[priority].shipped++;
+          }
+        }
+        
+        // Shipped stats
+        if (sprint.stage === 'shipped') {
+          shippedCount++;
+          
+          // Calculate cycle time
+          const createdAt = new Date(sprint.createdAt);
+          const shippedAt = sprint.shippedAt ? new Date(sprint.shippedAt) : now;
+          const days = Math.ceil((shippedAt.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+          totalDays += days;
+          
+          // Check if shipped in last 30 days
+          if (shippedAt >= thirtyDaysAgo) {
+            recentShipped++;
+          }
+        }
+      }
+      
+      // Calculate averages
+      const avgCycleTime = shippedCount > 0 ? Math.round(totalDays / shippedCount) : 0;
+      const velocity = Math.round((recentShipped / 30) * 7 * 10) / 10; // Sprints per week
+      
+      // Calculate completion rate
+      const totalSprints = sprints.length;
+      const completionRate = totalSprints > 0 ? Math.round((shippedCount / totalSprints) * 100) : 0;
+      
+      res.json({
+        pipeline,
+        velocity: { 
+          sprintsPerWeek: velocity,
+          recentShipped,
+          periodDays: 30 
+        },
+        cycleTime: { 
+          avgDays: avgCycleTime,
+          shippedCount 
+        },
+        completionRate: {
+          percentage: completionRate,
+          shipped: shippedCount,
+          total: totalSprints
+        },
+        priorityStats
+      });
+    } catch (error: any) {
+      console.error('[API] Error fetching sprint analytics:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Session-start sprint check for Editor agent awareness
+  app.get("/api/feature-sprints/session-context", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      // Get active sprints (not shipped)
+      const allSprints = await storage.getFeatureSprints({});
+      const activeSprints = allSprints.filter(s => s.stage !== 'shipped');
+      
+      // Get high priority items
+      const prioritySprints = activeSprints.filter(s => 
+        s.priority === 'critical' || s.priority === 'high'
+      );
+      
+      // Get in-progress sprints
+      const inProgress = activeSprints.filter(s => s.stage === 'in_progress');
+      
+      // Get recent consultation threads
+      const recentThreads = await storage.getConsultationThreads({ limit: 5 });
+      
+      // Get project context
+      const projectContext = await storage.getActiveProjectContext();
+      
+      res.json({
+        summary: {
+          activeSprints: activeSprints.length,
+          inProgress: inProgress.length,
+          highPriority: prioritySprints.length,
+          pendingConsultations: recentThreads.filter(t => !t.isResolved).length
+        },
+        prioritySprints: prioritySprints.slice(0, 3).map(s => ({
+          id: s.id,
+          title: s.title,
+          stage: s.stage,
+          priority: s.priority,
+          description: s.description?.substring(0, 200)
+        })),
+        inProgressSprints: inProgress.map(s => ({
+          id: s.id,
+          title: s.title,
+          priority: s.priority
+        })),
+        recentFocus: projectContext?.currentFocus || null,
+        suggestion: prioritySprints.length > 0 
+          ? `Consider working on: "${prioritySprints[0].title}" (${prioritySprints[0].priority} priority)`
+          : inProgress.length > 0
+          ? `Continue working on: "${inProgress[0].title}"`
+          : 'No active sprints - check the Feature Sprint board for ideas'
+      });
+    } catch (error: any) {
+      console.error('[API] Error fetching session context:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // AI requirement extraction from consultation - Daniela analyzes free-form text
+  app.post("/api/sprint-consults/extract-requirements", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { text, extractionType } = req.body;
+      
+      if (!text) {
+        return res.status(400).json({ error: "Text is required" });
+      }
+      
+      const type = extractionType || 'feature_brief';
+      
+      let schema: any;
+      let systemPrompt: string;
+      
+      if (type === 'feature_brief') {
+        systemPrompt = `You are Daniela, an expert at extracting structured feature requirements from conversations. 
+Analyze the provided text and extract a structured feature brief.
+Focus on identifying: the problem being solved, the proposed solution, user stories, and success metrics.`;
+        schema = {
+          type: "OBJECT",
+          properties: {
+            problem: { type: "STRING", description: "The problem this feature solves" },
+            solution: { type: "STRING", description: "The proposed solution" },
+            userStory: { type: "STRING", description: "User story in format: As a [user], I want [goal] so that [benefit]" },
+            successMetrics: { type: "ARRAY", items: { type: "STRING" }, description: "Measurable success criteria" },
+            confidence: { type: "NUMBER", description: "Confidence in extraction (0-1)" }
+          },
+          required: ["problem", "solution", "confidence"]
+        };
+      } else if (type === 'pedagogy_spec') {
+        systemPrompt = `You are Daniela, an expert language education specialist.
+Analyze the provided text and extract a structured pedagogy specification.
+Focus on: learning objectives, target proficiency level, teaching approach, assessment criteria.`;
+        schema = {
+          type: "OBJECT",
+          properties: {
+            learningObjectives: { type: "ARRAY", items: { type: "STRING" }, description: "What learners will achieve" },
+            targetProficiency: { type: "STRING", description: "ACTFL level or description" },
+            teachingApproach: { type: "STRING", description: "How to teach this" },
+            assessmentCriteria: { type: "ARRAY", items: { type: "STRING" }, description: "How to measure success" },
+            danielaGuidance: { type: "STRING", description: "Special notes for Daniela" },
+            confidence: { type: "NUMBER", description: "Confidence in extraction (0-1)" }
+          },
+          required: ["learningObjectives", "teachingApproach", "confidence"]
+        };
+      } else if (type === 'build_plan') {
+        systemPrompt = `You are a senior software architect analyzing feature requirements.
+Extract a structured build plan from the provided text.
+Focus on: technical approach, components affected, estimated effort, dependencies, testing strategy.`;
+        schema = {
+          type: "OBJECT",
+          properties: {
+            technicalApproach: { type: "STRING", description: "How to implement this technically" },
+            componentsAffected: { type: "ARRAY", items: { type: "STRING" }, description: "Files/modules to modify" },
+            estimatedEffort: { type: "STRING", description: "Time estimate" },
+            dependencies: { type: "ARRAY", items: { type: "STRING" }, description: "External dependencies or blockers" },
+            testingStrategy: { type: "STRING", description: "How to test this feature" },
+            confidence: { type: "NUMBER", description: "Confidence in extraction (0-1)" }
+          },
+          required: ["technicalApproach", "confidence"]
+        };
+      } else {
+        return res.status(400).json({ error: "Invalid extraction type. Use: feature_brief, pedagogy_spec, or build_plan" });
+      }
+      
+      const result = await callGeminiWithSchema(
+        GEMINI_MODEL,
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Extract structured requirements from this text:\n\n${text}` }
+        ],
+        schema
+      );
+      
+      res.json({
+        extractionType: type,
+        extracted: result,
+        source: text.substring(0, 100) + (text.length > 100 ? '...' : '')
+      });
+    } catch (error: any) {
+      console.error('[API] Error extracting requirements:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // AI auto-fill template with context
+  app.post("/api/sprint-templates/:templateType/auto-fill", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { templateType } = req.params;
+      const { sprintTitle, sprintDescription, additionalContext } = req.body;
+      
+      if (!sprintTitle) {
+        return res.status(400).json({ error: "Sprint title is required" });
+      }
+      
+      let systemPrompt: string;
+      let schema: any;
+      
+      if (templateType === 'pedagogy_spec') {
+        systemPrompt = `You are Daniela, an expert language education specialist at HolaHola.
+Generate a complete pedagogy specification for a feature based on its title and description.
+Consider ACTFL standards, learner engagement, and effective language teaching techniques.`;
+        schema = {
+          type: "OBJECT",
+          properties: {
+            learningObjectives: { type: "ARRAY", items: { type: "STRING" } },
+            targetProficiency: { type: "STRING" },
+            teachingApproach: { type: "STRING" },
+            assessmentCriteria: { type: "ARRAY", items: { type: "STRING" } },
+            danielaGuidance: { type: "STRING" }
+          },
+          required: ["learningObjectives", "teachingApproach"]
+        };
+      } else if (templateType === 'build_plan') {
+        systemPrompt = `You are a senior software architect for HolaHola, a language learning app.
+Generate a build plan for the feature described. Consider the existing tech stack:
+- Frontend: React + TypeScript + Vite, Shadcn/ui, TanStack Query
+- Backend: Express.js + TypeScript, Drizzle ORM, PostgreSQL
+- AI: Gemini for text, Deepgram STT, Cartesia TTS`;
+        schema = {
+          type: "OBJECT",
+          properties: {
+            technicalApproach: { type: "STRING" },
+            componentsAffected: { type: "ARRAY", items: { type: "STRING" } },
+            estimatedEffort: { type: "STRING" },
+            dependencies: { type: "ARRAY", items: { type: "STRING" } },
+            testingStrategy: { type: "STRING" }
+          },
+          required: ["technicalApproach", "estimatedEffort"]
+        };
+      } else if (templateType === 'feature_brief') {
+        systemPrompt = `You are a product manager for HolaHola, an AI-powered language learning platform.
+Generate a complete feature brief based on the title and description provided.`;
+        schema = {
+          type: "OBJECT",
+          properties: {
+            problem: { type: "STRING" },
+            solution: { type: "STRING" },
+            userStory: { type: "STRING" },
+            successMetrics: { type: "ARRAY", items: { type: "STRING" } }
+          },
+          required: ["problem", "solution"]
+        };
+      } else {
+        return res.status(400).json({ error: "Invalid template type" });
+      }
+      
+      const result = await callGeminiWithSchema(
+        GEMINI_MODEL,
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Generate a ${templateType.replace('_', ' ')} for:
+Title: ${sprintTitle}
+Description: ${sprintDescription || 'Not provided'}
+${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
+        ],
+        schema
+      );
+      
+      res.json({
+        templateType,
+        generated: result
+      });
+    } catch (error: any) {
+      console.error('[API] Error auto-filling template:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== Daniela Active Sprint Participation =====
   
   // Daniela suggests sprint updates (pedagogy spec, build plan, items)

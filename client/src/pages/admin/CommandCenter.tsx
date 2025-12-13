@@ -4877,6 +4877,20 @@ function FeatureSprintTab() {
     },
   });
 
+  // Sprint analytics query
+  interface SprintAnalyticsData {
+    pipeline: Record<string, number>;
+    velocity: { sprintsPerWeek: number; recentShipped: number; periodDays: number };
+    cycleTime: { avgDays: number; shippedCount: number };
+    completionRate: { percentage: number; shipped: number; total: number };
+    priorityStats: Record<string, { total: number; shipped: number }>;
+  }
+  
+  const { data: sprintAnalytics } = useQuery<SprintAnalyticsData>({
+    queryKey: ['/api/feature-sprints-analytics'],
+    enabled: mode === 'sprint',
+  });
+
   // Project context query and mutation
   const { data: projectContext, refetch: refetchContext } = useQuery<ProjectContextData | null>({
     queryKey: ['/api/project-context'],
@@ -5234,6 +5248,65 @@ Examples:
             </div>
           </div>
 
+          {sprintAnalytics && (
+            <CollapsibleSection
+              title="Sprint Analytics"
+              icon={<BarChart3 className="h-5 w-5 text-primary" />}
+              defaultOpen={false}
+              badge={`${sprintAnalytics.velocity.sprintsPerWeek}/wk`}
+            >
+              <div className="grid grid-cols-4 gap-3 mt-4">
+                <Card>
+                  <CardContent className="py-3 px-4">
+                    <div className="text-xs text-muted-foreground">Velocity</div>
+                    <div className="text-2xl font-bold" data-testid="text-velocity">
+                      {sprintAnalytics.velocity.sprintsPerWeek}
+                    </div>
+                    <div className="text-xs text-muted-foreground">sprints/week</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="py-3 px-4">
+                    <div className="text-xs text-muted-foreground">Avg Cycle Time</div>
+                    <div className="text-2xl font-bold" data-testid="text-cycle-time">
+                      {sprintAnalytics.cycleTime.avgDays}
+                    </div>
+                    <div className="text-xs text-muted-foreground">days to ship</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="py-3 px-4">
+                    <div className="text-xs text-muted-foreground">Completion Rate</div>
+                    <div className="text-2xl font-bold" data-testid="text-completion-rate">
+                      {sprintAnalytics.completionRate.percentage}%
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {sprintAnalytics.completionRate.shipped}/{sprintAnalytics.completionRate.total} shipped
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="py-3 px-4">
+                    <div className="text-xs text-muted-foreground">In Pipeline</div>
+                    <div className="text-2xl font-bold" data-testid="text-pipeline-count">
+                      {sprintAnalytics.completionRate.total - sprintAnalytics.completionRate.shipped}
+                    </div>
+                    <div className="text-xs text-muted-foreground">active sprints</div>
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="mt-3 flex gap-2 flex-wrap">
+                {Object.entries(sprintAnalytics.priorityStats).map(([priority, stats]) => (
+                  stats.total > 0 && (
+                    <Badge key={priority} variant="outline" className="text-xs">
+                      {priority}: {stats.shipped}/{stats.total}
+                    </Badge>
+                  )
+                ))}
+              </div>
+            </CollapsibleSection>
+          )}
+
           {showNewSprintForm && (
             <Card>
               <CardContent className="pt-4 space-y-3">
@@ -5349,6 +5422,60 @@ Examples:
                       {stageLabels[stage]}
                     </Button>
                   ))}
+                </div>
+                
+                <div className="border-t pt-4 mt-4">
+                  <div className="font-medium text-sm mb-2">AI Auto-Fill</div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          const result = await apiRequest("POST", "/api/sprint-templates/pedagogy_spec/auto-fill", {
+                            sprintTitle: selectedSprint.title,
+                            sprintDescription: selectedSprint.description
+                          });
+                          const generated = (result as any).generated;
+                          await updateSprintMutation.mutateAsync({
+                            id: selectedSprint.id,
+                            pedagogySpec: generated
+                          });
+                          toast({ title: "Pedagogy spec generated by Daniela" });
+                        } catch (e: any) {
+                          toast({ title: "Error", description: e.message, variant: "destructive" });
+                        }
+                      }}
+                      data-testid="button-autofill-pedagogy"
+                    >
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      Pedagogy Spec
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          const result = await apiRequest("POST", "/api/sprint-templates/build_plan/auto-fill", {
+                            sprintTitle: selectedSprint.title,
+                            sprintDescription: selectedSprint.description
+                          });
+                          const generated = (result as any).generated;
+                          await updateSprintMutation.mutateAsync({
+                            id: selectedSprint.id,
+                            buildPlan: generated
+                          });
+                          toast({ title: "Build plan generated" });
+                        } catch (e: any) {
+                          toast({ title: "Error", description: e.message, variant: "destructive" });
+                        }
+                      }}
+                      data-testid="button-autofill-buildplan"
+                    >
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      Build Plan
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
