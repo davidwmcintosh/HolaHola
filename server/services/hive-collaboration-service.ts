@@ -14,11 +14,13 @@ import {
   collaborationChannels,
   editorListeningSnapshots,
   collaborationEvents,
+  editorBeaconQueue,
   InsertCollaborationChannel,
   InsertEditorListeningSnapshot,
   CollaborationChannel,
   EditorListeningSnapshot,
-  InsertCollaborationEvent
+  InsertCollaborationEvent,
+  InsertEditorBeaconQueue
 } from "@shared/schema";
 import { eq, desc, and, sql, isNull } from "drizzle-orm";
 import { collaborationHubService } from "./collaboration-hub-service";
@@ -178,6 +180,7 @@ class HiveCollaborationService {
   
   /**
    * Emit a "hive beacon" - flag an interesting teaching moment for Editor
+   * Also enqueues the beacon for real-time processing by the dispatcher
    */
   async emitBeacon(params: EmitBeaconParams): Promise<EditorListeningSnapshot> {
     const snapshotData: InsertEditorListeningSnapshot = {
@@ -194,10 +197,46 @@ class HiveCollaborationService {
     
     console.log(`[Hive] Beacon emitted: ${params.beaconType} in channel ${params.channelId}`);
     
+    // Enqueue for real-time processing by the dispatcher
+    await this.enqueueBeaconForProcessing(snapshot.id);
+    
     // Also emit to collaboration hub for real-time feed
     await this.emitBeaconToHub(params.channelId, snapshot);
     
     return snapshot;
+  }
+  
+  /**
+   * Enqueue a beacon for real-time processing (idempotent - skips duplicates)
+   */
+  private async enqueueBeaconForProcessing(snapshotId: string): Promise<void> {
+    try {
+      // Check if already queued to avoid duplicates
+      const existing = await db.select({ id: editorBeaconQueue.id })
+        .from(editorBeaconQueue)
+        .where(eq(editorBeaconQueue.snapshotId, snapshotId))
+        .limit(1);
+      
+      if (existing.length > 0) {
+        console.log(`[Hive] Beacon already queued: ${snapshotId}`);
+        return;
+      }
+      
+      const queueEntry: InsertEditorBeaconQueue = {
+        snapshotId,
+        status: 'pending',
+        attempts: 0,
+        maxAttempts: 3,
+      };
+      
+      await db.insert(editorBeaconQueue)
+        .values(queueEntry);
+      
+      console.log(`[Hive] Beacon queued for processing: ${snapshotId}`);
+    } catch (error) {
+      // Don't fail the beacon emission if queueing fails
+      console.error(`[Hive] Failed to queue beacon ${snapshotId}:`, error);
+    }
   }
   
   /**
