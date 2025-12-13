@@ -145,6 +145,7 @@ export default function CommandCenter() {
     { id: "images", label: "Images", icon: Image, roles: ['admin', 'developer'] },
     { id: "voice-lab", label: "Voice Lab", icon: Volume2, roles: ['admin', 'developer'] },
     { id: "neural-network", label: "Neural Network", icon: Zap, roles: ['developer', 'admin'] },
+    { id: "teaching-tools", label: "Teaching Tools", icon: Activity, roles: ['developer', 'admin'] },
     { id: "dev-tools", label: "Dev Tools", icon: Code, roles: ['developer', 'admin'] },
     { id: "audit", label: "Audit", icon: FileText, roles: ['admin'] },
     { id: "support", label: "Support", icon: Headphones, roles: ['admin', 'developer'] },
@@ -234,6 +235,10 @@ export default function CommandCenter() {
 
           <TabsContent value="neural-network" className="space-y-4">
             <NeuralNetworkTab />
+          </TabsContent>
+
+          <TabsContent value="teaching-tools" className="space-y-4">
+            <TeachingToolsTab />
           </TabsContent>
 
           <TabsContent value="dev-tools" className="space-y-4">
@@ -5497,6 +5502,364 @@ Database migration pending"
             </Button>
           )}
         </div>
+      </CollapsibleSection>
+    </div>
+  );
+}
+
+// Teaching Tools Analytics Tab - Visualizes Daniela's neural network data on whiteboard tool usage
+function TeachingToolsTab() {
+  const [days, setDays] = useState('30');
+  
+  // Fetch teaching tool summary
+  const { data: summary, isLoading: summaryLoading } = useQuery<{
+    toolStats: Array<{
+      toolType: string;
+      count: number;
+      uniqueStudents: number;
+      avgResponseTime: number | null;
+      drillCorrect: number;
+      drillTotal: number;
+    }>;
+    dailyTrend: Array<{ date: string; count: number }>;
+    totals: {
+      totalEvents: number;
+      uniqueStudents: number;
+      avgDrillAccuracy: number | null;
+    };
+  }>({
+    queryKey: ['/api/admin/teaching-tools/summary', { days }],
+  });
+  
+  // Fetch per-student breakdown
+  const { data: studentData, isLoading: studentsLoading } = useQuery<{
+    students: Array<{
+      userId: string;
+      totalEvents: number;
+      languages: string[];
+      tools: Record<string, { count: number; avgResponseTime: number | null; drillAccuracy: number | null }>;
+    }>;
+  }>({
+    queryKey: ['/api/admin/teaching-tools/by-student', { days, limit: '20' }],
+  });
+  
+  // Fetch recent events for diagnostic feed
+  const { data: eventsData, isLoading: eventsLoading } = useQuery<{
+    events: Array<{
+      id: number;
+      userId: string | null;
+      toolType: string;
+      content: string | null;
+      language: string | null;
+      occurredAt: string;
+      drillResult: string | null;
+      studentResponseTime: number | null;
+    }>;
+  }>({
+    queryKey: ['/api/admin/teaching-tools/events', { limit: '50' }],
+  });
+
+  const toolColors: Record<string, string> = {
+    'WRITE': 'bg-blue-500',
+    'PHONETIC': 'bg-purple-500',
+    'COMPARE': 'bg-green-500',
+    'IMAGE': 'bg-pink-500',
+    'DRILL': 'bg-orange-500',
+    'CONTEXT': 'bg-cyan-500',
+    'GRAMMAR_TABLE': 'bg-indigo-500',
+    'READING': 'bg-amber-500',
+    'STROKE': 'bg-red-500',
+    'TONE': 'bg-violet-500',
+    'WORD_MAP': 'bg-teal-500',
+    'CULTURE': 'bg-rose-500',
+    'PLAY': 'bg-emerald-500',
+    'SCENARIO': 'bg-fuchsia-500',
+    'SUMMARY': 'bg-sky-500',
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Activity className="h-6 w-6" />
+            Teaching Tool Analytics
+          </h2>
+          <p className="text-muted-foreground">
+            Daniela's neural network learning - track whiteboard command usage and effectiveness
+          </p>
+        </div>
+        <Select value={days} onValueChange={setDays}>
+          <SelectTrigger className="w-32" data-testid="select-days-range">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7">Last 7 days</SelectItem>
+            <SelectItem value="30">Last 30 days</SelectItem>
+            <SelectItem value="90">Last 90 days</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Tool Events</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {summaryLoading ? (
+              <Skeleton className="h-8 w-24" />
+            ) : (
+              <p className="text-3xl font-bold" data-testid="text-total-events">
+                {summary?.totals?.totalEvents?.toLocaleString() || 0}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Unique Students</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {summaryLoading ? (
+              <Skeleton className="h-8 w-24" />
+            ) : (
+              <p className="text-3xl font-bold" data-testid="text-unique-students">
+                {summary?.totals?.uniqueStudents?.toLocaleString() || 0}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Avg Drill Accuracy</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {summaryLoading ? (
+              <Skeleton className="h-8 w-24" />
+            ) : (
+              <p className="text-3xl font-bold" data-testid="text-drill-accuracy">
+                {summary?.totals?.avgDrillAccuracy != null 
+                  ? `${Math.round(summary.totals.avgDrillAccuracy)}%` 
+                  : 'N/A'}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tool Usage Breakdown */}
+      <CollapsibleSection 
+        title="Tool Usage by Type" 
+        icon={<BarChart3 className="h-5 w-5" />}
+        defaultOpen={true}
+      >
+        {summaryLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {summary?.toolStats?.map(tool => {
+              const maxCount = Math.max(...(summary.toolStats?.map(t => t.count) || [1]));
+              const percentage = (tool.count / maxCount) * 100;
+              const drillAccuracy = tool.drillTotal > 0 
+                ? Math.round((tool.drillCorrect / tool.drillTotal) * 100) 
+                : null;
+              
+              return (
+                <div key={tool.toolType} className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        className={`${toolColors[tool.toolType] || 'bg-gray-500'} text-white`}
+                        data-testid={`badge-tool-${tool.toolType}`}
+                      >
+                        {tool.toolType}
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        {tool.uniqueStudents} student{tool.uniqueStudents !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm">
+                      {drillAccuracy !== null && (
+                        <span className="text-muted-foreground">
+                          Accuracy: <span className="font-medium text-foreground">{drillAccuracy}%</span>
+                        </span>
+                      )}
+                      <span className="font-medium">{tool.count.toLocaleString()} uses</span>
+                    </div>
+                  </div>
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full ${toolColors[tool.toolType] || 'bg-gray-500'} transition-all duration-500`}
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+            {(!summary?.toolStats || summary.toolStats.length === 0) && (
+              <p className="text-muted-foreground text-center py-4">
+                No teaching tool events recorded yet. Start a voice chat to see Daniela use her whiteboard!
+              </p>
+            )}
+          </div>
+        )}
+      </CollapsibleSection>
+
+      {/* Daily Trend Chart */}
+      <CollapsibleSection 
+        title="Daily Usage Trend" 
+        icon={<TrendingUp className="h-5 w-5" />}
+        defaultOpen={true}
+      >
+        {summaryLoading ? (
+          <Skeleton className="h-40 w-full" />
+        ) : (
+          <div className="h-40">
+            {summary?.dailyTrend && summary.dailyTrend.length > 0 ? (
+              <div className="flex items-end h-full gap-1">
+                {summary.dailyTrend.map((day, idx) => {
+                  const maxCount = Math.max(...summary.dailyTrend.map(d => d.count));
+                  const height = maxCount > 0 ? (day.count / maxCount) * 100 : 0;
+                  return (
+                    <div 
+                      key={idx} 
+                      className="flex-1 flex flex-col items-center justify-end"
+                      title={`${day.date}: ${day.count} events`}
+                    >
+                      <div 
+                        className="w-full bg-primary rounded-t transition-all duration-300 hover:bg-primary/80"
+                        style={{ height: `${Math.max(height, 2)}%` }}
+                      />
+                      {idx % 7 === 0 && (
+                        <span className="text-[10px] text-muted-foreground mt-1 rotate-45 origin-left">
+                          {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-center py-8">No trend data available</p>
+            )}
+          </div>
+        )}
+      </CollapsibleSection>
+
+      {/* Per-Student Breakdown */}
+      <CollapsibleSection 
+        title="Top Students by Tool Usage" 
+        icon={<Users className="h-5 w-5" />}
+        badge={studentData?.students?.length?.toString()}
+        defaultOpen={false}
+      >
+        {studentsLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full" />)}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {studentData?.students?.map((student, idx) => (
+              <Card key={student.userId} className="p-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-sm">#{idx + 1}</span>
+                      <span className="text-sm font-mono text-muted-foreground">
+                        {student.userId.slice(0, 8)}...
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {student.languages.map(lang => (
+                        <Badge key={lang} variant="outline" className="text-xs">
+                          {lang}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-bold">{student.totalEvents}</p>
+                    <p className="text-xs text-muted-foreground">events</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {Object.entries(student.tools).slice(0, 5).map(([tool, data]) => (
+                    <Badge 
+                      key={tool} 
+                      className={`${toolColors[tool] || 'bg-gray-500'} text-white text-xs`}
+                    >
+                      {tool}: {data.count}
+                    </Badge>
+                  ))}
+                </div>
+              </Card>
+            ))}
+            {(!studentData?.students || studentData.students.length === 0) && (
+              <p className="text-muted-foreground text-center py-4">No student data available</p>
+            )}
+          </div>
+        )}
+      </CollapsibleSection>
+
+      {/* Recent Events Feed */}
+      <CollapsibleSection 
+        title="Recent Teaching Tool Events" 
+        icon={<Clock className="h-5 w-5" />}
+        badge={eventsData?.events?.length?.toString()}
+        defaultOpen={false}
+      >
+        {eventsLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {eventsData?.events?.map(event => (
+              <div 
+                key={event.id} 
+                className="flex items-center gap-3 p-2 rounded-md bg-muted/50"
+                data-testid={`event-row-${event.id}`}
+              >
+                <Badge 
+                  className={`${toolColors[event.toolType] || 'bg-gray-500'} text-white flex-shrink-0`}
+                >
+                  {event.toolType}
+                </Badge>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm truncate">
+                    {event.content || <span className="text-muted-foreground italic">No content</span>}
+                  </p>
+                  <div className="flex gap-2 text-xs text-muted-foreground">
+                    {event.language && <span>{event.language}</span>}
+                    {event.drillResult && (
+                      <Badge 
+                        variant={event.drillResult === 'correct' ? 'default' : 'secondary'}
+                        className="text-xs"
+                      >
+                        {event.drillResult}
+                      </Badge>
+                    )}
+                    {event.studentResponseTime && (
+                      <span>{(event.studentResponseTime / 1000).toFixed(1)}s response</span>
+                    )}
+                  </div>
+                </div>
+                <span className="text-xs text-muted-foreground flex-shrink-0">
+                  {new Date(event.occurredAt).toLocaleTimeString()}
+                </span>
+              </div>
+            ))}
+            {(!eventsData?.events || eventsData.events.length === 0) && (
+              <p className="text-muted-foreground text-center py-4">No recent events</p>
+            )}
+          </div>
+        )}
       </CollapsibleSection>
     </div>
   );
