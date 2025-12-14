@@ -217,8 +217,8 @@ Based on time tracking, suggest:
 - [x] Add `danielaRecommendations` table for persistent nudges between sessions
 - [x] Add `studentTierSignals` table for student tier preferences
 - [x] Add `bundleId` and `linkedDrillLessonId` fields to curriculumLessons
-- [ ] Create idempotent bundle update script
-- [ ] Write acceptance tests for bundle CRUD operations
+- [x] Create idempotent bundle update script (server/scripts/bundle-management.ts)
+- [x] Write acceptance tests for bundle CRUD operations (server/tests/bundle-management.test.ts)
 
 ### Phase 2: Shared Progress API
 - [ ] Design unified progress API contract consumed by both views
