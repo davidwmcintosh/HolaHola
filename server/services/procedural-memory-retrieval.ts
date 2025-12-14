@@ -200,10 +200,14 @@ export function buildStudentMemoryAwarenessSection(
   if (connections.length > 0) {
     lines.push('PEOPLE IN THEIR LIFE:');
     for (const conn of connections.slice(0, 5)) {
-      const context = conn.relationshipDetails ? ` - ${conn.relationshipDetails}` : '';
       // Handle both old schema (personName) and new schema (pendingPersonName)
       const personName = (conn as any).personName || conn.pendingPersonName || 'someone';
-      lines.push(`  • ${personName}: ${conn.relationshipType}${context}`);
+      // Include both relationship details and pending context for richer memory
+      const details = conn.relationshipDetails || '';
+      const pendingContext = conn.pendingPersonContext || '';
+      const fullContext = [details, pendingContext].filter(Boolean).join('. ');
+      const contextStr = fullContext ? ` - ${fullContext}` : '';
+      lines.push(`  • ${personName}: ${conn.relationshipType}${contextStr}`);
     }
     lines.push('');
   }
