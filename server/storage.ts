@@ -577,6 +577,7 @@ export interface IStorage {
     lastPracticed: Date | null;
     connections: string[];
     category: string | null;
+    danielaObservation?: { status: string; evidence: string | null; observedAt: Date };
   }>>;
 
   // Phase 2: Vocabulary topic tagging
@@ -4069,6 +4070,7 @@ export class DatabaseStorage implements IStorage {
     lastPracticed: Date | null;
     connections: string[];
     category: string | null;
+    danielaObservation?: { status: string; evidence: string | null; observedAt: Date };
   }>> {
     // Get all topics (topics are language-agnostic)
     const allTopics = await db.select().from(topicsTable);
@@ -4103,11 +4105,43 @@ export class DatabaseStorage implements IStorage {
       }
     ]));
     
+    // Get Daniela's competency observations for this user/language
+    const danielaObservations = await db
+      .select()
+      .from(topicCompetencyObservations)
+      .where(and(
+        eq(topicCompetencyObservations.userId, userId),
+        eq(topicCompetencyObservations.language, language)
+      ))
+      .orderBy(desc(topicCompetencyObservations.observedAt));
+    
+    // Build a map of topic name (lowercase) -> latest observation
+    // Daniela uses freeform names, so we'll match against topic names
+    // Note: danielaObservations is ordered by desc(observedAt), so we iterate newest-first
+    // and only keep the first (newest) observation per topic
+    const observationMap = new Map<string, { status: string; evidence: string | null; observedAt: Date }>();
+    for (const obs of danielaObservations) {
+      const key = obs.topicName.toLowerCase().replace(/[_-]/g, ' ');
+      // Keep newest observation (first encountered since sorted desc by observedAt)
+      if (!observationMap.has(key)) {
+        observationMap.set(key, {
+          status: obs.status,
+          evidence: obs.evidence,
+          observedAt: obs.observedAt,
+        });
+      }
+    }
+    
     // Build topic nodes with status
     return allTopics.map(topic => {
       const usage = usageMap.get(topic.id);
       const practiceCount = usage?.count || 0;
       
+      // Check for Daniela's observation on this topic (fuzzy match by name)
+      const topicKey = topic.name.toLowerCase().replace(/[_-]/g, ' ');
+      const danielaObs = observationMap.get(topicKey);
+      
+      // Determine base status from practice count
       let status: 'discovered' | 'practiced' | 'mastered' | 'locked' = 'locked';
       if (practiceCount >= 10) {
         status = 'mastered';
@@ -4115,6 +4149,22 @@ export class DatabaseStorage implements IStorage {
         status = 'practiced';
       } else if (practiceCount >= 1) {
         status = 'discovered';
+      }
+      
+      // Apply Daniela's observations to boost or adjust status
+      if (danielaObs) {
+        if (danielaObs.status === 'demonstrated') {
+          // Daniela confirmed mastery - boost to mastered
+          status = 'mastered';
+        } else if (danielaObs.status === 'needs_review' && status === 'locked') {
+          // Daniela saw it but needs work - at least discovered
+          status = 'discovered';
+        } else if (danielaObs.status === 'struggling') {
+          // Cap at practiced even if high practice count - Daniela knows better
+          if (status === 'mastered') {
+            status = 'practiced';
+          }
+        }
       }
       
       // Simple connection logic: connect to adjacent topics by category
@@ -4131,6 +4181,7 @@ export class DatabaseStorage implements IStorage {
         lastPracticed: usage?.lastUsed || null,
         connections,
         category: topic.category,
+        danielaObservation: danielaObs,
       };
     });
   }
