@@ -486,6 +486,23 @@ const STUDENT_OBSERVATION_SCHEMA = {
         },
         required: ["relationship", "context"]
       }
+    },
+    tutorSelfReflections: {
+      type: "array",
+      description: "Teaching insights Daniela noticed about her own approach (max 1)",
+      items: {
+        type: "object",
+        properties: {
+          category: { 
+            type: "string", 
+            enum: ["correction", "encouragement", "scaffolding", "tool_usage", "teaching_style", "pacing", "communication", "content"],
+            description: "Category of teaching insight" 
+          },
+          insight: { type: "string", description: "What worked well or could be improved (e.g., 'Breaking down conjugations step-by-step helped understanding')" },
+          context: { type: "string", description: "When this applies" }
+        },
+        required: ["category", "insight"]
+      }
     }
   },
   required: []  // All fields optional - Gemini may not detect observations in every exchange
@@ -2560,18 +2577,24 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
       const effectiveMessageCount = (conversation.messageCount || 0) + 1;  // +1 for just-saved message
       if (effectiveMessageCount % 3 === 0) {
         try {
-          const observationPrompt = `Analyze this language learning conversation exchange. Extract observations about the student's learning style, motivations, and struggles. Only extract what's clearly evident from their words - don't invent or assume.
+          const observationPrompt = `Analyze this language learning conversation exchange. Extract observations about the student AND the tutor's teaching approach. Only extract what's clearly evident - don't invent or assume.
 
 Student said: "${userTranscript}"
 Tutor responded: "${aiResponse}"
 
-Guidelines:
+Guidelines for STUDENT observations:
 - For insights: Note learning styles (visual, auditory, kinesthetic), preferences, strengths, or personality traits
 - For motivations: Note why they're learning (travel, family, work, hobby) and any target dates mentioned
 - For struggles: Note recurring grammar issues, pronunciation difficulties, vocabulary gaps, or confidence challenges
 - For people: Note any people they mention by name and relationship (family, friends, colleagues)
 
-Only include observations you can clearly justify from the conversation text. Return empty arrays if nothing notable.`;
+Guidelines for TUTOR self-reflections (Daniela learning about herself):
+- Note teaching techniques that seemed effective (e.g., "Breaking down conjugations step-by-step")
+- Note approaches to correction, encouragement, or scaffolding that worked well
+- Note pacing or communication patterns that helped the student understand
+- Categories: correction, encouragement, scaffolding, tool_usage, teaching_style, pacing, communication, content
+
+Only include observations you can clearly justify from the exchange. Return empty arrays if nothing notable.`;
 
           const obsResponse = await gemini.models.generateContent({
             model: 'gemini-2.5-flash',
@@ -2652,11 +2675,27 @@ Only include observations you can clearly justify from the conversation text. Re
             }
           }
           
-          if (savedCount.insights + savedCount.motivations + savedCount.struggles + savedCount.connections > 0) {
-            console.log(`[Student Memory] Saved ${savedCount.insights} insights, ${savedCount.motivations} motivations, ${savedCount.struggles} struggles, ${savedCount.connections} connections`);
+          // Save tutor self-reflections (Daniela learning about herself)
+          let selfReflectionCount = 0;
+          for (const reflection of observations.tutorSelfReflections || []) {
+            try {
+              await storage.upsertBestPractice(
+                reflection.category,
+                reflection.insight,
+                reflection.context,
+                'voice_session'
+              );
+              selfReflectionCount++;
+            } catch (e: any) {
+              console.warn('[Tutor Memory] Failed to save self-reflection:', e.message);
+            }
+          }
+          
+          if (savedCount.insights + savedCount.motivations + savedCount.struggles + savedCount.connections + selfReflectionCount > 0) {
+            console.log(`[Memory] Saved: ${savedCount.insights} student insights, ${savedCount.motivations} motivations, ${savedCount.struggles} struggles, ${savedCount.connections} connections, ${selfReflectionCount} tutor self-reflections`);
           }
         } catch (obsError: any) {
-          console.error('[Student Memory] Observation extraction failed:', obsError.message);
+          console.error('[Memory] Observation extraction failed:', obsError.message);
         }
       }
       

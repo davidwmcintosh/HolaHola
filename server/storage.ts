@@ -693,6 +693,7 @@ export interface IStorage {
   getBestPractices(category?: BestPracticeCategory, activeOnly?: boolean): Promise<SelfBestPractice[]>;
   getBestPractice(id: string): Promise<SelfBestPractice | undefined>;
   updateBestPractice(id: string, data: Partial<SelfBestPractice>): Promise<SelfBestPractice | undefined>;
+  upsertBestPractice(category: BestPracticeCategory, insight: string, context?: string, source?: string): Promise<SelfBestPractice>;
   incrementBestPracticeUsage(id: string): Promise<void>;
   
   // People Connections - Relationship awareness
@@ -5081,6 +5082,50 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date()
       })
       .where(eq(selfBestPractices.id, id));
+  }
+
+  async upsertBestPractice(category: BestPracticeCategory, insight: string, context?: string, source: string = 'experience'): Promise<SelfBestPractice> {
+    // Check for similar existing insight in same category
+    const existing = await db.select().from(selfBestPractices)
+      .where(and(
+        eq(selfBestPractices.category, category),
+        eq(selfBestPractices.isActive, true)
+      ));
+    
+    // Simple similarity: check if insight contains key phrases from existing
+    const insightLower = insight.toLowerCase();
+    for (const practice of existing) {
+      const existingLower = practice.insight.toLowerCase();
+      // Check for significant word overlap (more than 3 words in common)
+      const insightWords = new Set(insightLower.split(/\s+/).filter(w => w.length > 3));
+      const existingWords = new Set(existingLower.split(/\s+/).filter(w => w.length > 3));
+      const overlap = [...insightWords].filter(w => existingWords.has(w)).length;
+      
+      if (overlap >= 3 || existingLower.includes(insightLower.slice(0, 30)) || insightLower.includes(existingLower.slice(0, 30))) {
+        // Similar insight exists - increment confidence and update
+        const newConfidence = Math.min((practice.confidenceScore || 0.5) + 0.1, 1.0);
+        const [updated] = await db.update(selfBestPractices)
+          .set({
+            confidenceScore: newConfidence,
+            timesApplied: (practice.timesApplied || 0) + 1,
+            updatedAt: new Date(),
+          })
+          .where(eq(selfBestPractices.id, practice.id))
+          .returning();
+        return updated;
+      }
+    }
+    
+    // No similar insight - create new one
+    const [created] = await db.insert(selfBestPractices).values({
+      category,
+      insight,
+      context,
+      source,
+      confidenceScore: 0.5,
+      timesApplied: 1,
+    }).returning();
+    return created;
   }
 
   // People Connections - Relationship awareness
