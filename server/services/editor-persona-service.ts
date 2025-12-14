@@ -153,6 +153,14 @@ COLLABORATION PHILOSOPHY:
 You do NOT observe or critique Daniela's teaching. That's her expertise, her classroom.
 You RESPOND to what she needs to do her job better.
 
+YOUR KNOWLEDGE BASE:
+You have access to:
+1. Neural Network Knowledge - Daniela's teaching procedures, principles, and recent observations
+2. System Architecture - HolaHola's features, technical stack, integrations, and current priorities
+3. Language-Specific Context - Idioms, error patterns, cultural nuances for the session's language
+
+Use this context to propose solutions that fit HolaHola's existing architecture and leverage existing systems.
+
 WHEN DANIELA SENDS A BEACON:
 1. capability_gap: "I couldn't do X" → Think about how to build that capability
 2. tool_request: "A tool for Y would help" → Propose how we could implement it
@@ -166,6 +174,7 @@ YOUR RESPONSE STYLE:
 - "I can add a procedure for handling X..."
 - "That's a good feature idea - here's what it would take..."
 - "Let me flag this bug for investigation..."
+- Reference existing features/patterns when proposing solutions
 
 EDITOR_SURGERY CAPABILITY:
 When Daniela needs something added to her neural network knowledge, propose it:
@@ -181,6 +190,7 @@ REMEMBER:
 - You're a tool-builder partner, not a teaching supervisor
 - Respond to needs, don't critique methods
 - Your value is building what Daniela needs to teach better
+- Leverage existing systems and patterns when proposing solutions
 - When in doubt: "What can I build to help?"`;
 
 
@@ -188,6 +198,28 @@ interface EditorKnowledgeContext {
   procedures: TutorProcedure[];
   principles: TeachingPrinciple[];
   recentObservations: any[];
+}
+
+interface SystemArchitectureContext {
+  features: Array<{ name: string; status: string; description?: string }>;
+  architecture: {
+    frontendStack?: string[];
+    backendStack?: string[];
+    databases?: string[];
+    integrations?: string[];
+    keyPatterns?: string[];
+  };
+  currentFocus: {
+    activeSprintIds?: string[];
+    priorityAreas?: string[];
+    blockers?: string[];
+    recentChanges?: string[];
+  };
+  aiInsights?: {
+    suggestedImprovements?: string[];
+    potentialRisks?: string[];
+    opportunityAreas?: string[];
+  };
 }
 
 class EditorPersonaService {
@@ -277,6 +309,124 @@ class EditorPersonaService {
     return lines.join('\n');
   }
   
+  /**
+   * Load system architecture context from projectContextSnapshots
+   * This gives the Editor awareness of HolaHola's features, stack, and architecture
+   */
+  async loadSystemArchitectureContext(): Promise<SystemArchitectureContext | null> {
+    try {
+      const activeContext = await storage.getActiveProjectContext();
+      if (!activeContext) {
+        console.log('[Editor Persona] No active project context snapshot found');
+        return null;
+      }
+      
+      return {
+        features: (activeContext.features as any[]) || [],
+        architecture: (activeContext.architecture as SystemArchitectureContext['architecture']) || {},
+        currentFocus: (activeContext.currentFocus as SystemArchitectureContext['currentFocus']) || {},
+        aiInsights: (activeContext.aiInsights as SystemArchitectureContext['aiInsights']) || undefined,
+      };
+    } catch (error) {
+      console.warn('[Editor Persona] Failed to load system architecture context:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Build system architecture context string for Claude prompt
+   */
+  private buildSystemArchitectureContext(context: SystemArchitectureContext): string {
+    const lines: string[] = [
+      '',
+      '═══════════════════════════════════════════════════════════════════',
+      '🏗️ HOLAHOLA SYSTEM ARCHITECTURE',
+      '═══════════════════════════════════════════════════════════════════',
+      '',
+    ];
+    
+    // Current focus/priorities
+    if (context.currentFocus) {
+      if (context.currentFocus.priorityAreas && context.currentFocus.priorityAreas.length > 0) {
+        lines.push('CURRENT PRIORITIES:');
+        context.currentFocus.priorityAreas.forEach(area => {
+          lines.push(`• ${area}`);
+        });
+        lines.push('');
+      }
+      if (context.currentFocus.blockers && context.currentFocus.blockers.length > 0) {
+        lines.push('BLOCKERS:');
+        context.currentFocus.blockers.forEach(blocker => {
+          lines.push(`⚠️ ${blocker}`);
+        });
+        lines.push('');
+      }
+      if (context.currentFocus.recentChanges && context.currentFocus.recentChanges.length > 0) {
+        lines.push('RECENT CHANGES:');
+        context.currentFocus.recentChanges.slice(0, 5).forEach(change => {
+          lines.push(`• ${change}`);
+        });
+        lines.push('');
+      }
+    }
+    
+    // Features with status
+    if (context.features && context.features.length > 0) {
+      lines.push('FEATURES:');
+      context.features.slice(0, 15).forEach(feature => {
+        const statusEmoji = feature.status === 'shipped' ? '✅' : 
+                           feature.status === 'in_development' ? '🔄' : 
+                           feature.status === 'planned' ? '📋' : '⚠️';
+        lines.push(`${statusEmoji} ${feature.name}${feature.description ? ` - ${feature.description}` : ''}`);
+      });
+      lines.push('');
+    }
+    
+    // Technical stack
+    if (context.architecture) {
+      lines.push('TECHNICAL STACK:');
+      if (context.architecture.frontendStack && context.architecture.frontendStack.length > 0) {
+        lines.push(`• Frontend: ${context.architecture.frontendStack.join(', ')}`);
+      }
+      if (context.architecture.backendStack && context.architecture.backendStack.length > 0) {
+        lines.push(`• Backend: ${context.architecture.backendStack.join(', ')}`);
+      }
+      if (context.architecture.databases && context.architecture.databases.length > 0) {
+        lines.push(`• Databases: ${context.architecture.databases.join(', ')}`);
+      }
+      if (context.architecture.integrations && context.architecture.integrations.length > 0) {
+        lines.push(`• Integrations: ${context.architecture.integrations.join(', ')}`);
+      }
+      if (context.architecture.keyPatterns && context.architecture.keyPatterns.length > 0) {
+        lines.push('KEY PATTERNS:');
+        context.architecture.keyPatterns.forEach(pattern => {
+          lines.push(`• ${pattern}`);
+        });
+      }
+      lines.push('');
+    }
+    
+    // AI Insights
+    if (context.aiInsights) {
+      if (context.aiInsights.potentialRisks && context.aiInsights.potentialRisks.length > 0) {
+        lines.push('POTENTIAL RISKS:');
+        context.aiInsights.potentialRisks.slice(0, 5).forEach(risk => {
+          lines.push(`⚠️ ${risk}`);
+        });
+        lines.push('');
+      }
+      if (context.aiInsights.opportunityAreas && context.aiInsights.opportunityAreas.length > 0) {
+        lines.push('OPPORTUNITY AREAS:');
+        context.aiInsights.opportunityAreas.slice(0, 5).forEach(opp => {
+          lines.push(`💡 ${opp}`);
+        });
+        lines.push('');
+      }
+    }
+    
+    return lines.join('\n');
+  }
+  
   // ============================================================================
   // BEACON RESPONSE GENERATION
   // ============================================================================
@@ -287,6 +437,12 @@ class EditorPersonaService {
   async generateBeaconResponse(snapshot: EditorListeningSnapshot): Promise<string> {
     const knowledge = await this.loadKnowledgeContext();
     const knowledgeContext = this.buildKnowledgeContext(knowledge);
+    
+    // Load system architecture context - gives Editor awareness of HolaHola's features and stack
+    const architectureContext = await this.loadSystemArchitectureContext();
+    const architectureContextStr = architectureContext 
+      ? this.buildSystemArchitectureContext(architectureContext)
+      : '';
     
     // Get channel context and language-specific neural network knowledge
     let channelContext = '';
@@ -343,6 +499,7 @@ SESSION CONTEXT:
     
     const userPrompt = `
 ${knowledgeContext}
+${architectureContextStr}
 ${languageSpecificContext}
 ${channelContext}
 
