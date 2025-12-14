@@ -210,11 +210,13 @@ Based on time tracking, suggest:
 
 ## Action Items
 
-### Phase 1: Bundle Data Model (Foundation) 🎯 CURRENT PRIORITY
-- [ ] Define bundle schema: conversation + drills + requirement tier + commitments
-- [ ] Add `requirementTier` field: required | recommended | optional_premium
-- [ ] Add `commitments` field (teacher promises block) to class/unit level
-- [ ] Add `danielaRecommendations` table for persistent nudges between sessions
+### Phase 1: Bundle Data Model (Foundation) ✅ COMPLETED (Dec 14, 2025)
+- [x] Define bundle schema: conversation + drills + requirement tier + commitments
+- [x] Add `requirementTier` field: required | recommended | optional_premium
+- [x] Add `commitments` field (teacher promises block) to class/unit level
+- [x] Add `danielaRecommendations` table for persistent nudges between sessions
+- [x] Add `studentTierSignals` table for student tier preferences
+- [x] Add `bundleId` and `linkedDrillLessonId` fields to curriculumLessons
 - [ ] Create idempotent bundle update script
 - [ ] Write acceptance tests for bundle CRUD operations
 
