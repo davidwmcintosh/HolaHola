@@ -43,6 +43,8 @@ import {
   type InsertAssignmentSubmission,
   type SyllabusProgress,
   type InsertSyllabusProgress,
+  type TopicCompetencyObservation,
+  type InsertTopicCompetencyObservation,
   type AdminAuditLog,
   type ConversationTopic,
   type InsertConversationTopic,
@@ -98,6 +100,7 @@ import {
   assignments,
   assignmentSubmissions,
   syllabusProgress,
+  topicCompetencyObservations,
   adminAuditLog,
   conversationTopics,
   vocabularyWordTopics,
@@ -469,6 +472,11 @@ export interface IStorage {
   updateSyllabusProgress(id: string, data: Partial<SyllabusProgress>): Promise<SyllabusProgress | undefined>;
   getEarlyCompletions(classId: string): Promise<Array<SyllabusProgress & { student: User; lesson: CurriculumLesson }>>;
   checkLessonCoverage(studentId: string, classId: string, lessonId: string, coveredTopics: string[]): Promise<{ covered: boolean; coveragePercent: number; missingTopics: string[] }>;
+
+  // Topic Competency Observations (Daniela's SYLLABUS_PROGRESS command)
+  createTopicCompetencyObservation(data: InsertTopicCompetencyObservation): Promise<TopicCompetencyObservation>;
+  getTopicCompetencyObservations(userId: string, language: string): Promise<TopicCompetencyObservation[]>;
+  getUserTopicCompetencyByName(userId: string, language: string, topicName: string): Promise<TopicCompetencyObservation | undefined>;
 
   // ===== Admin-Only Methods =====
   
@@ -3384,6 +3392,38 @@ export class DatabaseStorage implements IStorage {
       coveragePercent,
       missingTopics
     };
+  }
+
+  // ===== Topic Competency Observations (Daniela's SYLLABUS_PROGRESS command) =====
+
+  async createTopicCompetencyObservation(data: InsertTopicCompetencyObservation): Promise<TopicCompetencyObservation> {
+    const [observation] = await db.insert(topicCompetencyObservations).values(data).returning();
+    return observation;
+  }
+
+  async getTopicCompetencyObservations(userId: string, language: string): Promise<TopicCompetencyObservation[]> {
+    return await db
+      .select()
+      .from(topicCompetencyObservations)
+      .where(and(
+        eq(topicCompetencyObservations.userId, userId),
+        eq(topicCompetencyObservations.language, language)
+      ))
+      .orderBy(desc(topicCompetencyObservations.observedAt));
+  }
+
+  async getUserTopicCompetencyByName(userId: string, language: string, topicName: string): Promise<TopicCompetencyObservation | undefined> {
+    const result = await db
+      .select()
+      .from(topicCompetencyObservations)
+      .where(and(
+        eq(topicCompetencyObservations.userId, userId),
+        eq(topicCompetencyObservations.language, language),
+        eq(topicCompetencyObservations.topicName, topicName)
+      ))
+      .orderBy(desc(topicCompetencyObservations.observedAt))
+      .limit(1);
+    return result[0];
   }
 
   // ===== Admin-Only Methods =====
