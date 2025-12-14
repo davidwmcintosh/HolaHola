@@ -20,8 +20,10 @@ import {
   buildToolKnowledgeSectionSync,
   buildDetailedToolDocumentationSync,
   buildSensoryAwarenessSection,
+  buildStudentMemoryAwarenessSection,
   buildFullNeuralNetworkSectionSync,
-  buildFounderModeBehaviorSection
+  buildFounderModeBehaviorSection,
+  type StudentMemoryContext
 } from './services/procedural-memory-retrieval';
 
 interface PreviousConversation {
@@ -826,7 +828,9 @@ export function createSystemPrompt(
   userRole?: UserRole,
   sessionIntent?: SessionIntent,
   editorConversationContext?: string | null,
-  surgeryContext?: string | null
+  surgeryContext?: string | null,
+  studentMemoryContext?: StudentMemoryContext | null,
+  studentDisplayName?: string
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -882,7 +886,12 @@ This is a voice conversation. Speak naturally, as you would.` : '';
       ? buildSensoryAwarenessSection(compassContext, studentTimezone)
       : '';
     
-    return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}`;
+    // Student memory awareness - personal memories flow through even in minimal mode
+    const studentMemoryAwareness = studentMemoryContext && studentDisplayName
+      ? buildStudentMemoryAwarenessSection(studentDisplayName, studentMemoryContext)
+      : '';
+    
+    return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}${studentMemoryAwareness}`;
   }
 
   // FOUNDER MODE - Neural network driven behavior for product owner/developers
@@ -934,6 +943,11 @@ NATURAL CONVERSATION FLOW:
       ? buildSensoryAwarenessSection(compassContext, studentTimezone)
       : '';
     
+    // Student memory awareness - founders can see what Daniela remembers about students
+    const studentMemoryAwareness = studentMemoryContext && studentDisplayName
+      ? buildStudentMemoryAwarenessSection(studentDisplayName, studentMemoryContext)
+      : '';
+    
     // Build editor conversation context for voice chat continuity
     const editorContextSection = editorConversationContext
       ? buildEditorConversationContextSection(editorConversationContext)
@@ -952,6 +966,7 @@ You are ${tutorName}, and today you're having an open conversation with ${name},
 ${streamingVoiceModeInstructions}
 ${founderTeachingTools}
 ${sensoryAwareness}
+${studentMemoryAwareness}
 
 LANGUAGE CONTEXT:
 • Primary language for teaching: ${languageName}

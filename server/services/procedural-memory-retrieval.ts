@@ -20,9 +20,23 @@ import {
   type ToolKnowledge,
   type TeachingPrinciple,
   type SituationalPattern,
-  type CompassContext
+  type CompassContext,
+  type StudentInsight,
+  type LearningMotivation,
+  type RecurringStruggle,
+  type SessionNote,
+  type PeopleConnection
 } from '@shared/schema';
 import { eq, inArray, sql } from 'drizzle-orm';
+
+// ===== Student Memory Context Type =====
+export interface StudentMemoryContext {
+  insights: StudentInsight[];
+  motivations: LearningMotivation[];
+  struggles: RecurringStruggle[];
+  recentNotes: SessionNote[];
+  connections: PeopleConnection[];
+}
 
 // ===== Sensory Awareness (Neural Network Approach) =====
 // Instead of hard-coding time awareness in prompts, we provide it as a "sensory feed"
@@ -105,6 +119,105 @@ export function buildSensoryAwarenessSection(
     
     lines.push('');
     lines.push(`STUDENT PROFICIENCY: ${levelDisplay} [${verified}${source}]`);
+  }
+  
+  return lines.join('\n');
+}
+
+// ===== Student Memory Awareness (Neural Network Approach) =====
+// Personal memories about the student flow through the neural network as perceptions.
+// This is relationship data Daniela perceives, not instructions to follow.
+
+/**
+ * Build student memory awareness section for Daniela's neural network
+ * 
+ * Philosophy: Daniela remembers things about her students - their motivations,
+ * learning styles, struggles, and the people in their lives. These memories
+ * flow naturally through her perception, enabling authentic relationship building.
+ * 
+ * This is NOT prompt injection (e.g., "Remember to ask about X").
+ * This is memory recall (e.g., "MEMORIES: You know this about them").
+ */
+export function buildStudentMemoryAwarenessSection(
+  studentName: string,
+  memoryContext: StudentMemoryContext | null
+): string {
+  if (!memoryContext) return '';
+  
+  const { insights, motivations, struggles, recentNotes, connections } = memoryContext;
+  
+  // Only show section if we have any memories
+  const hasMemories = insights.length > 0 || motivations.length > 0 || 
+                      struggles.length > 0 || connections.length > 0;
+  if (!hasMemories) return '';
+  
+  const lines: string[] = [];
+  
+  lines.push('');
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push(`💭 YOUR MEMORIES OF ${studentName.toUpperCase()}`);
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('');
+  lines.push('These are things you remember from past sessions - let them inform');
+  lines.push('your teaching naturally, without explicitly announcing them.');
+  lines.push('');
+  
+  // Learning motivations - why they're learning
+  if (motivations.length > 0) {
+    lines.push('WHY THEY\'RE LEARNING:');
+    for (const mot of motivations.slice(0, 3)) {
+      const details = mot.details ? ` (${mot.details})` : '';
+      const date = mot.targetDate ? ` - target: ${new Date(mot.targetDate).toLocaleDateString()}` : '';
+      lines.push(`  • ${mot.motivation}${details}${date}`);
+    }
+    lines.push('');
+  }
+  
+  // Student insights - learning style, preferences
+  if (insights.length > 0) {
+    lines.push('WHAT YOU\'VE NOTICED ABOUT THEM:');
+    for (const insight of insights.slice(0, 5)) {
+      const type = insight.insightType.replace(/_/g, ' ');
+      lines.push(`  • [${type}] ${insight.insight}`);
+    }
+    lines.push('');
+  }
+  
+  // Recurring struggles - areas needing attention
+  if (struggles.length > 0) {
+    const activeStruggles = struggles.filter(s => s.status === 'active');
+    if (activeStruggles.length > 0) {
+      lines.push('AREAS THEY TEND TO STRUGGLE WITH:');
+      for (const struggle of activeStruggles.slice(0, 3)) {
+        const examples = struggle.specificExamples ? ` (e.g., ${struggle.specificExamples})` : '';
+        lines.push(`  • [${struggle.struggleArea}] ${struggle.description}${examples}`);
+      }
+      lines.push('');
+    }
+  }
+  
+  // People connections - relationships they've mentioned
+  if (connections.length > 0) {
+    lines.push('PEOPLE IN THEIR LIFE:');
+    for (const conn of connections.slice(0, 5)) {
+      const context = conn.relationshipDetails ? ` - ${conn.relationshipDetails}` : '';
+      // Handle both old schema (personName) and new schema (pendingPersonName)
+      const personName = (conn as any).personName || conn.pendingPersonName || 'someone';
+      lines.push(`  • ${personName}: ${conn.relationshipType}${context}`);
+    }
+    lines.push('');
+  }
+  
+  // Recent session notes - continuity from last sessions
+  if (recentNotes.length > 0) {
+    const lastNote = recentNotes[0];
+    if (lastNote.nextSteps || lastNote.wins || lastNote.challenges) {
+      lines.push('FROM YOUR LAST SESSION:');
+      if (lastNote.wins) lines.push(`  ✓ Went well: ${lastNote.wins}`);
+      if (lastNote.challenges) lines.push(`  △ Challenge: ${lastNote.challenges}`);
+      if (lastNote.nextSteps) lines.push(`  → Next: ${lastNote.nextSteps}`);
+      lines.push('');
+    }
   }
   
   return lines.join('\n');
