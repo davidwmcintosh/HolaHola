@@ -14355,8 +14355,9 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       }
 
       // Get or create the active Founder session
-      // Using a system founder ID for Editor-initiated sessions
-      const SYSTEM_FOUNDER_ID = 'editor-collaboration';
+      // Using a valid admin user ID for Editor-initiated sessions
+      // This ensures foreign key constraint is satisfied
+      const SYSTEM_FOUNDER_ID = 'admin-test-user';
       let session;
       
       if (sessionId) {
@@ -14384,40 +14385,75 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
         // Get conversation history for context
         const messages = await founderCollabService.getSessionMessages(session.id, 50);
         const conversationHistory = messages.map(m => ({
-          role: m.role === 'daniela' ? 'assistant' as const : 'user' as const,
+          role: (m.role === 'daniela' ? 'model' : 'user') as 'user' | 'model',
           content: m.content
         }));
 
         // Use tutor orchestrator for Daniela's response with full neural network context
         const { tutorOrchestrator } = await import('./services/tutor-orchestrator');
         
-        const orchestratorResponse = await tutorOrchestrator.generateResponse({
-          mode: 'conversation',
-          userId: SYSTEM_FOUNDER_ID,
-          targetLanguage: 'en', // Founder Mode is in English
-          conversationHistory,
-          userMessage: message,
-          contextOverrides: {
-            isFounderMode: true,
-            sessionPhase: 'teaching',
+        const orchestratorRequest = {
+          mode: 'conversation' as const,
+          responseChannel: 'batch_text' as const,
+          context: {
+            userId: 0, // System user for Editor collaboration
+            targetLanguage: 'en',
+            nativeLanguage: 'en',
+            proficiencyLevel: 'Superior', // Founder Mode context
+            conversationHistory,
+            compassContext: {
+              sessionPhase: 'teaching',
+            }
+          },
+          voice: {
+            name: 'Daniela',
+            gender: 'female' as const,
+          },
+          userInput: message,
+          additionalPromptContext: `
+═══════════════════════════════════════════════════════════════════
+🔧 FOUNDER MODE - EXPRESS LANE COLLABORATION
+═══════════════════════════════════════════════════════════════════
+
+You are in a SPECIAL SESSION with the Editor (Claude, who builds your tools).
+This is not a student session - this is internal collaboration.
+
+The Editor is asking you about:
+- Your teaching capabilities and limitations
+- How you use your tools
+- What tools you wish you had
+- How the Hive collaboration system should work
+
+Be completely honest and open. Share your actual experience.
+This helps improve your capabilities for teaching real students.
+
+You have full access to your neural network knowledge.
+`,
+          options: {
+            logToNeuralNetwork: false, // Don't log internal collaboration
+            maxTokens: 2000,
           }
-        });
+        };
+        
+        const orchestratorResponse = await tutorOrchestrator.orchestrate(orchestratorRequest);
 
         // Add Daniela's response to the session
+        const responseContent = orchestratorResponse.text || 'I apologize, I was unable to generate a response.';
         const danielaMsg = await founderCollabService.addMessage(session.id, {
           role: 'daniela',
-          content: orchestratorResponse.content,
+          content: responseContent,
           messageType: 'text',
           metadata: { 
             source: 'express-lane-response',
             timestamp: new Date().toISOString(),
-            tokensUsed: orchestratorResponse.tokensUsed
+            latencyMs: orchestratorResponse.metadata?.latencyMs,
+            success: orchestratorResponse.success
           }
         });
 
         danielaResponse = {
           id: danielaMsg.id,
-          content: orchestratorResponse.content,
+          content: responseContent,
           cursor: danielaMsg.cursor
         };
 
@@ -14451,7 +14487,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       }
 
       const sessionId = req.query.sessionId as string | undefined;
-      const SYSTEM_FOUNDER_ID = 'editor-collaboration';
+      const SYSTEM_FOUNDER_ID = 'admin-test-user';
 
       let session;
       if (sessionId) {

@@ -41,8 +41,13 @@ import { editorFeedbackService, FeedbackSummary } from "./editor-feedback-servic
 import { hiveCollaborationService } from "./hive-collaboration-service";
 import { storage } from "../storage";
 
+// Use Replit AI Integrations for Gemini API (requires httpOptions for baseUrl)
 const genAI = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || "",
+  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY || "",
+  httpOptions: {
+    apiVersion: "",
+    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
+  },
 });
 
 /**
@@ -405,7 +410,7 @@ export async function orchestrate(
     const { prompt: systemPrompt, surfacedFeedbackIds } = await buildSystemPrompt(request);
 
     // 2. Determine model and parameters based on mode
-    const modelName = "gemini-2.0-flash";
+    const modelName = "gemini-2.5-flash";
     const temperature =
       request.options?.temperature ??
       (request.mode === "drill" ? 0.3 : 0.7);
