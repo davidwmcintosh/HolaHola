@@ -4745,6 +4745,25 @@ interface ExpressLaneSession {
   updatedAt: string;
 }
 
+interface SessionHistoryItem {
+  id: string;
+  status: string;
+  title: string | null;
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface SearchResult {
+  sessionId: string;
+  sessionTitle: string | null;
+  messageId: string;
+  role: string;
+  content: string;
+  createdAt: string;
+  matchSnippet: string;
+}
+
 interface MemoryContext {
   recentConversations: Array<{
     id: number;
@@ -4766,6 +4785,11 @@ function EditorChatTab() {
   const [expressMessages, setExpressMessages] = useState<ExpressLaneMessage[]>([]);
   const [expressSession, setExpressSession] = useState<ExpressLaneSession | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // New UI enhancement state
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
 
   // Fetch EXPRESS lane session on mount when in EXPRESS mode
   const { data: expressData, isLoading: expressLoading, refetch: refetchExpress } = useQuery<{
@@ -4807,6 +4831,115 @@ function EditorChatTab() {
     queryKey: ['/api/editor-chat/memory-context'],
     enabled: !expressLaneMode,
   });
+
+  // Fetch session history for EXPRESS Lane
+  const { data: sessionHistory, refetch: refetchSessionHistory } = useQuery<{ sessions: SessionHistoryItem[] }>({
+    queryKey: ['/api/express-lane/ui/sessions'],
+    enabled: expressLaneMode,
+  });
+
+  // Create new EXPRESS session mutation
+  const createExpressSessionMutation = useMutation({
+    mutationFn: async (title?: string) => {
+      return apiRequest("POST", "/api/express-lane/ui/sessions", { title }) as Promise<{
+        success: boolean;
+        session: SessionHistoryItem;
+      }>;
+    },
+    onSuccess: async (data) => {
+      setExpressMessages([]);
+      setExpressSession({
+        id: data.session.id,
+        status: data.session.status,
+        messageCount: 0,
+        createdAt: data.session.createdAt,
+        updatedAt: data.session.updatedAt
+      });
+      // Clear search state when starting new session
+      setSearchResults([]);
+      setSearchQuery('');
+      await refetchSessionHistory();
+      toast({ title: "New EXPRESS session started" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to create session", variant: "destructive" });
+    },
+  });
+
+  // Search EXPRESS messages mutation
+  const searchExpressMutation = useMutation({
+    mutationFn: async (query: string) => {
+      const result = await apiRequest("GET", `/api/express-lane/ui/search?q=${encodeURIComponent(query)}${expressSession?.id ? `&sessionId=${expressSession.id}` : ''}`) as {
+        query: string;
+        resultCount: number;
+        results: SearchResult[];
+      };
+      return result;
+    },
+    onSuccess: (data) => {
+      setSearchResults(data.results);
+    },
+    onError: (error: any) => {
+      toast({ title: "Search failed", description: error.message || "Could not search messages", variant: "destructive" });
+    },
+  });
+
+  // Switch to a different session
+  const switchToSession = async (sessionId: string) => {
+    try {
+      const result = await fetch(`/api/express-lane/ui/session?sessionId=${sessionId}`, {
+        credentials: 'include'
+      });
+      if (!result.ok) {
+        throw new Error('Failed to load session');
+      }
+      const data = await result.json();
+      if (data.session) {
+        setExpressSession(data.session);
+        const validMessages = (data.messages || []).filter(
+          (msg: any): msg is ExpressLaneMessage => 
+            msg != null && typeof msg.role === 'string' && typeof msg.content === 'string'
+        );
+        setExpressMessages(validMessages);
+        // Clear search results when switching sessions
+        setSearchResults([]);
+        setSearchQuery('');
+      }
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Could not load session", variant: "destructive" });
+    }
+  };
+
+  // Export conversation as JSON
+  const handleExport = () => {
+    const exportData = {
+      sessionId: expressSession?.id,
+      exportedAt: new Date().toISOString(),
+      messageCount: expressMessages.length,
+      messages: expressMessages.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+        createdAt: msg.createdAt
+      }))
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `express-lane-${expressSession?.id?.substring(0, 8) || 'session'}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast({ title: "Conversation exported" });
+  };
+
+  // Handle search
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      searchExpressMutation.mutate(searchQuery.trim());
+    }
+  };
 
   // Create new conversation mutation (legacy mode)
   const createConversationMutation = useMutation({
@@ -4966,13 +5099,145 @@ function EditorChatTab() {
           {expressLaneMode ? (
             // EXPRESS Lane Mode UI
             <div className="flex flex-col h-[500px]">
-              {/* Session Info */}
-              {expressSession && (
-                <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
-                  <Radio className="h-3 w-3 text-green-500" />
-                  <span>Session: {expressSession.id.substring(0, 8)}...</span>
-                  <span className="mx-1">|</span>
-                  <span>{expressSession.messageCount || expressMessages.length} messages</span>
+              {/* Session Toolbar */}
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  {/* Session indicator */}
+                  {expressSession && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Radio className="h-3 w-3 text-green-500" />
+                      <span>Session: {expressSession.id.substring(0, 8)}...</span>
+                      <span className="mx-1">|</span>
+                      <span>{expressMessages.length} messages</span>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  {/* Session History Dropdown */}
+                  {sessionHistory?.sessions && sessionHistory.sessions.length > 0 && (
+                    <Select 
+                      value={expressSession?.id || ''} 
+                      onValueChange={(val) => switchToSession(val)}
+                    >
+                      <SelectTrigger className="w-[180px] h-8 text-xs" data-testid="select-session-history">
+                        <SelectValue placeholder="Session history" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sessionHistory.sessions.map((session) => (
+                          <SelectItem key={session.id} value={session.id}>
+                            <div className="flex items-center gap-2">
+                              <span className="truncate max-w-[120px]">
+                                {session.title || session.id.substring(0, 8)}
+                              </span>
+                              <Badge variant="secondary" className="text-xs">
+                                {session.messageCount}
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  
+                  {/* New Session Button */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => createExpressSessionMutation.mutate(undefined)}
+                    disabled={createExpressSessionMutation.isPending}
+                    data-testid="button-new-express-session"
+                  >
+                    {createExpressSessionMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4 mr-1" />
+                    )}
+                    New
+                  </Button>
+                  
+                  {/* Search Button */}
+                  <Button
+                    size="icon"
+                    variant={showSearch ? "secondary" : "ghost"}
+                    onClick={() => {
+                      setShowSearch(!showSearch);
+                      if (!showSearch) {
+                        setSearchResults([]);
+                        setSearchQuery('');
+                      }
+                    }}
+                    data-testid="button-toggle-search"
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
+                  
+                  {/* Export Button */}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={handleExport}
+                    disabled={expressMessages.length === 0}
+                    data-testid="button-export-express"
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Search Panel */}
+              {showSearch && (
+                <div className="mb-3 p-3 border rounded-md bg-muted/30">
+                  <div className="flex gap-2 mb-2">
+                    <Input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                      placeholder="Search messages..."
+                      className="flex-1"
+                      data-testid="input-search-express"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={handleSearch}
+                      disabled={!searchQuery.trim() || searchExpressMutation.isPending}
+                      data-testid="button-search-express"
+                    >
+                      {searchExpressMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Search className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  {searchResults.length > 0 && (
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {searchResults.map((result) => (
+                        <div
+                          key={result.messageId}
+                          className="p-2 text-xs bg-card rounded-md cursor-pointer hover-elevate"
+                          onClick={() => {
+                            if (result.sessionId !== expressSession?.id) {
+                              switchToSession(result.sessionId);
+                            }
+                            setShowSearch(false);
+                          }}
+                          data-testid={`search-result-${result.messageId}`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="secondary" className="text-xs">{result.role}</Badge>
+                            <span className="text-muted-foreground">
+                              {new Date(result.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="text-muted-foreground truncate">{result.matchSnippet}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {searchExpressMutation.isSuccess && searchResults.length === 0 && searchQuery.trim() && (
+                    <p className="text-xs text-muted-foreground text-center py-2">No results found</p>
+                  )}
                 </div>
               )}
               

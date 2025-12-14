@@ -14674,6 +14674,151 @@ You have full access to your neural network knowledge.
     }
   });
 
+  // EXPRESS LANE UI: Create a new session
+  app.post("/api/express-lane/ui/sessions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !hasDeveloperAccess(user.role)) {
+        return res.status(403).json({ error: 'Developer or Admin access required' });
+      }
+
+      const { title } = req.body;
+      const session = await founderCollabService.createSession(userId, title || `Session ${new Date().toLocaleDateString()}`);
+      
+      console.log(`[EXPRESS LANE UI] Created new session ${session.id} for user ${userId}`);
+
+      res.json({
+        success: true,
+        session: {
+          id: session.id,
+          status: session.status,
+          title: session.title,
+          messageCount: session.messageCount,
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt
+        }
+      });
+
+    } catch (error: any) {
+      console.error('[EXPRESS LANE UI] Create session error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // EXPRESS LANE UI: Get session history (list of all sessions)
+  app.get("/api/express-lane/ui/sessions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !hasDeveloperAccess(user.role)) {
+        return res.status(403).json({ error: 'Developer or Admin access required' });
+      }
+
+      const limit = parseInt(req.query.limit as string) || 20;
+      const sessions = await founderCollabService.getFounderSessions(userId, limit);
+      
+      res.json({
+        sessions: sessions.map(s => ({
+          id: s.id,
+          status: s.status,
+          title: s.title,
+          messageCount: s.messageCount,
+          createdAt: s.createdAt,
+          updatedAt: s.updatedAt
+        }))
+      });
+
+    } catch (error: any) {
+      console.error('[EXPRESS LANE UI] List sessions error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // EXPRESS LANE UI: Search within session messages
+  app.get("/api/express-lane/ui/search", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !hasDeveloperAccess(user.role)) {
+        return res.status(403).json({ error: 'Developer or Admin access required' });
+      }
+
+      const query = req.query.q as string;
+      const sessionId = req.query.sessionId as string | undefined;
+
+      if (!query || query.trim().length < 2) {
+        return res.status(400).json({ error: 'Search query must be at least 2 characters' });
+      }
+
+      // If sessionId provided, search within that session; otherwise search all user's sessions
+      let sessions;
+      if (sessionId) {
+        const session = await founderCollabService.getSession(sessionId);
+        sessions = session ? [session] : [];
+      } else {
+        sessions = await founderCollabService.getFounderSessions(userId, 50);
+      }
+
+      const results: Array<{
+        sessionId: string;
+        sessionTitle: string | null;
+        messageId: string;
+        role: string;
+        content: string;
+        createdAt: Date;
+        matchSnippet: string;
+      }> = [];
+
+      const searchLower = query.toLowerCase();
+
+      for (const session of sessions) {
+        const messages = await founderCollabService.getSessionMessages(session.id, 200);
+        for (const msg of messages) {
+          if (msg.content.toLowerCase().includes(searchLower)) {
+            // Create a snippet around the match
+            const idx = msg.content.toLowerCase().indexOf(searchLower);
+            const start = Math.max(0, idx - 50);
+            const end = Math.min(msg.content.length, idx + query.length + 50);
+            const snippet = (start > 0 ? '...' : '') + msg.content.slice(start, end) + (end < msg.content.length ? '...' : '');
+            
+            results.push({
+              sessionId: session.id,
+              sessionTitle: session.title,
+              messageId: msg.id,
+              role: msg.role,
+              content: msg.content,
+              createdAt: msg.createdAt,
+              matchSnippet: snippet
+            });
+          }
+        }
+      }
+
+      res.json({
+        query,
+        resultCount: results.length,
+        results: results.slice(0, 50) // Limit to 50 results
+      });
+
+    } catch (error: any) {
+      console.error('[EXPRESS LANE UI] Search error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // EXPRESS LANE: Get current collaboration context
   app.get("/api/express-lane/context", async (req, res) => {
     try {
