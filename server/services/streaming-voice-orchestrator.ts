@@ -2821,22 +2821,27 @@ Only include observations you can clearly justify from the exchange. Return empt
     data: { topic: string; status: 'demonstrated' | 'needs_review' | 'struggling'; evidence: string }
   ): Promise<void> {
     try {
-      // Check if this is a class session with a syllabus
-      if (!session.classId) {
-        console.log(`[Syllabus Progress] Skipping - no class context for this session`);
+      // Validate required session data
+      if (!session.userId || !session.targetLanguage) {
+        console.log(`[Syllabus Progress] Skipping - missing userId or language`);
         return;
       }
       
-      // For now, log the progress update - can integrate with syllabus competency system later
-      // The neural network is tracking that Daniela observed this topic
-      console.log(`[Syllabus Progress] Class ${session.classId} - Topic "${data.topic}": ${data.status}`);
-      console.log(`[Syllabus Progress] Evidence: ${data.evidence}`);
+      // Create the topic competency observation
+      const observation = await storage.createTopicCompetencyObservation({
+        userId: String(session.userId),
+        conversationId: session.conversationId || null,
+        classId: session.classId || null,
+        language: session.targetLanguage,
+        topicName: data.topic,
+        matchedTopicId: null, // Could implement topic matching later
+        status: data.status,
+        evidence: data.evidence,
+        observedAt: new Date(),
+      });
       
-      // TODO: Integrate with student syllabus competency tracking
-      // This would update studentSyllabusTopicCompetencies table with:
-      // - topic name/ID mapping
-      // - competency level based on status
-      // - evidence from Daniela's observation
+      console.log(`[Syllabus Progress] Saved observation ${observation.id} - Topic "${data.topic}": ${data.status}`);
+      console.log(`[Syllabus Progress] Evidence: ${data.evidence}`);
       
     } catch (error: any) {
       console.error(`[Syllabus Progress] Failed:`, error.message);
