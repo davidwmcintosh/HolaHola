@@ -4117,13 +4117,13 @@ export class DatabaseStorage implements IStorage {
     
     // Build a map of topic name (lowercase) -> latest observation
     // Daniela uses freeform names, so we'll match against topic names
-    // Note: danielaObservations is ordered by desc(observedAt), so we iterate newest-first
-    // and only keep the first (newest) observation per topic
+    // Defensive: Always compare observedAt to keep newest, regardless of query order
     const observationMap = new Map<string, { status: string; evidence: string | null; observedAt: Date }>();
     for (const obs of danielaObservations) {
       const key = obs.topicName.toLowerCase().replace(/[_-]/g, ' ');
-      // Keep newest observation (first encountered since sorted desc by observedAt)
-      if (!observationMap.has(key)) {
+      const existing = observationMap.get(key);
+      // Keep newest observation by comparing timestamps
+      if (!existing || obs.observedAt > existing.observedAt) {
         observationMap.set(key, {
           status: obs.status,
           evidence: obs.evidence,
