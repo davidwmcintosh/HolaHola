@@ -102,8 +102,9 @@ export const users = pgTable("users", {
   onboardingCompleted: boolean("onboarding_completed").default(false),
   // Tutor preference - allows students to choose male or female tutor voice/avatar
   tutorGender: varchar("tutor_gender").default("female"), // male, female - matches voice and avatar
-  // Assistant (Aris) voice gender - allows students to choose male or female drill assistant voice
-  assistantVoiceGender: varchar("assistant_voice_gender").default("female"), // male, female - drill assistant voice
+  // DEPRECATED: assistantVoiceGender - now uses tutorGender as single source of truth for all voice preferences
+  // Column retained for backwards compatibility; not exposed in API
+  assistantVoiceGender: varchar("assistant_voice_gender").default("female"),
   // Tutor personality - baseline emotion style for the AI tutor
   tutorPersonality: varchar("tutor_personality").default("warm"), // warm, calm, energetic, professional
   // Tutor expressiveness - how much the AI deviates from baseline (1=subtle, 5=very expressive)
@@ -140,7 +141,6 @@ export const updateUserPreferencesSchema = z.object({
   difficultyLevel: z.string().optional(),
   onboardingCompleted: z.boolean().optional(),
   tutorGender: z.enum(['male', 'female']).optional(),
-  assistantVoiceGender: z.enum(['male', 'female']).optional(),
   tutorPersonality: z.enum(['warm', 'calm', 'energetic', 'professional']).optional(),
   tutorExpressiveness: z.number().min(1).max(5).optional(),
   selfDirectedFlexibility: z.enum(['guided', 'flexible_goals', 'open_exploration', 'free_conversation']).optional(),
