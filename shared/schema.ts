@@ -1045,6 +1045,7 @@ export const classCurriculumUnits = pgTable("class_curriculum_units", {
   actflLevel: text("actfl_level"), // Target proficiency level
   culturalTheme: text("cultural_theme"),
   estimatedHours: integer("estimated_hours"),
+  commitments: jsonb("commitments"), // Unit commitments/objectives for brain map display
   isCustom: boolean("is_custom").default(false), // true if teacher created this unit
   isRemoved: boolean("is_removed").default(false), // soft delete for cloned units
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -1063,6 +1064,10 @@ export const classCurriculumLessons = pgTable("class_curriculum_lessons", {
   orderIndex: integer("order_index").notNull(), // Order within the unit
   lessonType: text("lesson_type").notNull(), // conversation, vocabulary, grammar, cultural_exploration, drill
   actflLevel: text("actfl_level"),
+  // Bundle fields for lesson organization
+  requirementTier: text("requirement_tier").default("required"), // required, recommended, optional_premium
+  bundleId: varchar("bundle_id"), // Groups lessons that should be completed together
+  linkedDrillLessonId: varchar("linked_drill_lesson_id"), // For conversation lessons, links to prerequisite drill
   // Prerequisite lesson (drill-first learning flow)
   prerequisiteLessonId: varchar("prerequisite_lesson_id"), // Must complete this lesson first (refers to class lesson id)
   // Lesson content
@@ -1146,6 +1151,7 @@ export const syllabusProgress = pgTable("syllabus_progress", {
   tutorVerified: boolean("tutor_verified").default(false), // Did AI tutor confirm competency?
   tutorNotes: text("tutor_notes"), // AI assessment notes
   // Timing
+  actualMinutes: integer("actual_minutes"), // Actual time spent on this lesson in minutes
   completedAt: timestamp("completed_at"),
   scheduledDate: timestamp("scheduled_date"), // When this lesson was supposed to be done (per syllabus)
   daysAhead: integer("days_ahead"), // Positive = completed early, negative = late
@@ -5084,4 +5090,89 @@ export const insertEditorBeaconQueueSchema = createInsertSchema(editorBeaconQueu
 });
 export type InsertEditorBeaconQueue = z.infer<typeof insertEditorBeaconQueueSchema>;
 export type EditorBeaconQueue = typeof editorBeaconQueue.$inferSelect;
+
+// ===== Unified Progress API Types =====
+// Response types for the shared progress API consumed by both brain map and linear syllabus views
+// Ensures both visualizations stay in sync with the same underlying data
+
+// Lesson progress status for unified view
+export type UnifiedLessonStatus = 'not_started' | 'in_progress' | 'completed' | 'skipped';
+
+// Individual lesson in the unified progress response
+export interface UnifiedLessonProgress {
+  id: string;
+  name: string;
+  description: string;
+  orderIndex: number;
+  lessonType: string;
+  actflLevel: string | null;
+  // Bundle system fields
+  requirementTier: 'required' | 'recommended' | 'optional_premium';
+  bundleId: string | null;
+  linkedDrillLessonId: string | null;
+  // Progress tracking
+  status: UnifiedLessonStatus;
+  canSkip: boolean; // Based on requirementTier (non-required content can be skipped)
+  // Timing
+  estimatedMinutes: number | null;
+  actualMinutes: number | null; // From syllabus progress or voice sessions
+  completedAt: Date | null;
+  // Competency
+  tutorVerified: boolean;
+  tutorNotes: string | null;
+}
+
+// Unit in the unified progress response
+export interface UnifiedUnitProgress {
+  id: string;
+  name: string;
+  description: string;
+  orderIndex: number;
+  actflLevel: string | null;
+  culturalTheme: string | null;
+  // Time tracking
+  estimatedHours: number | null;
+  actualHours: number | null;
+  // Commitments (teacher promises)
+  commitments: {
+    promises?: string[];
+    reviewPoints?: string[];
+    prerequisites?: string[];
+  } | null;
+  // Lessons within this unit
+  lessons: UnifiedLessonProgress[];
+  // Aggregated stats
+  lessonsTotal: number;
+  lessonsCompleted: number;
+  percentComplete: number;
+}
+
+// Time variance summary
+export interface TimeVarianceSummary {
+  estimatedTotalMinutes: number;
+  actualTotalMinutes: number;
+  percentComplete: number;
+  paceStatus: 'ahead' | 'on_track' | 'behind';
+}
+
+// Full unified progress response
+export interface UnifiedProgressResponse {
+  classId: string;
+  className: string;
+  language: string;
+  // Units with their lessons
+  units: UnifiedUnitProgress[];
+  // Daniela's observations (topic competency)
+  observations: TopicCompetencyObservation[];
+  // Daniela's recommendations queue
+  recommendations: DanielaRecommendation[];
+  // Overall time tracking
+  timeVariance: TimeVarianceSummary;
+  // Aggregated stats
+  unitsTotal: number;
+  unitsCompleted: number;
+  lessonsTotal: number;
+  lessonsCompleted: number;
+  overallPercentComplete: number;
+}
 

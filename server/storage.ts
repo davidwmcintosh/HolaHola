@@ -498,6 +498,9 @@ export interface IStorage {
   getPendingTierSignals(options?: { classId?: string }): Promise<StudentTierSignal[]>;
   reviewTierSignal(id: string, reviewedBy: string, decision: string, notes?: string): Promise<StudentTierSignal | undefined>;
 
+  // ===== Unified Progress API =====
+  getUnifiedProgress(studentId: string, classId: string): Promise<import('@shared/schema').UnifiedProgressResponse | null>;
+
   // ===== Admin-Only Methods =====
   
   // User Management
@@ -3567,6 +3570,137 @@ export class DatabaseStorage implements IStorage {
       .where(eq(studentTierSignals.id, id))
       .returning();
     return updated;
+  }
+
+  // ===== Unified Progress API =====
+  async getUnifiedProgress(studentId: string, classId: string): Promise<import('@shared/schema').UnifiedProgressResponse | null> {
+    const teacherClass = await this.getTeacherClass(classId);
+    if (!teacherClass) return null;
+
+    const units = await this.getClassCurriculumUnits(classId);
+    const activeUnits = units.filter(u => !u.isRemoved).sort((a, b) => a.orderIndex - b.orderIndex);
+    
+    const activeUnitIds = activeUnits.map(u => u.id);
+    const allLessons = await this.getClassCurriculumLessonsForUnits(activeUnitIds);
+    const syllabusProgress = await this.getSyllabusProgress(studentId, classId);
+    const progressMap = new Map(syllabusProgress.map(p => [p.lessonId, p]));
+    
+    const observations = await this.getTopicCompetencyObservations(studentId, teacherClass.language);
+    const recommendations = await this.getDanielaRecommendations(studentId, { 
+      classId, 
+      language: teacherClass.language,
+      includeSnoozed: false,
+      includeCompleted: false 
+    });
+
+    let totalEstimatedMinutes = 0;
+    let totalActualMinutes = 0;
+    let totalLessons = 0;
+    let totalLessonsCompleted = 0;
+    let totalUnitsCompleted = 0;
+
+    const unifiedUnits: import('@shared/schema').UnifiedUnitProgress[] = activeUnits.map(unit => {
+      const unitLessons = allLessons.filter(l => l.classUnitId === unit.id).sort((a, b) => a.orderIndex - b.orderIndex);
+      let unitActualMinutes = 0;
+      let unitLessonsCompleted = 0;
+
+      const unifiedLessons: import('@shared/schema').UnifiedLessonProgress[] = unitLessons.map(lesson => {
+        // Progress is keyed by sourceLessonId (base curriculum lesson ID), not class lesson ID
+        const progress = lesson.sourceLessonId ? progressMap.get(lesson.sourceLessonId) : null;
+        const tier = (lesson.requirementTier as 'required' | 'recommended' | 'optional_premium') || 'required';
+        const canSkip = tier !== 'required';
+        
+        let status: import('@shared/schema').UnifiedLessonStatus = 'not_started';
+        if (progress) {
+          if (progress.status === 'completed_early' || progress.status === 'completed_assigned') {
+            status = 'completed';
+          } else if (progress.status === 'skipped') {
+            status = 'skipped';
+          } else if (progress.status === 'in_progress') {
+            status = 'in_progress';
+          }
+        }
+
+        const estimatedMin = lesson.estimatedMinutes || 0;
+        const actualMin = progress?.actualMinutes || 0;
+        totalEstimatedMinutes += estimatedMin;
+        totalActualMinutes += actualMin;
+        unitActualMinutes += actualMin;
+        
+        if (status === 'completed' || status === 'skipped') {
+          unitLessonsCompleted++;
+          totalLessonsCompleted++;
+        }
+
+        return {
+          id: lesson.id,
+          name: lesson.name,
+          description: lesson.description,
+          orderIndex: lesson.orderIndex,
+          lessonType: lesson.lessonType,
+          actflLevel: lesson.actflLevel,
+          requirementTier: tier,
+          bundleId: lesson.bundleId,
+          linkedDrillLessonId: lesson.linkedDrillLessonId,
+          status,
+          canSkip,
+          estimatedMinutes: lesson.estimatedMinutes,
+          actualMinutes: actualMin > 0 ? actualMin : null,
+          completedAt: progress?.completedAt || null,
+          tutorVerified: progress?.tutorVerified || false,
+          tutorNotes: progress?.tutorNotes || null,
+        };
+      });
+
+      totalLessons += unitLessons.length;
+      const unitPercentComplete = unitLessons.length > 0 ? Math.round((unitLessonsCompleted / unitLessons.length) * 100) : 0;
+      if (unitPercentComplete === 100) totalUnitsCompleted++;
+
+      return {
+        id: unit.id,
+        name: unit.name,
+        description: unit.description,
+        orderIndex: unit.orderIndex,
+        actflLevel: unit.actflLevel,
+        culturalTheme: unit.culturalTheme,
+        estimatedHours: unit.estimatedHours,
+        actualHours: unitActualMinutes > 0 ? Math.round(unitActualMinutes / 60 * 10) / 10 : null,
+        commitments: unit.commitments as any || null,
+        lessons: unifiedLessons,
+        lessonsTotal: unitLessons.length,
+        lessonsCompleted: unitLessonsCompleted,
+        percentComplete: unitPercentComplete,
+      };
+    });
+
+    const overallPercentComplete = totalLessons > 0 ? Math.round((totalLessonsCompleted / totalLessons) * 100) : 0;
+    let paceStatus: 'ahead' | 'on_track' | 'behind' = 'on_track';
+    if (totalActualMinutes > 0 && totalEstimatedMinutes > 0 && overallPercentComplete > 0) {
+      const expectedMinutesForProgress = totalEstimatedMinutes * (overallPercentComplete / 100);
+      const ratio = totalActualMinutes / expectedMinutesForProgress;
+      if (ratio < 0.9) paceStatus = 'ahead';
+      else if (ratio > 1.1) paceStatus = 'behind';
+    }
+
+    return {
+      classId,
+      className: teacherClass.name,
+      language: teacherClass.language,
+      units: unifiedUnits,
+      observations,
+      recommendations,
+      timeVariance: {
+        estimatedTotalMinutes: totalEstimatedMinutes,
+        actualTotalMinutes: totalActualMinutes,
+        percentComplete: overallPercentComplete,
+        paceStatus,
+      },
+      unitsTotal: activeUnits.length,
+      unitsCompleted: totalUnitsCompleted,
+      lessonsTotal: totalLessons,
+      lessonsCompleted: totalLessonsCompleted,
+      overallPercentComplete,
+    };
   }
 
   // ===== Admin-Only Methods =====

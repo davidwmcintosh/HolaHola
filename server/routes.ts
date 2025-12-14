@@ -8011,6 +8011,167 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ===== Unified Progress API =====
+  // Shared progress endpoint consumed by both brain map and linear syllabus views
+  // Returns units with lessons, Daniela's observations, recommendations, and time variance
+  app.get("/api/class/:classId/progress", isAuthenticated, async (req: any, res) => {
+    try {
+      const studentId = req.user.claims.sub;
+      const { classId } = req.params;
+      
+      const progress = await storage.getUnifiedProgress(studentId, classId);
+      if (!progress) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+      res.json(progress);
+    } catch (error: any) {
+      console.error('Error fetching unified progress:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Skip a non-required lesson
+  // Only allowed for lessons with requirementTier !== 'required' and that have a sourceLessonId
+  app.post("/api/class/:classId/lesson/:lessonId/skip", mutationLimiter, isAuthenticated, async (req: any, res) => {
+    try {
+      const studentId = req.user.claims.sub;
+      const { classId, lessonId } = req.params;
+      
+      // Verify student is enrolled in the class
+      const isEnrolled = await storage.isStudentEnrolled(classId, studentId);
+      if (!isEnrolled) {
+        return res.status(403).json({ error: "Not enrolled in this class" });
+      }
+      
+      // Get the class curriculum lesson to check requirementTier
+      const classLesson = await storage.getClassCurriculumLesson(lessonId);
+      if (!classLesson) {
+        return res.status(404).json({ error: "Lesson not found" });
+      }
+      
+      // Only allow skipping non-required lessons
+      if (classLesson.requirementTier === 'required') {
+        return res.status(400).json({ 
+          error: "Cannot skip required lessons",
+          requirementTier: classLesson.requirementTier
+        });
+      }
+      
+      // Require sourceLessonId - syllabus_progress.lessonId references curriculum_lessons, not class_curriculum_lessons
+      if (!classLesson.sourceLessonId) {
+        return res.status(400).json({ 
+          error: "Cannot track progress for custom lessons without a source curriculum reference"
+        });
+      }
+      
+      // Check if progress record exists
+      let progress = await storage.getSyllabusProgressByLesson(studentId, classId, classLesson.sourceLessonId);
+      
+      if (progress) {
+        // Update existing progress to skipped
+        progress = await storage.updateSyllabusProgress(progress.id, {
+          status: 'skipped',
+          completedAt: new Date(),
+        });
+      } else {
+        // Create new progress record as skipped
+        progress = await storage.createSyllabusProgress({
+          studentId,
+          classId,
+          lessonId: classLesson.sourceLessonId,
+          status: 'skipped',
+          completedAt: new Date(),
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        progress,
+        message: "Lesson skipped successfully" 
+      });
+    } catch (error: any) {
+      console.error('Error skipping lesson:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Manually mark a lesson as complete with actual time spent
+  app.post("/api/class/:classId/lesson/:lessonId/complete", mutationLimiter, isAuthenticated, async (req: any, res) => {
+    try {
+      const studentId = req.user.claims.sub;
+      const { classId, lessonId } = req.params;
+      const { actualMinutes, evidenceConversationId, tutorNotes } = req.body;
+      
+      // Validate actualMinutes if provided
+      if (actualMinutes !== undefined && actualMinutes !== null) {
+        const parsed = Number(actualMinutes);
+        if (!Number.isInteger(parsed) || parsed < 0) {
+          return res.status(400).json({ 
+            error: "actualMinutes must be a non-negative integer" 
+          });
+        }
+      }
+      
+      // Verify student is enrolled in the class
+      const isEnrolled = await storage.isStudentEnrolled(classId, studentId);
+      if (!isEnrolled) {
+        return res.status(403).json({ error: "Not enrolled in this class" });
+      }
+      
+      // Get the class curriculum lesson
+      const classLesson = await storage.getClassCurriculumLesson(lessonId);
+      if (!classLesson) {
+        return res.status(404).json({ error: "Lesson not found" });
+      }
+      
+      // Require sourceLessonId - syllabus_progress.lessonId references curriculum_lessons, not class_curriculum_lessons
+      if (!classLesson.sourceLessonId) {
+        return res.status(400).json({ 
+          error: "Cannot track progress for custom lessons without a source curriculum reference"
+        });
+      }
+      
+      // Check if progress record exists
+      let progress = await storage.getSyllabusProgressByLesson(studentId, classId, classLesson.sourceLessonId);
+      
+      const validatedMinutes = actualMinutes !== undefined && actualMinutes !== null 
+        ? Number(actualMinutes) 
+        : null;
+      
+      if (progress) {
+        // Update existing progress to completed
+        progress = await storage.updateSyllabusProgress(progress.id, {
+          status: 'completed_assigned',
+          actualMinutes: validatedMinutes,
+          evidenceConversationId: evidenceConversationId || null,
+          tutorNotes: tutorNotes || null,
+          completedAt: new Date(),
+        });
+      } else {
+        // Create new progress record as completed
+        progress = await storage.createSyllabusProgress({
+          studentId,
+          classId,
+          lessonId: classLesson.sourceLessonId,
+          status: 'completed_assigned',
+          actualMinutes: validatedMinutes,
+          evidenceConversationId: evidenceConversationId || null,
+          tutorNotes: tutorNotes || null,
+          completedAt: new Date(),
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        progress,
+        message: "Lesson marked as complete" 
+      });
+    } catch (error: any) {
+      console.error('Error completing lesson:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get early completions for a class (teachers only)
   app.get("/api/teacher/classes/:classId/early-completions", isAuthenticated, async (req: any, res) => {
     try {
