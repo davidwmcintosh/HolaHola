@@ -240,7 +240,7 @@ function stripArchitectMessages(text: string): string {
  * Idle timeout configuration - protects tutor resources
  * When student doesn't respond within timeout, session resources are cleaned up
  */
-const SESSION_IDLE_TIMEOUT_MS = 120000; // 2 minutes of inactivity before cleanup
+const SESSION_IDLE_TIMEOUT_MS = 240000; // 4 minutes of inactivity before cleanup (extended for long responses)
 
 /**
  * Voice speed options for speaking rate control

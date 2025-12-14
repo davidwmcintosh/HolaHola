@@ -602,7 +602,7 @@ export default function Chat() {
         
         {/* Founder Collaboration Sync Panel - visible in Founder Mode */}
         {isFounderMode && (
-          <div className={`border-l bg-muted/30 flex flex-col transition-all duration-200 ${syncPanelOpen ? 'w-80' : 'w-10'}`}>
+          <div className={`border-l bg-muted/30 flex flex-col transition-all duration-200 min-h-0 ${syncPanelOpen ? 'w-80' : 'w-10'}`}>
             {/* Collapse toggle */}
             <button
               onClick={() => setSyncPanelOpen(!syncPanelOpen)}
@@ -654,7 +654,7 @@ export default function Chat() {
                 </div>
                 
                 {/* Messages area */}
-                <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
                   {syncState.messages.length === 0 ? (
                     <div className="text-center text-muted-foreground text-sm py-8">
                       <Brain className="h-8 w-8 mx-auto mb-2 opacity-50" />
