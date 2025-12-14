@@ -835,6 +835,10 @@ Be helpful, specific, and actionable.`;
     summary: string;
   }> {
     const knowledge = await this.loadKnowledgeContext();
+    const architectureContext = await this.loadSystemArchitectureContext();
+    const architectureContextStr = architectureContext 
+      ? this.buildSystemArchitectureContext(architectureContext)
+      : '';
     
     // Get recent snapshots across all channels (last 24 hours)
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -877,9 +881,11 @@ Be helpful, specific, and actionable.`;
     
     const userPrompt = `
 ${this.buildKnowledgeContext(knowledge)}
+${architectureContextStr}
 
 PROACTIVE ANALYSIS REQUEST:
 Analyze the following patterns from the last 24 hours of teaching sessions and suggest systemic improvements.
+Consider both pedagogical improvements AND opportunities to leverage or enhance existing HolaHola features.
 
 BEACON DISTRIBUTION (${recentSnapshots.length} total):
 ${beaconSummary}
