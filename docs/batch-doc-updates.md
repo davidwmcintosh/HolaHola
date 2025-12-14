@@ -8,6 +8,54 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 14, 2025 - Brain Map Integration with Daniela's Observations
+
+**Overview**: Updated `getUserTopicMastery()` to incorporate Daniela's competency observations from `topicCompetencyObservations` into the brain map status calculation.
+
+#### Problem Solved
+
+The brain map only reflected practice counts. Daniela's real-time assessments (via SYLLABUS_PROGRESS command) weren't visible.
+
+#### Implementation
+
+**Query Enhancement**:
+- Fetches user's topic competency observations for the language
+- Orders by `desc(observedAt)` to get newest first
+- Builds a map keyed by normalized topic name (lowercase, spaces)
+
+**Status Adjustments**:
+| Daniela's Status | Effect on Brain Map |
+|-----------------|---------------------|
+| `demonstrated` | Boost to "mastered" |
+| `needs_review` + locked | At least "discovered" |
+| `struggling` | Cap at "practiced" (even with high practice count) |
+
+**Data Returned**:
+```typescript
+{
+  // ... existing fields
+  danielaObservation?: { 
+    status: string;          // demonstrated, needs_review, struggling
+    evidence: string | null; // What Daniela observed
+    observedAt: Date;        // When observed
+  }
+}
+```
+
+#### Key Design Decision
+
+**Newest observation wins**: Query orders by desc(observedAt), loop keeps first occurrence per topic (which is the newest due to ordering). This ensures recent assessments override stale ones.
+
+#### Null Safety
+
+Evidence field changed from `string` to `string | null` to handle cases where Daniela doesn't provide evidence text.
+
+#### Files Modified
+
+- `server/storage.ts` - Updated `getUserTopicMastery()` implementation and interface
+
+---
+
 ### Session: December 14, 2025 - SYLLABUS_PROGRESS Database Integration
 
 **Overview**: Connected the SYLLABUS_PROGRESS whiteboard command to the database so Daniela's observations of student topic mastery are persisted.
