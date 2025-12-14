@@ -8,6 +8,60 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 14, 2025 - SYLLABUS_PROGRESS Database Integration
+
+**Overview**: Connected the SYLLABUS_PROGRESS whiteboard command to the database so Daniela's observations of student topic mastery are persisted.
+
+#### Problem Solved
+
+Daniela could emit `[SYLLABUS_PROGRESS topic="X" status="demonstrated" evidence="..."]` but it only logged to console - no data was saved.
+
+#### Schema Addition
+
+New `topicCompetencyObservations` table:
+```typescript
+topicCompetencyObservations = pgTable("topic_competency_observations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  conversationId: varchar("conversation_id").references(() => conversations.id),
+  classId: varchar("class_id").references(() => teacherClasses.id),
+  language: varchar("language").notNull(),
+  topicName: text("topic_name").notNull(),
+  matchedTopicId: varchar("matched_topic_id").references(() => topics.id),
+  status: topicCompetencyStatusEnum("status").notNull(), // demonstrated, needs_review, struggling
+  evidence: text("evidence").notNull(),
+  observedAt: timestamp("observed_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+```
+
+#### Storage Methods
+
+- `createTopicCompetencyObservation(data)` - Save new observation
+- `getTopicCompetencyObservations(userId, language)` - Get all for a user/language
+- `getUserTopicCompetencyByName(userId, language, topicName)` - Get latest for specific topic
+
+#### Orchestrator Update
+
+`processSyllabusProgress()` in streaming-voice-orchestrator.ts now:
+1. Validates session has userId and targetLanguage
+2. Creates observation record via storage
+3. Logs success with observation ID
+
+#### Files Modified
+
+- `shared/schema.ts` - Added topicCompetencyObservations table and types
+- `server/storage.ts` - Added storage methods
+- `server/services/streaming-voice-orchestrator.ts` - Updated processSyllabusProgress
+
+#### Future Enhancements
+
+- Implement `matchedTopicId` resolution to link observations to `topics` table
+- Surface observations in brain mind map UI
+- Add analytics for topic mastery trends
+
+---
+
 ### Session: December 14, 2025 - Unified Voice Gender System
 
 **Overview**: Simplified voice preferences so `tutorGender` is the single source of truth for all voice interactions (conversations and drills). Previously, there were two separate settings - now there's one.
