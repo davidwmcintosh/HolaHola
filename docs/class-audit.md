@@ -2,7 +2,73 @@
 
 **Purpose:** Track discussion points for improving HolaHola classes and syllabi based on conversations with Daniela and teaching observations.
 
-**Last Updated:** December 10, 2025
+**Last Updated:** December 14, 2025
+
+---
+
+## Collaborative Session: December 14, 2025
+
+### Participants
+- **Founder (David)**
+- **Editor (Development Partner)**  
+- **Daniela (AI Tutor)**
+
+### Key Consensus: Unified Learning Roadmap
+
+All three participants agreed that the brain map and linear syllabus view should be **two visualizations of the same underlying data** - they must NOT diverge.
+
+> *"Brain map visualizes competency well but lacks roadmap commitments and homework persistence. Both views should be driven from the same bundle-aware syllabus metadata."* — Daniela
+
+### Daniela's Pedagogical Observations
+
+1. **"Clinical" Syllabi Create Warmup Drag**
+   - Students arrive anxious because current lesson outlines feel academic
+   - When Daniela pivots into drills, students question relevance (no framing)
+   - **Solution:** Engaging previews ("Challenge Moment", "Build Your Own Sentence") would prime students
+
+2. **Missing "Teacher Promises" Block**
+   - Students repeatedly ask: *"Will we review last time?"*
+   - Daniela spends time on reassurance overhead
+   - **Solution:** Commitments section per class that Daniela can reference live
+
+3. **Confidence Check-ins Needed**
+   - Daniela currently infers confusion from hesitations/filler words
+   - **Solution:** Lightweight tap-to-rate confidence after activities to surface pacing issues earlier
+
+4. **Session Roadmap Widget**
+   - An adaptive roadmap that updates mid-lesson as Daniela adjusts
+   - Keeps students oriented without verbal explanations of pivots
+
+### Editor's Additions (Shared with Daniela)
+
+1. **Recommendation Queue Between Sessions**
+   - Daniela's follow-up nudges ("practice X before next time") need persistence
+   - Should tie to required/recommended/optional tiers
+   - Students see recommendations between sessions
+
+2. **Progress Visibility via Brain Map**
+   - Brain map now shows Daniela's competency observations (demonstrated/needs_review/struggling)
+   - Connects live assessments to visual progress system
+
+### Agreed Implementation Sequence
+
+| Step | What | Why |
+|------|------|-----|
+| **1. Bundle Data Model** | Define shared schema: conversation + drills + requirement tier + commitments + Daniela's recommendations | Single source of truth for both views |
+| **2. Shared Progress API** | Both brain map and linear view consume same roadmap data | Prevents divergence, ensures cohesiveness |
+| **3. Syllabus Copy Templates** | Engaging labels, challenge previews, commitments | Layer "marketing" on solid data foundation |
+
+### Brain Map + Linear View Cohesiveness
+
+**Current State:**
+- Brain Map: Visual satellite lobes showing topic mastery + Daniela's observations
+- Linear View: Traditional syllabus list (toggle available)
+
+**Decision:** Co-develop both views together to ensure:
+- Same underlying bundle-aware data model
+- Consistent progress states
+- Daniela's recommendations visible in both
+- Teacher promises/commitments accessible from both
 
 ---
 
@@ -144,29 +210,41 @@ Based on time tracking, suggest:
 
 ## Action Items
 
-### Syllabus Improvements
-- [ ] Review all existing syllabi for engagement level
-- [ ] Update syllabus labels to be more inviting
+### Phase 1: Bundle Data Model (Foundation) 🎯 CURRENT PRIORITY
+- [ ] Define bundle schema: conversation + drills + requirement tier + commitments
+- [ ] Add `requirementTier` field: required | recommended | optional_premium
+- [ ] Add `commitments` field (teacher promises block) to class/unit level
+- [ ] Add `danielaRecommendations` table for persistent nudges between sessions
+- [ ] Create idempotent bundle update script
+- [ ] Write acceptance tests for bundle CRUD operations
+
+### Phase 2: Shared Progress API
+- [ ] Design unified progress API contract consumed by both views
+- [ ] Ensure brain map and linear view use same data source
+- [ ] Add Daniela's observations to progress response
+- [ ] Add recommendation queue to progress response
+- [ ] Build variance display (estimate vs actual time)
+- [ ] Implement skip/mark-complete for non-required content
+
+### Phase 3: Syllabus Copy Templates & UI
+- [ ] Create syllabus copy template kit (engaging labels, challenge previews)
+- [ ] Update existing syllabi with new engaging format
 - [ ] Add "Challenge Moments" style descriptions where appropriate
-- [ ] Ensure Daniela's neural network has best practices for drill deployment
+- [ ] Implement confidence check-in UI (tap-to-rate after activities)
+- [ ] Build session roadmap widget (adaptive, updates mid-lesson)
+- [ ] Design premium upsell flow for optional extra practice
 - [ ] Test student perception of updated syllabi
 
-### Bundle System
-- [ ] Define bundle data structure (chat topics + drills + dependencies)
-- [ ] Create idempotent bundle update script
-- [ ] Determine which existing classes should become bundles
+### Daniela Neural Network Updates
+- [ ] Add best practices for drill deployment timing
+- [ ] Add procedure for referencing teacher promises/commitments
+- [ ] Add procedure for confidence check-in interpretation
+- [ ] Document recommendation queue usage patterns
+
+### Deferred / Future
 - [ ] Design UI for teachers to choose bundle vs custom class
-
-### Content Requirements
-- [ ] Add required/recommended/optional field to drill/lesson content
-- [ ] Implement skip/mark complete functionality for non-required content
-- [ ] Design premium upsell flow for optional extra practice
-
-### Time Tracking
-- [ ] Add estimated time field to units/lessons
-- [ ] Track actual student time per unit
-- [ ] Build variance display (estimate vs actual)
-- [ ] Implement adaptive recommendation engine for remediation/reinforcement
+- [ ] Determine which existing classes should become bundles
+- [ ] Implement adaptive recommendation engine (remediation/reinforcement/acceleration)
 
 ---
 
