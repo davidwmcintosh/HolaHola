@@ -309,6 +309,79 @@ const GOOGLE_SSML_VOICE_MAP: Record<string, { name: string; languageCode: string
 };
 
 /**
+ * Google TTS Assistant Voice Map - Gendered voices for drill assistant (Aris)
+ * Students can choose male or female assistant voice for each language
+ * Uses Neural2/WaveNet for high quality with clear pronunciation
+ * 
+ * Voice naming conventions:
+ * - Neural2: Generally A/B are female, C/D are male (varies by language)
+ * - WaveNet: Similar pattern to Neural2
+ */
+export type AssistantVoiceGender = 'female' | 'male';
+
+export interface GenderedVoiceConfig {
+  female: { name: string; languageCode: string };
+  male: { name: string; languageCode: string };
+}
+
+export const GOOGLE_ASSISTANT_VOICE_MAP: Record<string, GenderedVoiceConfig> = {
+  'english': {
+    female: { name: 'en-US-Neural2-F', languageCode: 'en-US' },
+    male: { name: 'en-US-Neural2-D', languageCode: 'en-US' },
+  },
+  'spanish': {
+    female: { name: 'es-US-Neural2-A', languageCode: 'es-US' },
+    male: { name: 'es-US-Neural2-C', languageCode: 'es-US' },
+  },
+  'french': {
+    female: { name: 'fr-FR-Neural2-A', languageCode: 'fr-FR' },
+    male: { name: 'fr-FR-Neural2-D', languageCode: 'fr-FR' },
+  },
+  'german': {
+    female: { name: 'de-DE-Neural2-A', languageCode: 'de-DE' },
+    male: { name: 'de-DE-Neural2-B', languageCode: 'de-DE' },
+  },
+  'italian': {
+    female: { name: 'it-IT-Neural2-A', languageCode: 'it-IT' },
+    male: { name: 'it-IT-Neural2-C', languageCode: 'it-IT' },
+  },
+  'portuguese': {
+    female: { name: 'pt-BR-Neural2-A', languageCode: 'pt-BR' },
+    male: { name: 'pt-BR-Neural2-B', languageCode: 'pt-BR' },
+  },
+  'japanese': {
+    female: { name: 'ja-JP-Neural2-B', languageCode: 'ja-JP' },
+    male: { name: 'ja-JP-Neural2-C', languageCode: 'ja-JP' },
+  },
+  'mandarin chinese': {
+    female: { name: 'cmn-CN-Wavenet-A', languageCode: 'cmn-CN' },
+    male: { name: 'cmn-CN-Wavenet-B', languageCode: 'cmn-CN' },
+  },
+  'korean': {
+    female: { name: 'ko-KR-Neural2-A', languageCode: 'ko-KR' },
+    male: { name: 'ko-KR-Neural2-C', languageCode: 'ko-KR' },
+  },
+};
+
+/**
+ * Get assistant voice configuration for a language and gender
+ */
+export function getAssistantVoice(
+  language: string,
+  gender: AssistantVoiceGender = 'female'
+): { name: string; languageCode: string } {
+  const normalizedLang = language.toLowerCase();
+  const voiceConfig = GOOGLE_ASSISTANT_VOICE_MAP[normalizedLang];
+  
+  if (!voiceConfig) {
+    console.log(`[TTS] No assistant voice config for ${language}, using English`);
+    return GOOGLE_ASSISTANT_VOICE_MAP['english'][gender];
+  }
+  
+  return voiceConfig[gender];
+}
+
+/**
  * Cartesia Sonic Voice Mapping
  * Maps language names to Cartesia voice IDs and language codes
  * 

@@ -13,7 +13,7 @@
  * - Batch synthesis: generates audio for multiple items efficiently
  */
 
-import { getTTSService } from './tts-service';
+import { getTTSService, getAssistantVoice, AssistantVoiceGender } from './tts-service';
 import { storage } from '../storage';
 import type { CurriculumDrillItem } from '@shared/schema';
 import crypto from 'crypto';
@@ -41,10 +41,15 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Generate a cache key for a drill item's audio
- * Based on: text + language + voice settings
+ * Based on: text + language + voice settings + gender
  */
-function generateCacheKey(text: string, language: string, speakingRate: number = 0.9): string {
-  const data = `${text}:${language}:${speakingRate}`;
+function generateCacheKey(
+  text: string,
+  language: string,
+  speakingRate: number = 0.9,
+  gender: AssistantVoiceGender = 'female'
+): string {
+  const data = `${text}:${language}:${speakingRate}:${gender}`;
   return crypto.createHash('md5').update(data).digest('hex');
 }
 
@@ -67,31 +72,36 @@ function estimateDurationMs(bufferSize: number): number {
 }
 
 /**
- * Generate audio for a single drill item
+ * Generate audio for a single drill item with optional gender preference
  */
 export async function generateDrillAudio(
   text: string,
   language: string,
-  speakingRate: number = 0.9
+  speakingRate: number = 0.9,
+  gender: AssistantVoiceGender = 'female'
 ): Promise<{ audioBase64: string; durationMs: number }> {
-  const cacheKey = generateCacheKey(text, language, speakingRate);
+  const cacheKey = generateCacheKey(text, language, speakingRate, gender);
   
   // Check cache first
   if (isCacheValid(cacheKey)) {
-    console.log(`[Drill Audio] Cache HIT for text: "${text.substring(0, 30)}..."`);
+    console.log(`[Drill Audio] Cache HIT for text: "${text.substring(0, 30)}..." (${gender})`);
     return {
       audioBase64: audioCache[cacheKey].audioBase64,
       durationMs: audioCache[cacheKey].durationMs,
     };
   }
   
-  console.log(`[Drill Audio] Generating audio for: "${text.substring(0, 50)}..."`);
+  console.log(`[Drill Audio] Generating audio for: "${text.substring(0, 50)}..." (${gender} voice)`);
   
-  // Use Google TTS for consistent drill audio
+  // Get gendered voice configuration
+  const voiceConfig = getAssistantVoice(language, gender);
+  
+  // Use Google TTS with gendered voice for consistent drill audio
   const ttsService = getTTSService();
   const result = await ttsService.synthesize({
     text,
     language,
+    voice: voiceConfig.name, // Use the gendered voice name
     speakingRate,
   });
   
@@ -105,7 +115,7 @@ export async function generateDrillAudio(
     generatedAt: Date.now(),
   };
   
-  console.log(`[Drill Audio] Generated ${result.audioBuffer.length} bytes, ~${durationMs}ms duration`);
+  console.log(`[Drill Audio] Generated ${result.audioBuffer.length} bytes, ~${durationMs}ms duration (${gender})`);
   
   return { audioBase64, durationMs };
 }
@@ -117,9 +127,10 @@ export async function generateDrillAudio(
 export async function batchGenerateDrillAudio(
   drillItems: CurriculumDrillItem[],
   language: string,
-  speakingRate: number = 0.9
+  speakingRate: number = 0.9,
+  gender: AssistantVoiceGender = 'female'
 ): Promise<DrillAudioResult[]> {
-  console.log(`[Drill Audio] Batch generating audio for ${drillItems.length} items`);
+  console.log(`[Drill Audio] Batch generating audio for ${drillItems.length} items (${gender} voice)`);
   
   const results: DrillAudioResult[] = [];
   
@@ -130,7 +141,8 @@ export async function batchGenerateDrillAudio(
       const { audioBase64, durationMs } = await generateDrillAudio(
         item.targetText,
         language,
-        speakingRate
+        speakingRate,
+        gender
       );
       
       // Create a data URL for the audio
@@ -169,7 +181,8 @@ export async function generateAudioForLesson(
   lessonId: string,
   language: string,
   speakingRate: number = 0.9,
-  forceRegenerate: boolean = false
+  forceRegenerate: boolean = false,
+  gender: AssistantVoiceGender = 'female'
 ): Promise<DrillAudioResult[]> {
   const drillItems = await storage.getDrillItems(lessonId);
   
@@ -187,9 +200,9 @@ export async function generateAudioForLesson(
     }));
   }
   
-  console.log(`[Drill Audio] Generating audio for ${itemsNeedingAudio.length}/${drillItems.length} items`);
+  console.log(`[Drill Audio] Generating audio for ${itemsNeedingAudio.length}/${drillItems.length} items (${gender} voice)`);
   
-  return batchGenerateDrillAudio(itemsNeedingAudio, language, speakingRate);
+  return batchGenerateDrillAudio(itemsNeedingAudio, language, speakingRate, gender);
 }
 
 /**
