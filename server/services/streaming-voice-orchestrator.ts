@@ -429,6 +429,69 @@ const VOCABULARY_EXTRACTION_SCHEMA = {
 };
 
 /**
+ * Schema for student observation extraction
+ * Extracts insights, motivations, struggles, and people connections from conversation
+ */
+const STUDENT_OBSERVATION_SCHEMA = {
+  type: "object",
+  properties: {
+    insights: {
+      type: "array",
+      description: "Learning observations about this student (max 2)",
+      items: {
+        type: "object",
+        properties: {
+          type: { type: "string", enum: ["learning_style", "preference", "strength", "personality"], description: "Type of insight" },
+          insight: { type: "string", description: "The observation (e.g., 'Learns better with visual aids')" },
+          evidence: { type: "string", description: "What in the conversation led to this insight" }
+        },
+        required: ["type", "insight"]
+      }
+    },
+    motivations: {
+      type: "array",
+      description: "Why the student is learning this language (max 1)",
+      items: {
+        type: "object",
+        properties: {
+          motivation: { type: "string", description: "The purpose (e.g., 'Trip to Spain next summer')" },
+          details: { type: "string", description: "Additional context" },
+          targetDate: { type: "string", description: "When they want to achieve it (ISO date if mentioned)" }
+        },
+        required: ["motivation"]
+      }
+    },
+    struggles: {
+      type: "array",
+      description: "Recurring challenges the student faces (max 1)",
+      items: {
+        type: "object",
+        properties: {
+          area: { type: "string", enum: ["grammar", "pronunciation", "vocabulary", "listening", "cultural", "confidence"], description: "Area of struggle" },
+          description: { type: "string", description: "What they struggle with" },
+          examples: { type: "string", description: "Specific examples from the conversation" }
+        },
+        required: ["area", "description"]
+      }
+    },
+    peopleConnections: {
+      type: "array",
+      description: "People the student mentioned (max 2)",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Person's name if mentioned" },
+          relationship: { type: "string", description: "How they're related (friend, family, colleague, etc.)" },
+          context: { type: "string", description: "Why they were mentioned" }
+        },
+        required: ["relationship", "context"]
+      }
+    }
+  },
+  required: []  // All fields optional - Gemini may not detect observations in every exchange
+};
+
+/**
  * Streaming Voice Orchestrator
  * Manages the full pipeline from user audio to AI audio response
  */
@@ -2488,6 +2551,112 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
               console.error('[Streaming Enrichment] Failed to save vocab:', vocabError.message);
             }
           }
+        }
+      }
+      
+      // STUDENT OBSERVATION EXTRACTION: Learn about the student (insights, motivations, struggles)
+      // Only run periodically (every 3rd message) to avoid excessive API calls
+      // Note: messageCount includes current message after we saved it, so we check for multiples of 3
+      const effectiveMessageCount = (conversation.messageCount || 0) + 1;  // +1 for just-saved message
+      if (effectiveMessageCount % 3 === 0) {
+        try {
+          const observationPrompt = `Analyze this language learning conversation exchange. Extract observations about the student's learning style, motivations, and struggles. Only extract what's clearly evident from their words - don't invent or assume.
+
+Student said: "${userTranscript}"
+Tutor responded: "${aiResponse}"
+
+Guidelines:
+- For insights: Note learning styles (visual, auditory, kinesthetic), preferences, strengths, or personality traits
+- For motivations: Note why they're learning (travel, family, work, hobby) and any target dates mentioned
+- For struggles: Note recurring grammar issues, pronunciation difficulties, vocabulary gaps, or confidence challenges
+- For people: Note any people they mention by name and relationship (family, friends, colleagues)
+
+Only include observations you can clearly justify from the conversation text. Return empty arrays if nothing notable.`;
+
+          const obsResponse = await gemini.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: [{ role: 'user', parts: [{ text: observationPrompt }] }],
+            config: {
+              responseMimeType: "application/json",
+              responseSchema: STUDENT_OBSERVATION_SCHEMA as any,
+            },
+          });
+          
+          const observations = JSON.parse(obsResponse.text || "{}");
+          let savedCount = { insights: 0, motivations: 0, struggles: 0, connections: 0 };
+          
+          // Save insights
+          for (const insight of observations.insights || []) {
+            try {
+              await storage.upsertStudentInsight(
+                String(session.userId),
+                session.targetLanguage,
+                insight.type,
+                insight.insight,
+                insight.evidence
+              );
+              savedCount.insights++;
+            } catch (e: any) {
+              console.warn('[Student Memory] Failed to save insight:', e.message);
+            }
+          }
+          
+          // Save motivations
+          for (const mot of observations.motivations || []) {
+            try {
+              await storage.upsertLearningMotivation(
+                String(session.userId),
+                session.targetLanguage,
+                mot.motivation,
+                mot.details,
+                conversationId
+              );
+              savedCount.motivations++;
+            } catch (e: any) {
+              console.warn('[Student Memory] Failed to save motivation:', e.message);
+            }
+          }
+          
+          // Save struggles
+          for (const struggle of observations.struggles || []) {
+            try {
+              await storage.upsertRecurringStruggle(
+                String(session.userId),
+                session.targetLanguage,
+                struggle.area,
+                struggle.description,
+                struggle.examples
+              );
+              savedCount.struggles++;
+            } catch (e: any) {
+              console.warn('[Student Memory] Failed to save struggle:', e.message);
+            }
+          }
+          
+          // Save people connections (using existing method)
+          for (const conn of observations.peopleConnections || []) {
+            try {
+              await storage.createPeopleConnection({
+                studentId: String(session.userId),
+                personName: conn.name || 'Unknown',
+                relationship: conn.relationship,
+                context: conn.context,
+                matchStatus: conn.name ? 'pending_match' : 'no_name_provided',
+              });
+              savedCount.connections++;
+            } catch (e: any) {
+              // Duplicate connections are expected
+              if (!e.message?.includes('duplicate')) {
+                console.warn('[Student Memory] Failed to save connection:', e.message);
+              }
+            }
+          }
+          
+          if (savedCount.insights + savedCount.motivations + savedCount.struggles + savedCount.connections > 0) {
+            console.log(`[Student Memory] Saved ${savedCount.insights} insights, ${savedCount.motivations} motivations, ${savedCount.struggles} struggles, ${savedCount.connections} connections`);
+          }
+        } catch (obsError: any) {
+          console.error('[Student Memory] Observation extraction failed:', obsError.message);
         }
       }
       

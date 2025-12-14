@@ -712,17 +712,20 @@ export interface IStorage {
   getStudentInsights(studentId: string, language?: string): Promise<StudentInsight[]>;
   updateStudentInsight(id: string, data: Partial<StudentInsight>): Promise<StudentInsight | undefined>;
   incrementInsightObservation(id: string): Promise<void>;
+  upsertStudentInsight(studentId: string, language: string | null, insightType: string, insight: string, evidence?: string): Promise<StudentInsight>;
   
   // Learning Motivations - Why students are learning
   createLearningMotivation(data: InsertLearningMotivation): Promise<LearningMotivation>;
   getLearningMotivations(studentId: string, language?: string): Promise<LearningMotivation[]>;
   updateLearningMotivation(id: string, data: Partial<LearningMotivation>): Promise<LearningMotivation | undefined>;
+  upsertLearningMotivation(studentId: string, language: string | null, motivation: string, details?: string, sourceConversationId?: string): Promise<LearningMotivation>;
   
   // Recurring Struggles - Persistent challenges
   createRecurringStruggle(data: InsertRecurringStruggle): Promise<RecurringStruggle>;
   getRecurringStruggles(studentId: string, language?: string, status?: string): Promise<RecurringStruggle[]>;
   updateRecurringStruggle(id: string, data: Partial<RecurringStruggle>): Promise<RecurringStruggle | undefined>;
   incrementStruggleOccurrence(id: string): Promise<void>;
+  upsertRecurringStruggle(studentId: string, language: string, struggleArea: string, description: string, specificExamples?: string): Promise<RecurringStruggle>;
   
   // Session Notes - Post-session reflections
   createSessionNote(data: InsertSessionNote): Promise<SessionNote>;
@@ -5264,6 +5267,124 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date()
       })
       .where(eq(recurringStruggles.id, id));
+  }
+
+  // Upsert Student Insight - finds similar insight and increments, or creates new
+  async upsertStudentInsight(studentId: string, language: string | null, insightType: string, insight: string, evidence?: string): Promise<StudentInsight> {
+    // Look for existing similar insight
+    const existing = await db.select().from(studentInsights)
+      .where(and(
+        eq(studentInsights.studentId, studentId),
+        eq(studentInsights.insightType, insightType),
+        eq(studentInsights.isActive, true),
+        language ? eq(studentInsights.language, language) : isNull(studentInsights.language)
+      ))
+      .limit(10);
+    
+    // Check for semantically similar insights (simple keyword matching)
+    const insightWords = insight.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    const similarInsight = existing.find(e => {
+      const existingWords = e.insight.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      const overlap = insightWords.filter(w => existingWords.includes(w)).length;
+      return overlap >= Math.min(3, insightWords.length / 2);
+    });
+    
+    if (similarInsight) {
+      // Increment observation count and update confidence
+      const newCount = (similarInsight.observationCount || 1) + 1;
+      const newConfidence = Math.min(1.0, (similarInsight.confidenceScore || 0.5) + 0.1);
+      await this.updateStudentInsight(similarInsight.id, {
+        observationCount: newCount,
+        confidenceScore: newConfidence,
+        evidence: evidence ? `${similarInsight.evidence || ''}; ${evidence}` : similarInsight.evidence,
+      });
+      return { ...similarInsight, observationCount: newCount, confidenceScore: newConfidence };
+    }
+    
+    // Create new insight
+    return this.createStudentInsight({
+      studentId,
+      language,
+      insightType,
+      insight,
+      evidence,
+      confidenceScore: 0.5,
+      observationCount: 1,
+      isActive: true,
+    });
+  }
+
+  // Upsert Learning Motivation - finds similar motivation and updates, or creates new
+  async upsertLearningMotivation(studentId: string, language: string | null, motivation: string, details?: string, sourceConversationId?: string): Promise<LearningMotivation> {
+    // Look for existing similar motivation
+    const existing = await this.getLearningMotivations(studentId, language || undefined);
+    
+    // Check for semantically similar motivation
+    const motivationWords = motivation.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    const similarMotivation = existing.find(e => {
+      const existingWords = e.motivation.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      const overlap = motivationWords.filter(w => existingWords.includes(w)).length;
+      return overlap >= Math.min(3, motivationWords.length / 2);
+    });
+    
+    if (similarMotivation) {
+      // Update existing motivation with new details
+      const updated = await this.updateLearningMotivation(similarMotivation.id, {
+        details: details ? `${similarMotivation.details || ''}; ${details}` : similarMotivation.details,
+        sourceConversationId: sourceConversationId || similarMotivation.sourceConversationId,
+      });
+      return updated || similarMotivation;
+    }
+    
+    // Create new motivation
+    return this.createLearningMotivation({
+      studentId,
+      language,
+      motivation,
+      details,
+      sourceConversationId,
+      priority: 'primary',
+      status: 'active',
+    });
+  }
+
+  // Upsert Recurring Struggle - finds similar struggle and increments, or creates new
+  async upsertRecurringStruggle(studentId: string, language: string, struggleArea: string, description: string, specificExamples?: string): Promise<RecurringStruggle> {
+    // Look for existing similar struggle
+    const existing = await this.getRecurringStruggles(studentId, language, 'active');
+    
+    // Check for semantically similar struggle in same area
+    const descWords = description.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    const similarStruggle = existing.find(e => {
+      if (e.struggleArea !== struggleArea) return false;
+      const existingWords = e.description.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      const overlap = descWords.filter(w => existingWords.includes(w)).length;
+      return overlap >= Math.min(2, descWords.length / 2);
+    });
+    
+    if (similarStruggle) {
+      // Increment occurrence and add examples
+      const newCount = (similarStruggle.occurrenceCount || 1) + 1;
+      await this.updateRecurringStruggle(similarStruggle.id, {
+        occurrenceCount: newCount,
+        lastOccurredAt: new Date(),
+        specificExamples: specificExamples 
+          ? `${similarStruggle.specificExamples || ''}; ${specificExamples}` 
+          : similarStruggle.specificExamples,
+      });
+      return { ...similarStruggle, occurrenceCount: newCount };
+    }
+    
+    // Create new struggle
+    return this.createRecurringStruggle({
+      studentId,
+      language,
+      struggleArea,
+      description,
+      specificExamples,
+      occurrenceCount: 1,
+      status: 'active',
+    });
   }
 
   // Session Notes - Post-session reflections
