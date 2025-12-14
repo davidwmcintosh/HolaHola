@@ -98,6 +98,13 @@ function cleanTextForDisplay(text: string): string {
   // First strip all whiteboard markup (WRITE, DRILL, SWITCH_TUTOR, etc.)
   // This must happen before other cleaning to ensure markup doesn't appear in TTS
   let cleaned = stripWhiteboardMarkup(text)
+    // Remove code blocks (```language\ncode\n```) - extract just the code content without backticks
+    // Code blocks should not be spoken aloud at all in voice sessions
+    .replace(/```[\w]*\n?([\s\S]*?)```/g, '')
+    // Remove inline code backticks (`code`) - keep the text but remove backticks
+    .replace(/`([^`]+)`/g, '$1')
+    // Remove any remaining stray backticks
+    .replace(/`/g, '')
     // Remove action/emotion tags like *laughs softly*, *chuckles*, *sighs*, *smiles warmly*, etc.
     // These should be emoted by the voice, not spoken aloud
     // Must happen BEFORE stripping individual asterisks
