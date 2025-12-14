@@ -736,6 +736,22 @@ Reference past discussions when relevant, but don't force it.
             console.warn(`[Streaming Voice] Voice config error: ${err.message}`);
           }
           
+          // Fetch student memory context for neural network injection
+          // This gives Daniela her memories of the student across sessions
+          let studentMemoryContext = null;
+          try {
+            studentMemoryContext = await storage.getStudentMemoryContext(userId!, effectiveLanguage);
+            const memoryCount = (studentMemoryContext.insights?.length || 0) + 
+                               (studentMemoryContext.motivations?.length || 0) +
+                               (studentMemoryContext.struggles?.length || 0) +
+                               (studentMemoryContext.connections?.length || 0);
+            if (memoryCount > 0) {
+              console.log(`[Streaming Voice] Loaded ${memoryCount} student memories for neural network`);
+            }
+          } catch (memErr: any) {
+            console.warn('[Streaming Voice] Could not load student memory:', memErr.message);
+          }
+          
           let systemPrompt = createSystemPrompt(
             config.targetLanguage,
             derivedDifficulty, // Use organically-derived difficulty, not user self-selection
@@ -764,7 +780,11 @@ Reference past discussions when relevant, but don't force it.
             tutorDirectory, // Dynamic tutor directory for handoffs
             user.timezone, // Student timezone for time-aware greetings
             userRole, // User role for session context
-            sessionIntent // Session intent for meta-mode awareness
+            sessionIntent, // Session intent for meta-mode awareness
+            undefined, // editorConversationContext
+            undefined, // surgeryContext
+            studentMemoryContext, // Student memory for neural network
+            user.firstName || user.username || undefined // Student display name for memory section
           );
 
           // Add founder memory context if in Founder Mode (but NOT in Raw Honesty Mode - keep it minimal)

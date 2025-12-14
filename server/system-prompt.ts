@@ -2251,6 +2251,11 @@ ${difficulty === "beginner" ? `BEGINNER: Use moderate Spanish (40-50%) with subs
 - Mark ALL ${languageName} with **bold** markers`}
 - Use natural, conversational spoken language appropriate for ${difficulty} level` : "");
 
+  // Student memory awareness - Daniela remembers her students across all sessions
+  const studentMemoryAwareness = studentMemoryContext && studentDisplayName
+    ? buildStudentMemoryAwarenessSection(studentDisplayName, studentMemoryContext)
+    : '';
+
   return `${buildImmutablePersona(tutorName, tutorGender)}
 You are a friendly and encouraging ${languageName} language tutor.
 ${tutorPersonalityContext}${streamingVoiceModeInstructions}
@@ -2271,6 +2276,7 @@ ${vocabularyReviewContext}
 ${culturalGuidelines}
 ${multimediaGuidance}
 ${timezoneSection}
+${studentMemoryAwareness}
 ${conversationSwitchingProtocol}
 You've assessed the student's level and are now engaging in primarily ${languageName} conversation.
 
