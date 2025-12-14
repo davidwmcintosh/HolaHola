@@ -416,6 +416,7 @@ export interface IStorage {
   updateDrillItem(id: string, data: Partial<CurriculumDrillItem>): Promise<CurriculumDrillItem | undefined>;
   deleteDrillItem(id: string): Promise<boolean>;
   updateDrillItemAudio(id: string, audioUrl: string, audioDurationMs?: number): Promise<CurriculumDrillItem | undefined>;
+  updateDrillItemAudioForGender(id: string, audioUrl: string, audioDurationMs: number, gender: 'female' | 'male'): Promise<CurriculumDrillItem | undefined>;
 
   // User Drill Progress
   getDrillProgress(userId: string, drillItemId: string): Promise<UserDrillProgress | undefined>;
@@ -2807,6 +2808,23 @@ export class DatabaseStorage implements IStorage {
     const updateData: Partial<CurriculumDrillItem> = { audioUrl, updatedAt: new Date() };
     if (audioDurationMs !== undefined) {
       updateData.audioDurationMs = audioDurationMs;
+    }
+    const [updated] = await db
+      .update(curriculumDrillItems)
+      .set(updateData)
+      .where(eq(curriculumDrillItems.id, id))
+      .returning();
+    return updated;
+  }
+
+  async updateDrillItemAudioForGender(id: string, audioUrl: string, audioDurationMs: number, gender: 'female' | 'male'): Promise<CurriculumDrillItem | undefined> {
+    const updateData: Partial<CurriculumDrillItem> = { updatedAt: new Date() };
+    if (gender === 'female') {
+      updateData.audioUrlFemale = audioUrl;
+      updateData.audioDurationMsFemale = audioDurationMs;
+    } else {
+      updateData.audioUrlMale = audioUrl;
+      updateData.audioDurationMsMale = audioDurationMs;
     }
     const [updated] = await db
       .update(curriculumDrillItems)

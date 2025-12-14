@@ -68,7 +68,6 @@ export default function Settings() {
   const [isResetting, setIsResetting] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark" | "system">("light");
   const [tutorGender, setTutorGender] = useState<"male" | "female">((user?.tutorGender as "male" | "female") || "female");
-  const [assistantVoiceGender, setAssistantVoiceGender] = useState<"male" | "female">((user?.assistantVoiceGender as "male" | "female") || "female");
   const [selectedPrefLanguage, setSelectedPrefLanguage] = useState<string>(language || "spanish");
   const [selfDirectedFlexibility, setSelfDirectedFlexibility] = useState<string>("flexible_goals");
   const [isRunningPlacement, setIsRunningPlacement] = useState(false);
@@ -81,13 +80,6 @@ export default function Settings() {
       setTutorGender(user.tutorGender as "male" | "female");
     }
   }, [user?.tutorGender]);
-
-  // Initialize assistant voice gender from user when loaded
-  useEffect(() => {
-    if (user?.assistantVoiceGender) {
-      setAssistantVoiceGender(user.assistantVoiceGender as "male" | "female");
-    }
-  }, [user?.assistantVoiceGender]);
 
   // Initialize selected language from current language context
   useEffect(() => {
@@ -139,32 +131,6 @@ export default function Settings() {
   const handleTutorGenderChange = (gender: "male" | "female") => {
     setTutorGender(gender);
     tutorGenderMutation.mutate(gender);
-  };
-
-  // Assistant voice gender update mutation
-  const assistantVoiceGenderMutation = useMutation({
-    mutationFn: async (gender: "male" | "female") => {
-      return apiRequest("PUT", "/api/user/preferences", { assistantVoiceGender: gender });
-    },
-    onSuccess: (_data, gender) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-      toast({
-        title: "Assistant voice updated",
-        description: `Your drill assistant will now use a ${gender} voice`,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update assistant voice preference",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleAssistantVoiceGenderChange = (gender: "male" | "female") => {
-    setAssistantVoiceGender(gender);
-    assistantVoiceGenderMutation.mutate(gender);
   };
 
   // Self-directed flexibility update mutation (per-language)
@@ -405,7 +371,7 @@ export default function Settings() {
               <div className="space-y-0.5 flex-1">
                 <Label htmlFor="tutor-gender-select" className="text-base">Tutor Voice</Label>
                 <p className="text-sm text-muted-foreground">
-                  Choose a male or female tutor voice for your conversations
+                  Choose a male or female voice for all voice interactions including conversations and drills
                 </p>
               </div>
               <Select
@@ -432,39 +398,6 @@ export default function Settings() {
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="flex items-center justify-between gap-4">
-              <div className="space-y-0.5 flex-1">
-                <Label htmlFor="assistant-voice-select" className="text-base">Assistant Voice</Label>
-                <p className="text-sm text-muted-foreground">
-                  Choose a male or female voice for your drill practice assistant
-                </p>
-              </div>
-              <Select
-                value={assistantVoiceGender}
-                onValueChange={(value) => handleAssistantVoiceGenderChange(value as "male" | "female")}
-                disabled={assistantVoiceGenderMutation.isPending}
-              >
-                <SelectTrigger className="w-40" id="assistant-voice-select" data-testid="select-assistant-voice">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="female" data-testid="select-assistant-female">
-                    <div className="flex items-center gap-2">
-                      <UserIcon className="h-4 w-4" />
-                      <span>Female</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="male" data-testid="select-assistant-male">
-                    <div className="flex items-center gap-2">
-                      <UserIcon className="h-4 w-4" />
-                      <span>Male</span>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
           </CardContent>
         </Card>
 

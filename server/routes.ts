@@ -7830,8 +7830,8 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(400).json({ error: "language is required" });
       }
 
-      // Get user's assistant voice gender preference (default to female)
-      const voiceGender = user?.assistantVoiceGender || 'female';
+      // Use tutorGender as unified voice preference (default to female)
+      const voiceGender = user?.tutorGender || 'female';
 
       const { generateAudioForLesson } = await import('./services/drill-audio-service');
       const results = await generateAudioForLesson(
@@ -7855,7 +7855,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get single drill item audio (generates on-demand with user's voice preference)
-  // Uses in-memory cache keyed by text+language+gender for efficient reuse
+  // Uses gender-specific database fields + in-memory cache for efficient reuse
   app.get("/api/drill-audio/:drillItemId", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -7867,12 +7867,22 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(404).json({ error: "Drill item not found" });
       }
       
-      // Get user's assistant voice gender preference (default to female)
-      const voiceGender = (user?.assistantVoiceGender || 'female') as 'female' | 'male';
+      // Use tutorGender as the unified voice preference (default to female)
+      const voiceGender = (user?.tutorGender || 'female') as 'female' | 'male';
       
-      // Always use gender-aware in-memory cache for audio generation
-      // This ensures each user gets their preferred voice gender
-      // (In-memory cache key includes gender, so different genders = different cache entries)
+      // Check for gender-specific cached audio in database first
+      const cachedAudioUrl = voiceGender === 'female' ? drillItem.audioUrlFemale : drillItem.audioUrlMale;
+      const cachedDuration = voiceGender === 'female' ? drillItem.audioDurationMsFemale : drillItem.audioDurationMsMale;
+      
+      if (cachedAudioUrl && cachedDuration) {
+        return res.json({
+          audioUrl: cachedAudioUrl,
+          audioDurationMs: cachedDuration,
+          cached: true,
+        });
+      }
+      
+      // Generate audio on demand with user's voice preference
       const { generateDrillAudio } = await import('./services/drill-audio-service');
       const { audioBase64, durationMs } = await generateDrillAudio(
         drillItem.targetText,
@@ -7883,10 +7893,13 @@ Return ONLY the ${targetLanguage} phrase:`;
       
       const audioUrl = `data:audio/mpeg;base64,${audioBase64}`;
       
+      // Cache to database for persistence across restarts
+      await storage.updateDrillItemAudioForGender(drillItemId, audioUrl, durationMs, voiceGender);
+      
       res.json({
         audioUrl,
         audioDurationMs: durationMs,
-        cached: true, // in-memory cache handles caching
+        cached: false,
       });
     } catch (error: any) {
       console.error('Error getting drill audio:', error);

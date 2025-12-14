@@ -148,8 +148,8 @@ export async function batchGenerateDrillAudio(
       // Create a data URL for the audio
       const audioUrl = `data:audio/mpeg;base64,${audioBase64}`;
       
-      // Update the drill item in the database
-      await storage.updateDrillItemAudio(item.id, audioUrl, durationMs);
+      // Update the drill item in the database with gender-specific field
+      await storage.updateDrillItemAudioForGender(item.id, audioUrl, durationMs, gender);
       
       results.push({
         drillItemId: item.id,
@@ -186,10 +186,17 @@ export async function generateAudioForLesson(
 ): Promise<DrillAudioResult[]> {
   const drillItems = await storage.getDrillItems(lessonId);
   
-  // Filter to items needing audio (unless forceRegenerate)
+  // Filter to items needing audio for this gender (unless forceRegenerate)
   const itemsNeedingAudio = forceRegenerate 
     ? drillItems 
-    : drillItems.filter(item => !item.audioUrl);
+    : drillItems.filter(item => {
+        // Check gender-specific audio field
+        if (gender === 'female') {
+          return !item.audioUrlFemale;
+        } else {
+          return !item.audioUrlMale;
+        }
+      });
   
   if (itemsNeedingAudio.length === 0) {
     console.log(`[Drill Audio] All ${drillItems.length} items already have audio`);

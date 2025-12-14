@@ -873,9 +873,13 @@ export const curriculumDrillItems = pgTable("curriculum_drill_items", {
   prompt: text("prompt").notNull(),           // What to display (e.g., "43" for number dictation)
   targetText: text("target_text").notNull(),  // Correct answer/what to say (e.g., "cuarenta y tres")
   targetLanguage: text("target_language").notNull(), // Language code for TTS
-  // Audio
-  audioUrl: text("audio_url"),                // Cached TTS audio URL (generated on demand)
-  audioDurationMs: integer("audio_duration_ms"), // Duration for timing
+  // Audio - gender-specific for user preference support
+  audioUrl: text("audio_url"),                // Legacy/fallback audio URL
+  audioDurationMs: integer("audio_duration_ms"), // Legacy/fallback duration
+  audioUrlFemale: text("audio_url_female"),   // Female voice audio URL
+  audioDurationMsFemale: integer("audio_duration_ms_female"),
+  audioUrlMale: text("audio_url_male"),       // Male voice audio URL
+  audioDurationMsMale: integer("audio_duration_ms_male"),
   // Optional hints and alternatives
   hints: text("hints").array(),               // Progressive hints
   acceptableAlternatives: text("acceptable_alternatives").array(), // Other correct answers
