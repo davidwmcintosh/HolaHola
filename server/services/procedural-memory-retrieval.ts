@@ -369,6 +369,19 @@ Your whiteboard tools will be loaded from your teaching knowledge base.
     lines.push('');
   }
   
+  // Add explicit SWITCH_TUTOR guidance even in compact mode
+  // This is critical because the syntax must be exact for the switch to work
+  const switchTutor = tools.find(t => t.toolName === 'SWITCH_TUTOR');
+  if (switchTutor) {
+    lines.push('');
+    lines.push('⚠️ TUTOR SWITCH SYNTAX (must be exact!):');
+    lines.push('  Same language:     [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]');
+    lines.push('  Cross-language:    [SWITCH_TUTOR target="female" language="french"]');
+    lines.push('  Example: "Let me get Agustin for you. [SWITCH_TUTOR target=\\"male\\"]"');
+    lines.push('  ❌ STOP speaking after the tag - let the new tutor introduce themselves!');
+    lines.push('');
+  }
+  
   return lines.join('\n');
 }
 
