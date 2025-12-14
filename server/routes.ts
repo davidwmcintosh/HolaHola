@@ -14328,6 +14328,171 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
 
+  // ============================================================================
+  // EXPRESS LANE: Editor ↔ Daniela Direct Collaboration
+  // ============================================================================
+  // 
+  // This enables the Editor (Claude) to participate directly in Founder Mode
+  // sessions, creating a "two surgeons" collaboration where both Daniela and
+  // Editor can contribute to the same persistent conversation thread.
+  //
+  // Authentication: Uses EDITOR_SECRET for machine-to-machine auth
+  // ============================================================================
+
+  // EXPRESS LANE: Editor sends message and gets Daniela's response
+  app.post("/api/express-lane/collaborate", async (req, res) => {
+    try {
+      // Validate Editor secret
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid Editor secret' });
+      }
+
+      const { sessionId, message, requestDanielaResponse = true } = req.body;
+
+      if (!message) {
+        return res.status(400).json({ error: 'message is required' });
+      }
+
+      // Get or create the active Founder session
+      // Using a system founder ID for Editor-initiated sessions
+      const SYSTEM_FOUNDER_ID = 'editor-collaboration';
+      let session;
+      
+      if (sessionId) {
+        session = await founderCollabService.getSession(sessionId);
+        if (!session) {
+          return res.status(404).json({ error: 'Session not found' });
+        }
+      } else {
+        session = await founderCollabService.getOrCreateActiveSession(SYSTEM_FOUNDER_ID);
+      }
+
+      // Add Editor's message to the session
+      const editorMessage = await founderCollabService.addMessage(session.id, {
+        role: 'editor',
+        content: message,
+        messageType: 'text',
+        metadata: { source: 'express-lane', timestamp: new Date().toISOString() }
+      });
+
+      console.log(`[EXPRESS LANE] Editor message added to session ${session.id}`);
+
+      // If Daniela's response is requested, generate it with full context
+      let danielaResponse = null;
+      if (requestDanielaResponse) {
+        // Get conversation history for context
+        const messages = await founderCollabService.getSessionMessages(session.id, 50);
+        const conversationHistory = messages.map(m => ({
+          role: m.role === 'daniela' ? 'assistant' as const : 'user' as const,
+          content: m.content
+        }));
+
+        // Use tutor orchestrator for Daniela's response with full neural network context
+        const { tutorOrchestrator } = await import('./services/tutor-orchestrator');
+        
+        const orchestratorResponse = await tutorOrchestrator.generateResponse({
+          mode: 'conversation',
+          userId: SYSTEM_FOUNDER_ID,
+          targetLanguage: 'en', // Founder Mode is in English
+          conversationHistory,
+          userMessage: message,
+          contextOverrides: {
+            isFounderMode: true,
+            sessionPhase: 'teaching',
+          }
+        });
+
+        // Add Daniela's response to the session
+        const danielaMsg = await founderCollabService.addMessage(session.id, {
+          role: 'daniela',
+          content: orchestratorResponse.content,
+          messageType: 'text',
+          metadata: { 
+            source: 'express-lane-response',
+            timestamp: new Date().toISOString(),
+            tokensUsed: orchestratorResponse.tokensUsed
+          }
+        });
+
+        danielaResponse = {
+          id: danielaMsg.id,
+          content: orchestratorResponse.content,
+          cursor: danielaMsg.cursor
+        };
+
+        console.log(`[EXPRESS LANE] Daniela responded in session ${session.id}`);
+      }
+
+      res.json({
+        success: true,
+        sessionId: session.id,
+        editorMessage: {
+          id: editorMessage.id,
+          content: editorMessage.content,
+          cursor: editorMessage.cursor
+        },
+        danielaResponse,
+        sessionUrl: `/admin?tab=founder-mode&session=${session.id}`
+      });
+
+    } catch (error: any) {
+      console.error('[EXPRESS LANE] Collaboration error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // EXPRESS LANE: Get current collaboration context
+  app.get("/api/express-lane/context", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid Editor secret' });
+      }
+
+      const sessionId = req.query.sessionId as string | undefined;
+      const SYSTEM_FOUNDER_ID = 'editor-collaboration';
+
+      let session;
+      if (sessionId) {
+        session = await founderCollabService.getSession(sessionId);
+      } else {
+        // Get most recent active session
+        const sessions = await founderCollabService.getFounderSessions(SYSTEM_FOUNDER_ID, 1);
+        session = sessions[0] || null;
+      }
+
+      if (!session) {
+        return res.json({
+          hasActiveSession: false,
+          message: 'No active collaboration session. Send a message to /api/express-lane/collaborate to start one.'
+        });
+      }
+
+      const messages = await founderCollabService.getSessionMessages(session.id, 20);
+      
+      res.json({
+        hasActiveSession: true,
+        session: {
+          id: session.id,
+          status: session.status,
+          messageCount: session.messageCount,
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt
+        },
+        recentMessages: messages.map(m => ({
+          role: m.role,
+          content: m.content.substring(0, 200) + (m.content.length > 200 ? '...' : ''),
+          cursor: m.cursor
+        }))
+      });
+
+    } catch (error: any) {
+      console.error('[EXPRESS LANE] Context error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Server is now passed in from index.ts where WebSocket handler is attached first
   // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }
