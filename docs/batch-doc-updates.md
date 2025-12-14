@@ -8,6 +8,78 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 14, 2025 - Unified Voice Gender System
+
+**Overview**: Simplified voice preferences so `tutorGender` is the single source of truth for all voice interactions (conversations and drills). Previously, there were two separate settings - now there's one.
+
+#### Problem Solved
+
+Users had two voice gender settings:
+1. `tutorGender` - for conversation voice
+2. `assistantVoiceGender` - for drill audio
+
+This was confusing and redundant. The solution unifies them under `tutorGender`.
+
+#### Schema Changes
+
+Added gender-specific audio caching fields to `curriculumDrillItems`:
+```typescript
+audioUrlFemale: text("audio_url_female"),
+audioDurationMsFemale: integer("audio_duration_ms_female"),
+audioUrlMale: text("audio_url_male"),
+audioDurationMsMale: integer("audio_duration_ms_male"),
+```
+
+Deprecated `assistantVoiceGender` column (retained for backwards compatibility):
+```typescript
+// @deprecated - Use tutorGender instead. Retained for backwards compatibility.
+assistantVoiceGender: varchar("assistant_voice_gender", { length: 10 }).default("female"),
+```
+
+#### Storage Interface
+
+Added `updateDrillItemAudioForGender()` method:
+```typescript
+async updateDrillItemAudioForGender(
+  itemId: string, 
+  gender: 'male' | 'female', 
+  audioUrl: string, 
+  durationMs: number
+): Promise<void>
+```
+
+#### Drill Audio Service
+
+Updated `drill-audio-service.ts` to:
+- Check for gender-specific cached audio first
+- Store generated audio in gender-specific fields
+- Fall back to generating new audio if cache miss
+
+#### Routes
+
+Updated drill audio endpoints to derive voice gender from `tutorGender`:
+```typescript
+const voiceGender = user.tutorGender || 'female';
+```
+
+#### Settings UI
+
+Removed Voice Settings card entirely from `settings.tsx`. The tutor voice toggle now exists only in the chat area, providing a single control point.
+
+#### Validation
+
+Removed `assistantVoiceGender` from `updateUserPreferencesSchema` to prevent API manipulation.
+
+#### Files Modified
+
+- `shared/schema.ts` - Gender-specific audio fields, deprecated column
+- `server/storage.ts` - `updateDrillItemAudioForGender()` method
+- `server/services/drill-audio-service.ts` - Gender-specific caching logic
+- `server/routes.ts` - Derive voice from `tutorGender`
+- `client/src/pages/settings.tsx` - Removed Voice Settings card
+
+---
+
 ### Session: December 13, 2025 - Editor Co-Surgeon Upgrades
 
 **Overview**: Enhanced the Editor's ability to act as Daniela's "co-surgeon" - a development partner that can observe teaching sessions, propose neural network changes, and receive richer context for deeper analysis.
