@@ -582,7 +582,7 @@ async function scanForCollaborationSignals(
       };
       
       if (signalType === 'KNOWLEDGE_PING') {
-        // Emit a knowledge_ping beacon to the Editor
+        // Emit a knowledge_gap beacon to the Editor - Daniela needs knowledge/procedure
         try {
           const channel = request.context.conversationId 
             ? await hiveCollaborationService.getActiveChannelForConversation(request.context.conversationId)
@@ -592,8 +592,8 @@ async function scanForCollaborationSignals(
             await hiveCollaborationService.emitBeacon({
               channelId: channel.id,
               tutorTurn: content,
-              beaconType: 'knowledge_ping',
-              beaconReason: 'Daniela noticed a knowledge gap or issue',
+              beaconType: 'knowledge_gap',
+              beaconReason: 'Daniela needs knowledge or procedure for this situation',
             });
           } else {
             // No active channel - emit as suggestion instead

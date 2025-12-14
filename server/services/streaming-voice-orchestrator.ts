@@ -2290,7 +2290,10 @@ export class StreamingVoiceOrchestrator {
   
   /**
    * Emit hive beacons for Daniela-Editor collaboration
-   * Detects teaching moments, tool usage, COLLAB/SELF_SURGERY tags, and other notable events for Editor awareness
+   * Only emits beacons when Daniela explicitly signals she needs something:
+   * - Capability gaps, tool requests, friction reports, feature ideas
+   * - Self-surgery proposals, knowledge gaps, bug reports
+   * We do NOT emit beacons just for using tools - that's observing teaching, not collaboration.
    */
   private async emitHiveBeacons(
     session: StreamingSession,
@@ -2308,22 +2311,35 @@ export class StreamingVoiceOrchestrator {
     const rawText = rawTutorTurn || tutorTurn;
     
     // COLLAB tags: [COLLAB:TYPE]content[/COLLAB]
-    const collabPattern = /\[COLLAB:(SUGGESTION|PAIN_POINT|QUESTION|INSIGHT|MISSING_TOOL|FEATURE_REQUEST|KNOWLEDGE_PING)\]([\s\S]*?)\[\/COLLAB\]/g;
+    // Map to collaboration beacon types - these are Daniela telling Editor what she needs
+    const collabPattern = /\[COLLAB:(SUGGESTION|PAIN_POINT|QUESTION|INSIGHT|MISSING_TOOL|FEATURE_REQUEST|KNOWLEDGE_PING|CAPABILITY_GAP|FRICTION|BUG)\]([\s\S]*?)\[\/COLLAB\]/g;
     let collabMatch;
     while ((collabMatch = collabPattern.exec(rawText)) !== null) {
       const signalType = collabMatch[1];
       const content = collabMatch[2].trim();
       
-      // Map signal type to beacon type
-      let beaconType: BeaconType = 'teaching_moment';
+      // Map signal type to collaboration beacon type
+      let beaconType: BeaconType = 'feature_idea'; // Default to feature idea
       let beaconReason = `${signalType}: ${content.slice(0, 100)}`;
       
       if (signalType === 'KNOWLEDGE_PING') {
-        beaconType = 'knowledge_ping';
-        beaconReason = `Daniela noticed a knowledge gap: ${content.slice(0, 100)}`;
-      } else if (signalType === 'MISSING_TOOL' || signalType === 'FEATURE_REQUEST') {
-        beaconType = 'teaching_moment';
-        beaconReason = `Tool request: ${content.slice(0, 100)}`;
+        beaconType = 'knowledge_gap';
+        beaconReason = `Daniela needs knowledge: ${content.slice(0, 100)}`;
+      } else if (signalType === 'MISSING_TOOL' || signalType === 'CAPABILITY_GAP') {
+        beaconType = 'capability_gap';
+        beaconReason = `Daniela couldn't do: ${content.slice(0, 100)}`;
+      } else if (signalType === 'FEATURE_REQUEST' || signalType === 'SUGGESTION') {
+        beaconType = 'tool_request';
+        beaconReason = `Daniela requests: ${content.slice(0, 100)}`;
+      } else if (signalType === 'PAIN_POINT' || signalType === 'FRICTION') {
+        beaconType = 'friction_report';
+        beaconReason = `Friction: ${content.slice(0, 100)}`;
+      } else if (signalType === 'BUG') {
+        beaconType = 'bug_report';
+        beaconReason = `Bug: ${content.slice(0, 100)}`;
+      } else if (signalType === 'INSIGHT' || signalType === 'QUESTION') {
+        beaconType = 'feature_idea';
+        beaconReason = `Idea: ${content.slice(0, 100)}`;
       }
       
       try {
@@ -2360,131 +2376,17 @@ export class StreamingVoiceOrchestrator {
       }
     }
     
-    // Detect beacon types based on content
-    const beaconsToEmit: Array<{ type: BeaconType; reason: string }> = [];
-    
-    // TOOL USAGE: Check for whiteboard tool usage
-    if (whiteboardItems.length > 0) {
-      const toolTypes = whiteboardItems.map(item => item.type);
-      const uniqueTools = [...new Set(toolTypes)];
-      
-      // Emit teaching_moment for significant tools
-      const teachingTools = ['WRITE', 'COMPARE', 'PHONETIC', 'GRAMMAR_TABLE', 'STROKE', 'TONE', 'CULTURE'];
-      if (uniqueTools.some(t => teachingTools.includes(t))) {
-        beaconsToEmit.push({
-          type: 'teaching_moment',
-          reason: `Used whiteboard tools: ${uniqueTools.join(', ')}`,
-        });
-      }
-      
-      // Emit tool_usage for any tool
-      beaconsToEmit.push({
-        type: 'tool_usage',
-        reason: `Whiteboard: ${uniqueTools.join(', ')}`,
-      });
-    }
-    
-    // VOCABULARY INTRODUCTION: Check for new vocabulary teaching
-    const vocabPatterns = [
-      /let'?s learn/i,
-      /new word/i,
-      /vocabulary/i,
-      /this means/i,
-      /in (spanish|french|german|italian|japanese|mandarin|korean|portuguese)/i,
-    ];
-    if (vocabPatterns.some(pattern => pattern.test(tutorTurn))) {
-      beaconsToEmit.push({
-        type: 'vocabulary_intro',
-        reason: 'Introducing new vocabulary',
-      });
-    }
-    
-    // CORRECTION: Check for error correction patterns
-    const correctionPatterns = [
-      /correct form is/i,
-      /actually.*should be/i,
-      /close.*but/i,
-      /almost.*but/i,
-      /not quite/i,
-      /small mistake/i,
-      /correction/i,
-    ];
-    if (correctionPatterns.some(pattern => pattern.test(tutorTurn))) {
-      beaconsToEmit.push({
-        type: 'correction',
-        reason: 'Correcting student error',
-      });
-    }
-    
-    // BREAKTHROUGH: Check for positive reinforcement of understanding
-    const breakthroughPatterns = [
-      /perfect!/i,
-      /excellent!/i,
-      /you got it/i,
-      /exactly right/i,
-      /wonderful progress/i,
-      /you'?re getting it/i,
-      /great job/i,
-      /¡?excelente!?/i,
-      /¡?perfecto!?/i,
-    ];
-    if (breakthroughPatterns.some(pattern => pattern.test(tutorTurn))) {
-      beaconsToEmit.push({
-        type: 'breakthrough',
-        reason: 'Student demonstrated understanding',
-      });
-    }
-    
-    // CULTURAL INSIGHT: Check for cultural teaching
-    const culturalPatterns = [
-      /in (spanish|french|german|italian|japanese|mandarin|korean|portuguese) culture/i,
-      /culturally/i,
-      /tradition/i,
-      /custom/i,
-      /native speakers/i,
-      /in (spain|mexico|france|germany|italy|japan|china|korea|brazil|portugal)/i,
-    ];
-    if (culturalPatterns.some(pattern => pattern.test(tutorTurn))) {
-      beaconsToEmit.push({
-        type: 'cultural_insight',
-        reason: 'Cultural context teaching',
-      });
-    }
-    
-    // STUDENT STRUGGLE: Check for student asking for help
-    const strugglePatterns = [
-      /i don'?t (understand|get it)/i,
-      /can you repeat/i,
-      /what does.*mean/i,
-      /help/i,
-      /confused/i,
-      /too fast/i,
-      /slower/i,
-    ];
-    if (strugglePatterns.some(pattern => pattern.test(studentTurn))) {
-      beaconsToEmit.push({
-        type: 'student_struggle',
-        reason: 'Student requested help or showed confusion',
-      });
-    }
-    
-    // Emit beacons (limit to 2 per turn to avoid spam)
-    const beaconsToSend = beaconsToEmit.slice(0, 2);
-    
-    for (const beacon of beaconsToSend) {
-      try {
-        await hiveCollaborationService.emitBeacon({
-          channelId: session.hiveChannelId,
-          tutorTurn,
-          studentTurn,
-          beaconType: beacon.type,
-          beaconReason: beacon.reason,
-        });
-        console.log(`[Hive Beacon] Emitted ${beacon.type}: ${beacon.reason}`);
-      } catch (err: any) {
-        console.warn(`[Hive Beacon] Failed to emit ${beacon.type}:`, err.message);
-      }
-    }
+    // REMOVED: Automatic teaching observation beacons
+    // Under the new philosophy, we do NOT emit beacons for:
+    // - Tool usage (that's Daniela teaching)
+    // - Vocabulary intro (that's Daniela teaching)
+    // - Corrections (that's Daniela teaching)
+    // - Breakthroughs (that's Daniela teaching)
+    // - Cultural insights (that's Daniela teaching)
+    // - Student struggles (that's Daniela's classroom)
+    //
+    // We ONLY emit beacons when Daniela explicitly signals she needs something
+    // via COLLAB tags or SELF_SURGERY proposals (handled above).
   }
   
   /**
@@ -3046,12 +2948,18 @@ Only include observations you can clearly justify from the exchange. Return empt
           break;
       }
       
-      // Also emit as a hive beacon for tracking
+      // Also emit as a hive beacon for tracking - map message type to collaboration beacon type
       if (session.hiveChannelId) {
+        // Map architect message types to collaboration beacon types
+        let beaconType: BeaconType = 'feature_idea';
+        if (message.type === 'request') beaconType = 'tool_request';
+        else if (message.type === 'question') beaconType = 'knowledge_gap';
+        else if (message.type === 'suggestion') beaconType = 'feature_idea';
+        
         await hiveCollaborationService.emitBeacon({
           channelId: session.hiveChannelId,
           tutorTurn: `[TO_ARCHITECT ${message.type}]: ${message.content}`,
-          beaconType: 'teaching_moment',
+          beaconType,
           beaconReason: `Daniela communicated with Architect: ${message.type}`,
         });
       }

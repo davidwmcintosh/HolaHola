@@ -1,12 +1,13 @@
 /**
  * Hive Collaboration Service
  * 
- * Orchestrates real-time Daniela ↔ Editor collaboration during voice sessions:
- * - Creates and manages collaboration channels per voice session
- * - Buffers salient tutor turns as "hive beacons" for Editor awareness
- * - Switches channels to post_session mode after hang-up for autonomous continuation
+ * Orchestrates Daniela ↔ Editor collaboration:
+ * - Daniela's domain: The classroom. Teaching. Using the tools.
+ * - Editor's domain: Building. Development. Creating tools Daniela needs.
+ * - Collaboration zone: Capability gaps, tool requests, feature ideas.
  * 
- * Philosophy: "One hive mind" - Daniela and Editor share neural network knowledge
+ * Philosophy: Separate domains with a collaboration interface.
+ * The Editor doesn't observe teaching - the Editor responds to what Daniela needs.
  */
 
 import { db } from "../db";
@@ -25,19 +26,18 @@ import {
 import { eq, desc, and, sql, isNull } from "drizzle-orm";
 import { collaborationHubService } from "./collaboration-hub-service";
 
-// Beacon types that trigger Editor awareness
+// Beacon types for Daniela ↔ Editor collaboration
+// These are NOT teaching observations - they're collaboration signals
 export type BeaconType = 
-  // Teaching beacons (Daniela)
-  | 'teaching_moment'        // Daniela uses whiteboard, drill, or special tool
-  | 'student_struggle'       // Student makes repeated errors or asks for help
-  | 'tool_usage'             // Specific tool invocation (WRITE, COMPARE, etc.)
-  | 'breakthrough'           // Student demonstrates understanding
-  | 'correction'             // Daniela corrects a mistake
-  | 'cultural_insight'       // Cultural/contextual teaching moment
-  | 'vocabulary_intro'       // New vocabulary introduced
+  // Collaboration beacons (Daniela → Editor)
+  | 'capability_gap'         // "I tried to do X but couldn't" - missing tool/feature
+  | 'tool_request'           // "A tool for Y would help here" - feature idea
+  | 'friction_report'        // "This workflow is clunky" - UX/flow issue
+  | 'feature_idea'           // "What if we had..." - enhancement suggestion
   | 'self_surgery_proposal'  // Daniela proposes neural network modification
-  | 'knowledge_ping'         // Daniela notices a gap or issue in her knowledge
-  // Support beacons (Sofia)
+  | 'knowledge_gap'          // "I don't know how to handle X" - needs procedure/knowledge
+  | 'bug_report'             // "Something isn't working right" - technical issue
+  // Support beacons (Sofia → Editor)
   | 'support_handoff'        // Daniela handed off to Sofia
   | 'tech_issue_reported'    // User reported a technical issue
   | 'hardware_diagnosed'     // Sofia diagnosed mic/audio/device issue
@@ -93,7 +93,7 @@ class HiveCollaborationService {
     
     // Emit system notification
     await collaborationHubService.emitDanielaInsight({
-      content: `Voice session started. Listening for teaching moments...`,
+      content: `Voice session started. Ready for collaboration signals...`,
       summary: `Voice session started (${params.targetLanguage || 'language'})`,
       conversationId: params.conversationId,
       targetLanguage: params.targetLanguage,
@@ -287,16 +287,14 @@ class HiveCollaborationService {
    */
   private formatBeaconContent(snapshot: EditorListeningSnapshot): string {
     const typeLabels: Record<BeaconType, string> = {
-      // Teaching beacons (Daniela)
-      teaching_moment: '📚 Teaching Moment',
-      student_struggle: '😓 Student Struggle',
-      tool_usage: '🛠️ Tool Usage',
-      breakthrough: '🎉 Breakthrough',
-      correction: '✏️ Correction',
-      cultural_insight: '🌍 Cultural Insight',
-      vocabulary_intro: '📝 New Vocabulary',
+      // Collaboration beacons (Daniela → Editor)
+      capability_gap: '🔧 Capability Gap',
+      tool_request: '🛠️ Tool Request',
+      friction_report: '⚡ Friction Report',
+      feature_idea: '💡 Feature Idea',
       self_surgery_proposal: '🧠 Self-Surgery Proposal',
-      knowledge_ping: '🔔 Knowledge Ping',
+      knowledge_gap: '📚 Knowledge Gap',
+      bug_report: '🐛 Bug Report',
       // Support beacons (Sofia)
       support_handoff: '🔀 Support Handoff',
       tech_issue_reported: '🔧 Tech Issue Reported',
