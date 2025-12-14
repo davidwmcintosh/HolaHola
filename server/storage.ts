@@ -45,6 +45,10 @@ import {
   type InsertSyllabusProgress,
   type TopicCompetencyObservation,
   type InsertTopicCompetencyObservation,
+  type DanielaRecommendation,
+  type InsertDanielaRecommendation,
+  type StudentTierSignal,
+  type InsertStudentTierSignal,
   type AdminAuditLog,
   type ConversationTopic,
   type InsertConversationTopic,
@@ -101,6 +105,8 @@ import {
   assignmentSubmissions,
   syllabusProgress,
   topicCompetencyObservations,
+  danielaRecommendations,
+  studentTierSignals,
   adminAuditLog,
   conversationTopics,
   vocabularyWordTopics,
@@ -477,6 +483,20 @@ export interface IStorage {
   createTopicCompetencyObservation(data: InsertTopicCompetencyObservation): Promise<TopicCompetencyObservation>;
   getTopicCompetencyObservations(userId: string, language: string): Promise<TopicCompetencyObservation[]>;
   getUserTopicCompetencyByName(userId: string, language: string, topicName: string): Promise<TopicCompetencyObservation | undefined>;
+
+  // ===== Daniela Recommendation Queue =====
+  createDanielaRecommendation(data: InsertDanielaRecommendation): Promise<DanielaRecommendation>;
+  getDanielaRecommendations(userId: string, options?: { language?: string; classId?: string; includeSnoozed?: boolean; includeCompleted?: boolean }): Promise<DanielaRecommendation[]>;
+  updateDanielaRecommendation(id: string, data: Partial<DanielaRecommendation>): Promise<DanielaRecommendation | undefined>;
+  snoozeRecommendation(id: string, untilDate: Date): Promise<DanielaRecommendation | undefined>;
+  completeRecommendation(id: string, evidenceConversationId?: string): Promise<DanielaRecommendation | undefined>;
+  dismissRecommendation(id: string): Promise<DanielaRecommendation | undefined>;
+
+  // ===== Student Tier Signals =====
+  createStudentTierSignal(data: InsertStudentTierSignal): Promise<StudentTierSignal>;
+  getStudentTierSignals(userId: string, options?: { lessonId?: string; classId?: string; pendingOnly?: boolean }): Promise<StudentTierSignal[]>;
+  getPendingTierSignals(options?: { classId?: string }): Promise<StudentTierSignal[]>;
+  reviewTierSignal(id: string, reviewedBy: string, decision: string, notes?: string): Promise<StudentTierSignal | undefined>;
 
   // ===== Admin-Only Methods =====
   
@@ -3425,6 +3445,128 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(topicCompetencyObservations.observedAt))
       .limit(1);
     return result[0];
+  }
+
+  // ===== Daniela Recommendation Queue =====
+
+  async createDanielaRecommendation(data: InsertDanielaRecommendation): Promise<DanielaRecommendation> {
+    const [recommendation] = await db.insert(danielaRecommendations).values(data).returning();
+    return recommendation;
+  }
+
+  async getDanielaRecommendations(
+    userId: string, 
+    options?: { language?: string; classId?: string; includeSnoozed?: boolean; includeCompleted?: boolean }
+  ): Promise<DanielaRecommendation[]> {
+    const conditions = [eq(danielaRecommendations.userId, userId)];
+    
+    if (options?.language) {
+      conditions.push(eq(danielaRecommendations.language, options.language));
+    }
+    if (options?.classId) {
+      conditions.push(eq(danielaRecommendations.classId, options.classId));
+    }
+    if (!options?.includeCompleted) {
+      conditions.push(isNull(danielaRecommendations.completedAt));
+      conditions.push(isNull(danielaRecommendations.dismissedAt));
+    }
+    if (!options?.includeSnoozed) {
+      const snoozedCheck = or(
+        isNull(danielaRecommendations.snoozedUntil),
+        lte(danielaRecommendations.snoozedUntil, new Date())
+      );
+      if (snoozedCheck) {
+        conditions.push(snoozedCheck);
+      }
+    }
+
+    return await db
+      .select()
+      .from(danielaRecommendations)
+      .where(and(...conditions))
+      .orderBy(desc(danielaRecommendations.priority), desc(danielaRecommendations.createdAt));
+  }
+
+  async updateDanielaRecommendation(id: string, data: Partial<DanielaRecommendation>): Promise<DanielaRecommendation | undefined> {
+    const [updated] = await db
+      .update(danielaRecommendations)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(danielaRecommendations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async snoozeRecommendation(id: string, untilDate: Date): Promise<DanielaRecommendation | undefined> {
+    return this.updateDanielaRecommendation(id, { snoozedUntil: untilDate });
+  }
+
+  async completeRecommendation(id: string, evidenceConversationId?: string): Promise<DanielaRecommendation | undefined> {
+    return this.updateDanielaRecommendation(id, { 
+      completedAt: new Date(),
+      evidenceConversationId: evidenceConversationId || null
+    });
+  }
+
+  async dismissRecommendation(id: string): Promise<DanielaRecommendation | undefined> {
+    return this.updateDanielaRecommendation(id, { dismissedAt: new Date() });
+  }
+
+  // ===== Student Tier Signals =====
+
+  async createStudentTierSignal(data: InsertStudentTierSignal): Promise<StudentTierSignal> {
+    const [signal] = await db.insert(studentTierSignals).values(data).returning();
+    return signal;
+  }
+
+  async getStudentTierSignals(
+    userId: string, 
+    options?: { lessonId?: string; classId?: string; pendingOnly?: boolean }
+  ): Promise<StudentTierSignal[]> {
+    const conditions = [eq(studentTierSignals.userId, userId)];
+    
+    if (options?.lessonId) {
+      conditions.push(eq(studentTierSignals.lessonId, options.lessonId));
+    }
+    if (options?.classId) {
+      conditions.push(eq(studentTierSignals.classId, options.classId));
+    }
+    if (options?.pendingOnly) {
+      conditions.push(isNull(studentTierSignals.reviewedAt));
+    }
+
+    return await db
+      .select()
+      .from(studentTierSignals)
+      .where(and(...conditions))
+      .orderBy(desc(studentTierSignals.createdAt));
+  }
+
+  async getPendingTierSignals(options?: { classId?: string }): Promise<StudentTierSignal[]> {
+    const conditions = [isNull(studentTierSignals.reviewedAt)];
+    
+    if (options?.classId) {
+      conditions.push(eq(studentTierSignals.classId, options.classId));
+    }
+
+    return await db
+      .select()
+      .from(studentTierSignals)
+      .where(and(...conditions))
+      .orderBy(desc(studentTierSignals.createdAt));
+  }
+
+  async reviewTierSignal(id: string, reviewedBy: string, decision: string, notes?: string): Promise<StudentTierSignal | undefined> {
+    const [updated] = await db
+      .update(studentTierSignals)
+      .set({ 
+        reviewedAt: new Date(),
+        reviewedBy,
+        reviewDecision: decision,
+        reviewNotes: notes || null
+      })
+      .where(eq(studentTierSignals.id, id))
+      .returning();
+    return updated;
   }
 
   // ===== Admin-Only Methods =====

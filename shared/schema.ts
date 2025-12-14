@@ -826,7 +826,18 @@ export const curriculumUnits = pgTable("curriculum_units", {
   actflLevel: text("actfl_level"), // Target proficiency level for this unit
   culturalTheme: text("cultural_theme"), // Cultural focus of the unit
   estimatedHours: integer("estimated_hours"),
+  // === Teacher Promises (Commitments) ===
+  // JSON object containing teacher's promises for this unit
+  // Structure: { promises: string[], reviewPoints: string[], prerequisites: string[] }
+  commitments: jsonb("commitments"), // Teacher promises block: what students can expect
 });
+
+// Requirement tier enum - for bundle content classification (must be defined before curriculumLessons)
+export const requirementTierEnum = pgEnum('requirement_tier', [
+  'required',           // Core lesson content, must complete to progress
+  'recommended',        // Suggested reinforcement (drills, extra practice), can skip
+  'optional_premium',   // Extra help for students who want more (may require fee)
+]);
 
 // Individual lessons within a unit
 export const curriculumLessons = pgTable("curriculum_lessons", {
@@ -850,6 +861,13 @@ export const curriculumLessons = pgTable("curriculum_lessons", {
   requiredVocabulary: text("required_vocabulary").array(), // Key words that must be mastered
   requiredGrammar: text("required_grammar").array(), // Grammar concepts (e.g., "present_tense", "noun-adjective-agreement")
   minPronunciationScore: real("min_pronunciation_score"), // Minimum pronunciation confidence (0-1)
+  // === Bundle System Fields ===
+  // Content classification for required/recommended/optional content
+  requirementTier: requirementTierEnum("requirement_tier").default("required"), // required | recommended | optional_premium
+  // Bundle grouping - links related lessons (e.g., conversation + matching drill)
+  bundleId: varchar("bundle_id"), // Optional: groups lessons into cohesive learning bundles
+  // Linked drill lesson - for conversation↔drill pairing
+  linkedDrillLessonId: varchar("linked_drill_lesson_id"), // Links a conversation lesson to its paired drill lesson
 });
 
 // ===== Drill Lesson Content =====
@@ -982,6 +1000,10 @@ export const teacherClasses = pgTable("teacher_classes", {
   hoursPerStudent: integer("hours_per_student"), // Legacy: base hours allocated (moved to classHourPackages)
   hourPackageId: varchar("hour_package_id").references(() => classHourPackages.id), // Link to purchased hour package
   hoursPerStudentOverride: integer("hours_per_student_override"), // Optional per-class override
+  // === Teacher Promises (Commitments) ===
+  // JSON object containing class-level teacher promises
+  // Structure: { promises: string[], reviewPolicy: string, supportHours: string }
+  commitments: jsonb("commitments"), // Class-level teacher promises: what students can expect from this class
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -1160,6 +1182,102 @@ export const topicCompetencyObservations = pgTable("topic_competency_observation
   index("idx_topic_competency_topic").on(table.topicName),
   index("idx_topic_competency_status").on(table.status),
 ]);
+
+// ===== Daniela Recommendation Queue =====
+// Persistent recommendations from Daniela (or system) for student follow-up between sessions
+// Tracks what Daniela suggests for remediation, reinforcement, or acceleration
+
+// Recommendation rationale enum - why this was recommended
+export const recommendationRationaleEnum = pgEnum('recommendation_rationale', [
+  'remediate',    // Address weakness from previous session
+  'reinforce',    // Practice recently learned content
+  'accelerate',   // Student is ahead, offer advanced content
+]);
+
+// Recommendation creator enum - who created this recommendation
+export const recommendationCreatorEnum = pgEnum('recommendation_creator', [
+  'daniela',      // Created by Daniela during session
+  'system',       // Created by automated system (e.g., time-based triggers)
+]);
+
+// Daniela's recommendation queue
+export const danielaRecommendations = pgTable("daniela_recommendations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  language: varchar("language").notNull(), // Language context for this recommendation
+  classId: varchar("class_id").references(() => teacherClasses.id), // Optional class context
+  // Recommendation details
+  recommendationType: varchar("recommendation_type").notNull(), // lesson, drill, vocabulary, conversation_topic
+  rationale: recommendationRationaleEnum("rationale").notNull(), // Why was this recommended?
+  createdBy: recommendationCreatorEnum("created_by").notNull().default("daniela"), // Who created it?
+  // Content reference
+  lessonId: varchar("lesson_id").references(() => curriculumLessons.id), // Optional: specific lesson
+  drillId: varchar("drill_id"), // Optional: specific drill (future reference)
+  topicSlug: varchar("topic_slug"), // Optional: topic area
+  vocabularyWords: text("vocabulary_words").array(), // Optional: specific words to practice
+  // Context and messaging
+  title: text("title").notNull(), // Short title for display
+  description: text("description"), // Why Daniela recommends this
+  priority: integer("priority").default(1), // 1-5, higher = more urgent
+  // Queue management
+  snoozedUntil: timestamp("snoozed_until"), // User can snooze recommendations
+  completedAt: timestamp("completed_at"), // When recommendation was completed
+  dismissedAt: timestamp("dismissed_at"), // When user dismissed without completing
+  // Evidence of completion
+  evidenceConversationId: varchar("evidence_conversation_id").references(() => conversations.id),
+  // Timestamps
+  sourceConversationId: varchar("source_conversation_id").references(() => conversations.id), // Where Daniela made this observation
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_daniela_recommendations_user").on(table.userId),
+  index("idx_daniela_recommendations_language").on(table.language),
+  index("idx_daniela_recommendations_class").on(table.classId),
+  index("idx_daniela_recommendations_completed").on(table.completedAt),
+  index("idx_daniela_recommendations_snoozed").on(table.snoozedUntil),
+]);
+
+export const insertDanielaRecommendationSchema = createInsertSchema(danielaRecommendations).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertDanielaRecommendation = z.infer<typeof insertDanielaRecommendationSchema>;
+export type DanielaRecommendation = typeof danielaRecommendations.$inferSelect;
+
+// ===== Student Tier Signals =====
+// Soft signals from students indicating their preference for content tier
+// NOT auto-applied - Daniela/teacher reviews and decides whether to adjust
+
+export const studentTierSignals = pgTable("student_tier_signals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  lessonId: varchar("lesson_id").notNull().references(() => curriculumLessons.id), // Which lesson they're signaling about
+  classId: varchar("class_id").references(() => teacherClasses.id), // Optional class context
+  // Signal details
+  requestedTier: requirementTierEnum("requested_tier").notNull(), // What tier do they want?
+  currentTier: requirementTierEnum("current_tier"), // What tier is it currently? (snapshot)
+  reason: text("reason"), // Optional: why they want this change
+  // Review status
+  reviewedAt: timestamp("reviewed_at"), // When teacher/Daniela reviewed
+  reviewedBy: varchar("reviewed_by"), // "daniela" or teacher user ID
+  reviewDecision: varchar("review_decision"), // approved, denied, deferred
+  reviewNotes: text("review_notes"), // Notes from reviewer
+  // Timestamps
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_student_tier_signals_user").on(table.userId),
+  index("idx_student_tier_signals_lesson").on(table.lessonId),
+  index("idx_student_tier_signals_class").on(table.classId),
+  index("idx_student_tier_signals_pending").on(table.reviewedAt),
+]);
+
+export const insertStudentTierSignalSchema = createInsertSchema(studentTierSignals).omit({ 
+  id: true, 
+  createdAt: true 
+});
+export type InsertStudentTierSignal = z.infer<typeof insertStudentTierSignalSchema>;
+export type StudentTierSignal = typeof studentTierSignals.$inferSelect;
 
 // ===== Usage Tracking & Credit System =====
 
