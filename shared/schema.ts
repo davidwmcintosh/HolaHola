@@ -1136,6 +1136,31 @@ export const syllabusProgress = pgTable("syllabus_progress", {
   index("idx_syllabus_progress_status").on(table.status),
 ]);
 
+// Topic competency status enum - what Daniela observed
+export const topicCompetencyStatusEnum = pgEnum('topic_competency_status', ['demonstrated', 'needs_review', 'struggling']);
+
+// Topic competency observations - Daniela's real-time observations of student topic mastery
+// Used by SYLLABUS_PROGRESS command to track emergent learning during conversations
+export const topicCompetencyObservations = pgTable("topic_competency_observations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  conversationId: varchar("conversation_id").references(() => conversations.id),
+  classId: varchar("class_id").references(() => teacherClasses.id),
+  language: varchar("language").notNull(),
+  topicName: text("topic_name").notNull(),
+  matchedTopicId: varchar("matched_topic_id").references(() => topics.id),
+  status: topicCompetencyStatusEnum("status").notNull(),
+  evidence: text("evidence").notNull(),
+  observedAt: timestamp("observed_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_topic_competency_user").on(table.userId),
+  index("idx_topic_competency_language").on(table.language),
+  index("idx_topic_competency_class").on(table.classId),
+  index("idx_topic_competency_topic").on(table.topicName),
+  index("idx_topic_competency_status").on(table.status),
+]);
+
 // ===== Usage Tracking & Credit System =====
 
 // Entitlement type enum - how credits were earned
@@ -1674,6 +1699,13 @@ export const insertSyllabusProgressSchema = createInsertSchema(syllabusProgress)
 });
 export type InsertSyllabusProgress = z.infer<typeof insertSyllabusProgressSchema>;
 export type SyllabusProgress = typeof syllabusProgress.$inferSelect;
+
+export const insertTopicCompetencyObservationSchema = createInsertSchema(topicCompetencyObservations).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertTopicCompetencyObservation = z.infer<typeof insertTopicCompetencyObservationSchema>;
+export type TopicCompetencyObservation = typeof topicCompetencyObservations.$inferSelect;
 
 export const insertAdminAuditLogSchema = createInsertSchema(adminAuditLog).omit({
   id: true,
