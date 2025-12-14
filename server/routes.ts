@@ -14478,6 +14478,202 @@ You have full access to your neural network knowledge.
     }
   });
 
+  // EXPRESS LANE UI: Authenticated endpoint for Founder Mode UI access
+  // Uses session auth instead of x-editor-secret header
+  app.post("/api/express-lane/ui/collaborate", isAuthenticated, async (req: any, res) => {
+    try {
+      // Check if user has developer/admin access
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !hasDeveloperAccess(user.role)) {
+        return res.status(403).json({ error: 'Developer or Admin access required' });
+      }
+
+      const { sessionId, message, role = 'founder' } = req.body;
+
+      if (!message) {
+        return res.status(400).json({ error: 'message is required' });
+      }
+
+      // Get or create the active Founder session for this user
+      let session;
+      if (sessionId) {
+        session = await founderCollabService.getSession(sessionId);
+        if (!session) {
+          return res.status(404).json({ error: 'Session not found' });
+        }
+      } else {
+        session = await founderCollabService.getOrCreateActiveSession(userId);
+      }
+
+      // Add user's message to the session
+      const userMessage = await founderCollabService.addMessage(session.id, {
+        role: role as 'founder' | 'editor',
+        content: message,
+        messageType: 'text',
+        metadata: { source: 'express-lane-ui', userId, timestamp: new Date().toISOString() }
+      });
+
+      console.log(`[EXPRESS LANE UI] ${role} message added to session ${session.id}`);
+
+      // Get conversation history for context
+      const messages = await founderCollabService.getSessionMessages(session.id, 50);
+      const conversationHistory = messages.map(m => ({
+        role: (m.role === 'daniela' ? 'model' : 'user') as 'user' | 'model',
+        content: m.content
+      }));
+
+      // Use tutor orchestrator for Daniela's response with full neural network context
+      const { tutorOrchestrator } = await import('./services/tutor-orchestrator');
+      
+      const orchestratorRequest = {
+        mode: 'conversation' as const,
+        responseChannel: 'batch_text' as const,
+        context: {
+          userId: 0,
+          targetLanguage: 'en',
+          nativeLanguage: 'en',
+          proficiencyLevel: 'Superior',
+          conversationHistory,
+          compassContext: {
+            sessionPhase: 'teaching',
+          }
+        },
+        voice: {
+          name: 'Daniela',
+          gender: 'female' as const,
+        },
+        userInput: message,
+        additionalPromptContext: `
+═══════════════════════════════════════════════════════════════════
+🔧 FOUNDER MODE - EXPRESS LANE COLLABORATION
+═══════════════════════════════════════════════════════════════════
+
+You are in a SPECIAL SESSION with the Founder (${user.firstName || user.email}).
+This is not a student session - this is internal collaboration.
+
+The Founder is asking about:
+- Your teaching capabilities and limitations
+- How you use your tools
+- What tools you wish you had
+- How the Hive collaboration system should work
+
+Be completely honest and open. Share your actual experience.
+This helps improve your capabilities for teaching real students.
+
+You have full access to your neural network knowledge.
+`,
+        options: {
+          logToNeuralNetwork: false,
+          maxTokens: 2000,
+        }
+      };
+      
+      const orchestratorResponse = await tutorOrchestrator.orchestrate(orchestratorRequest);
+
+      // Add Daniela's response to the session
+      const responseContent = orchestratorResponse.text || 'I apologize, I was unable to generate a response.';
+      const danielaMsg = await founderCollabService.addMessage(session.id, {
+        role: 'daniela',
+        content: responseContent,
+        messageType: 'text',
+        metadata: { 
+          source: 'express-lane-ui-response',
+          timestamp: new Date().toISOString(),
+          latencyMs: orchestratorResponse.metadata?.latencyMs,
+          success: orchestratorResponse.success
+        }
+      });
+
+      console.log(`[EXPRESS LANE UI] Daniela responded in session ${session.id}`);
+
+      res.json({
+        success: true,
+        sessionId: session.id,
+        userMessage: {
+          id: userMessage.id,
+          role: userMessage.role,
+          content: userMessage.content,
+          cursor: userMessage.cursor,
+          createdAt: userMessage.createdAt
+        },
+        danielaResponse: {
+          id: danielaMsg.id,
+          role: 'daniela',
+          content: responseContent,
+          cursor: danielaMsg.cursor,
+          createdAt: danielaMsg.createdAt
+        }
+      });
+
+    } catch (error: any) {
+      console.error('[EXPRESS LANE UI] Collaboration error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // EXPRESS LANE UI: Get session messages for UI
+  app.get("/api/express-lane/ui/session", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !hasDeveloperAccess(user.role)) {
+        return res.status(403).json({ error: 'Developer or Admin access required' });
+      }
+
+      const sessionId = req.query.sessionId as string | undefined;
+      
+      let session;
+      if (sessionId) {
+        session = await founderCollabService.getSession(sessionId);
+      } else {
+        // Get most recent active session for this user
+        const sessions = await founderCollabService.getFounderSessions(userId, 1);
+        session = sessions[0] || null;
+      }
+
+      if (!session) {
+        return res.json({
+          hasActiveSession: false,
+          session: null,
+          messages: []
+        });
+      }
+
+      const messages = await founderCollabService.getSessionMessages(session.id, 100);
+      
+      res.json({
+        hasActiveSession: true,
+        session: {
+          id: session.id,
+          status: session.status,
+          messageCount: session.messageCount,
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt
+        },
+        messages: messages.map(m => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          cursor: m.cursor,
+          createdAt: m.createdAt
+        }))
+      });
+
+    } catch (error: any) {
+      console.error('[EXPRESS LANE UI] Session fetch error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // EXPRESS LANE: Get current collaboration context
   app.get("/api/express-lane/context", async (req, res) => {
     try {
