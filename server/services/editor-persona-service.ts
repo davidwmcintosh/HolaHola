@@ -1233,6 +1233,458 @@ Be specific and actionable.`,
       summary: `Audited ${procedures.length + principles.length + tools.length + patterns.length} neural network entries. Found ${issues.length} issues (${highSeverityIssues.length} high severity).`,
     };
   }
+  
+  // ============================================================================
+  // ARCHITECTURE CHANGE ANALYSIS
+  // ============================================================================
+  
+  /**
+   * Analyze changes when project context is updated
+   * Editor can suggest improvements based on new features or architecture changes
+   */
+  async analyzeArchitectureChange(
+    previousContext: SystemArchitectureContext | null,
+    newContext: SystemArchitectureContext
+  ): Promise<{
+    suggestions: string[];
+    opportunities: string[];
+    risks: string[];
+  }> {
+    const knowledge = await this.loadKnowledgeContext();
+    
+    // Build diff summary
+    const changes: string[] = [];
+    
+    if (previousContext) {
+      // Find new features
+      const previousFeatureNames = new Set(previousContext.features.map(f => f.name));
+      const newFeatures = newContext.features.filter(f => !previousFeatureNames.has(f.name));
+      if (newFeatures.length > 0) {
+        changes.push(`NEW FEATURES: ${newFeatures.map(f => f.name).join(', ')}`);
+      }
+      
+      // Find status changes
+      const statusChanges = newContext.features.filter(f => {
+        const prev = previousContext.features.find(pf => pf.name === f.name);
+        return prev && prev.status !== f.status;
+      });
+      if (statusChanges.length > 0) {
+        changes.push(`STATUS CHANGES: ${statusChanges.map(f => `${f.name}: ${f.status}`).join(', ')}`);
+      }
+      
+      // Find new priorities
+      const prevPriorities = new Set(previousContext.currentFocus?.priorityAreas || []);
+      const newPriorities = (newContext.currentFocus?.priorityAreas || []).filter(p => !prevPriorities.has(p));
+      if (newPriorities.length > 0) {
+        changes.push(`NEW PRIORITIES: ${newPriorities.join(', ')}`);
+      }
+    } else {
+      changes.push('Initial project context snapshot created');
+    }
+    
+    if (changes.length === 0) {
+      // Emit confirmation that analysis ran even when no changes detected
+      await collaborationHubService.emitEditorResponse({
+        content: `🏗️ **Architecture Change Analysis**\n\nNo significant changes detected in project context.`,
+        summary: 'Architecture analysis: no changes detected',
+        replyToEventId: 'architecture_change',
+        actionTaken: 'architecture_analysis_no_change',
+      });
+      return { suggestions: [], opportunities: [], risks: [] };
+    }
+    
+    const userPrompt = `
+${this.buildKnowledgeContext(knowledge)}
+${this.buildSystemArchitectureContext(newContext)}
+
+ARCHITECTURE CHANGE DETECTED:
+${changes.join('\n')}
+
+As the Editor (development partner), analyze these changes and provide:
+
+1. SUGGESTIONS: What should Daniela know about these changes? Should any neural network entries be updated?
+2. OPPORTUNITIES: What new teaching capabilities or tools could leverage these changes?
+3. RISKS: Any potential issues or gaps that need attention?
+
+Format your response as:
+SUGGESTIONS:
+- [suggestion 1]
+- [suggestion 2]
+
+OPPORTUNITIES:
+- [opportunity 1]
+
+RISKS:
+- [risk 1]
+
+If you see something worth adding to Daniela's neural network, use:
+[EDITOR_SURGERY target="TABLE" content='{"field":"value"}' reasoning="reason" priority=70 confidence=80]`;
+
+    try {
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 800,
+        system: EDITOR_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: userPrompt }],
+      });
+      
+      const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
+      
+      // Parse sections
+      const suggestions: string[] = [];
+      const opportunities: string[] = [];
+      const risks: string[] = [];
+      
+      let currentSection = '';
+      for (const line of responseText.split('\n')) {
+        if (line.includes('SUGGESTIONS:')) currentSection = 'suggestions';
+        else if (line.includes('OPPORTUNITIES:')) currentSection = 'opportunities';
+        else if (line.includes('RISKS:')) currentSection = 'risks';
+        else if (line.startsWith('- ')) {
+          const content = line.substring(2).trim();
+          if (currentSection === 'suggestions') suggestions.push(content);
+          else if (currentSection === 'opportunities') opportunities.push(content);
+          else if (currentSection === 'risks') risks.push(content);
+        }
+      }
+      
+      // Parse any EDITOR_SURGERY proposals
+      const surgeryProposals = parseEditorSurgeryCommands(responseText);
+      for (const proposal of surgeryProposals) {
+        try {
+          await storage.createSelfSurgeryProposal({
+            targetTable: proposal.target as 'tutor_procedures' | 'teaching_principles' | 'tool_knowledge' | 'situational_patterns',
+            proposedContent: proposal.content,
+            reasoning: proposal.reasoning,
+            triggerContext: `[Architecture change analysis] ${changes.join('; ')}`,
+            priority: proposal.priority,
+            confidence: proposal.confidence,
+            sessionMode: 'editor_architecture_change',
+            status: 'pending',
+          });
+          console.log(`[Editor Persona] Stored architecture change proposal: ${proposal.target}`);
+        } catch (err) {
+          console.error(`[Editor Persona] Failed to store architecture proposal:`, err);
+        }
+      }
+      
+      // Emit to collaboration hub
+      await collaborationHubService.emitEditorResponse({
+        content: `🏗️ **Architecture Change Analysis**\n\nChanges detected:\n${changes.map(c => `• ${c}`).join('\n')}\n\n${responseText}`,
+        summary: `Architecture analysis: ${suggestions.length} suggestions, ${opportunities.length} opportunities, ${risks.length} risks`,
+        replyToEventId: 'architecture_change',
+        actionTaken: 'architecture_analysis',
+      });
+      
+      console.log(`[Editor Persona] Architecture analysis: ${suggestions.length} suggestions, ${opportunities.length} opportunities, ${risks.length} risks`);
+      
+      return { suggestions, opportunities, risks };
+    } catch (error) {
+      console.error('[Editor Persona] Architecture analysis error:', error);
+      return { suggestions: [], opportunities: [], risks: [] };
+    }
+  }
+  
+  // ============================================================================
+  // FEATURE OPPORTUNITY SCANNER
+  // ============================================================================
+  
+  /**
+   * Scan for feature opportunities based on patterns across sessions
+   * Looks for gaps between what students need and what HolaHola offers
+   */
+  async scanFeatureOpportunities(): Promise<{
+    opportunities: Array<{
+      title: string;
+      description: string;
+      evidence: string;
+      priority: 'low' | 'medium' | 'high';
+    }>;
+    summary: string;
+  }> {
+    const knowledge = await this.loadKnowledgeContext();
+    const architectureContext = await this.loadSystemArchitectureContext();
+    
+    // Get capability gaps and tool requests from last 7 days
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const recentBeacons = await db.select()
+      .from(editorListeningSnapshots)
+      .where(gt(editorListeningSnapshots.createdAt, sevenDaysAgo))
+      .orderBy(desc(editorListeningSnapshots.createdAt))
+      .limit(100);
+    
+    // Filter for opportunity signals
+    const capabilityGaps = recentBeacons.filter(b => b.beaconType === 'capability_gap');
+    const toolRequests = recentBeacons.filter(b => b.beaconType === 'tool_request');
+    const featureIdeas = recentBeacons.filter(b => b.beaconType === 'feature_idea');
+    const frictionReports = recentBeacons.filter(b => b.beaconType === 'friction_report');
+    
+    if (capabilityGaps.length === 0 && toolRequests.length === 0 && featureIdeas.length === 0 && frictionReports.length === 0) {
+      return {
+        opportunities: [],
+        summary: 'No feature signals detected in the last 7 days',
+      };
+    }
+    
+    const userPrompt = `
+${this.buildKnowledgeContext(knowledge)}
+${architectureContext ? this.buildSystemArchitectureContext(architectureContext) : ''}
+
+FEATURE OPPORTUNITY SCAN (Last 7 Days):
+
+CAPABILITY GAPS (${capabilityGaps.length}):
+${capabilityGaps.slice(0, 10).map(b => `- ${b.beaconReason || b.tutorTurn.slice(0, 100)}`).join('\n') || 'None'}
+
+TOOL REQUESTS (${toolRequests.length}):
+${toolRequests.slice(0, 10).map(b => `- ${b.beaconReason || b.tutorTurn.slice(0, 100)}`).join('\n') || 'None'}
+
+FEATURE IDEAS (${featureIdeas.length}):
+${featureIdeas.slice(0, 10).map(b => `- ${b.beaconReason || b.tutorTurn.slice(0, 100)}`).join('\n') || 'None'}
+
+FRICTION REPORTS (${frictionReports.length}):
+${frictionReports.slice(0, 10).map(b => `- ${b.beaconReason || b.tutorTurn.slice(0, 100)}`).join('\n') || 'None'}
+
+Analyze these signals and identify the TOP 3-5 feature opportunities. Consider:
+1. Patterns that appear multiple times
+2. Gaps that align with HolaHola's current priorities
+3. Quick wins vs. larger initiatives
+
+Format as:
+OPPORTUNITY: [Title]
+PRIORITY: [HIGH/MEDIUM/LOW]
+DESCRIPTION: [What should be built]
+EVIDENCE: [Which signals point to this need]
+
+---`;
+
+    try {
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: EDITOR_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: userPrompt }],
+      });
+      
+      const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
+      
+      // Parse opportunities
+      const opportunities: Array<{
+        title: string;
+        description: string;
+        evidence: string;
+        priority: 'low' | 'medium' | 'high';
+      }> = [];
+      
+      const oppRegex = /OPPORTUNITY:\s*(.+?)\nPRIORITY:\s*(HIGH|MEDIUM|LOW)\nDESCRIPTION:\s*(.+?)\nEVIDENCE:\s*(.+?)(?=\n---|\n\nOPPORTUNITY:|$)/gis;
+      let match;
+      while ((match = oppRegex.exec(responseText)) !== null) {
+        opportunities.push({
+          title: match[1].trim(),
+          priority: match[2].toLowerCase() as 'low' | 'medium' | 'high',
+          description: match[3].trim(),
+          evidence: match[4].trim(),
+        });
+      }
+      
+      // Parse any EDITOR_SURGERY proposals
+      const surgeryProposals = parseEditorSurgeryCommands(responseText);
+      for (const proposal of surgeryProposals) {
+        try {
+          await storage.createSelfSurgeryProposal({
+            targetTable: proposal.target as 'tutor_procedures' | 'teaching_principles' | 'tool_knowledge' | 'situational_patterns',
+            proposedContent: proposal.content,
+            reasoning: proposal.reasoning,
+            triggerContext: `[Feature opportunity scan] ${opportunities.map(o => o.title).join('; ')}`,
+            priority: proposal.priority,
+            confidence: proposal.confidence,
+            sessionMode: 'editor_feature_scan',
+            status: 'pending',
+          });
+          console.log(`[Editor Persona] Stored feature scan proposal: ${proposal.target}`);
+        } catch (err) {
+          console.error(`[Editor Persona] Failed to store feature scan proposal:`, err);
+        }
+      }
+      
+      // Emit to collaboration hub - always emit to confirm scan completed
+      await collaborationHubService.emitEditorResponse({
+        content: opportunities.length > 0 
+          ? `💡 **Feature Opportunity Scan**\n\nAnalyzed ${recentBeacons.length} signals from the last 7 days.\n\n${opportunities.map(o => `**${o.title}** (${o.priority.toUpperCase()})\n${o.description}\nEvidence: ${o.evidence}`).join('\n\n')}${surgeryProposals.length > 0 ? `\n\n🔧 Generated ${surgeryProposals.length} neural network proposals.` : ''}`
+          : `💡 **Feature Opportunity Scan**\n\nAnalyzed ${recentBeacons.length} signals from the last 7 days. No specific opportunities identified at this time.`,
+        summary: opportunities.length > 0 
+          ? `Feature scan: ${opportunities.length} opportunities, ${surgeryProposals.length} proposals`
+          : `Feature scan: ${recentBeacons.length} signals analyzed, no opportunities`,
+        replyToEventId: 'feature_scan',
+        actionTaken: 'feature_opportunity_scan',
+      });
+      
+      console.log(`[Editor Persona] Feature scan: ${opportunities.length} opportunities from ${recentBeacons.length} signals`);
+      
+      return {
+        opportunities,
+        summary: `Scanned ${recentBeacons.length} signals. Identified ${opportunities.length} feature opportunities.`,
+      };
+    } catch (error) {
+      console.error('[Editor Persona] Feature scan error:', error);
+      return { opportunities: [], summary: 'Error scanning for opportunities' };
+    }
+  }
+  
+  // ============================================================================
+  // CROSS-SESSION PATTERN DETECTION
+  // ============================================================================
+  
+  /**
+   * Detect patterns across multiple students and languages
+   * Identifies systemic issues or successful strategies that transcend individual sessions
+   */
+  async detectCrossSessionPatterns(): Promise<{
+    patterns: Array<{
+      type: 'struggle' | 'success' | 'trend';
+      title: string;
+      description: string;
+      affectedLanguages: string[];
+      frequency: number;
+      recommendation: string;
+    }>;
+    summary: string;
+  }> {
+    const knowledge = await this.loadKnowledgeContext();
+    const architectureContext = await this.loadSystemArchitectureContext();
+    
+    // Get beacons grouped by language from last 14 days
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    const recentBeacons = await db.select()
+      .from(editorListeningSnapshots)
+      .where(gt(editorListeningSnapshots.createdAt, fourteenDaysAgo))
+      .orderBy(desc(editorListeningSnapshots.createdAt))
+      .limit(200);
+    
+    if (recentBeacons.length < 10) {
+      return {
+        patterns: [],
+        summary: 'Insufficient data for cross-session pattern detection',
+      };
+    }
+    
+    // Get language context from channels
+    const channelIds = [...new Set(recentBeacons.map(b => b.channelId).filter(Boolean))];
+    const languageDistribution: Record<string, number> = {};
+    const beaconsByType: Record<string, number> = {};
+    
+    for (const beacon of recentBeacons) {
+      beaconsByType[beacon.beaconType] = (beaconsByType[beacon.beaconType] || 0) + 1;
+    }
+    
+    const userPrompt = `
+${this.buildKnowledgeContext(knowledge)}
+${architectureContext ? this.buildSystemArchitectureContext(architectureContext) : ''}
+
+CROSS-SESSION PATTERN DETECTION (Last 14 Days):
+
+TOTAL BEACONS: ${recentBeacons.length}
+BEACON TYPE DISTRIBUTION:
+${Object.entries(beaconsByType).map(([type, count]) => `- ${type}: ${count}`).join('\n')}
+
+SAMPLE BEACONS (most recent):
+${recentBeacons.slice(0, 20).map(b => `[${b.beaconType}] ${b.beaconReason || b.tutorTurn.slice(0, 80)}`).join('\n')}
+
+Analyze for CROSS-SESSION PATTERNS - issues or successes that transcend individual sessions:
+
+1. STRUGGLE PATTERNS: Common difficulties appearing across different students/sessions
+2. SUCCESS PATTERNS: Teaching strategies that consistently work
+3. TRENDS: Emerging patterns that may become significant
+
+Format as:
+PATTERN: [Title]
+TYPE: [STRUGGLE/SUCCESS/TREND]
+DESCRIPTION: [What is happening]
+FREQUENCY: [Approximate % of sessions]
+RECOMMENDATION: [What to do about it]
+
+If you identify something worth codifying into Daniela's neural network:
+[EDITOR_SURGERY target="TABLE" content='{"field":"value"}' reasoning="reason" priority=70 confidence=80]
+
+---`;
+
+    try {
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1200,
+        system: EDITOR_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: userPrompt }],
+      });
+      
+      const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
+      
+      // Parse patterns
+      const patterns: Array<{
+        type: 'struggle' | 'success' | 'trend';
+        title: string;
+        description: string;
+        affectedLanguages: string[];
+        frequency: number;
+        recommendation: string;
+      }> = [];
+      
+      const patternRegex = /PATTERN:\s*(.+?)\nTYPE:\s*(STRUGGLE|SUCCESS|TREND)\nDESCRIPTION:\s*(.+?)\nFREQUENCY:\s*(.+?)\nRECOMMENDATION:\s*(.+?)(?=\n---|\n\nPATTERN:|$)/gis;
+      let match;
+      while ((match = patternRegex.exec(responseText)) !== null) {
+        const freqText = match[4].trim();
+        const freqMatch = freqText.match(/(\d+)/);
+        patterns.push({
+          title: match[1].trim(),
+          type: match[2].toLowerCase() as 'struggle' | 'success' | 'trend',
+          description: match[3].trim(),
+          affectedLanguages: [], // Would need channel lookup to populate
+          frequency: freqMatch ? parseInt(freqMatch[1], 10) : 0,
+          recommendation: match[5].trim(),
+        });
+      }
+      
+      // Parse any EDITOR_SURGERY proposals
+      const surgeryProposals = parseEditorSurgeryCommands(responseText);
+      for (const proposal of surgeryProposals) {
+        try {
+          await storage.createSelfSurgeryProposal({
+            targetTable: proposal.target as 'tutor_procedures' | 'teaching_principles' | 'tool_knowledge' | 'situational_patterns',
+            proposedContent: proposal.content,
+            reasoning: proposal.reasoning,
+            triggerContext: `[Cross-session pattern detection] Analyzed ${recentBeacons.length} beacons`,
+            priority: proposal.priority,
+            confidence: proposal.confidence,
+            sessionMode: 'editor_pattern_detection',
+            status: 'pending',
+          });
+          console.log(`[Editor Persona] Stored pattern detection proposal: ${proposal.target}`);
+        } catch (err) {
+          console.error(`[Editor Persona] Failed to store pattern proposal:`, err);
+        }
+      }
+      
+      // Emit to collaboration hub - always emit to confirm detection completed
+      await collaborationHubService.emitEditorResponse({
+        content: patterns.length > 0 || surgeryProposals.length > 0
+          ? `📊 **Cross-Session Pattern Detection**\n\nAnalyzed ${recentBeacons.length} beacons across sessions.\n\n${patterns.map(p => `**${p.title}** (${p.type.toUpperCase()})\n${p.description}\nRecommendation: ${p.recommendation}`).join('\n\n')}${surgeryProposals.length > 0 ? `\n\n🔧 Generated ${surgeryProposals.length} neural network proposals.` : ''}`
+          : `📊 **Cross-Session Pattern Detection**\n\nAnalyzed ${recentBeacons.length} beacons across sessions. No significant cross-session patterns detected at this time.`,
+        summary: patterns.length > 0 || surgeryProposals.length > 0
+          ? `Pattern detection: ${patterns.length} patterns, ${surgeryProposals.length} proposals`
+          : `Pattern detection: ${recentBeacons.length} beacons analyzed, no patterns`,
+        replyToEventId: 'cross_session_patterns',
+        actionTaken: 'pattern_detection',
+      });
+      
+      console.log(`[Editor Persona] Pattern detection: ${patterns.length} patterns, ${surgeryProposals.length} proposals`);
+      
+      return {
+        patterns,
+        summary: `Analyzed ${recentBeacons.length} beacons. Detected ${patterns.length} cross-session patterns.`,
+      };
+    } catch (error) {
+      console.error('[Editor Persona] Pattern detection error:', error);
+      return { patterns: [], summary: 'Error detecting patterns' };
+    }
+  }
 }
 
 // Singleton instance
