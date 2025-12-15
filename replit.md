@@ -67,6 +67,8 @@ Key protection: Daniela doesn't learn from students unsupervised. Field observat
 
 North Star is ALWAYS injected first in `buildSystemPrompt()` via `buildNorthStarSection()` in `tutor-orchestrator.ts`. Categories: identity (who I am), pedagogy (how I teach), honesty (what I owe them), collaboration (how we work together), ambiguity (when things are unclear).
 
+**Sync:** North Star tables are included in bidirectional sync (21 total tables: 18 neural network + 3 North Star). Founder visibility into principle evolution across environments. Export/import via `neuralNetworkSync.exportNorthStar()` / `importNorthStarPrinciple()`, `importNorthStarUnderstanding()`, `importNorthStarExample()`.
+
 Seed script: `npx tsx scripts/seed-north-star.ts`
 API routes: `/api/north-star/*` (admin-only for modifications, developer+ for viewing)
 

@@ -23,6 +23,9 @@ import {
   agentObservations,
   supportObservations,
   systemAlerts,
+  northStarPrinciples,
+  northStarUnderstanding,
+  northStarExamples,
   type SelfBestPractice,
   type PromotionQueue,
   type InsertPromotionQueue,
@@ -44,7 +47,10 @@ import {
   type DanielaSuggestionAction,
   type AgentObservation,
   type SupportObservation,
-  type SystemAlert
+  type SystemAlert,
+  type NorthStarPrinciple,
+  type NorthStarUnderstanding,
+  type NorthStarExample,
 } from '@shared/schema';
 import { eq, and, isNull, desc, or, sql } from 'drizzle-orm';
 import crypto from 'crypto';
@@ -2714,6 +2720,189 @@ export class NeuralNetworkSyncService {
   generateIntentHash(content: { title: string; observation: string; category: string }): string {
     const normalized = `${content.category}:${content.title.toLowerCase().trim()}:${content.observation.toLowerCase().trim().slice(0, 200)}`;
     return crypto.createHash('sha256').update(normalized).digest('hex').slice(0, 16);
+  }
+  
+  // ============================================================
+  // NORTH STAR SYNC (3 Tables)
+  // Constitutional foundation: principles, understanding, examples
+  // ============================================================
+  
+  /**
+   * Export North Star data for sync
+   * Returns all active principles, understanding, and examples
+   */
+  async exportNorthStar(): Promise<{
+    exportedAt: string;
+    environment: string;
+    principles: NorthStarPrinciple[];
+    understanding: NorthStarUnderstanding[];
+    examples: NorthStarExample[];
+  }> {
+    const [principles, understanding, examples] = await Promise.all([
+      db.select().from(northStarPrinciples).where(eq(northStarPrinciples.isActive, true)),
+      db.select().from(northStarUnderstanding),
+      db.select().from(northStarExamples),
+    ]);
+    
+    return {
+      exportedAt: new Date().toISOString(),
+      environment: CURRENT_ENVIRONMENT,
+      principles,
+      understanding,
+      examples,
+    };
+  }
+  
+  /**
+   * Import a North Star principle with deduplication
+   * Matches by principle text to avoid duplicates
+   * Returns both local id and source id for mapping
+   */
+  async importNorthStarPrinciple(principle: Partial<NorthStarPrinciple>, importedBy: string): Promise<{ success: boolean; id?: string; sourceId?: string; action?: string; error?: string }> {
+    try {
+      if (!principle.principle || !principle.category) {
+        return { success: false, error: 'Missing required fields (principle, category)' };
+      }
+      
+      const sourceId = principle.id; // Preserve source ID for mapping
+      
+      // Check for existing by principle text (the actual truth is the dedup key)
+      const existing = await db.select().from(northStarPrinciples)
+        .where(eq(northStarPrinciples.principle, principle.principle))
+        .limit(1);
+      
+      if (existing.length > 0) {
+        return { success: true, id: existing[0].id, sourceId, action: 'skipped' };
+      }
+      
+      const [imported] = await db.insert(northStarPrinciples).values({
+        principle: principle.principle,
+        category: principle.category,
+        originalContext: principle.originalContext,
+        orderIndex: principle.orderIndex ?? 0,
+        isActive: true,
+      }).returning();
+      
+      return { success: true, id: imported.id, sourceId, action: 'imported' };
+    } catch (error: any) {
+      console.error('[SYNC] Error importing North Star principle:', error);
+      return { success: false, error: error.message };
+    }
+  }
+  
+  /**
+   * Import North Star understanding with deduplication
+   * Matches by localPrincipleId to allow updates (understanding evolves)
+   * @param localPrincipleId - The LOCAL principle ID (after mapping from source ID)
+   */
+  async importNorthStarUnderstanding(understanding: Partial<NorthStarUnderstanding>, importedBy: string, localPrincipleId?: string): Promise<{ success: boolean; id?: string; action?: string; error?: string }> {
+    try {
+      if (!understanding.reflection) {
+        return { success: false, error: 'Missing required field: reflection' };
+      }
+      
+      // Use provided localPrincipleId (from sync bridge mapping) or fallback to understanding.principleId
+      const targetPrincipleId = localPrincipleId || understanding.principleId;
+      
+      if (!targetPrincipleId) {
+        return { success: false, error: 'Missing principleId (no mapping available)' };
+      }
+      
+      // Verify principle exists in this environment
+      const principleExists = await db.select().from(northStarPrinciples)
+        .where(eq(northStarPrinciples.id, targetPrincipleId))
+        .limit(1);
+      
+      if (principleExists.length === 0) {
+        return { success: false, error: 'Principle not found in this environment' };
+      }
+      
+      // Check for existing understanding for this principle
+      const existing = await db.select().from(northStarUnderstanding)
+        .where(eq(northStarUnderstanding.principleId, targetPrincipleId))
+        .limit(1);
+      
+      if (existing.length > 0) {
+        // Update existing understanding if newer
+        if (understanding.lastDeepened && understanding.lastDeepened > existing[0].lastDeepened) {
+          await db.update(northStarUnderstanding)
+            .set({
+              reflection: understanding.reflection,
+              depth: understanding.depth,
+              lastDeepened: understanding.lastDeepened,
+              updatedAt: new Date(),
+            })
+            .where(eq(northStarUnderstanding.id, existing[0].id));
+          return { success: true, id: existing[0].id, action: 'updated' };
+        }
+        return { success: true, id: existing[0].id, action: 'skipped' };
+      }
+      
+      const [imported] = await db.insert(northStarUnderstanding).values({
+        principleId: targetPrincipleId,
+        reflection: understanding.reflection,
+        depth: understanding.depth ?? 'surface',
+        lastDeepened: understanding.lastDeepened ?? new Date(),
+      }).returning();
+      
+      return { success: true, id: imported.id, action: 'imported' };
+    } catch (error: any) {
+      console.error('[SYNC] Error importing North Star understanding:', error);
+      return { success: false, error: error.message };
+    }
+  }
+  
+  /**
+   * Import North Star example with deduplication
+   * Matches by (principleId, example text) to avoid duplicates
+   * @param localPrincipleId - The LOCAL principle ID (after mapping from source ID)
+   */
+  async importNorthStarExample(example: Partial<NorthStarExample>, importedBy: string, localPrincipleId?: string): Promise<{ success: boolean; id?: string; action?: string; error?: string }> {
+    try {
+      if (!example.example) {
+        return { success: false, error: 'Missing required field: example' };
+      }
+      
+      // Use provided localPrincipleId (from sync bridge mapping) or fallback to example.principleId
+      const targetPrincipleId = localPrincipleId || example.principleId;
+      
+      if (!targetPrincipleId) {
+        return { success: false, error: 'Missing principleId (no mapping available)' };
+      }
+      
+      // Verify principle exists in this environment
+      const principleExists = await db.select().from(northStarPrinciples)
+        .where(eq(northStarPrinciples.id, targetPrincipleId))
+        .limit(1);
+      
+      if (principleExists.length === 0) {
+        return { success: false, error: 'Principle not found in this environment' };
+      }
+      
+      // Check for existing by principle + example text
+      const existing = await db.select().from(northStarExamples)
+        .where(and(
+          eq(northStarExamples.principleId, targetPrincipleId),
+          eq(northStarExamples.example, example.example)
+        ))
+        .limit(1);
+      
+      if (existing.length > 0) {
+        return { success: true, id: existing[0].id, action: 'skipped' };
+      }
+      
+      const [imported] = await db.insert(northStarExamples).values({
+        principleId: targetPrincipleId,
+        example: example.example,
+        source: example.source ?? 'founder_original',
+        context: example.context,
+      }).returning();
+      
+      return { success: true, id: imported.id, action: 'imported' };
+    } catch (error: any) {
+      console.error('[SYNC] Error importing North Star example:', error);
+      return { success: false, error: error.message };
+    }
   }
 }
 

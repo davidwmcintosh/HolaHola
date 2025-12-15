@@ -2473,6 +2473,11 @@ export const syncRuns = pgTable("sync_runs", {
   observationCount: integer("observation_count").default(0),
   alertCount: integer("alert_count").default(0),
   
+  // North Star sync counts
+  northStarPrincipleCount: integer("north_star_principle_count").default(0),
+  northStarUnderstandingCount: integer("north_star_understanding_count").default(0),
+  northStarExampleCount: integer("north_star_example_count").default(0),
+  
   errorMessage: text("error_message"),
   failedTables: text("failed_tables").array(),
   

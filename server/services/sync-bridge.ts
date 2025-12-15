@@ -29,6 +29,9 @@ export interface SyncBundle {
   actions: any[];
   observations: any[];
   alerts: any[];
+  northStarPrinciples: any[];
+  northStarUnderstanding: any[];
+  northStarExamples: any[];
 }
 
 export interface SyncResult {
@@ -48,6 +51,7 @@ class SyncBridgeService {
     const advanced = await neuralNetworkSync.exportAdvancedIntelligence();
     const daniela = await neuralNetworkSync.exportDanielaSuggestions();
     const triLane = await neuralNetworkSync.exportTriLaneObservations();
+    const northStar = await neuralNetworkSync.exportNorthStar();
     
     const bundle: SyncBundle = {
       generatedAt: new Date().toISOString(),
@@ -71,6 +75,9 @@ class SyncBridgeService {
       actions: daniela.actions,
       observations: [...triLane.agentObservations, ...triLane.supportObservations],
       alerts: triLane.systemAlerts,
+      northStarPrinciples: northStar.principles,
+      northStarUnderstanding: northStar.understanding,
+      northStarExamples: northStar.examples,
     };
     
     bundle.checksum = this.computeChecksum(bundle);
@@ -143,6 +150,65 @@ class SyncBridgeService {
     await importWithCount('alerts', bundle.alerts, 
       (a) => neuralNetworkSync.importSystemAlert(a));
     
+    // North Star sync (constitutional foundation)
+    // Principles must be imported first to build source→local ID mapping
+    if (bundle.northStarPrinciples?.length || bundle.northStarUnderstanding?.length || bundle.northStarExamples?.length) {
+      // Build mapping from source principleId to local principleId
+      const principleIdMapping: Map<string, string> = new Map();
+      
+      for (const principle of bundle.northStarPrinciples || []) {
+        try {
+          const result = await neuralNetworkSync.importNorthStarPrinciple(principle, 'sync-bridge');
+          if (result?.success && result.sourceId && result.id) {
+            principleIdMapping.set(result.sourceId, result.id);
+          }
+          if (result?.success) {
+            counts['northStarPrinciples'] = (counts['northStarPrinciples'] || 0) + 1;
+          } else if (result?.error) {
+            errors.push(`northStarPrinciples: ${result.error}`);
+          }
+        } catch (err: any) {
+          errors.push(`northStarPrinciples: ${err.message}`);
+        }
+      }
+      
+      // Import understanding using the principle ID mapping
+      for (const understanding of bundle.northStarUnderstanding || []) {
+        try {
+          const localPrincipleId = understanding.principleId ? principleIdMapping.get(understanding.principleId) : undefined;
+          if (!localPrincipleId && understanding.principleId) {
+            console.warn(`[SYNC] No local principle mapping for understanding (sourceId: ${understanding.principleId})`);
+          }
+          const result = await neuralNetworkSync.importNorthStarUnderstanding(understanding, 'sync-bridge', localPrincipleId);
+          if (result?.success) {
+            counts['northStarUnderstanding'] = (counts['northStarUnderstanding'] || 0) + 1;
+          } else if (result?.error) {
+            errors.push(`northStarUnderstanding: ${result.error}`);
+          }
+        } catch (err: any) {
+          errors.push(`northStarUnderstanding: ${err.message}`);
+        }
+      }
+      
+      // Import examples using the principle ID mapping
+      for (const example of bundle.northStarExamples || []) {
+        try {
+          const localPrincipleId = example.principleId ? principleIdMapping.get(example.principleId) : undefined;
+          if (!localPrincipleId && example.principleId) {
+            console.warn(`[SYNC] No local principle mapping for example (sourceId: ${example.principleId})`);
+          }
+          const result = await neuralNetworkSync.importNorthStarExample(example, 'sync-bridge', localPrincipleId);
+          if (result?.success) {
+            counts['northStarExamples'] = (counts['northStarExamples'] || 0) + 1;
+          } else if (result?.error) {
+            errors.push(`northStarExamples: ${result.error}`);
+          }
+        } catch (err: any) {
+          errors.push(`northStarExamples: ${err.message}`);
+        }
+      }
+    }
+    
     return {
       success: errors.length === 0,
       counts,
@@ -211,6 +277,9 @@ class SyncBridgeService {
           actionCount: result.counts.actions || 0,
           observationCount: result.counts.observations || 0,
           alertCount: result.counts.alerts || 0,
+          northStarPrincipleCount: result.counts.northStarPrinciples || 0,
+          northStarUnderstandingCount: result.counts.northStarUnderstanding || 0,
+          northStarExampleCount: result.counts.northStarExamples || 0,
           durationMs: Date.now() - startTime,
           payloadChecksum: bundle.checksum,
           completedAt: new Date(),
@@ -301,6 +370,9 @@ class SyncBridgeService {
           actionCount: result.counts.actions || 0,
           observationCount: result.counts.observations || 0,
           alertCount: result.counts.alerts || 0,
+          northStarPrincipleCount: result.counts.northStarPrinciples || 0,
+          northStarUnderstandingCount: result.counts.northStarUnderstanding || 0,
+          northStarExampleCount: result.counts.northStarExamples || 0,
           durationMs: Date.now() - startTime,
           payloadChecksum: bundle.checksum,
           completedAt: new Date(),
