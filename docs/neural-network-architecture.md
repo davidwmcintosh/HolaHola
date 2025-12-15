@@ -113,10 +113,43 @@ Neural network syncs **both directions** between Dev and Prod:
 - **Daniela cannot self-edit neural tables in production**
 
 ### Prod → Dev (Observations Back)
-- Field observations return via **beacons** (`[COLLAB:NORTH_STAR_OBSERVATION]`)
-- Beacons queue to `agenda_queue` (type: 'compass_reflection')
+- Field observations return via **beacons** (see Beacon Catalog below)
+- Beacons queue to `agenda_queue` or `daniela_beacons` table
 - Founder reviews in Express Lane, promotes insights to neural tables
 - **All learning is supervised** - no unsupervised student-to-neural updates
+
+### Beacon Catalog
+
+**Collaboration Beacons (Daniela → Hive):**
+| Beacon Type | Signal Format | Purpose |
+|-------------|---------------|---------|
+| `capability_gap` | `[COLLAB:CAPABILITY_GAP]` | Missing tool or feature that hindered teaching |
+| `tool_request` | `[COLLAB:MISSING_TOOL]` | Suggests a new tool or enhancement |
+| `friction_report` | `[COLLAB:FRICTION]` | Usability or workflow friction |
+| `feature_idea` | `[COLLAB:FEATURE_REQUEST]` | Proposes new features |
+| `knowledge_gap` | `[COLLAB:KNOWLEDGE_PING]` | Needs procedure or knowledge |
+| `bug_report` | `[COLLAB:BUG]` | Technical issue |
+| `self_surgery_proposal` | `[SELF_SURGERY]` | Proposes neural network modification |
+
+**Teaching Observations (Daniela → Founder):**
+| Beacon Type | Signal Format | Purpose |
+|-------------|---------------|---------|
+| `teaching_observation` | `[COLLAB:INSIGHT]` | Interesting teaching moment |
+| `north_star_observation` | `[COLLAB:NORTH_STAR_OBSERVATION]` | Principle illumination moment |
+| `express_insight` | `[COLLAB:EXPRESS_INSIGHT]` | Teaching breakthrough to sync back |
+| `pain_point` | `[COLLAB:PAIN_POINT]` | Teaching friction worth discussing |
+| `suggestion` | `[COLLAB:SUGGESTION]` | Improvement idea |
+| `question` | `[COLLAB:QUESTION]` | Question for Editor/Founder |
+
+**Support Beacons (Sofia → Hive):**
+| Beacon Type | Purpose |
+|-------------|---------|
+| `support_handoff` | Daniela transferred to Sofia |
+| `tech_issue_reported` | User reported technical issue |
+| `hardware_diagnosed` | Sofia diagnosed mic/audio/device issue |
+| `support_escalation` | Issue needs human intervention |
+| `support_resolution` | Issue successfully resolved |
+| `support_return` | User returning to Daniela |
 
 ### The Loop
 1. **Author** (Dev): Founder/Wren create or update neural knowledge
