@@ -220,13 +220,13 @@ Based on time tracking, suggest:
 - [x] Create idempotent bundle update script (server/scripts/bundle-management.ts)
 - [x] Write acceptance tests for bundle CRUD operations (server/tests/bundle-management.test.ts)
 
-### Phase 2: Shared Progress API
-- [ ] Design unified progress API contract consumed by both views
-- [ ] Ensure brain map and linear view use same data source
-- [ ] Add Daniela's observations to progress response
-- [ ] Add recommendation queue to progress response
-- [ ] Build variance display (estimate vs actual time)
-- [ ] Implement skip/mark-complete for non-required content
+### Phase 2: Shared Progress API ✅ COMPLETED (Dec 15, 2025)
+- [x] Design unified progress API contract consumed by both views
+- [x] Ensure brain map and linear view use same data source
+- [x] Add Daniela's observations to progress response
+- [x] Add recommendation queue to progress response
+- [x] Build variance display (estimate vs actual time) - TIME TRACKING DISPLAY ADDED
+- [x] Implement skip/mark-complete for non-required content
 
 ### Phase 3: Syllabus Copy Templates & UI
 - [ ] Create syllabus copy template kit (engaging labels, challenge previews)
@@ -243,7 +243,18 @@ Based on time tracking, suggest:
 - [ ] Add procedure for confidence check-in interpretation
 - [ ] Document recommendation queue usage patterns
 
+### Class Content Review (Dec 15, 2025)
+> **NOTE:** Schedule a comprehensive review of ALL existing classes to ensure they take full advantage of new functionality:
+> - **Bundles:** Are conversations properly linked to related drills? Should some standalone lessons become bundles?
+> - **Requirement Tiers:** Are lessons correctly marked as required/recommended/optional_premium?
+> - **Time Estimates:** Do all lessons have accurate estimatedMinutes for the time tracking display?
+> - **Teacher Commitments:** Are unit-level "promises" configured where appropriate?
+> - **Linked Drills:** Are conversation lessons linked to their companion drill lessons via linkedDrillLessonId?
+> 
+> This review should ensure a cohesive student experience now that the unified progress system is live.
+
 ### Deferred / Future
+- [ ] **PRIORITY:** Conduct full class audit using checklist above
 - [ ] Design UI for teachers to choose bundle vs custom class
 - [ ] Determine which existing classes should become bundles
 - [ ] Implement adaptive recommendation engine (remediation/reinforcement/acceleration)
