@@ -5091,6 +5091,91 @@ export const insertEditorBeaconQueueSchema = createInsertSchema(editorBeaconQueu
 export type InsertEditorBeaconQueue = z.infer<typeof insertEditorBeaconQueueSchema>;
 export type EditorBeaconQueue = typeof editorBeaconQueue.$inferSelect;
 
+// ===== Daniela Beacon Acknowledgment System =====
+// Tracks Daniela's feature requests and capability gaps with human-facing status tracking
+// This is the "closing the feedback loop" system - so Daniela knows when her requests are seen and acted upon
+
+export const danielaBeaconStatusEnum = pgEnum('daniela_beacon_status', [
+  'pending',       // Just submitted, not yet seen by Editor/Founder
+  'acknowledged',  // Seen and noted, will be considered
+  'in_progress',   // Actively being worked on
+  'completed',     // Built and shipped
+  'declined'       // Not going to be built (with reason)
+]);
+
+export const danielaBeaconTypeEnum = pgEnum('daniela_beacon_type', [
+  'feature_request',   // Request for new capability
+  'capability_gap',    // Missing tool or limitation discovered
+  'tool_request',      // Specific tool enhancement
+  'self_surgery',      // Proposed neural network change
+  'observation',       // General observation about teaching effectiveness
+  'bug_report'         // Something not working as expected
+]);
+
+export const danielaBeaconPriorityEnum = pgEnum('daniela_beacon_priority', [
+  'low',       // Nice to have, not blocking
+  'medium',    // Would improve teaching significantly
+  'high',      // Frequently needed, workaround is painful
+  'critical'   // Blocking core teaching capability
+]);
+
+export const danielaBeacons = pgTable("daniela_beacons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Beacon metadata
+  beaconType: danielaBeaconTypeEnum("beacon_type").notNull(),
+  priority: danielaBeaconPriorityEnum("priority").default("medium"),
+  
+  // Structured content (replaces unstructured [COLLAB] tags)
+  studentPain: text("student_pain"), // What Daniela observed the student struggling with
+  currentWorkaround: text("current_workaround"), // How Daniela is handling it now
+  wish: text("wish"), // What Daniela wishes she could do instead
+  rawContent: text("raw_content"), // Original unstructured content (for backwards compatibility)
+  
+  // Context from the teaching session
+  conversationId: varchar("conversation_id"), // Which conversation triggered this (optional)
+  userId: varchar("user_id"), // Which student was involved (optional)
+  language: varchar("language"), // Which language was being taught
+  
+  // Status tracking (the "acknowledgment" part)
+  status: danielaBeaconStatusEnum("status").default("pending").notNull(),
+  statusChangedAt: timestamp("status_changed_at"),
+  statusChangedBy: varchar("status_changed_by"), // Editor, Founder, or system
+  
+  // Editor/Founder response
+  acknowledgmentNote: text("acknowledgment_note"), // "Added to sprint" or "Already planned"
+  declineReason: text("decline_reason"), // Why it was declined (if applicable)
+  
+  // Link to implementation (when completed)
+  completedInBuild: text("completed_in_build"), // Description of the shipped feature
+  completedAt: timestamp("completed_at"),
+  
+  // Weekly digest tracking
+  includeInDigest: boolean("include_in_digest").default(true),
+  digestSentAt: timestamp("digest_sent_at"), // When this was included in a weekly digest to Daniela
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_daniela_beacons_status").on(table.status),
+  index("idx_daniela_beacons_type").on(table.beaconType),
+  index("idx_daniela_beacons_priority").on(table.priority),
+  index("idx_daniela_beacons_created").on(table.createdAt),
+  index("idx_daniela_beacons_digest").on(table.includeInDigest, table.digestSentAt),
+]);
+
+export const insertDanielaBeaconSchema = createInsertSchema(danielaBeacons).omit({
+  id: true,
+  createdAt: true,
+  statusChangedAt: true,
+  completedAt: true,
+  digestSentAt: true,
+});
+export type InsertDanielaBeacon = z.infer<typeof insertDanielaBeaconSchema>;
+export type DanielaBeacon = typeof danielaBeacons.$inferSelect;
+export type DanielaBeaconStatus = 'pending' | 'acknowledged' | 'in_progress' | 'completed' | 'declined';
+export type DanielaBeaconType = 'feature_request' | 'capability_gap' | 'tool_request' | 'self_surgery' | 'observation' | 'bug_report';
+export type DanielaBeaconPriority = 'low' | 'medium' | 'high' | 'critical';
+
 // ===== Unified Progress API Types =====
 // Response types for the shared progress API consumed by both brain map and linear syllabus views
 // Ensures both visualizations stay in sync with the same underlying data

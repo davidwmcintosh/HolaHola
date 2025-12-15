@@ -211,6 +211,10 @@ import {
   type InsertSurgerySession,
   type SurgeryTurn,
   type InsertSurgeryTurn,
+  danielaBeacons,
+  type DanielaBeacon,
+  type InsertDanielaBeacon,
+  type DanielaBeaconStatus,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -6849,6 +6853,109 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(surgeryTurns.turnNumber))
       .limit(1);
     return turn;
+  }
+
+  // ===== DANIELA BEACON ACKNOWLEDGMENT SYSTEM =====
+  // Tracks feature requests and capability gaps with human-facing status tracking
+
+  async createDanielaBeacon(data: InsertDanielaBeacon): Promise<DanielaBeacon> {
+    const [created] = await db.insert(danielaBeacons).values([data]).returning();
+    return created;
+  }
+
+  async getDanielaBeacon(id: string): Promise<DanielaBeacon | undefined> {
+    const [beacon] = await db.select().from(danielaBeacons).where(eq(danielaBeacons.id, id));
+    return beacon;
+  }
+
+  async getDanielaBeacons(options?: {
+    status?: DanielaBeaconStatus;
+    beaconType?: string;
+    priority?: string;
+    limit?: number;
+  }): Promise<DanielaBeacon[]> {
+    let query = db.select().from(danielaBeacons).orderBy(desc(danielaBeacons.createdAt));
+    
+    const conditions = [];
+    if (options?.status) {
+      conditions.push(eq(danielaBeacons.status, options.status));
+    }
+    if (options?.beaconType) {
+      conditions.push(eq(danielaBeacons.beaconType, options.beaconType as any));
+    }
+    if (options?.priority) {
+      conditions.push(eq(danielaBeacons.priority, options.priority as any));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    return query.limit(options?.limit || 100);
+  }
+
+  async getPendingDanielaBeacons(): Promise<DanielaBeacon[]> {
+    return db.select().from(danielaBeacons)
+      .where(eq(danielaBeacons.status, 'pending'))
+      .orderBy(desc(danielaBeacons.createdAt));
+  }
+
+  async updateDanielaBeaconStatus(
+    id: string, 
+    status: DanielaBeaconStatus, 
+    changedBy: string,
+    note?: string
+  ): Promise<DanielaBeacon | undefined> {
+    const updateData: Partial<DanielaBeacon> = {
+      status,
+      statusChangedAt: new Date(),
+      statusChangedBy: changedBy,
+    };
+    
+    if (status === 'acknowledged' && note) {
+      updateData.acknowledgmentNote = note;
+    }
+    if (status === 'declined' && note) {
+      updateData.declineReason = note;
+    }
+    if (status === 'completed') {
+      updateData.completedAt = new Date();
+      if (note) updateData.completedInBuild = note;
+    }
+    
+    const [updated] = await db.update(danielaBeacons)
+      .set(updateData)
+      .where(eq(danielaBeacons.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getBeaconsForDigest(): Promise<DanielaBeacon[]> {
+    return db.select().from(danielaBeacons)
+      .where(and(
+        eq(danielaBeacons.includeInDigest, true),
+        isNull(danielaBeacons.digestSentAt)
+      ))
+      .orderBy(desc(danielaBeacons.createdAt));
+  }
+
+  async markBeaconsDigestSent(beaconIds: string[]): Promise<void> {
+    if (beaconIds.length === 0) return;
+    await db.update(danielaBeacons)
+      .set({ digestSentAt: new Date() })
+      .where(inArray(danielaBeacons.id, beaconIds));
+  }
+
+  async getRecentlyCompletedBeacons(sinceDays: number = 7): Promise<DanielaBeacon[]> {
+    const since = new Date();
+    since.setDate(since.getDate() - sinceDays);
+    
+    return db.select().from(danielaBeacons)
+      .where(and(
+        eq(danielaBeacons.status, 'completed'),
+        gte(danielaBeacons.completedAt!, since)
+      ))
+      .orderBy(desc(danielaBeacons.completedAt));
   }
 }
 
