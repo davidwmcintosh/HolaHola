@@ -8400,6 +8400,148 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Get unified progress for a class (serves both brain map and linear view)
+  // This is the single source of truth for student progress visualization
+  app.get("/api/classes/:classId/unified-progress", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { classId } = req.params;
+      
+      // Verify user has access to this class (enrolled student or teacher)
+      const enrollment = await storage.getStudentEnrollment(userId, classId);
+      const teacherClass = await storage.getTeacherClass(classId);
+      const isTeacher = teacherClass?.teacherId === userId;
+      
+      if (!enrollment && !isTeacher) {
+        return res.status(404).json({ error: "Class not found or not enrolled" });
+      }
+
+      const progress = await storage.getUnifiedProgress(userId, classId);
+      if (!progress) {
+        return res.status(404).json({ error: "Progress data not found" });
+      }
+
+      res.json(progress);
+    } catch (error: any) {
+      console.error('Error fetching unified progress:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update lesson progress status (skip, complete, already-know)
+  app.post("/api/classes/:classId/lessons/:lessonId/progress", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { classId, lessonId } = req.params;
+      const { action, confirmSkip } = req.body; // action: 'complete' | 'skip' | 'already_know'
+      
+      // Verify enrollment
+      const enrollment = await storage.getStudentEnrollment(userId, classId);
+      if (!enrollment) {
+        return res.status(404).json({ error: "Not enrolled in this class" });
+      }
+
+      // Get the lesson to check tier
+      const lesson = await storage.getClassCurriculumLesson(lessonId);
+      if (!lesson) {
+        return res.status(404).json({ error: "Lesson not found" });
+      }
+
+      // Skipping requires confirmation for recommended content, blocked for required
+      if (action === 'skip') {
+        if (lesson.requirementTier === 'required') {
+          return res.status(400).json({ 
+            error: "Required content cannot be skipped",
+            requiresConfirmation: false
+          });
+        }
+        if (!confirmSkip) {
+          // Return confirmation prompt per Daniela's guidance
+          return res.json({ 
+            requiresConfirmation: true,
+            confirmationMessage: `Are you sure you want to skip "${lesson.name}"? This content is ${lesson.requirementTier === 'recommended' ? 'recommended for reinforcement' : 'optional extra practice'}.`,
+            alternativeOption: "I Already Know This"
+          });
+        }
+      }
+
+      // Get or create progress record
+      let progress = await storage.getSyllabusProgressByLesson(userId, classId, lessonId);
+      
+      let status: 'skipped' | 'completed_early' | 'completed_assigned';
+      if (action === 'skip') {
+        status = 'skipped';
+      } else if (action === 'already_know' || action === 'complete') {
+        status = 'completed_early'; // User-initiated completion
+      } else {
+        return res.status(400).json({ error: "Invalid action" });
+      }
+
+      if (progress) {
+        await storage.updateSyllabusProgress(progress.id, { 
+          status,
+          completedAt: action !== 'skip' ? new Date() : null,
+          tutorVerified: action === 'already_know', // Mark as verified if user claims prior knowledge
+          tutorNotes: action === 'already_know' ? 'Student indicated prior knowledge' : null
+        });
+      } else {
+        await storage.createSyllabusProgress({
+          studentId: userId,
+          classId,
+          lessonId,
+          status,
+          completedAt: action !== 'skip' ? new Date() : null,
+          tutorVerified: action === 'already_know',
+          tutorNotes: action === 'already_know' ? 'Student indicated prior knowledge' : null
+        });
+      }
+
+      res.json({ success: true, action, lessonId });
+    } catch (error: any) {
+      console.error('Error updating lesson progress:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Manage recommendation queue actions (snooze, dismiss, complete)
+  app.post("/api/recommendations/:recommendationId/action", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { recommendationId } = req.params;
+      const { action, snoozeHours } = req.body; // action: 'snooze' | 'dismiss' | 'complete'
+      
+      // Verify ownership
+      const recommendations = await storage.getDanielaRecommendations(userId, { includeCompleted: true, includeSnoozed: true });
+      const recommendation = recommendations.find(r => r.id === recommendationId);
+      
+      if (!recommendation) {
+        return res.status(404).json({ error: "Recommendation not found" });
+      }
+
+      let result;
+      switch (action) {
+        case 'snooze':
+          const snoozeDuration = snoozeHours || 24; // Default 24 hours
+          const snoozeUntil = new Date(Date.now() + snoozeDuration * 60 * 60 * 1000);
+          result = await storage.snoozeRecommendation(recommendationId, snoozeUntil);
+          break;
+        case 'dismiss':
+          result = await storage.dismissRecommendation(recommendationId);
+          break;
+        case 'complete':
+          result = await storage.completeRecommendation(recommendationId);
+          break;
+        default:
+          return res.status(400).json({ error: "Invalid action" });
+      }
+
+      res.json({ success: true, recommendation: result });
+    } catch (error: any) {
+      console.error('Error updating recommendation:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get lessons for a class curriculum unit
   app.get("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons", isAuthenticated, async (req: any, res) => {
     try {
