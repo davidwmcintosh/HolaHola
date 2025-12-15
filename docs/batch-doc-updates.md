@@ -8,6 +8,28 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### IDEA THREAD: December 15, 2025 - Wren Awareness in Express Lane
+
+**Status**: PAUSED - Saved for later discussion
+
+**Context**: Hive Context System is complete and wired into:
+1. `editor-persona-service.ts` - Wren's beacon responses during voice chat
+2. `tutor-orchestrator.ts` - Daniela's conversation prompts
+
+**The Gap**: The Replit development agent (Wren in this chat) doesn't automatically get Hive awareness. It's separate from the Claude instance in editor-persona-service.
+
+**Proposed Solutions**:
+1. **API Endpoint** - Create `/api/hive/context` endpoint Wren could call to fetch current Hive state
+2. **Enhanced Wren Endpoint** - Update `POST /api/wren/message` to automatically include Hive context in responses
+3. **Direct Database Access** - Wren can query the database directly for beacons, sprints, sessions
+
+**Next Steps When Resumed**:
+- Decide which approach to implement
+- Consider if Wren should get automatic context injection vs. on-demand queries
+- Build the integration
+
+---
+
 ### Session: December 14, 2025 - Brain Map Integration with Daniela's Observations
 
 **Overview**: Updated `getUserTopicMastery()` to incorporate Daniela's competency observations from `topicCompetencyObservations` into the brain map status calculation.
