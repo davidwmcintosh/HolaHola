@@ -173,6 +173,7 @@ export default function CommandCenter() {
     { id: "editor-chat", label: "Express Lane", icon: MessageSquare, roles: ['admin', 'developer'] },
     { id: "feature-sprint", label: "Feature Sprint", icon: Zap, roles: ['admin', 'developer'] },
     { id: "collaboration", label: "Collaboration", icon: Handshake, roles: ['admin', 'developer'] },
+    { id: "beacons", label: "Beacons", icon: Radio, roles: ['admin', 'developer'] },
   ].filter(tab => {
     if (user?.role === 'admin') return true;
     if (user?.role === 'developer') return tab.roles.includes('developer');
@@ -298,6 +299,10 @@ export default function CommandCenter() {
 
           <TabsContent value="collaboration" className="space-y-4">
             <CollaborationTab />
+          </TabsContent>
+
+          <TabsContent value="beacons" className="space-y-4">
+            <BeaconsTab />
           </TabsContent>
         </Tabs>
       </div>
@@ -4845,8 +4850,14 @@ function EditorChatTab() {
     timestamp: string;
     relatedSprints: Array<{ id: number; name: string; status: string; goals: string | null }>;
     relatedBeacons: Array<{ id: number; type: string; wish: string | null; status: string }>;
+    expressLaneSummary: {
+      hasRelevantContext: boolean;
+      sessions: Array<{ sessionId: string; title: string; messageCount: number; latestExcerpt: string; participants: string[] }>;
+      totalRelevantMessages: number;
+    };
     systemChecklist: { learningCore: boolean; institutional: boolean; development: boolean; daniela: boolean };
     suggestedQuestions: string[];
+    danielaGuidance: { summary: string; recommendations: string[] };
   } | null>(null);
   
   // Connect to WebSocket for real-time updates
@@ -5662,6 +5673,45 @@ function EditorChatTab() {
                               <span className="truncate">{beacon.wish || 'No wish specified'}</span>
                             </div>
                           ))}
+                        </div>
+                      )}
+                      
+                      {/* Express Lane Summary - Founder↔Daniela discussions */}
+                      {preFlightResults.expressLaneSummary?.hasRelevantContext && (
+                        <div className="p-2 bg-purple-500/10 rounded-md">
+                          <div className="font-medium mb-1 flex items-center gap-1">
+                            <MessageSquare className="h-3 w-3 text-purple-500" />
+                            Express Lane Insights ({preFlightResults.expressLaneSummary.totalRelevantMessages} msgs)
+                          </div>
+                          {preFlightResults.expressLaneSummary.sessions.map(sess => (
+                            <div key={sess.sessionId} className="mb-2 p-1.5 bg-card rounded text-xs">
+                              <div className="font-medium">{sess.title}</div>
+                              <div className="text-muted-foreground line-clamp-2">{sess.latestExcerpt}</div>
+                              <div className="flex gap-1 mt-1">
+                                {sess.participants.map(p => (
+                                  <Badge key={p} variant="secondary" className="text-xs">{p}</Badge>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Daniela's Guidance */}
+                      {preFlightResults.danielaGuidance && (
+                        <div className="p-2 bg-green-500/10 rounded-md">
+                          <div className="font-medium mb-1 flex items-center gap-1">
+                            <Brain className="h-3 w-3 text-green-500" />
+                            Daniela's Guidance
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">{preFlightResults.danielaGuidance.summary}</p>
+                          {preFlightResults.danielaGuidance.recommendations.length > 0 && (
+                            <ul className="list-disc pl-4 text-xs text-muted-foreground">
+                              {preFlightResults.danielaGuidance.recommendations.map((rec, i) => (
+                                <li key={i}>{rec}</li>
+                              ))}
+                            </ul>
+                          )}
                         </div>
                       )}
                       
@@ -8614,6 +8664,373 @@ function BrainSurgeryTab() {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+// ===== Beacons Tab - Daniela's Capability Requests =====
+
+interface DanielaBeacon {
+  id: string;
+  beaconType: string;
+  priority: string;
+  studentPain: string | null;
+  currentWorkaround: string | null;
+  wish: string | null;
+  rawContent: string | null;
+  conversationId: string | null;
+  userId: string | null;
+  language: string | null;
+  status: string;
+  statusChangedAt: string | null;
+  statusChangedBy: string | null;
+  acknowledgmentNote: string | null;
+  declineReason: string | null;
+  completedInBuild: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+function BeaconsTab() {
+  const { toast } = useToast();
+  const [statusFilter, setStatusFilter] = useState<string>("pending");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [selectedBeacon, setSelectedBeacon] = useState<DanielaBeacon | null>(null);
+  const [acknowledgmentNote, setAcknowledgmentNote] = useState("");
+  const [declineReason, setDeclineReason] = useState("");
+  const [completedInBuild, setCompletedInBuild] = useState("");
+
+  const { data, isLoading, refetch } = useQuery<{
+    beacons: DanielaBeacon[];
+    statusCounts: Record<string, number>;
+  }>({
+    queryKey: ["/api/admin/beacons", { status: statusFilter, type: typeFilter }],
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string; status?: string; acknowledgmentNote?: string; declineReason?: string; completedInBuild?: string }) => {
+      return apiRequest("PATCH", `/api/admin/beacons/${id}`, updates);
+    },
+    onSuccess: () => {
+      toast({ title: "Beacon Updated" });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/beacons"] });
+      setSelectedBeacon(null);
+      setAcknowledgmentNote("");
+      setDeclineReason("");
+      setCompletedInBuild("");
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+      pending: "outline",
+      acknowledged: "secondary",
+      in_progress: "default",
+      completed: "default",
+      declined: "destructive",
+    };
+    const icons: Record<string, React.ReactNode> = {
+      pending: <Circle className="h-3 w-3" />,
+      acknowledged: <Eye className="h-3 w-3" />,
+      in_progress: <Loader2 className="h-3 w-3" />,
+      completed: <CheckCircle2 className="h-3 w-3" />,
+      declined: <XCircle className="h-3 w-3" />,
+    };
+    return (
+      <Badge variant={variants[status] || "secondary"} className="gap-1">
+        {icons[status]}
+        {status.replace('_', ' ')}
+      </Badge>
+    );
+  };
+
+  const getPriorityBadge = (priority: string) => {
+    const colors: Record<string, string> = {
+      low: "text-muted-foreground",
+      medium: "text-blue-600",
+      high: "text-orange-600",
+      critical: "text-red-600",
+    };
+    return (
+      <Badge variant="outline" className={colors[priority] || ""}>
+        {priority}
+      </Badge>
+    );
+  };
+
+  const getTypeBadge = (type: string) => {
+    const icons: Record<string, React.ReactNode> = {
+      feature_request: <Sparkles className="h-3 w-3" />,
+      capability_gap: <AlertCircle className="h-3 w-3" />,
+      tool_request: <Code className="h-3 w-3" />,
+      self_surgery: <Brain className="h-3 w-3" />,
+      observation: <Eye className="h-3 w-3" />,
+      bug_report: <AlertTriangle className="h-3 w-3" />,
+      coherence_check: <Compass className="h-3 w-3" />,
+      architecture_drift: <Activity className="h-3 w-3" />,
+      sprint_alignment: <Zap className="h-3 w-3" />,
+    };
+    return (
+      <Badge variant="secondary" className="gap-1">
+        {icons[type] || <Radio className="h-3 w-3" />}
+        {type.replace(/_/g, ' ')}
+      </Badge>
+    );
+  };
+
+  const handleStatusChange = (beaconId: string, newStatus: string) => {
+    if (newStatus === 'acknowledged' || newStatus === 'in_progress') {
+      updateMutation.mutate({ id: beaconId, status: newStatus, acknowledgmentNote });
+    } else if (newStatus === 'declined') {
+      updateMutation.mutate({ id: beaconId, status: newStatus, declineReason });
+    } else if (newStatus === 'completed') {
+      updateMutation.mutate({ id: beaconId, status: newStatus, completedInBuild });
+    } else {
+      updateMutation.mutate({ id: beaconId, status: newStatus });
+    }
+  };
+
+  return (
+    <div className="space-y-6" data-testid="beacons-tab">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Radio className="h-5 w-5 text-primary" />
+            Daniela's Beacons
+          </CardTitle>
+          <CardDescription>
+            Capability requests, feature ideas, and observations from Daniela during teaching sessions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-5 mb-6">
+            {(['pending', 'acknowledged', 'in_progress', 'completed', 'declined'] as const).map(status => (
+              <div 
+                key={status}
+                className={`p-3 rounded-lg cursor-pointer transition-colors ${statusFilter === status ? 'bg-primary/10 ring-1 ring-primary' : 'bg-muted/50 hover-elevate'}`}
+                onClick={() => setStatusFilter(status)}
+                data-testid={`filter-status-${status}`}
+              >
+                <div className="text-2xl font-bold">{data?.statusCounts?.[status] || 0}</div>
+                <div className="text-sm text-muted-foreground capitalize">{status.replace('_', ' ')}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2 mb-4">
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-48" data-testid="select-type-filter">
+                <SelectValue placeholder="Filter by type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="feature_request">Feature Request</SelectItem>
+                <SelectItem value="capability_gap">Capability Gap</SelectItem>
+                <SelectItem value="tool_request">Tool Request</SelectItem>
+                <SelectItem value="self_surgery">Self Surgery</SelectItem>
+                <SelectItem value="observation">Observation</SelectItem>
+                <SelectItem value="bug_report">Bug Report</SelectItem>
+                <SelectItem value="coherence_check">Coherence Check</SelectItem>
+                <SelectItem value="architecture_drift">Architecture Drift</SelectItem>
+                <SelectItem value="sprint_alignment">Sprint Alignment</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh-beacons">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {isLoading ? (
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-32" />)}
+        </div>
+      ) : data?.beacons && data.beacons.length > 0 ? (
+        <div className="space-y-4">
+          {data.beacons.map(beacon => (
+            <Card key={beacon.id} className="hover-elevate" data-testid={`beacon-card-${beacon.id}`}>
+              <CardContent className="pt-4">
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {getTypeBadge(beacon.beaconType)}
+                    {getPriorityBadge(beacon.priority)}
+                    {getStatusBadge(beacon.status)}
+                    {beacon.language && (
+                      <Badge variant="outline" className="gap-1">
+                        <Globe className="h-3 w-3" />
+                        {beacon.language}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {new Date(beacon.createdAt).toLocaleDateString()}
+                  </div>
+                </div>
+
+                {beacon.studentPain && (
+                  <div className="mb-2">
+                    <span className="text-sm font-medium">Student Pain:</span>
+                    <p className="text-sm text-muted-foreground">{beacon.studentPain}</p>
+                  </div>
+                )}
+                {beacon.currentWorkaround && (
+                  <div className="mb-2">
+                    <span className="text-sm font-medium">Current Workaround:</span>
+                    <p className="text-sm text-muted-foreground">{beacon.currentWorkaround}</p>
+                  </div>
+                )}
+                {beacon.wish && (
+                  <div className="mb-2">
+                    <span className="text-sm font-medium">Wish:</span>
+                    <p className="text-sm text-muted-foreground">{beacon.wish}</p>
+                  </div>
+                )}
+                {beacon.rawContent && !beacon.studentPain && (
+                  <p className="text-sm text-muted-foreground mb-2">{beacon.rawContent}</p>
+                )}
+
+                {beacon.acknowledgmentNote && (
+                  <div className="mt-3 p-2 bg-muted/50 rounded text-sm">
+                    <span className="font-medium">Note:</span> {beacon.acknowledgmentNote}
+                  </div>
+                )}
+                {beacon.declineReason && (
+                  <div className="mt-3 p-2 bg-destructive/10 rounded text-sm">
+                    <span className="font-medium">Decline Reason:</span> {beacon.declineReason}
+                  </div>
+                )}
+                {beacon.completedInBuild && (
+                  <div className="mt-3 p-2 bg-green-500/10 rounded text-sm">
+                    <span className="font-medium">Completed:</span> {beacon.completedInBuild}
+                  </div>
+                )}
+
+                <div className="flex gap-2 mt-4">
+                  {beacon.status === 'pending' && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedBeacon({ ...beacon, _action: 'acknowledge' } as any)}
+                        data-testid={`button-acknowledge-${beacon.id}`}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Acknowledge
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedBeacon({ ...beacon, _action: 'decline' } as any)}
+                        data-testid={`button-decline-${beacon.id}`}
+                      >
+                        <XCircle className="h-4 w-4 mr-1" />
+                        Decline
+                      </Button>
+                    </>
+                  )}
+                  {beacon.status === 'acknowledged' && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleStatusChange(beacon.id, 'in_progress')}
+                      disabled={updateMutation.isPending}
+                      data-testid={`button-start-${beacon.id}`}
+                    >
+                      <Play className="h-4 w-4 mr-1" />
+                      Start Work
+                    </Button>
+                  )}
+                  {beacon.status === 'in_progress' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setSelectedBeacon({ ...beacon, _action: 'complete' } as any)}
+                      data-testid={`button-complete-${beacon.id}`}
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-1" />
+                      Mark Complete
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <Radio className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">No beacons found with the current filters.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      <AlertDialog open={!!selectedBeacon} onOpenChange={(open) => !open && setSelectedBeacon(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {(selectedBeacon as any)?._action === 'acknowledge' && 'Acknowledge Beacon'}
+              {(selectedBeacon as any)?._action === 'decline' && 'Decline Beacon'}
+              {(selectedBeacon as any)?._action === 'complete' && 'Complete Beacon'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {(selectedBeacon as any)?._action === 'acknowledge' && 'Add a note about how this will be addressed.'}
+              {(selectedBeacon as any)?._action === 'decline' && 'Explain why this beacon is being declined.'}
+              {(selectedBeacon as any)?._action === 'complete' && 'Describe what was built to address this.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            {(selectedBeacon as any)?._action === 'acknowledge' && (
+              <Textarea
+                placeholder="e.g., Added to sprint, will address in next release..."
+                value={acknowledgmentNote}
+                onChange={(e) => setAcknowledgmentNote(e.target.value)}
+                data-testid="input-acknowledgment-note"
+              />
+            )}
+            {(selectedBeacon as any)?._action === 'decline' && (
+              <Textarea
+                placeholder="e.g., Already covered by existing feature, out of scope..."
+                value={declineReason}
+                onChange={(e) => setDeclineReason(e.target.value)}
+                data-testid="input-decline-reason"
+              />
+            )}
+            {(selectedBeacon as any)?._action === 'complete' && (
+              <Textarea
+                placeholder="e.g., Implemented new whiteboard command for tone visualization..."
+                value={completedInBuild}
+                onChange={(e) => setCompletedInBuild(e.target.value)}
+                data-testid="input-completed-build"
+              />
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!selectedBeacon) return;
+                const action = (selectedBeacon as any)?._action;
+                if (action === 'acknowledge') {
+                  handleStatusChange(selectedBeacon.id, 'acknowledged');
+                } else if (action === 'decline') {
+                  handleStatusChange(selectedBeacon.id, 'declined');
+                } else if (action === 'complete') {
+                  handleStatusChange(selectedBeacon.id, 'completed');
+                }
+              }}
+              disabled={updateMutation.isPending}
+            >
+              {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

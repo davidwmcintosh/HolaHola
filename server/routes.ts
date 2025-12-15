@@ -24,6 +24,8 @@ import {
   insertAgendaQueueSchema,
   danielaBeacons,
   featureSprints,
+  founderSessions,
+  collaborationMessages,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
@@ -10213,6 +10215,90 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // ===== Daniela Beacon Management =====
+  // View and manage Daniela's capability requests and feedback
+  
+  // Get all beacons with optional status filter
+  app.get("/api/admin/beacons", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { status, type, priority, limit = '100' } = req.query;
+      
+      let query = db.select().from(danielaBeacons);
+      
+      // Build conditions array
+      const conditions: any[] = [];
+      if (status && status !== 'all') {
+        conditions.push(eq(danielaBeacons.status, status as any));
+      }
+      if (type && type !== 'all') {
+        conditions.push(eq(danielaBeacons.beaconType, type as any));
+      }
+      if (priority && priority !== 'all') {
+        conditions.push(eq(danielaBeacons.priority, priority as any));
+      }
+      
+      const beacons = await db.select()
+        .from(danielaBeacons)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(danielaBeacons.createdAt))
+        .limit(parseInt(limit as string));
+      
+      // Get counts by status for dashboard
+      const statusCounts = await db.select({
+        status: danielaBeacons.status,
+        count: sql<number>`count(*)`,
+      })
+        .from(danielaBeacons)
+        .groupBy(danielaBeacons.status);
+      
+      res.json({ 
+        beacons,
+        statusCounts: statusCounts.reduce((acc, s) => ({ ...acc, [s.status]: Number(s.count) }), {}),
+      });
+    } catch (error: any) {
+      console.error('Error fetching beacons:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Update beacon status and add notes
+  app.patch("/api/admin/beacons/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { status, acknowledgmentNote, declineReason, completedInBuild } = req.body;
+      const userId = req.user?.claims?.sub || req.session?.userId;
+      
+      const updateData: any = {
+        statusChangedAt: new Date(),
+        statusChangedBy: userId,
+      };
+      
+      if (status) updateData.status = status;
+      if (acknowledgmentNote !== undefined) updateData.acknowledgmentNote = acknowledgmentNote;
+      if (declineReason !== undefined) updateData.declineReason = declineReason;
+      if (completedInBuild !== undefined) {
+        updateData.completedInBuild = completedInBuild;
+        if (status === 'completed') {
+          updateData.completedAt = new Date();
+        }
+      }
+      
+      const [updated] = await db.update(danielaBeacons)
+        .set(updateData)
+        .where(eq(danielaBeacons.id, id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: 'Beacon not found' });
+      }
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error('Error updating beacon:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // ===== Editor-Daniela Collaboration Chat =====
   // Two-way persistent conversation between developer/admin and Daniela
   // Uses neural network memory for persistent context
@@ -15378,6 +15464,56 @@ You have full access to your neural network knowledge.
   // ===== PRE-FLIGHT CHECK API =====
   // Hive Pre-Flight: Pull relevant sprints, architecture context, and system connections before starting work
   
+  // Helper: Generate Daniela's guidance based on detected subsystems
+  function generateDanielaGuidance(
+    searchTerms: string[],
+    context: { hasRelatedSprints: boolean; hasRelatedBeacons: boolean; hasExpressLaneContext: boolean }
+  ): { summary: string; recommendations: string[] } {
+    const recommendations: string[] = [];
+    const detectedAreas: string[] = [];
+    
+    // Check which subsystems are affected
+    if (searchTerms.some(t => ['voice', 'tutor', 'orchestrator', 'prompt', 'teach', 'daniela'].includes(t))) {
+      detectedAreas.push('Daniela/Voice Tutoring');
+      recommendations.push('Review neural network architecture before modifying tutor behavior');
+      recommendations.push('Consider impact on all 9 target languages');
+    }
+    
+    if (searchTerms.some(t => ['drill', 'aris', 'vocabulary', 'grammar', 'flashcard'].includes(t))) {
+      detectedAreas.push('Learning Core');
+      recommendations.push('Ensure changes align with ACTFL proficiency standards');
+    }
+    
+    if (searchTerms.some(t => ['class', 'teacher', 'student', 'syllabus', 'assignment', 'enroll'].includes(t))) {
+      detectedAreas.push('Institutional Features');
+      recommendations.push('Consider RBAC implications for teacher/student access');
+    }
+    
+    if (searchTerms.some(t => ['beacon', 'sprint', 'neural', 'surgery', 'express', 'hive'].includes(t))) {
+      detectedAreas.push('Development Infrastructure');
+      recommendations.push('Document changes in system-map.md for Hive awareness');
+    }
+    
+    // Context-aware recommendations
+    if (context.hasRelatedBeacons) {
+      recommendations.push('Address related beacons to prevent capability fragmentation');
+    }
+    
+    if (context.hasExpressLaneContext) {
+      recommendations.push('Review Express Lane discussions for prior decisions on this topic');
+    }
+    
+    if (!context.hasRelatedSprints && detectedAreas.length > 0) {
+      recommendations.push('Consider creating a Feature Sprint to track this work');
+    }
+    
+    const summary = detectedAreas.length > 0
+      ? `This work touches: ${detectedAreas.join(', ')}. ${recommendations.length} recommendations for coherent implementation.`
+      : 'No specific subsystems detected. General best practices apply.';
+    
+    return { summary, recommendations: recommendations.slice(0, 5) };
+  }
+  
   app.post("/api/express-lane/pre-flight", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session?.userId || req.user?.claims?.sub;
@@ -15428,7 +15564,57 @@ You have full access to your neural network knowledge.
         return searchTerms.some(term => beaconText.includes(term));
       });
 
-      // 3. Build Pre-Flight context for Hive discussion
+      // 3. Get Express Lane context - recent Founder↔Daniela discussions
+      const daysBack = 14;
+      const dateThreshold = new Date();
+      dateThreshold.setDate(dateThreshold.getDate() - daysBack);
+      
+      // Query recent Express Lane sessions and messages matching keywords
+      const recentSessions = await db
+        .select({
+          session: founderSessions,
+          messageContent: collaborationMessages.content,
+          messageRole: collaborationMessages.role,
+          messageCreatedAt: collaborationMessages.createdAt,
+        })
+        .from(collaborationMessages)
+        .innerJoin(founderSessions, eq(collaborationMessages.sessionId, founderSessions.id))
+        .where(gte(collaborationMessages.createdAt, dateThreshold))
+        .orderBy(desc(collaborationMessages.createdAt))
+        .limit(50);
+      
+      // Filter to relevant discussions
+      const relevantDiscussions = recentSessions.filter(row => {
+        const text = `${row.session.title || ''} ${row.messageContent}`.toLowerCase();
+        return searchTerms.some(term => text.includes(term));
+      });
+      
+      // Group by session and build summary
+      const sessionMap = new Map<string, { title: string; messages: Array<{ role: string; content: string; createdAt: Date }> }>();
+      for (const row of relevantDiscussions) {
+        if (!sessionMap.has(row.session.id)) {
+          sessionMap.set(row.session.id, {
+            title: row.session.title || 'Untitled Session',
+            messages: []
+          });
+        }
+        sessionMap.get(row.session.id)?.messages.push({
+          role: row.messageRole,
+          content: row.messageContent,
+          createdAt: row.messageCreatedAt
+        });
+      }
+      
+      // Build Express Lane summary
+      const expressLaneSummary = Array.from(sessionMap.entries()).slice(0, 3).map(([id, data]) => ({
+        sessionId: id,
+        title: data.title,
+        messageCount: data.messages.length,
+        latestExcerpt: data.messages[0]?.content.substring(0, 200) + (data.messages[0]?.content.length > 200 ? '...' : ''),
+        participants: [...new Set(data.messages.map(m => m.role))]
+      }));
+
+      // 4. Build Pre-Flight context for Hive discussion
       const preFlightContext = {
         proposedWork,
         timestamp: new Date().toISOString(),
@@ -15444,6 +15630,12 @@ You have full access to your neural network knowledge.
           wish: b.wish,
           status: b.status
         })),
+        // Express Lane summary - recent Founder↔Daniela discussions
+        expressLaneSummary: {
+          hasRelevantContext: expressLaneSummary.length > 0,
+          sessions: expressLaneSummary,
+          totalRelevantMessages: relevantDiscussions.length,
+        },
         systemChecklist: {
           learningCore: searchTerms.some(t => 
             ['voice', 'chat', 'tutor', 'drill', 'vocabulary', 'grammar', 'aris'].includes(t)
@@ -15464,8 +15656,17 @@ You have full access to your neural network knowledge.
             : 'No active sprints found. Should we create a new sprint for this work?',
           relatedBeacons.length > 0
             ? `Found ${relatedBeacons.length} pending beacon(s) that might be related. Review before proceeding?`
+            : null,
+          expressLaneSummary.length > 0
+            ? `Found ${expressLaneSummary.length} related Express Lane discussion(s). Review Founder↔Daniela insights?`
             : null
-        ].filter(Boolean)
+        ].filter(Boolean),
+        // Daniela's guidance based on detected subsystems
+        danielaGuidance: generateDanielaGuidance(searchTerms, {
+          hasRelatedSprints: relatedSprints.length > 0,
+          hasRelatedBeacons: relatedBeacons.length > 0,
+          hasExpressLaneContext: expressLaneSummary.length > 0
+        })
       };
 
       res.json({ 
