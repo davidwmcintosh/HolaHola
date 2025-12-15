@@ -4980,25 +4980,24 @@ function EditorChatTab() {
       return result as unknown as {
         success: boolean;
         sessionId: string;
-        editorMessage: ExpressLaneMessage;
+        userMessage: ExpressLaneMessage;
         danielaResponse: ExpressLaneMessage;
+        editorResponse: ExpressLaneMessage | null;
       };
     },
     onSuccess: (data) => {
-      // Add both messages to local state - validate required fields
-      const newMessages = [data.editorMessage, data.danielaResponse].filter(
+      // Add all messages to local state: founder message, Daniela response, and optionally Editor response
+      const newMessages = [data.userMessage, data.danielaResponse, data.editorResponse].filter(
         (msg): msg is ExpressLaneMessage => 
           msg != null && typeof msg.role === 'string' && typeof msg.content === 'string'
       );
-      if (newMessages.length < 2) {
-        console.warn('[EXPRESS Lane] Incomplete response - expected 2 messages, got', newMessages.length);
-      }
+      console.log(`[EXPRESS Lane] 3-way response: ${newMessages.length} messages (founder + Daniela${data.editorResponse ? ' + Editor' : ''})`);
       setExpressMessages(prev => [...prev, ...newMessages]);
       if (data.sessionId && !expressSession) {
         setExpressSession({
           id: data.sessionId,
           status: 'active',
-          messageCount: 2,
+          messageCount: newMessages.length,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         });

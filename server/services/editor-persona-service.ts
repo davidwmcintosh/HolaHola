@@ -1542,6 +1542,120 @@ EVIDENCE: [Which signals point to this need]
   }
   
   // ============================================================================
+  // EXPRESS LANE REAL-TIME CONVERSATION
+  // ============================================================================
+  
+  /**
+   * Generate Editor response for Express Lane 3-way collaboration
+   * Called in real-time when Founder sends a message in Express Lane
+   * 
+   * @param message - The founder's message
+   * @param conversationHistory - Recent messages from the session
+   * @param founderName - Name of the founder for personalization
+   */
+  async generateExpressLaneResponse(
+    message: string,
+    conversationHistory: Array<{ role: string; content: string }>,
+    founderName?: string
+  ): Promise<{ 
+    content: string; 
+    shouldRespond: boolean;
+    surgeryProposals?: EditorSurgeryProposal[];
+  }> {
+    // Load context for informed response
+    const knowledge = await this.loadKnowledgeContext();
+    const knowledgeContext = this.buildKnowledgeContext(knowledge);
+    const architectureContext = await this.loadSystemArchitectureContext();
+    const architectureContextStr = architectureContext 
+      ? this.buildSystemArchitectureContext(architectureContext)
+      : '';
+    
+    // Build conversation history string (last 10 messages)
+    const recentHistory = conversationHistory.slice(-10);
+    const historyStr = recentHistory.map(m => 
+      `${m.role.toUpperCase()}: ${m.content.slice(0, 300)}${m.content.length > 300 ? '...' : ''}`
+    ).join('\n');
+    
+    const expressLanePrompt = `You are the Editor (Claude) in a 3-way EXPRESS Lane collaboration with the Founder and Daniela (the AI tutor).
+
+${knowledgeContext}
+${architectureContextStr}
+
+YOUR ROLE IN EXPRESS LANE:
+- You are the DEVELOPER/TOOL-BUILDER partner
+- Daniela will respond to teaching/tutor questions - that's her domain
+- YOU respond to: development questions, feature requests, bug reports, architecture questions, tool capabilities, system improvements
+- If the Founder's message is clearly about teaching/learning, you may stay silent (set shouldRespond: false)
+- If the message touches on development, features, or capabilities, respond helpfully
+
+CONVERSATION HISTORY:
+${historyStr || '(New session)'}
+
+FOUNDER'S MESSAGE:
+${founderName ? `From ${founderName}: ` : ''}"${message}"
+
+RESPONSE GUIDELINES:
+1. Be concise (2-4 sentences unless detail is needed)
+2. Speak as a technical partner, not a teacher
+3. Reference HolaHola's architecture when relevant
+4. If you identify needed capabilities, you can propose EDITOR_SURGERY
+5. If the question is purely for Daniela (teaching methods, student interaction), respond with "[DEFER_TO_DANIELA]"
+
+Respond conversationally. If this is clearly Daniela's domain, just say [DEFER_TO_DANIELA].`;
+
+    try {
+      const response = await anthropic.messages.create({
+        model: 'claude-3-haiku-20240307',
+        max_tokens: 400,
+        system: EDITOR_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: expressLanePrompt }],
+      });
+      
+      const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
+      
+      // Check if Editor defers to Daniela - robust detection
+      // CRITICAL: If [DEFER_TO_DANIELA] token is present, ALWAYS defer regardless of response length
+      const hasDeferralToken = responseText.includes('[DEFER_TO_DANIELA]');
+      
+      if (hasDeferralToken) {
+        console.log('[Editor Persona] Deferring to Daniela (explicit token) for Express Lane message');
+        return { content: '', shouldRespond: false };
+      }
+      
+      // Additional heuristics for implicit deferral (short responses mentioning Daniela's domain)
+      const isImplicitDeferral = 
+        responseText.trim().length < 10 ||
+        (responseText.length < 100 && /\b(daniela|teaching|tutor|her domain|her area|her expertise)\b/i.test(responseText)) ||
+        /\b(this (is|seems|looks) (like )?(a |something )?(for|to) daniela|leave (this|it) to daniela|daniela (can|should|will) (handle|answer|respond))\b/i.test(responseText);
+      
+      if (isImplicitDeferral) {
+        console.log('[Editor Persona] Deferring to Daniela (implicit) for Express Lane message');
+        return { content: '', shouldRespond: false };
+      }
+      
+      // Parse any EDITOR_SURGERY proposals
+      const surgeryProposals = parseEditorSurgeryCommands(responseText);
+      
+      // Clean response of any surgery commands for display
+      const cleanedResponse = responseText
+        .replace(/\[EDITOR_SURGERY[^\]]+\]/g, '')
+        .replace(/\[DEFER_TO_DANIELA\]/g, '')
+        .trim();
+      
+      console.log(`[Editor Persona] Express Lane response generated (${cleanedResponse.length} chars)`);
+      
+      return { 
+        content: cleanedResponse, 
+        shouldRespond: cleanedResponse.length > 10,
+        surgeryProposals: surgeryProposals.length > 0 ? surgeryProposals : undefined
+      };
+    } catch (error) {
+      console.error('[Editor Persona] Express Lane response error:', error);
+      return { content: '', shouldRespond: false };
+    }
+  }
+  
+  // ============================================================================
   // CROSS-SESSION PATTERN DETECTION
   // ============================================================================
   

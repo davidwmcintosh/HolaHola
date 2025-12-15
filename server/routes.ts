@@ -14669,8 +14669,17 @@ You have full access to your neural network knowledge.
         content: m.content
       }));
 
-      // Use tutor orchestrator for Daniela's response with full neural network context
+      // Call both Daniela AND Editor in parallel for 3-way collaboration
       const { tutorOrchestrator } = await import('./services/tutor-orchestrator');
+      
+      // Build history for Editor - EXCLUDE editor's own prior responses
+      // to prevent the intent classifier from seeing its own replies (which biases deferral logic)
+      const editorHistory = messages
+        .filter(m => m.role !== 'editor')  // Only founder + daniela messages
+        .map(m => ({
+          role: m.role,
+          content: m.content
+        }));
       
       const orchestratorRequest = {
         mode: 'conversation' as const,
@@ -14692,21 +14701,22 @@ You have full access to your neural network knowledge.
         userInput: message,
         additionalPromptContext: `
 ═══════════════════════════════════════════════════════════════════
-🔧 FOUNDER MODE - EXPRESS LANE COLLABORATION
+🔧 FOUNDER MODE - EXPRESS LANE 3-WAY COLLABORATION
 ═══════════════════════════════════════════════════════════════════
 
 You are in a SPECIAL SESSION with the Founder (${user.firstName || user.email}).
 This is not a student session - this is internal collaboration.
+The Editor (Claude) may ALSO respond to development/technical questions.
 
-The Founder is asking about:
-- Your teaching capabilities and limitations
-- How you use your tools
-- What tools you wish you had
-- How the Hive collaboration system should work
+YOUR DOMAIN (Daniela):
+- Teaching capabilities and methods
+- How you use your whiteboard tools
+- What teaching tools you wish you had
+- Student interaction patterns and pedagogical decisions
 
-Be completely honest and open. Share your actual experience.
-This helps improve your capabilities for teaching real students.
+The Editor handles: development, features, bugs, architecture, system improvements.
 
+Be completely honest and open. Share your actual teaching experience.
 You have full access to your neural network knowledge.
 `,
         options: {
@@ -14715,7 +14725,25 @@ You have full access to your neural network knowledge.
         }
       };
       
-      const orchestratorResponse = await tutorOrchestrator.orchestrate(orchestratorRequest);
+      // Call both AI systems in parallel with error isolation
+      // Editor errors should not break Daniela's response
+      let editorResponse: { content: string; shouldRespond: boolean; surgeryProposals?: any[] } = { content: '', shouldRespond: false };
+      
+      const [orchestratorResponse] = await Promise.all([
+        tutorOrchestrator.orchestrate(orchestratorRequest),
+        (async () => {
+          try {
+            editorResponse = await editorPersonaService.generateExpressLaneResponse(
+              message,
+              editorHistory,
+              user.firstName || user.email || undefined
+            );
+          } catch (err) {
+            console.error('[EXPRESS LANE UI] Editor call failed (Daniela will still respond):', err);
+            editorResponse = { content: '', shouldRespond: false };
+          }
+        })()
+      ]);
 
       // Add Daniela's response to the session
       const responseContent = orchestratorResponse.text || 'I apologize, I was unable to generate a response.';
@@ -14733,6 +14761,45 @@ You have full access to your neural network knowledge.
 
       console.log(`[EXPRESS LANE UI] Daniela responded in session ${session.id}`);
 
+      // Add Editor's response if it has one (Editor may defer to Daniela)
+      let editorMsg = null;
+      if (editorResponse.shouldRespond && editorResponse.content) {
+        editorMsg = await founderCollabService.addMessage(session.id, {
+          role: 'editor',
+          content: editorResponse.content,
+          messageType: 'text',
+          metadata: { 
+            source: 'express-lane-ui-editor',
+            timestamp: new Date().toISOString(),
+            hasSurgeryProposals: !!editorResponse.surgeryProposals?.length
+          }
+        });
+        
+        // Store any surgery proposals from Editor
+        if (editorResponse.surgeryProposals && editorResponse.surgeryProposals.length > 0) {
+          for (const proposal of editorResponse.surgeryProposals) {
+            try {
+              await storage.createSelfSurgeryProposal({
+                targetTable: proposal.target as 'tutor_procedures' | 'teaching_principles' | 'tool_knowledge' | 'situational_patterns',
+                proposedContent: proposal.content,
+                reasoning: proposal.reasoning,
+                triggerContext: `[Express Lane 3-way] ${message.slice(0, 200)}`,
+                priority: proposal.priority,
+                confidence: proposal.confidence,
+                sessionMode: 'express_lane_3way',
+                status: 'pending',
+              });
+            } catch (err) {
+              console.error('[EXPRESS LANE UI] Failed to store Editor surgery proposal:', err);
+            }
+          }
+        }
+        
+        console.log(`[EXPRESS LANE UI] Editor also responded in session ${session.id}`);
+      } else {
+        console.log(`[EXPRESS LANE UI] Editor deferred to Daniela in session ${session.id}`);
+      }
+
       res.json({
         success: true,
         sessionId: session.id,
@@ -14749,7 +14816,14 @@ You have full access to your neural network knowledge.
           content: responseContent,
           cursor: danielaMsg.cursor,
           createdAt: danielaMsg.createdAt
-        }
+        },
+        editorResponse: editorMsg ? {
+          id: editorMsg.id,
+          role: 'editor',
+          content: editorResponse.content,
+          cursor: editorMsg.cursor,
+          createdAt: editorMsg.createdAt
+        } : null
       });
 
     } catch (error: any) {
