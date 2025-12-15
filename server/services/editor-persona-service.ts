@@ -430,6 +430,9 @@ class EditorPersonaService {
   // ============================================================================
   // BEACON RESPONSE GENERATION
   // ============================================================================
+  // Note: "What Shipped" is now synced to neural network on startup via
+  // beaconSyncService.syncChangelogToNeuralNetwork() - Editor accesses it
+  // through normal procedural memory retrieval
   
   /**
    * Generate Editor response to a hive beacon using Claude

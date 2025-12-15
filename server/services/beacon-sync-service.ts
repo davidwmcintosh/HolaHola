@@ -20,6 +20,8 @@ import {
 } from '@shared/schema';
 import { eq, and, gte, desc } from 'drizzle-orm';
 import { storage } from '../storage';
+import * as fs from 'fs';
+import * as path from 'path';
 
 class BeaconSyncService {
   
@@ -347,6 +349,187 @@ class BeaconSyncService {
       case 'medium': return '🟡';
       case 'low': return '🟢';
       default: return '⚪';
+    }
+  }
+  
+  // ============================================================================
+  // BUILD CHANGELOG (ALL SHIPPED FEATURES - Not Just Beacons)
+  // ============================================================================
+  
+  /**
+   * Read the build changelog from docs/what-shipped.md
+   * This covers ALL shipped features, not just beacon-initiated ones.
+   * Both Daniela AND Editor use this to stay aware of recent changes.
+   */
+  getWhatShippedFromChangelog(): string {
+    try {
+      const changelogPath = path.join(process.cwd(), 'docs', 'what-shipped.md');
+      
+      if (!fs.existsSync(changelogPath)) {
+        return '';
+      }
+      
+      const content = fs.readFileSync(changelogPath, 'utf-8');
+      
+      // Parse the markdown to extract recent entries (last 7 days worth)
+      const lines = content.split('\n');
+      const recentEntries: string[] = [];
+      let inRecentSection = false;
+      let sectionsFound = 0;
+      const maxSections = 3; // Show last 3 days of changes
+      
+      for (const line of lines) {
+        // Skip header and intro text
+        if (line.startsWith('# What Shipped') || line.startsWith('This file is') || 
+            line.startsWith('Update this file') || line.startsWith('Format:') || 
+            line.trim() === '---') {
+          continue;
+        }
+        
+        // Date headers start new sections
+        if (line.startsWith('## ')) {
+          if (sectionsFound >= maxSections) break;
+          sectionsFound++;
+          inRecentSection = true;
+          recentEntries.push('');
+          recentEntries.push(line.replace('## ', '📅 '));
+        } else if (inRecentSection && line.startsWith('- ')) {
+          // Bullet points are features
+          recentEntries.push(`   ${line}`);
+        }
+      }
+      
+      if (recentEntries.length === 0) {
+        return '';
+      }
+      
+      return [
+        '',
+        '═══════════════════════════════════════════════════════════════════',
+        '🚀 RECENT BUILD CHANGELOG (All Shipped Features)',
+        '═══════════════════════════════════════════════════════════════════',
+        '',
+        ...recentEntries,
+        '',
+        'These are ALL recent changes to the system, not just beacon completions.',
+        ''
+      ].join('\n');
+      
+    } catch (error) {
+      console.error('[BeaconSync] Error reading changelog:', error);
+      return '';
+    }
+  }
+  
+  /**
+   * Get combined "What Shipped" for Daniela's context
+   * Includes BOTH:
+   * 1. Beacon completions (her requests that were built)
+   * 2. Build changelog (ALL changes from docs/what-shipped.md)
+   */
+  async getFullWhatShippedForDaniela(): Promise<string> {
+    const beaconStatus = await this.getBeaconStatusesForDaniela();
+    const changelog = this.getWhatShippedFromChangelog();
+    
+    return beaconStatus + changelog;
+  }
+  
+  /**
+   * Get combined "What Shipped" for Editor's context
+   * Same information as Daniela gets - keeping both in sync
+   */
+  async getFullWhatShippedForEditor(): Promise<string> {
+    const pendingSummary = await this.getPendingBeaconsSummary();
+    const changelog = this.getWhatShippedFromChangelog();
+    
+    return [
+      pendingSummary,
+      changelog,
+      '',
+      'Update docs/what-shipped.md after every build to keep both Daniela and Editor aware.'
+    ].join('\n');
+  }
+  
+  /**
+   * Sync changelog entries to the neural network as tool_knowledge entries
+   * This allows both Daniela and Editor to access "What Shipped" through their
+   * normal procedural memory retrieval instead of prompt injection.
+   * 
+   * Call this on startup or after updating docs/what-shipped.md
+   */
+  async syncChangelogToNeuralNetwork(): Promise<{
+    synced: number;
+    skipped: number;
+    errors: string[];
+  }> {
+    const result = { synced: 0, skipped: 0, errors: [] as string[] };
+    
+    try {
+      const changelogPath = path.join(process.cwd(), 'docs', 'what-shipped.md');
+      
+      if (!fs.existsSync(changelogPath)) {
+        console.log('[BeaconSync] No changelog file found, skipping neural network sync');
+        return result;
+      }
+      
+      const content = fs.readFileSync(changelogPath, 'utf-8');
+      const lines = content.split('\n');
+      
+      let currentDate = '';
+      const entries: { date: string; feature: string }[] = [];
+      
+      for (const line of lines) {
+        if (line.startsWith('## ')) {
+          currentDate = line.replace('## ', '').trim();
+        } else if (line.startsWith('- ') && currentDate) {
+          const feature = line.replace('- ', '').replace(/\*\*/g, '').trim();
+          entries.push({ date: currentDate, feature });
+        }
+      }
+      
+      // Sync each entry as a tool_knowledge record
+      for (const entry of entries) {
+        try {
+          // Create a unique identifier based on date and feature
+          const toolName = `SHIPPED_${entry.date.replace(/[^a-zA-Z0-9]/g, '_')}_${entry.feature.substring(0, 30).replace(/[^a-zA-Z0-9]/g, '_')}`;
+          
+          // Check if already exists
+          const existing = await db.select()
+            .from(toolKnowledge)
+            .where(eq(toolKnowledge.toolName, toolName))
+            .limit(1);
+          
+          if (existing.length > 0) {
+            result.skipped++;
+            continue;
+          }
+          
+          // Create new entry
+          await db.insert(toolKnowledge).values({
+            toolName,
+            toolType: 'shipped_feature',
+            purpose: `[${entry.date}] ${entry.feature}`,
+            syntax: 'Available capability - use naturally when relevant',
+            examples: null,
+            bestUsedFor: null,
+            isActive: true,
+          });
+          
+          result.synced++;
+          console.log(`[BeaconSync] Synced to neural network: ${entry.feature}`);
+          
+        } catch (err: any) {
+          result.errors.push(`Failed to sync "${entry.feature}": ${err.message}`);
+        }
+      }
+      
+      console.log(`[BeaconSync] Changelog sync complete: ${result.synced} synced, ${result.skipped} skipped`);
+      return result;
+      
+    } catch (error: any) {
+      console.error('[BeaconSync] Error syncing changelog to neural network:', error);
+      result.errors.push(error.message);
+      return result;
     }
   }
   

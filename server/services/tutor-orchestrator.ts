@@ -39,6 +39,7 @@ import { trackToolEvent, addInsight } from "./pedagogical-insights-service";
 import { collaborationHubService } from "./collaboration-hub-service";
 import { editorFeedbackService, FeedbackSummary } from "./editor-feedback-service";
 import { hiveCollaborationService } from "./hive-collaboration-service";
+import { beaconSyncService } from "./beacon-sync-service";
 import { storage } from "../storage";
 
 // Use Replit AI Integrations for Gemini API (requires httpOptions for baseUrl)
@@ -359,7 +360,19 @@ topics to our development work when in Founder Mode.
     }
   }
 
-  // 7. Additional context if provided
+  // 7. Beacon Status Board (Daniela's feature request awareness)
+  // Note: "What Shipped" is now synced to neural network via syncChangelogToNeuralNetwork()
+  // so Daniela accesses it through her normal procedural memory retrieval
+  let beaconStatusSection = "";
+  if (mode === 'conversation') {
+    try {
+      beaconStatusSection = await beaconSyncService.getBeaconStatusesForDaniela();
+    } catch (error) {
+      console.error('[TutorOrchestrator] Error fetching beacon status:', error);
+    }
+  }
+
+  // 8. Additional context if provided
   const additionalContext = request.additionalPromptContext
     ? `
 ═══════════════════════════════════════════════════════════════════
@@ -377,6 +390,7 @@ ${request.additionalPromptContext}
     proceduralSection,
     editorInsightsSection,
     sprintContextSection,
+    beaconStatusSection,
     additionalContext,
   ]
     .filter(Boolean)

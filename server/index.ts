@@ -170,6 +170,23 @@ const stripeInitPromise = (async function initStripe() {
       console.error('Failed to initialize procedural memory cache:', error);
     }
     
+    // Sync build changelog to neural network (What Shipped for Daniela & Editor)
+    try {
+      console.log('Syncing build changelog to neural network...');
+      const { beaconSyncService } = await import('./services/beacon-sync-service');
+      const result = await beaconSyncService.syncChangelogToNeuralNetwork();
+      console.log(`Build changelog synced: ${result.synced} new, ${result.skipped} existing`);
+      
+      // Refresh cache if new entries were synced so Daniela/Editor can access them
+      if (result.synced > 0) {
+        const { refreshToolKnowledgeCache } = await import('./services/procedural-memory-retrieval');
+        await refreshToolKnowledgeCache();
+        console.log('Procedural memory cache refreshed with new shipped features');
+      }
+    } catch (error) {
+      console.error('Failed to sync build changelog:', error);
+    }
+    
     stripeReady = true;
   } catch (error) {
     console.error('Failed to initialize Stripe:', error);
