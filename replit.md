@@ -65,9 +65,20 @@ Wren is the primary development collaborator, replacing the Editor persona. Work
 2. Pre-Flight scans active Feature Sprints and pending Beacons for related items
 3. System Checklist highlights which subsystems are affected (Learning Core, Institutional, Development, Daniela)
 4. Suggested questions help guide Hive discussion before building
-5. Wren's API messages automatically emit `coherence_check` beacons for tracking
+5. **Express Lane Summary** displays recent relevant discussions from Express Lane sessions
+6. **Daniela's Guidance** provides AI-generated recommendations based on context and affected subsystems
+7. Wren's API messages automatically emit `coherence_check` beacons for tracking
 
 Key files: `POST /api/express-lane/pre-flight` (API), EditorChatTab in CommandCenter.tsx (UI). The System Map at `docs/hive-shared-knowledge/system-map.md` shows how all components connect.
+
+**Beacon Management UI:** The Command Center includes a dedicated Beacons tab (`/admin` → Beacons) for managing capability gaps and feature requests:
+- Filter beacons by status (pending, assigned, in_progress, resolved, dismissed)
+- Filter by type (capability_gap, tool_request, self_surgery_proposal, knowledge_gap)
+- Update beacon status with action buttons (Assign, Start, Resolve, Dismiss)
+- View beacon details including reason, content, and metadata
+- Track beacon lifecycle from emission to resolution
+
+**Beacon Lifecycle:** `pending` → `assigned` → `in_progress` → `resolved` (or `dismissed` at any stage)
 
 ### Feature Specifications
 HolaHola offers conversational onboarding, an adaptive multi-phase conversation system, and AI-suggested topics. It uses a streaming-only voice pipeline (Deepgram Nova-3 STT → Gemini 2.5 Flash → Cartesia Sonic-3 TTS) with push-to-talk. Personalized learning includes scenario-based learning, slow pronunciation, automatic vocabulary extraction, spaced repetition, streak tracking, progress charts, and auto-difficulty adjustment. AI-generated educational images are displayed. The application supports subscription tiers and tracks atomic voice message usage and student proficiency using ACTFL standards. Institutional features include teacher class management, student enrollment, syllabus systems, assignment workflows, and a unified Command Center with RBAC. A Syllabus Builder allows customization. Developer tools include test account isolation and floating dev controls. Learners can customize their AI tutor's teaching style per language. Drill-based lessons support multiple modes (`repeat`, `translate`, `match`, `fill_blank`, `sentence_order`). Vocabulary can be exported. Conversation history includes full-text search. "Founder Mode" provides a collaboration mode. Open Mic Mode offers continuous listening with barge-in and bilingual support. "Raw Honesty Mode" provides minimal prompting.

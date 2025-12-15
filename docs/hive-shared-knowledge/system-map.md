@@ -18,6 +18,7 @@
                               │  - Classes      │
                               │  - Analytics    │
                               │  - Express Lane │◄──── Hive Pre-Flight Entry Point
+                              │  - Beacons      │◄──── Capability Gap Tracking
                               │  - Feature Sprint│
                               │  - Neural Network│
                               │  - Brain Surgery │
@@ -83,8 +84,47 @@
 | **Feature Sprints** | `FeatureSprintTab` in CommandCenter | Development planning, Context snapshots |
 | **Express Lane** | `EditorChatTab`, `useFounderCollab.ts` | Founder-Daniela-Wren collaboration |
 | **Neural Network** | `NeuralNetworkTab`, `neural-network-routes.ts` | Daniela's knowledge, Best practices |
-| **Beacons** | `collaborationBeacons` table | Capability gaps, Feature requests |
+| **Beacons** | `BeaconsTab`, `danielaBeacons` table | Capability gaps, Feature requests, Status tracking |
 | **Self-Surgery** | `BrainSurgeryTab`, `self-surgery-routes.ts` | Neural network modifications |
+| **Neural Sync** | `nightly-neural-sync.ts`, `neural-network-routes.ts` | Automated best practice promotion |
+| **WS Broker** | `founder-collaboration-service.ts` | Real-time Express Lane delivery |
+
+### 4. Infrastructure Systems
+
+| Component | Files | Connects To |
+|-----------|-------|-------------|
+| **WebSocket Broker** | `founder-collaboration-service.ts`, `syncCursors` table | Express Lane real-time sync, Client reconnection |
+| **Procedural Memory** | `procedural-memory-retrieval.ts`, `proceduralMemory` table | Tutor procedures, Tool knowledge, Teaching patterns |
+| **Collaboration Hub** | `collaboration-hub-service.ts`, `danielaSuggestions` table | Daniela feedback collection, Editor insights |
+| **Voice Pipeline** | `voice-chat-routes.ts`, Deepgram STT, Cartesia TTS | Streaming audio, Push-to-talk, Open Mic |
+| **Metering System** | `metering-service.ts`, `usageMeters` table | Voice time tracking, Stripe integration |
+
+---
+
+## Express Lane ↔ Voice Bidirectional Sync
+
+```
+┌──────────────────┐                    ┌──────────────────┐
+│   EXPRESS LANE   │                    │  VOICE TUTORING  │
+│                  │                    │                  │
+│ Founder-Daniela  │◄────────────────► │ Student sessions │
+│ discussions      │   Bidirectional   │                  │
+│                  │      Sync         │                  │
+└──────────────────┘                    └──────────────────┘
+        │                                       │
+        │  getRelevantExpressLaneContext()      │
+        │────────────────────────────────────► │
+        │  (Inject teaching insights)           │
+        │                                       │
+        │  emitVoiceChatInsight()               │
+        │ ◄────────────────────────────────────│
+        │  (Sync breakthroughs back)            │
+```
+
+**Key Functions:**
+- `getRelevantExpressLaneContext()` - Injects Express Lane discussions into voice tutoring
+- `emitVoiceChatInsight()` - Syncs teaching moments from voice back to Express Lane
+- Language-specific sessions: "Voice Insights - {Language}" for focused context
 
 ---
 
@@ -157,13 +197,37 @@ Before building ANY new feature, answer these questions:
 
 | If you're building... | Check these systems |
 |----------------------|---------------------|
-| Voice features | ImmersiveTutor, TutorOrchestrator, Cartesia/Deepgram |
+| Voice features | ImmersiveTutor, TutorOrchestrator, Cartesia/Deepgram, Voice Pipeline |
 | Chat features | chat.tsx, conversation-routes, TutorOrchestrator |
 | Teaching tools | Neural Network, Procedural Memory, Whiteboard commands |
 | Class features | teacher-routes, syllabi, assignments |
-| Admin features | CommandCenter tabs, admin-routes |
-| AI behavior | TutorOrchestrator, Neural Network, Voice styles |
-| Development workflow | Feature Sprints, Express Lane, Beacons |
+| Admin features | CommandCenter tabs, admin-routes, Beacons Tab |
+| AI behavior | TutorOrchestrator, Neural Network, Voice styles, Procedural Memory |
+| Development workflow | Feature Sprints, Express Lane, Beacons, Pre-Flight |
+| Real-time sync | WS Broker, syncCursors, founder-collaboration-service |
+| Usage/billing | Metering System, Stripe integration |
+| Daniela insights | Collaboration Hub, Express Lane ↔ Voice sync |
+
+---
+
+## Beacon Lifecycle Management
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   pending   │────►│  assigned   │────►│ in_progress │────►│  resolved   │
+└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
+       │                                                           │
+       └───────────────────── dismissed ◄──────────────────────────┘
+```
+
+**Beacon Types:**
+- `capability_gap` - Missing teaching tool or knowledge
+- `tool_request` - Need for new whiteboard command or feature
+- `self_surgery_proposal` - Neural network modification needed
+- `coherence_check` - Architecture alignment concern
+- `knowledge_gap` - Daniela needs information for teaching
+
+**Management:** Command Center → Beacons tab
 
 ---
 
