@@ -18,10 +18,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Sparkles, Lock, CheckCircle2, Circle, ChevronUp,
   MessageSquare, BookOpen, Compass, Palette, Settings2, X,
-  Target, Layers, GraduationCap, Globe, Mic
+  Target, Layers, GraduationCap, Globe, Mic, Clock,
+  TrendingUp, TrendingDown, Minus
 } from "lucide-react";
 import { useState, useMemo } from "react";
-import type { ActflProgress, UnifiedProgressResponse } from "@shared/schema";
+import type { ActflProgress, UnifiedProgressResponse, TimeVarianceSummary } from "@shared/schema";
 import { calculateContinuousScore } from "@/components/actfl/actfl-gauge-core";
 import brainImage from "@assets/transparent_colorful_cartoon_brain_Background_Removed_1765564186963.png";
 
@@ -542,6 +543,74 @@ function ACTFLMeter({
   );
 }
 
+function formatMinutesToHoursMinutes(minutes: number): string {
+  if (minutes < 60) {
+    return `${Math.round(minutes)}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = Math.round(minutes % 60);
+  if (remainingMinutes === 0) {
+    return `${hours}h`;
+  }
+  return `${hours}h ${remainingMinutes}m`;
+}
+
+function TimeTrackingDisplay({ timeVariance }: { timeVariance: TimeVarianceSummary }) {
+  const { estimatedTotalMinutes, actualTotalMinutes, paceStatus } = timeVariance;
+  
+  const paceConfig = {
+    ahead: {
+      Icon: TrendingUp,
+      label: "Ahead of pace",
+      color: "text-green-600 dark:text-green-400",
+      bgColor: "bg-green-50 dark:bg-green-950/30",
+      borderColor: "border-green-200 dark:border-green-800",
+    },
+    on_track: {
+      Icon: Minus,
+      label: "On track",
+      color: "text-blue-600 dark:text-blue-400",
+      bgColor: "bg-blue-50 dark:bg-blue-950/30",
+      borderColor: "border-blue-200 dark:border-blue-800",
+    },
+    behind: {
+      Icon: TrendingDown,
+      label: "Behind pace",
+      color: "text-amber-600 dark:text-amber-400",
+      bgColor: "bg-amber-50 dark:bg-amber-950/30",
+      borderColor: "border-amber-200 dark:border-amber-800",
+    },
+  };
+  
+  const config = paceConfig[paceStatus];
+  const PaceIcon = config.Icon;
+  
+  return (
+    <div 
+      className={`flex items-center gap-3 px-3 py-2 rounded-lg border ${config.bgColor} ${config.borderColor} mx-auto max-w-xs`}
+      data-testid="time-tracking-display"
+    >
+      <div className="flex items-center gap-1.5">
+        <Clock className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm font-medium" data-testid="time-actual">
+          {formatMinutesToHoursMinutes(actualTotalMinutes)}
+        </span>
+        <span className="text-xs text-muted-foreground">/</span>
+        <span className="text-xs text-muted-foreground" data-testid="time-estimated">
+          {formatMinutesToHoursMinutes(estimatedTotalMinutes)}
+        </span>
+      </div>
+      
+      <div className="h-4 w-px bg-border" />
+      
+      <div className={`flex items-center gap-1 ${config.color}`} data-testid="pace-status">
+        <PaceIcon className="h-3.5 w-3.5" />
+        <span className="text-xs font-medium">{config.label}</span>
+      </div>
+    </div>
+  );
+}
+
 const DEMO_TOPICS: TopicNode[] = [
   { id: '1', name: 'Greetings', status: 'mastered', practiceCount: 15, connections: [], category: 'Social Situations', topicType: 'subject' },
   { id: '2', name: 'Introductions', status: 'mastered', practiceCount: 12, connections: [], category: 'Communication', topicType: 'subject' },
@@ -989,6 +1058,13 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
           ))}
         </div>
       </div>
+      
+      {/* Time Tracking Display - only show when unified progress has time data */}
+      {unifiedProgress?.timeVariance && unifiedProgress.timeVariance.estimatedTotalMinutes > 0 && (
+        <div className="mt-3">
+          <TimeTrackingDisplay timeVariance={unifiedProgress.timeVariance} />
+        </div>
+      )}
       
       {/* Instructions hint */}
       <div className="text-center mt-3">
