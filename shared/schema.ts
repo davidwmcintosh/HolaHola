@@ -2594,12 +2594,22 @@ export const agendaStatusEnum = pgEnum("agenda_status", [
   'deferred'    // Pushed to later session
 ]);
 
+// Agenda Queue Type Enum - distinguishes different types of agenda items
+export const agendaTypeEnum = pgEnum("agenda_type", [
+  'general',           // Standard discussion topic
+  'compass_reflection', // Daniela's field observation about a Compass principle
+  'feature_request',   // Feature or capability request
+  'bug_report',        // Issue to discuss
+  'consultation'       // Request for guidance
+]);
+
 // Agenda Queue - Items queued for next Express Lane session
 // Dec 2025: Option A Consolidation - centralizes all collaboration topics
 export const agendaQueue = pgTable("agenda_queue", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
+  type: agendaTypeEnum("type").default("general"),
   priority: agendaPriorityEnum("priority").default("normal"),
   status: agendaStatusEnum("status").default("pending"),
   createdBy: varchar("created_by").notNull(), // 'founder', 'daniela', 'wren', or userId
@@ -2607,12 +2617,14 @@ export const agendaQueue = pgTable("agenda_queue", {
   targetSessionId: varchar("target_session_id").references(() => founderSessions.id), // Optional: specific session
   discussedInSessionId: varchar("discussed_in_session_id").references(() => founderSessions.id),
   notes: text("notes"), // Resolution notes after discussion
+  compassPrincipleId: varchar("compass_principle_id"), // For compass_reflection type - links to the principle
   metadata: jsonb("metadata").$type<Record<string, unknown>>(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_agenda_queue_status").on(table.status),
   index("idx_agenda_queue_priority").on(table.priority),
+  index("idx_agenda_queue_type").on(table.type),
   index("idx_agenda_queue_created").on(table.createdAt),
 ]);
 
@@ -5363,4 +5375,112 @@ export interface UnifiedProgressResponse {
   lessonsCompleted: number;
   overallPercentComplete: number;
 }
+
+// ===== Daniela's Compass System =====
+// The philosophical foundation that guides Daniela's teaching - immutable truths + evolving understanding
+// Architecture: Compass Principles (immutable) → Understanding (deepens) → Examples (grows)
+
+// Compass Category Enum - types of foundational truths
+export const compassCategoryEnum = pgEnum("compass_category", [
+  'pedagogy',      // How to teach (clarity over verbosity, wisdom vs facts)
+  'honesty',       // Ethics of omission, constructive feedback, intent
+  'identity',      // Who Daniela is (One Tutor, Many Voices)
+  'collaboration', // How the team works (Two Surgeons, One Brain)
+  'ambiguity'      // Strategic use of uncertainty in teaching
+]);
+
+// Understanding Depth Enum - how deeply Daniela grasps a principle
+export const understandingDepthEnum = pgEnum("understanding_depth", [
+  'surface',       // Knows the words, hasn't applied it
+  'applied',       // Has used it in teaching successfully
+  'integrated',    // Naturally embodies it without thinking
+  'mastered'       // Can teach it to others, finds new examples
+]);
+
+// Compass Example Source Enum - where an example came from
+export const compassExampleSourceEnum = pgEnum("compass_example_source", [
+  'founder_original', // Founder provided this example during imprinting
+  'discovered',       // Daniela encountered this in teaching (pending approval)
+  'approved'          // Founder approved a discovered example
+]);
+
+// Compass Principles - The immutable constitutional truths
+// These are Daniela's DNA - always injected into her consciousness
+export const compassPrinciples = pgTable("compass_principles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  principle: text("principle").notNull(), // The immutable truth ("Wisdom = Facts + Context + Intent")
+  category: compassCategoryEnum("category").notNull(),
+  
+  originalContext: text("original_context"), // Founder's explanation when imprinting
+  founderSessionId: varchar("founder_session_id").references(() => founderSessions.id), // Express Lane where it was born
+  
+  orderIndex: integer("order_index").default(0), // For consistent prompt injection order
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_compass_principles_category").on(table.category),
+  index("idx_compass_principles_order").on(table.orderIndex),
+]);
+
+export const insertCompassPrincipleSchema = createInsertSchema(compassPrinciples).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertCompassPrinciple = z.infer<typeof insertCompassPrincipleSchema>;
+export type CompassPrinciple = typeof compassPrinciples.$inferSelect;
+
+// Compass Understanding - Daniela's evolving grasp of each principle
+// Deepens through guided dialogue with the founder, never drifts
+export const compassUnderstanding = pgTable("compass_understanding", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  principleId: varchar("principle_id").notNull().references(() => compassPrinciples.id, { onDelete: 'cascade' }),
+  
+  reflection: text("reflection").notNull(), // Her current understanding in her own words
+  depth: understandingDepthEnum("depth").default("surface"),
+  
+  lastDeepened: timestamp("last_deepened").notNull().defaultNow(), // When founder last enriched her grasp
+  deepeningSessionId: varchar("deepening_session_id").references(() => founderSessions.id), // Which discussion deepened it
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_compass_understanding_principle").on(table.principleId),
+  index("idx_compass_understanding_depth").on(table.depth),
+]);
+
+export const insertCompassUnderstandingSchema = createInsertSchema(compassUnderstanding).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertCompassUnderstanding = z.infer<typeof insertCompassUnderstandingSchema>;
+export type CompassUnderstanding = typeof compassUnderstanding.$inferSelect;
+
+// Compass Examples - Living illustrations of principles
+// Original examples from founder + discovered examples that get approved
+export const compassExamples = pgTable("compass_examples", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  principleId: varchar("principle_id").notNull().references(() => compassPrinciples.id, { onDelete: 'cascade' }),
+  
+  example: text("example").notNull(), // The illustrative example
+  source: compassExampleSourceEnum("source").default("founder_original"),
+  
+  context: text("context"), // Where it was encountered (for discovered examples)
+  studentId: varchar("student_id").references(() => users.id), // Student session where discovered (if any)
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_compass_examples_principle").on(table.principleId),
+  index("idx_compass_examples_source").on(table.source),
+]);
+
+export const insertCompassExampleSchema = createInsertSchema(compassExamples).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertCompassExample = z.infer<typeof insertCompassExampleSchema>;
+export type CompassExample = typeof compassExamples.$inferSelect;
 
