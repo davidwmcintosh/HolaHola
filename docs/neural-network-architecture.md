@@ -87,14 +87,45 @@ Two separate systems with "Compass" in the name:
 
 ---
 
-## Sync Requirement
+## Bidirectional Sync
 
-**Any neural network changes MUST sync to production.**
+Neural network syncs **both directions** between Dev and Prod:
 
-### Automatic Sync
+```
+┌─────────────────┐                    ┌─────────────────┐
+│   DEVELOPMENT   │                    │   PRODUCTION    │
+│  (Founder HQ)   │                    │  (Field Work)   │
+├─────────────────┤                    ├─────────────────┤
+│                 │  ══════════════►   │                 │
+│ Approved Neural │  Nightly Sync      │ Daniela teaches │
+│ Knowledge       │  (Dev → Prod)      │ students        │
+│                 │                    │                 │
+│                 │  ◄══════════════   │                 │
+│ Founder reviews │  Beacons/Agenda    │ Field           │
+│ & promotes      │  (Prod → Dev)      │ observations    │
+└─────────────────┘                    └─────────────────┘
+```
+
+### Dev → Prod (Knowledge Out)
 - Nightly scheduler runs at **3 AM MST / 10 AM UTC**
 - Entries with `sync_status: 'approved'` are exported
 - Import handles deduplication by `originId`
+- **Daniela cannot self-edit neural tables in production**
+
+### Prod → Dev (Observations Back)
+- Field observations return via **beacons** (`[COLLAB:NORTH_STAR_OBSERVATION]`)
+- Beacons queue to `agenda_queue` (type: 'compass_reflection')
+- Founder reviews in Express Lane, promotes insights to neural tables
+- **All learning is supervised** - no unsupervised student-to-neural updates
+
+### The Loop
+1. **Author** (Dev): Founder/Wren create or update neural knowledge
+2. **Approve** (Dev): Set `sync_status: 'approved'`
+3. **Deploy** (Dev → Prod): Nightly sync ships to production
+4. **Observe** (Prod): Daniela teaches, emits beacons for notable moments
+5. **Return** (Prod → Dev): Beacons sync back to development
+6. **Review** (Dev): Founder discusses in Express Lane
+7. **Promote** (Dev): Approved insights become neural knowledge → back to step 2
 
 ### Manual Sync
 ```typescript
@@ -109,7 +140,7 @@ await neuralNetworkSync.importFullSync(data, 'system');
 | Status | Meaning |
 |--------|---------|
 | `local` | Only in current environment, pending review |
-| `approved` | Ready for sync |
+| `approved` | Ready for sync to production |
 | `synced` | Successfully synced |
 | `rejected` | Reviewed and rejected |
 
