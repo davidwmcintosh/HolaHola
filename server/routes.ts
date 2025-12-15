@@ -16228,6 +16228,260 @@ You have full access to your neural network knowledge.
     }
   });
 
+  // ===== DANIELA'S COMPASS API =====
+  // The constitutional foundation guiding Daniela's teaching philosophy
+  // Architecture: Principles (immutable) → Understanding (deepens) → Examples (grows)
+  
+  // Get full Compass for prompt injection
+  app.get("/api/compass", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !hasDeveloperAccess(user.role)) {
+        return res.status(403).json({ error: 'Developer or Admin access required' });
+      }
+
+      const compass = await storage.getFullCompass();
+      res.json({ success: true, compass });
+    } catch (error: any) {
+      console.error('[COMPASS] Get full compass error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get all principles
+  app.get("/api/compass/principles", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !hasDeveloperAccess(user.role)) {
+        return res.status(403).json({ error: 'Developer or Admin access required' });
+      }
+
+      const { category } = req.query;
+      const principles = category 
+        ? await storage.getCompassPrinciplesByCategory(category as string)
+        : await storage.getAllCompassPrinciples();
+        
+      res.json({ success: true, principles });
+    } catch (error: any) {
+      console.error('[COMPASS] Get principles error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create a principle (Admin/Founder only)
+  app.post("/api/compass/principles", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin access required (Founder only)' });
+      }
+
+      const { category, principle, guidance, source } = req.body;
+      
+      if (!category || !principle) {
+        return res.status(400).json({ error: 'category and principle are required' });
+      }
+
+      const created = await storage.createCompassPrinciple({
+        category,
+        principle,
+        guidance: guidance || null,
+        source: source || 'founder_defined',
+      });
+      
+      res.json({ success: true, principle: created });
+    } catch (error: any) {
+      console.error('[COMPASS] Create principle error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update a principle (Admin/Founder only - guidance updates)
+  app.patch("/api/compass/principles/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin access required (Founder only)' });
+      }
+
+      const { id } = req.params;
+      const { guidance, orderIndex, isActive } = req.body;
+      
+      const updated = await storage.updateCompassPrinciple(id, {
+        guidance: guidance !== undefined ? guidance : undefined,
+        orderIndex: orderIndex !== undefined ? orderIndex : undefined,
+        isActive: isActive !== undefined ? isActive : undefined,
+      });
+      
+      if (!updated) {
+        return res.status(404).json({ error: 'Principle not found' });
+      }
+      
+      res.json({ success: true, principle: updated });
+    } catch (error: any) {
+      console.error('[COMPASS] Update principle error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get understanding for a principle
+  app.get("/api/compass/understanding/:principleId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !hasDeveloperAccess(user.role)) {
+        return res.status(403).json({ error: 'Developer or Admin access required' });
+      }
+
+      const { principleId } = req.params;
+      const understanding = await storage.getCompassUnderstanding(principleId);
+      res.json({ success: true, understanding });
+    } catch (error: any) {
+      console.error('[COMPASS] Get understanding error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Deepen understanding (from Express Lane discussions)
+  app.post("/api/compass/understanding/deepen", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin access required (Founder only)' });
+      }
+
+      const { principleId, reflection, depth, sessionId } = req.body;
+      
+      if (!principleId || !reflection || !depth) {
+        return res.status(400).json({ error: 'principleId, reflection, and depth are required' });
+      }
+
+      const understanding = await storage.deepenCompassUnderstanding(
+        principleId, 
+        reflection, 
+        depth, 
+        sessionId
+      );
+      
+      res.json({ success: true, understanding });
+    } catch (error: any) {
+      console.error('[COMPASS] Deepen understanding error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get examples for a principle
+  app.get("/api/compass/examples/:principleId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !hasDeveloperAccess(user.role)) {
+        return res.status(403).json({ error: 'Developer or Admin access required' });
+      }
+
+      const { principleId } = req.params;
+      const examples = await storage.getCompassExamples(principleId);
+      res.json({ success: true, examples });
+    } catch (error: any) {
+      console.error('[COMPASS] Get examples error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create an example (from teaching sessions)
+  app.post("/api/compass/examples", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !hasDeveloperAccess(user.role)) {
+        return res.status(403).json({ error: 'Developer or Admin access required' });
+      }
+
+      const { principleId, situation, response, source, sessionId } = req.body;
+      
+      if (!principleId || !situation || !response) {
+        return res.status(400).json({ error: 'principleId, situation, and response are required' });
+      }
+
+      const created = await storage.createCompassExample({
+        principleId,
+        situation,
+        response,
+        source: source || 'founder_original',
+        sessionId,
+      });
+      
+      res.json({ success: true, example: created });
+    } catch (error: any) {
+      console.error('[COMPASS] Create example error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Approve a pending example
+  app.post("/api/compass/examples/:id/approve", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin access required (Founder only)' });
+      }
+
+      const { id } = req.params;
+      const approved = await storage.approveCompassExample(id);
+      
+      if (!approved) {
+        return res.status(404).json({ error: 'Example not found' });
+      }
+      
+      res.json({ success: true, example: approved });
+    } catch (error: any) {
+      console.error('[COMPASS] Approve example error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Server is now passed in from index.ts where WebSocket handler is attached first
   // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }
