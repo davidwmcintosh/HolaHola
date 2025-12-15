@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -5252,23 +5253,25 @@ function EditorChatTab() {
                   expressMessages.filter(msg => msg && msg.role).map((msg) => (
                     <div
                       key={msg.id}
-                      className={`flex ${msg.role === 'founder' || msg.role === 'editor' ? 'justify-end' : 'justify-start'}`}
+                      className={`flex ${msg.role === 'founder' ? 'justify-end' : msg.role === 'editor' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
                         className={`max-w-[80%] rounded-lg p-3 ${
-                          msg.role === 'founder' || msg.role === 'editor'
-                            ? 'bg-primary text-primary-foreground'
+                          msg.role === 'founder'
+                            ? 'bg-blue-600 text-white dark:bg-blue-700'
+                            : msg.role === 'editor'
+                            ? 'bg-green-600 text-white dark:bg-green-700'
                             : 'bg-card border'
                         }`}
                         data-testid={`express-message-${msg.id}`}
                       >
                         <div className="flex items-center gap-2 mb-1">
                           <Badge variant="secondary" className={`text-xs ${getRoleBadgeColor(msg.role)}`}>
-                            {msg.role === 'daniela' ? 'Daniela' : msg.role === 'founder' ? 'You' : msg.role}
+                            {msg.role === 'daniela' ? 'Daniela' : msg.role === 'founder' ? 'You' : msg.role === 'editor' ? 'Editor' : msg.role}
                           </Badge>
                         </div>
-                        <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
-                        <div className={`text-xs mt-1 ${msg.role === 'founder' || msg.role === 'editor' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                        <div className="text-sm whitespace-pre-wrap break-words">{msg.content}</div>
+                        <div className={`text-xs mt-1 ${msg.role === 'founder' ? 'text-white/70' : msg.role === 'editor' ? 'text-white/70' : 'text-muted-foreground'}`}>
                           {new Date(msg.createdAt).toLocaleTimeString()}
                         </div>
                       </div>
@@ -5279,20 +5282,25 @@ function EditorChatTab() {
               </div>
 
               {/* Input */}
-              <div className="flex gap-2">
-                <Input
+              <div className="flex gap-2 items-end">
+                <Textarea
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ask Daniela anything... (Neural Network active)"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  placeholder="Ask Daniela anything... (Neural Network active) - Shift+Enter for new line"
                   disabled={isSending}
-                  className="border-yellow-500/30 focus:border-yellow-500"
+                  className="border-yellow-500/30 focus:border-yellow-500 min-h-[100px] resize-y"
                   data-testid="input-express-message"
                 />
                 <Button
                   onClick={handleSendMessage}
                   disabled={!inputMessage.trim() || isSending}
-                  className="bg-yellow-600 hover:bg-yellow-700"
+                  className="bg-yellow-600 hover:bg-yellow-700 h-[100px]"
                   data-testid="button-send-express-message"
                 >
                   {isSending ? (
