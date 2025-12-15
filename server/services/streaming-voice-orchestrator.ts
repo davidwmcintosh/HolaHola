@@ -2528,13 +2528,11 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
         }
       }
       
-      // STUDENT OBSERVATION EXTRACTION: Learn about the student (insights, motivations, struggles)
-      // Only run periodically (every 3rd message) to avoid excessive API calls
-      // Note: messageCount includes current message after we saved it, so we check for multiples of 3
-      const effectiveMessageCount = (conversation.messageCount || 0) + 1;  // +1 for just-saved message
-      if (effectiveMessageCount % 3 === 0) {
-        try {
-          const observationPrompt = `Analyze this language learning conversation exchange. Extract observations about the student AND the tutor's teaching approach. Only extract what's clearly evident - don't invent or assume.
+      // STUDENT OBSERVATION EXTRACTION: Learn about the student (insights, motivations, struggles, people)
+      // Runs on every message to ensure we don't miss people connections or important observations
+      // The small API cost (~$0.002/message) is worth never forgetting someone's wife or friend
+      try {
+        const observationPrompt = `Analyze this language learning conversation exchange. Extract observations about the student AND the tutor's teaching approach. Only extract what's clearly evident - don't invent or assume.
 
 Student said: "${userTranscript}"
 Tutor responded: "${aiResponse}"
@@ -2553,110 +2551,109 @@ Guidelines for TUTOR self-reflections (Daniela learning about herself):
 
 Only include observations you can clearly justify from the exchange. Return empty arrays if nothing notable.`;
 
-          const obsResponse = await gemini.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: [{ role: 'user', parts: [{ text: observationPrompt }] }],
-            config: {
-              responseMimeType: "application/json",
-              responseSchema: STUDENT_OBSERVATION_SCHEMA as any,
-            },
-          });
-          
-          const observations = JSON.parse(obsResponse.text || "{}");
-          let savedCount = { insights: 0, motivations: 0, struggles: 0, connections: 0 };
-          
-          // Save insights
-          for (const insight of observations.insights || []) {
-            try {
-              await storage.upsertStudentInsight(
-                String(session.userId),
-                session.targetLanguage,
-                insight.type,
-                insight.insight,
-                insight.evidence
-              );
-              savedCount.insights++;
-            } catch (e: any) {
-              console.warn('[Student Memory] Failed to save insight:', e.message);
-            }
+        const obsResponse = await gemini.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: [{ role: 'user', parts: [{ text: observationPrompt }] }],
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: STUDENT_OBSERVATION_SCHEMA as any,
+          },
+        });
+        
+        const observations = JSON.parse(obsResponse.text || "{}");
+        let savedCount = { insights: 0, motivations: 0, struggles: 0, connections: 0 };
+        
+        // Save insights
+        for (const insight of observations.insights || []) {
+          try {
+            await storage.upsertStudentInsight(
+              String(session.userId),
+              session.targetLanguage,
+              insight.type,
+              insight.insight,
+              insight.evidence
+            );
+            savedCount.insights++;
+          } catch (e: any) {
+            console.warn('[Student Memory] Failed to save insight:', e.message);
           }
-          
-          // Save motivations
-          for (const mot of observations.motivations || []) {
-            try {
-              await storage.upsertLearningMotivation(
-                String(session.userId),
-                session.targetLanguage,
-                mot.motivation,
-                mot.details,
-                conversationId
-              );
-              savedCount.motivations++;
-            } catch (e: any) {
-              console.warn('[Student Memory] Failed to save motivation:', e.message);
-            }
-          }
-          
-          // Save struggles
-          for (const struggle of observations.struggles || []) {
-            try {
-              await storage.upsertRecurringStruggle(
-                String(session.userId),
-                session.targetLanguage,
-                struggle.area,
-                struggle.description,
-                struggle.examples
-              );
-              savedCount.struggles++;
-            } catch (e: any) {
-              console.warn('[Student Memory] Failed to save struggle:', e.message);
-            }
-          }
-          
-          // Save people connections (using existing method)
-          for (const conn of observations.peopleConnections || []) {
-            try {
-              await storage.createPeopleConnection({
-                personAId: String(session.userId),
-                pendingPersonName: conn.name || null,
-                relationshipType: conn.relationship,
-                pendingPersonContext: conn.context,
-                status: conn.name ? 'pending_match' : 'tentative',
-                mentionedBy: String(session.userId),
-                sourceConversationId: conversationId,
-              });
-              savedCount.connections++;
-              console.log(`[Student Memory] Saved connection: ${conn.name || 'unnamed'} (${conn.relationship})`);
-            } catch (e: any) {
-              // Duplicate connections are expected
-              if (!e.message?.includes('duplicate')) {
-                console.warn('[Student Memory] Failed to save connection:', e.message);
-              }
-            }
-          }
-          
-          // Save tutor self-reflections (Daniela learning about herself)
-          let selfReflectionCount = 0;
-          for (const reflection of observations.tutorSelfReflections || []) {
-            try {
-              await storage.upsertBestPractice(
-                reflection.category,
-                reflection.insight,
-                reflection.context,
-                'voice_session'
-              );
-              selfReflectionCount++;
-            } catch (e: any) {
-              console.warn('[Tutor Memory] Failed to save self-reflection:', e.message);
-            }
-          }
-          
-          if (savedCount.insights + savedCount.motivations + savedCount.struggles + savedCount.connections + selfReflectionCount > 0) {
-            console.log(`[Memory] Saved: ${savedCount.insights} student insights, ${savedCount.motivations} motivations, ${savedCount.struggles} struggles, ${savedCount.connections} connections, ${selfReflectionCount} tutor self-reflections`);
-          }
-        } catch (obsError: any) {
-          console.error('[Memory] Observation extraction failed:', obsError.message);
         }
+        
+        // Save motivations
+        for (const mot of observations.motivations || []) {
+          try {
+            await storage.upsertLearningMotivation(
+              String(session.userId),
+              session.targetLanguage,
+              mot.motivation,
+              mot.details,
+              conversationId
+            );
+            savedCount.motivations++;
+          } catch (e: any) {
+            console.warn('[Student Memory] Failed to save motivation:', e.message);
+          }
+        }
+        
+        // Save struggles
+        for (const struggle of observations.struggles || []) {
+          try {
+            await storage.upsertRecurringStruggle(
+              String(session.userId),
+              session.targetLanguage,
+              struggle.area,
+              struggle.description,
+              struggle.examples
+            );
+            savedCount.struggles++;
+          } catch (e: any) {
+            console.warn('[Student Memory] Failed to save struggle:', e.message);
+          }
+        }
+        
+        // Save people connections (using existing method)
+        for (const conn of observations.peopleConnections || []) {
+          try {
+            await storage.createPeopleConnection({
+              personAId: String(session.userId),
+              pendingPersonName: conn.name || null,
+              relationshipType: conn.relationship,
+              pendingPersonContext: conn.context,
+              status: conn.name ? 'pending_match' : 'tentative',
+              mentionedBy: String(session.userId),
+              sourceConversationId: conversationId,
+            });
+            savedCount.connections++;
+            console.log(`[Student Memory] Saved connection: ${conn.name || 'unnamed'} (${conn.relationship})`);
+          } catch (e: any) {
+            // Duplicate connections are expected
+            if (!e.message?.includes('duplicate')) {
+              console.warn('[Student Memory] Failed to save connection:', e.message);
+            }
+          }
+        }
+        
+        // Save tutor self-reflections (Daniela learning about herself)
+        let selfReflectionCount = 0;
+        for (const reflection of observations.tutorSelfReflections || []) {
+          try {
+            await storage.upsertBestPractice(
+              reflection.category,
+              reflection.insight,
+              reflection.context,
+              'voice_session'
+            );
+            selfReflectionCount++;
+          } catch (e: any) {
+            console.warn('[Tutor Memory] Failed to save self-reflection:', e.message);
+          }
+        }
+        
+        if (savedCount.insights + savedCount.motivations + savedCount.struggles + savedCount.connections + selfReflectionCount > 0) {
+          console.log(`[Memory] Saved: ${savedCount.insights} student insights, ${savedCount.motivations} motivations, ${savedCount.struggles} struggles, ${savedCount.connections} connections, ${selfReflectionCount} tutor self-reflections`);
+        }
+      } catch (obsError: any) {
+        console.error('[Memory] Observation extraction failed:', obsError.message);
       }
       
       // UPDATE USER PROGRESS: Increment vocabulary count and update last practice
