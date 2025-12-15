@@ -90,7 +90,9 @@ import {
   WifiOff,
   Radio,
   Paperclip,
-  FileIcon
+  FileIcon,
+  Mic,
+  MicOff
 } from "lucide-react";
 import {
   AlertDialog,
@@ -4814,6 +4816,9 @@ function EditorChatTab() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  // WebSocket real-time connection for 3-way collaboration
+  const founderCollab = useFounderCollab();
+  
   // Attachment state
   const [pendingAttachments, setPendingAttachments] = useState<ExpressLaneAttachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -4831,6 +4836,38 @@ function EditorChatTab() {
   const [newAgendaTitle, setNewAgendaTitle] = useState('');
   const [newAgendaDescription, setNewAgendaDescription] = useState('');
   const [newAgendaPriority, setNewAgendaPriority] = useState<'high' | 'normal' | 'low'>('normal');
+  
+  // Connect to WebSocket for real-time updates
+  useEffect(() => {
+    if (expressLaneMode && expressSession?.id) {
+      founderCollab.connect(expressSession.id);
+    }
+    return () => {
+      founderCollab.disconnect();
+    };
+  }, [expressSession?.id, expressLaneMode]);
+  
+  // Merge WebSocket messages into local state for real-time updates
+  useEffect(() => {
+    if (founderCollab.state.messages.length > 0) {
+      // Convert WebSocket messages to ExpressLaneMessage format
+      const wsMessages = founderCollab.state.messages.map(m => ({
+        id: m.id.toString(),
+        role: m.role as string,
+        content: m.content,
+        createdAt: m.createdAt?.toString() || new Date().toISOString(),
+        cursor: m.cursor,
+      }));
+      
+      // Merge with existing messages, avoiding duplicates
+      setExpressMessages(prev => {
+        const existingIds = new Set(prev.map(m => m.cursor || m.id));
+        const newMessages = wsMessages.filter(m => !existingIds.has(m.cursor));
+        if (newMessages.length === 0) return prev;
+        return [...prev, ...newMessages];
+      });
+    }
+  }, [founderCollab.state.messages]);
 
   // Fetch EXPRESS lane session on mount when in EXPRESS mode
   const { data: expressData, isLoading: expressLoading, refetch: refetchExpress } = useQuery<{
@@ -5249,6 +5286,37 @@ function EditorChatTab() {
                       <span>{expressMessages.length} messages</span>
                     </div>
                   )}
+                  {/* WebSocket connection status */}
+                  <Badge 
+                    variant="outline" 
+                    className={`text-xs ${
+                      founderCollab.isConnected 
+                        ? 'border-green-500 text-green-600 dark:text-green-400' 
+                        : founderCollab.isReconnecting 
+                          ? 'border-yellow-500 text-yellow-600 dark:text-yellow-400'
+                          : 'border-muted text-muted-foreground'
+                    }`}
+                    data-testid="badge-websocket-status"
+                  >
+                    {founderCollab.isConnected ? (
+                      <><Wifi className="h-3 w-3 mr-1" /> Live</>
+                    ) : founderCollab.isReconnecting ? (
+                      <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Reconnecting</>
+                    ) : (
+                      <><WifiOff className="h-3 w-3 mr-1" /> Offline</>
+                    )}
+                  </Badge>
+                  {/* Voice recording indicator */}
+                  {founderCollab.voiceState.isRecording && (
+                    <Badge variant="destructive" className="text-xs animate-pulse" data-testid="badge-recording">
+                      <Mic className="h-3 w-3 mr-1" /> Recording...
+                    </Badge>
+                  )}
+                  {founderCollab.voiceState.processingStatus === 'thinking' && (
+                    <Badge variant="secondary" className="text-xs" data-testid="badge-processing">
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" /> Processing...
+                    </Badge>
+                  )}
                 </div>
                 
                 <div className="flex items-center gap-2">
@@ -5620,6 +5688,25 @@ function EditorChatTab() {
                       data-testid="button-tag-wren"
                     >
                       <Mail className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant={founderCollab.voiceState.isRecording ? "destructive" : "ghost"}
+                      onMouseDown={() => founderCollab.startVoiceRecording()}
+                      onMouseUp={() => founderCollab.stopVoiceRecording()}
+                      onTouchStart={() => founderCollab.startVoiceRecording()}
+                      onTouchEnd={() => founderCollab.stopVoiceRecording()}
+                      disabled={!founderCollab.isConnected || isSending || founderCollab.voiceState.processingStatus === 'thinking'}
+                      title={founderCollab.voiceState.isRecording ? "Recording... Release to send" : "Hold to speak (push-to-talk)"}
+                      data-testid="button-voice-input"
+                    >
+                      {founderCollab.voiceState.processingStatus === 'thinking' ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : founderCollab.voiceState.isRecording ? (
+                        <MicOff className="h-4 w-4" />
+                      ) : (
+                        <Mic className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                   <Textarea

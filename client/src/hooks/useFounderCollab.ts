@@ -254,6 +254,13 @@ export function useFounderCollab(): UseFounderCollabReturn {
       return;
     }
     
+    // Close any existing socket that isn't connected (prevents duplicate sockets during rapid reconnects)
+    if (socketRef.current) {
+      console.log('[FounderCollab] Closing existing non-connected socket before creating new one');
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+    
     isManualDisconnectRef.current = false;
     setConnectionState('connecting');
     setError(null);
