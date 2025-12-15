@@ -110,13 +110,42 @@ Neural network syncs **both directions** between Dev and Prod:
 - Nightly scheduler runs at **3 AM MST / 10 AM UTC**
 - Entries with `sync_status: 'approved'` are exported
 - Import handles deduplication by `originId`
-- **Daniela cannot self-edit neural tables in production**
 
 ### Prod → Dev (Observations Back)
 - Field observations return via **beacons** (see Beacon Catalog below)
 - Beacons queue to `agenda_queue` or `daniela_beacons` table
 - Founder reviews in Express Lane, promotes insights to neural tables
-- **All learning is supervised** - no unsupervised student-to-neural updates
+
+### Autonomous Learning (Prod)
+
+> **Design Shift (Dec 2024):** We moved from "supervised learning" (approval-based) to "autonomous learning with constitutional bounds" for the neural network.
+
+**Key Principle:** North Star (WHO) is immutable; Neural Network (HOW) is autonomous.
+
+Daniela can write DIRECTLY to her neural network during teaching using the `[SELF_LEARN]` tag:
+
+```
+[SELF_LEARN category="teaching_style" insight="Breaking compound verbs..." context="German separable verbs lesson"]
+```
+
+**Why Autonomous?**
+- Volume of micro-adaptations makes approval workflow impractical
+- Teaching insights are ephemeral - must capture in the moment
+- North Star provides constitutional bounds (she can't violate her principles)
+- Periodic founder audits of trends replace per-entry approval
+
+**What She CAN Write:**
+- `self_best_practices` table via `[SELF_LEARN]` tag
+- Categories: `tool_usage`, `teaching_style`, `pacing`, `communication`, `content`, `system`
+
+**What She CANNOT Write:**
+- North Star principles (only founder can modify)
+- Other neural tables (require SELF_SURGERY proposal → approval)
+
+**Visibility:**
+- All `[SELF_LEARN]` writes emit a beacon (type: `teaching_observation`)
+- Founder can see learning activity in Express Lane (read-only visibility)
+- Periodic "board meeting" reviews trends, not individual entries
 
 ### Beacon Catalog
 
@@ -140,6 +169,11 @@ Neural network syncs **both directions** between Dev and Prod:
 | `pain_point` | `[COLLAB:PAIN_POINT]` | Teaching friction worth discussing |
 | `suggestion` | `[COLLAB:SUGGESTION]` | Improvement idea |
 | `question` | `[COLLAB:QUESTION]` | Question for Editor/Founder |
+
+**Autonomous Learning (Daniela → Neural Network):**
+| Signal Format | Purpose |
+|---------------|---------|
+| `[SELF_LEARN category="..." insight="..." context="..."]` | Writes directly to `self_best_practices` table (autonomous, no approval) |
 
 **Support Beacons (Sofia → Hive):**
 | Beacon Type | Purpose |

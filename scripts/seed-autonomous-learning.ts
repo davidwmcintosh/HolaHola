@@ -14,6 +14,7 @@
 
 import { db } from '../server/db';
 import { tutorProcedures } from '../shared/schema';
+import { eq } from 'drizzle-orm';
 
 interface ProcedureSeed {
   category: string;
@@ -148,10 +149,7 @@ async function seedAutonomousLearning() {
     try {
       // Check if this procedure already exists by title
       const existing = await db.select().from(tutorProcedures)
-        .where((fields) => {
-          const { eq } = require('drizzle-orm');
-          return eq(fields.title, seed.title);
-        })
+        .where(eq(tutorProcedures.title, seed.title))
         .limit(1);
 
       if (existing.length > 0) {

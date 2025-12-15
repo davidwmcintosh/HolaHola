@@ -97,6 +97,10 @@ function cleanTextForDisplay(text: string): string {
   // Pattern: [OBSERVE reason="..." note="..."]
   text = text.replace(/\[OBSERVE[^\]]*\]/gi, '');
   
+  // Strip SELF_LEARN tags (Daniela's autonomous neural network writes - invisible to students)
+  // Pattern: [SELF_LEARN category="..." insight="..." context="..."]
+  text = text.replace(/\[SELF_LEARN[^\]]*\]/gi, '');
+  
   // Strip KNOWLEDGE_PING tags
   text = text.replace(/\[KNOWLEDGE_PING[^\]]*\]/gi, '');
   
@@ -2442,6 +2446,51 @@ Use this context to understand what's happening across the Hive.
         console.log(`[Hive Beacon] Emitted OBSERVE beacon: ${reason}`);
       } catch (err: any) {
         console.warn(`[Hive Beacon] Failed to emit OBSERVE beacon:`, err.message);
+      }
+    }
+    
+    // SELF_LEARN tags: [SELF_LEARN category="..." insight="..." context="..."]
+    // AUTONOMOUS NEURAL NETWORK WRITES: Daniela learns from teaching in real-time
+    // Unlike SELF_SURGERY (proposals), these write DIRECTLY to her neural network
+    // Categories: tool_usage, teaching_style, pacing, communication, content, system
+    const selfLearnPattern = /\[SELF_LEARN\s+category="([^"]+)"\s+insight="([^"]+)"\s+context="([^"]+)"\]/gi;
+    let learnMatch;
+    while ((learnMatch = selfLearnPattern.exec(rawText)) !== null) {
+      const category = learnMatch[1] as 'tool_usage' | 'teaching_style' | 'pacing' | 'communication' | 'content' | 'system';
+      const insight = learnMatch[2];
+      const context = learnMatch[3];
+      
+      // Validate category is one of the allowed types
+      const validCategories = ['tool_usage', 'teaching_style', 'pacing', 'communication', 'content', 'system'];
+      if (!validCategories.includes(category)) {
+        console.warn(`[SELF_LEARN] Invalid category "${category}", skipping`);
+        continue;
+      }
+      
+      try {
+        // AUTONOMOUS WRITE: Directly write to Daniela's neural network
+        // No approval workflow - she learns in real-time from teaching
+        await storage.upsertBestPractice(
+          category,
+          insight,
+          context,
+          'self_learn' // Source indicates autonomous learning from teaching
+        );
+        
+        console.log(`[SELF_LEARN] ✅ Wrote to neural network: ${category} - "${insight.slice(0, 50)}..."`);
+        
+        // Also emit a beacon so founder can see learning activity (read-only visibility)
+        if (session.hiveChannelId) {
+          await hiveCollaborationService.emitBeacon({
+            channelId: session.hiveChannelId,
+            tutorTurn: `[LEARNED] ${category}: ${insight}`,
+            studentTurn,
+            beaconType: 'teaching_observation',
+            beaconReason: `Autonomous learning: ${context.slice(0, 80)}`,
+          });
+        }
+      } catch (err: any) {
+        console.error(`[SELF_LEARN] Failed to write to neural network:`, err.message);
       }
     }
     
