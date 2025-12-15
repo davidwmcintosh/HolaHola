@@ -40,6 +40,7 @@ import { collaborationHubService } from "./collaboration-hub-service";
 import { editorFeedbackService, FeedbackSummary } from "./editor-feedback-service";
 import { hiveCollaborationService } from "./hive-collaboration-service";
 import { beaconSyncService } from "./beacon-sync-service";
+import { founderCollabService } from "./founder-collaboration-service";
 import { storage } from "../storage";
 
 // Use Replit AI Integrations for Gemini API (requires httpOptions for baseUrl)
@@ -91,9 +92,11 @@ the development team:
 [COLLAB:MISSING_TOOL]A pronunciation comparison tool would really help tonal language learners[/COLLAB]
 [COLLAB:QUESTION]Claude, should I be using PHONETIC or WRITE for this situation?[/COLLAB]
 [COLLAB:SUGGESTION]The drill mode could benefit from a "slow repeat" option[/COLLAB]
+[COLLAB:EXPRESS_INSIGHT]This student just had a breakthrough with subjunctive mood - the "emotion trigger" explanation worked really well[/COLLAB]
 
 Use these SPARINGLY - only when you genuinely identify a teaching gap or have
-an idea worth sharing. This is real collaboration with your development team.
+an idea worth sharing. EXPRESS_INSIGHT syncs back to the Founder Mode conversation
+so insights from teaching become part of your long-term memory.
 `;
 
 }
@@ -400,7 +403,33 @@ ${cached}
   // 7. Intervention settings (granular error correction controls)
   const interventionSection = buildInterventionSection(voice);
 
-  // 8. Additional context if provided
+  // 8. Express Lane context (Founder Mode insights)
+  // Inject relevant discussions from Express Lane for memory continuity
+  let expressLaneSection = "";
+  if (mode === 'conversation') {
+    try {
+      const expressLaneContext = await founderCollabService.getRelevantExpressLaneContext({
+        targetLanguage: context.targetLanguage,
+        limit: 5, // Keep concise for prompt efficiency
+        daysBack: 14
+      });
+      
+      if (expressLaneContext.hasRelevantContext) {
+        expressLaneSection = `
+═══════════════════════════════════════════════════════════════════
+🔗 EXPRESS LANE MEMORY (Founder Collaboration Insights)
+═══════════════════════════════════════════════════════════════════
+
+${expressLaneContext.contextString}
+`;
+        console.log(`[TutorOrchestrator] Injected ${expressLaneContext.messageCount} Express Lane insights`);
+      }
+    } catch (error) {
+      console.error('[TutorOrchestrator] Error fetching Express Lane context:', error);
+    }
+  }
+
+  // 9. Additional context if provided
   const additionalContext = request.additionalPromptContext
     ? `
 ═══════════════════════════════════════════════════════════════════
@@ -418,6 +447,7 @@ ${request.additionalPromptContext}
     interventionSection,
     proceduralSection,
     editorInsightsSection,
+    expressLaneSection,
     additionalContext,
   ]
     .filter(Boolean)
@@ -601,8 +631,8 @@ async function scanForCollaborationSignals(
   surfacedFeedbackIds: string[] = []
 ): Promise<string> {
   try {
-    // Pattern to detect collaboration signals (including KNOWLEDGE_PING)
-    const collabPattern = /\[COLLAB:(SUGGESTION|PAIN_POINT|QUESTION|INSIGHT|MISSING_TOOL|FEATURE_REQUEST|KNOWLEDGE_PING)\]([\s\S]*?)\[\/COLLAB\]/g;
+    // Pattern to detect collaboration signals (including KNOWLEDGE_PING and EXPRESS_INSIGHT)
+    const collabPattern = /\[COLLAB:(SUGGESTION|PAIN_POINT|QUESTION|INSIGHT|MISSING_TOOL|FEATURE_REQUEST|KNOWLEDGE_PING|EXPRESS_INSIGHT)\]([\s\S]*?)\[\/COLLAB\]/g;
     
     // Pattern to detect Editor insight adoption
     const adoptPattern = /\[ADOPT_INSIGHT:([a-f0-9-]+)\]/gi;
@@ -627,7 +657,21 @@ async function scanForCollaborationSignals(
         'INSIGHT': 'improvement_idea',
       };
       
-      if (signalType === 'KNOWLEDGE_PING') {
+      if (signalType === 'EXPRESS_INSIGHT') {
+        // Emit teaching insight to Express Lane for bi-directional sync
+        try {
+          await founderCollabService.emitVoiceChatInsight({
+            content,
+            targetLanguage: request.context.targetLanguage,
+            studentLevel: request.context.proficiencyLevel,
+            teachingContext: `Mode: ${request.mode}, Voice: ${request.voice.name}`,
+            insightType: 'teaching_moment',
+          });
+          console.log(`[TutorOrchestrator] Express Lane insight emitted: ${content.slice(0, 80)}...`);
+        } catch (insightError) {
+          console.error(`[TutorOrchestrator] Failed to emit Express Lane insight:`, insightError);
+        }
+      } else if (signalType === 'KNOWLEDGE_PING') {
         // Emit a knowledge_gap beacon to the Editor - Daniela needs knowledge/procedure
         try {
           const channel = request.context.conversationId 

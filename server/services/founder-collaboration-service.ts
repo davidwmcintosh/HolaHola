@@ -604,7 +604,12 @@ class FounderCollaborationService {
    * This enables Daniela to access discussions from Express Lane when teaching students,
    * creating true memory continuity between founder collaboration and teaching.
    * 
-   * @param options.targetLanguage - Filter by language mentions in content
+   * SCOPING STRATEGY:
+   * 1. First priority: Language-specific voice insight sessions (e.g., "Voice Insights - Spanish")
+   * 2. Second priority: Messages with matching metadata.targetLanguage
+   * 3. Fallback: Recent general founder/daniela messages with language keyword matching
+   * 
+   * @param options.targetLanguage - Filter by language (used for session title and metadata matching)
    * @param options.topicKeywords - Filter by topic keywords
    * @param options.limit - Maximum number of insights to return (default: 8)
    * @param options.daysBack - How far back to look (default: 14 days)
@@ -627,29 +632,94 @@ class FounderCollaborationService {
     } = options;
     
     try {
-      // Calculate date threshold
       const dateThreshold = new Date();
       dateThreshold.setDate(dateThreshold.getDate() - daysBack);
       
-      // Fetch recent collaboration messages from Founder and Daniela
-      // (exclude editor/system messages as they're implementation details)
-      const recentMessages = await db.select({
-        role: collaborationMessages.role,
-        content: collaborationMessages.content,
-        createdAt: collaborationMessages.createdAt,
-        metadata: collaborationMessages.metadata,
-      })
-        .from(collaborationMessages)
-        .where(
-          and(
-            sql`${collaborationMessages.role} IN ('founder', 'daniela')`,
-            sql`${collaborationMessages.createdAt} > ${dateThreshold}`
-          )
-        )
-        .orderBy(desc(collaborationMessages.createdAt))
-        .limit(50); // Fetch more than needed, filter below
+      let allMessages: Array<{
+        role: string;
+        content: string;
+        createdAt: Date;
+        metadata: any;
+      }> = [];
       
-      if (recentMessages.length === 0) {
+      // PRIORITY 1: Language-specific voice insight sessions
+      if (targetLanguage) {
+        const langTitle = `Voice Insights - ${targetLanguage}`;
+        const langSessions = await db.select()
+          .from(founderSessions)
+          .where(eq(founderSessions.title, langTitle))
+          .limit(1);
+        
+        if (langSessions.length > 0) {
+          const langMessages = await db.select({
+            role: collaborationMessages.role,
+            content: collaborationMessages.content,
+            createdAt: collaborationMessages.createdAt,
+            metadata: collaborationMessages.metadata,
+          })
+            .from(collaborationMessages)
+            .where(
+              and(
+                eq(collaborationMessages.sessionId, langSessions[0].id),
+                sql`${collaborationMessages.createdAt} > ${dateThreshold}`
+              )
+            )
+            .orderBy(desc(collaborationMessages.createdAt))
+            .limit(limit);
+          
+          allMessages.push(...langMessages);
+        }
+      }
+      
+      // PRIORITY 2: Messages with matching metadata.targetLanguage from voice_chat_sync
+      if (allMessages.length < limit) {
+        const metadataMessages = await db.select({
+          role: collaborationMessages.role,
+          content: collaborationMessages.content,
+          createdAt: collaborationMessages.createdAt,
+          metadata: collaborationMessages.metadata,
+        })
+          .from(collaborationMessages)
+          .where(
+            and(
+              sql`${collaborationMessages.metadata}->>'source' = 'voice_chat_sync'`,
+              targetLanguage 
+                ? sql`LOWER(${collaborationMessages.metadata}->>'targetLanguage') = LOWER(${targetLanguage})`
+                : sql`TRUE`,
+              sql`${collaborationMessages.createdAt} > ${dateThreshold}`
+            )
+          )
+          .orderBy(desc(collaborationMessages.createdAt))
+          .limit(limit - allMessages.length);
+        
+        allMessages.push(...metadataMessages);
+      }
+      
+      // PRIORITY 3: Recent Founder-Daniela conversations with language keyword matching
+      if (allMessages.length < limit && targetLanguage) {
+        const langLower = targetLanguage.toLowerCase();
+        const generalMessages = await db.select({
+          role: collaborationMessages.role,
+          content: collaborationMessages.content,
+          createdAt: collaborationMessages.createdAt,
+          metadata: collaborationMessages.metadata,
+        })
+          .from(collaborationMessages)
+          .where(
+            and(
+              sql`${collaborationMessages.role} IN ('founder', 'daniela')`,
+              sql`${collaborationMessages.metadata}->>'source' IS DISTINCT FROM 'voice_chat_sync'`,
+              sql`${collaborationMessages.createdAt} > ${dateThreshold}`,
+              sql`LOWER(${collaborationMessages.content}) LIKE '%' || ${langLower} || '%'`
+            )
+          )
+          .orderBy(desc(collaborationMessages.createdAt))
+          .limit(limit - allMessages.length);
+        
+        allMessages.push(...generalMessages);
+      }
+      
+      if (allMessages.length === 0) {
         return {
           hasRelevantContext: false,
           contextString: "",
@@ -657,56 +727,27 @@ class FounderCollaborationService {
         };
       }
       
-      // Filter by language if specified
-      let filteredMessages = recentMessages;
-      if (targetLanguage) {
-        const langLower = targetLanguage.toLowerCase();
-        filteredMessages = recentMessages.filter(msg => {
-          const contentLower = msg.content.toLowerCase();
-          return contentLower.includes(langLower) ||
-            contentLower.includes(`${langLower} language`) ||
-            contentLower.includes(`teaching ${langLower}`) ||
-            contentLower.includes(`learning ${langLower}`);
-        });
-      }
-      
-      // Filter by topic keywords if specified
+      // Apply topic keyword filtering if specified
+      let filteredMessages = allMessages;
       if (topicKeywords.length > 0) {
         const keywordsLower = topicKeywords.map(k => k.toLowerCase());
-        filteredMessages = filteredMessages.filter(msg => {
+        filteredMessages = allMessages.filter(msg => {
           const contentLower = msg.content.toLowerCase();
           return keywordsLower.some(keyword => contentLower.includes(keyword));
         });
-      }
-      
-      // Take top N messages (most recent)
-      const relevantMessages = filteredMessages.slice(0, limit);
-      
-      if (relevantMessages.length === 0) {
-        // Fall back to most recent messages if no specific matches
-        const fallbackMessages = recentMessages.slice(0, Math.min(3, limit));
-        if (fallbackMessages.length === 0) {
-          return {
-            hasRelevantContext: false,
-            contextString: "",
-            messageCount: 0
-          };
-        }
         
-        const contextString = this.formatExpressLaneContext(fallbackMessages);
-        return {
-          hasRelevantContext: true,
-          contextString,
-          messageCount: fallbackMessages.length
-        };
+        // If keyword filter removes all, fall back to unfiltered
+        if (filteredMessages.length === 0) {
+          filteredMessages = allMessages.slice(0, Math.min(3, limit));
+        }
       }
       
-      const contextString = this.formatExpressLaneContext(relevantMessages);
+      const contextString = this.formatExpressLaneContext(filteredMessages.slice(0, limit));
       
       return {
         hasRelevantContext: true,
-        contextString,
-        messageCount: relevantMessages.length
+        contextString: contextString.trim(),
+        messageCount: filteredMessages.slice(0, limit).length
       };
     } catch (error) {
       console.error('[FounderCollab] Error fetching Express Lane context:', error);
@@ -716,6 +757,88 @@ class FounderCollaborationService {
         messageCount: 0
       };
     }
+  }
+  
+  /**
+   * Emit a teaching insight from voice chat back to Express Lane.
+   * This enables bi-directional sync - Daniela can share notable teaching moments
+   * with the Founder for review and potential neural network updates.
+   * 
+   * Uses LANGUAGE-SPECIFIC sessions for discoverability:
+   * - Session title: "Voice Insights - {Language}" (e.g., "Voice Insights - Spanish")
+   * - This allows getRelevantExpressLaneContext to find insights by language
+   * 
+   * @param insight - The insight content to emit
+   * @param metadata - Additional context (language, student level, teaching context)
+   */
+  async emitVoiceChatInsight(insight: {
+    content: string;
+    targetLanguage?: string;
+    studentLevel?: string;
+    teachingContext?: string;
+    insightType?: 'teaching_moment' | 'student_breakthrough' | 'effective_technique' | 'challenge_encountered';
+  }): Promise<boolean> {
+    try {
+      // Use language-specific session for discoverability
+      const language = insight.targetLanguage || 'General';
+      const sessionTitle = `Voice Insights - ${language}`;
+      const systemFounderId = `voice-insights-${language.toLowerCase().replace(/\s+/g, '-')}`;
+      
+      // Find existing session with this title, or create one
+      let session = await this.findOrCreateSessionByTitle(systemFounderId, sessionTitle);
+      
+      // Add as a Daniela message to the session
+      await this.addMessage(session.id, {
+        role: 'daniela',
+        content: insight.content,
+        messageType: 'text',
+        metadata: {
+          source: 'voice_chat_sync',
+          insightType: insight.insightType || 'teaching_moment',
+          targetLanguage: insight.targetLanguage,
+          studentLevel: insight.studentLevel,
+          teachingContext: insight.teachingContext,
+          timestamp: new Date().toISOString(),
+        }
+      });
+      
+      console.log(`[FounderCollab] Voice chat insight emitted to "${sessionTitle}": ${insight.content.slice(0, 50)}...`);
+      return true;
+    } catch (error) {
+      console.error('[FounderCollab] Error emitting voice chat insight:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Find a session by title, or create one with that title
+   */
+  private async findOrCreateSessionByTitle(founderId: string, title: string): Promise<FounderSession> {
+    // Look for existing session with this exact title
+    const [existing] = await db.select()
+      .from(founderSessions)
+      .where(and(
+        eq(founderSessions.title, title),
+        eq(founderSessions.status, 'active')
+      ))
+      .orderBy(desc(founderSessions.createdAt))
+      .limit(1);
+    
+    if (existing) {
+      return existing;
+    }
+    
+    // Create new session with this title
+    const [session] = await db.insert(founderSessions).values({
+      founderId,
+      environment: CURRENT_ENVIRONMENT,
+      title,
+      status: 'active',
+      messageCount: 0,
+    }).returning();
+    
+    console.log(`[FounderCollab] Created language-specific session: ${title}`);
+    return session;
   }
   
   /**
