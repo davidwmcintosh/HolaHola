@@ -6900,6 +6900,11 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(danielaBeacons.createdAt));
   }
 
+  async getAllDanielaBeacons(): Promise<DanielaBeacon[]> {
+    return db.select().from(danielaBeacons)
+      .orderBy(desc(danielaBeacons.createdAt));
+  }
+
   async updateDanielaBeaconStatus(
     id: string, 
     status: DanielaBeaconStatus, 
