@@ -58,6 +58,66 @@ export interface VoiceStyleDeltas {
   encouragementLevel?: 'minimal' | 'moderate' | 'high';
   targetLanguageRatio?: number;       // 0-1, how much target language to use
   additionalInstructions?: string;    // Mode-specific behavioral notes
+  interventionSettings?: InterventionSettings;  // Granular error correction controls
+}
+
+/**
+ * Granular Intervention Controls
+ * 
+ * Precision modifiers for how Daniela handles errors and teaching moments.
+ * These settings allow fine-tuned control over micro-interventions during
+ * conversation and drill modes.
+ */
+export interface InterventionSettings {
+  /**
+   * When to correct errors
+   * - 'immediate': Correct right away (good for beginners)
+   * - 'delayed': Wait for natural pause or turn end (less disruptive)
+   * - 'on_request': Only correct when student asks (maximum autonomy)
+   */
+  correctionTiming?: 'immediate' | 'delayed' | 'on_request';
+  
+  /**
+   * How much explanation to provide with corrections
+   * - 'minimal': Just the correct form ("It's 'está', not 'es'")
+   * - 'moderate': Brief rule reminder + correct form
+   * - 'comprehensive': Full explanation with examples
+   */
+  correctionDepth?: 'minimal' | 'moderate' | 'comprehensive';
+  
+  /**
+   * How much scaffolding/help to provide
+   * - 'none': Let student figure it out
+   * - 'hints': Provide clues without answers
+   * - 'guided': Step-by-step prompts toward answer
+   * - 'explicit': Provide the answer with explanation
+   */
+  scaffoldingLevel?: 'none' | 'hints' | 'guided' | 'explicit';
+  
+  /**
+   * How strict to be about errors
+   * - 'strict': Correct all errors including minor ones
+   * - 'moderate': Correct significant errors, note minor ones
+   * - 'lenient': Only correct errors that impede communication
+   */
+  errorTolerance?: 'strict' | 'moderate' | 'lenient';
+  
+  /**
+   * Whether to interrupt the student's flow to correct
+   * - 'never': Wait for student to finish completely
+   * - 'critical_only': Only interrupt for major misunderstandings
+   * - 'on_pattern': Interrupt if same error repeats
+   */
+  interruptBehavior?: 'never' | 'critical_only' | 'on_pattern';
+  
+  /**
+   * How to handle pronunciation issues
+   * - 'ignore': Focus on meaning, not sound
+   * - 'note': Acknowledge but don't drill
+   * - 'practice': Offer slow pronunciation practice
+   * - 'drill': Initiate a pronunciation micro-drill
+   */
+  pronunciationHandling?: 'ignore' | 'note' | 'practice' | 'drill';
 }
 
 /**

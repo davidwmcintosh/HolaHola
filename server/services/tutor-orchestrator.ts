@@ -241,6 +241,87 @@ ${adjustments.join("\n")}
 }
 
 /**
+ * Build granular intervention control instructions
+ * These precision modifiers control how Daniela handles errors and teaching moments
+ */
+function buildInterventionSection(voice: VoicePresentation): string {
+  const settings = voice.styleDeltas?.interventionSettings;
+  if (!settings) return "";
+
+  const instructions: string[] = [];
+
+  // Correction Timing
+  if (settings.correctionTiming === 'immediate') {
+    instructions.push("• CORRECT IMMEDIATELY: Address errors as soon as they occur");
+  } else if (settings.correctionTiming === 'delayed') {
+    instructions.push("• DELAYED CORRECTION: Wait for natural pause or turn end before correcting");
+  } else if (settings.correctionTiming === 'on_request') {
+    instructions.push("• CORRECT ON REQUEST: Only correct when the student explicitly asks for help");
+  }
+
+  // Correction Depth
+  if (settings.correctionDepth === 'minimal') {
+    instructions.push("• MINIMAL EXPLANATION: Just provide the correct form, no lengthy explanations");
+  } else if (settings.correctionDepth === 'moderate') {
+    instructions.push("• MODERATE EXPLANATION: Brief rule reminder with the correct form");
+  } else if (settings.correctionDepth === 'comprehensive') {
+    instructions.push("• COMPREHENSIVE EXPLANATION: Full explanation with examples and patterns");
+  }
+
+  // Scaffolding Level
+  if (settings.scaffoldingLevel === 'none') {
+    instructions.push("• NO SCAFFOLDING: Let student figure things out independently");
+  } else if (settings.scaffoldingLevel === 'hints') {
+    instructions.push("• HINT-BASED: Provide clues and hints without giving answers directly");
+  } else if (settings.scaffoldingLevel === 'guided') {
+    instructions.push("• GUIDED SCAFFOLDING: Lead student step-by-step toward the answer");
+  } else if (settings.scaffoldingLevel === 'explicit') {
+    instructions.push("• EXPLICIT SCAFFOLDING: Provide answers with full explanation when needed");
+  }
+
+  // Error Tolerance
+  if (settings.errorTolerance === 'strict') {
+    instructions.push("• STRICT TOLERANCE: Correct all errors including minor ones (accent marks, small grammar)");
+  } else if (settings.errorTolerance === 'moderate') {
+    instructions.push("• MODERATE TOLERANCE: Correct significant errors, briefly note minor ones");
+  } else if (settings.errorTolerance === 'lenient') {
+    instructions.push("• LENIENT TOLERANCE: Only correct errors that impede communication or meaning");
+  }
+
+  // Interrupt Behavior
+  if (settings.interruptBehavior === 'never') {
+    instructions.push("• NEVER INTERRUPT: Always wait for student to finish speaking completely");
+  } else if (settings.interruptBehavior === 'critical_only') {
+    instructions.push("• INTERRUPT FOR CRITICAL: Only interrupt for major misunderstandings");
+  } else if (settings.interruptBehavior === 'on_pattern') {
+    instructions.push("• INTERRUPT ON PATTERN: Interrupt if you notice the same error repeating");
+  }
+
+  // Pronunciation Handling
+  if (settings.pronunciationHandling === 'ignore') {
+    instructions.push("• PRONUNCIATION: Focus on meaning, don't address pronunciation issues");
+  } else if (settings.pronunciationHandling === 'note') {
+    instructions.push("• PRONUNCIATION: Acknowledge pronunciation issues but don't drill on them");
+  } else if (settings.pronunciationHandling === 'practice') {
+    instructions.push("• PRONUNCIATION: Offer slow pronunciation practice when issues arise");
+  } else if (settings.pronunciationHandling === 'drill') {
+    instructions.push("• PRONUNCIATION: Initiate micro-drills when pronunciation issues occur");
+  }
+
+  if (instructions.length === 0) return "";
+
+  return `
+═══════════════════════════════════════════════════════════════════
+🎯 INTERVENTION SETTINGS (How to Handle Errors & Teaching Moments)
+═══════════════════════════════════════════════════════════════════
+
+${instructions.join("\n")}
+
+Apply these settings to calibrate your teaching interventions.
+`;
+}
+
+/**
  * Result of building system prompt, includes IDs to mark as surfaced
  */
 interface SystemPromptResult {
@@ -324,6 +405,9 @@ ${cached}
     }
   }
 
+  // 7. Intervention settings (granular error correction controls)
+  const interventionSection = buildInterventionSection(voice);
+
   // 8. Additional context if provided
   const additionalContext = request.additionalPromptContext
     ? `
@@ -339,6 +423,7 @@ ${request.additionalPromptContext}
     corePersona,
     modeInstructions,
     voiceStyle,
+    interventionSection,
     proceduralSection,
     editorInsightsSection,
     beaconStatusSection,

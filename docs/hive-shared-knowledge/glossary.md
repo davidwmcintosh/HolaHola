@@ -83,6 +83,20 @@
 
 ---
 
+## Intervention Controls
+
+| Term | Definition | Example |
+|------|------------|---------|
+| **Correction Timing** | When Daniela corrects errors: immediate, delayed, or on_request | "Use delayed correction for advanced students" |
+| **Correction Depth** | How much explanation with corrections: minimal, moderate, comprehensive | "Set comprehensive depth for grammar explanations" |
+| **Scaffolding Level** | How much help to provide: none, hints, guided, explicit | "Hints scaffolding for intermediate learners" |
+| **Error Tolerance** | How strict about errors: strict, moderate, lenient | "Lenient tolerance focuses on communication" |
+| **Interrupt Behavior** | When to interrupt student flow: never, critical_only, on_pattern | "Interrupt on pattern catches repeated errors" |
+| **Pronunciation Handling** | How to address pronunciation: ignore, note, practice, drill | "Practice mode offers slow pronunciation" |
+| **Micro-intervention** | A small, targeted teaching moment during conversation | "Quick correction without stopping flow" |
+
+---
+
 ## Common Abbreviations
 
 | Abbrev | Meaning |

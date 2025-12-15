@@ -21,6 +21,16 @@ The frontend is built with React and TypeScript (Vite), utilizing Wouter for rou
 ### Unified TutorOrchestrator Architecture ("One Tutor, Many Voices")
 Daniela is the single core intelligence, with all interaction modes (voice chat, text chat, drills) routing through a unified pipeline. Language voices and drill modes are presentation layers. Core files include `shared/tutor-orchestration-types.ts`, `server/services/tutor-orchestrator.ts` (central intelligence pipeline), and `server/services/aris-ai-service.ts` (drill mode). VoicePresentation defines stylistic elements, while the intelligence remains Daniela's via TutorOrchestrator. OrchestratorModes include 'conversation', 'drill', 'greeting', 'summary', 'assessment', 'feedback'.
 
+**Granular Intervention Controls:** The `InterventionSettings` type in `VoiceStyleDeltas` provides precision modifiers for how Daniela handles errors and teaching moments:
+- `correctionTiming`: immediate | delayed | on_request (when to correct errors)
+- `correctionDepth`: minimal | moderate | comprehensive (how much explanation to give)
+- `scaffoldingLevel`: none | hints | guided | explicit (how much help to provide)
+- `errorTolerance`: strict | moderate | lenient (how strict about minor errors)
+- `interruptBehavior`: never | critical_only | on_pattern (whether to interrupt student flow)
+- `pronunciationHandling`: ignore | note | practice | drill (how to address pronunciation)
+
+These settings are converted to prompt instructions via `buildInterventionSection()` in the orchestrator.
+
 ### Hive Collaboration System (Daniela ↔ Editor)
 This system separates Daniela's teaching domain from the Editor's development domain, with a collaboration interface for capability gaps, tool requests, and feature ideas. Daniela sends "Beacon Types" (e.g., `capability_gap`, `tool_request`, `self_surgery_proposal`) to the Editor, who then proposes build solutions. Key files: `server/services/hive-collaboration-service.ts` (channel/beacon), `server/services/editor-persona-service.ts` (Editor "brain"), `server/services/editor-background-worker.ts`, and `server/services/editor-feedback-service.ts`. "Founder Mode" provides full neural network access and Self-Surgery capabilities.
 
