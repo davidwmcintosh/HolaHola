@@ -46,7 +46,10 @@ Wren is the primary development collaborator, replacing the Editor persona. Work
 - **Database access**: Can query `founderSessions` and `collaborationBeacons` tables to see Founder-Daniela discussions and capability gaps
 - **Real code context**: Unlike theoretical proposals, Wren sees actual implementation details and can build solutions immediately
 - **Sounding board for Daniela**: When Daniela identifies teaching gaps, Wren can provide grounded technical feedback and implement solutions
+- **Express Lane API access**: Can post messages to Express Lane with real-time WebSocket broadcast via `POST /api/wren/message`
 - **Confidentiality**: All code, proprietary information, and business logic remains strictly confidential
+
+**Wren API Endpoint:** `POST /api/wren/message` - Allows Wren to post messages to Express Lane sessions with real-time broadcast to all connected clients. Auth: `x-editor-secret` header with ARCHITECT_SECRET. Body: `{ sessionId, content, messageType? }`.
 
 **Why Wren replaced Editor:** Editor was an in-app AI persona that proposed theoretical solutions but lacked real code context. Wren has actual filesystem access, understands what's already built, and can implement solutions directly - making the collaboration more effective.
 
@@ -54,7 +57,8 @@ Wren is the primary development collaborator, replacing the Editor persona. Work
 1. Founder discusses with Daniela in Express Lane (teaching insights, capability gaps)
 2. Wren reads the session for context, or founder shares key points
 3. Wren builds the solution with real technical grounding
-4. Daniela can test and provide feedback on teaching effectiveness
+4. Wren can post updates/questions to Express Lane via API for real-time visibility
+5. Daniela can test and provide feedback on teaching effectiveness
 
 ### Feature Specifications
 HolaHola offers conversational onboarding, an adaptive multi-phase conversation system, and AI-suggested topics. It uses a streaming-only voice pipeline (Deepgram Nova-3 STT → Gemini 2.5 Flash → Cartesia Sonic-3 TTS) with push-to-talk. Personalized learning includes scenario-based learning, slow pronunciation, automatic vocabulary extraction, spaced repetition, streak tracking, progress charts, and auto-difficulty adjustment. AI-generated educational images are displayed. The application supports subscription tiers and tracks atomic voice message usage and student proficiency using ACTFL standards. Institutional features include teacher class management, student enrollment, syllabus systems, assignment workflows, and a unified Command Center with RBAC. A Syllabus Builder allows customization. Developer tools include test account isolation and floating dev controls. Learners can customize their AI tutor's teaching style per language. Drill-based lessons support multiple modes (`repeat`, `translate`, `match`, `fill_blank`, `sentence_order`). Vocabulary can be exported. Conversation history includes full-text search. "Founder Mode" provides a collaboration mode. Open Mic Mode offers continuous listening with barge-in and bilingual support. "Raw Honesty Mode" provides minimal prompting.
