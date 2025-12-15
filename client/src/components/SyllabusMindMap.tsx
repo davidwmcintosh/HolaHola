@@ -21,7 +21,7 @@ import {
   Target, Layers, GraduationCap, Globe, Mic
 } from "lucide-react";
 import { useState, useMemo } from "react";
-import type { ActflProgress } from "@shared/schema";
+import type { ActflProgress, UnifiedProgressResponse } from "@shared/schema";
 import { calculateContinuousScore } from "@/components/actfl/actfl-gauge-core";
 import brainImage from "@assets/transparent_colorful_cartoon_brain_Background_Removed_1765564186963.png";
 
@@ -617,6 +617,33 @@ function syllabusToTopics(syllabus: SyllabusOverview): TopicNode[] {
   return topics;
 }
 
+// Transform unified progress response to TopicNodes for the brain map
+function unifiedProgressToTopics(progress: UnifiedProgressResponse): TopicNode[] {
+  const topics: TopicNode[] = [];
+  
+  progress.units.forEach(unit => {
+    unit.lessons.forEach(lesson => {
+      const status: TopicNode['status'] = 
+        lesson.status === 'completed' ? 'mastered' :
+        lesson.status === 'in_progress' ? 'practiced' :
+        lesson.status === 'skipped' ? 'discovered' : 'discovered';
+      
+      topics.push({
+        id: lesson.id,
+        name: lesson.name,
+        status,
+        practiceCount: lesson.status === 'completed' ? 1 : 0,
+        connections: [],
+        category: getLessonTypeCategory(lesson.lessonType),
+        topicType: lesson.lessonType === 'grammar' ? 'grammar' : 
+                   lesson.lessonType === 'conversation' ? 'function' : 'subject',
+      });
+    });
+  });
+  
+  return topics;
+}
+
 export function SyllabusMindMap({ classId, language: languageProp, className, syllabusOverview, mode = 'emergent' }: SyllabusMindMapProps) {
   const { language: globalLanguage, difficulty } = useLanguage();
   const language = languageProp ?? globalLanguage;
@@ -631,25 +658,41 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
   // Determine if we're in class/syllabus context
   const hasSyllabus = !!syllabusOverview && syllabusOverview.units.length > 0;
   
+  // Fetch unified progress when classId is provided (new API with observations & recommendations)
+  const { data: unifiedProgress, isLoading: unifiedLoading } = useQuery<UnifiedProgressResponse>({
+    queryKey: ['/api/classes', classId, 'unified-progress'],
+    queryFn: async () => {
+      const response = await fetch(`/api/classes/${classId}/unified-progress`, {
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to fetch unified progress');
+      return response.json();
+    },
+    enabled: !!classId,
+  });
+  
   // Only fetch ACTFL progress if NOT in syllabus mode (syllabus uses its own completion metric)
   const { data: progress, isLoading: progressLoading } = useQuery<ActflProgress | null>({
     queryKey: ['/api/actfl-progress', language],
-    enabled: !!language && language !== 'all' && !hasSyllabus,
+    enabled: !!language && language !== 'all' && !hasSyllabus && !classId,
   });
   
   // Only fetch conversation topics if NOT in syllabus mode
   const { data: conversationTopics, isLoading: topicsLoading } = useQuery<{ topics: TopicNode[] }>({
     queryKey: ['/api/conversation-topics', language],
-    enabled: !!language && language !== 'all' && !hasSyllabus,
+    enabled: !!language && language !== 'all' && !hasSyllabus && !classId,
   });
   
-  // Use syllabus topics when in class context, otherwise use conversation topics
+  // Use unified progress when available, then syllabus, then conversation topics
   const allTopics = useMemo(() => {
+    if (unifiedProgress) {
+      return unifiedProgressToTopics(unifiedProgress);
+    }
     if (hasSyllabus && syllabusOverview) {
       return syllabusToTopics(syllabusOverview);
     }
     return conversationTopics?.topics || DEMO_TOPICS;
-  }, [hasSyllabus, syllabusOverview, conversationTopics?.topics]);
+  }, [unifiedProgress, hasSyllabus, syllabusOverview, conversationTopics?.topics]);
   
   const visibleTopics = useMemo(() => {
     if (mode === 'emergent') {
@@ -694,8 +737,13 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
     setExpandedSegment(prev => prev === segment ? null : segment);
   };
   
-  // When we have syllabus data, we don't need to wait for ACTFL or conversation topics
-  const isLoading = !hasSyllabus && (progressLoading || topicsLoading);
+  // Loading state depends on context:
+  // - With classId: wait for unified progress
+  // - With syllabus: no extra loading needed
+  // - Otherwise: wait for ACTFL and conversation topics
+  const isLoading = classId 
+    ? unifiedLoading 
+    : (!hasSyllabus && (progressLoading || topicsLoading));
   
   if (isLoading) {
     return (
@@ -820,7 +868,10 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
           <ACTFLMeter 
             progress={progress} 
             level={difficulty}
-            syllabusProgress={hasSyllabus && syllabusOverview ? {
+            syllabusProgress={unifiedProgress ? {
+              completed: unifiedProgress.lessonsCompleted,
+              total: unifiedProgress.lessonsTotal
+            } : hasSyllabus && syllabusOverview ? {
               completed: syllabusOverview.completedLessons,
               total: syllabusOverview.totalLessons
             } : undefined}
