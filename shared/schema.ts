@@ -5224,6 +5224,61 @@ export type DanielaBeaconStatus = 'pending' | 'acknowledged' | 'in_progress' | '
 export type DanielaBeaconType = 'feature_request' | 'capability_gap' | 'tool_request' | 'self_surgery' | 'observation' | 'bug_report';
 export type DanielaBeaconPriority = 'low' | 'medium' | 'high' | 'critical';
 
+// ===== Post-Flight Audit Reports =====
+// Stores structured post-flight audit reports for tracking feature completion quality
+// Links to Feature Sprints for completion tracking and trend analysis
+
+export const postFlightVerdictEnum = pgEnum('post_flight_verdict', [
+  'mvp_ready',     // Core functionality works, acceptable quality
+  'needs_polish',  // Works but has gaps that should be addressed soon
+  'polished'       // Ready for production, comprehensive coverage
+]);
+
+export const postFlightReports = pgTable("post_flight_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // What was built
+  featureName: text("feature_name").notNull(),
+  featureDescription: text("feature_description"),
+  
+  // Verdict from 3-stage audit
+  verdict: postFlightVerdictEnum("verdict").notNull(),
+  
+  // Stage 1: Verification Pass results
+  verificationPassed: boolean("verification_passed").notNull().default(true),
+  
+  // Stage 2: Gap & Edge Review findings (JSON arrays)
+  requiredFixes: jsonb("required_fixes").default([]).notNull(), // Blocking issues found
+  shouldAddress: jsonb("should_address").default([]).notNull(), // High priority improvements
+  opportunities: jsonb("opportunities").default([]).notNull(), // Nice-to-have ideas
+  
+  // Stage 3: Polish Assessment notes
+  testEvidence: text("test_evidence"), // What was tested and how
+  documentationUpdates: text("documentation_updates"), // What docs were updated
+  
+  // Subsystem tracking for trend analysis
+  subsystemsTouched: jsonb("subsystems_touched").default([]).notNull(), // Array of subsystem names
+  
+  // Link to Feature Sprint (optional)
+  sprintId: varchar("sprint_id").references(() => featureSprints.id, { onDelete: 'set null' }),
+  
+  // Auto-beacon trigger - if systemic gaps were found
+  beaconEmitted: boolean("beacon_emitted").default(false),
+  beaconId: varchar("beacon_id").references(() => danielaBeacons.id, { onDelete: 'set null' }),
+  
+  // Audit metadata
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertPostFlightReportSchema = createInsertSchema(postFlightReports).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPostFlightReport = z.infer<typeof insertPostFlightReportSchema>;
+export type PostFlightReport = typeof postFlightReports.$inferSelect;
+export type PostFlightVerdict = 'mvp_ready' | 'needs_polish' | 'polished';
+
 // ===== Unified Progress API Types =====
 // Response types for the shared progress API consumed by both brain map and linear syllabus views
 // Ensures both visualizations stay in sync with the same underlying data
