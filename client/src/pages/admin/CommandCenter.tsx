@@ -4837,6 +4837,18 @@ function EditorChatTab() {
   const [newAgendaDescription, setNewAgendaDescription] = useState('');
   const [newAgendaPriority, setNewAgendaPriority] = useState<'high' | 'normal' | 'low'>('normal');
   
+  // Pre-Flight state
+  const [showPreFlight, setShowPreFlight] = useState(false);
+  const [preFlightInput, setPreFlightInput] = useState('');
+  const [preFlightResults, setPreFlightResults] = useState<{
+    proposedWork: string;
+    timestamp: string;
+    relatedSprints: Array<{ id: number; name: string; status: string; goals: string | null }>;
+    relatedBeacons: Array<{ id: number; type: string; wish: string | null; status: string }>;
+    systemChecklist: { learningCore: boolean; institutional: boolean; development: boolean; daniela: boolean };
+    suggestedQuestions: string[];
+  } | null>(null);
+  
   // Connect to WebSocket for real-time updates
   useEffect(() => {
     if (expressLaneMode && expressSession?.id) {
@@ -4966,6 +4978,23 @@ function EditorChatTab() {
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to delete item", variant: "destructive" });
+    },
+  });
+
+  // Pre-Flight check mutation
+  const preFlightMutation = useMutation({
+    mutationFn: async (proposedWork: string) => {
+      const response = await apiRequest("POST", "/api/express-lane/pre-flight", { proposedWork });
+      return response.json() as Promise<{ success: boolean; preFlight: typeof preFlightResults }>;
+    },
+    onSuccess: (data) => {
+      if (data.preFlight) {
+        setPreFlightResults(data.preFlight);
+        toast({ title: "Pre-Flight complete", description: "Context gathered for Hive discussion" });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Pre-Flight failed", description: error.message || "Could not run pre-flight check", variant: "destructive" });
     },
   });
 
@@ -5379,6 +5408,18 @@ function EditorChatTab() {
                     )}
                   </Button>
                   
+                  {/* Pre-Flight Button */}
+                  <Button
+                    size="sm"
+                    variant={showPreFlight ? "secondary" : "ghost"}
+                    onClick={() => setShowPreFlight(!showPreFlight)}
+                    data-testid="button-toggle-preflight"
+                    className="relative"
+                  >
+                    <Plane className="h-4 w-4 mr-1" />
+                    Pre-Flight
+                  </Button>
+                  
                   {/* Search Button */}
                   <Button
                     size="icon"
@@ -5522,6 +5563,135 @@ function EditorChatTab() {
                       ))
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* Pre-Flight Panel */}
+              {showPreFlight && (
+                <div className="mb-3 p-3 border rounded-md bg-blue-500/10 border-blue-500/30">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium text-sm flex items-center gap-2">
+                      <Plane className="h-4 w-4 text-blue-500" />
+                      Hive Pre-Flight Check
+                    </h4>
+                    <span className="text-xs text-muted-foreground">
+                      Sync context before starting work
+                    </span>
+                  </div>
+                  
+                  {/* Input form */}
+                  <div className="flex gap-2 mb-3">
+                    <Input
+                      value={preFlightInput}
+                      onChange={(e) => setPreFlightInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && preFlightInput.trim() && preFlightMutation.mutate(preFlightInput.trim())}
+                      placeholder="Describe the work you're about to do..."
+                      className="flex-1"
+                      data-testid="input-preflight-work"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => preFlightInput.trim() && preFlightMutation.mutate(preFlightInput.trim())}
+                      disabled={!preFlightInput.trim() || preFlightMutation.isPending}
+                      data-testid="button-run-preflight"
+                    >
+                      {preFlightMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Plane className="h-4 w-4 mr-1" />
+                          Check
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  
+                  {/* Results */}
+                  {preFlightResults && (
+                    <div className="space-y-3 text-xs">
+                      {/* System Checklist */}
+                      <div className="flex flex-wrap gap-2">
+                        {preFlightResults.systemChecklist.learningCore && (
+                          <Badge variant="secondary" className="bg-green-500/20 text-green-700 dark:text-green-300">
+                            <BookOpen className="h-3 w-3 mr-1" /> Learning Core
+                          </Badge>
+                        )}
+                        {preFlightResults.systemChecklist.institutional && (
+                          <Badge variant="secondary" className="bg-purple-500/20 text-purple-700 dark:text-purple-300">
+                            <GraduationCap className="h-3 w-3 mr-1" /> Institutional
+                          </Badge>
+                        )}
+                        {preFlightResults.systemChecklist.development && (
+                          <Badge variant="secondary" className="bg-orange-500/20 text-orange-700 dark:text-orange-300">
+                            <Code className="h-3 w-3 mr-1" /> Development
+                          </Badge>
+                        )}
+                        {preFlightResults.systemChecklist.daniela && (
+                          <Badge variant="secondary" className="bg-pink-500/20 text-pink-700 dark:text-pink-300">
+                            <Brain className="h-3 w-3 mr-1" /> Daniela
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      {/* Related Sprints */}
+                      {preFlightResults.relatedSprints.length > 0 && (
+                        <div className="p-2 bg-card rounded-md">
+                          <div className="font-medium mb-1 flex items-center gap-1">
+                            <Zap className="h-3 w-3 text-yellow-500" />
+                            Related Sprints ({preFlightResults.relatedSprints.length})
+                          </div>
+                          {preFlightResults.relatedSprints.map(sprint => (
+                            <div key={sprint.id} className="flex items-center gap-2 text-muted-foreground">
+                              <Badge variant="outline" className="text-xs">{sprint.status}</Badge>
+                              <span>{sprint.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Related Beacons */}
+                      {preFlightResults.relatedBeacons.length > 0 && (
+                        <div className="p-2 bg-card rounded-md">
+                          <div className="font-medium mb-1 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3 text-amber-500" />
+                            Pending Beacons ({preFlightResults.relatedBeacons.length})
+                          </div>
+                          {preFlightResults.relatedBeacons.map(beacon => (
+                            <div key={beacon.id} className="flex items-center gap-2 text-muted-foreground">
+                              <Badge variant="outline" className="text-xs">{beacon.type}</Badge>
+                              <span className="truncate">{beacon.wish || 'No wish specified'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Suggested Questions */}
+                      {preFlightResults.suggestedQuestions.length > 0 && (
+                        <div className="p-2 bg-yellow-500/10 rounded-md">
+                          <div className="font-medium mb-1">Discuss with the Hive:</div>
+                          <ul className="list-disc pl-4 text-muted-foreground">
+                            {preFlightResults.suggestedQuestions.map((q, i) => (
+                              <li key={i}>{q}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {/* Clear button */}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setPreFlightResults(null);
+                          setPreFlightInput('');
+                        }}
+                        className="text-xs"
+                        data-testid="button-clear-preflight"
+                      >
+                        <X className="h-3 w-3 mr-1" /> Clear
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
 

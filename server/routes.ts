@@ -14545,6 +14545,26 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
         return res.status(500).json({ error: 'Failed to add message' });
       }
 
+      // Emit coherence beacon to track Wren's contribution to the Hive
+      try {
+        await storage.createDanielaBeacon({
+          beaconType: 'coherence_check',
+          status: 'acknowledged',
+          priority: 'low',
+          wish: `Wren posted to Express Lane session ${sessionId.substring(0, 8)}`,
+          rawContent: content.substring(0, 500),
+          metadata: {
+            source: 'wren_api',
+            sessionId,
+            messageId: message.id,
+            timestamp: new Date().toISOString()
+          }
+        });
+        console.log(`[Wren API] Coherence beacon emitted for session ${sessionId}`);
+      } catch (beaconError) {
+        console.error('[Wren API] Failed to emit beacon:', beaconError);
+      }
+
       console.log(`[Wren API] Message posted to session ${sessionId}, id: ${message.id}`);
       res.json({ 
         success: true, 
