@@ -2579,6 +2579,51 @@ export const insertSyncCursorSchema = createInsertSchema(syncCursors).omit({
 export type InsertSyncCursor = z.infer<typeof insertSyncCursorSchema>;
 export type SyncCursor = typeof syncCursors.$inferSelect;
 
+// Agenda Queue Priority Enum
+export const agendaPriorityEnum = pgEnum("agenda_priority", [
+  'high',      // Urgent - discuss first
+  'normal',    // Standard priority
+  'low'        // Nice to have
+]);
+
+// Agenda Queue Status Enum
+export const agendaStatusEnum = pgEnum("agenda_status", [
+  'pending',    // Not yet discussed
+  'in_progress', // Currently being discussed
+  'completed',  // Discussed and resolved
+  'deferred'    // Pushed to later session
+]);
+
+// Agenda Queue - Items queued for next Express Lane session
+// Dec 2025: Option A Consolidation - centralizes all collaboration topics
+export const agendaQueue = pgTable("agenda_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  priority: agendaPriorityEnum("priority").default("normal"),
+  status: agendaStatusEnum("status").default("pending"),
+  createdBy: varchar("created_by").notNull(), // 'founder', 'daniela', 'wren', or userId
+  createdByName: varchar("created_by_name"), // Display name
+  targetSessionId: varchar("target_session_id").references(() => founderSessions.id), // Optional: specific session
+  discussedInSessionId: varchar("discussed_in_session_id").references(() => founderSessions.id),
+  notes: text("notes"), // Resolution notes after discussion
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_agenda_queue_status").on(table.status),
+  index("idx_agenda_queue_priority").on(table.priority),
+  index("idx_agenda_queue_created").on(table.createdAt),
+]);
+
+export const insertAgendaQueueSchema = createInsertSchema(agendaQueue).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAgendaQueue = z.infer<typeof insertAgendaQueueSchema>;
+export type AgendaQueueItem = typeof agendaQueue.$inferSelect;
+
 // Connection Status Enum - tracks the state of people connections
 export const connectionStatusEnum = pgEnum("connection_status", [
   'tentative',      // Mentioned once, low confidence

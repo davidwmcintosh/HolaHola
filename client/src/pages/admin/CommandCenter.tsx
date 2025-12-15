@@ -4789,6 +4789,19 @@ interface MemoryContext {
   totalConversations: number;
 }
 
+interface AgendaItem {
+  id: string;
+  title: string;
+  description: string | null;
+  priority: 'high' | 'normal' | 'low';
+  status: 'pending' | 'in_progress' | 'completed' | 'deferred';
+  createdBy: string;
+  createdByName: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 function EditorChatTab() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -4812,6 +4825,12 @@ function EditorChatTab() {
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  
+  // Agenda Queue state
+  const [showAgenda, setShowAgenda] = useState(false);
+  const [newAgendaTitle, setNewAgendaTitle] = useState('');
+  const [newAgendaDescription, setNewAgendaDescription] = useState('');
+  const [newAgendaPriority, setNewAgendaPriority] = useState<'high' | 'normal' | 'low'>('normal');
 
   // Fetch EXPRESS lane session on mount when in EXPRESS mode
   const { data: expressData, isLoading: expressLoading, refetch: refetchExpress } = useQuery<{
@@ -4858,6 +4877,59 @@ function EditorChatTab() {
   const { data: sessionHistory, refetch: refetchSessionHistory } = useQuery<{ sessions: SessionHistoryItem[] }>({
     queryKey: ['/api/express-lane/ui/sessions'],
     enabled: expressLaneMode,
+  });
+
+  // Fetch agenda queue items
+  const { data: agendaData, refetch: refetchAgenda } = useQuery<{ items: AgendaItem[] }>({
+    queryKey: ['/api/express-lane/agenda'],
+    enabled: expressLaneMode,
+  });
+  const agendaItems = agendaData?.items || [];
+  const pendingAgendaCount = agendaItems.filter(i => i.status === 'pending').length;
+
+  // Create agenda item mutation
+  const createAgendaMutation = useMutation({
+    mutationFn: async (data: { title: string; description?: string; priority?: string }) => {
+      return apiRequest("POST", "/api/express-lane/agenda", data);
+    },
+    onSuccess: async () => {
+      await refetchAgenda();
+      setNewAgendaTitle('');
+      setNewAgendaDescription('');
+      setNewAgendaPriority('normal');
+      toast({ title: "Agenda item added" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to add item", variant: "destructive" });
+    },
+  });
+
+  // Update agenda item mutation
+  const updateAgendaMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: string; status?: string; notes?: string }) => {
+      return apiRequest("PATCH", `/api/express-lane/agenda/${id}`, data);
+    },
+    onSuccess: async () => {
+      await refetchAgenda();
+      toast({ title: "Agenda item updated" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update item", variant: "destructive" });
+    },
+  });
+
+  // Delete agenda item mutation
+  const deleteAgendaMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/express-lane/agenda/${id}`);
+    },
+    onSuccess: async () => {
+      await refetchAgenda();
+      toast({ title: "Agenda item removed" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete item", variant: "destructive" });
+    },
   });
 
   // Create new EXPRESS session mutation
@@ -5222,6 +5294,23 @@ function EditorChatTab() {
                     New
                   </Button>
                   
+                  {/* Agenda Button */}
+                  <Button
+                    size="sm"
+                    variant={showAgenda ? "secondary" : "ghost"}
+                    onClick={() => setShowAgenda(!showAgenda)}
+                    data-testid="button-toggle-agenda"
+                    className="relative"
+                  >
+                    <List className="h-4 w-4 mr-1" />
+                    Agenda
+                    {pendingAgendaCount > 0 && (
+                      <Badge variant="destructive" className="ml-1 h-5 min-w-5 px-1 text-xs">
+                        {pendingAgendaCount}
+                      </Badge>
+                    )}
+                  </Button>
+                  
                   {/* Search Button */}
                   <Button
                     size="icon"
@@ -5250,6 +5339,123 @@ function EditorChatTab() {
                   </Button>
                 </div>
               </div>
+
+              {/* Agenda Queue Panel */}
+              {showAgenda && (
+                <div className="mb-3 p-3 border rounded-md bg-orange-500/10 border-orange-500/30">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium text-sm flex items-center gap-2">
+                      <List className="h-4 w-4 text-orange-500" />
+                      Agenda Queue
+                    </h4>
+                    <span className="text-xs text-muted-foreground">
+                      {pendingAgendaCount} pending
+                    </span>
+                  </div>
+                  
+                  {/* Add new item form */}
+                  <div className="flex gap-2 mb-3">
+                    <Input
+                      value={newAgendaTitle}
+                      onChange={(e) => setNewAgendaTitle(e.target.value)}
+                      placeholder="New topic..."
+                      className="flex-1"
+                      data-testid="input-agenda-title"
+                    />
+                    <Select value={newAgendaPriority} onValueChange={(v: any) => setNewAgendaPriority(v)}>
+                      <SelectTrigger className="w-24" data-testid="select-agenda-priority">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="normal">Normal</SelectItem>
+                        <SelectItem value="low">Low</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (newAgendaTitle.trim()) {
+                          createAgendaMutation.mutate({
+                            title: newAgendaTitle.trim(),
+                            description: newAgendaDescription.trim() || undefined,
+                            priority: newAgendaPriority,
+                          });
+                        }
+                      }}
+                      disabled={!newAgendaTitle.trim() || createAgendaMutation.isPending}
+                      data-testid="button-add-agenda"
+                    >
+                      {createAgendaMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  
+                  {/* Agenda items list */}
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {agendaItems.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-2">
+                        No agenda items. Add topics to discuss in the next session.
+                      </p>
+                    ) : (
+                      agendaItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className={`p-2 text-xs rounded-md border flex items-start justify-between gap-2 ${
+                            item.status === 'completed' ? 'bg-muted/50 opacity-60' : 'bg-card'
+                          }`}
+                          data-testid={`agenda-item-${item.id}`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge 
+                                variant="secondary" 
+                                className={`text-xs ${
+                                  item.priority === 'high' ? 'bg-red-500/20 text-red-700 dark:text-red-300' :
+                                  item.priority === 'low' ? 'bg-gray-500/20' : ''
+                                }`}
+                              >
+                                {item.priority}
+                              </Badge>
+                              <span className="font-medium truncate">{item.title}</span>
+                            </div>
+                            {item.description && (
+                              <p className="text-muted-foreground truncate">{item.description}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {item.status === 'pending' && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6"
+                                onClick={() => updateAgendaMutation.mutate({ id: item.id, status: 'completed' })}
+                                title="Mark completed"
+                                data-testid={`button-complete-agenda-${item.id}`}
+                              >
+                                <Check className="h-3 w-3 text-green-600" />
+                              </Button>
+                            )}
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6"
+                              onClick={() => deleteAgendaMutation.mutate(item.id)}
+                              title="Delete"
+                              data-testid={`button-delete-agenda-${item.id}`}
+                            >
+                              <Trash2 className="h-3 w-3 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Search Panel */}
               {showSearch && (

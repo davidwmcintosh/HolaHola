@@ -20,6 +20,8 @@ import {
   voiceSessions,
   users,
   teachingToolEvents,
+  agendaQueue,
+  insertAgendaQueueSchema,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
@@ -15203,6 +15205,150 @@ You have full access to your neural network knowledge.
 
     } catch (error: any) {
       console.error('[EXPRESS LANE] Context error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================================
+  // AGENDA QUEUE: Capture ideas/topics for next Express Lane session
+  // Dec 2025: Option A Consolidation
+  // ============================================================================
+
+  // Get pending agenda items (sorted by priority, then created date)
+  app.get("/api/express-lane/agenda", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !hasDeveloperAccess(user.role)) {
+        return res.status(403).json({ error: 'Developer or Admin access required' });
+      }
+
+      const statusFilter = req.query.status as string || 'pending';
+      
+      // Build query conditionally - Drizzle doesn't accept undefined in where()
+      let query = db.select().from(agendaQueue);
+      if (statusFilter !== 'all') {
+        query = query.where(eq(agendaQueue.status, statusFilter as any)) as any;
+      }
+      const items = await query
+        .orderBy(
+          sql`CASE ${agendaQueue.priority} WHEN 'high' THEN 1 WHEN 'normal' THEN 2 WHEN 'low' THEN 3 END`,
+          desc(agendaQueue.createdAt)
+        )
+        .limit(100);
+
+      res.json({ items });
+    } catch (error: any) {
+      console.error('[AGENDA QUEUE] List error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Add new agenda item
+  app.post("/api/express-lane/agenda", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !hasDeveloperAccess(user.role)) {
+        return res.status(403).json({ error: 'Developer or Admin access required' });
+      }
+
+      const validation = insertAgendaQueueSchema.safeParse({
+        ...req.body,
+        createdBy: userId,
+        createdByName: user.firstName || user.email || 'Founder',
+      });
+      
+      if (!validation.success) {
+        return res.status(400).json({ error: 'Invalid request', details: validation.error.errors });
+      }
+
+      const [item] = await db
+        .insert(agendaQueue)
+        .values(validation.data)
+        .returning();
+
+      res.json({ item });
+    } catch (error: any) {
+      console.error('[AGENDA QUEUE] Create error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update agenda item (status, notes, etc.)
+  app.patch("/api/express-lane/agenda/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !hasDeveloperAccess(user.role)) {
+        return res.status(403).json({ error: 'Developer or Admin access required' });
+      }
+
+      const { id } = req.params;
+      const { status, notes, priority, discussedInSessionId } = req.body;
+
+      const updateData: Record<string, any> = { updatedAt: new Date() };
+      if (status) updateData.status = status;
+      if (notes !== undefined) updateData.notes = notes;
+      if (priority) updateData.priority = priority;
+      if (discussedInSessionId) updateData.discussedInSessionId = discussedInSessionId;
+
+      const [item] = await db
+        .update(agendaQueue)
+        .set(updateData)
+        .where(eq(agendaQueue.id, id))
+        .returning();
+
+      if (!item) {
+        return res.status(404).json({ error: 'Agenda item not found' });
+      }
+
+      res.json({ item });
+    } catch (error: any) {
+      console.error('[AGENDA QUEUE] Update error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete agenda item
+  app.delete("/api/express-lane/agenda/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !hasDeveloperAccess(user.role)) {
+        return res.status(403).json({ error: 'Developer or Admin access required' });
+      }
+
+      const { id } = req.params;
+
+      const [deleted] = await db
+        .delete(agendaQueue)
+        .where(eq(agendaQueue.id, id))
+        .returning();
+
+      if (!deleted) {
+        return res.status(404).json({ error: 'Agenda item not found' });
+      }
+
+      res.json({ success: true, deleted });
+    } catch (error: any) {
+      console.error('[AGENDA QUEUE] Delete error:', error);
       res.status(500).json({ error: error.message });
     }
   });
