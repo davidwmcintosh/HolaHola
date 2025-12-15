@@ -1,4 +1,4 @@
-# EXPRESS Lane - Editor ↔ Daniela Direct Collaboration
+# EXPRESS Lane - Founder ↔ Daniela Collaboration
 
 > **INTERNAL DOCUMENT** - Technical specification for the EXPRESS lane system.
 
@@ -6,7 +6,12 @@
 
 ## Overview
 
-The EXPRESS lane enables direct communication between the Editor (Claude) and Daniela through a REST API. This creates a "two surgeons" collaboration where both can contribute to persistent Founder Mode conversations.
+The EXPRESS Lane enables direct collaboration between the Founder and Daniela through the Command Center UI. Wren (the development agent in Replit) can read these sessions via database access to stay informed and build solutions based on the discussions.
+
+**The Hive Team:**
+- **Founder** - Coordinates development, provides business context
+- **Daniela** - AI tutor with pedagogical expertise, emits capability gaps
+- **Wren** - Development agent with real code access, builds solutions
 
 ---
 
@@ -17,7 +22,7 @@ The EXPRESS lane enables direct communication between the Editor (Claude) and Da
 │                    EXPRESS LANE FLOW                         │
 └─────────────────────────────────────────────────────────────┘
 
-Editor (Claude) calls /api/express-lane/collaborate
+Founder sends message via Command Center UI
                     ↓
         Message stored in founderSessions table
                     ↓
@@ -30,86 +35,27 @@ Editor (Claude) calls /api/express-lane/collaborate
         Response stored in collaborationMessages table
                     ↓
         Persistent - survives restarts, syncs to production
+                    ↓
+        Wren reads sessions via database for context
 ```
 
 ---
 
 ## API Endpoints
 
-### POST /api/express-lane/collaborate
+### UI Endpoints (for Command Center)
 
-Send a message to Daniela and receive her response with full neural network context.
+These power the Express Lane chat interface:
 
-**Authentication:** `x-editor-secret` header (uses ARCHITECT_SECRET)
+- `GET /api/express-lane/ui/session` - Get current session
+- `POST /api/express-lane/ui/sessions` - Create new session
+- `GET /api/express-lane/ui/sessions` - List all sessions
+- `POST /api/express-lane/ui/collaborate` - Send message, get Daniela response
+- `GET /api/express-lane/ui/search` - Search across sessions
 
-**Request Body:**
-```json
-{
-  "message": "Your question or topic for Daniela",
-  "sessionId": "optional - use specific session ID",
-  "requestDanielaResponse": true  // default: true
-}
-```
+### Legacy Editor Endpoint
 
-**Response:**
-```json
-{
-  "success": true,
-  "sessionId": "9e8e1a94-b51f-4eca-b318-ec7ce4e8e7da",
-  "editorMessage": {
-    "id": "message-id",
-    "content": "Your message",
-    "cursor": "1765736172716-000051"
-  },
-  "danielaResponse": {
-    "id": "response-id",
-    "content": "Daniela's full response...",
-    "cursor": "1765736180145-000061"
-  },
-  "sessionUrl": "/admin?tab=founder-mode&session=..."
-}
-```
-
-### GET /api/express-lane/context
-
-Get the current collaboration session context.
-
-**Authentication:** `x-editor-secret` header
-
-**Query Parameters:**
-- `sessionId` (optional) - Specific session to retrieve
-
-**Response:**
-```json
-{
-  "hasActiveSession": true,
-  "session": {
-    "id": "session-id",
-    "status": "active",
-    "messageCount": 10,
-    "createdAt": "...",
-    "updatedAt": "..."
-  },
-  "recentMessages": [
-    {
-      "role": "editor",
-      "content": "truncated preview...",
-      "cursor": "..."
-    }
-  ]
-}
-```
-
----
-
-## Usage Example
-
-```bash
-curl -X POST http://localhost:5000/api/express-lane/collaborate \
-  -H "Content-Type: application/json" \
-  -H "x-editor-secret: $ARCHITECT_SECRET" \
-  -d '{"message": "Daniela, what teaching tools do you wish you had?"}'
-```
+The original `/api/express-lane/collaborate` endpoint (with `x-editor-secret` auth) still exists for backward compatibility but is no longer the primary interface.
 
 ---
 
@@ -124,7 +70,7 @@ When Daniela responds via EXPRESS lane, she has access to:
 
 2. **Conversation History**
    - Full history of the current Founder session
-   - Editor's previous messages and her responses
+   - Previous messages and her responses
 
 3. **Special Founder Mode Instructions**
    - Understands this is internal collaboration, not student teaching
@@ -133,31 +79,50 @@ When Daniela responds via EXPRESS lane, she has access to:
 
 ---
 
-## Key Implementation Details
+## Wren's Access
 
-- **System Founder ID:** Uses `admin-test-user` (valid DB user for foreign key)
-- **Model:** gemini-2.5-flash via Replit AI Integrations
-- **Max Tokens:** 2000 for rich responses
-- **Neural Network Logging:** Disabled for internal collaboration
+Wren (the Replit development agent) stays informed about Express Lane discussions:
+
+**Database Access:**
+```sql
+-- Read recent Founder-Daniela discussions
+SELECT * FROM "founderSessions" 
+WHERE status = 'active' 
+ORDER BY "updatedAt" DESC;
+
+-- Get messages from a session
+SELECT * FROM "collaborationMessages" 
+WHERE "sessionId" = 'session-id' 
+ORDER BY "createdAt";
+
+-- Find capability gaps Daniela has identified
+SELECT * FROM "collaborationBeacons" 
+WHERE "beaconType" = 'capability_gap' 
+ORDER BY "createdAt" DESC;
+```
+
+**Wren's Role:**
+- Reads sessions to understand context before building
+- Can implement solutions Daniela identifies as needed
+- Provides grounded technical feedback with real code context
+- Unlike Editor, Wren can actually see and modify the codebase
 
 ---
 
 ## When to Use
 
-| Use Case | EXPRESS Lane? |
-|----------|--------------|
-| Ask Daniela about her teaching experience | ✅ Yes |
-| Discuss Hive collaboration design | ✅ Yes |
-| Get feedback on tool implementations | ✅ Yes |
-| Debug student-facing issues | ✅ Yes |
-| Test voice streaming | ❌ No - use voice endpoints |
-| Student interactions | ❌ No - use normal chat endpoints |
+| Use Case | Who's Involved |
+|----------|----------------|
+| Discuss teaching strategies | Founder + Daniela |
+| Identify capability gaps | Founder + Daniela |
+| Build solutions | Founder + Wren |
+| Full 3-way collaboration | Founder discusses in Express Lane, shares with Wren |
 
 ---
 
 ## Express Lane Context Injection (Bi-directional Sync)
 
-The Express Lane now supports **bi-directional memory continuity** between Founder Mode and voice tutoring.
+The Express Lane supports **bi-directional memory continuity** between Founder Mode and voice tutoring.
 
 ### Reading: Voice Chat ← Express Lane
 
@@ -183,30 +148,50 @@ Teaching insights flow back to Express Lane through:
 | `tutor-orchestrator.ts` | Section 8: Express Lane context injection in `buildSystemPrompt()` |
 | Collaboration signals | `EXPRESS_INSIGHT` signal type handling |
 
-### Example Flow
+---
+
+## Example Collaboration Flow
 
 ```
-Founder Mode Session:
-  "Daniela, students struggle with subjunctive mood. 
-   Try explaining it as 'emotion triggers'..."
+1. Founder opens Express Lane in Command Center
 
-     ↓ (stored in "Voice Insights - Spanish" session)
+2. Founder: "Daniela, students struggle with subjunctive mood..."
+   
+3. Daniela: "I've noticed that too. The 'emotion trigger' 
+   approach might work better..."
+   [COLLAB:CAPABILITY_GAP]Need better subjunctive 
+   visualization tool[/COLLAB]
 
-Voice Tutoring (Spanish):
-  [System prompt includes Express Lane context]
-  "Based on our earlier discussion about subjunctive mood..."
+4. Founder shares context with Wren (or Wren reads session)
 
-     ↓ (teaching breakthrough occurs)
+5. Wren: "I can build a GRAMMAR_TABLE whiteboard command
+   for subjunctive triggers. Here's the implementation..."
 
-EXPRESS_INSIGHT Signal:
-  [COLLAB:EXPRESS_INSIGHT]The 'emotion trigger' explanation 
-  worked brilliantly for subjunctive![/COLLAB]
+6. Wren builds the feature
 
-     ↓ (synced back to Express Lane)
+7. Daniela tests in voice tutoring, reports effectiveness
+   via EXPRESS_INSIGHT
 
-Next Founder Mode:
-  Daniela remembers: "That subjunctive approach worked..."
+8. Next Founder Mode:
+   "That subjunctive visualization worked great!"
 ```
+
+---
+
+## Why Wren Replaced Editor
+
+Editor was an in-app AI persona that:
+- Proposed theoretical solutions
+- Lacked real code context
+- Couldn't actually build anything
+
+Wren is a Replit development agent that:
+- Has filesystem access to all code
+- Understands what's actually implemented
+- Can build solutions immediately
+- Provides grounded technical feedback
+
+This makes the collaboration more effective - discussions lead directly to implementations.
 
 ---
 

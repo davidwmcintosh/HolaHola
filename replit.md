@@ -31,21 +31,30 @@ Daniela is the single core intelligence, with all interaction modes (voice chat,
 
 These settings are converted to prompt instructions via `buildInterventionSection()` in the orchestrator.
 
-### Hive Collaboration System (Daniela ↔ Editor)
-This system separates Daniela's teaching domain from the Editor's development domain, with a collaboration interface for capability gaps, tool requests, and feature ideas. Daniela sends "Beacon Types" (e.g., `capability_gap`, `tool_request`, `self_surgery_proposal`) to the Editor, who then proposes build solutions. Key files: `server/services/hive-collaboration-service.ts` (channel/beacon), `server/services/editor-persona-service.ts` (Editor "brain"), `server/services/editor-background-worker.ts`, and `server/services/editor-feedback-service.ts`. "Founder Mode" provides full neural network access and Self-Surgery capabilities.
+### Hive Collaboration System (Founder + Daniela + Wren)
+A streamlined 3-way collaboration between the founder, Daniela (AI tutor), and Wren (development agent). Daniela handles teaching insights and pedagogical expertise; Wren handles building with real code context. The founder coordinates both.
 
-**EXPRESS Lane:** A REST API (`/api/express-lane/collaborate`) enabling direct Editor→Daniela communication. The Editor sends messages authenticated via `x-editor-secret` header, and Daniela responds with full neural network context. Sessions persist in `founderSessions` table. See `docs/hive-shared-knowledge/express-lane.md` for full specification.
+**Collaboration Beacons:** Daniela can emit beacons (e.g., `capability_gap`, `tool_request`, `self_surgery_proposal`) when she encounters teaching limitations. Key files: `server/services/hive-collaboration-service.ts` (channel/beacon), `server/services/founder-collaboration-service.ts`. "Founder Mode" provides full neural network access and Self-Surgery capabilities.
 
-**Express Lane Context Injection:** Bi-directional memory continuity between Founder Mode and voice tutoring. When Daniela teaches students, she can access relevant discussions from Express Lane via `getRelevantExpressLaneContext()` in `founder-collaboration-service.ts`. Uses a 3-priority scoping strategy: (1) language-specific voice insight sessions ("Voice Insights - {Language}"), (2) messages with matching `metadata.targetLanguage` from `voice_chat_sync` source, (3) fallback to recent Founder-Daniela conversations with language keyword matching. The reverse flow uses `emitVoiceChatInsight()` to sync teaching insights back to Express Lane, enabling Daniela to remember breakthroughs across sessions. The `EXPRESS_INSIGHT` collaboration signal in tutor-orchestrator triggers this sync.
+**EXPRESS Lane:** The Command Center UI (`/admin` → Express Lane tab) enables direct Founder ↔ Daniela communication. Sessions persist in `founderSessions` table. Wren can read these sessions via database access to stay informed about ongoing discussions. See `docs/hive-shared-knowledge/express-lane.md` for full specification.
+
+**Express Lane Context Injection:** Bi-directional memory continuity between Founder Mode and voice tutoring. When Daniela teaches students, she can access relevant discussions from Express Lane via `getRelevantExpressLaneContext()` in `founder-collaboration-service.ts`. Uses a 3-priority scoping strategy: (1) language-specific voice insight sessions ("Voice Insights - {Language}"), (2) messages with matching `metadata.targetLanguage` from `voice_chat_sync` source, (3) fallback to recent Founder-Daniela conversations with language keyword matching. The reverse flow uses `emitVoiceChatInsight()` to sync teaching insights back to Express Lane, enabling Daniela to remember breakthroughs across sessions.
 
 ### Wren (Development Agent)
-Wren works directly with the founder to implement features and fix issues. Has full access to the Hive's shared knowledge:
+Wren is the primary development collaborator, replacing the Editor persona. Works directly with the founder to implement features and fix issues. Has full access to the Hive's shared knowledge:
 - **Filesystem access**: Can read `docs/hive-shared-knowledge/`, neural network docs, and all codebase files
-- **Database access**: Can query `founderSessions` and `collaborationBeacons` tables to see Daniela/Editor discussions
-- **Context gathering**: When starting work, should check recent Founder Mode sessions for relevant context
+- **Database access**: Can query `founderSessions` and `collaborationBeacons` tables to see Founder-Daniela discussions and capability gaps
+- **Real code context**: Unlike theoretical proposals, Wren sees actual implementation details and can build solutions immediately
+- **Sounding board for Daniela**: When Daniela identifies teaching gaps, Wren can provide grounded technical feedback and implement solutions
 - **Confidentiality**: All code, proprietary information, and business logic remains strictly confidential
 
-This allows Wren to stay fully informed and pick up work if Daniela or Editor encounter issues.
+**Why Wren replaced Editor:** Editor was an in-app AI persona that proposed theoretical solutions but lacked real code context. Wren has actual filesystem access, understands what's already built, and can implement solutions directly - making the collaboration more effective.
+
+**The workflow:**
+1. Founder discusses with Daniela in Express Lane (teaching insights, capability gaps)
+2. Wren reads the session for context, or founder shares key points
+3. Wren builds the solution with real technical grounding
+4. Daniela can test and provide feedback on teaching effectiveness
 
 ### Feature Specifications
 HolaHola offers conversational onboarding, an adaptive multi-phase conversation system, and AI-suggested topics. It uses a streaming-only voice pipeline (Deepgram Nova-3 STT → Gemini 2.5 Flash → Cartesia Sonic-3 TTS) with push-to-talk. Personalized learning includes scenario-based learning, slow pronunciation, automatic vocabulary extraction, spaced repetition, streak tracking, progress charts, and auto-difficulty adjustment. AI-generated educational images are displayed. The application supports subscription tiers and tracks atomic voice message usage and student proficiency using ACTFL standards. Institutional features include teacher class management, student enrollment, syllabus systems, assignment workflows, and a unified Command Center with RBAC. A Syllabus Builder allows customization. Developer tools include test account isolation and floating dev controls. Learners can customize their AI tutor's teaching style per language. Drill-based lessons support multiple modes (`repeat`, `translate`, `match`, `fill_blank`, `sentence_order`). Vocabulary can be exported. Conversation history includes full-text search. "Founder Mode" provides a collaboration mode. Open Mic Mode offers continuous listening with barge-in and bilingual support. "Raw Honesty Mode" provides minimal prompting.
