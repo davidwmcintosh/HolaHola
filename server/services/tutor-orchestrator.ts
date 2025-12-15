@@ -42,6 +42,7 @@ import { hiveCollaborationService } from "./hive-collaboration-service";
 import { beaconSyncService } from "./beacon-sync-service";
 import { founderCollabService } from "./founder-collaboration-service";
 import { storage } from "../storage";
+import { hiveContextService } from "./hive-context-service";
 
 // Use Replit AI Integrations for Gemini API (requires httpOptions for baseUrl)
 const genAI = new GoogleGenAI({
@@ -429,7 +430,29 @@ ${expressLaneContext.contextString}
     }
   }
 
-  // 9. Additional context if provided
+  // 9. Hive context (shared awareness of system state)
+  let hiveSection = "";
+  if (mode === 'conversation') {
+    try {
+      const hiveSummary = await hiveContextService.getSummary();
+      if (hiveSummary) {
+        hiveSection = `
+═══════════════════════════════════════════════════════════════════
+🐝 HIVE STATE (Shared System Awareness)
+═══════════════════════════════════════════════════════════════════
+
+${hiveSummary}
+
+Use this context to understand what's happening in the system. If you emit
+beacons or insights, they fit into this larger picture.
+`;
+      }
+    } catch (error) {
+      console.error('[TutorOrchestrator] Error fetching Hive context:', error);
+    }
+  }
+
+  // 10. Additional context if provided
   const additionalContext = request.additionalPromptContext
     ? `
 ═══════════════════════════════════════════════════════════════════
@@ -448,6 +471,7 @@ ${request.additionalPromptContext}
     proceduralSection,
     editorInsightsSection,
     expressLaneSection,
+    hiveSection,
     additionalContext,
   ]
     .filter(Boolean)

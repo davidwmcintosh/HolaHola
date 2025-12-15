@@ -34,6 +34,7 @@ import { hiveCollaborationService, type BeaconType } from "./hive-collaboration-
 import { getNeuralNetworkContext, formatNeuralNetworkForPrompt } from "./neural-network-retrieval";
 import { storage } from "../storage";
 import { beaconSyncService } from "./beacon-sync-service";
+import { hiveContextService, type HiveContext } from "./hive-context-service";
 
 // Secret key for Editor authentication - must match env var
 const ARCHITECT_SECRET = process.env.ARCHITECT_SECRET || '';
@@ -428,6 +429,77 @@ class EditorPersonaService {
     return lines.join('\n');
   }
   
+  /**
+   * Build Hive context string for Claude prompt
+   * This gives the Editor awareness of the overall system state
+   */
+  private buildHiveContext(hive: HiveContext): string {
+    const lines: string[] = [
+      '',
+      '═══════════════════════════════════════════════════════════════════',
+      '🐝 HIVE STATE (Shared Awareness)',
+      '═══════════════════════════════════════════════════════════════════',
+      '',
+    ];
+    
+    // System health overview
+    lines.push(`SYSTEM HEALTH: ${hive.systemHealth.recentActivityLevel} activity`);
+    lines.push(`• ${hive.systemHealth.pendingBeaconCount} pending beacons`);
+    lines.push(`• ${hive.systemHealth.unresolvedIssueCount} unresolved issues`);
+    lines.push(`• ${hive.systemHealth.activeSprintCount} active sprints`);
+    lines.push('');
+    
+    // Focus areas
+    if (hive.focusAreas.length > 0) {
+      lines.push('FOCUS AREAS:');
+      hive.focusAreas.forEach(area => {
+        lines.push(`• ${area}`);
+      });
+      lines.push('');
+    }
+    
+    // Active sprints
+    if (hive.activeSprints.length > 0) {
+      lines.push('ACTIVE SPRINTS:');
+      hive.activeSprints.forEach(sprint => {
+        lines.push(`• [${sprint.priority}] ${sprint.title} (${sprint.stage})`);
+      });
+      lines.push('');
+    }
+    
+    // Recent post-flights with issues
+    const needsAttention = hive.recentPostFlights.filter(
+      pf => pf.requiredFixes.length > 0 || pf.shouldAddress.length > 0
+    );
+    if (needsAttention.length > 0) {
+      lines.push('POST-FLIGHT FINDINGS NEEDING ATTENTION:');
+      needsAttention.slice(0, 3).forEach(pf => {
+        lines.push(`• ${pf.featureName} (${pf.verdict}): ${pf.requiredFixes.length} required, ${pf.shouldAddress.length} should address`);
+      });
+      lines.push('');
+    }
+    
+    // Pending beacons (so Editor can see what else Daniela needs)
+    if (hive.pendingBeacons.length > 1) {
+      lines.push('OTHER PENDING BEACONS:');
+      hive.pendingBeacons.slice(0, 3).forEach(beacon => {
+        lines.push(`• [${beacon.type}] ${beacon.reason || beacon.tutorTurn.slice(0, 50)}...`);
+      });
+      lines.push('');
+    }
+    
+    // Recent Express Lane sessions
+    if (hive.recentSessions.length > 0) {
+      lines.push('RECENT EXPRESS LANE SESSIONS:');
+      hive.recentSessions.slice(0, 3).forEach(session => {
+        lines.push(`• ${session.title} (${session.messageCount} messages)`);
+      });
+      lines.push('');
+    }
+    
+    return lines.join('\n');
+  }
+  
   // ============================================================================
   // BEACON RESPONSE GENERATION
   // ============================================================================
@@ -447,6 +519,16 @@ class EditorPersonaService {
     const architectureContextStr = architectureContext 
       ? this.buildSystemArchitectureContext(architectureContext)
       : '';
+    
+    // Load Hive context - shared awareness of system state (beacons, sprints, sessions)
+    let hiveContextStr = '';
+    try {
+      const hiveContext = await hiveContextService.buildContext();
+      hiveContextStr = this.buildHiveContext(hiveContext);
+      console.log(`[Editor Persona] Loaded Hive context: ${hiveContext.systemHealth.recentActivityLevel} activity`);
+    } catch (error) {
+      console.warn('[Editor Persona] Failed to load Hive context:', error);
+    }
     
     // Get channel context and language-specific neural network knowledge
     let channelContext = '';
@@ -504,6 +586,7 @@ SESSION CONTEXT:
     const userPrompt = `
 ${knowledgeContext}
 ${architectureContextStr}
+${hiveContextStr}
 ${languageSpecificContext}
 ${channelContext}
 
