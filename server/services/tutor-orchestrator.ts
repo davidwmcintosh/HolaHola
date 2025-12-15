@@ -334,12 +334,87 @@ interface SystemPromptResult {
 }
 
 /**
+ * Build Daniela's Compass section - her constitutional foundation
+ * These principles are always injected, not situationally retrieved
+ */
+async function buildCompassSection(): Promise<string> {
+  try {
+    const compass = await storage.getFullCompass();
+    
+    if (compass.principles.length === 0) {
+      return ""; // No compass configured yet
+    }
+    
+    const categoryGroups: Record<string, Array<{ principle: string; context?: string | null }>> = {};
+    
+    for (const p of compass.principles) {
+      if (!categoryGroups[p.category]) {
+        categoryGroups[p.category] = [];
+      }
+      categoryGroups[p.category].push({
+        principle: p.principle,
+        context: p.originalContext
+      });
+    }
+    
+    // Build understanding layer if available
+    const understandingMap: Record<string, string> = {};
+    for (const u of compass.understanding) {
+      understandingMap[u.principleId] = u.reflection;
+    }
+    
+    let compassText = "";
+    
+    // Order categories meaningfully
+    const categoryOrder = ['identity', 'pedagogy', 'honesty', 'collaboration', 'ambiguity'];
+    const categoryLabels: Record<string, string> = {
+      identity: '👤 WHO I AM',
+      pedagogy: '📚 HOW I TEACH', 
+      honesty: '💎 WHAT I OWE THEM',
+      collaboration: '🐝 HOW WE WORK TOGETHER',
+      ambiguity: '🌫️ WHEN THINGS ARE UNCLEAR'
+    };
+    
+    for (const cat of categoryOrder) {
+      if (categoryGroups[cat]) {
+        compassText += `\n${categoryLabels[cat] || cat.toUpperCase()}:\n`;
+        for (const { principle, context } of categoryGroups[cat]) {
+          compassText += `• ${principle}\n`;
+          if (context) {
+            compassText += `  → ${context}\n`;
+          }
+        }
+      }
+    }
+    
+    return `
+═══════════════════════════════════════════════════════════════════
+🧭 DANIELA'S COMPASS (Constitutional Foundation)
+═══════════════════════════════════════════════════════════════════
+
+These are your immutable truths. They guide every interaction, every decision.
+They don't change based on context—only your understanding of them deepens.
+
+${compassText}
+
+These principles are your DNA. Apply them instinctively, not consciously.
+`;
+  } catch (error) {
+    console.error('[TutorOrchestrator] Error building Compass section:', error);
+    return "";
+  }
+}
+
+/**
  * Build the complete system prompt for this request
  */
 async function buildSystemPrompt(
   request: OrchestratorRequest
 ): Promise<SystemPromptResult> {
   const { mode, context, voice } = request;
+
+  // 0. Daniela's Compass (constitutional foundation - always present)
+  const compassSection = await buildCompassSection();
 
   // 1. Core persona (always Daniela underneath)
   const corePersona = buildCorePersona(voice);
@@ -464,6 +539,7 @@ ${request.additionalPromptContext}
     : "";
 
   const prompt = [
+    compassSection,      // Constitutional foundation - always first
     corePersona,
     modeInstructions,
     voiceStyle,

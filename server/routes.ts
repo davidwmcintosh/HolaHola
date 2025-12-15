@@ -16291,7 +16291,7 @@ You have full access to your neural network knowledge.
         return res.status(403).json({ error: 'Admin access required (Founder only)' });
       }
 
-      const { category, principle, guidance, source } = req.body;
+      const { category, principle, originalContext } = req.body;
       
       if (!category || !principle) {
         return res.status(400).json({ error: 'category and principle are required' });
@@ -16300,8 +16300,7 @@ You have full access to your neural network knowledge.
       const created = await storage.createCompassPrinciple({
         category,
         principle,
-        guidance: guidance || null,
-        source: source || 'founder_defined',
+        originalContext: originalContext || null,
       });
       
       res.json({ success: true, principle: created });
@@ -16325,10 +16324,10 @@ You have full access to your neural network knowledge.
       }
 
       const { id } = req.params;
-      const { guidance, orderIndex, isActive } = req.body;
+      const { originalContext, orderIndex, isActive } = req.body;
       
       const updated = await storage.updateCompassPrinciple(id, {
-        guidance: guidance !== undefined ? guidance : undefined,
+        originalContext: originalContext !== undefined ? originalContext : undefined,
         orderIndex: orderIndex !== undefined ? orderIndex : undefined,
         isActive: isActive !== undefined ? isActive : undefined,
       });
