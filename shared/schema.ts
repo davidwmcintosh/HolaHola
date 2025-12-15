@@ -5154,7 +5154,10 @@ export const danielaBeaconTypeEnum = pgEnum('daniela_beacon_type', [
   'tool_request',      // Specific tool enhancement
   'self_surgery',      // Proposed neural network change
   'observation',       // General observation about teaching effectiveness
-  'bug_report'         // Something not working as expected
+  'bug_report',        // Something not working as expected
+  'coherence_check',   // Pre-flight: proposed work may not fit architecture
+  'architecture_drift', // Pre-flight: building something that overlaps existing system
+  'sprint_alignment'   // Pre-flight: work should connect to an existing sprint
 ]);
 
 export const danielaBeaconPriorityEnum = pgEnum('daniela_beacon_priority', [
