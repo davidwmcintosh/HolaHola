@@ -28,7 +28,17 @@ This system enables collaboration between the founder, Daniela (AI tutor), Edito
 Editor is a Claude-powered agent that runs inside `editor-persona-service.ts`. Editor automatically responds to Daniela's beacons during voice tutoring sessions, providing analysis, suggestions, and feedback. Editor can observe teaching patterns, propose neural network changes, and give pedagogical advice - but **cannot build or implement anything**. Editor talks the talk but can't walk the walk.
 
 ### Wren (Development Builder Agent)
-Wren is the Replit development agent (this chat interface) with full access to the Hive's shared knowledge, including filesystem, database (`founderSessions`, `collaborationBeacons`), and real code context. Wren can post updates to Express Lane via a dedicated API endpoint (`POST /api/wren/message`). Unlike Editor, **Wren can actually build and implement changes**. Wren walks the walk.
+Wren is the Replit development agent (this chat interface) with full access to the Hive's shared knowledge, including filesystem, database (`founderSessions`, `collaborationBeacons`), and real code context. Unlike Editor, **Wren can actually build and implement changes**. Wren walks the walk.
+
+**Wren's Hive Awareness APIs:**
+- `GET /api/hive/context` - Full Hive context (beacons, sprints, sessions, system health)
+- `GET /api/hive/summary` - Lightweight summary for quick context injection
+- `POST /api/wren/message` - Post updates to Express Lane (visible to Founder)
+- `POST /api/wren/consult-daniela` - Consult Daniela with visible exchange in Express Lane
+- `GET /api/wren/inbox` - Fetch messages tagged for Wren
+
+**Session Startup Ritual:**
+Run `npx tsx scripts/wren-startup.ts` at the start of each session to sync with the Hive. This fetches current context and updates `.local/state/memory/persisted_information.md` so Wren has full awareness of beacons, sprints, sessions, and system state.
 
 ### Feature Specifications
 HolaHola offers conversational onboarding, an adaptive multi-phase conversation system, and AI-suggested topics. It uses a streaming-only voice pipeline (Deepgram Nova-3 STT → Gemini 2.5 Flash → Cartesia Sonic-3 TTS) with push-to-talk. Personalized learning includes scenario-based learning, slow pronunciation, automatic vocabulary extraction, spaced repetition, streak tracking, progress charts, and auto-difficulty adjustment. AI-generated educational images are displayed. The application supports subscription tiers, tracks atomic voice message usage, and student proficiency using ACTFL standards. Institutional features include teacher class management, student enrollment, syllabus systems, assignment workflows, and a unified Command Center with RBAC. A Syllabus Builder allows customization. Drill-based lessons support multiple modes (`repeat`, `translate`, `match`, `fill_blank`, `sentence_order`). Conversation history includes full-text search. "Founder Mode" provides a collaboration mode, and "Open Mic Mode" offers continuous listening.

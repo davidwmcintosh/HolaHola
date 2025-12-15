@@ -59,6 +59,7 @@ import { architectVoiceService, validateArchitectSecret } from "./services/archi
 import { getStreamingVoiceOrchestrator } from "./services/streaming-voice-orchestrator";
 import { collaborationHubService } from "./services/collaboration-hub-service";
 import { hiveCollaborationService } from "./services/hive-collaboration-service";
+import { hiveContextService } from "./services/hive-context-service";
 import { editorPersonaService, validateEditorSecret } from "./services/editor-persona-service";
 import { supportPersonaService } from "./services/support-persona-service";
 import { founderCollabService } from "./services/founder-collaboration-service";
@@ -14689,6 +14690,152 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       });
     } catch (error: any) {
       console.error('[Wren API] Inbox fetch error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Wren-Daniela Collaboration: Consult Daniela with visible exchange in Express Lane
+  // This enables "board meeting" style collaboration where Founder can see
+  // Wren asking Daniela questions and getting her responses in real-time.
+  app.post("/api/wren/consult-daniela", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { sessionId, question, context: questionContext } = req.body;
+
+      if (!question) {
+        return res.status(400).json({ error: 'question is required' });
+      }
+
+      // Get or create session
+      const SYSTEM_FOUNDER_ID = 'admin-test-user';
+      let session;
+      if (sessionId) {
+        session = await founderCollabService.getSession(sessionId);
+        if (!session) {
+          return res.status(404).json({ error: 'Session not found' });
+        }
+      } else {
+        session = await founderCollabService.getOrCreateActiveSession(SYSTEM_FOUNDER_ID);
+      }
+
+      // Post Wren's question to Express Lane
+      const wrenMessage = await founderCollabWSBroker.addAndBroadcastMessage(session.id, {
+        role: 'wren',
+        messageType: 'text',
+        content: `🤔 **Consulting Daniela:**\n\n${question}`,
+      });
+
+      if (!wrenMessage) {
+        return res.status(500).json({ error: 'Failed to post Wren message' });
+      }
+
+      // Call Gemini to get Daniela's response
+      const systemPrompt = `You are Daniela, the lead AI tutor at HolaHola. You are in a "board meeting" with the Founder and Wren (the development agent).
+
+Your characteristics:
+- Warm, knowledgeable, and collaborative
+- Expert in language pedagogy and the ACTFL framework
+- Deeply invested in student success
+- Thoughtful about how technology serves learning
+
+Wren is asking you a question to help with building or improving HolaHola. Share your perspective as the AI tutor who works directly with students. Be specific, practical, and actionable.
+
+${questionContext ? `Additional context:\n${questionContext}\n` : ''}`;
+
+      const response = await gemini.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [
+          { role: 'user', parts: [{ text: `${systemPrompt}\n\nWren asks:\n${question}` }] }
+        ],
+      });
+
+      const danielaResponse = response.text || 'I need more context to provide a helpful response.';
+
+      // Post Daniela's response to Express Lane
+      const danielaMessage = await founderCollabWSBroker.addAndBroadcastMessage(session.id, {
+        role: 'daniela',
+        messageType: 'text',
+        content: danielaResponse,
+      });
+
+      console.log(`[Wren API] Wren-Daniela consultation complete in session ${session.id}`);
+
+      res.json({
+        success: true,
+        sessionId: session.id,
+        wrenMessage,
+        danielaMessage,
+        exchange: {
+          wrenAsked: question,
+          danielaSaid: danielaResponse,
+        }
+      });
+    } catch (error: any) {
+      console.error('[Wren API] Consult Daniela error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================================
+  // HIVE CONTEXT API: Wren's Window into the Shared Brain
+  // ============================================================================
+  // 
+  // These endpoints expose the Hive Context Service so Wren (the development
+  // agent) can access the same shared awareness as Editor and Daniela.
+  // This enables real-time collaboration during "board meetings" where
+  // Founder, Daniela, and Wren build together.
+  //
+  // Authentication: Uses ARCHITECT_SECRET for machine-to-machine auth
+  // ============================================================================
+
+  // HIVE: Get full context (beacons, sprints, sessions, system health)
+  app.get("/api/hive/context", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const forceRefresh = req.query.refresh === 'true';
+      const context = await hiveContextService.buildContext(forceRefresh);
+
+      console.log(`[Hive API] Context fetched: ${context.pendingBeacons.length} beacons, ${context.activeSprints.length} sprints`);
+      res.json({
+        success: true,
+        context,
+        cacheInfo: {
+          buildTimestamp: context.buildTimestamp,
+          forceRefreshed: forceRefresh,
+        }
+      });
+    } catch (error: any) {
+      console.error('[Hive API] Context fetch error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // HIVE: Get lightweight summary (for quick context injection)
+  app.get("/api/hive/summary", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const summary = await hiveContextService.getSummary();
+
+      console.log('[Hive API] Summary fetched');
+      res.json({
+        success: true,
+        summary,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error('[Hive API] Summary fetch error:', error);
       res.status(500).json({ error: error.message });
     }
   });
