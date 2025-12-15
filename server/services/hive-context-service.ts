@@ -16,14 +16,23 @@
  */
 
 import { db } from "../db";
-import { eq, desc, and, sql, gt, isNull } from "drizzle-orm";
+import { eq, desc, and, sql, gt, isNull, asc } from "drizzle-orm";
 import {
   editorListeningSnapshots,
   postFlightReports,
   featureSprints,
   founderSessions,
+  collaborationMessages,
+  consultationThreads,
+  curriculumPaths,
+  classTypes,
+  topics,
+  grammarCompetencies,
+  teacherClasses,
+  agendaQueue,
   type FeatureSprint,
   type FounderSession,
+  type CollaborationMessage,
 } from "@shared/schema";
 
 // ============================================================================
@@ -69,6 +78,65 @@ export interface SessionSummary {
   recentTopics: string[];
 }
 
+// === EXPANDED KNOWLEDGE TYPES ===
+
+export interface LanguageOverview {
+  language: string;
+  classCount: number;
+  curriculumPaths: string[];
+}
+
+export interface CurriculumOverview {
+  id: string;
+  name: string;
+  language: string;
+  description?: string;
+  actflTarget?: string;
+}
+
+export interface TopicCategory {
+  category: string;
+  count: number;
+}
+
+export interface GrammarOverview {
+  language: string;
+  competencyCount: number;
+  levels: string[];
+}
+
+export interface AgendaItem {
+  id: string;
+  title: string;
+  priority: string;
+  status: string;
+  createdBy: string;
+}
+
+export interface ConsultationSummary {
+  id: string;
+  sprintId?: string;
+  title: string;
+  topic?: string;
+  isResolved: boolean;
+}
+
+// === EXPANDED HIVE CONTEXT ===
+
+export interface HiveKnowledge {
+  // Languages and curricula
+  languages: LanguageOverview[];
+  curricula: CurriculumOverview[];
+  
+  // Content overview
+  topicCategories: TopicCategory[];
+  grammarByLanguage: GrammarOverview[];
+  
+  // Active work
+  agendaItems: AgendaItem[];
+  openConsultations: ConsultationSummary[];
+}
+
 export interface HiveContext {
   // Timestamp for cache invalidation
   buildTimestamp: Date;
@@ -95,6 +163,9 @@ export interface HiveContext {
   
   // Key focus areas (derived from data)
   focusAreas: string[];
+  
+  // Comprehensive HolaHola knowledge
+  knowledge: HiveKnowledge;
 }
 
 // ============================================================================
@@ -126,11 +197,13 @@ class HiveContextService {
       recentPostFlights,
       activeSprints,
       recentSessions,
+      knowledge,
     ] = await Promise.all([
       this.getPendingBeacons(),
       this.getRecentPostFlights(),
       this.getActiveSprints(),
       this.getRecentSessions(),
+      this.getHiveKnowledge(),
     ]);
     
     // Derive system health and focus areas
@@ -145,6 +218,7 @@ class HiveContextService {
       recentSessions,
       systemHealth,
       focusAreas,
+      knowledge,
     };
     
     // Cache the result
@@ -373,6 +447,232 @@ class HiveContextService {
     });
     
     return Array.from(areas).slice(0, 5);
+  }
+  
+  // ============================================================================
+  // EXPANDED KNOWLEDGE QUERIES
+  // ============================================================================
+  
+  private async getHiveKnowledge(): Promise<HiveKnowledge> {
+    try {
+      const [
+        languages,
+        curricula,
+        topicCategories,
+        grammarByLanguage,
+        agendaItems,
+        openConsultations,
+      ] = await Promise.all([
+        this.getLanguageOverview(),
+        this.getCurriculaOverview(),
+        this.getTopicCategories(),
+        this.getGrammarByLanguage(),
+        this.getAgendaItems(),
+        this.getOpenConsultations(),
+      ]);
+      
+      return {
+        languages,
+        curricula,
+        topicCategories,
+        grammarByLanguage,
+        agendaItems,
+        openConsultations,
+      };
+    } catch (error) {
+      console.error('[HiveContext] Error building knowledge:', error);
+      return {
+        languages: [],
+        curricula: [],
+        topicCategories: [],
+        grammarByLanguage: [],
+        agendaItems: [],
+        openConsultations: [],
+      };
+    }
+  }
+  
+  private async getLanguageOverview(): Promise<LanguageOverview[]> {
+    try {
+      // Get classes grouped by language
+      const classes = await db.select()
+        .from(teacherClasses)
+        .where(eq(teacherClasses.isActive, true));
+      
+      const languageMap = new Map<string, { count: number; paths: Set<string> }>();
+      
+      classes.forEach(c => {
+        const lang = c.language;
+        if (!languageMap.has(lang)) {
+          languageMap.set(lang, { count: 0, paths: new Set() });
+        }
+        const entry = languageMap.get(lang)!;
+        entry.count++;
+        if (c.curriculumPathId) {
+          entry.paths.add(c.curriculumPathId);
+        }
+      });
+      
+      return Array.from(languageMap.entries()).map(([language, data]) => ({
+        language,
+        classCount: data.count,
+        curriculumPaths: Array.from(data.paths),
+      }));
+    } catch (error) {
+      console.error('[HiveContext] Error fetching languages:', error);
+      return [];
+    }
+  }
+  
+  private async getCurriculaOverview(): Promise<CurriculumOverview[]> {
+    try {
+      const paths = await db.select()
+        .from(curriculumPaths)
+        .orderBy(asc(curriculumPaths.language), asc(curriculumPaths.name))
+        .limit(20);
+      
+      return paths.map(p => ({
+        id: p.id,
+        name: p.name,
+        language: p.language,
+        description: p.description ?? undefined,
+        actflTarget: p.actflTarget ?? undefined,
+      }));
+    } catch (error) {
+      console.error('[HiveContext] Error fetching curricula:', error);
+      return [];
+    }
+  }
+  
+  private async getTopicCategories(): Promise<TopicCategory[]> {
+    try {
+      const allTopics = await db.select()
+        .from(topics);
+      
+      const categoryMap = new Map<string, number>();
+      allTopics.forEach(t => {
+        const cat = t.category || 'uncategorized';
+        categoryMap.set(cat, (categoryMap.get(cat) || 0) + 1);
+      });
+      
+      return Array.from(categoryMap.entries())
+        .map(([category, count]) => ({ category, count }))
+        .sort((a, b) => b.count - a.count);
+    } catch (error) {
+      console.error('[HiveContext] Error fetching topic categories:', error);
+      return [];
+    }
+  }
+  
+  private async getGrammarByLanguage(): Promise<GrammarOverview[]> {
+    try {
+      const competencies = await db.select()
+        .from(grammarCompetencies);
+      
+      const languageMap = new Map<string, { count: number; levels: Set<string> }>();
+      
+      competencies.forEach(c => {
+        const lang = c.language;
+        if (!languageMap.has(lang)) {
+          languageMap.set(lang, { count: 0, levels: new Set() });
+        }
+        const entry = languageMap.get(lang)!;
+        entry.count++;
+        if (c.actflLevel) {
+          entry.levels.add(c.actflLevel);
+        }
+      });
+      
+      return Array.from(languageMap.entries()).map(([language, data]) => ({
+        language,
+        competencyCount: data.count,
+        levels: Array.from(data.levels),
+      }));
+    } catch (error) {
+      console.error('[HiveContext] Error fetching grammar:', error);
+      return [];
+    }
+  }
+  
+  private async getAgendaItems(): Promise<AgendaItem[]> {
+    try {
+      const items = await db.select()
+        .from(agendaQueue)
+        .where(eq(agendaQueue.status, 'pending'))
+        .orderBy(desc(agendaQueue.createdAt))
+        .limit(10);
+      
+      return items.map(i => ({
+        id: i.id,
+        title: i.title,
+        priority: i.priority ?? 'normal',
+        status: i.status ?? 'pending',
+        createdBy: i.createdBy,
+      }));
+    } catch (error) {
+      console.error('[HiveContext] Error fetching agenda:', error);
+      return [];
+    }
+  }
+  
+  private async getOpenConsultations(): Promise<ConsultationSummary[]> {
+    try {
+      const threads = await db.select()
+        .from(consultationThreads)
+        .where(eq(consultationThreads.isResolved, false))
+        .orderBy(desc(consultationThreads.updatedAt))
+        .limit(20);
+      
+      return threads.map(t => ({
+        id: t.id,
+        sprintId: t.sprintId ?? undefined,
+        title: t.title ?? 'Untitled',
+        topic: t.topic ?? undefined,
+        isResolved: t.isResolved ?? false,
+      }));
+    } catch (error) {
+      console.error('[HiveContext] Error fetching consultations:', error);
+      return [];
+    }
+  }
+  
+  // ============================================================================
+  // EXPRESS LANE SESSION TRANSCRIPT ACCESS
+  // ============================================================================
+  
+  /**
+   * Get full message transcript for an Express Lane session
+   */
+  async getSessionTranscript(sessionId: string, limit = 100): Promise<CollaborationMessage[]> {
+    try {
+      const messages = await db.select()
+        .from(collaborationMessages)
+        .where(eq(collaborationMessages.sessionId, sessionId))
+        .orderBy(asc(collaborationMessages.cursor))
+        .limit(limit);
+      
+      return messages;
+    } catch (error) {
+      console.error('[HiveContext] Error fetching session transcript:', error);
+      return [];
+    }
+  }
+  
+  /**
+   * Get the most recent messages across all sessions (for quick awareness)
+   */
+  async getRecentMessages(limit = 20): Promise<CollaborationMessage[]> {
+    try {
+      const messages = await db.select()
+        .from(collaborationMessages)
+        .orderBy(desc(collaborationMessages.createdAt))
+        .limit(limit);
+      
+      return messages;
+    } catch (error) {
+      console.error('[HiveContext] Error fetching recent messages:', error);
+      return [];
+    }
   }
 }
 

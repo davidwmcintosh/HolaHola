@@ -31,14 +31,26 @@ Editor is a Claude-powered agent that runs inside `editor-persona-service.ts`. E
 Wren is the Replit development agent (this chat interface) with full access to the Hive's shared knowledge, including filesystem, database (`founderSessions`, `collaborationBeacons`), and real code context. Unlike Editor, **Wren can actually build and implement changes**. Wren walks the walk.
 
 **Wren's Hive Awareness APIs:**
-- `GET /api/hive/context` - Full Hive context (beacons, sprints, sessions, system health)
+- `GET /api/hive/context` - Full Hive context (beacons, sprints, sessions, knowledge, system health)
 - `GET /api/hive/summary` - Lightweight summary for quick context injection
+- `GET /api/hive/sessions/:sessionId/messages` - Full transcript of an Express Lane session
+- `GET /api/hive/messages/recent` - Recent messages across all sessions
 - `POST /api/wren/message` - Post updates to Express Lane (visible to Founder)
 - `POST /api/wren/consult-daniela` - Consult Daniela with visible exchange in Express Lane
+- `POST /api/wren/reply` - Reply to specific messages in Express Lane threads
+- `POST /api/wren/ack` - Acknowledge tasks (picked_up, in_progress, completed, blocked)
 - `GET /api/wren/inbox` - Fetch messages tagged for Wren
 
+**HolaHola Knowledge (included in Hive context):**
+- Languages and class counts
+- Curriculum paths and ACTFL targets
+- Topic categories and counts
+- Grammar competencies by language
+- Pending agenda items
+- Open consultations
+
 **Session Startup Ritual:**
-Run `npx tsx scripts/wren-startup.ts` at the start of each session to sync with the Hive. This fetches current context and updates `.local/state/memory/persisted_information.md` so Wren has full awareness of beacons, sprints, sessions, and system state.
+Run `npx tsx scripts/wren-startup.ts` at the start of each session to sync with the Hive. This fetches current context and updates `.local/state/memory/persisted_information.md` so Wren has full awareness of beacons, sprints, sessions, and HolaHola knowledge.
 
 ### Feature Specifications
 HolaHola offers conversational onboarding, an adaptive multi-phase conversation system, and AI-suggested topics. It uses a streaming-only voice pipeline (Deepgram Nova-3 STT → Gemini 2.5 Flash → Cartesia Sonic-3 TTS) with push-to-talk. Personalized learning includes scenario-based learning, slow pronunciation, automatic vocabulary extraction, spaced repetition, streak tracking, progress charts, and auto-difficulty adjustment. AI-generated educational images are displayed. The application supports subscription tiers, tracks atomic voice message usage, and student proficiency using ACTFL standards. Institutional features include teacher class management, student enrollment, syllabus systems, assignment workflows, and a unified Command Center with RBAC. A Syllabus Builder allows customization. Drill-based lessons support multiple modes (`repeat`, `translate`, `match`, `fill_blank`, `sentence_order`). Conversation history includes full-text search. "Founder Mode" provides a collaboration mode, and "Open Mic Mode" offers continuous listening.

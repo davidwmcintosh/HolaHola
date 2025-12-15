@@ -14840,6 +14840,161 @@ ${questionContext ? `Additional context:\n${questionContext}\n` : ''}`;
     }
   });
 
+  // HIVE: Get full transcript for an Express Lane session
+  app.get("/api/hive/sessions/:sessionId/messages", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { sessionId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 100;
+      
+      const messages = await hiveContextService.getSessionTranscript(sessionId, limit);
+
+      console.log(`[Hive API] Session ${sessionId} transcript: ${messages.length} messages`);
+      res.json({
+        success: true,
+        sessionId,
+        messageCount: messages.length,
+        messages: messages.map(m => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          messageType: m.messageType,
+          cursor: m.cursor,
+          createdAt: m.createdAt,
+        })),
+      });
+    } catch (error: any) {
+      console.error('[Hive API] Session transcript error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // HIVE: Get recent messages across all sessions (quick awareness)
+  app.get("/api/hive/messages/recent", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const limit = parseInt(req.query.limit as string) || 20;
+      const messages = await hiveContextService.getRecentMessages(limit);
+
+      console.log(`[Hive API] Recent messages: ${messages.length}`);
+      res.json({
+        success: true,
+        messageCount: messages.length,
+        messages: messages.map(m => ({
+          id: m.id,
+          sessionId: m.sessionId,
+          role: m.role,
+          content: m.content,
+          createdAt: m.createdAt,
+        })),
+      });
+    } catch (error: any) {
+      console.error('[Hive API] Recent messages error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // WREN: Reply to a specific message in Express Lane (threaded replies)
+  app.post("/api/wren/reply", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { sessionId, content, replyToMessageId } = req.body;
+
+      if (!sessionId || !content) {
+        return res.status(400).json({ error: 'sessionId and content are required' });
+      }
+
+      // Add Wren's reply to the session
+      const wrenMessage = await founderCollabService.addMessage(sessionId, {
+        role: 'system',
+        content: `[Wren${replyToMessageId ? ` replying to ${replyToMessageId}` : ''}] ${content}`,
+        messageType: 'text',
+        metadata: {
+          source: 'wren',
+          replyTo: replyToMessageId,
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      console.log(`[Wren API] Reply added to session ${sessionId}`);
+      res.json({
+        success: true,
+        sessionId,
+        messageId: wrenMessage.id,
+        cursor: wrenMessage.cursor,
+      });
+    } catch (error: any) {
+      console.error('[Wren API] Reply error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // WREN: Acknowledge a task/request (for handoff protocol)
+  app.post("/api/wren/ack", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { sessionId, messageId, status, notes } = req.body;
+
+      if (!sessionId || !status) {
+        return res.status(400).json({ error: 'sessionId and status are required' });
+      }
+
+      // Valid statuses: picked_up, in_progress, completed, blocked
+      const validStatuses = ['picked_up', 'in_progress', 'completed', 'blocked'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: `status must be one of: ${validStatuses.join(', ')}` });
+      }
+
+      // Add acknowledgment message
+      const statusEmoji = {
+        picked_up: '👋',
+        in_progress: '🔨',
+        completed: '✅',
+        blocked: '🚧',
+      }[status] || '📝';
+
+      const ackMessage = await founderCollabService.addMessage(sessionId, {
+        role: 'system',
+        content: `${statusEmoji} [Wren] Task ${status}${messageId ? ` (ref: ${messageId})` : ''}${notes ? `: ${notes}` : ''}`,
+        messageType: 'text',
+        metadata: {
+          source: 'wren',
+          ackType: status,
+          referenceMessageId: messageId,
+          notes,
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      console.log(`[Wren API] Acknowledgment (${status}) added to session ${sessionId}`);
+      res.json({
+        success: true,
+        sessionId,
+        status,
+        messageId: ackMessage.id,
+      });
+    } catch (error: any) {
+      console.error('[Wren API] Ack error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ============================================================================
   // EXPRESS LANE: Editor ↔ Daniela Direct Collaboration
   // ============================================================================

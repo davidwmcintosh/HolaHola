@@ -48,6 +48,14 @@ interface HiveContext {
     recentActivityLevel: 'high' | 'moderate' | 'low';
   };
   focusAreas: string[];
+  knowledge: {
+    languages: Array<{ language: string; classCount: number; curriculumPaths: string[] }>;
+    curricula: Array<{ id: string; name: string; language: string; description?: string; actflTarget?: string }>;
+    topicCategories: Array<{ category: string; count: number }>;
+    grammarByLanguage: Array<{ language: string; competencyCount: number; levels: string[] }>;
+    agendaItems: Array<{ id: string; title: string; priority: string; status: string; createdBy: string }>;
+    openConsultations: Array<{ id: string; title: string; topic?: string; isResolved: boolean }>;
+  };
 }
 
 async function fetchHiveContext(): Promise<HiveContext | null> {
@@ -150,6 +158,68 @@ function formatHiveContext(ctx: HiveContext): string {
     lines.push('');
     lines.push(ctx.focusAreas.map(a => `- ${a}`).join('\n'));
     lines.push('');
+  }
+
+  // HolaHola Knowledge (from Hive)
+  if (ctx.knowledge) {
+    lines.push('## HolaHola Knowledge');
+    lines.push('');
+    
+    // Languages
+    if (ctx.knowledge.languages.length > 0) {
+      lines.push('### Languages & Classes');
+      ctx.knowledge.languages.forEach(l => {
+        lines.push(`- **${l.language}**: ${l.classCount} classes`);
+      });
+      lines.push('');
+    }
+    
+    // Curricula
+    if (ctx.knowledge.curricula.length > 0) {
+      lines.push('### Curricula');
+      ctx.knowledge.curricula.slice(0, 5).forEach(c => {
+        lines.push(`- **${c.name}** (${c.language})${c.actflTarget ? ` - Target: ${c.actflTarget}` : ''}`);
+      });
+      if (ctx.knowledge.curricula.length > 5) {
+        lines.push(`  ... and ${ctx.knowledge.curricula.length - 5} more`);
+      }
+      lines.push('');
+    }
+    
+    // Topics
+    if (ctx.knowledge.topicCategories.length > 0) {
+      lines.push('### Topic Categories');
+      const topCategories = ctx.knowledge.topicCategories.slice(0, 5);
+      lines.push(topCategories.map(t => `- ${t.category}: ${t.count} topics`).join('\n'));
+      lines.push('');
+    }
+    
+    // Grammar
+    if (ctx.knowledge.grammarByLanguage.length > 0) {
+      lines.push('### Grammar Coverage');
+      ctx.knowledge.grammarByLanguage.forEach(g => {
+        lines.push(`- **${g.language}**: ${g.competencyCount} competencies`);
+      });
+      lines.push('');
+    }
+    
+    // Agenda
+    if (ctx.knowledge.agendaItems.length > 0) {
+      lines.push('### Pending Agenda Items');
+      ctx.knowledge.agendaItems.forEach(a => {
+        lines.push(`- [${a.priority}] **${a.title}** (by ${a.createdBy})`);
+      });
+      lines.push('');
+    }
+    
+    // Open Consultations
+    if (ctx.knowledge.openConsultations.length > 0) {
+      lines.push('### Open Consultations');
+      ctx.knowledge.openConsultations.forEach(c => {
+        lines.push(`- **${c.title}**${c.topic ? ` (${c.topic})` : ''}`);
+      });
+      lines.push('');
+    }
   }
 
   // Agent Roles Reminder
