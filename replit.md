@@ -70,6 +70,26 @@ North Star is ALWAYS injected first in `buildSystemPrompt()` via `buildNorthStar
 Seed script: `npx tsx scripts/seed-north-star.ts`
 API routes: `/api/north-star/*` (admin-only for modifications, developer+ for viewing)
 
+### Autonomous Learning System
+Daniela can write directly to her neural network during teaching using `[SELF_LEARN]` tags. Design shift (Dec 2024): moved from approval-based to autonomous learning with constitutional bounds.
+
+**Key Principle:** North Star (WHO) is immutable → only founder can modify; Neural Network (HOW) is autonomous → Daniela writes freely.
+
+**Tag Format:** `[SELF_LEARN category="..." insight="..." context="..."]`
+- Categories: `tool_usage`, `teaching_style`, `pacing`, `communication`, `content`, `system`
+- Writes to `self_best_practices` table with `source: 'self_learn'`
+- All writes emit a beacon for founder visibility (read-only)
+
+**Processing:** In `streaming-voice-orchestrator.ts` → `emitHiveBeacons()` parses tags and calls `storage.upsertBestPractice()`
+
+**Procedural Memory:** 4 procedures seeded in `tutor_procedures` table via `npx tsx scripts/seed-autonomous-learning.ts`:
+- Record Teaching Breakthrough (trigger: `teaching_breakthrough`)
+- Record Error Pattern Discovery (trigger: `pattern_recognized`)
+- Record Tool Usage Insight (trigger: `tool_effectiveness`)
+- Record Communication Insight (trigger: `communication_success`)
+
+**Reference:** See `docs/neural-network-architecture.md` → "Autonomous Learning (Prod)" section for full details.
+
 ### System Design Choices
 Core data models include Users, Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress, CulturalTips, Topics, and MediaFiles. Daniela's "Neural Network for Pedagogical Strategies" tracks teaching effectiveness, with a "Neural Network Expansion" system injecting language-specific pedagogical knowledge. A "Procedural Memory" system stores "how-to" knowledge for retrieval via `procedural-memory-retrieval.ts`. The voice architecture uses a two-tier validation system and Cartesia Pronunciation Dictionaries. A WebSocket-based progressive audio delivery system integrates Deepgram, Gemini, and Cartesia. The system includes an AI-powered conversation tagging system, a Syllabus-Aware Competency System, a unified learning filter system, comprehensive metering for voice tutoring time, and centralized Role-Based Access Control (RBAC). A hybrid grammar system and pre-built syllabi across 9 languages are available. A unified ACTFL assessment system and placement assessment are in place. The Command Center (`/admin`) provides a tab-based admin experience with role-based visibility.
 
