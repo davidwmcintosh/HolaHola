@@ -2352,7 +2352,7 @@ Use this context to understand what's happening across the Hive.
     
     // COLLAB tags: [COLLAB:TYPE]content[/COLLAB]
     // Map to collaboration beacon types - these are Daniela telling Editor what she needs
-    const collabPattern = /\[COLLAB:(SUGGESTION|PAIN_POINT|QUESTION|INSIGHT|MISSING_TOOL|FEATURE_REQUEST|KNOWLEDGE_PING|CAPABILITY_GAP|FRICTION|BUG)\]([\s\S]*?)\[\/COLLAB\]/g;
+    const collabPattern = /\[COLLAB:(SUGGESTION|PAIN_POINT|QUESTION|INSIGHT|MISSING_TOOL|FEATURE_REQUEST|KNOWLEDGE_PING|CAPABILITY_GAP|FRICTION|BUG|NORTH_STAR_OBSERVATION|EXPRESS_INSIGHT)\]([\s\S]*?)\[\/COLLAB\]/g;
     let collabMatch;
     while ((collabMatch = collabPattern.exec(rawText)) !== null) {
       const signalType = collabMatch[1];
@@ -2380,6 +2380,12 @@ Use this context to understand what's happening across the Hive.
       } else if (signalType === 'INSIGHT' || signalType === 'QUESTION') {
         beaconType = 'feature_idea';
         beaconReason = `Idea: ${content.slice(0, 100)}`;
+      } else if (signalType === 'NORTH_STAR_OBSERVATION') {
+        beaconType = 'teaching_observation';
+        beaconReason = `North Star reflection: ${content.slice(0, 100)}`;
+      } else if (signalType === 'EXPRESS_INSIGHT') {
+        beaconType = 'teaching_observation';
+        beaconReason = `Teaching breakthrough: ${content.slice(0, 100)}`;
       }
       
       try {

@@ -224,6 +224,9 @@ import {
   type InsertNorthStarUnderstanding,
   type NorthStarExample,
   type InsertNorthStarExample,
+  agendaQueue,
+  type AgendaQueueItem,
+  type InsertAgendaQueue,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -840,6 +843,9 @@ export interface IStorage {
     agentObservations: AgentObservation[];
     supportObservations: SupportObservation[];
   }>;
+  
+  // Agenda Queue (Express Lane discussion items)
+  createAgendaQueueItem(data: InsertAgendaQueue): Promise<AgendaQueueItem>;
   
   // ===== Feature Sprint System =====
   // Feature Sprints
@@ -6282,6 +6288,13 @@ export class DatabaseStorage implements IStorage {
       agentObservations: agentObs,
       supportObservations: supportObs,
     };
+  }
+  
+  // ===== Agenda Queue (Express Lane discussion items) =====
+  
+  async createAgendaQueueItem(data: InsertAgendaQueue): Promise<AgendaQueueItem> {
+    const [created] = await db.insert(agendaQueue).values([data]).returning();
+    return created;
   }
   
   // ===== AGENT COLLABORATION METHODS =====

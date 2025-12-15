@@ -732,8 +732,8 @@ async function scanForCollaborationSignals(
   surfacedFeedbackIds: string[] = []
 ): Promise<string> {
   try {
-    // Pattern to detect collaboration signals (including KNOWLEDGE_PING and EXPRESS_INSIGHT)
-    const collabPattern = /\[COLLAB:(SUGGESTION|PAIN_POINT|QUESTION|INSIGHT|MISSING_TOOL|FEATURE_REQUEST|KNOWLEDGE_PING|EXPRESS_INSIGHT)\]([\s\S]*?)\[\/COLLAB\]/g;
+    // Pattern to detect collaboration signals (including KNOWLEDGE_PING, EXPRESS_INSIGHT, NORTH_STAR_OBSERVATION)
+    const collabPattern = /\[COLLAB:(SUGGESTION|PAIN_POINT|QUESTION|INSIGHT|MISSING_TOOL|FEATURE_REQUEST|KNOWLEDGE_PING|EXPRESS_INSIGHT|NORTH_STAR_OBSERVATION)\]([\s\S]*?)\[\/COLLAB\]/g;
     
     // Pattern to detect Editor insight adoption
     const adoptPattern = /\[ADOPT_INSIGHT:([a-f0-9-]+)\]/gi;
@@ -798,6 +798,35 @@ async function scanForCollaborationSignals(
           console.log(`[TutorOrchestrator] Knowledge ping emitted: ${content.slice(0, 80)}...`);
         } catch (pingError) {
           console.error(`[TutorOrchestrator] Failed to emit knowledge ping:`, pingError);
+        }
+      } else if (signalType === 'NORTH_STAR_OBSERVATION') {
+        // Emit North Star observation beacon - Daniela noticed a principle illumination moment
+        // Format: category | what happened | what it made me wonder
+        try {
+          const channel = request.context.conversationId 
+            ? await hiveCollaborationService.getActiveChannelForConversation(request.context.conversationId)
+            : null;
+          
+          if (channel) {
+            await hiveCollaborationService.emitBeacon({
+              channelId: channel.id,
+              tutorTurn: content,
+              beaconType: 'teaching_observation',
+              beaconReason: `North Star reflection: ${content.slice(0, 100)}`,
+            });
+          }
+          // Also queue to agenda for Express Lane discussion
+          await storage.createAgendaQueueItem({
+            title: `North Star Observation: ${content.split('|')[0]?.trim() || 'principle reflection'}`,
+            description: content,
+            type: 'compass_reflection',
+            priority: 'normal',
+            createdBy: 'daniela',
+            createdByName: 'Daniela',
+          });
+          console.log(`[TutorOrchestrator] North Star observation queued: ${content.slice(0, 80)}...`);
+        } catch (observeError) {
+          console.error(`[TutorOrchestrator] Failed to emit North Star observation:`, observeError);
         }
       } else if (signalType === 'QUESTION') {
         await collaborationHubService.emitDanielaQuestion({
