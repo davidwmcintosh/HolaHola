@@ -26,6 +26,8 @@ import {
   featureSprints,
   founderSessions,
   collaborationMessages,
+  postFlightReports,
+  insertPostFlightReportSchema,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
@@ -15675,6 +15677,251 @@ You have full access to your neural network knowledge.
       });
     } catch (error: any) {
       console.error('[PRE-FLIGHT] Check error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== Post-Flight Audit System =====
+  // Structured self-review after completing significant work
+  
+  // Create a new Post-Flight report
+  app.post("/api/express-lane/post-flight", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !hasDeveloperAccess(user.role)) {
+        return res.status(403).json({ error: 'Developer or Admin access required' });
+      }
+
+      const { 
+        featureName, 
+        featureDescription, 
+        verdict, 
+        verificationPassed = true,
+        requiredFixes = [],
+        shouldAddress = [],
+        opportunities = [],
+        testEvidence,
+        documentationUpdates,
+        subsystemsTouched = [],
+        sprintId,
+        autoEmitBeacon = false
+      } = req.body;
+      
+      if (!featureName || !verdict) {
+        return res.status(400).json({ error: 'featureName and verdict are required' });
+      }
+      
+      if (!['mvp_ready', 'needs_polish', 'polished'].includes(verdict)) {
+        return res.status(400).json({ error: 'verdict must be mvp_ready, needs_polish, or polished' });
+      }
+
+      // Auto-emit beacon if systemic gaps found and autoEmitBeacon is true
+      let beaconId: string | null = null;
+      let beaconEmitted = false;
+      
+      if (autoEmitBeacon && shouldAddress.length >= 3) {
+        // Create a beacon for systemic gaps
+        const [beacon] = await db
+          .insert(danielaBeacons)
+          .values({
+            beaconType: 'observation',
+            priority: 'medium',
+            studentPain: `Post-Flight audit for "${featureName}" found ${shouldAddress.length} improvement areas`,
+            wish: `Address systemic gaps in: ${subsystemsTouched.join(', ') || 'multiple areas'}`,
+            rawContent: `Post-Flight Report Summary:\n- Verdict: ${verdict}\n- Required Fixes: ${requiredFixes.length}\n- Should Address: ${shouldAddress.length}\n- Opportunities: ${opportunities.length}\n\nShould Address Items:\n${shouldAddress.map((s: string) => `- ${s}`).join('\n')}`,
+            status: 'pending',
+          })
+          .returning();
+        
+        beaconId = beacon.id;
+        beaconEmitted = true;
+      }
+
+      // Create the report
+      const [report] = await db
+        .insert(postFlightReports)
+        .values({
+          featureName,
+          featureDescription,
+          verdict,
+          verificationPassed,
+          requiredFixes,
+          shouldAddress,
+          opportunities,
+          testEvidence,
+          documentationUpdates,
+          subsystemsTouched,
+          sprintId: sprintId || null,
+          beaconEmitted,
+          beaconId,
+          createdBy: userId,
+        })
+        .returning();
+
+      res.json({ 
+        success: true, 
+        report,
+        beaconEmitted,
+        beaconId
+      });
+    } catch (error: any) {
+      console.error('[POST-FLIGHT] Create error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // List Post-Flight reports
+  app.get("/api/express-lane/post-flight", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !hasDeveloperAccess(user.role)) {
+        return res.status(403).json({ error: 'Developer or Admin access required' });
+      }
+
+      const { sprintId, limit = 50 } = req.query;
+      
+      let query = db
+        .select()
+        .from(postFlightReports)
+        .orderBy(desc(postFlightReports.createdAt))
+        .limit(Number(limit));
+      
+      if (sprintId) {
+        query = db
+          .select()
+          .from(postFlightReports)
+          .where(eq(postFlightReports.sprintId, String(sprintId)))
+          .orderBy(desc(postFlightReports.createdAt))
+          .limit(Number(limit));
+      }
+
+      const reports = await query;
+
+      res.json({ 
+        success: true, 
+        reports,
+        total: reports.length
+      });
+    } catch (error: any) {
+      console.error('[POST-FLIGHT] List error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Post-Flight analytics for dashboard
+  app.get("/api/express-lane/post-flight/analytics", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !hasDeveloperAccess(user.role)) {
+        return res.status(403).json({ error: 'Developer or Admin access required' });
+      }
+
+      const { days = 30 } = req.query;
+      const daysBack = Number(days);
+      const dateThreshold = new Date();
+      dateThreshold.setDate(dateThreshold.getDate() - daysBack);
+
+      // Get all reports in the time range
+      const allReports = await db
+        .select()
+        .from(postFlightReports)
+        .where(gte(postFlightReports.createdAt, dateThreshold))
+        .orderBy(desc(postFlightReports.createdAt));
+
+      // Verdict breakdown
+      const verdictCounts = {
+        mvp_ready: 0,
+        needs_polish: 0,
+        polished: 0
+      };
+      
+      // Subsystem frequency map
+      const subsystemFrequency: Record<string, { total: number; shouldAddressCount: number }> = {};
+      
+      // Items tracking
+      let totalRequiredFixes = 0;
+      let totalShouldAddress = 0;
+      let totalOpportunities = 0;
+
+      for (const report of allReports) {
+        // Count verdicts
+        verdictCounts[report.verdict as keyof typeof verdictCounts]++;
+        
+        // Count items
+        totalRequiredFixes += (report.requiredFixes as string[])?.length || 0;
+        totalShouldAddress += (report.shouldAddress as string[])?.length || 0;
+        totalOpportunities += (report.opportunities as string[])?.length || 0;
+        
+        // Track subsystems
+        const subsystems = (report.subsystemsTouched as string[]) || [];
+        const hasIssues = ((report.shouldAddress as string[])?.length || 0) > 0;
+        
+        for (const subsystem of subsystems) {
+          if (!subsystemFrequency[subsystem]) {
+            subsystemFrequency[subsystem] = { total: 0, shouldAddressCount: 0 };
+          }
+          subsystemFrequency[subsystem].total++;
+          if (hasIssues) {
+            subsystemFrequency[subsystem].shouldAddressCount++;
+          }
+        }
+      }
+
+      // Sort subsystems by "Should Address" frequency for trend analysis
+      const subsystemTrends = Object.entries(subsystemFrequency)
+        .map(([name, data]) => ({
+          name,
+          totalReports: data.total,
+          reportsWithIssues: data.shouldAddressCount,
+          issueRate: data.total > 0 ? Math.round((data.shouldAddressCount / data.total) * 100) : 0
+        }))
+        .sort((a, b) => b.reportsWithIssues - a.reportsWithIssues)
+        .slice(0, 10);
+
+      // Recent reports summary
+      const recentReports = allReports.slice(0, 10).map(r => ({
+        id: r.id,
+        featureName: r.featureName,
+        verdict: r.verdict,
+        requiredFixesCount: (r.requiredFixes as string[])?.length || 0,
+        shouldAddressCount: (r.shouldAddress as string[])?.length || 0,
+        opportunitiesCount: (r.opportunities as string[])?.length || 0,
+        beaconEmitted: r.beaconEmitted,
+        createdAt: r.createdAt
+      }));
+
+      res.json({
+        success: true,
+        analytics: {
+          totalReports: allReports.length,
+          verdictBreakdown: verdictCounts,
+          itemCounts: {
+            requiredFixes: totalRequiredFixes,
+            shouldAddress: totalShouldAddress,
+            opportunities: totalOpportunities
+          },
+          subsystemTrends,
+          recentReports,
+          periodDays: daysBack
+        }
+      });
+    } catch (error: any) {
+      console.error('[POST-FLIGHT] Analytics error:', error);
       res.status(500).json({ error: error.message });
     }
   });
