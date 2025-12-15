@@ -4980,13 +4980,13 @@ function EditorChatTab() {
       return result as unknown as {
         success: boolean;
         sessionId: string;
-        userMessage: ExpressLaneMessage;
+        editorMessage: ExpressLaneMessage;
         danielaResponse: ExpressLaneMessage;
       };
     },
     onSuccess: (data) => {
       // Add both messages to local state - validate required fields
-      const newMessages = [data.userMessage, data.danielaResponse].filter(
+      const newMessages = [data.editorMessage, data.danielaResponse].filter(
         (msg): msg is ExpressLaneMessage => 
           msg != null && typeof msg.role === 'string' && typeof msg.content === 'string'
       );
