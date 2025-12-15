@@ -88,7 +88,9 @@ import {
   Handshake,
   Wifi,
   WifiOff,
-  Radio
+  Radio,
+  Paperclip,
+  FileIcon
 } from "lucide-react";
 import {
   AlertDialog,
@@ -4730,12 +4732,22 @@ interface EditorMessage {
   createdAt: string;
 }
 
+interface ExpressLaneAttachment {
+  name: string;
+  url: string;
+  type: string;
+  size: number;
+}
+
 interface ExpressLaneMessage {
   id: string;
   role: 'founder' | 'editor' | 'daniela' | 'system' | 'wren';
   content: string;
   cursor: string;
   createdAt: string;
+  metadata?: {
+    attachments?: ExpressLaneAttachment[];
+  };
 }
 
 interface ExpressLaneSession {
@@ -4786,6 +4798,11 @@ function EditorChatTab() {
   const [expressMessages, setExpressMessages] = useState<ExpressLaneMessage[]>([]);
   const [expressSession, setExpressSession] = useState<ExpressLaneSession | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Attachment state
+  const [pendingAttachments, setPendingAttachments] = useState<ExpressLaneAttachment[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   
   // New UI enhancement state
   const [showSearch, setShowSearch] = useState(false);
@@ -4971,12 +4988,56 @@ function EditorChatTab() {
     },
   });
 
+  // Handle file upload
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    setIsUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const response = await fetch('/api/express-lane/ui/upload', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Upload failed');
+        }
+        
+        const data = await response.json();
+        if (data.success && data.attachment) {
+          setPendingAttachments(prev => [...prev, data.attachment]);
+        }
+      }
+      toast({ title: "File uploaded" });
+    } catch (error: any) {
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+  
+  // Remove pending attachment
+  const removePendingAttachment = (index: number) => {
+    setPendingAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
   // EXPRESS lane send message mutation
   const sendExpressMessageMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({ content, attachments }: { content: string; attachments?: ExpressLaneAttachment[] }) => {
       const response = await apiRequest("POST", "/api/express-lane/ui/collaborate", { 
         message: content,
-        sessionId: expressSession?.id 
+        sessionId: expressSession?.id,
+        attachments
       });
       const result = await response.json();
       return result as {
@@ -5005,6 +5066,7 @@ function EditorChatTab() {
         });
       }
       setInputMessage('');
+      setPendingAttachments([]);
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to send message", variant: "destructive" });
@@ -5019,12 +5081,15 @@ function EditorChatTab() {
   }, [expressMessages, legacyMessages]);
 
   const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim() && pendingAttachments.length === 0) return;
     
     if (expressLaneMode) {
       setIsSending(true);
       try {
-        await sendExpressMessageMutation.mutateAsync(inputMessage.trim());
+        await sendExpressMessageMutation.mutateAsync({
+          content: inputMessage.trim() || '(attachment)',
+          attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined
+        });
       } finally {
         setIsSending(false);
       }
@@ -5274,6 +5339,20 @@ function EditorChatTab() {
                           </Badge>
                         </div>
                         <div className="text-sm whitespace-pre-wrap break-words">{msg.content}</div>
+                        {msg.metadata?.attachments && msg.metadata.attachments.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {msg.metadata.attachments.map((att: any, i: number) => (
+                              att.type.startsWith('image/') ? (
+                                <img key={i} src={att.url} alt={att.name} className="max-w-full max-h-48 rounded-md" />
+                              ) : (
+                                <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" 
+                                   className="flex items-center gap-1 text-xs underline">
+                                  <FileIcon className="h-3 w-3" /> {att.name}
+                                </a>
+                              )
+                            ))}
+                          </div>
+                        )}
                         <div className={`text-xs mt-1 ${msg.role === 'founder' ? 'text-white/70' : msg.role === 'editor' ? 'text-white/70' : 'text-muted-foreground'}`}>
                           {new Date(msg.createdAt).toLocaleTimeString()}
                         </div>
@@ -5285,33 +5364,67 @@ function EditorChatTab() {
               </div>
 
               {/* Input */}
-              <div className="flex gap-2 items-end">
-                <Textarea
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                  placeholder="Ask Daniela anything... (Neural Network active) - Shift+Enter for new line"
-                  disabled={isSending}
-                  className="border-yellow-500/30 focus:border-yellow-500 min-h-[100px] resize-y"
-                  data-testid="input-express-message"
-                />
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!inputMessage.trim() || isSending}
-                  className="bg-yellow-600 hover:bg-yellow-700 h-[100px]"
-                  data-testid="button-send-express-message"
-                >
-                  {isSending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Zap className="h-4 w-4" />
-                  )}
-                </Button>
+              <div className="space-y-2">
+                {pendingAttachments.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {pendingAttachments.map((att, i) => (
+                      <Badge key={i} variant="secondary" className="flex items-center gap-1">
+                        <FileIcon className="h-3 w-3" />
+                        <span className="max-w-[100px] truncate">{att.name}</span>
+                        <button onClick={() => removePendingAttachment(i)} className="ml-1 hover:text-destructive">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2 items-end">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    accept="image/*,.pdf,.txt,.md,.json,.js,.html,.css"
+                    multiple
+                    data-testid="input-express-file"
+                  />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading || isSending}
+                    className="h-[100px]"
+                    data-testid="button-attach-file"
+                  >
+                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+                  </Button>
+                  <Textarea
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                    placeholder="Ask Daniela anything... (Neural Network active) - Shift+Enter for new line"
+                    disabled={isSending}
+                    className="border-yellow-500/30 focus:border-yellow-500 min-h-[100px] resize-y"
+                    data-testid="input-express-message"
+                  />
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={(!inputMessage.trim() && pendingAttachments.length === 0) || isSending}
+                    className="bg-yellow-600 hover:bg-yellow-700 h-[100px]"
+                    data-testid="button-send-express-message"
+                  >
+                    {isSending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Zap className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           ) : (

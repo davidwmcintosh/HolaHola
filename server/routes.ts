@@ -14690,7 +14690,7 @@ You have full access to your neural network knowledge.
         return res.status(403).json({ error: 'Developer or Admin access required' });
       }
 
-      const { sessionId, message, role = 'founder' } = req.body;
+      const { sessionId, message, role = 'founder', attachments } = req.body;
 
       if (!message) {
         return res.status(400).json({ error: 'message is required' });
@@ -14707,12 +14707,22 @@ You have full access to your neural network knowledge.
         session = await founderCollabService.getOrCreateActiveSession(userId);
       }
 
+      // Build metadata with optional attachments
+      const messageMetadata: Record<string, any> = { 
+        source: 'express-lane-ui', 
+        userId, 
+        timestamp: new Date().toISOString() 
+      };
+      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        messageMetadata.attachments = attachments;
+      }
+
       // Add user's message to the session
       const userMessage = await founderCollabService.addMessage(session.id, {
         role: role as 'founder' | 'editor',
         content: message,
         messageType: 'text',
-        metadata: { source: 'express-lane-ui', userId, timestamp: new Date().toISOString() }
+        metadata: messageMetadata
       });
 
       console.log(`[EXPRESS LANE UI] ${role} message added to session ${session.id}`);
@@ -14863,7 +14873,8 @@ You have full access to your neural network knowledge.
           role: userMessage.role,
           content: userMessage.content,
           cursor: userMessage.cursor,
-          createdAt: userMessage.createdAt
+          createdAt: userMessage.createdAt,
+          metadata: userMessage.metadata
         },
         danielaResponse: {
           id: danielaMsg.id,
@@ -14883,6 +14894,74 @@ You have full access to your neural network knowledge.
 
     } catch (error: any) {
       console.error('[EXPRESS LANE UI] Collaboration error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // EXPRESS LANE UI: Upload file attachment
+  // Configure multer for express lane attachments (disk storage)
+  const expressLaneUpload = multer({
+    storage: multer.diskStorage({
+      destination: (_req, _file, cb) => {
+        cb(null, 'uploads/express-lane');
+      },
+      filename: (_req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = file.originalname.split('.').pop();
+        cb(null, `${uniqueSuffix}.${ext}`);
+      }
+    }),
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB max
+    },
+    fileFilter: (_req, file, cb) => {
+      // Accept images, documents, and common file types
+      const allowedTypes = [
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+        'application/pdf', 'text/plain', 'text/markdown',
+        'application/json', 'application/javascript', 'text/html', 'text/css'
+      ];
+      if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error(`Unsupported file type: ${file.mimetype}`));
+      }
+    },
+  });
+
+  app.post("/api/express-lane/ui/upload", isAuthenticated, expressLaneUpload.single('file'), async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !hasDeveloperAccess(user.role)) {
+        return res.status(403).json({ error: 'Developer or Admin access required' });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      const file = req.file;
+      const attachment = {
+        name: file.originalname,
+        url: `/uploads/express-lane/${file.filename}`,
+        type: file.mimetype,
+        size: file.size
+      };
+
+      console.log(`[EXPRESS LANE] File uploaded: ${attachment.name} (${attachment.size} bytes)`);
+
+      res.json({
+        success: true,
+        attachment
+      });
+
+    } catch (error: any) {
+      console.error('[EXPRESS LANE] Upload error:', error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -14935,7 +15014,8 @@ You have full access to your neural network knowledge.
           role: m.role,
           content: m.content,
           cursor: m.cursor,
-          createdAt: m.createdAt
+          createdAt: m.createdAt,
+          metadata: m.metadata
         }))
       });
 
