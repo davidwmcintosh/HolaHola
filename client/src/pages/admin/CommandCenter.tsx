@@ -4973,11 +4973,12 @@ function EditorChatTab() {
   // EXPRESS lane send message mutation
   const sendExpressMessageMutation = useMutation({
     mutationFn: async (content: string) => {
-      const result = await apiRequest("POST", "/api/express-lane/ui/collaborate", { 
+      const response = await apiRequest("POST", "/api/express-lane/ui/collaborate", { 
         message: content,
         sessionId: expressSession?.id 
       });
-      return result as unknown as {
+      const result = await response.json();
+      return result as {
         success: boolean;
         sessionId: string;
         userMessage: ExpressLaneMessage;
