@@ -37,6 +37,8 @@ export type BeaconType =
   | 'self_surgery_proposal'  // Daniela proposes neural network modification
   | 'knowledge_gap'          // "I don't know how to handle X" - needs procedure/knowledge
   | 'bug_report'             // "Something isn't working right" - technical issue
+  // Teaching observations (Daniela → Founder for office hours)
+  | 'teaching_observation'   // "I noticed X worth discussing" - lightweight insight for later
   // Support beacons (Sofia → Editor)
   | 'support_handoff'        // Daniela handed off to Sofia
   | 'tech_issue_reported'    // User reported a technical issue
@@ -295,6 +297,8 @@ class HiveCollaborationService {
       self_surgery_proposal: '🧠 Self-Surgery Proposal',
       knowledge_gap: '📚 Knowledge Gap',
       bug_report: '🐛 Bug Report',
+      // Teaching observations (Daniela → Founder)
+      teaching_observation: '📝 Teaching Observation',
       // Support beacons (Sofia)
       support_handoff: '🔀 Support Handoff',
       tech_issue_reported: '🔧 Tech Issue Reported',

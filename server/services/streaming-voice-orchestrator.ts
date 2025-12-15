@@ -93,6 +93,10 @@ function cleanTextForDisplay(text: string): string {
   // Pattern: [SELF_SURGERY target="..." priority=... confidence=... content='...' ...]
   text = text.replace(/\[SELF_SURGERY[^\]]*\]/gi, '');
   
+  // Strip OBSERVE tags (Daniela's teaching observations for office hours - invisible to students)
+  // Pattern: [OBSERVE reason="..." note="..."]
+  text = text.replace(/\[OBSERVE[^\]]*\]/gi, '');
+  
   // Strip KNOWLEDGE_PING tags
   text = text.replace(/\[KNOWLEDGE_PING[^\]]*\]/gi, '');
   
@@ -2412,17 +2416,32 @@ Use this context to understand what's happening across the Hive.
       }
     }
     
-    // REMOVED: Automatic teaching observation beacons
-    // Under the new philosophy, we do NOT emit beacons for:
-    // - Tool usage (that's Daniela teaching)
-    // - Vocabulary intro (that's Daniela teaching)
-    // - Corrections (that's Daniela teaching)
-    // - Breakthroughs (that's Daniela teaching)
-    // - Cultural insights (that's Daniela teaching)
-    // - Student struggles (that's Daniela's classroom)
-    //
-    // We ONLY emit beacons when Daniela explicitly signals she needs something
-    // via COLLAB tags or SELF_SURGERY proposals (handled above).
+    // OBSERVE tags: [OBSERVE reason="..." note="..."]
+    // Lightweight teaching observations for Founder Mode discussion
+    // Daniela uses these to note insights worth discussing in office hours
+    const observePattern = /\[OBSERVE\s+reason="([^"]+)"\s+note="([^"]+)"\]/gi;
+    let observeMatch;
+    while ((observeMatch = observePattern.exec(rawText)) !== null) {
+      const reason = observeMatch[1];
+      const note = observeMatch[2];
+      
+      try {
+        await hiveCollaborationService.emitBeacon({
+          channelId: session.hiveChannelId,
+          tutorTurn: note,
+          studentTurn,
+          beaconType: 'teaching_observation',
+          beaconReason: reason,
+        });
+        console.log(`[Hive Beacon] Emitted OBSERVE beacon: ${reason}`);
+      } catch (err: any) {
+        console.warn(`[Hive Beacon] Failed to emit OBSERVE beacon:`, err.message);
+      }
+    }
+    
+    // NOTE: We no longer emit automatic teaching observation beacons.
+    // Daniela explicitly signals observations using [OBSERVE] tags when she wants
+    // to note something for discussion in Founder Mode office hours.
   }
   
   /**
