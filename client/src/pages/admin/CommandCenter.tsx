@@ -4778,7 +4778,7 @@ interface MemoryContext {
 function EditorChatTab() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [expressLaneMode, setExpressLaneMode] = useState(true);
+  const expressLaneMode = true; // Always use Express Lane mode
   const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null);
   const [inputMessage, setInputMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -5079,14 +5079,9 @@ function EditorChatTab() {
                 </Badge>
               )}
             </CardTitle>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Neural Network Mode</span>
-              <Switch 
-                checked={expressLaneMode} 
-                onCheckedChange={setExpressLaneMode}
-                data-testid="switch-express-lane"
-              />
-            </div>
+            <Badge variant="outline" className="border-yellow-500 text-yellow-600 dark:text-yellow-400">
+              Neural Network Active
+            </Badge>
           </div>
           <CardDescription>
             Direct 3-way collaboration channel between you, Daniela (tutor), and Editor (developer). Full neural network context. Survives restarts.
