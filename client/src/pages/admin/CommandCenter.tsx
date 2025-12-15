@@ -165,7 +165,7 @@ export default function CommandCenter() {
     { id: "audit", label: "Audit", icon: FileText, roles: ['admin'] },
     { id: "support", label: "Support", icon: Headphones, roles: ['admin', 'developer'] },
     { id: "dept-chat", label: "Dept Chat", icon: Lock, roles: ['admin', 'developer'] },
-    { id: "editor-chat", label: "Editor Chat", icon: MessageSquare, roles: ['admin', 'developer'] },
+    { id: "editor-chat", label: "Express Lane", icon: MessageSquare, roles: ['admin', 'developer'] },
     { id: "feature-sprint", label: "Feature Sprint", icon: Zap, roles: ['admin', 'developer'] },
     { id: "collaboration", label: "Collaboration", icon: Handshake, roles: ['admin', 'developer'] },
   ].filter(tab => {
@@ -5072,7 +5072,7 @@ function EditorChatTab() {
               ) : (
                 <Brain className="h-5 w-5 text-primary" />
               )}
-              {expressLaneMode ? 'EXPRESS Lane' : 'Editor Chat'} with Daniela
+              EXPRESS Lane with Daniela & Editor
               {expressLaneMode && (
                 <Badge variant="outline" className="ml-2 border-yellow-500 text-yellow-600 dark:text-yellow-400" data-testid="badge-express-lane">
                   Neural Network
@@ -5080,7 +5080,7 @@ function EditorChatTab() {
               )}
             </CardTitle>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">EXPRESS Lane</span>
+              <span className="text-sm text-muted-foreground">Neural Network Mode</span>
               <Switch 
                 checked={expressLaneMode} 
                 onCheckedChange={setExpressLaneMode}
@@ -5089,10 +5089,7 @@ function EditorChatTab() {
             </div>
           </div>
           <CardDescription>
-            {expressLaneMode 
-              ? 'Persistent collaboration with Daniela using full neural network context. Survives restarts.'
-              : 'Persistent 2-way conversation with Daniela in Founder Mode. These conversations build her understanding over time.'
-            }
+            Direct 3-way collaboration channel between you, Daniela (tutor), and Editor (developer). Full neural network context. Survives restarts.
           </CardDescription>
         </CardHeader>
         <CardContent>
