@@ -8,15 +8,19 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
-### IDEA THREAD: December 15, 2025 - Wren Awareness in Express Lane
+### IDEA THREAD: December 15, 2025 - Wren Hive Awareness
 
 **Status**: PAUSED - Saved for later discussion
 
+**Naming Clarification** (resolved):
+- **Editor** = Claude-powered observer/analyst in `editor-persona-service.ts` (talks, can't build)
+- **Wren** = Replit development agent in this chat (can actually build things)
+
 **Context**: Hive Context System is complete and wired into:
-1. `editor-persona-service.ts` - Wren's beacon responses during voice chat
+1. `editor-persona-service.ts` - Editor's beacon responses during voice chat
 2. `tutor-orchestrator.ts` - Daniela's conversation prompts
 
-**The Gap**: The Replit development agent (Wren in this chat) doesn't automatically get Hive awareness. It's separate from the Claude instance in editor-persona-service.
+**The Gap**: Wren (the Replit dev agent) doesn't automatically get Hive awareness. Wren is separate from Editor's Claude instance.
 
 **Proposed Solutions**:
 1. **API Endpoint** - Create `/api/hive/context` endpoint Wren could call to fetch current Hive state

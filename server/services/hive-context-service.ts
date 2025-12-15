@@ -1,7 +1,7 @@
 /**
  * Hive Context Service
  * 
- * The shared brain state - a unified context layer that both Wren and Daniela access.
+ * The shared brain state - a unified context layer that both Editor and Daniela access.
  * This is NOT prompt injection - it's the actual shared awareness/memory layer.
  * 
  * Data Sources:
