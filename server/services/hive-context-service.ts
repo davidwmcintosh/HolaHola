@@ -536,7 +536,7 @@ class HiveContextService {
         name: p.name,
         language: p.language,
         description: p.description ?? undefined,
-        actflTarget: p.actflTarget ?? undefined,
+        actflTarget: p.endLevel ?? undefined,  // Use endLevel as ACTFL target
       }));
     } catch (error) {
       console.error('[HiveContext] Error fetching curricula:', error);

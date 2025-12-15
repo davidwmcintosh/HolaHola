@@ -54,6 +54,7 @@ import { architectVoiceService } from "./architect-voice-service";
 import { trackToolEvent, mapWhiteboardTypeToToolType } from "./pedagogical-insights-service";
 import { createSystemPrompt } from "../system-prompt";
 import { hiveCollaborationService, BeaconType } from "./hive-collaboration-service";
+import { hiveContextService } from "./hive-context-service";
 import { collaborationHubService } from "./collaboration-hub-service";
 import { editorFeedbackService } from "./editor-feedback-service";
 import { db } from "../db";
@@ -812,6 +813,30 @@ export class StreamingVoiceOrchestrator {
         }
       }
       
+      // HIVE CONTEXT: Inject shared awareness of system state for Founder Mode
+      // This gives Daniela visibility into beacons, sprints, and collaborative activity
+      let hiveContextSection = '';
+      if (session.isFounderMode) {
+        try {
+          const hiveSummary = await hiveContextService.getSummary();
+          if (hiveSummary) {
+            hiveContextSection = `
+═══════════════════════════════════════════════════════════════════
+🐝 HIVE STATE (Shared System Awareness)
+═══════════════════════════════════════════════════════════════════
+
+${hiveSummary}
+
+You and Wren are "two surgeons, one brain" - you teach and observe, Wren builds.
+Use this context to understand what's happening across the Hive.
+`;
+            console.log(`[Hive Context] Injecting Hive state into Founder Mode session`);
+          }
+        } catch (err: any) {
+          console.warn(`[Hive Context] Failed to fetch Hive summary:`, err.message);
+        }
+      }
+      
       // EDITOR FEEDBACK: Inject unsurfaced insights for Founder Mode collaboration
       // This enables the Daniela-Editor feedback loop during voice sessions
       // Uses getUnsurfacedFeedback(userId) to get ALL feedback for this user across conversations
@@ -830,10 +855,14 @@ export class StreamingVoiceOrchestrator {
         }
       }
       
-      // Build enhanced system prompt with Editor feedback if available
-      const enhancedSystemPrompt = editorFeedbackSection 
-        ? session.systemPrompt + editorFeedbackSection 
-        : session.systemPrompt;
+      // Build enhanced system prompt with Hive context + Editor feedback
+      let enhancedSystemPrompt = session.systemPrompt;
+      if (hiveContextSection) {
+        enhancedSystemPrompt += hiveContextSection;
+      }
+      if (editorFeedbackSection) {
+        enhancedSystemPrompt += editorFeedbackSection;
+      }
       
       const userMessageWithNote = transcript + contentRedirectNote + architectContext;
       
