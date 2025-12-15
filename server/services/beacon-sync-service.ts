@@ -534,6 +534,184 @@ class BeaconSyncService {
   }
   
   // ============================================================================
+  // ROADMAP VISIBILITY (Current Sprint Focus for Daniela)
+  // ============================================================================
+  
+  /**
+   * Get the current roadmap/sprint focus for Daniela's awareness
+   * This helps her understand what's being worked on and calibrate expectations
+   */
+  async getRoadmapForDaniela(): Promise<string> {
+    try {
+      // Get active sprints (in_progress or build_plan stages)
+      const activeSprints = await storage.getFeatureSprints({ limit: 20 });
+      
+      // Filter to just active work
+      const inProgress = activeSprints.filter(s => s.stage === 'in_progress');
+      const planned = activeSprints.filter(s => s.stage === 'build_plan');
+      const ideas = activeSprints.filter(s => s.stage === 'idea' || s.stage === 'pedagogy_spec');
+      
+      if (inProgress.length === 0 && planned.length === 0) {
+        return '';
+      }
+      
+      const lines: string[] = [
+        '',
+        '═══════════════════════════════════════════════════════════════════',
+        '🗺️ CURRENT ROADMAP (What the Editor is Working On)',
+        '═══════════════════════════════════════════════════════════════════',
+        ''
+      ];
+      
+      // In Progress - actively being built
+      if (inProgress.length > 0) {
+        lines.push('🔨 ACTIVELY BEING BUILT:');
+        for (const sprint of inProgress) {
+          lines.push(`   • ${sprint.title}`);
+          if (sprint.description) {
+            lines.push(`     └─ ${sprint.description.substring(0, 80)}`);
+          }
+        }
+        lines.push('');
+      }
+      
+      // Build Plan - next up
+      if (planned.length > 0) {
+        lines.push('📋 PLANNED (Coming Soon):');
+        for (const sprint of planned.slice(0, 5)) {
+          const priorityEmoji = this.getSprintPriorityEmoji(sprint.priority);
+          lines.push(`   ${priorityEmoji} ${sprint.title}`);
+        }
+        if (planned.length > 5) {
+          lines.push(`   ... and ${planned.length - 5} more planned`);
+        }
+        lines.push('');
+      }
+      
+      // Ideas - backlog
+      if (ideas.length > 0) {
+        lines.push(`💡 BACKLOG: ${ideas.length} idea${ideas.length > 1 ? 's' : ''} being explored`);
+        lines.push('');
+      }
+      
+      lines.push('Use this roadmap to calibrate your suggestions and expectations.');
+      lines.push('If you have ideas that align with current work, mention them!');
+      lines.push('');
+      
+      return lines.join('\n');
+      
+    } catch (error) {
+      console.error('[BeaconSync] Error getting roadmap:', error);
+      return '';
+    }
+  }
+  
+  private getSprintPriorityEmoji(priority: string | null): string {
+    switch (priority) {
+      case 'critical': return '🔴';
+      case 'high': return '🟠';
+      case 'medium': return '🟡';
+      case 'low': return '🟢';
+      default: return '⚪';
+    }
+  }
+  
+  /**
+   * Sync active sprints to neural network as tool_knowledge entries
+   * This allows Daniela to access roadmap through procedural memory retrieval
+   * 
+   * Call this on startup or when sprints are updated
+   */
+  async syncRoadmapToNeuralNetwork(): Promise<{
+    synced: number;
+    skipped: number;
+    cleaned: number;
+    errors: string[];
+  }> {
+    const result = { synced: 0, skipped: 0, cleaned: 0, errors: [] as string[] };
+    
+    try {
+      // Get active sprints (in_progress or build_plan)
+      const activeSprints = await storage.getFeatureSprints({ limit: 50 });
+      const activeSprintIds = new Set<string>();
+      
+      for (const sprint of activeSprints) {
+        // Only sync active stages
+        if (sprint.stage !== 'in_progress' && sprint.stage !== 'build_plan') {
+          continue;
+        }
+        
+        try {
+          const toolName = `ROADMAP_${sprint.id.replace(/-/g, '_').toUpperCase()}`;
+          activeSprintIds.add(toolName);
+          
+          const stageLabel = sprint.stage === 'in_progress' ? 'BUILDING NOW' : 'PLANNED';
+          const priorityLabel = sprint.priority === 'critical' ? '🔴 CRITICAL' : 
+                               sprint.priority === 'high' ? '🟠 HIGH' : 
+                               sprint.priority === 'medium' ? '🟡 MEDIUM' : '🟢 LOW';
+          
+          // Check if already exists
+          const existing = await db.select()
+            .from(toolKnowledge)
+            .where(eq(toolKnowledge.toolName, toolName))
+            .limit(1);
+          
+          if (existing.length > 0) {
+            // Update if stage or details changed
+            const existingPurpose = existing[0].purpose || '';
+            const newPurpose = `[${stageLabel}] ${priorityLabel} - ${sprint.title}${sprint.description ? `: ${sprint.description.substring(0, 100)}` : ''}`;
+            
+            if (existingPurpose !== newPurpose) {
+              await db.update(toolKnowledge)
+                .set({ purpose: newPurpose })
+                .where(eq(toolKnowledge.toolName, toolName));
+              result.synced++;
+            } else {
+              result.skipped++;
+            }
+          } else {
+            // Create new entry
+            await db.insert(toolKnowledge).values({
+              toolName,
+              toolType: 'roadmap_item',
+              purpose: `[${stageLabel}] ${priorityLabel} - ${sprint.title}${sprint.description ? `: ${sprint.description.substring(0, 100)}` : ''}`,
+              syntax: 'Current development work - Daniela can reference when relevant',
+              examples: null,
+              bestUsedFor: null,
+              isActive: true,
+            });
+            result.synced++;
+            console.log(`[BeaconSync] Synced roadmap item: ${sprint.title}`);
+          }
+          
+        } catch (err: any) {
+          result.errors.push(`Failed to sync "${sprint.title}": ${err.message}`);
+        }
+      }
+      
+      // Clean up roadmap items that are no longer active
+      const allRoadmapItems = await db.select()
+        .from(toolKnowledge)
+        .where(eq(toolKnowledge.toolType, 'roadmap_item'));
+      
+      for (const item of allRoadmapItems) {
+        if (!activeSprintIds.has(item.toolName)) {
+          await db.delete(toolKnowledge).where(eq(toolKnowledge.id, item.id));
+          result.cleaned++;
+        }
+      }
+      
+      console.log(`[BeaconSync] Roadmap sync: ${result.synced} synced, ${result.skipped} unchanged, ${result.cleaned} cleaned`);
+      return result;
+      
+    } catch (error: any) {
+      console.error('[BeaconSync] Error syncing roadmap:', error);
+      result.errors.push(error.message);
+      return result;
+    }
+  }
+  
+  // ============================================================================
   // HELPER METHODS
   // ============================================================================
   
