@@ -2500,7 +2500,7 @@ export type SyncRun = typeof syncRuns.$inferSelect;
 // Uses cursor-based resume for seamless reconnection
 
 export const founderCollabStatusEnum = pgEnum('founder_collab_status', ['active', 'paused', 'completed']);
-export const collabMessageRoleEnum = pgEnum('collab_message_role', ['founder', 'daniela', 'editor', 'system']);
+export const collabMessageRoleEnum = pgEnum('collab_message_role', ['founder', 'daniela', 'editor', 'system', 'wren']);
 export const collabMessageTypeEnum = pgEnum('collab_message_type', ['text', 'voice']);
 
 // Founder Sessions - Tracks active collaboration sessions between founder and Daniela

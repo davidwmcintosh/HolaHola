@@ -5058,6 +5058,7 @@ function EditorChatTab() {
       case 'daniela': return 'bg-purple-500/20 text-purple-700 dark:text-purple-300';
       case 'founder': return 'bg-blue-500/20 text-blue-700 dark:text-blue-300';
       case 'editor': return 'bg-green-500/20 text-green-700 dark:text-green-300';
+      case 'wren': return 'bg-amber-500/20 text-amber-700 dark:text-amber-300';
       default: return 'bg-muted';
     }
   };
@@ -5261,13 +5262,15 @@ function EditorChatTab() {
                             ? 'bg-blue-600 text-white dark:bg-blue-700'
                             : msg.role === 'editor'
                             ? 'bg-green-600 text-white dark:bg-green-700'
+                            : msg.role === 'wren'
+                            ? 'bg-amber-600 text-white dark:bg-amber-700'
                             : 'bg-card border'
                         }`}
                         data-testid={`express-message-${msg.id}`}
                       >
                         <div className="flex items-center gap-2 mb-1">
                           <Badge variant="secondary" className={`text-xs ${getRoleBadgeColor(msg.role)}`}>
-                            {msg.role === 'daniela' ? 'Daniela' : msg.role === 'founder' ? 'You' : msg.role === 'editor' ? 'Editor' : msg.role}
+                            {msg.role === 'daniela' ? 'Daniela' : msg.role === 'founder' ? 'You' : msg.role === 'editor' ? 'Editor' : msg.role === 'wren' ? 'Wren' : msg.role}
                           </Badge>
                         </div>
                         <div className="text-sm whitespace-pre-wrap break-words">{msg.content}</div>
