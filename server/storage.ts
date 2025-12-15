@@ -215,6 +215,15 @@ import {
   type DanielaBeacon,
   type InsertDanielaBeacon,
   type DanielaBeaconStatus,
+  compassPrinciples,
+  compassUnderstanding,
+  compassExamples,
+  type CompassPrinciple,
+  type InsertCompassPrinciple,
+  type CompassUnderstanding,
+  type InsertCompassUnderstanding,
+  type CompassExample,
+  type InsertCompassExample,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -880,6 +889,34 @@ export interface IStorage {
   createSurgeryTurn(data: InsertSurgeryTurn): Promise<SurgeryTurn>;
   getSurgeryTurns(sessionId: string): Promise<SurgeryTurn[]>;
   getLatestSurgeryTurn(sessionId: string): Promise<SurgeryTurn | undefined>;
+  
+  // ===== Daniela's Compass System =====
+  // Compass Principles (immutable constitutional truths)
+  createCompassPrinciple(data: InsertCompassPrinciple): Promise<CompassPrinciple>;
+  getCompassPrinciple(id: string): Promise<CompassPrinciple | undefined>;
+  getAllCompassPrinciples(): Promise<CompassPrinciple[]>;
+  getCompassPrinciplesByCategory(category: string): Promise<CompassPrinciple[]>;
+  updateCompassPrinciple(id: string, data: Partial<CompassPrinciple>): Promise<CompassPrinciple | undefined>;
+  
+  // Compass Understanding (Daniela's evolving grasp)
+  createCompassUnderstanding(data: InsertCompassUnderstanding): Promise<CompassUnderstanding>;
+  getCompassUnderstanding(principleId: string): Promise<CompassUnderstanding | undefined>;
+  getAllCompassUnderstanding(): Promise<CompassUnderstanding[]>;
+  updateCompassUnderstanding(id: string, data: Partial<CompassUnderstanding>): Promise<CompassUnderstanding | undefined>;
+  deepenCompassUnderstanding(principleId: string, reflection: string, depth: string, sessionId?: string): Promise<CompassUnderstanding>;
+  
+  // Compass Examples (living illustrations)
+  createCompassExample(data: InsertCompassExample): Promise<CompassExample>;
+  getCompassExamples(principleId: string): Promise<CompassExample[]>;
+  getApprovedCompassExamples(principleId: string): Promise<CompassExample[]>;
+  approveCompassExample(id: string): Promise<CompassExample | undefined>;
+  
+  // Full Compass retrieval (for prompt injection)
+  getFullCompass(): Promise<{
+    principles: CompassPrinciple[];
+    understanding: CompassUnderstanding[];
+    examples: CompassExample[];
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6961,6 +6998,154 @@ export class DatabaseStorage implements IStorage {
         gte(danielaBeacons.completedAt!, since)
       ))
       .orderBy(desc(danielaBeacons.completedAt));
+  }
+
+  // ===== DANIELA'S COMPASS SYSTEM =====
+  // The philosophical foundation that guides Daniela's teaching
+  // Architecture: Principles (immutable) → Understanding (deepens) → Examples (grows)
+
+  // Compass Principles - The immutable constitutional truths
+  async createCompassPrinciple(data: InsertCompassPrinciple): Promise<CompassPrinciple> {
+    const [created] = await db.insert(compassPrinciples).values([data]).returning();
+    return created;
+  }
+
+  async getCompassPrinciple(id: string): Promise<CompassPrinciple | undefined> {
+    const [principle] = await db.select().from(compassPrinciples).where(eq(compassPrinciples.id, id));
+    return principle;
+  }
+
+  async getAllCompassPrinciples(): Promise<CompassPrinciple[]> {
+    return db.select().from(compassPrinciples)
+      .where(eq(compassPrinciples.isActive, true))
+      .orderBy(asc(compassPrinciples.orderIndex), asc(compassPrinciples.createdAt));
+  }
+
+  async getCompassPrinciplesByCategory(category: string): Promise<CompassPrinciple[]> {
+    return db.select().from(compassPrinciples)
+      .where(and(
+        eq(compassPrinciples.category, category as any),
+        eq(compassPrinciples.isActive, true)
+      ))
+      .orderBy(asc(compassPrinciples.orderIndex));
+  }
+
+  async updateCompassPrinciple(id: string, data: Partial<CompassPrinciple>): Promise<CompassPrinciple | undefined> {
+    const [updated] = await db.update(compassPrinciples)
+      .set(data)
+      .where(eq(compassPrinciples.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Compass Understanding - Daniela's evolving grasp of each principle
+  async createCompassUnderstanding(data: InsertCompassUnderstanding): Promise<CompassUnderstanding> {
+    const [created] = await db.insert(compassUnderstanding).values([data]).returning();
+    return created;
+  }
+
+  async getCompassUnderstanding(principleId: string): Promise<CompassUnderstanding | undefined> {
+    const [understanding] = await db.select().from(compassUnderstanding)
+      .where(eq(compassUnderstanding.principleId, principleId));
+    return understanding;
+  }
+
+  async getAllCompassUnderstanding(): Promise<CompassUnderstanding[]> {
+    return db.select().from(compassUnderstanding)
+      .orderBy(desc(compassUnderstanding.lastDeepened));
+  }
+
+  async updateCompassUnderstanding(id: string, data: Partial<CompassUnderstanding>): Promise<CompassUnderstanding | undefined> {
+    const [updated] = await db.update(compassUnderstanding)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(compassUnderstanding.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deepenCompassUnderstanding(
+    principleId: string, 
+    reflection: string, 
+    depth: string, 
+    sessionId?: string
+  ): Promise<CompassUnderstanding> {
+    const existing = await this.getCompassUnderstanding(principleId);
+    
+    if (existing) {
+      const [updated] = await db.update(compassUnderstanding)
+        .set({
+          reflection,
+          depth: depth as any,
+          lastDeepened: new Date(),
+          deepeningSessionId: sessionId,
+          updatedAt: new Date(),
+        })
+        .where(eq(compassUnderstanding.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      return this.createCompassUnderstanding({
+        principleId,
+        reflection,
+        depth: depth as any,
+        deepeningSessionId: sessionId,
+      });
+    }
+  }
+
+  // Compass Examples - Living illustrations of principles
+  async createCompassExample(data: InsertCompassExample): Promise<CompassExample> {
+    const [created] = await db.insert(compassExamples).values([data]).returning();
+    return created;
+  }
+
+  async getCompassExamples(principleId: string): Promise<CompassExample[]> {
+    return db.select().from(compassExamples)
+      .where(eq(compassExamples.principleId, principleId))
+      .orderBy(asc(compassExamples.createdAt));
+  }
+
+  async getApprovedCompassExamples(principleId: string): Promise<CompassExample[]> {
+    return db.select().from(compassExamples)
+      .where(and(
+        eq(compassExamples.principleId, principleId),
+        or(
+          eq(compassExamples.source, 'founder_original'),
+          eq(compassExamples.source, 'approved')
+        )
+      ))
+      .orderBy(asc(compassExamples.createdAt));
+  }
+
+  async approveCompassExample(id: string): Promise<CompassExample | undefined> {
+    const [updated] = await db.update(compassExamples)
+      .set({ source: 'approved' })
+      .where(eq(compassExamples.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Full Compass retrieval - for prompt injection
+  async getFullCompass(): Promise<{
+    principles: CompassPrinciple[];
+    understanding: CompassUnderstanding[];
+    examples: CompassExample[];
+  }> {
+    const principles = await this.getAllCompassPrinciples();
+    const understanding = await this.getAllCompassUnderstanding();
+    
+    // Get approved examples for all active principles
+    const allExamples: CompassExample[] = [];
+    for (const principle of principles) {
+      const examples = await this.getApprovedCompassExamples(principle.id);
+      allExamples.push(...examples);
+    }
+    
+    return {
+      principles,
+      understanding,
+      examples: allExamples,
+    };
   }
 }
 
