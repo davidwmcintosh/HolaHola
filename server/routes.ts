@@ -14471,6 +14471,61 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
 
   // ============================================================================
+  // WREN API: Agent Message Posting with Real-Time Broadcast
+  // ============================================================================
+  // Wren (development agent) can post messages to Express Lane sessions with
+  // real-time WebSocket broadcast to all connected clients.
+  // Authentication: Uses EDITOR_SECRET (same as Editor persona)
+  // ============================================================================
+
+  // Wren: Post message to Express Lane with real-time broadcast
+  app.post("/api/wren/message", async (req, res) => {
+    try {
+      // Validate using existing Editor secret (machine-to-machine auth)
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { sessionId, content, messageType = 'text' } = req.body;
+
+      if (!sessionId) {
+        return res.status(400).json({ error: 'sessionId is required' });
+      }
+      if (!content) {
+        return res.status(400).json({ error: 'content is required' });
+      }
+
+      // Verify session exists
+      const session = await founderCollabService.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
+
+      // Add message and broadcast via WebSocket
+      const message = await founderCollabWSBroker.addAndBroadcastMessage(sessionId, {
+        role: 'wren',
+        messageType,
+        content,
+      });
+
+      if (!message) {
+        return res.status(500).json({ error: 'Failed to add message' });
+      }
+
+      console.log(`[Wren API] Message posted to session ${sessionId}, id: ${message.id}`);
+      res.json({ 
+        success: true, 
+        message,
+        broadcast: true,
+      });
+    } catch (error: any) {
+      console.error('[Wren API] Post message error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================================
   // EXPRESS LANE: Editor ↔ Daniela Direct Collaboration
   // ============================================================================
   // 
