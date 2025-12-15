@@ -38,6 +38,15 @@ This system separates Daniela's teaching domain from the Editor's development do
 
 **Express Lane Context Injection:** Bi-directional memory continuity between Founder Mode and voice tutoring. When Daniela teaches students, she can access relevant discussions from Express Lane via `getRelevantExpressLaneContext()` in `founder-collaboration-service.ts`. Uses a 3-priority scoping strategy: (1) language-specific voice insight sessions ("Voice Insights - {Language}"), (2) messages with matching `metadata.targetLanguage` from `voice_chat_sync` source, (3) fallback to recent Founder-Daniela conversations with language keyword matching. The reverse flow uses `emitVoiceChatInsight()` to sync teaching insights back to Express Lane, enabling Daniela to remember breakthroughs across sessions. The `EXPRESS_INSIGHT` collaboration signal in tutor-orchestrator triggers this sync.
 
+### Development Agent (Builder)
+The Development Agent works directly with the founder to implement features and fix issues. It has full access to the Hive's shared knowledge:
+- **Filesystem access**: Can read `docs/hive-shared-knowledge/`, neural network docs, and all codebase files
+- **Database access**: Can query `founderSessions` and `collaborationBeacons` tables to see Daniela/Editor discussions
+- **Context gathering**: When starting work, should check recent Founder Mode sessions for relevant context
+- **Confidentiality**: All code, proprietary information, and business logic remains strictly confidential
+
+This allows the Development Agent to stay fully informed and pick up work if Daniela or Editor encounter issues.
+
 ### Feature Specifications
 HolaHola offers conversational onboarding, an adaptive multi-phase conversation system, and AI-suggested topics. It uses a streaming-only voice pipeline (Deepgram Nova-3 STT → Gemini 2.5 Flash → Cartesia Sonic-3 TTS) with push-to-talk. Personalized learning includes scenario-based learning, slow pronunciation, automatic vocabulary extraction, spaced repetition, streak tracking, progress charts, and auto-difficulty adjustment. AI-generated educational images are displayed. The application supports subscription tiers and tracks atomic voice message usage and student proficiency using ACTFL standards. Institutional features include teacher class management, student enrollment, syllabus systems, assignment workflows, and a unified Command Center with RBAC. A Syllabus Builder allows customization. Developer tools include test account isolation and floating dev controls. Learners can customize their AI tutor's teaching style per language. Drill-based lessons support multiple modes (`repeat`, `translate`, `match`, `fill_blank`, `sentence_order`). Vocabulary can be exported. Conversation history includes full-text search. "Founder Mode" provides a collaboration mode. Open Mic Mode offers continuous listening with barge-in and bilingual support. "Raw Honesty Mode" provides minimal prompting.
 
