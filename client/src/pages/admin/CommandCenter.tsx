@@ -4747,6 +4747,7 @@ interface ExpressLaneMessage {
   createdAt: string;
   metadata?: {
     attachments?: ExpressLaneAttachment[];
+    wrenTagged?: boolean;
   };
 }
 
@@ -4803,6 +4804,9 @@ function EditorChatTab() {
   // Attachment state
   const [pendingAttachments, setPendingAttachments] = useState<ExpressLaneAttachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  
+  // Wren tag state - when enabled, message gets flagged for Wren's inbox
+  const [tagForWren, setTagForWren] = useState(false);
   
   // New UI enhancement state
   const [showSearch, setShowSearch] = useState(false);
