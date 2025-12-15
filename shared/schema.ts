@@ -2597,7 +2597,7 @@ export const agendaStatusEnum = pgEnum("agenda_status", [
 // Agenda Queue Type Enum - distinguishes different types of agenda items
 export const agendaTypeEnum = pgEnum("agenda_type", [
   'general',           // Standard discussion topic
-  'compass_reflection', // Daniela's field observation about a Compass principle
+  'compass_reflection', // Daniela's field observation about a North Star principle (legacy name)
   'feature_request',   // Feature or capability request
   'bug_report',        // Issue to discuss
   'consultation'       // Request for guidance
@@ -2617,7 +2617,7 @@ export const agendaQueue = pgTable("agenda_queue", {
   targetSessionId: varchar("target_session_id").references(() => founderSessions.id), // Optional: specific session
   discussedInSessionId: varchar("discussed_in_session_id").references(() => founderSessions.id),
   notes: text("notes"), // Resolution notes after discussion
-  compassPrincipleId: varchar("compass_principle_id"), // For compass_reflection type - links to the principle
+  compassPrincipleId: varchar("compass_principle_id"), // For compass_reflection type - links to North Star principle
   metadata: jsonb("metadata").$type<Record<string, unknown>>(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

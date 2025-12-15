@@ -63,7 +63,7 @@ Architecture: Three-table system (tables still named `compass_*` in DB for safet
 - `northStarUnderstanding` (→ compass_understanding): Daniela's evolving grasp of each principle (deepens through Express Lane discussions with founder)
 - `northStarExamples` (→ compass_examples): Living illustrations from real teaching sessions (pending approval or founder-original)
 
-Key protection: Daniela doesn't learn from students unsupervised. Field observations queue to `agenda_queue` (type: 'compass_reflection') for founder discussion before becoming understanding.
+Key protection: Daniela doesn't learn from students unsupervised. Field observations queue to `agenda_queue` (type: 'compass_reflection' - legacy name) for founder discussion before becoming understanding.
 
 North Star is ALWAYS injected first in `buildSystemPrompt()` via `buildNorthStarSection()` in `tutor-orchestrator.ts`. Categories: identity (who I am), pedagogy (how I teach), honesty (what I owe them), collaboration (how we work together), ambiguity (when things are unclear).
 
