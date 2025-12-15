@@ -370,26 +370,11 @@ app.use((req, res, next) => {
       console.error('[SYNC-SCHEDULER] Failed to start:', error);
     }
     
-    // Start the Editor background worker (for Daniela-Editor collaboration)
-    try {
-      const { startEditorWorker } = await import('./services/editor-background-worker');
-      const started = startEditorWorker();
-      if (started) {
-        console.log('[EDITOR-WORKER] Background worker started successfully');
-      }
-    } catch (error) {
-      console.error('[EDITOR-WORKER] Failed to start:', error);
-    }
-    
-    // Start the Realtime Beacon Dispatcher (fast 1s polling for hive beacons)
-    try {
-      const { startRealtimeDispatcher } = await import('./services/editor-realtime-dispatcher');
-      const started = startRealtimeDispatcher();
-      if (started) {
-        console.log('[REALTIME-DISPATCHER] Started (1s polling for hive beacons)');
-      }
-    } catch (error) {
-      console.error('[REALTIME-DISPATCHER] Failed to start:', error);
-    }
+    // RETIRED: Editor Worker and Beacon systems (Dec 2025 - Option A Consolidation)
+    // Express Lane is now the sole collaboration channel. These are kept for reference:
+    // - editor-background-worker.ts (beacon polling)
+    // - editor-realtime-dispatcher.ts (fast beacon polling)
+    // - hive-collaboration-service.ts (beacon emission)
+    console.log('[CONSOLIDATION] Editor Worker & Beacon systems retired - Express Lane is primary');
   });
 })();

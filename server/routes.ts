@@ -13752,9 +13752,36 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
 
   // ============================================================================
-  // EDITOR BACKGROUND WORKER API (ARCHITECT_SECRET protected)
+  // RETIRED: EDITOR BACKGROUND WORKER API (Dec 2025 - Option A Consolidation)
+  // Express Lane is now the sole collaboration channel
   // ============================================================================
   
+  // Retired routes return 410 Gone with explanation
+  app.all("/api/collaboration/editor/worker/*", (req: any, res) => {
+    return res.status(410).json({ 
+      error: "This API has been retired", 
+      reason: "Option A Consolidation - Express Lane is now the sole collaboration channel",
+      alternative: "/api/express-lane/*"
+    });
+  });
+  
+  app.all("/api/brain-surgery/*", (req: any, res) => {
+    return res.status(410).json({ 
+      error: "This API has been retired", 
+      reason: "Option A Consolidation - Brain Surgery replaced by Express Lane",
+      alternative: "/api/express-lane/*"
+    });
+  });
+  
+  app.all("/api/surgery/*", (req: any, res) => {
+    return res.status(410).json({ 
+      error: "This API has been retired", 
+      reason: "Option A Consolidation - Collaborative Surgery replaced by Express Lane",
+      alternative: "/api/express-lane/*"
+    });
+  });
+
+  /* ARCHIVED ROUTES - kept for reference but not active
   // Get worker status (ARCHITECT_SECRET protected)
   app.get("/api/collaboration/editor/worker/status", async (req: any, res) => {
     try {
@@ -14289,6 +14316,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       res.status(500).json({ error: error.message });
     }
   });
+  END OF ARCHIVED ROUTES */
 
   // ============================================================================
   // CROSS-ENVIRONMENT SYNC API
