@@ -286,6 +286,30 @@ In Founder Mode, Daniela has complete neural network access:
 - **Self-Surgery** capability (`[SELF_SURGERY ...]`)
 - **Command Center chat history** carries over
 
+### Express Lane Context Injection (Bi-directional Memory)
+
+The Express Lane creates **memory continuity** between Founder Mode and voice tutoring:
+
+**Reading: Voice Chat ← Express Lane**
+During voice tutoring, Daniela receives relevant insights from Founder Mode sessions via 3-priority scoping:
+1. Language-specific sessions (title: "Voice Insights - {Language}")
+2. Messages with matching `metadata.targetLanguage`
+3. Fallback: Recent Founder-Daniela conversations with language keyword matching
+
+**Writing: Voice Chat → Express Lane**
+Teaching insights flow back via `[COLLAB:EXPRESS_INSIGHT]...[/COLLAB]` signals.
+
+**Procedural Knowledge:** `tutor_procedures.id = 'express-lane-memory-integration'`
+- Teaches Daniela HOW to use Express Lane insights during teaching
+- When to emit `EXPRESS_INSIGHT` signals on breakthroughs
+
+**Key Files:**
+| File | Purpose |
+|------|---------|
+| `server/services/founder-collaboration-service.ts` | `getRelevantExpressLaneContext()`, `emitVoiceChatInsight()` |
+| `server/services/tutor-orchestrator.ts` | Section 8: Express Lane context injection |
+| `docs/hive-shared-knowledge/express-lane.md` | Full specification |
+
 ### Knowledge Sharing Diagram
 
 ```

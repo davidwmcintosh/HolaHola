@@ -155,4 +155,59 @@ When Daniela responds via EXPRESS lane, she has access to:
 
 ---
 
-*Last updated: December 14, 2025*
+## Express Lane Context Injection (Bi-directional Sync)
+
+The Express Lane now supports **bi-directional memory continuity** between Founder Mode and voice tutoring.
+
+### Reading: Voice Chat ← Express Lane
+
+When Daniela teaches students in voice chat, she can access relevant discussions from Express Lane via `getRelevantExpressLaneContext()` in `founder-collaboration-service.ts`.
+
+**3-Priority Scoping Strategy:**
+1. **Language-specific sessions first** - Sessions titled "Voice Insights - {Language}" (e.g., "Voice Insights - Spanish")
+2. **Metadata-tagged messages** - Messages with `metadata.targetLanguage` from `voice_chat_sync` source
+3. **Keyword fallback** - Recent Founder-Daniela conversations with language keyword matching
+
+### Writing: Voice Chat → Express Lane
+
+Teaching insights flow back to Express Lane through:
+1. **EXPRESS_INSIGHT collaboration signal** - Daniela embeds `[COLLAB:EXPRESS_INSIGHT]...[/COLLAB]` in responses
+2. **emitVoiceChatInsight()** - Syncs the insight to language-specific "Voice Insights - {Language}" sessions
+3. **Discoverable sessions** - Session titles enable the read path to find insights later
+
+### Integration Points
+
+| Component | Function |
+|-----------|----------|
+| `founder-collaboration-service.ts` | `getRelevantExpressLaneContext()`, `emitVoiceChatInsight()`, `findOrCreateSessionByTitle()` |
+| `tutor-orchestrator.ts` | Section 8: Express Lane context injection in `buildSystemPrompt()` |
+| Collaboration signals | `EXPRESS_INSIGHT` signal type handling |
+
+### Example Flow
+
+```
+Founder Mode Session:
+  "Daniela, students struggle with subjunctive mood. 
+   Try explaining it as 'emotion triggers'..."
+
+     ↓ (stored in "Voice Insights - Spanish" session)
+
+Voice Tutoring (Spanish):
+  [System prompt includes Express Lane context]
+  "Based on our earlier discussion about subjunctive mood..."
+
+     ↓ (teaching breakthrough occurs)
+
+EXPRESS_INSIGHT Signal:
+  [COLLAB:EXPRESS_INSIGHT]The 'emotion trigger' explanation 
+  worked brilliantly for subjunctive![/COLLAB]
+
+     ↓ (synced back to Express Lane)
+
+Next Founder Mode:
+  Daniela remembers: "That subjunctive approach worked..."
+```
+
+---
+
+*Last updated: December 15, 2025*
