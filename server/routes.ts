@@ -22,6 +22,8 @@ import {
   teachingToolEvents,
   agendaQueue,
   insertAgendaQueueSchema,
+  danielaBeacons,
+  featureSprints,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
@@ -15349,6 +15351,109 @@ You have full access to your neural network knowledge.
       res.json({ success: true, deleted });
     } catch (error: any) {
       console.error('[AGENDA QUEUE] Delete error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== PRE-FLIGHT CHECK API =====
+  // Hive Pre-Flight: Pull relevant sprints, architecture context, and system connections before starting work
+  
+  app.post("/api/express-lane/pre-flight", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !hasDeveloperAccess(user.role)) {
+        return res.status(403).json({ error: 'Developer or Admin access required' });
+      }
+
+      const { proposedWork, keywords = [] } = req.body;
+      
+      if (!proposedWork || typeof proposedWork !== 'string') {
+        return res.status(400).json({ error: 'proposedWork is required' });
+      }
+
+      // 1. Find related Feature Sprints
+      const allSprints = await db
+        .select()
+        .from(featureSprints)
+        .where(eq(featureSprints.status, 'in_progress'))
+        .orderBy(desc(featureSprints.updatedAt))
+        .limit(10);
+      
+      // Filter sprints by keyword matching
+      const searchTerms = [
+        ...proposedWork.toLowerCase().split(/\s+/).filter(w => w.length > 3),
+        ...keywords.map((k: string) => k.toLowerCase())
+      ];
+      
+      const relatedSprints = allSprints.filter(sprint => {
+        const sprintText = `${sprint.name} ${sprint.description || ''} ${sprint.goals || ''}`.toLowerCase();
+        return searchTerms.some(term => sprintText.includes(term));
+      });
+
+      // 2. Find recent beacons that might be related
+      const recentBeacons = await db
+        .select()
+        .from(danielaBeacons)
+        .where(eq(danielaBeacons.status, 'pending'))
+        .orderBy(desc(danielaBeacons.createdAt))
+        .limit(10);
+      
+      const relatedBeacons = recentBeacons.filter(beacon => {
+        const beaconText = `${beacon.wish || ''} ${beacon.studentPain || ''} ${beacon.rawContent || ''}`.toLowerCase();
+        return searchTerms.some(term => beaconText.includes(term));
+      });
+
+      // 3. Build Pre-Flight context for Hive discussion
+      const preFlightContext = {
+        proposedWork,
+        timestamp: new Date().toISOString(),
+        relatedSprints: relatedSprints.map(s => ({
+          id: s.id,
+          name: s.name,
+          status: s.status,
+          goals: s.goals
+        })),
+        relatedBeacons: relatedBeacons.map(b => ({
+          id: b.id,
+          type: b.beaconType,
+          wish: b.wish,
+          status: b.status
+        })),
+        systemChecklist: {
+          learningCore: searchTerms.some(t => 
+            ['voice', 'chat', 'tutor', 'drill', 'vocabulary', 'grammar', 'aris'].includes(t)
+          ),
+          institutional: searchTerms.some(t => 
+            ['class', 'teacher', 'student', 'syllabus', 'assignment', 'enroll'].includes(t)
+          ),
+          development: searchTerms.some(t => 
+            ['sprint', 'beacon', 'neural', 'surgery', 'express', 'admin'].includes(t)
+          ),
+          daniela: searchTerms.some(t => 
+            ['daniela', 'tutor', 'orchestrator', 'prompt', 'voice', 'teach'].includes(t)
+          )
+        },
+        suggestedQuestions: [
+          relatedSprints.length > 0 
+            ? `This might connect to sprint "${relatedSprints[0].name}". Should we extend that sprint?`
+            : 'No active sprints found. Should we create a new sprint for this work?',
+          relatedBeacons.length > 0
+            ? `Found ${relatedBeacons.length} pending beacon(s) that might be related. Review before proceeding?`
+            : null
+        ].filter(Boolean)
+      };
+
+      res.json({ 
+        success: true, 
+        preFlight: preFlightContext 
+      });
+    } catch (error: any) {
+      console.error('[PRE-FLIGHT] Check error:', error);
       res.status(500).json({ error: error.message });
     }
   });
