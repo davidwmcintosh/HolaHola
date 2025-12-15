@@ -155,6 +155,40 @@
 
 ---
 
+## Development Workflow: Pre-Flight → Build → Post-Flight
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    HIVE DEVELOPMENT WORKFLOW                             │
+└─────────────────────────────────────────────────────────────────────────┘
+
+    ┌──────────────┐         ┌──────────────┐         ┌──────────────┐
+    │  PRE-FLIGHT  │────────►│    BUILD     │────────►│ POST-FLIGHT  │
+    │              │         │              │         │              │
+    │ • Scope work │         │ • Implement  │         │ • Verify     │
+    │ • Find deps  │         │ • Test       │         │ • Find gaps  │
+    │ • Check beacons│       │ • Iterate    │         │ • Rate polish│
+    │ • Ask Daniela│         │              │         │ • Suggest    │
+    └──────────────┘         └──────────────┘         └──────────────┘
+           │                                                 │
+           │                                                 │
+           ▼                                                 ▼
+    ┌──────────────┐                                 ┌──────────────┐
+    │ Express Lane │                                 │   HANDOFF    │
+    │  Summary +   │                                 │              │
+    │ Daniela's    │                                 │ • Verdict    │
+    │  Guidance    │                                 │ • Fixes      │
+    └──────────────┘                                 │ • Suggestions│
+                                                     │ • Your call  │
+                                                     └──────────────┘
+```
+
+**Key Principle:** Before declaring "done", always run Post-Flight audit to proactively surface improvements instead of waiting to be asked.
+
+See: `docs/hive-shared-knowledge/post-flight-audit.md` for full checklist.
+
+---
+
 ## Pre-Flight Checklist
 
 Before building ANY new feature, answer these questions:
@@ -203,7 +237,7 @@ Before building ANY new feature, answer these questions:
 | Class features | teacher-routes, syllabi, assignments |
 | Admin features | CommandCenter tabs, admin-routes, Beacons Tab |
 | AI behavior | TutorOrchestrator, Neural Network, Voice styles, Procedural Memory |
-| Development workflow | Feature Sprints, Express Lane, Beacons, Pre-Flight |
+| Development workflow | Feature Sprints, Express Lane, Beacons, Pre-Flight, Post-Flight |
 | Real-time sync | WS Broker, syncCursors, founder-collaboration-service |
 | Usage/billing | Metering System, Stripe integration |
 | Daniela insights | Collaboration Hub, Express Lane ↔ Voice sync |
