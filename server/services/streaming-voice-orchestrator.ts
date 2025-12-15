@@ -2617,13 +2617,16 @@ Only include observations you can clearly justify from the exchange. Return empt
           for (const conn of observations.peopleConnections || []) {
             try {
               await storage.createPeopleConnection({
-                studentId: String(session.userId),
-                personName: conn.name || 'Unknown',
-                relationship: conn.relationship,
-                context: conn.context,
-                matchStatus: conn.name ? 'pending_match' : 'no_name_provided',
+                personAId: String(session.userId),
+                pendingPersonName: conn.name || null,
+                relationshipType: conn.relationship,
+                pendingPersonContext: conn.context,
+                status: conn.name ? 'pending_match' : 'tentative',
+                mentionedBy: String(session.userId),
+                sourceConversationId: conversationId,
               });
               savedCount.connections++;
+              console.log(`[Student Memory] Saved connection: ${conn.name || 'unnamed'} (${conn.relationship})`);
             } catch (e: any) {
               // Duplicate connections are expected
               if (!e.message?.includes('duplicate')) {
