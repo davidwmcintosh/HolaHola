@@ -4860,6 +4860,23 @@ function EditorChatTab() {
     danielaGuidance: { summary: string; recommendations: string[] };
   } | null>(null);
   
+  // Post-Flight state
+  const [showPostFlight, setShowPostFlight] = useState(false);
+  const [showPostFlightDashboard, setShowPostFlightDashboard] = useState(false);
+  const [postFlightForm, setPostFlightForm] = useState({
+    featureName: '',
+    featureDescription: '',
+    verdict: 'mvp_ready' as 'mvp_ready' | 'needs_polish' | 'polished',
+    requiredFixes: [''] as string[],
+    shouldAddress: [''] as string[],
+    opportunities: [''] as string[],
+    testEvidence: '',
+    documentationUpdates: '',
+    subsystemsTouched: '',
+    sprintId: undefined as number | undefined,
+    autoEmitBeacon: true,
+  });
+  
   // Connect to WebSocket for real-time updates
   useEffect(() => {
     if (expressLaneMode && expressSession?.id) {
@@ -5007,6 +5024,83 @@ function EditorChatTab() {
     onError: (error: any) => {
       toast({ title: "Pre-Flight failed", description: error.message || "Could not run pre-flight check", variant: "destructive" });
     },
+  });
+
+  // Post-Flight report mutation
+  const postFlightMutation = useMutation({
+    mutationFn: async (data: {
+      featureName: string;
+      featureDescription?: string;
+      verdict: 'mvp_ready' | 'needs_polish' | 'polished';
+      requiredFixes?: string[];
+      shouldAddress?: string[];
+      opportunities?: string[];
+      testEvidence?: string;
+      documentationUpdates?: string;
+      subsystemsTouched?: string[];
+      sprintId?: number;
+      autoEmitBeacon?: boolean;
+    }) => {
+      const response = await apiRequest("POST", "/api/express-lane/post-flight", data);
+      return response.json() as Promise<{ success: boolean; report: any; beaconCreated?: boolean }>;
+    },
+    onSuccess: (data) => {
+      toast({ 
+        title: "Post-Flight report filed", 
+        description: data.beaconCreated ? "A beacon was also emitted for follow-up." : "Report saved successfully." 
+      });
+      // Reset form
+      setPostFlightForm({
+        featureName: '',
+        featureDescription: '',
+        verdict: 'mvp_ready',
+        requiredFixes: [''],
+        shouldAddress: [''],
+        opportunities: [''],
+        testEvidence: '',
+        documentationUpdates: '',
+        subsystemsTouched: '',
+        sprintId: undefined,
+        autoEmitBeacon: true,
+      });
+      setShowPostFlight(false);
+      queryClient.invalidateQueries({ queryKey: ['/api/express-lane/post-flight'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/express-lane/post-flight/analytics'] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Post-Flight failed", description: error.message || "Could not file report", variant: "destructive" });
+    },
+  });
+
+  // Post-Flight analytics query
+  const { data: postFlightAnalytics, refetch: refetchPostFlightAnalytics } = useQuery<{
+    verdictBreakdown: { mvp_ready: number; needs_polish: number; polished: number };
+    itemCounts: { requiredFixes: number; shouldAddress: number; opportunities: number };
+    subsystemTrends: Array<{ name: string; totalReports: number; reportsWithIssues: number; issueRate: number }>;
+    recentReports: Array<{ id: number; featureName: string; verdict: string; createdAt: string }>;
+  }>({
+    queryKey: ['/api/express-lane/post-flight/analytics', { days: 30 }],
+    enabled: showPostFlightDashboard,
+  });
+
+  // Post-Flight reports list query
+  const { data: postFlightReports, refetch: refetchPostFlightReports } = useQuery<{
+    reports: Array<{
+      id: number;
+      featureName: string;
+      featureDescription: string | null;
+      verdict: string;
+      requiredFixes: string[];
+      shouldAddress: string[];
+      opportunities: string[];
+      testEvidence: string | null;
+      documentationUpdates: string | null;
+      subsystemsTouched: string[];
+      createdAt: string;
+    }>;
+  }>({
+    queryKey: ['/api/express-lane/post-flight'],
+    enabled: showPostFlightDashboard,
   });
 
   // Create new EXPRESS session mutation
@@ -5431,6 +5525,36 @@ function EditorChatTab() {
                     Pre-Flight
                   </Button>
                   
+                  {/* Post-Flight Button */}
+                  <Button
+                    size="sm"
+                    variant={showPostFlight ? "secondary" : "ghost"}
+                    onClick={() => {
+                      setShowPostFlight(!showPostFlight);
+                      if (showPostFlightDashboard) setShowPostFlightDashboard(false);
+                    }}
+                    data-testid="button-toggle-postflight"
+                    className="relative"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    Post-Flight
+                  </Button>
+                  
+                  {/* Post-Flight Dashboard Button */}
+                  <Button
+                    size="sm"
+                    variant={showPostFlightDashboard ? "secondary" : "ghost"}
+                    onClick={() => {
+                      setShowPostFlightDashboard(!showPostFlightDashboard);
+                      if (showPostFlight) setShowPostFlight(false);
+                    }}
+                    data-testid="button-toggle-postflight-dashboard"
+                    className="relative"
+                  >
+                    <BarChart3 className="h-4 w-4 mr-1" />
+                    Reports
+                  </Button>
+                  
                   {/* Search Button */}
                   <Button
                     size="icon"
@@ -5740,6 +5864,445 @@ function EditorChatTab() {
                       >
                         <X className="h-3 w-3 mr-1" /> Clear
                       </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Post-Flight Form Panel */}
+              {showPostFlight && (
+                <div className="mb-3 p-3 border rounded-md bg-green-500/10 border-green-500/30 max-h-[400px] overflow-y-auto">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium text-sm flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      Post-Flight Audit Report
+                    </h4>
+                    <span className="text-xs text-muted-foreground">
+                      Document feature completion
+                    </span>
+                  </div>
+                  
+                  {/* Form fields */}
+                  <div className="space-y-3">
+                    {/* Feature Name */}
+                    <div>
+                      <label className="text-xs font-medium">Feature Name *</label>
+                      <Input
+                        value={postFlightForm.featureName}
+                        onChange={(e) => setPostFlightForm(f => ({ ...f, featureName: e.target.value }))}
+                        placeholder="e.g., Voice Chat Authentication"
+                        className="mt-1"
+                        data-testid="input-postflight-feature-name"
+                      />
+                    </div>
+                    
+                    {/* Feature Description */}
+                    <div>
+                      <label className="text-xs font-medium">Description</label>
+                      <Textarea
+                        value={postFlightForm.featureDescription}
+                        onChange={(e) => setPostFlightForm(f => ({ ...f, featureDescription: e.target.value }))}
+                        placeholder="Brief description of what was implemented..."
+                        className="mt-1 resize-none"
+                        rows={2}
+                        data-testid="input-postflight-description"
+                      />
+                    </div>
+                    
+                    {/* Verdict */}
+                    <div>
+                      <label className="text-xs font-medium">Verdict *</label>
+                      <Select 
+                        value={postFlightForm.verdict} 
+                        onValueChange={(v: 'mvp_ready' | 'needs_polish' | 'polished') => setPostFlightForm(f => ({ ...f, verdict: v }))}
+                      >
+                        <SelectTrigger className="mt-1" data-testid="select-postflight-verdict">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="mvp_ready">MVP Ready - Works, needs polish</SelectItem>
+                          <SelectItem value="needs_polish">Needs Polish - Core works, rough edges</SelectItem>
+                          <SelectItem value="polished">Polished - Production ready</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {/* Required Fixes */}
+                    <div>
+                      <label className="text-xs font-medium flex items-center gap-2">
+                        <AlertCircle className="h-3 w-3 text-red-500" />
+                        Required Fixes (must fix before launch)
+                      </label>
+                      <div className="space-y-1 mt-1">
+                        {postFlightForm.requiredFixes.map((fix, idx) => (
+                          <div key={idx} className="flex gap-1">
+                            <Input
+                              value={fix}
+                              onChange={(e) => {
+                                const newFixes = [...postFlightForm.requiredFixes];
+                                newFixes[idx] = e.target.value;
+                                setPostFlightForm(f => ({ ...f, requiredFixes: newFixes }));
+                              }}
+                              placeholder="Critical issue..."
+                              className="flex-1"
+                              data-testid={`input-postflight-required-fix-${idx}`}
+                            />
+                            {postFlightForm.requiredFixes.length > 1 && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => {
+                                  const newFixes = postFlightForm.requiredFixes.filter((_, i) => i !== idx);
+                                  setPostFlightForm(f => ({ ...f, requiredFixes: newFixes }));
+                                }}
+                                className="shrink-0"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setPostFlightForm(f => ({ ...f, requiredFixes: [...f.requiredFixes, ''] }))}
+                          className="text-xs"
+                          data-testid="button-add-required-fix"
+                        >
+                          <Plus className="h-3 w-3 mr-1" /> Add
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Should Address */}
+                    <div>
+                      <label className="text-xs font-medium flex items-center gap-2">
+                        <AlertTriangle className="h-3 w-3 text-amber-500" />
+                        Should Address (nice to fix)
+                      </label>
+                      <div className="space-y-1 mt-1">
+                        {postFlightForm.shouldAddress.map((item, idx) => (
+                          <div key={idx} className="flex gap-1">
+                            <Input
+                              value={item}
+                              onChange={(e) => {
+                                const newItems = [...postFlightForm.shouldAddress];
+                                newItems[idx] = e.target.value;
+                                setPostFlightForm(f => ({ ...f, shouldAddress: newItems }));
+                              }}
+                              placeholder="Improvement item..."
+                              className="flex-1"
+                              data-testid={`input-postflight-should-address-${idx}`}
+                            />
+                            {postFlightForm.shouldAddress.length > 1 && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => {
+                                  const newItems = postFlightForm.shouldAddress.filter((_, i) => i !== idx);
+                                  setPostFlightForm(f => ({ ...f, shouldAddress: newItems }));
+                                }}
+                                className="shrink-0"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setPostFlightForm(f => ({ ...f, shouldAddress: [...f.shouldAddress, ''] }))}
+                          className="text-xs"
+                          data-testid="button-add-should-address"
+                        >
+                          <Plus className="h-3 w-3 mr-1" /> Add
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Opportunities */}
+                    <div>
+                      <label className="text-xs font-medium flex items-center gap-2">
+                        <Sparkles className="h-3 w-3 text-blue-500" />
+                        Opportunities (future ideas)
+                      </label>
+                      <div className="space-y-1 mt-1">
+                        {postFlightForm.opportunities.map((opp, idx) => (
+                          <div key={idx} className="flex gap-1">
+                            <Input
+                              value={opp}
+                              onChange={(e) => {
+                                const newOpps = [...postFlightForm.opportunities];
+                                newOpps[idx] = e.target.value;
+                                setPostFlightForm(f => ({ ...f, opportunities: newOpps }));
+                              }}
+                              placeholder="Future enhancement..."
+                              className="flex-1"
+                              data-testid={`input-postflight-opportunity-${idx}`}
+                            />
+                            {postFlightForm.opportunities.length > 1 && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => {
+                                  const newOpps = postFlightForm.opportunities.filter((_, i) => i !== idx);
+                                  setPostFlightForm(f => ({ ...f, opportunities: newOpps }));
+                                }}
+                                className="shrink-0"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setPostFlightForm(f => ({ ...f, opportunities: [...f.opportunities, ''] }))}
+                          className="text-xs"
+                          data-testid="button-add-opportunity"
+                        >
+                          <Plus className="h-3 w-3 mr-1" /> Add
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Test Evidence */}
+                    <div>
+                      <label className="text-xs font-medium">Test Evidence</label>
+                      <Textarea
+                        value={postFlightForm.testEvidence}
+                        onChange={(e) => setPostFlightForm(f => ({ ...f, testEvidence: e.target.value }))}
+                        placeholder="How was this tested? What was verified?"
+                        className="mt-1 resize-none"
+                        rows={2}
+                        data-testid="input-postflight-test-evidence"
+                      />
+                    </div>
+                    
+                    {/* Documentation Updates */}
+                    <div>
+                      <label className="text-xs font-medium">Documentation Updates</label>
+                      <Textarea
+                        value={postFlightForm.documentationUpdates}
+                        onChange={(e) => setPostFlightForm(f => ({ ...f, documentationUpdates: e.target.value }))}
+                        placeholder="What docs were updated or need updating?"
+                        className="mt-1 resize-none"
+                        rows={2}
+                        data-testid="input-postflight-docs"
+                      />
+                    </div>
+                    
+                    {/* Subsystems Touched */}
+                    <div>
+                      <label className="text-xs font-medium">Subsystems Touched (comma-separated)</label>
+                      <Input
+                        value={postFlightForm.subsystemsTouched}
+                        onChange={(e) => setPostFlightForm(f => ({ ...f, subsystemsTouched: e.target.value }))}
+                        placeholder="e.g., voice-pipeline, neural-network, ui"
+                        className="mt-1"
+                        data-testid="input-postflight-subsystems"
+                      />
+                    </div>
+                    
+                    {/* Auto-emit beacon checkbox */}
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={postFlightForm.autoEmitBeacon}
+                        onCheckedChange={(checked) => setPostFlightForm(f => ({ ...f, autoEmitBeacon: checked }))}
+                        data-testid="switch-postflight-beacon"
+                      />
+                      <label className="text-xs">
+                        Auto-emit beacon if 3+ "should address" items (triggers follow-up)
+                      </label>
+                    </div>
+                    
+                    {/* Submit button */}
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          if (!postFlightForm.featureName.trim()) {
+                            toast({ title: "Error", description: "Feature name is required", variant: "destructive" });
+                            return;
+                          }
+                          postFlightMutation.mutate({
+                            featureName: postFlightForm.featureName.trim(),
+                            featureDescription: postFlightForm.featureDescription.trim() || undefined,
+                            verdict: postFlightForm.verdict,
+                            requiredFixes: postFlightForm.requiredFixes.filter(f => f.trim()),
+                            shouldAddress: postFlightForm.shouldAddress.filter(s => s.trim()),
+                            opportunities: postFlightForm.opportunities.filter(o => o.trim()),
+                            testEvidence: postFlightForm.testEvidence.trim() || undefined,
+                            documentationUpdates: postFlightForm.documentationUpdates.trim() || undefined,
+                            subsystemsTouched: postFlightForm.subsystemsTouched.split(',').map(s => s.trim()).filter(Boolean),
+                            sprintId: postFlightForm.sprintId,
+                            autoEmitBeacon: postFlightForm.autoEmitBeacon,
+                          });
+                        }}
+                        disabled={postFlightMutation.isPending || !postFlightForm.featureName.trim()}
+                        data-testid="button-submit-postflight"
+                      >
+                        {postFlightMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            File Report
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setShowPostFlight(false)}
+                        data-testid="button-cancel-postflight"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Post-Flight Dashboard Panel */}
+              {showPostFlightDashboard && (
+                <div className="mb-3 p-3 border rounded-md bg-card max-h-[400px] overflow-y-auto">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium text-sm flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-primary" />
+                      Post-Flight Reports Dashboard
+                    </h4>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        refetchPostFlightAnalytics();
+                        refetchPostFlightReports();
+                      }}
+                      data-testid="button-refresh-postflight-dashboard"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  
+                  {postFlightAnalytics ? (
+                    <div className="space-y-4">
+                      {/* Verdict Breakdown */}
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="p-2 bg-green-500/10 rounded-md text-center">
+                          <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                            {postFlightAnalytics.verdictBreakdown.polished}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Polished</div>
+                        </div>
+                        <div className="p-2 bg-yellow-500/10 rounded-md text-center">
+                          <div className="text-lg font-bold text-yellow-600 dark:text-yellow-400">
+                            {postFlightAnalytics.verdictBreakdown.mvp_ready}
+                          </div>
+                          <div className="text-xs text-muted-foreground">MVP Ready</div>
+                        </div>
+                        <div className="p-2 bg-orange-500/10 rounded-md text-center">
+                          <div className="text-lg font-bold text-orange-600 dark:text-orange-400">
+                            {postFlightAnalytics.verdictBreakdown.needs_polish}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Needs Polish</div>
+                        </div>
+                      </div>
+                      
+                      {/* Item Counts */}
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="p-2 bg-red-500/10 rounded-md text-center">
+                          <div className="text-lg font-bold text-red-600 dark:text-red-400">
+                            {postFlightAnalytics.itemCounts.requiredFixes}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Required Fixes</div>
+                        </div>
+                        <div className="p-2 bg-amber-500/10 rounded-md text-center">
+                          <div className="text-lg font-bold text-amber-600 dark:text-amber-400">
+                            {postFlightAnalytics.itemCounts.shouldAddress}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Should Address</div>
+                        </div>
+                        <div className="p-2 bg-blue-500/10 rounded-md text-center">
+                          <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                            {postFlightAnalytics.itemCounts.opportunities}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Opportunities</div>
+                        </div>
+                      </div>
+                      
+                      {/* Subsystem Trends */}
+                      {postFlightAnalytics.subsystemTrends.length > 0 && (
+                        <div>
+                          <h5 className="text-xs font-medium mb-2">Subsystem Trends</h5>
+                          <div className="space-y-1">
+                            {postFlightAnalytics.subsystemTrends.map((sub) => (
+                              <div key={sub.name} className="flex items-center justify-between text-xs p-1 bg-muted/30 rounded">
+                                <span className="font-medium">{sub.name}</span>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="text-xs">{sub.totalReports} reports</Badge>
+                                  <Badge 
+                                    variant="secondary" 
+                                    className={`text-xs ${sub.issueRate > 50 ? 'bg-red-500/20 text-red-700 dark:text-red-300' : ''}`}
+                                  >
+                                    {sub.issueRate}% issue rate
+                                  </Badge>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Recent Reports */}
+                      {postFlightReports?.reports && postFlightReports.reports.length > 0 && (
+                        <div>
+                          <h5 className="text-xs font-medium mb-2">Recent Reports</h5>
+                          <div className="space-y-2">
+                            {postFlightReports.reports.slice(0, 5).map((report) => (
+                              <div key={report.id} className="p-2 bg-card border rounded-md text-xs">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-medium">{report.featureName}</span>
+                                  <Badge 
+                                    variant="secondary" 
+                                    className={`text-xs ${
+                                      report.verdict === 'polished' ? 'bg-green-500/20 text-green-700 dark:text-green-300' :
+                                      report.verdict === 'mvp_ready' ? 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-300' :
+                                      'bg-orange-500/20 text-orange-700 dark:text-orange-300'
+                                    }`}
+                                  >
+                                    {report.verdict.replace('_', ' ')}
+                                  </Badge>
+                                </div>
+                                {report.featureDescription && (
+                                  <p className="text-muted-foreground line-clamp-1">{report.featureDescription}</p>
+                                )}
+                                <div className="flex gap-2 mt-1 text-muted-foreground">
+                                  {report.requiredFixes.length > 0 && (
+                                    <span className="text-red-600 dark:text-red-400">{report.requiredFixes.length} fixes</span>
+                                  )}
+                                  {report.shouldAddress.length > 0 && (
+                                    <span className="text-amber-600 dark:text-amber-400">{report.shouldAddress.length} improvements</span>
+                                  )}
+                                  {report.opportunities.length > 0 && (
+                                    <span className="text-blue-600 dark:text-blue-400">{report.opportunities.length} ideas</span>
+                                  )}
+                                </div>
+                                <div className="text-muted-foreground mt-1">
+                                  {new Date(report.createdAt).toLocaleDateString()}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-muted-foreground text-sm">
+                      <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                      Loading analytics...
                     </div>
                   )}
                 </div>
