@@ -594,6 +594,157 @@ class FounderCollaborationService {
       replayCapable: true // Cursor-based replay always available
     };
   }
+  
+  // ============================================================================
+  // EXPRESS LANE CONTEXT FOR VOICE CHAT
+  // ============================================================================
+  
+  /**
+   * Retrieve relevant Express Lane (Founder Mode) context for voice chat sessions.
+   * This enables Daniela to access discussions from Express Lane when teaching students,
+   * creating true memory continuity between founder collaboration and teaching.
+   * 
+   * @param options.targetLanguage - Filter by language mentions in content
+   * @param options.topicKeywords - Filter by topic keywords
+   * @param options.limit - Maximum number of insights to return (default: 8)
+   * @param options.daysBack - How far back to look (default: 14 days)
+   */
+  async getRelevantExpressLaneContext(options: {
+    targetLanguage?: string;
+    topicKeywords?: string[];
+    limit?: number;
+    daysBack?: number;
+  } = {}): Promise<{
+    hasRelevantContext: boolean;
+    contextString: string;
+    messageCount: number;
+  }> {
+    const { 
+      targetLanguage, 
+      topicKeywords = [], 
+      limit = 8, 
+      daysBack = 14 
+    } = options;
+    
+    try {
+      // Calculate date threshold
+      const dateThreshold = new Date();
+      dateThreshold.setDate(dateThreshold.getDate() - daysBack);
+      
+      // Fetch recent collaboration messages from Founder and Daniela
+      // (exclude editor/system messages as they're implementation details)
+      const recentMessages = await db.select({
+        role: collaborationMessages.role,
+        content: collaborationMessages.content,
+        createdAt: collaborationMessages.createdAt,
+        metadata: collaborationMessages.metadata,
+      })
+        .from(collaborationMessages)
+        .where(
+          and(
+            sql`${collaborationMessages.role} IN ('founder', 'daniela')`,
+            sql`${collaborationMessages.createdAt} > ${dateThreshold}`
+          )
+        )
+        .orderBy(desc(collaborationMessages.createdAt))
+        .limit(50); // Fetch more than needed, filter below
+      
+      if (recentMessages.length === 0) {
+        return {
+          hasRelevantContext: false,
+          contextString: "",
+          messageCount: 0
+        };
+      }
+      
+      // Filter by language if specified
+      let filteredMessages = recentMessages;
+      if (targetLanguage) {
+        const langLower = targetLanguage.toLowerCase();
+        filteredMessages = recentMessages.filter(msg => {
+          const contentLower = msg.content.toLowerCase();
+          return contentLower.includes(langLower) ||
+            contentLower.includes(`${langLower} language`) ||
+            contentLower.includes(`teaching ${langLower}`) ||
+            contentLower.includes(`learning ${langLower}`);
+        });
+      }
+      
+      // Filter by topic keywords if specified
+      if (topicKeywords.length > 0) {
+        const keywordsLower = topicKeywords.map(k => k.toLowerCase());
+        filteredMessages = filteredMessages.filter(msg => {
+          const contentLower = msg.content.toLowerCase();
+          return keywordsLower.some(keyword => contentLower.includes(keyword));
+        });
+      }
+      
+      // Take top N messages (most recent)
+      const relevantMessages = filteredMessages.slice(0, limit);
+      
+      if (relevantMessages.length === 0) {
+        // Fall back to most recent messages if no specific matches
+        const fallbackMessages = recentMessages.slice(0, Math.min(3, limit));
+        if (fallbackMessages.length === 0) {
+          return {
+            hasRelevantContext: false,
+            contextString: "",
+            messageCount: 0
+          };
+        }
+        
+        const contextString = this.formatExpressLaneContext(fallbackMessages);
+        return {
+          hasRelevantContext: true,
+          contextString,
+          messageCount: fallbackMessages.length
+        };
+      }
+      
+      const contextString = this.formatExpressLaneContext(relevantMessages);
+      
+      return {
+        hasRelevantContext: true,
+        contextString,
+        messageCount: relevantMessages.length
+      };
+    } catch (error) {
+      console.error('[FounderCollab] Error fetching Express Lane context:', error);
+      return {
+        hasRelevantContext: false,
+        contextString: "",
+        messageCount: 0
+      };
+    }
+  }
+  
+  /**
+   * Format Express Lane messages into a prompt-friendly context string
+   */
+  private formatExpressLaneContext(messages: Array<{
+    role: string;
+    content: string;
+    createdAt: Date;
+    metadata: any;
+  }>): string {
+    const insights = messages.map(msg => {
+      const speaker = msg.role === 'founder' ? 'Founder' : 'Daniela';
+      // Truncate long messages
+      const content = msg.content.length > 300 
+        ? msg.content.substring(0, 297) + '...'
+        : msg.content;
+      const date = msg.createdAt.toLocaleDateString();
+      return `[${date}] ${speaker}: ${content}`;
+    });
+    
+    return `
+Recent Express Lane discussions (Founder Mode collaboration):
+${insights.join('\n\n')}
+
+These are insights from direct collaboration with the founder that may be relevant
+to your current teaching session. Apply relevant guidance naturally.
+`.trim();
+  }
 }
 
 export const founderCollabService = new FounderCollaborationService();
