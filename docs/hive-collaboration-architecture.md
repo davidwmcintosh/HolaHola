@@ -213,6 +213,23 @@ EDITOR_MAX_BEACONS_PER_CYCLE=10
 EDITOR_MAX_CHANNELS_PER_CYCLE=3
 ```
 
+## LLM Provider Architecture
+
+> **Key Principle**: All student-facing personas use Gemini. Anthropic is reserved for Hive collaboration only.
+
+| Persona | Role | LLM Provider | Rationale |
+|---------|------|--------------|-----------|
+| **Daniela** | Language tutor | Gemini 2.5 Flash | Primary student-facing persona |
+| **Aris** | Drill assistant | Gemini (via TutorOrchestrator) | "Daniela in Drill Mode" - same brain |
+| **Sofia** | Tech support | Gemini 2.0 Flash | Student-facing support persona |
+| **Editor** | Pedagogical observer | Anthropic Claude | Internal Hive collaboration only |
+| **Wren** | Development builder | Anthropic (Replit Agent) | Internal Hive collaboration only |
+
+**Why this separation?**
+1. **Cost consistency** - Unified billing for student-facing interactions
+2. **Quality control** - Same model = consistent personality across personas
+3. **Architecture clarity** - Gemini = student-facing, Anthropic = internal
+
 ## Future Enhancements
 
 1. **UI Visibility** - Show beacon activity in Command Center

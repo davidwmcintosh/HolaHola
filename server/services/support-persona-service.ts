@@ -8,9 +8,12 @@
  * 
  * Philosophy: "The right person for the right problem."
  * Sofia handles technical friction so Daniela can focus on teaching.
+ * 
+ * LLM PROVIDER: Gemini (consistent with all student-facing personas)
+ * Anthropic is reserved only for Hive collaboration (Editor ↔ Daniela ↔ Wren)
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
 import { db } from "../db";
 import { 
   supportTickets,
@@ -25,10 +28,27 @@ import { eq, desc, and, or, like, sql } from "drizzle-orm";
 import { buildSupportPersonaPrompt, shouldHandoffToSupport } from "../support-system-prompt";
 import { hiveCollaborationService, type BeaconType } from "./hive-collaboration-service";
 
-// Initialize Anthropic client
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+// Initialize Gemini client (consistent with Daniela and Aris)
+// Uses fallback pattern: AI_INTEGRATIONS_GEMINI_API_KEY || GEMINI_API_KEY
+let geminiClient: GoogleGenAI | null = null;
+
+function getGeminiClient(): GoogleGenAI {
+  if (geminiClient) return geminiClient;
+  
+  const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.warn('[Sofia] No Gemini API key found - support responses will fail');
+  }
+  
+  geminiClient = new GoogleGenAI({
+    apiKey: apiKey || '',
+    httpOptions: {
+      apiVersion: "",
+      baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
+    },
+  });
+  return geminiClient;
+}
 
 // Throttling limits to prevent overwhelming the system
 const SUPPORT_LIMITS = {
@@ -299,28 +319,32 @@ class SupportPersonaService {
       })),
     }) + knowledgeContext;
 
-    const claudeMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+    // Build Gemini conversation history
+    const geminiContents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
     
     for (const msg of messages) {
       if (msg.role === 'user') {
-        claudeMessages.push({ role: 'user', content: msg.content });
+        geminiContents.push({ role: 'user', parts: [{ text: msg.content }] });
       } else if (msg.role === 'support_agent') {
-        claudeMessages.push({ role: 'assistant', content: msg.content });
+        geminiContents.push({ role: 'model', parts: [{ text: msg.content }] });
       }
     }
     
-    claudeMessages.push({ role: 'user', content: params.userMessage });
+    geminiContents.push({ role: 'user', parts: [{ text: params.userMessage }] });
 
     try {
-      const response = await anthropic.messages.create({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 500,
-        system: systemPrompt,
-        messages: claudeMessages,
+      const gemini = getGeminiClient();
+      const response = await gemini.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: geminiContents,
+        config: {
+          systemInstruction: systemPrompt,
+          maxOutputTokens: 500,
+          temperature: 0.7,
+        },
       });
 
-      const textContent = response.content.find(c => c.type === 'text');
-      const sofiaResponse = textContent?.text || "I apologize, I'm having trouble responding. Please try again.";
+      const sofiaResponse = response.text || "I apologize, I'm having trouble responding. Please try again.";
 
       const shouldReturnToDaniela = this.detectDanielaRedirect(sofiaResponse);
 
@@ -338,7 +362,7 @@ class SupportPersonaService {
         knowledgeUsed,
       };
     } catch (error) {
-      console.error('[Sofia] Claude API error:', error);
+      console.error('[Sofia] Gemini API error:', error);
       return {
         response: "I'm sorry, I'm experiencing technical difficulties. Please try again in a moment.",
         shouldReturnToDaniela: false,
