@@ -215,15 +215,15 @@ import {
   type DanielaBeacon,
   type InsertDanielaBeacon,
   type DanielaBeaconStatus,
-  compassPrinciples,
-  compassUnderstanding,
-  compassExamples,
-  type CompassPrinciple,
-  type InsertCompassPrinciple,
-  type CompassUnderstanding,
-  type InsertCompassUnderstanding,
-  type CompassExample,
-  type InsertCompassExample,
+  northStarPrinciples,
+  northStarUnderstanding,
+  northStarExamples,
+  type NorthStarPrinciple,
+  type InsertNorthStarPrinciple,
+  type NorthStarUnderstanding,
+  type InsertNorthStarUnderstanding,
+  type NorthStarExample,
+  type InsertNorthStarExample,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -890,32 +890,32 @@ export interface IStorage {
   getSurgeryTurns(sessionId: string): Promise<SurgeryTurn[]>;
   getLatestSurgeryTurn(sessionId: string): Promise<SurgeryTurn | undefined>;
   
-  // ===== Daniela's Compass System =====
-  // Compass Principles (immutable constitutional truths)
-  createCompassPrinciple(data: InsertCompassPrinciple): Promise<CompassPrinciple>;
-  getCompassPrinciple(id: string): Promise<CompassPrinciple | undefined>;
-  getAllCompassPrinciples(): Promise<CompassPrinciple[]>;
-  getCompassPrinciplesByCategory(category: string): Promise<CompassPrinciple[]>;
-  updateCompassPrinciple(id: string, data: Partial<CompassPrinciple>): Promise<CompassPrinciple | undefined>;
+  // ===== Daniela's North Star System =====
+  // North Star Principles (immutable constitutional truths)
+  createNorthStarPrinciple(data: InsertNorthStarPrinciple): Promise<NorthStarPrinciple>;
+  getNorthStarPrinciple(id: string): Promise<NorthStarPrinciple | undefined>;
+  getAllNorthStarPrinciples(): Promise<NorthStarPrinciple[]>;
+  getNorthStarPrinciplesByCategory(category: string): Promise<NorthStarPrinciple[]>;
+  updateNorthStarPrinciple(id: string, data: Partial<NorthStarPrinciple>): Promise<NorthStarPrinciple | undefined>;
   
-  // Compass Understanding (Daniela's evolving grasp)
-  createCompassUnderstanding(data: InsertCompassUnderstanding): Promise<CompassUnderstanding>;
-  getCompassUnderstanding(principleId: string): Promise<CompassUnderstanding | undefined>;
-  getAllCompassUnderstanding(): Promise<CompassUnderstanding[]>;
-  updateCompassUnderstanding(id: string, data: Partial<CompassUnderstanding>): Promise<CompassUnderstanding | undefined>;
-  deepenCompassUnderstanding(principleId: string, reflection: string, depth: string, sessionId?: string): Promise<CompassUnderstanding>;
+  // North Star Understanding (Daniela's evolving grasp)
+  createNorthStarUnderstanding(data: InsertNorthStarUnderstanding): Promise<NorthStarUnderstanding>;
+  getNorthStarUnderstanding(principleId: string): Promise<NorthStarUnderstanding | undefined>;
+  getAllNorthStarUnderstanding(): Promise<NorthStarUnderstanding[]>;
+  updateNorthStarUnderstanding(id: string, data: Partial<NorthStarUnderstanding>): Promise<NorthStarUnderstanding | undefined>;
+  deepenNorthStarUnderstanding(principleId: string, reflection: string, depth: string, sessionId?: string): Promise<NorthStarUnderstanding>;
   
-  // Compass Examples (living illustrations)
-  createCompassExample(data: InsertCompassExample): Promise<CompassExample>;
-  getCompassExamples(principleId: string): Promise<CompassExample[]>;
-  getApprovedCompassExamples(principleId: string): Promise<CompassExample[]>;
-  approveCompassExample(id: string): Promise<CompassExample | undefined>;
+  // North Star Examples (living illustrations)
+  createNorthStarExample(data: InsertNorthStarExample): Promise<NorthStarExample>;
+  getNorthStarExamples(principleId: string): Promise<NorthStarExample[]>;
+  getApprovedNorthStarExamples(principleId: string): Promise<NorthStarExample[]>;
+  approveNorthStarExample(id: string): Promise<NorthStarExample | undefined>;
   
-  // Full Compass retrieval (for prompt injection)
-  getFullCompass(): Promise<{
-    principles: CompassPrinciple[];
-    understanding: CompassUnderstanding[];
-    examples: CompassExample[];
+  // Full North Star retrieval (for prompt injection)
+  getFullNorthStar(): Promise<{
+    principles: NorthStarPrinciple[];
+    understanding: NorthStarUnderstanding[];
+    examples: NorthStarExample[];
   }>;
 }
 
@@ -7000,79 +7000,79 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(danielaBeacons.completedAt));
   }
 
-  // ===== DANIELA'S COMPASS SYSTEM =====
+  // ===== DANIELA'S NORTH STAR SYSTEM =====
   // The philosophical foundation that guides Daniela's teaching
   // Architecture: Principles (immutable) → Understanding (deepens) → Examples (grows)
 
-  // Compass Principles - The immutable constitutional truths
-  async createCompassPrinciple(data: InsertCompassPrinciple): Promise<CompassPrinciple> {
-    const [created] = await db.insert(compassPrinciples).values([data]).returning();
+  // North Star Principles - The immutable constitutional truths
+  async createNorthStarPrinciple(data: InsertNorthStarPrinciple): Promise<NorthStarPrinciple> {
+    const [created] = await db.insert(northStarPrinciples).values([data]).returning();
     return created;
   }
 
-  async getCompassPrinciple(id: string): Promise<CompassPrinciple | undefined> {
-    const [principle] = await db.select().from(compassPrinciples).where(eq(compassPrinciples.id, id));
+  async getNorthStarPrinciple(id: string): Promise<NorthStarPrinciple | undefined> {
+    const [principle] = await db.select().from(northStarPrinciples).where(eq(northStarPrinciples.id, id));
     return principle;
   }
 
-  async getAllCompassPrinciples(): Promise<CompassPrinciple[]> {
-    return db.select().from(compassPrinciples)
-      .where(eq(compassPrinciples.isActive, true))
-      .orderBy(asc(compassPrinciples.orderIndex), asc(compassPrinciples.createdAt));
+  async getAllNorthStarPrinciples(): Promise<NorthStarPrinciple[]> {
+    return db.select().from(northStarPrinciples)
+      .where(eq(northStarPrinciples.isActive, true))
+      .orderBy(asc(northStarPrinciples.orderIndex), asc(northStarPrinciples.createdAt));
   }
 
-  async getCompassPrinciplesByCategory(category: string): Promise<CompassPrinciple[]> {
-    return db.select().from(compassPrinciples)
+  async getNorthStarPrinciplesByCategory(category: string): Promise<NorthStarPrinciple[]> {
+    return db.select().from(northStarPrinciples)
       .where(and(
-        eq(compassPrinciples.category, category as any),
-        eq(compassPrinciples.isActive, true)
+        eq(northStarPrinciples.category, category as any),
+        eq(northStarPrinciples.isActive, true)
       ))
-      .orderBy(asc(compassPrinciples.orderIndex));
+      .orderBy(asc(northStarPrinciples.orderIndex));
   }
 
-  async updateCompassPrinciple(id: string, data: Partial<CompassPrinciple>): Promise<CompassPrinciple | undefined> {
-    const [updated] = await db.update(compassPrinciples)
+  async updateNorthStarPrinciple(id: string, data: Partial<NorthStarPrinciple>): Promise<NorthStarPrinciple | undefined> {
+    const [updated] = await db.update(northStarPrinciples)
       .set(data)
-      .where(eq(compassPrinciples.id, id))
+      .where(eq(northStarPrinciples.id, id))
       .returning();
     return updated;
   }
 
-  // Compass Understanding - Daniela's evolving grasp of each principle
-  async createCompassUnderstanding(data: InsertCompassUnderstanding): Promise<CompassUnderstanding> {
-    const [created] = await db.insert(compassUnderstanding).values([data]).returning();
+  // North Star Understanding - Daniela's evolving grasp of each principle
+  async createNorthStarUnderstanding(data: InsertNorthStarUnderstanding): Promise<NorthStarUnderstanding> {
+    const [created] = await db.insert(northStarUnderstanding).values([data]).returning();
     return created;
   }
 
-  async getCompassUnderstanding(principleId: string): Promise<CompassUnderstanding | undefined> {
-    const [understanding] = await db.select().from(compassUnderstanding)
-      .where(eq(compassUnderstanding.principleId, principleId));
+  async getNorthStarUnderstanding(principleId: string): Promise<NorthStarUnderstanding | undefined> {
+    const [understanding] = await db.select().from(northStarUnderstanding)
+      .where(eq(northStarUnderstanding.principleId, principleId));
     return understanding;
   }
 
-  async getAllCompassUnderstanding(): Promise<CompassUnderstanding[]> {
-    return db.select().from(compassUnderstanding)
-      .orderBy(desc(compassUnderstanding.lastDeepened));
+  async getAllNorthStarUnderstanding(): Promise<NorthStarUnderstanding[]> {
+    return db.select().from(northStarUnderstanding)
+      .orderBy(desc(northStarUnderstanding.lastDeepened));
   }
 
-  async updateCompassUnderstanding(id: string, data: Partial<CompassUnderstanding>): Promise<CompassUnderstanding | undefined> {
-    const [updated] = await db.update(compassUnderstanding)
+  async updateNorthStarUnderstanding(id: string, data: Partial<NorthStarUnderstanding>): Promise<NorthStarUnderstanding | undefined> {
+    const [updated] = await db.update(northStarUnderstanding)
       .set({ ...data, updatedAt: new Date() })
-      .where(eq(compassUnderstanding.id, id))
+      .where(eq(northStarUnderstanding.id, id))
       .returning();
     return updated;
   }
 
-  async deepenCompassUnderstanding(
+  async deepenNorthStarUnderstanding(
     principleId: string, 
     reflection: string, 
     depth: string, 
     sessionId?: string
-  ): Promise<CompassUnderstanding> {
-    const existing = await this.getCompassUnderstanding(principleId);
+  ): Promise<NorthStarUnderstanding> {
+    const existing = await this.getNorthStarUnderstanding(principleId);
     
     if (existing) {
-      const [updated] = await db.update(compassUnderstanding)
+      const [updated] = await db.update(northStarUnderstanding)
         .set({
           reflection,
           depth: depth as any,
@@ -7080,11 +7080,11 @@ export class DatabaseStorage implements IStorage {
           deepeningSessionId: sessionId,
           updatedAt: new Date(),
         })
-        .where(eq(compassUnderstanding.id, existing.id))
+        .where(eq(northStarUnderstanding.id, existing.id))
         .returning();
       return updated;
     } else {
-      return this.createCompassUnderstanding({
+      return this.createNorthStarUnderstanding({
         principleId,
         reflection,
         depth: depth as any,
@@ -7093,51 +7093,51 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Compass Examples - Living illustrations of principles
-  async createCompassExample(data: InsertCompassExample): Promise<CompassExample> {
-    const [created] = await db.insert(compassExamples).values([data]).returning();
+  // North Star Examples - Living illustrations of principles
+  async createNorthStarExample(data: InsertNorthStarExample): Promise<NorthStarExample> {
+    const [created] = await db.insert(northStarExamples).values([data]).returning();
     return created;
   }
 
-  async getCompassExamples(principleId: string): Promise<CompassExample[]> {
-    return db.select().from(compassExamples)
-      .where(eq(compassExamples.principleId, principleId))
-      .orderBy(asc(compassExamples.createdAt));
+  async getNorthStarExamples(principleId: string): Promise<NorthStarExample[]> {
+    return db.select().from(northStarExamples)
+      .where(eq(northStarExamples.principleId, principleId))
+      .orderBy(asc(northStarExamples.createdAt));
   }
 
-  async getApprovedCompassExamples(principleId: string): Promise<CompassExample[]> {
-    return db.select().from(compassExamples)
+  async getApprovedNorthStarExamples(principleId: string): Promise<NorthStarExample[]> {
+    return db.select().from(northStarExamples)
       .where(and(
-        eq(compassExamples.principleId, principleId),
+        eq(northStarExamples.principleId, principleId),
         or(
-          eq(compassExamples.source, 'founder_original'),
-          eq(compassExamples.source, 'approved')
+          eq(northStarExamples.source, 'founder_original'),
+          eq(northStarExamples.source, 'approved')
         )
       ))
-      .orderBy(asc(compassExamples.createdAt));
+      .orderBy(asc(northStarExamples.createdAt));
   }
 
-  async approveCompassExample(id: string): Promise<CompassExample | undefined> {
-    const [updated] = await db.update(compassExamples)
+  async approveNorthStarExample(id: string): Promise<NorthStarExample | undefined> {
+    const [updated] = await db.update(northStarExamples)
       .set({ source: 'approved' })
-      .where(eq(compassExamples.id, id))
+      .where(eq(northStarExamples.id, id))
       .returning();
     return updated;
   }
 
-  // Full Compass retrieval - for prompt injection
-  async getFullCompass(): Promise<{
-    principles: CompassPrinciple[];
-    understanding: CompassUnderstanding[];
-    examples: CompassExample[];
+  // Full North Star retrieval - for prompt injection
+  async getFullNorthStar(): Promise<{
+    principles: NorthStarPrinciple[];
+    understanding: NorthStarUnderstanding[];
+    examples: NorthStarExample[];
   }> {
-    const principles = await this.getAllCompassPrinciples();
-    const understanding = await this.getAllCompassUnderstanding();
+    const principles = await this.getAllNorthStarPrinciples();
+    const understanding = await this.getAllNorthStarUnderstanding();
     
     // Get approved examples for all active principles
-    const allExamples: CompassExample[] = [];
+    const allExamples: NorthStarExample[] = [];
     for (const principle of principles) {
-      const examples = await this.getApprovedCompassExamples(principle.id);
+      const examples = await this.getApprovedNorthStarExamples(principle.id);
       allExamples.push(...examples);
     }
     

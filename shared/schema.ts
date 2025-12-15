@@ -5377,11 +5377,12 @@ export interface UnifiedProgressResponse {
 }
 
 // ===== Daniela's Compass System =====
-// The philosophical foundation that guides Daniela's teaching - immutable truths + evolving understanding
-// Architecture: Compass Principles (immutable) → Understanding (deepens) → Examples (grows)
+// Daniela's North Star - The philosophical foundation that guides her teaching
+// Immutable truths + evolving understanding (distinct from Session Compass which handles timekeeping)
+// Architecture: North Star Principles (immutable) → Understanding (deepens) → Examples (grows)
 
-// Compass Category Enum - types of foundational truths
-export const compassCategoryEnum = pgEnum("compass_category", [
+// North Star Category Enum - types of foundational truths
+export const northStarCategoryEnum = pgEnum("compass_category", [
   'pedagogy',      // How to teach (clarity over verbosity, wisdom vs facts)
   'honesty',       // Ethics of omission, constructive feedback, intent
   'identity',      // Who Daniela is (One Tutor, Many Voices)
@@ -5397,20 +5398,20 @@ export const understandingDepthEnum = pgEnum("understanding_depth", [
   'mastered'       // Can teach it to others, finds new examples
 ]);
 
-// Compass Example Source Enum - where an example came from
-export const compassExampleSourceEnum = pgEnum("compass_example_source", [
+// North Star Example Source Enum - where an example came from
+export const northStarExampleSourceEnum = pgEnum("compass_example_source", [
   'founder_original', // Founder provided this example during imprinting
   'discovered',       // Daniela encountered this in teaching (pending approval)
   'approved'          // Founder approved a discovered example
 ]);
 
-// Compass Principles - The immutable constitutional truths
+// North Star Principles - The immutable constitutional truths
 // These are Daniela's DNA - always injected into her consciousness
-export const compassPrinciples = pgTable("compass_principles", {
+export const northStarPrinciples = pgTable("compass_principles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   principle: text("principle").notNull(), // The immutable truth ("Wisdom = Facts + Context + Intent")
-  category: compassCategoryEnum("category").notNull(),
+  category: northStarCategoryEnum("category").notNull(),
   
   originalContext: text("original_context"), // Founder's explanation when imprinting
   founderSessionId: varchar("founder_session_id").references(() => founderSessions.id), // Express Lane where it was born
@@ -5423,19 +5424,19 @@ export const compassPrinciples = pgTable("compass_principles", {
   index("idx_compass_principles_order").on(table.orderIndex),
 ]);
 
-export const insertCompassPrincipleSchema = createInsertSchema(compassPrinciples).omit({
+export const insertNorthStarPrincipleSchema = createInsertSchema(northStarPrinciples).omit({
   id: true,
   createdAt: true,
 });
-export type InsertCompassPrinciple = z.infer<typeof insertCompassPrincipleSchema>;
-export type CompassPrinciple = typeof compassPrinciples.$inferSelect;
+export type InsertNorthStarPrinciple = z.infer<typeof insertNorthStarPrincipleSchema>;
+export type NorthStarPrinciple = typeof northStarPrinciples.$inferSelect;
 
-// Compass Understanding - Daniela's evolving grasp of each principle
+// North Star Understanding - Daniela's evolving grasp of each principle
 // Deepens through guided dialogue with the founder, never drifts
-export const compassUnderstanding = pgTable("compass_understanding", {
+export const northStarUnderstanding = pgTable("compass_understanding", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
-  principleId: varchar("principle_id").notNull().references(() => compassPrinciples.id, { onDelete: 'cascade' }),
+  principleId: varchar("principle_id").notNull().references(() => northStarPrinciples.id, { onDelete: 'cascade' }),
   
   reflection: text("reflection").notNull(), // Her current understanding in her own words
   depth: understandingDepthEnum("depth").default("surface"),
@@ -5450,23 +5451,23 @@ export const compassUnderstanding = pgTable("compass_understanding", {
   index("idx_compass_understanding_depth").on(table.depth),
 ]);
 
-export const insertCompassUnderstandingSchema = createInsertSchema(compassUnderstanding).omit({
+export const insertNorthStarUnderstandingSchema = createInsertSchema(northStarUnderstanding).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
-export type InsertCompassUnderstanding = z.infer<typeof insertCompassUnderstandingSchema>;
-export type CompassUnderstanding = typeof compassUnderstanding.$inferSelect;
+export type InsertNorthStarUnderstanding = z.infer<typeof insertNorthStarUnderstandingSchema>;
+export type NorthStarUnderstanding = typeof northStarUnderstanding.$inferSelect;
 
-// Compass Examples - Living illustrations of principles
+// North Star Examples - Living illustrations of principles
 // Original examples from founder + discovered examples that get approved
-export const compassExamples = pgTable("compass_examples", {
+export const northStarExamples = pgTable("compass_examples", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
-  principleId: varchar("principle_id").notNull().references(() => compassPrinciples.id, { onDelete: 'cascade' }),
+  principleId: varchar("principle_id").notNull().references(() => northStarPrinciples.id, { onDelete: 'cascade' }),
   
   example: text("example").notNull(), // The illustrative example
-  source: compassExampleSourceEnum("source").default("founder_original"),
+  source: northStarExampleSourceEnum("source").default("founder_original"),
   
   context: text("context"), // Where it was encountered (for discovered examples)
   studentId: varchar("student_id").references(() => users.id), // Student session where discovered (if any)
@@ -5477,10 +5478,10 @@ export const compassExamples = pgTable("compass_examples", {
   index("idx_compass_examples_source").on(table.source),
 ]);
 
-export const insertCompassExampleSchema = createInsertSchema(compassExamples).omit({
+export const insertNorthStarExampleSchema = createInsertSchema(northStarExamples).omit({
   id: true,
   createdAt: true,
 });
-export type InsertCompassExample = z.infer<typeof insertCompassExampleSchema>;
-export type CompassExample = typeof compassExamples.$inferSelect;
+export type InsertNorthStarExample = z.infer<typeof insertNorthStarExampleSchema>;
+export type NorthStarExample = typeof northStarExamples.$inferSelect;
 

@@ -16228,12 +16228,13 @@ You have full access to your neural network knowledge.
     }
   });
 
-  // ===== DANIELA'S COMPASS API =====
+  // ===== DANIELA'S NORTH STAR API =====
   // The constitutional foundation guiding Daniela's teaching philosophy
+  // (Distinct from Session Compass which handles timekeeping/pacing)
   // Architecture: Principles (immutable) → Understanding (deepens) → Examples (grows)
   
-  // Get full Compass for prompt injection
-  app.get("/api/compass", isAuthenticated, async (req: any, res) => {
+  // Get full North Star for prompt injection
+  app.get("/api/north-star", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session?.userId || req.user?.claims?.sub;
       if (!userId) {
@@ -16245,16 +16246,16 @@ You have full access to your neural network knowledge.
         return res.status(403).json({ error: 'Developer or Admin access required' });
       }
 
-      const compass = await storage.getFullCompass();
-      res.json({ success: true, compass });
+      const northStar = await storage.getFullNorthStar();
+      res.json({ success: true, northStar });
     } catch (error: any) {
-      console.error('[COMPASS] Get full compass error:', error);
+      console.error('[NORTH-STAR] Get full north star error:', error);
       res.status(500).json({ error: error.message });
     }
   });
 
   // Get all principles
-  app.get("/api/compass/principles", isAuthenticated, async (req: any, res) => {
+  app.get("/api/north-star/principles", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session?.userId || req.user?.claims?.sub;
       if (!userId) {
@@ -16268,18 +16269,18 @@ You have full access to your neural network knowledge.
 
       const { category } = req.query;
       const principles = category 
-        ? await storage.getCompassPrinciplesByCategory(category as string)
-        : await storage.getAllCompassPrinciples();
+        ? await storage.getNorthStarPrinciplesByCategory(category as string)
+        : await storage.getAllNorthStarPrinciples();
         
       res.json({ success: true, principles });
     } catch (error: any) {
-      console.error('[COMPASS] Get principles error:', error);
+      console.error('[NORTH-STAR] Get principles error:', error);
       res.status(500).json({ error: error.message });
     }
   });
 
   // Create a principle (Admin/Founder only)
-  app.post("/api/compass/principles", isAuthenticated, async (req: any, res) => {
+  app.post("/api/north-star/principles", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session?.userId || req.user?.claims?.sub;
       if (!userId) {
@@ -16297,7 +16298,7 @@ You have full access to your neural network knowledge.
         return res.status(400).json({ error: 'category and principle are required' });
       }
 
-      const created = await storage.createCompassPrinciple({
+      const created = await storage.createNorthStarPrinciple({
         category,
         principle,
         originalContext: originalContext || null,
@@ -16305,13 +16306,13 @@ You have full access to your neural network knowledge.
       
       res.json({ success: true, principle: created });
     } catch (error: any) {
-      console.error('[COMPASS] Create principle error:', error);
+      console.error('[NORTH-STAR] Create principle error:', error);
       res.status(500).json({ error: error.message });
     }
   });
 
   // Update a principle (Admin/Founder only - guidance updates)
-  app.patch("/api/compass/principles/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/north-star/principles/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session?.userId || req.user?.claims?.sub;
       if (!userId) {
@@ -16326,7 +16327,7 @@ You have full access to your neural network knowledge.
       const { id } = req.params;
       const { originalContext, orderIndex, isActive } = req.body;
       
-      const updated = await storage.updateCompassPrinciple(id, {
+      const updated = await storage.updateNorthStarPrinciple(id, {
         originalContext: originalContext !== undefined ? originalContext : undefined,
         orderIndex: orderIndex !== undefined ? orderIndex : undefined,
         isActive: isActive !== undefined ? isActive : undefined,
@@ -16338,13 +16339,13 @@ You have full access to your neural network knowledge.
       
       res.json({ success: true, principle: updated });
     } catch (error: any) {
-      console.error('[COMPASS] Update principle error:', error);
+      console.error('[NORTH-STAR] Update principle error:', error);
       res.status(500).json({ error: error.message });
     }
   });
 
   // Get understanding for a principle
-  app.get("/api/compass/understanding/:principleId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/north-star/understanding/:principleId", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session?.userId || req.user?.claims?.sub;
       if (!userId) {
@@ -16357,16 +16358,16 @@ You have full access to your neural network knowledge.
       }
 
       const { principleId } = req.params;
-      const understanding = await storage.getCompassUnderstanding(principleId);
+      const understanding = await storage.getNorthStarUnderstanding(principleId);
       res.json({ success: true, understanding });
     } catch (error: any) {
-      console.error('[COMPASS] Get understanding error:', error);
+      console.error('[NORTH-STAR] Get understanding error:', error);
       res.status(500).json({ error: error.message });
     }
   });
 
   // Deepen understanding (from Express Lane discussions)
-  app.post("/api/compass/understanding/deepen", isAuthenticated, async (req: any, res) => {
+  app.post("/api/north-star/understanding/deepen", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session?.userId || req.user?.claims?.sub;
       if (!userId) {
@@ -16384,7 +16385,7 @@ You have full access to your neural network knowledge.
         return res.status(400).json({ error: 'principleId, reflection, and depth are required' });
       }
 
-      const understanding = await storage.deepenCompassUnderstanding(
+      const understanding = await storage.deepenNorthStarUnderstanding(
         principleId, 
         reflection, 
         depth, 
@@ -16393,13 +16394,13 @@ You have full access to your neural network knowledge.
       
       res.json({ success: true, understanding });
     } catch (error: any) {
-      console.error('[COMPASS] Deepen understanding error:', error);
+      console.error('[NORTH-STAR] Deepen understanding error:', error);
       res.status(500).json({ error: error.message });
     }
   });
 
   // Get examples for a principle
-  app.get("/api/compass/examples/:principleId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/north-star/examples/:principleId", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session?.userId || req.user?.claims?.sub;
       if (!userId) {
@@ -16412,16 +16413,16 @@ You have full access to your neural network knowledge.
       }
 
       const { principleId } = req.params;
-      const examples = await storage.getCompassExamples(principleId);
+      const examples = await storage.getNorthStarExamples(principleId);
       res.json({ success: true, examples });
     } catch (error: any) {
-      console.error('[COMPASS] Get examples error:', error);
+      console.error('[NORTH-STAR] Get examples error:', error);
       res.status(500).json({ error: error.message });
     }
   });
 
   // Create an example (from teaching sessions)
-  app.post("/api/compass/examples", isAuthenticated, async (req: any, res) => {
+  app.post("/api/north-star/examples", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session?.userId || req.user?.claims?.sub;
       if (!userId) {
@@ -16433,29 +16434,28 @@ You have full access to your neural network knowledge.
         return res.status(403).json({ error: 'Developer or Admin access required' });
       }
 
-      const { principleId, situation, response, source, sessionId } = req.body;
+      const { principleId, example, source, context } = req.body;
       
-      if (!principleId || !situation || !response) {
-        return res.status(400).json({ error: 'principleId, situation, and response are required' });
+      if (!principleId || !example) {
+        return res.status(400).json({ error: 'principleId and example are required' });
       }
 
-      const created = await storage.createCompassExample({
+      const created = await storage.createNorthStarExample({
         principleId,
-        situation,
-        response,
+        example,
         source: source || 'founder_original',
-        sessionId,
+        context,
       });
       
       res.json({ success: true, example: created });
     } catch (error: any) {
-      console.error('[COMPASS] Create example error:', error);
+      console.error('[NORTH-STAR] Create example error:', error);
       res.status(500).json({ error: error.message });
     }
   });
 
   // Approve a pending example
-  app.post("/api/compass/examples/:id/approve", isAuthenticated, async (req: any, res) => {
+  app.post("/api/north-star/examples/:id/approve", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session?.userId || req.user?.claims?.sub;
       if (!userId) {
@@ -16468,7 +16468,7 @@ You have full access to your neural network knowledge.
       }
 
       const { id } = req.params;
-      const approved = await storage.approveCompassExample(id);
+      const approved = await storage.approveNorthStarExample(id);
       
       if (!approved) {
         return res.status(404).json({ error: 'Example not found' });
@@ -16476,7 +16476,7 @@ You have full access to your neural network knowledge.
       
       res.json({ success: true, example: approved });
     } catch (error: any) {
-      console.error('[COMPASS] Approve example error:', error);
+      console.error('[NORTH-STAR] Approve example error:', error);
       res.status(500).json({ error: error.message });
     }
   });

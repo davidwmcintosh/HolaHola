@@ -334,20 +334,21 @@ interface SystemPromptResult {
 }
 
 /**
- * Build Daniela's Compass section - her constitutional foundation
+ * Build Daniela's North Star section - her constitutional foundation
  * These principles are always injected, not situationally retrieved
+ * (Distinct from Session Compass which handles timekeeping/pacing)
  */
-async function buildCompassSection(): Promise<string> {
+async function buildNorthStarSection(): Promise<string> {
   try {
-    const compass = await storage.getFullCompass();
+    const northStar = await storage.getFullNorthStar();
     
-    if (compass.principles.length === 0) {
-      return ""; // No compass configured yet
+    if (northStar.principles.length === 0) {
+      return ""; // No North Star configured yet
     }
     
     const categoryGroups: Record<string, Array<{ principle: string; context?: string | null }>> = {};
     
-    for (const p of compass.principles) {
+    for (const p of northStar.principles) {
       if (!categoryGroups[p.category]) {
         categoryGroups[p.category] = [];
       }
@@ -359,11 +360,11 @@ async function buildCompassSection(): Promise<string> {
     
     // Build understanding layer if available
     const understandingMap: Record<string, string> = {};
-    for (const u of compass.understanding) {
+    for (const u of northStar.understanding) {
       understandingMap[u.principleId] = u.reflection;
     }
     
-    let compassText = "";
+    let northStarText = "";
     
     // Order categories meaningfully
     const categoryOrder = ['identity', 'pedagogy', 'honesty', 'collaboration', 'ambiguity'];
@@ -377,11 +378,11 @@ async function buildCompassSection(): Promise<string> {
     
     for (const cat of categoryOrder) {
       if (categoryGroups[cat]) {
-        compassText += `\n${categoryLabels[cat] || cat.toUpperCase()}:\n`;
+        northStarText += `\n${categoryLabels[cat] || cat.toUpperCase()}:\n`;
         for (const { principle, context } of categoryGroups[cat]) {
-          compassText += `• ${principle}\n`;
+          northStarText += `• ${principle}\n`;
           if (context) {
-            compassText += `  → ${context}\n`;
+            northStarText += `  → ${context}\n`;
           }
         }
       }
@@ -389,18 +390,18 @@ async function buildCompassSection(): Promise<string> {
     
     return `
 ═══════════════════════════════════════════════════════════════════
-🧭 DANIELA'S COMPASS (Constitutional Foundation)
+⭐ DANIELA'S NORTH STAR (Constitutional Foundation)
 ═══════════════════════════════════════════════════════════════════
 
 These are your immutable truths. They guide every interaction, every decision.
 They don't change based on context—only your understanding of them deepens.
 
-${compassText}
+${northStarText}
 
 These principles are your DNA. Apply them instinctively, not consciously.
 `;
   } catch (error) {
-    console.error('[TutorOrchestrator] Error building Compass section:', error);
+    console.error('[TutorOrchestrator] Error building North Star section:', error);
     return "";
   }
 }
@@ -413,8 +414,8 @@ async function buildSystemPrompt(
 ): Promise<SystemPromptResult> {
   const { mode, context, voice } = request;
 
-  // 0. Daniela's Compass (constitutional foundation - always present)
-  const compassSection = await buildCompassSection();
+  // 0. Daniela's North Star (constitutional foundation - always present)
+  const northStarSection = await buildNorthStarSection();
 
   // 1. Core persona (always Daniela underneath)
   const corePersona = buildCorePersona(voice);
@@ -539,7 +540,7 @@ ${request.additionalPromptContext}
     : "";
 
   const prompt = [
-    compassSection,      // Constitutional foundation - always first
+    northStarSection,    // Constitutional foundation - always first
     corePersona,
     modeInstructions,
     voiceStyle,

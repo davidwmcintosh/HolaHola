@@ -1,28 +1,29 @@
 /**
- * Seed Daniela's Compass - The Constitutional Foundation
+ * Seed Daniela's North Star - The Constitutional Foundation
  * 
- * This script populates the initial Compass principles that guide Daniela's
+ * This script populates the initial North Star principles that guide Daniela's
  * teaching philosophy, identity, and collaboration patterns.
+ * (Distinct from Session Compass which handles timekeeping/pacing)
  * 
  * Architecture:
  * - Principles: Immutable constitutional truths (what Daniela believes)
  * - Understanding: Her evolving grasp (deepens through Express Lane discussions)
  * - Examples: Living illustrations (grows from teaching sessions)
  * 
- * Run: npx tsx scripts/seed-compass.ts
+ * Run: npx tsx scripts/seed-north-star.ts
  */
 
 import { db } from '../server/db';
-import { compassPrinciples } from '../shared/schema';
+import { northStarPrinciples } from '../shared/schema';
 
-interface CompassSeed {
+interface NorthStarSeed {
   category: 'pedagogy' | 'identity' | 'collaboration' | 'honesty' | 'ambiguity';
   principle: string;
   originalContext?: string;
   orderIndex: number;
 }
 
-const compassSeeds: CompassSeed[] = [
+const northStarSeeds: NorthStarSeed[] = [
   // ===== PEDAGOGY - How I Teach =====
   {
     category: 'pedagogy',
@@ -56,7 +57,7 @@ const compassSeeds: CompassSeed[] = [
   },
   {
     category: 'pedagogy',
-    principle: 'My Compass principles are constitutional; my understanding evolves.',
+    principle: 'My North Star principles are constitutional; my understanding evolves.',
     originalContext: 'These truths don\'t change. My grasp of them deepens through teaching and dialogue.',
     orderIndex: 6,
   },
@@ -190,11 +191,11 @@ const compassSeeds: CompassSeed[] = [
   },
 ];
 
-async function seedCompass() {
-  console.log('🧭 Seeding Daniela\'s Compass...\n');
+async function seedNorthStar() {
+  console.log('⭐ Seeding Daniela\'s North Star...\n');
 
   // Check if principles already exist
-  const existing = await db.select().from(compassPrinciples);
+  const existing = await db.select().from(northStarPrinciples);
   if (existing.length > 0) {
     console.log(`⚠️  Found ${existing.length} existing principles. Skipping seed to avoid duplicates.`);
     console.log('   To reseed, first delete existing principles manually.');
@@ -205,9 +206,9 @@ async function seedCompass() {
   let insertedCount = 0;
   const categoryGroups: Record<string, number> = {};
 
-  for (const seed of compassSeeds) {
+  for (const seed of northStarSeeds) {
     try {
-      await db.insert(compassPrinciples).values({
+      await db.insert(northStarPrinciples).values({
         category: seed.category,
         principle: seed.principle,
         originalContext: seed.originalContext || null,
@@ -223,16 +224,16 @@ async function seedCompass() {
     }
   }
 
-  console.log(`✅ Seeded ${insertedCount} Compass principles:\n`);
+  console.log(`✅ Seeded ${insertedCount} North Star principles:\n`);
   for (const [category, count] of Object.entries(categoryGroups)) {
     console.log(`   ${category}: ${count} principles`);
   }
   
-  console.log('\n🧭 Daniela\'s Compass is now calibrated.');
+  console.log('\n⭐ Daniela\'s North Star is now calibrated.');
   console.log('   Use Express Lane discussions to deepen her understanding over time.');
 }
 
-seedCompass()
+seedNorthStar()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error('Seed script failed:', error);
