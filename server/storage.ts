@@ -397,6 +397,7 @@ export interface IStorage {
   enrollStudent(classId: string, studentId: string): Promise<ClassEnrollment>;
   getClassEnrollments(classId: string): Promise<Array<ClassEnrollment & { student: User }>>;
   getStudentEnrollments(studentId: string): Promise<Array<ClassEnrollment & { class: TeacherClass }>>;
+  getStudentEnrollment(studentId: string, classId: string): Promise<ClassEnrollment | undefined>;
   unenrollStudent(classId: string, studentId: string): Promise<boolean>;
   isStudentEnrolled(classId: string, studentId: string): Promise<boolean>;
   updateClassEnrollment(enrollmentId: string, data: Partial<ClassEnrollment>): Promise<ClassEnrollment | undefined>;
@@ -2682,6 +2683,20 @@ export class DatabaseStorage implements IStorage {
       ...row.class_enrollments,
       class: row.teacher_classes!
     }));
+  }
+
+  async getStudentEnrollment(studentId: string, classId: string): Promise<ClassEnrollment | undefined> {
+    const result = await db
+      .select()
+      .from(classEnrollments)
+      .where(
+        and(
+          eq(classEnrollments.studentId, studentId),
+          eq(classEnrollments.classId, classId)
+        )
+      )
+      .limit(1);
+    return result[0];
   }
 
   async unenrollStudent(classId: string, studentId: string): Promise<boolean> {
