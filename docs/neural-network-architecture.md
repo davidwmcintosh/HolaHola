@@ -10,19 +10,27 @@ Daniela's intelligence emerges from her neural architecture. We define who she I
 
 ---
 
-## The Two Layers
+## The Three Layers
 
 | Layer | Purpose | What Goes Here |
 |-------|---------|----------------|
-| **Prompts** | Situational context ONLY | Session mode, student name, current time, conversation history |
-| **Neural Network** | Procedures, capabilities, knowledge | How to teach, tool usage, time perception, pedagogical patterns |
+| **North Star** | Constitutional foundation (WHO she is) | Identity, values, honesty, collaboration principles - immutable truths |
+| **Neural Network** | Procedures, capabilities, knowledge (HOW she teaches) | Tool usage, error patterns, pedagogical patterns, situational behaviors |
+| **Prompts** | Situational context (WHAT's happening now) | Session mode, student name, current time, conversation history |
 
 ### The Rule
 
+- **Adding a constitutional truth?** → North Star (`compass_principles` table, injected via `buildNorthStarSection()`)
 - **Adding a capability or procedure?** → Neural network (procedural memory tables)
 - **Adding situational data?** → System prompt context
 
-Prompts provide raw data. The neural network teaches Daniela how to use it.
+North Star defines who Daniela IS. Neural network teaches how she operates. Prompts provide raw situational data.
+
+### North Star vs Session Compass
+
+Two separate systems with "Compass" in the name:
+- **North Star** (formerly "Daniela's Compass"): Constitutional principles in `compass_principles` table. Injected first in every prompt.
+- **Session Compass**: Timekeeping/pacing in `session-compass-service.ts`. Tracks elapsed time, session phases, momentum.
 
 ### Example: Scripted vs Emergent
 
@@ -55,7 +63,7 @@ Prompts provide raw data. The neural network teaches Daniela how to use it.
 | `tool_knowledge` | Whiteboard commands, syntax, when/how to use |
 | `tutor_procedures` | Teaching situations and responses |
 | `teaching_principles` | Core pedagogical beliefs |
-| `situational_patterns` | Compass-triggered behaviors |
+| `situational_patterns` | Session Compass-triggered behaviors (timing, pacing) |
 
 ### 4. Advanced Intelligence (3 tables)
 | Table | Purpose |
