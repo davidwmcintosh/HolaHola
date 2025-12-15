@@ -5856,10 +5856,6 @@ interface ProjectContextData {
 function FeatureSprintTab() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [mode, setMode] = useState<'consultation' | 'sprint'>('consultation');
-  const [consultationQuestion, setConsultationQuestion] = useState('');
-  const [isConsulting, setIsConsulting] = useState(false);
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   
   const [newSprintTitle, setNewSprintTitle] = useState('');
   const [newSprintDescription, setNewSprintDescription] = useState('');
@@ -5869,17 +5865,6 @@ function FeatureSprintTab() {
   // Fetch sprints from API
   const { data: sprints = [], isLoading: sprintsLoading, refetch: refetchSprints } = useQuery<FeatureSprintData[]>({
     queryKey: ['/api/feature-sprints'],
-  });
-
-  // Fetch consultation threads
-  const { data: threads = [], refetch: refetchThreads } = useQuery<ConsultationThreadData[]>({
-    queryKey: ['/api/sprint-consults'],
-  });
-
-  // Fetch messages for active thread
-  const { data: activeThread } = useQuery<ConsultationThreadData>({
-    queryKey: ['/api/sprint-consults', activeThreadId],
-    enabled: !!activeThreadId,
   });
 
   // Create sprint mutation
@@ -5920,40 +5905,6 @@ function FeatureSprintTab() {
     },
   });
 
-  // Create consultation thread mutation
-  const createThreadMutation = useMutation({
-    mutationFn: async (data: { title?: string; topic?: string }): Promise<ConsultationThreadData> => {
-      const result = await apiRequest("POST", "/api/sprint-consults", {
-        ...data,
-        createdBy: user?.id,
-      });
-      return result as unknown as ConsultationThreadData;
-    },
-    onSuccess: (thread) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/sprint-consults'] });
-      setActiveThreadId(thread.id);
-    },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
-  });
-
-  // Add message to thread mutation
-  const addMessageMutation = useMutation({
-    mutationFn: async ({ threadId, role, content }: { threadId: string; role: string; content: string }) => {
-      return apiRequest("POST", `/api/sprint-consults/${threadId}/messages`, { role, content });
-    },
-    onSuccess: () => {
-      if (activeThreadId) {
-        queryClient.invalidateQueries({ queryKey: ['/api/sprint-consults', activeThreadId] });
-        queryClient.invalidateQueries({ queryKey: ['/api/sprint-consults'] });
-      }
-    },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
-  });
-
   // Seed templates mutation
   const seedTemplatesMutation = useMutation({
     mutationFn: async () => {
@@ -5978,7 +5929,7 @@ function FeatureSprintTab() {
   
   const { data: sprintAnalytics } = useQuery<SprintAnalyticsData>({
     queryKey: ['/api/feature-sprints-analytics'],
-    enabled: mode === 'sprint',
+    enabled: true,
   });
 
   // Project context query and mutation
@@ -6035,73 +5986,6 @@ function FeatureSprintTab() {
     });
   };
 
-  const consultDaniela = async () => {
-    if (!consultationQuestion.trim()) {
-      toast({ title: "Please enter a question", variant: "destructive" });
-      return;
-    }
-    
-    setIsConsulting(true);
-    try {
-      // Create thread if needed
-      let threadId = activeThreadId;
-      if (!threadId) {
-        const thread = await createThreadMutation.mutateAsync({
-          title: consultationQuestion.substring(0, 100),
-          topic: "feature_design",
-        });
-        threadId = thread.id;
-      }
-      
-      // Add user message
-      await addMessageMutation.mutateAsync({
-        threadId: threadId!,
-        role: 'user',
-        content: consultationQuestion,
-      });
-
-      // Call Daniela
-      const data = await apiRequest("POST", "/api/agent-collab/consult-daniela", {
-        question: consultationQuestion,
-        context: "Founder collaboration session - seeking pedagogical insights for feature development.",
-        fromAgent: "editor",
-      }) as { danielaSays?: string };
-      
-      // Save Daniela's response
-      await addMessageMutation.mutateAsync({
-        threadId: threadId!,
-        role: 'assistant',
-        content: data.danielaSays || "No response received",
-      });
-      
-      setConsultationQuestion('');
-      refetchThreads();
-      toast({ title: "Daniela responded" });
-    } catch (error: any) {
-      toast({ 
-        title: "Error", 
-        description: error.message || "Failed to consult Daniela", 
-        variant: "destructive" 
-      });
-    } finally {
-      setIsConsulting(false);
-    }
-  };
-
-  const convertToSprint = async (message: ConsultationMessageData, question: string) => {
-    try {
-      await createSprintMutation.mutateAsync({
-        title: `Sprint from: ${question.substring(0, 50)}...`,
-        description: question,
-        stage: 'idea',
-      });
-      setMode('sprint');
-      toast({ title: "Created sprint from consultation" });
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    }
-  };
-
   const createNewSprint = () => {
     if (!newSprintTitle.trim()) {
       toast({ title: "Please enter a title", variant: "destructive" });
@@ -6147,175 +6031,14 @@ function FeatureSprintTab() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2 mb-4">
-            <Button
-              variant={mode === 'consultation' ? 'default' : 'outline'}
-              onClick={() => setMode('consultation')}
-              data-testid="button-mode-consultation"
-            >
-              <MessageSquare className="h-4 w-4 mr-2" />
-              Consultation
-            </Button>
-            <Button
-              variant={mode === 'sprint' ? 'default' : 'outline'}
-              onClick={() => setMode('sprint')}
-              data-testid="button-mode-sprint"
-            >
-              <Zap className="h-4 w-4 mr-2" />
-              Sprint Board
-            </Button>
-          </div>
-          
           <div className="p-3 rounded-lg bg-muted/50 text-sm text-muted-foreground">
-            {mode === 'consultation' ? (
-              <>
-                <strong>Consultation Mode:</strong> Ask Daniela open-ended questions about pedagogy, 
-                student learning patterns, or feature ideas. Get insights before committing to a sprint.
-              </>
-            ) : (
-              <>
-                <strong>Sprint Mode:</strong> Track feature development through stages: 
-                Idea → Pedagogy Spec → Build Plan → In Progress → Shipped
-              </>
-            )}
+            <strong>Sprint Board:</strong> Track feature development through stages: 
+            Idea → Pedagogy Spec → Build Plan → In Progress → Shipped
           </div>
         </CardContent>
       </Card>
 
-      {mode === 'consultation' ? (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Sparkles className="h-4 w-4" />
-                  Ask Daniela
-                </CardTitle>
-                <div className="flex gap-2">
-                  {activeThreadId && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setActiveThreadId(null)}
-                      data-testid="button-new-thread"
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      New Thread
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => seedTemplatesMutation.mutate()}
-                    disabled={seedTemplatesMutation.isPending}
-                    data-testid="button-seed-templates"
-                  >
-                    {seedTemplatesMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {activeThread?.messages && activeThread.messages.length > 0 && (
-                <div className="space-y-3 mb-4 max-h-[300px] overflow-y-auto p-2 border rounded-lg bg-muted/30">
-                  {activeThread.messages.map((msg) => (
-                    <div key={msg.id} className={`p-2 rounded-md ${msg.role === 'user' ? 'bg-background' : 'bg-purple-500/10'}`}>
-                      <div className="text-xs text-muted-foreground mb-1">
-                        {msg.role === 'user' ? 'You' : 'Daniela'} • {new Date(msg.createdAt).toLocaleTimeString()}
-                      </div>
-                      <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div>
-                <textarea
-                  value={consultationQuestion}
-                  onChange={(e) => setConsultationQuestion(e.target.value)}
-                  placeholder="Ask Daniela about pedagogy, learning patterns, or feature ideas...
-
-Examples:
-• Are there any missing tools that would enhance student learning?
-• How could we better support tonal language learners?
-• What patterns do you see in student struggles with grammar?"
-                  className="w-full min-h-[120px] p-3 rounded-md border bg-background resize-y"
-                  data-testid="input-consultation-question"
-                />
-              </div>
-              <Button
-                onClick={consultDaniela}
-                disabled={isConsulting || !consultationQuestion.trim()}
-                data-testid="button-ask-daniela"
-              >
-                {isConsulting ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4 mr-2" />
-                )}
-                Ask Daniela
-              </Button>
-            </CardContent>
-          </Card>
-
-          {threads.length > 0 && (
-            <CollapsibleSection
-              title="Consultation Threads"
-              icon={<Clock className="h-5 w-5 text-primary" />}
-              defaultOpen={true}
-              badge={threads.length.toString()}
-            >
-              <div className="space-y-2 mt-4">
-                {threads.map((thread) => {
-                  const lastUserMsg = thread.messages?.filter(m => m.role === 'user').pop();
-                  const lastAssistantMsg = thread.messages?.filter(m => m.role === 'assistant').pop();
-                  return (
-                    <Card 
-                      key={thread.id} 
-                      className={`cursor-pointer hover-elevate ${activeThreadId === thread.id ? 'border-primary' : ''}`}
-                      onClick={() => setActiveThreadId(thread.id)}
-                      data-testid={`card-thread-${thread.id}`}
-                    >
-                      <CardContent className="py-3">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm truncate">{thread.title || 'Untitled Thread'}</div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {lastUserMsg?.content.substring(0, 80)}...
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Badge variant="secondary" className="text-xs">
-                              {thread.messages?.length || 0} msgs
-                            </Badge>
-                            {lastAssistantMsg && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  convertToSprint(lastAssistantMsg, lastUserMsg?.content || thread.title || '');
-                                }}
-                                data-testid={`button-convert-thread-${thread.id}`}
-                              >
-                                <Zap className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </CollapsibleSection>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-4">
+      <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-medium">Sprint Board</h3>
             <div className="flex gap-2">
@@ -6576,12 +6299,11 @@ Examples:
               <CardContent className="py-8 text-center text-muted-foreground">
                 <Zap className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p>No sprints yet</p>
-                <p className="text-sm">Start by consulting Daniela or create a new sprint</p>
+                <p className="text-sm">Create a new sprint to get started</p>
               </CardContent>
             </Card>
           )}
         </div>
-      )}
 
       {/* Project Context Section - AI Awareness */}
       <CollapsibleSection
