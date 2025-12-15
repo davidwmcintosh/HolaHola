@@ -4732,7 +4732,7 @@ interface EditorMessage {
 
 interface ExpressLaneMessage {
   id: string;
-  role: 'founder' | 'editor' | 'daniela' | 'system';
+  role: 'founder' | 'editor' | 'daniela' | 'system' | 'wren';
   content: string;
   cursor: string;
   createdAt: string;
