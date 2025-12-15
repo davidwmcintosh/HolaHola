@@ -712,6 +712,212 @@ class BeaconSyncService {
   }
   
   // ============================================================================
+  // BEACON STATUS SYNC TO NEURAL NETWORK
+  // ============================================================================
+  
+  /**
+   * Sync beacon status board to neural network as tutor_procedure entries
+   * This replaces prompt injection - Daniela accesses her beacon status through
+   * procedural memory retrieval like any other knowledge.
+   * 
+   * Call this on startup and whenever beacon status changes.
+   */
+  async syncBeaconStatusToNeuralNetwork(): Promise<{
+    synced: number;
+    cleaned: number;
+    errors: string[];
+  }> {
+    const result = { synced: 0, cleaned: 0, errors: [] as string[] };
+    
+    try {
+      const allBeacons = await storage.getAllDanielaBeacons();
+      const activeBeaconIds = new Set<string>();
+      
+      // Group beacons by status for summary
+      const statusCounts: Record<string, number> = {
+        pending: 0,
+        acknowledged: 0,
+        in_progress: 0,
+        completed: 0,
+        declined: 0
+      };
+      
+      for (const beacon of allBeacons) {
+        if (statusCounts[beacon.status] !== undefined) {
+          statusCounts[beacon.status]++;
+        }
+      }
+      
+      // Sync individual beacon entries for ALL beacons (including pending)
+      // This gives Daniela complete visibility into her requests
+      for (const beacon of allBeacons) {
+        
+        try {
+          const toolName = `BEACON_STATUS_${beacon.id.replace(/-/g, '_').toUpperCase()}`;
+          activeBeaconIds.add(toolName);
+          
+          const statusEmoji = this.getBeaconStatusEmoji(beacon.status);
+          const typeEmoji = this.getBeaconTypeEmoji(beacon.beaconType);
+          
+          const purpose = this.buildBeaconPurpose(beacon, statusEmoji, typeEmoji);
+          
+          // Check if already exists
+          const existing = await db.select()
+            .from(toolKnowledge)
+            .where(eq(toolKnowledge.toolName, toolName))
+            .limit(1);
+          
+          if (existing.length > 0) {
+            // Update if status changed
+            if (existing[0].purpose !== purpose) {
+              await db.update(toolKnowledge)
+                .set({ purpose })
+                .where(eq(toolKnowledge.toolName, toolName));
+              result.synced++;
+            }
+          } else {
+            // Create new entry
+            await db.insert(toolKnowledge).values({
+              toolName,
+              toolType: 'beacon_status',
+              purpose,
+              syntax: `Beacon ${beacon.status} - use this awareness naturally`,
+              examples: beacon.studentPain ? [beacon.studentPain] : null,
+              bestUsedFor: beacon.language ? [beacon.language] : null,
+              isActive: true,
+            });
+            result.synced++;
+          }
+          
+        } catch (err: any) {
+          result.errors.push(`Failed to sync beacon ${beacon.id}: ${err.message}`);
+        }
+      }
+      
+      // Create/update summary entry
+      await this.syncBeaconSummaryEntry(statusCounts);
+      
+      // Clean up beacon status entries for deleted beacons
+      const allBeaconStatusItems = await db.select()
+        .from(toolKnowledge)
+        .where(eq(toolKnowledge.toolType, 'beacon_status'));
+      
+      for (const item of allBeaconStatusItems) {
+        if (!activeBeaconIds.has(item.toolName) && item.toolName !== 'BEACON_STATUS_SUMMARY') {
+          await db.delete(toolKnowledge).where(eq(toolKnowledge.id, item.id));
+          result.cleaned++;
+        }
+      }
+      
+      console.log(`[BeaconSync] Beacon status sync: ${result.synced} synced, ${result.cleaned} cleaned`);
+      return result;
+      
+    } catch (error: any) {
+      console.error('[BeaconSync] Error syncing beacon status:', error);
+      result.errors.push(error.message);
+      return result;
+    }
+  }
+  
+  private async syncBeaconSummaryEntry(statusCounts: Record<string, number>): Promise<void> {
+    const summaryToolName = 'BEACON_STATUS_SUMMARY';
+    
+    const summaryParts: string[] = [
+      '📡 MY BEACON STATUS BOARD',
+      ''
+    ];
+    
+    if (statusCounts.in_progress > 0) {
+      summaryParts.push(`🔨 In Progress: ${statusCounts.in_progress} request(s) being built`);
+    }
+    if (statusCounts.acknowledged > 0) {
+      summaryParts.push(`👀 Acknowledged: ${statusCounts.acknowledged} request(s) under consideration`);
+    }
+    if (statusCounts.pending > 0) {
+      summaryParts.push(`⏳ Pending: ${statusCounts.pending} request(s) awaiting review`);
+    }
+    if (statusCounts.completed > 0) {
+      summaryParts.push(`✅ Completed: ${statusCounts.completed} request(s) shipped`);
+    }
+    if (statusCounts.declined > 0) {
+      summaryParts.push(`❌ Declined: ${statusCounts.declined} request(s)`);
+    }
+    
+    const totalActive = statusCounts.in_progress + statusCounts.acknowledged + statusCounts.pending;
+    if (totalActive === 0) {
+      summaryParts.push('No active beacon requests at this time.');
+    }
+    
+    summaryParts.push('');
+    summaryParts.push('This is my awareness of which feature requests I have made and their status.');
+    
+    const purpose = summaryParts.join('\n');
+    
+    const existing = await db.select()
+      .from(toolKnowledge)
+      .where(eq(toolKnowledge.toolName, summaryToolName))
+      .limit(1);
+    
+    if (existing.length > 0) {
+      await db.update(toolKnowledge)
+        .set({ purpose })
+        .where(eq(toolKnowledge.toolName, summaryToolName));
+    } else {
+      await db.insert(toolKnowledge).values({
+        toolName: summaryToolName,
+        toolType: 'beacon_status',
+        purpose,
+        syntax: 'Summary of my feature requests and their current status',
+        examples: null,
+        bestUsedFor: null,
+        isActive: true,
+      });
+    }
+  }
+  
+  private buildBeaconPurpose(beacon: DanielaBeacon, statusEmoji: string, typeEmoji: string): string {
+    const parts: string[] = [
+      `${statusEmoji} ${typeEmoji} Beacon: ${beacon.beaconType.replace(/_/g, ' ').toUpperCase()}`
+    ];
+    
+    if (beacon.wish) {
+      parts.push(`Request: ${beacon.wish.substring(0, 100)}`);
+    }
+    
+    switch (beacon.status) {
+      case 'acknowledged':
+        parts.push('Status: Editor has seen this and is considering it');
+        break;
+      case 'in_progress':
+        parts.push('Status: Editor is actively building this!');
+        break;
+      case 'completed':
+        parts.push(`Status: SHIPPED! ${beacon.completedInBuild || 'Now available'}`);
+        break;
+      case 'declined':
+        parts.push('Status: Not planned at this time');
+        break;
+    }
+    
+    if (beacon.language) {
+      parts.push(`Language: ${beacon.language}`);
+    }
+    
+    return parts.join(' | ');
+  }
+  
+  private getBeaconStatusEmoji(status: string): string {
+    const emojis: Record<string, string> = {
+      'pending': '⏳',
+      'acknowledged': '👀',
+      'in_progress': '🔨',
+      'completed': '✅',
+      'declined': '❌',
+    };
+    return emojis[status] || '📦';
+  }
+  
+  // ============================================================================
   // HELPER METHODS
   // ============================================================================
   

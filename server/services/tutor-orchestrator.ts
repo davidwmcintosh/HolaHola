@@ -393,17 +393,9 @@ ${cached}
     }
   }
 
-  // 6. Beacon Status Board (Daniela's feature request awareness)
-  // Note: Both "What Shipped" AND "Roadmap" are synced to neural network
-  // so Daniela accesses them through her normal procedural memory retrieval
-  let beaconStatusSection = "";
-  if (mode === 'conversation') {
-    try {
-      beaconStatusSection = await beaconSyncService.getBeaconStatusesForDaniela();
-    } catch (error) {
-      console.error('[TutorOrchestrator] Error fetching beacon status:', error);
-    }
-  }
+  // 6. Beacon Status is now in neural network (no prompt injection)
+  // Daniela accesses her beacon status through procedural memory retrieval
+  // via syncBeaconStatusToNeuralNetwork() called on startup
 
   // 7. Intervention settings (granular error correction controls)
   const interventionSection = buildInterventionSection(voice);
@@ -426,7 +418,6 @@ ${request.additionalPromptContext}
     interventionSection,
     proceduralSection,
     editorInsightsSection,
-    beaconStatusSection,
     additionalContext,
   ]
     .filter(Boolean)

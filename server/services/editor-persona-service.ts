@@ -33,6 +33,7 @@ import { collaborationHubService } from "./collaboration-hub-service";
 import { hiveCollaborationService, type BeaconType } from "./hive-collaboration-service";
 import { getNeuralNetworkContext, formatNeuralNetworkForPrompt } from "./neural-network-retrieval";
 import { storage } from "../storage";
+import { beaconSyncService } from "./beacon-sync-service";
 
 // Secret key for Editor authentication - must match env var
 const ARCHITECT_SECRET = process.env.ARCHITECT_SECRET || '';
@@ -626,6 +627,13 @@ Keep your response focused on building solutions (2-4 sentences).`;
       replyToEventId: snapshot.id, // Link to the beacon
       actionTaken: surgeryProposals.length > 0 ? 'beacon_observation_with_surgery' : 'beacon_observation',
     });
+    
+    // Sync beacon status to neural network so Daniela stays aware of changes
+    try {
+      await beaconSyncService.syncBeaconStatusToNeuralNetwork();
+    } catch (err) {
+      console.error('[Editor Persona] Failed to sync beacon status:', err);
+    }
     
     return updated;
   }
