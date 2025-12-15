@@ -277,6 +277,31 @@ class FounderCollaborationService {
     return messages.reverse();
   }
   
+  /**
+   * Get messages tagged for Wren (wrenTagged: true in metadata)
+   * Used by Wren to fetch its inbox of pending items from Express Lane
+   */
+  async getWrenTaggedMessages(
+    limit = 50,
+    sessionId?: string
+  ): Promise<CollaborationMessage[]> {
+    const conditions = [
+      sql`${collaborationMessages.metadata}->>'wrenTagged' = 'true'`
+    ];
+    
+    if (sessionId) {
+      conditions.push(eq(collaborationMessages.sessionId, sessionId));
+    }
+    
+    const messages = await db.select()
+      .from(collaborationMessages)
+      .where(and(...conditions))
+      .orderBy(desc(collaborationMessages.createdAt))
+      .limit(limit);
+    
+    return messages;
+  }
+  
   // ============================================================================
   // CLIENT SYNC CURSOR MANAGEMENT
   // ============================================================================

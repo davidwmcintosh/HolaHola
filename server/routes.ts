@@ -14525,6 +14525,34 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
 
+  // Wren Inbox: Fetch messages tagged for Wren
+  // Returns all Express Lane messages that have wrenTagged: true in metadata
+  app.get("/api/wren/inbox", async (req, res) => {
+    try {
+      // Validate using existing Editor secret (machine-to-machine auth)
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const limit = parseInt(req.query.limit as string) || 50;
+      const sessionId = req.query.sessionId as string;
+
+      // Get messages with wrenTagged flag from founder sessions
+      const messages = await founderCollabService.getWrenTaggedMessages(limit, sessionId);
+
+      console.log(`[Wren API] Inbox fetched: ${messages.length} tagged messages`);
+      res.json({ 
+        success: true, 
+        messages,
+        count: messages.length,
+      });
+    } catch (error: any) {
+      console.error('[Wren API] Inbox fetch error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ============================================================================
   // EXPRESS LANE: Editor ↔ Daniela Direct Collaboration
   // ============================================================================
@@ -14690,7 +14718,7 @@ You have full access to your neural network knowledge.
         return res.status(403).json({ error: 'Developer or Admin access required' });
       }
 
-      const { sessionId, message, role = 'founder', attachments } = req.body;
+      const { sessionId, message, role = 'founder', attachments, wrenTagged } = req.body;
 
       if (!message) {
         return res.status(400).json({ error: 'message is required' });
@@ -14707,7 +14735,7 @@ You have full access to your neural network knowledge.
         session = await founderCollabService.getOrCreateActiveSession(userId);
       }
 
-      // Build metadata with optional attachments
+      // Build metadata with optional attachments and wrenTagged flag
       const messageMetadata: Record<string, any> = { 
         source: 'express-lane-ui', 
         userId, 
@@ -14715,6 +14743,9 @@ You have full access to your neural network knowledge.
       };
       if (attachments && Array.isArray(attachments) && attachments.length > 0) {
         messageMetadata.attachments = attachments;
+      }
+      if (wrenTagged) {
+        messageMetadata.wrenTagged = true;
       }
 
       // Add user's message to the session

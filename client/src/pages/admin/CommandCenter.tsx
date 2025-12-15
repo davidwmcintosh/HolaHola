@@ -5037,11 +5037,12 @@ function EditorChatTab() {
 
   // EXPRESS lane send message mutation
   const sendExpressMessageMutation = useMutation({
-    mutationFn: async ({ content, attachments }: { content: string; attachments?: ExpressLaneAttachment[] }) => {
+    mutationFn: async ({ content, attachments, wrenTagged }: { content: string; attachments?: ExpressLaneAttachment[]; wrenTagged?: boolean }) => {
       const response = await apiRequest("POST", "/api/express-lane/ui/collaborate", { 
         message: content,
         sessionId: expressSession?.id,
-        attachments
+        attachments,
+        wrenTagged
       });
       const result = await response.json();
       return result as {
@@ -5071,6 +5072,7 @@ function EditorChatTab() {
       }
       setInputMessage('');
       setPendingAttachments([]);
+      setTagForWren(false);
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to send message", variant: "destructive" });
@@ -5092,7 +5094,8 @@ function EditorChatTab() {
       try {
         await sendExpressMessageMutation.mutateAsync({
           content: inputMessage.trim() || '(attachment)',
-          attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined
+          attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
+          wrenTagged: tagForWren
         });
       } finally {
         setIsSending(false);
@@ -5392,16 +5395,27 @@ function EditorChatTab() {
                     multiple
                     data-testid="input-express-file"
                   />
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading || isSending}
-                    className="h-[100px]"
-                    data-testid="button-attach-file"
-                  >
-                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
-                  </Button>
+                  <div className="flex flex-col gap-1 h-[100px] justify-center">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading || isSending}
+                      data-testid="button-attach-file"
+                    >
+                      {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant={tagForWren ? "default" : "ghost"}
+                      onClick={() => setTagForWren(!tagForWren)}
+                      className={tagForWren ? "bg-amber-500 hover:bg-amber-600" : ""}
+                      title={tagForWren ? "Message will appear in Wren's inbox" : "Tag for Wren's inbox"}
+                      data-testid="button-tag-wren"
+                    >
+                      <Mail className="h-4 w-4" />
+                    </Button>
+                  </div>
                   <Textarea
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
