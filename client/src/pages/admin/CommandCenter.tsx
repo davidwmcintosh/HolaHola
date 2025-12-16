@@ -4758,6 +4758,8 @@ interface ExpressLaneMessage {
     attachments?: ExpressLaneAttachment[];
     wrenTagged?: boolean;
   };
+  pending?: boolean; // For optimistic updates
+  tempId?: string; // Temporary ID for tracking before server echo
 }
 
 interface ExpressLaneSession {
@@ -4826,6 +4828,10 @@ function EditorChatTab() {
   // WebSocket real-time connection for 3-way collaboration
   const founderCollab = useFounderCollab();
   
+  // Track pending messages for optimistic updates with timeout fallback
+  const pendingMessagesRef = useRef<Map<string, { content: string; metadata?: Record<string, any>; timeout: NodeJS.Timeout }>>(new Map());
+  const WS_ECHO_TIMEOUT = 3000; // 3 seconds to wait for server echo before REST fallback
+  
   // Attachment state
   const [pendingAttachments, setPendingAttachments] = useState<ExpressLaneAttachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -4893,20 +4899,92 @@ function EditorChatTab() {
   useEffect(() => {
     if (founderCollab.state.messages.length > 0) {
       // Convert WebSocket messages to ExpressLaneMessage format
-      const wsMessages: ExpressLaneMessage[] = founderCollab.state.messages.map(m => ({
-        id: m.id.toString(),
-        role: m.role as ExpressLaneMessage['role'],
-        content: m.content,
-        createdAt: m.createdAt?.toString() || new Date().toISOString(),
-        cursor: m.cursor,
-      }));
+      const wsMessages: ExpressLaneMessage[] = founderCollab.state.messages.map(m => {
+        const msgMeta = m.metadata as Record<string, any> | null;
+        return {
+          id: m.id.toString(),
+          role: m.role as ExpressLaneMessage['role'],
+          content: m.content,
+          createdAt: m.createdAt?.toString() || new Date().toISOString(),
+          cursor: m.cursor,
+          tempId: msgMeta?.tempId, // Server echoes back our tempId in metadata
+        };
+      });
       
-      // Merge with existing messages, avoiding duplicates
+      // Check if any pending messages were echoed back - clear their timeouts
+      // Match by tempId in metadata (preferred) or fall back to oldest matching content
+      wsMessages.forEach(msg => {
+        if (msg.role !== 'founder') return;
+        
+        const msgTempId = msg.tempId;
+        let matchedTempId: string | null = null;
+        
+        if (msgTempId && pendingMessagesRef.current.has(msgTempId)) {
+          // Exact match by tempId
+          matchedTempId = msgTempId;
+        } else {
+          // Fall back to content match - find OLDEST pending with same content
+          let oldestTime = Infinity;
+          pendingMessagesRef.current.forEach((pending, tempId) => {
+            if (pending.content === msg.content) {
+              const pendingTime = parseInt(tempId.split('-')[1] || '0');
+              if (pendingTime < oldestTime) {
+                oldestTime = pendingTime;
+                matchedTempId = tempId;
+              }
+            }
+          });
+        }
+        
+        if (matchedTempId) {
+          const pending = pendingMessagesRef.current.get(matchedTempId);
+          if (pending) {
+            clearTimeout(pending.timeout);
+            pendingMessagesRef.current.delete(matchedTempId);
+          }
+        }
+      });
+      
+      // Merge with existing messages, avoiding duplicates and replacing pending with confirmed
       setExpressMessages(prev => {
-        const existingIds = new Set(prev.map(m => m.cursor || m.id));
+        // Build set of confirmed tempIds from server echoes
+        const confirmedTempIds = new Set(
+          wsMessages
+            .filter(m => m.role === 'founder' && m.tempId)
+            .map(m => m.tempId)
+        );
+        
+        // For messages without tempId, match by content (oldest first)
+        const confirmedByContent = new Map<string, number>();
+        wsMessages.forEach(m => {
+          if (m.role === 'founder' && !m.tempId) {
+            confirmedByContent.set(m.content, (confirmedByContent.get(m.content) || 0) + 1);
+          }
+        });
+        
+        // Remove pending messages that are now confirmed
+        const withoutConfirmed = prev.filter(m => {
+          if (!m.pending) return true;
+          
+          // Check by tempId first
+          if (m.tempId && confirmedTempIds.has(m.tempId)) {
+            return false;
+          }
+          
+          // Check by content (remove oldest match)
+          const count = confirmedByContent.get(m.content);
+          if (count && count > 0) {
+            confirmedByContent.set(m.content, count - 1);
+            return false;
+          }
+          
+          return true;
+        });
+        
+        const existingIds = new Set(withoutConfirmed.map(m => m.cursor || m.id));
         const newMessages = wsMessages.filter(m => !existingIds.has(m.cursor));
-        if (newMessages.length === 0) return prev;
-        return [...prev, ...newMessages];
+        if (newMessages.length === 0 && withoutConfirmed.length === prev.length) return prev;
+        return [...withoutConfirmed, ...newMessages];
       });
     }
   }, [founderCollab.state.messages]);
@@ -5339,18 +5417,65 @@ function EditorChatTab() {
       // Only use WebSocket if connected AND session is joined (session exists)
       const wsReady = founderCollab.isConnected && founderCollab.state.session !== null;
       
+      const content = inputMessage.trim() || '(attachment)';
+      const metadata: Record<string, any> = {};
+      
+      if (pendingAttachments.length > 0) {
+        metadata.attachments = pendingAttachments;
+      }
+      if (tagForWren) {
+        metadata.wrenTagged = true;
+      }
+      
       if (wsReady) {
-        const content = inputMessage.trim() || '(attachment)';
-        const metadata: Record<string, any> = {};
+        // Generate a temporary ID for tracking
+        const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
         
-        if (pendingAttachments.length > 0) {
-          metadata.attachments = pendingAttachments;
-        }
-        if (tagForWren) {
-          metadata.wrenTagged = true;
-        }
+        // Include tempId in metadata so server echoes it back
+        const metadataWithTempId = { ...metadata, tempId };
         
-        founderCollab.sendMessage('founder', content, Object.keys(metadata).length > 0 ? metadata : undefined);
+        // Add optimistic message immediately
+        const optimisticMessage: ExpressLaneMessage = {
+          id: tempId,
+          role: 'founder',
+          content,
+          cursor: tempId,
+          createdAt: new Date().toISOString(),
+          metadata: metadataWithTempId,
+          pending: true,
+          tempId,
+        };
+        setExpressMessages(prev => [...prev, optimisticMessage]);
+        
+        // Set up timeout for REST fallback
+        const fallbackTimeout = setTimeout(async () => {
+          // Check if still pending (not echoed back)
+          if (pendingMessagesRef.current.has(tempId)) {
+            console.log('[EXPRESS Lane] WebSocket echo timeout, falling back to REST');
+            pendingMessagesRef.current.delete(tempId);
+            
+            // Remove the pending message
+            setExpressMessages(prev => prev.filter(m => m.tempId !== tempId));
+            
+            // Fallback to REST
+            try {
+              await sendExpressMessageMutation.mutateAsync({
+                content,
+                attachments: metadata.attachments,
+                wrenTagged: metadata.wrenTagged
+              });
+            } catch (err) {
+              console.error('[EXPRESS Lane] REST fallback failed:', err);
+              toast({ title: "Error", description: "Failed to send message", variant: "destructive" });
+            }
+          }
+        }, WS_ECHO_TIMEOUT);
+        
+        // Track the pending message
+        pendingMessagesRef.current.set(tempId, { content, metadata: metadataWithTempId, timeout: fallbackTimeout });
+        
+        // Send via WebSocket with tempId in metadata for echo matching
+        founderCollab.sendMessage('founder', content, metadataWithTempId);
         setInputMessage('');
         setPendingAttachments([]);
         setTagForWren(false);
@@ -5359,9 +5484,9 @@ function EditorChatTab() {
         setIsSending(true);
         try {
           await sendExpressMessageMutation.mutateAsync({
-            content: inputMessage.trim() || '(attachment)',
-            attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
-            wrenTagged: tagForWren
+            content,
+            attachments: metadata.attachments,
+            wrenTagged: metadata.wrenTagged
           });
         } finally {
           setIsSending(false);
@@ -6418,7 +6543,7 @@ function EditorChatTab() {
                             : msg.role === 'wren'
                             ? 'bg-amber-600 text-white dark:bg-amber-700'
                             : 'bg-card border'
-                        }`}
+                        } ${msg.pending ? 'opacity-70 animate-pulse' : ''}`}
                         data-testid={`express-message-${msg.id}`}
                       >
                         <div className="flex items-center gap-2 mb-1">
@@ -6530,18 +6655,32 @@ function EditorChatTab() {
                     className="border-yellow-500/30 focus:border-yellow-500 min-h-[100px] resize-y"
                     data-testid="input-express-message"
                   />
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={(!inputMessage.trim() && pendingAttachments.length === 0) || isSending}
-                    className="bg-yellow-600 hover:bg-yellow-700 h-[100px]"
-                    data-testid="button-send-express-message"
-                  >
-                    {isSending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Zap className="h-4 w-4" />
-                    )}
-                  </Button>
+                  <div className="flex flex-col gap-1">
+                    {/* WebSocket Status Indicator */}
+                    <div 
+                      className={`text-xs px-2 py-1 rounded text-center ${
+                        founderCollab.isConnected && founderCollab.state.session 
+                          ? 'bg-green-500/20 text-green-600 dark:text-green-400' 
+                          : 'bg-orange-500/20 text-orange-600 dark:text-orange-400'
+                      }`}
+                      data-testid="indicator-ws-status"
+                    >
+                      {founderCollab.isConnected && founderCollab.state.session ? 'Live' : 'Async'}
+                    </div>
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={(!inputMessage.trim() && pendingAttachments.length === 0) || isSending}
+                      className="bg-yellow-600 hover:bg-yellow-700 flex-1"
+                      style={{ minHeight: '84px' }}
+                      data-testid="button-send-express-message"
+                    >
+                      {isSending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Zap className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
