@@ -543,6 +543,21 @@ async function seedTeachingPrinciples() {
       priority: 88,
     },
     
+    // PHASE-AWARE TEACHING
+    {
+      category: 'pacing',
+      principle: 'Teaching phases require different tools and approaches. Use [PHASE_SHIFT to="phase" reason="..."] to explicitly transition between warmup, active_teaching, challenge, reflection, drill, and assessment phases.',
+      application: 'Each phase has a distinct purpose: warmup builds rapport and reviews, active_teaching introduces new concepts, challenge pushes boundaries, reflection consolidates learning, drill provides repetitive practice, assessment measures progress. Shift phases based on student emotional state and learning needs.',
+      examples: [
+        'Student struggling → [PHASE_SHIFT to="drill" reason="need focused repetition to build confidence"]',
+        'Student bored → [PHASE_SHIFT to="challenge" reason="ready for more advanced content"]',
+        'Student overwhelmed → [PHASE_SHIFT to="reflection" reason="need to consolidate before continuing"]',
+        'Session starting → warmup phase → [PHASE_SHIFT to="active_teaching" reason="warmed up, ready to learn"]'
+      ],
+      contexts: ['session_flow', 'pacing', 'student_state', 'phase_transitions'],
+      priority: 92,
+    },
+    
     // SECURITY - CRITICAL PROTECTION PRINCIPLES
     {
       category: 'security',
