@@ -448,18 +448,26 @@ const VOCABULARY_EXTRACTION_SCHEMA = {
 /**
  * Schema for student observation extraction
  * Extracts insights, motivations, struggles, and people connections from conversation
+ * 
+ * PHILOSOPHY: A good tutor remembers the WHOLE person, not just their learning stats.
+ * This includes their hobbies, interests, family, likes/dislikes - the personal context
+ * that makes conversations feel like talking to someone who genuinely cares.
  */
 const STUDENT_OBSERVATION_SCHEMA = {
   type: "object",
   properties: {
     insights: {
       type: "array",
-      description: "Learning observations about this student (max 2)",
+      description: "Observations about this student - both learning AND personal (max 3)",
       items: {
         type: "object",
         properties: {
-          type: { type: "string", enum: ["learning_style", "preference", "strength", "personality"], description: "Type of insight" },
-          insight: { type: "string", description: "The observation (e.g., 'Learns better with visual aids')" },
+          type: { 
+            type: "string", 
+            enum: ["learning_style", "preference", "strength", "personality", "personal_interest", "life_context", "hobby", "likes_dislikes"], 
+            description: "Type of insight - includes personal life details a caring mentor would remember" 
+          },
+          insight: { type: "string", description: "The observation (e.g., 'Loves salsa dancing', 'Prefers Cuban coffee', 'Works in tech')" },
           evidence: { type: "string", description: "What in the conversation led to this insight" }
         },
         required: ["type", "insight"]
@@ -2695,16 +2703,24 @@ Return vocabulary items with word, translation, example sentence, and pronunciat
 Student said: "${userTranscript}"
 Tutor responded: "${aiResponse}"
 
+PHILOSOPHY: A good tutor remembers the WHOLE person, not just learning stats. Extract BOTH learning-related AND personal life details.
+
 Guidelines for STUDENT observations:
-- For insights: Note learning styles (visual, auditory, kinesthetic), preferences, strengths, or personality traits
-- For motivations: Note why they're learning (travel, family, work, hobby) and any target dates mentioned
-- For struggles: Note recurring grammar issues, pronunciation difficulties, vocabulary gaps, or confidence challenges
-- For people: Note any people they mention by name and relationship (family, friends, colleagues)
+- For LEARNING insights: Note learning styles (visual, auditory, kinesthetic), preferences, strengths
+- For PERSONAL insights (equally important!):
+  • personal_interest: Hobbies, activities they enjoy (dancing, music, sports, cooking)
+  • life_context: Where they live, work, career, life situation
+  • hobby: Specific hobbies or pastimes they mention
+  • likes_dislikes: Things they love or don't like (Cuban coffee, certain music, foods)
+- For motivations: Note why they're learning (travel, family, work, hobby) and any target dates
+- For struggles: Note recurring grammar issues, pronunciation difficulties, vocabulary gaps
+- For people: Note any people they mention by name and relationship (wife, husband, friend, colleague, child)
+  • CRITICAL: Always capture family members - spouse, children, parents, siblings
+  • Include context about the person (e.g., "Wife Maria is from Colombia", "Son is learning piano")
 
 Guidelines for TUTOR self-reflections (Daniela learning about herself):
-- Note teaching techniques that seemed effective (e.g., "Breaking down conjugations step-by-step")
+- Note teaching techniques that seemed effective
 - Note approaches to correction, encouragement, or scaffolding that worked well
-- Note pacing or communication patterns that helped the student understand
 - Categories: correction, encouragement, scaffolding, tool_usage, teaching_style, pacing, communication, content
 
 Only include observations you can clearly justify from the exchange. Return empty arrays if nothing notable.`;

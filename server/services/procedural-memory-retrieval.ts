@@ -173,10 +173,25 @@ export function buildStudentMemoryAwarenessSection(
     lines.push('');
   }
   
-  // Student insights - learning style, preferences
-  if (insights.length > 0) {
-    lines.push('WHAT YOU\'VE NOTICED ABOUT THEM:');
-    for (const insight of insights.slice(0, 5)) {
+  // Separate personal life insights from learning insights
+  const personalInsightTypes = ['personal_interest', 'life_context', 'hobby', 'likes_dislikes'];
+  const personalInsights = insights.filter(i => personalInsightTypes.includes(i.insightType));
+  const learningInsights = insights.filter(i => !personalInsightTypes.includes(i.insightType));
+  
+  // Personal life details - things a caring mentor remembers
+  if (personalInsights.length > 0) {
+    lines.push('THEIR LIFE OUTSIDE LANGUAGE LEARNING:');
+    for (const insight of personalInsights.slice(0, 5)) {
+      const type = insight.insightType.replace(/_/g, ' ');
+      lines.push(`  • [${type}] ${insight.insight}`);
+    }
+    lines.push('');
+  }
+  
+  // Learning insights - style, preferences, strengths
+  if (learningInsights.length > 0) {
+    lines.push('WHAT YOU\'VE NOTICED ABOUT THEIR LEARNING:');
+    for (const insight of learningInsights.slice(0, 5)) {
       const type = insight.insightType.replace(/_/g, ' ');
       lines.push(`  • [${type}] ${insight.insight}`);
     }
