@@ -15136,6 +15136,151 @@ ${memoryContext}
   });
 
   // ============================================================================
+  // WREN INSIGHTS: Development Agent Memory System
+  // ============================================================================
+  // 
+  // This enables Wren to accumulate wisdom about the codebase across sessions.
+  // Insights persist between sessions and can be retrieved contextually.
+  //
+  // Authentication: Uses EDITOR_SECRET for machine-to-machine auth
+  // ============================================================================
+
+  // WREN INSIGHTS: Create a new insight
+  app.post("/api/wren/insights", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { category, title, content, context, tags, relatedFiles, sessionId } = req.body;
+
+      if (!category || !title || !content) {
+        return res.status(400).json({ error: 'category, title, and content are required' });
+      }
+
+      const validCategories = ['pattern', 'solution', 'gotcha', 'architecture', 'debugging', 'integration', 'performance'];
+      if (!validCategories.includes(category)) {
+        return res.status(400).json({ error: `category must be one of: ${validCategories.join(', ')}` });
+      }
+
+      const insight = await storage.createWrenInsight({
+        category,
+        title,
+        content,
+        context,
+        tags: tags || [],
+        relatedFiles: relatedFiles || [],
+        environment: 'development',
+        sessionId,
+      });
+
+      console.log(`[Wren Insights] Created insight: ${title} (${category})`);
+      res.json({ success: true, insight });
+    } catch (error: any) {
+      console.error('[Wren Insights] Create error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // WREN INSIGHTS: Get all insights (with optional filtering)
+  app.get("/api/wren/insights", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { category, limit, search } = req.query;
+
+      let insights;
+      if (search && typeof search === 'string') {
+        insights = await storage.searchWrenInsights(search);
+      } else {
+        insights = await storage.getWrenInsights({
+          category: category as string | undefined,
+          limit: limit ? parseInt(limit as string) : undefined,
+        });
+      }
+
+      res.json({ success: true, insights, count: insights.length });
+    } catch (error: any) {
+      console.error('[Wren Insights] Get error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // WREN INSIGHTS: Get a specific insight
+  app.get("/api/wren/insights/:id", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const insight = await storage.getWrenInsight(req.params.id);
+      if (!insight) {
+        return res.status(404).json({ error: 'Insight not found' });
+      }
+
+      // Mark as used when retrieved
+      await storage.markWrenInsightUsed(req.params.id);
+
+      res.json({ success: true, insight });
+    } catch (error: any) {
+      console.error('[Wren Insights] Get by ID error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // WREN INSIGHTS: Update an insight
+  app.patch("/api/wren/insights/:id", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { title, content, context, tags, relatedFiles } = req.body;
+      
+      const updated = await storage.updateWrenInsight(req.params.id, {
+        title,
+        content,
+        context,
+        tags,
+        relatedFiles,
+      });
+
+      if (!updated) {
+        return res.status(404).json({ error: 'Insight not found' });
+      }
+
+      console.log(`[Wren Insights] Updated insight: ${updated.title}`);
+      res.json({ success: true, insight: updated });
+    } catch (error: any) {
+      console.error('[Wren Insights] Update error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // WREN INSIGHTS: Delete an insight
+  app.delete("/api/wren/insights/:id", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      await storage.deleteWrenInsight(req.params.id);
+      console.log(`[Wren Insights] Deleted insight: ${req.params.id}`);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('[Wren Insights] Delete error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================================
   // EXPRESS LANE: Editor ↔ Daniela Direct Collaboration
   // ============================================================================
   // 

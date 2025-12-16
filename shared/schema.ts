@@ -5490,3 +5490,51 @@ export const insertNorthStarExampleSchema = createInsertSchema(northStarExamples
 export type InsertNorthStarExample = z.infer<typeof insertNorthStarExampleSchema>;
 export type NorthStarExample = typeof northStarExamples.$inferSelect;
 
+// ===== Wren Insights (Development Agent Memory) =====
+// Enables Wren to accumulate wisdom about this specific codebase across sessions
+
+export const wrenInsightCategoryEnum = pgEnum('wren_insight_category', [
+  'pattern',      // Reusable code/architecture patterns that worked
+  'solution',     // Specific problem → solution mappings  
+  'gotcha',       // Things that tripped us up, to avoid next time
+  'architecture', // High-level design decisions and rationale
+  'debugging',    // Debugging strategies that worked
+  'integration',  // External service integration learnings
+  'performance',  // Performance optimizations discovered
+]);
+
+export const wrenInsights = pgTable("wren_insights", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  category: wrenInsightCategoryEnum("category").notNull(),
+  title: varchar("title").notNull(),
+  content: text("content").notNull(), // The actual insight/learning
+  context: text("context"), // What problem/situation this addressed
+  
+  tags: text("tags").array().default(sql`'{}'::text[]`), // Searchable tags
+  relatedFiles: text("related_files").array().default(sql`'{}'::text[]`), // Files this relates to
+  
+  useCount: integer("use_count").default(0), // How often this has been retrieved/applied
+  lastUsedAt: timestamp("last_used_at"), // When it was last retrieved
+  
+  environment: varchar("environment").default("development"), // Where it was learned
+  sessionId: varchar("session_id"), // Express Lane session if relevant
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_wren_insights_category").on(table.category),
+  index("idx_wren_insights_created").on(table.createdAt),
+  index("idx_wren_insights_used").on(table.lastUsedAt),
+]);
+
+export const insertWrenInsightSchema = createInsertSchema(wrenInsights).omit({
+  id: true,
+  useCount: true,
+  lastUsedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertWrenInsight = z.infer<typeof insertWrenInsightSchema>;
+export type WrenInsight = typeof wrenInsights.$inferSelect;
+

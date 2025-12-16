@@ -227,6 +227,9 @@ import {
   agendaQueue,
   type AgendaQueueItem,
   type InsertAgendaQueue,
+  wrenInsights,
+  type WrenInsight,
+  type InsertWrenInsight,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -923,6 +926,15 @@ export interface IStorage {
     understanding: NorthStarUnderstanding[];
     examples: NorthStarExample[];
   }>;
+  
+  // ===== Wren Insights (Development Agent Memory) =====
+  createWrenInsight(data: InsertWrenInsight): Promise<WrenInsight>;
+  getWrenInsight(id: string): Promise<WrenInsight | undefined>;
+  getWrenInsights(options?: { category?: string; limit?: number }): Promise<WrenInsight[]>;
+  searchWrenInsights(query: string): Promise<WrenInsight[]>;
+  updateWrenInsight(id: string, data: Partial<WrenInsight>): Promise<WrenInsight | undefined>;
+  markWrenInsightUsed(id: string): Promise<WrenInsight | undefined>;
+  deleteWrenInsight(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7159,6 +7171,72 @@ export class DatabaseStorage implements IStorage {
       understanding,
       examples: allExamples,
     };
+  }
+
+  // ===== Wren Insights (Development Agent Memory) =====
+  
+  async createWrenInsight(data: InsertWrenInsight): Promise<WrenInsight> {
+    const [created] = await db.insert(wrenInsights).values([data]).returning();
+    return created;
+  }
+
+  async getWrenInsight(id: string): Promise<WrenInsight | undefined> {
+    const [insight] = await db.select().from(wrenInsights).where(eq(wrenInsights.id, id));
+    return insight;
+  }
+
+  async getWrenInsights(options?: { category?: string; limit?: number }): Promise<WrenInsight[]> {
+    let query = db.select().from(wrenInsights);
+    
+    if (options?.category) {
+      query = query.where(eq(wrenInsights.category, options.category as any)) as any;
+    }
+    
+    query = query.orderBy(desc(wrenInsights.createdAt)) as any;
+    
+    if (options?.limit) {
+      query = query.limit(options.limit) as any;
+    }
+    
+    return query;
+  }
+
+  async searchWrenInsights(searchQuery: string): Promise<WrenInsight[]> {
+    // Full-text search across title, content, context, and tags
+    const lowerQuery = `%${searchQuery.toLowerCase()}%`;
+    return db.select().from(wrenInsights)
+      .where(or(
+        sql`LOWER(${wrenInsights.title}) LIKE ${lowerQuery}`,
+        sql`LOWER(${wrenInsights.content}) LIKE ${lowerQuery}`,
+        sql`LOWER(${wrenInsights.context}) LIKE ${lowerQuery}`,
+        sql`${lowerQuery} = ANY(${wrenInsights.tags})`
+      ))
+      .orderBy(desc(wrenInsights.useCount), desc(wrenInsights.createdAt))
+      .limit(20);
+  }
+
+  async updateWrenInsight(id: string, data: Partial<WrenInsight>): Promise<WrenInsight | undefined> {
+    const [updated] = await db.update(wrenInsights)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(wrenInsights.id, id))
+      .returning();
+    return updated;
+  }
+
+  async markWrenInsightUsed(id: string): Promise<WrenInsight | undefined> {
+    const [updated] = await db.update(wrenInsights)
+      .set({
+        useCount: sql`${wrenInsights.useCount} + 1`,
+        lastUsedAt: new Date(),
+      })
+      .where(eq(wrenInsights.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteWrenInsight(id: string): Promise<boolean> {
+    const result = await db.delete(wrenInsights).where(eq(wrenInsights.id, id));
+    return true;
   }
 }
 

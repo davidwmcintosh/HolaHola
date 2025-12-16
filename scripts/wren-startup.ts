@@ -58,6 +58,18 @@ interface HiveContext {
   };
 }
 
+interface WrenInsight {
+  id: string;
+  category: string;
+  title: string;
+  content: string;
+  context?: string;
+  tags?: string[];
+  relatedFiles?: string[];
+  useCount?: number;
+  createdAt: string;
+}
+
 async function fetchHiveContext(): Promise<HiveContext | null> {
   const secret = process.env.ARCHITECT_SECRET;
   if (!secret) {
@@ -83,7 +95,29 @@ async function fetchHiveContext(): Promise<HiveContext | null> {
   }
 }
 
-function formatHiveContext(ctx: HiveContext): string {
+async function fetchWrenInsights(): Promise<WrenInsight[]> {
+  const secret = process.env.ARCHITECT_SECRET;
+  if (!secret) return [];
+
+  try {
+    const response = await fetch(`${HIVE_API_BASE}/api/wren/insights?limit=20`, {
+      headers: { 'x-editor-secret': secret }
+    });
+    
+    if (!response.ok) {
+      console.warn('⚠️  Could not fetch Wren insights');
+      return [];
+    }
+
+    const data = await response.json();
+    return data.insights || [];
+  } catch (error) {
+    console.warn('⚠️  Failed to fetch Wren insights:', error);
+    return [];
+  }
+}
+
+function formatHiveContext(ctx: HiveContext, insights: WrenInsight[]): string {
   const lines: string[] = [];
   const now = new Date().toLocaleDateString('en-US', { 
     month: 'long', 
@@ -97,6 +131,7 @@ function formatHiveContext(ctx: HiveContext): string {
   lines.push('');
   lines.push(`**System Health**: ${ctx.systemHealth.recentActivityLevel} activity`);
   lines.push(`**Last Sync**: ${new Date(ctx.buildTimestamp).toLocaleTimeString()}`);
+  lines.push(`**Wren Memory**: ${insights.length} insights stored`);
   lines.push('');
 
   // Pending Beacons
@@ -222,6 +257,46 @@ function formatHiveContext(ctx: HiveContext): string {
     }
   }
 
+  // Wren's Accumulated Memory
+  if (insights.length > 0) {
+    lines.push('## My Learning Memory');
+    lines.push('');
+    lines.push('Recent insights I\'ve accumulated about this codebase:');
+    lines.push('');
+    
+    // Group by category
+    const byCategory: Record<string, WrenInsight[]> = {};
+    insights.forEach(i => {
+      if (!byCategory[i.category]) byCategory[i.category] = [];
+      byCategory[i.category].push(i);
+    });
+    
+    for (const [category, catInsights] of Object.entries(byCategory)) {
+      const emoji = {
+        pattern: '🔄',
+        solution: '✅',
+        gotcha: '⚠️',
+        architecture: '🏗️',
+        debugging: '🔍',
+        integration: '🔌',
+        performance: '⚡',
+      }[category] || '📝';
+      
+      lines.push(`### ${emoji} ${category.charAt(0).toUpperCase() + category.slice(1)}s`);
+      lines.push('');
+      catInsights.slice(0, 5).forEach(i => {
+        lines.push(`- **${i.title}**`);
+        if (i.context) lines.push(`  > ${i.context.substring(0, 100)}${i.context.length > 100 ? '...' : ''}`);
+      });
+      lines.push('');
+    }
+  } else {
+    lines.push('## My Learning Memory');
+    lines.push('');
+    lines.push('No insights stored yet. I\'ll record learnings as I work.');
+    lines.push('');
+  }
+
   // Agent Roles Reminder
   lines.push('## Agent Roles');
   lines.push('');
@@ -241,9 +316,12 @@ async function main() {
   console.log('========================');
   console.log('');
 
-  // Fetch Hive context
-  console.log('📡 Fetching Hive context...');
-  const ctx = await fetchHiveContext();
+  // Fetch Hive context and insights in parallel
+  console.log('📡 Fetching Hive context and insights...');
+  const [ctx, insights] = await Promise.all([
+    fetchHiveContext(),
+    fetchWrenInsights(),
+  ]);
   
   if (!ctx) {
     console.log('⚠️  Could not fetch Hive context. Using manual memory only.');
@@ -255,10 +333,11 @@ async function main() {
   console.log(`   - ${ctx.activeSprints.length} active sprints`);
   console.log(`   - ${ctx.recentSessions.length} recent sessions`);
   console.log(`   - System health: ${ctx.systemHealth.recentActivityLevel}`);
+  console.log(`   - ${insights.length} stored insights`);
   console.log('');
 
   // Format and write memory file
-  const content = formatHiveContext(ctx);
+  const content = formatHiveContext(ctx, insights);
   
   const fs = await import('fs/promises');
   const path = await import('path');
