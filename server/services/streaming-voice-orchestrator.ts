@@ -8,7 +8,7 @@
  */
 
 import { createClient } from "@deepgram/sdk";
-import { getDeepgramLanguageCode } from "./deepgram-live-stt";
+import { getDeepgramLanguageCode, DeepgramIntelligence, DeepgramSentiment, DeepgramIntent, DeepgramEntity, DeepgramTopic } from "./deepgram-live-stt";
 import { getGeminiStreamingService, SentenceChunk } from "./gemini-streaming";
 import { getCartesiaStreamingService } from "./cartesia-streaming";
 import { WebSocket as WS } from "ws";
@@ -1892,7 +1892,7 @@ Remember: David may reference things discussed in these recent text chats.
     targetLanguage: string,
     nativeLanguage: string = 'english',
     isFounderMode: boolean = false
-  ): Promise<{ transcript: string; confidence: number }> {
+  ): Promise<{ transcript: string; confidence: number; intelligence?: DeepgramIntelligence }> {
     // MULTI-LANGUAGE: Always use multi-language detection
     // Students naturally mix native + target language during lessons
     const languageCode = 'multi';
@@ -1904,23 +1904,23 @@ Remember: David may reference things discussed in these recent text chats.
     console.log(`[Deepgram] Audio header: ${header.toString('hex')}`);
     
     // Use prerecorded API for push-to-talk (complete audio blobs)
-    // Live API is for streaming - it errors with "Endpointing not supported for batch requests"
+    // Enable intelligence features for student understanding (sentiment, intent, etc.)
     const result = await this.transcribeWithPrerecorded(audioData, languageCode, true);
     
     if (!result.transcript) {
       console.log('[Deepgram] Empty transcript returned');
     }
     
-    return { transcript: result.transcript, confidence: result.confidence };
+    return { transcript: result.transcript, confidence: result.confidence, intelligence: result.intelligence };
   }
   
   /**
    * Transcribe with Prerecorded API
    * @param audioData - Audio buffer to transcribe
    * @param languageCode - Language code (or 'multi' for multi-language detection)
-   * @param isFounderMode - If true, enables multi-language detection
+   * @param enableIntelligence - If true, enables Deepgram intelligence features
    */
-  private async transcribeWithPrerecorded(audioData: Buffer, languageCode: string, isFounderMode: boolean = false): Promise<{ transcript: string; confidence: number; source: string }> {
+  private async transcribeWithPrerecorded(audioData: Buffer, languageCode: string, enableIntelligence: boolean = true): Promise<{ transcript: string; confidence: number; source: string; intelligence?: DeepgramIntelligence }> {
     const startTime = Date.now();
     
     const response = await deepgram.listen.prerecorded.transcribeFile(
@@ -1931,25 +1931,116 @@ Remember: David may reference things discussed in these recent text chats.
         smart_format: true,
         punctuate: true,
         mimetype: 'audio/webm',
-        // Multi-language detection for Founder Mode
-        ...(isFounderMode && { detect_language: true }),
+        detect_language: true,
+        // Enable Deepgram Intelligence features for student understanding
+        ...(enableIntelligence && {
+          diarize: true,           // Speaker separation
+          sentiment: true,         // Sentiment analysis
+          intents: true,           // Intent recognition
+          detect_entities: true,   // Entity detection
+          topics: true,            // Topic detection
+          summarize: 'v2',         // Summarization (v2 for best quality)
+        }),
       }
     );
     
-    const alternative = response.result?.results?.channels?.[0]?.alternatives?.[0];
+    const channel = response.result?.results?.channels?.[0];
+    const alternative = channel?.alternatives?.[0];
     const transcript = alternative?.transcript || '';
     const confidence = alternative?.confidence || 0;
     
     // Log detected language if available (for monitoring multi-language accuracy)
-    const detectedLanguage = response.result?.results?.channels?.[0]?.detected_language;
+    const detectedLanguage = channel?.detected_language;
     if (detectedLanguage) {
       console.log(`[Deepgram Prerecorded] Detected language: ${detectedLanguage}`);
+    }
+    
+    // Extract intelligence data from response
+    let intelligence: DeepgramIntelligence | undefined;
+    if (enableIntelligence) {
+      intelligence = {};
+      
+      // Sentiment (from alternative or channel level)
+      const sentimentInfo = (alternative as any)?.sentiment_segments?.[0] || (response.result?.results as any)?.sentiments?.segments?.[0];
+      if (sentimentInfo) {
+        intelligence.sentiment = {
+          sentiment: sentimentInfo.sentiment || 'neutral',
+          sentiment_score: sentimentInfo.sentiment_score || 0,
+        };
+      }
+      
+      // Intents
+      const intentsData = (response.result?.results as any)?.intents?.segments;
+      if (intentsData && intentsData.length > 0) {
+        intelligence.intents = intentsData.map((seg: any) => ({
+          intent: seg.intent || '',
+          confidence_score: seg.confidence_score || 0,
+        }));
+      }
+      
+      // Entities
+      const entitiesData = (response.result?.results as any)?.entities;
+      if (entitiesData && entitiesData.length > 0) {
+        intelligence.entities = entitiesData.map((ent: any) => ({
+          label: ent.label || '',
+          value: ent.value || '',
+          confidence: ent.confidence || 0,
+        }));
+      }
+      
+      // Topics
+      const topicsData = (response.result?.results as any)?.topics?.segments;
+      if (topicsData && topicsData.length > 0) {
+        const allTopics: DeepgramTopic[] = [];
+        for (const seg of topicsData) {
+          if (seg.topics) {
+            for (const topic of seg.topics) {
+              allTopics.push({
+                topic: topic.topic || '',
+                confidence: topic.confidence || 0,
+              });
+            }
+          }
+        }
+        if (allTopics.length > 0) {
+          intelligence.topics = allTopics;
+        }
+      }
+      
+      // Summary
+      const summaryData = (response.result?.results as any)?.summary;
+      if (summaryData?.short) {
+        intelligence.summary = summaryData.short;
+      }
+      
+      // Detected language
+      if (detectedLanguage) {
+        intelligence.detectedLanguage = detectedLanguage;
+      }
+      
+      // Speaker ID (from diarization)
+      const words = alternative?.words;
+      if (words && words.length > 0 && (words[0] as any).speaker !== undefined) {
+        intelligence.speakerId = (words[0] as any).speaker;
+      }
+      
+      // Log intelligence data if we got any
+      const intelKeys = Object.keys(intelligence).filter(k => (intelligence as any)[k] !== undefined);
+      if (intelKeys.length > 0) {
+        console.log(`[Deepgram Intelligence] Features detected: ${intelKeys.join(', ')}`);
+        if (intelligence.sentiment) {
+          console.log(`[Deepgram Intelligence] Sentiment: ${intelligence.sentiment.sentiment} (score: ${intelligence.sentiment.sentiment_score.toFixed(2)})`);
+        }
+        if (intelligence.intents && intelligence.intents.length > 0) {
+          console.log(`[Deepgram Intelligence] Intents: ${intelligence.intents.map(i => i.intent).join(', ')}`);
+        }
+      }
     }
     
     const durationMs = Date.now() - startTime;
     console.log(`[Deepgram Prerecorded] Result: "${transcript}" (${(confidence * 100).toFixed(0)}%, ${durationMs}ms)`);
     
-    return { transcript, confidence, source: 'prerecorded' };
+    return { transcript, confidence, source: 'prerecorded', intelligence };
   }
   
   /**
